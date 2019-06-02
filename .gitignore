@@ -1,0 +1,4 @@
+*.pyc
+\.idea
+\.pytest_cache
+phi/local/hostname.py

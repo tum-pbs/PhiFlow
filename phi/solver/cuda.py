@@ -1,0 +1,71 @@
+import tensorflow as tf
+import os
+from numbers import Number
+from phi.solver.base import *
+
+
+# Load Custom Ops
+current_dir = os.path.dirname(os.path.realpath(__file__))
+kernel_path = os.path.join(current_dir, 'cuda/build/pressure_solve_op.so')
+assert os.path.isfile(kernel_path), 'CUDA binaries not found at %s. Run "python setup.py cuda" to compile them' % kernel_path
+pressure_op = tf.load_op_library(kernel_path)
+
+
+class CUDA(PressureSolver):
+
+    def __init__(self,
+                 accuracy=1e-5, gradient_accuracy='same',
+                 max_iterations=2000, max_gradient_iterations='same'):
+        PressureSolver.__init__(self, 'CUDA Conjugate Gradient',
+                                supported_devices=('GPU',),
+                                supports_loop_counter=True, supports_guess=False, supports_continuous_masks=False)
+        assert isinstance(accuracy, Number), 'invalid accuracy: %s' % accuracy
+        assert gradient_accuracy == 'same' or isinstance(gradient_accuracy,
+                                                         Number), 'invalid gradient_accuracy: %s' % gradient_accuracy
+        assert max_gradient_iterations == 'same' or max_gradient_iterations == 'mirror' or isinstance(
+            max_gradient_iterations, Number), 'invalid max_gradient_iterations: %s' % max_gradient_iterations
+        self.accuracy = accuracy
+        self.gradient_accuracy = accuracy if gradient_accuracy == 'same' else gradient_accuracy
+        self.max_iterations = max_iterations
+        if max_gradient_iterations == 'same':
+            self.max_gradient_iterations = max_iterations
+        elif max_gradient_iterations == 'mirror':
+            self.max_gradient_iterations = 'mirror'
+        else:
+            self.max_gradient_iterations = max_gradient_iterations
+
+    def solve(self, divergence, active_mask, fluid_mask, boundaries, pressure_guess):
+        # pressure_guess: not used in this implementation, Kernel takes the last pressure value for initial_guess
+        active_mask = valid_active_mask(active_mask, divergence, boundaries)
+        fluid_mask = valid_fluid_mask(fluid_mask, divergence, boundaries)
+
+        def pressure_gradient(op, grad):
+            return cuda_solve_forward(grad, active_mask, fluid_mask, self.gradient_accuracy, max_gradient_iterations)[0]
+
+        pressure, iter = math.with_custom_gradient(cuda_solve_forward,
+                                                   [divergence, active_mask, fluid_mask, self.accuracy, self.max_iterations],
+                                                   pressure_gradient, input_index=0, output_index=0, name_base='cuda_pressure_solve')
+        max_gradient_iterations = iter if self.max_gradient_iterations == 'mirror' else self.max_gradient_iterations
+        return pressure, iter
+
+
+def cuda_solve_forward(divergence, active_mask, fluid_mask, accuracy, max_iterations):
+    dimensions = divergence.get_shape()[1:-1]
+    dimensions = dimensions[::-1]  # the custom op needs it in the x,y,z order
+    dim_array = np.array(dimensions)
+    dim_product = np.prod(dimensions)
+    mask_dimensions = dim_array + 2
+    laplace_matrix = tf.zeros(dim_product * (len(dimensions) * 2 + 1), dtype=tf.int8)
+
+    # Helper variables for CG, make sure new memory is allocated for each variable.
+    one_vector = tf.ones(dim_product, dtype=tf.float32)
+    p = tf.zeros_like(divergence, dtype=tf.float32) + 1
+    z = tf.zeros_like(divergence, dtype=tf.float32) + 2
+    r = tf.zeros_like(divergence, dtype=tf.float32) + 3
+    pressure = tf.zeros_like(divergence, dtype=tf.float32) + 4
+
+    pressure, iter = pressure_op.pressure_solve(dimensions,
+                                                mask_dimensions, active_mask, fluid_mask, laplace_matrix,
+                                                divergence, p, r, z, pressure, one_vector,
+                                                dim_product, accuracy, max_iterations)
+    return pressure, iter

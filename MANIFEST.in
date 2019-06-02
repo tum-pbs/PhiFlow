@@ -1,0 +1,2 @@
+include README
+recursive-include phi/solver/cuda/build *
