@@ -22,7 +22,7 @@ class SimpleplumeNP(FieldSequenceModel):
         self.add_field('Domain', lambda: smoke.domainstate.active(extend=1))
 
     def step(self):
-        self.state *= smoke.step
+        self.state = smoke.step(self.state)
 
 
 app = SimpleplumeNP().show(display=('Density', 'Velocity'), framerate=2, production=__name__!='__main__')

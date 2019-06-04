@@ -43,8 +43,8 @@ At the moment, boundary conditions are only partly supported.
         self.autodiff = autodiff
 
 
-    def solve(self, divergence, active_mask, fluid_mask, boundaries, pressure_guess):
-        fluid_mask = valid_fluid_mask(fluid_mask, divergence, boundaries)
+    def solve(self, divergence, domain, pressure_guess):
+        fluid_mask = domain.accessible(extend=1)
 
         if self.autodiff:
             return solve_pressure_forward(divergence, fluid_mask, self.max_iterations, pressure_guess, self.accuracy, boundaries, back_prop=True)

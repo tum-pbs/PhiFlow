@@ -1,21 +1,41 @@
 from phi.domain import *
 from phi.math import *
+from phi.math.container import *
 
 
-# Possible particle / grid combinations:
-# Velocity-grid with velocity-density
-# Velocity-grid with particle-density
-# particle-velocity with particle-density but grid-pressure (FLIP)
+class Simulation(object):
 
-# whenever a particle property is required,
+    def __init__(self, world=world, dt=1.0):
+        self.dt = dt
+        self.world = world
+        world.register_simulation(self)
+
+    def step(self, state):
+        """
+Computes the next state of the simulation, given the current state.
+Solves the simulation for a time increment self.dt.
+        :param state: current state
+        :return next state
+        """
+        raise NotImplementedError(self)
+
+    def empty(self):
+        """
+Creates a new SimState instance that represents an empty / default state of the simulation.
+        """
+        raise NotImplementedError(self)
+
+    def serialize_to_dict(self):
+        raise NotImplementedError(self)
+
+    def unserialize_from_dict(self):
+        raise NotImplementedError(self)
 
 
-class SimState(object):
-    pass
+class SimState(TensorContainer):
 
     def __mul__(self, operation):
         return operation(self)
-
 
 
 class SmokeState(SimState):
@@ -32,16 +52,17 @@ class SmokeState(SimState):
     def velocity(self):
         return self._velocity
 
-    def with_buoyancy(self, gravity, buoyancy, dt=1.0):
-        dv = StaggeredGrid.from_scalar(self.density, gravity * buoyancy * (-1) * dt)
-        return SmokeState(self._density, self._velocity + dv)
+    def disassemble(self):
+        v, v_re = disassemble(self._velocity)
+        return [self._density] + v, lambda tensors: SmokeState(tensors[0], v_re(tensors[1:]))
 
 
-class Smoke(object):
+class Smoke(Simulation):
 
     def __init__(self, domain=Open2D, world=world, state=None,
                  gravity=-9.81, buoyancy_factor=0.1, conserve_density=False,
                  batch_size=None, pressure_solver=None, dt=1.0):
+        Simulation.__init__(self, world, dt)
         self.domain = domain
         if isinstance(gravity, (tuple, list)):
             assert len(gravity == domain.rank)
@@ -50,10 +71,8 @@ class Smoke(object):
             gravity = [gravity] + ([0] * (domain.rank - 1))
             self.gravity = np.array(gravity)
         self.batch_size = batch_size
-        self.world = world
         self.buoyancy_factor = buoyancy_factor
         self.conserve_density = conserve_density
-        self.dt = dt
         # Pressure Solver
         self.pressure_solver = pressure_solver
         if self.pressure_solver is None:
@@ -64,7 +83,7 @@ class Smoke(object):
         self._update_domain()
 
     def step(self, smokestate):
-        return smokestate * self.inflow * self.buoyancy * self.friction * self.advect * self.divergence_free
+        return smokestate * self.advect * self.inflow * self.buoyancy * self.friction * self.divergence_free
 
     def empty(self):
         density = self.domain.grid.zeros(1, self.batch_size)

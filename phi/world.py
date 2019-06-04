@@ -43,6 +43,7 @@ class World(object):
 
     def __init__(self):
         self._state = WorldState()
+        self._simulations = []
         self._observers = set()
 
     @property
@@ -71,6 +72,12 @@ The observer must define __call__ and will be given the world as parameter.
 
     def remove_on_change(self, observer):
         self._observers.remove(observer)
+
+    def register_simulation(self, simulation):
+        self._simulations.append(simulation)
+
+    def unregister_simulation(self, simulation):
+        self._simulations.remove(simulation)
 
 
 

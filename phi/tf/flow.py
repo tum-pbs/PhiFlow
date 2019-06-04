@@ -22,72 +22,9 @@ class TFFluidSimulation(FluidSimulation):
         self.summary_writers = {}
         self.summary_directory = ''
 
-    def run(self, tasks, feed_dict=None, options=None, run_metadata=None, summary_key=None, time=None, merged_summary=None):
-        if isinstance(tasks, np.ndarray):
-            return tasks
-        if tasks is None:
-            return None
-
-        # Fix feed dict
-        if feed_dict is not None:
-            new_feed_dict = {}
-            for (key, value) in feed_dict.items():
-                if isinstance(key, StaggeredGrid):
-                    key = key.staggered
-                if isinstance(value, StaggeredGrid):
-                    value = value.staggered
-                new_feed_dict[key] = value
-            feed_dict = new_feed_dict
-        # Fix tasks
-        wrap_results = []
-        if isinstance(tasks, list) or isinstance(tasks, tuple):
-            tasks = list(tasks)
-            for i in range(len(tasks)):
-                wrap_results.append(isinstance(tasks[i], StaggeredGrid))
-                if wrap_results[-1]:
-                    tasks[i] = tasks[i].staggered
-        if isinstance(tasks, StaggeredGrid):
-            wrap_results = True
-            tasks = tasks.staggered
-
-        # Handle tracing
-        if self.timeliner:
-            options = self.timeliner.options
-            run_metadata = self.timeliner.run_metadata
-        # Summary
-        if summary_key is not None and merged_summary is not None:
-            tasks = [merged_summary] + list(tasks)
-
-        result = self.session.run(tasks, feed_dict=feed_dict, options=options, run_metadata=run_metadata)
-
-        if summary_key:
-            summary_buffer = result[0]
-            result = result[1:]
-            if summary_key in self.summary_writers:
-                summary_writer = self.summary_writers[summary_key]
-            else:
-                summary_writer = tf.summary.FileWriter(os.path.join(self.summary_directory, str(summary_key)), self.graph)
-                self.summary_writers[summary_key] = summary_writer
-            summary_writer.add_summary(summary_buffer, time)
-            summary_writer.flush()
-
         if self.timeliner:
             self.timeliner.add_run()
 
-        if wrap_results is True:
-            result = StaggeredGrid(result)
-        elif wrap_results:
-            result = list(result)
-            for i in range(len(wrap_results)):
-                if wrap_results[i]:
-                    result[i] = StaggeredGrid(result[i])
-
-        return result
-
-    def initialize_variables(self):
-        import tensorflow as tf
-        self.session.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver(max_to_keep=100, allow_empty=True)
 
     def placeholder(self, element_type=1, name=None, batch_size=None, dtype=np.float32):
         import tensorflow as tf
@@ -163,45 +100,8 @@ class TFFluidSimulation(FluidSimulation):
             else:
                 self.session.run(self.velocity_mask.staggered.assign(new_velocity_mask.staggered))
 
-    def save(self, dir):
-        os.path.isdir(dir) or os.makedirs(dir)
-        self.saver.save(self.session, os.path.join(dir, "model.ckpt"))
 
 
-    def restore(self, dir, scope=None):
-        path = os.path.join(dir, "model.ckpt")
-        vars = self.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope)
-        saver = tf.train.Saver(var_list=vars)
-        saver.restore(self.session, path)
-
-    def restore_new_scope(self, dir, saved_scope, tf_scope):
-        var_remap = dict()
-        vars = [v for v in self.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf_scope) if "Adam" not in v.name]
-        for var in vars:
-            var_remap[saved_scope + var.name[len(tf_scope):-2]] = var
-        path = os.path.join(dir, "model.ckpt")
-        saver = tf.train.Saver(var_list=var_remap)
-        try:
-            saver.restore(self.session, path)
-        except tf.errors.NotFoundError as e:
-            from tensorflow.contrib.framework.python.framework import checkpoint_utils
-            print(checkpoint_utils.list_variables(dir))
-            raise e
-
-
-    @property
-    def tracing(self):
-        return self.timeliner is not None
-
-    def start_tracing(self, file):
-        dir = os.path.dirname(file)
-        os.path.isdir(dir) or os.makedirs(dir)
-        self.timeline_file = file
-        self.timeliner = Timeliner()
-
-    def stop_tracing(self):
-        self.timeliner.save(self.timeline_file)
-        self.timeliner = None
 
 
 def placeholder(element_type=1, name=None, batch_size=None, dtype=np.float32):

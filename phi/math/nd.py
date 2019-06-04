@@ -1,5 +1,6 @@
 import numpy as np
 from . import base as math
+from . import container
 
 
 def spatial_rank(tensor_or_mac):
@@ -312,7 +313,7 @@ def spatial_sum(tensor):
     return summed
 
 
-class StaggeredGrid:
+class StaggeredGrid(container.TensorContainer):
     """
         MACGrids represent a staggered vector field in which each vector component is sampled at the
         face centers of centered hypercubes.
@@ -331,6 +332,9 @@ class StaggeredGrid:
 
     def __repr__(self):
         return "StaggeredGrid(shape=%s)" % (self.shape,)
+
+    def disassemble(self):
+        return [self.staggered], lambda tensors: StaggeredGrid(tensors[0])
 
     def at_centers(self):
         rank = self.spatial_rank
