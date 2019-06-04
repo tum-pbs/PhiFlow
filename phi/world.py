@@ -45,6 +45,7 @@ class World(object):
         self._state = WorldState()
         self._simulations = []
         self._observers = set()
+        self.batch_size = None
 
     @property
     def state(self):
@@ -78,6 +79,10 @@ The observer must define __call__ and will be given the world as parameter.
 
     def unregister_simulation(self, simulation):
         self._simulations.remove(simulation)
+
+    @property
+    def simulations(self):
+        return self._simulations
 
 
 

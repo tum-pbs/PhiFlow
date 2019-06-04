@@ -16,6 +16,8 @@ class Session(object):
         self.timeline_file = None
         self.summary_writers = {}
         self.summary_directory = scene.subpath('summary')
+        self.profiling_directory = scene.subpath("profile")
+        self.trace_count = 0
         self.saver = None
 
     def initialize_variables(self):
@@ -77,19 +79,22 @@ class Session(object):
         else:
             return result_fetches_containers
 
-    def start_tracing(self, file):
-        dir = os.path.dirname(file)
-        os.path.isdir(dir) or os.makedirs(dir)
-        self.timeline_file = file
-        self.timeliner = Timeliner()
-
-    def stop_tracing(self):
-        self.timeliner.save(self.timeline_file)
-        self.timeliner = None
-
     @property
     def tracing(self):
         return self.timeliner is not None
+
+    @tracing.setter
+    def tracing(self, value):
+        if (self.timeliner is not None) == value: return
+        if value:
+            os.path.isdir(self.profiling_directory) or os.makedirs(self.profiling_directory)
+            self.trace_count += 1
+            self.timeline_file = os.path.join(self.profiling_directory, 'trace %d.json' % self.trace_count)
+            self.timeliner = Timeliner()
+        else:
+            self.timeliner.save(self.timeline_file)
+            self.timeliner = None
+
 
     def save(self, dir):
         assert self.saver is not None, "save() called before initialize_variables()"

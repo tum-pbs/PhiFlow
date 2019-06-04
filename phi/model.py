@@ -4,6 +4,7 @@ import logging, os, numbers, six, numpy, threading, inspect, time, sys
 from os.path import isfile
 import phi.fluidformat, phi.math.nd
 from phi.viz.plot import PlotlyFigureBuilder
+from phi.world import world
 
 
 def synchronized_method(method):
@@ -105,22 +106,11 @@ class FieldSequenceModel(object):
         self.sequence_stride = stride
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
-        self._simulation = None
+        self.world = world
         self.info("Setting up model...")
 
     def new_scene(self):
         self.scene = phi.fluidformat.new_scene(self.base_dir, self.scene_summary(), mkdir=True)
-
-    @property
-    def sim(self):
-        return self._simulation
-
-    @sim.setter
-    def sim(self, sim):
-        self._simulation = sim
-
-    def set_simulation(self, sim):
-        self.sim = sim
 
     @property
     def directory(self):
@@ -248,9 +238,8 @@ class FieldSequenceModel(object):
             "controls": [{control.name: control.value} for control in self.controls],
             "summary": self.scene_summary(),
             "time_of_writing": self.time,
+            "simulations": [sim.serialize_to_dict() for sim in self.world.simulations]
         }
-        if self._simulation:
-            properties.update(self._simulation.as_dict())
         properties.update(self.custom_properties())
         self.scene.properties = properties
 

@@ -3,6 +3,7 @@ from phi.model import *
 from phi.tf.flow import *
 from phi.data import *
 from phi.tf.util import istensor
+from phi.tf.session import Session
 
 
 class TFModel(FieldSequenceModel):
@@ -16,8 +17,7 @@ class TFModel(FieldSequenceModel):
                  model_scope_name="model",
                  **kwargs):
         FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, **kwargs)
-        self.summary_directory = self.scene.subpath("summary")
-        self.profiling_directory = self.scene.subpath("profile")
+        self.session = Session(self.scene)
         self.scalars = []
         self.scalar_names = []
         self.editable_placeholders = {}
@@ -32,6 +32,8 @@ class TFModel(FieldSequenceModel):
         self.validation_batch_size = validation_batch_size
         self.train_iterator = None
         self.model_scope_name = model_scope_name
+        self.feed_fields = []
+        self.shuffle_training_data = True
 
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
@@ -51,6 +53,34 @@ class TFModel(FieldSequenceModel):
 
     def prepare(self):
         FieldSequenceModel.prepare(self)
+
+        scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
+        self.merged_scalars = tf.summary.merge(scalars)
+
+        self.info("Initializing variables")
+        self.session.initialize_variables()
+
+        model_parameter_count = 0
+        for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.model_scope_name):
+            if not "Adam" in var.name:
+                model_parameter_count += int(np.prod(var.get_shape().as_list()))
+                # if "conv" in var.name and "kernel" in var.name:
+                #     tf.summary.image(var.name, var)
+        self.add_custom_property("parameter_count", model_parameter_count)
+        self.info("Model variables contain %d total parameters." % model_parameter_count)
+
+        if self.world.batch_size is not None:
+            self.training_batch_size = self.world.batch_size
+            self.validation_batch_size = self.world.batch_size
+        if self.database.scene_count > 0:
+            self.train_iterator = self.database.linear_iterator("train", self.feed_fields, self.training_batch_size, shuffled=self.shuffle_training_data)
+            self.val_iterator = self.database.fixed_range("val", self.feed_fields, range(self.validation_batch_size))
+            self.view_train_iterator = self.database.fixed_range("train", self.feed_fields, range(self.validation_batch_size))
+        else:
+            self.train_iterator = None
+            self.val_iterator = None
+            self.view_train_iterator = None
+
         if self.train_iterator is not None:
             self.info("Loading initial data...")
             self.feed_dict(self.train_iterator, True)  # is this still necessary?
@@ -62,43 +92,8 @@ class TFModel(FieldSequenceModel):
             self.validate()
         else:
             self.info("Preparing model before database is set up.")
+
         return self
-
-    def step(self):
-        self.tfstep()
-        return self
-
-    def finalize_setup(self, feed_fields, log_batch_retrieval=False, shuffle_training_data=True):
-        assert self.sim is not None, "TFModel.sim must be set before finalize_setup"
-        self.sim.summary_directory = self.summary_directory
-
-        scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
-        self.merged_scalars = tf.summary.merge(scalars)
-
-        self.sim.initialize_variables()
-
-        self.feed_fields = feed_fields
-
-        model_parameter_count = 0
-        for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.model_scope_name):
-            if not "Adam" in var.name:
-                model_parameter_count += int(np.prod(var.get_shape().as_list()))
-                # if "conv" in var.name and "kernel" in var.name:
-                #     tf.summary.image(var.name, var)
-        self.add_custom_property("parameter_count", model_parameter_count)
-
-        if self.sim.batch_size:
-            self.training_batch_size = self.sim.batch_size
-            self.validation_batch_size = self.sim.batch_size
-        logf = self.info if log_batch_retrieval else None
-        if self.database.scene_count > 0:
-            self.train_iterator = self.database.linear_iterator("train", feed_fields, self.training_batch_size, shuffled=shuffle_training_data, logf=logf)
-            self.val_iterator = self.database.fixed_range("val", feed_fields, range(self.validation_batch_size))
-            self.view_train_iterator = self.database.fixed_range("train", feed_fields, range(self.validation_batch_size))
-        else:
-            self.train_iterator = None
-            self.val_iterator = None
-            self.view_train_iterator = None
 
     def minimizer(self, name, loss, optimizer=None, reg=None, vars=None):
         assert len(loss.shape) <= 1, "Loss function must be a scalar"
@@ -125,6 +120,10 @@ class TFModel(FieldSequenceModel):
         self.scalar_names.append(name)
         self.scalars.append(node)
 
+    def step(self):
+        self.tfstep()
+        return self
+
     def tfstep(self, optimizer=None):
         if not optimizer:
             optimizer = self.recent_optimizer_node
@@ -133,13 +132,13 @@ class TFModel(FieldSequenceModel):
             self.validate(create_checkpoint=True)
 
     def optimize(self, optim_node):
-        scalar_values = self.sim.run([optim_node] + self.scalars, self.feed_dict(self.train_iterator, True),
+        scalar_values = self.session.run([optim_node] + self.scalars, self.feed_dict(self.train_iterator, True),
                                      summary_key="train", merged_summary=self.merged_scalars, time=self.time)[1:]
         # self.info("Optimization Done.") #+", ".join([self.scalar_names[i]+": "+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
     def validate(self, create_checkpoint=False):
         # self.info("Running validation...")
-        self.sim.run(self.scalars, self.feed_dict(self.val_iterator, False),
+        self.session.run(self.scalars, self.feed_dict(self.val_iterator, False),
                      summary_key="val", merged_summary=self.merged_scalars, time=self.time)
         if create_checkpoint:
             self.save_model()
@@ -161,18 +160,21 @@ class TFModel(FieldSequenceModel):
         else:
             return iterator.fill_feed_dict(base_feed_dict, self.feed_fields, subrange=subrange)
 
-    def val_dict(self, subrange=None):
-        iterator = self.view_train_iterator if self.value_view_training_data else self.val_iterator
-        return self.feed_dict(iterator, False, subrange=subrange)
+    def view_iterator(self):
+        return self.view_train_iterator if self.value_view_training_data else self.val_iterator
 
-    def view(self, tasks, options=None, run_metadata=None, all_batches=False):
+    def val(self, fetches, subrange=None):
+        return self.session.run(fetches, self.feed_dict(self.val_iterator, False, subrange=subrange))
+
+    def view(self, tasks, all_batches=False):
         if tasks is None:
             return None
-        if all_batches or self.sim.batch_size is not None or isinstance(self.figures.batches, slice):
-            return self.sim.run(tasks, self.val_dict(), options=options, run_metadata=run_metadata)
+        if all_batches or self.world.batch_size is not None or isinstance(self.figures.batches, slice):
+            return self.session.run(tasks, self.val_dict())
         else:
+            # TODO return Viewable object that indicates batch index
             batches = self.figures.batches
-            batch_results = self.sim.run(tasks, self.val_dict(subrange=batches), options=options, run_metadata=run_metadata)
+            batch_results = self.session.run(tasks, self.val_dict(subrange=batches))
             single_task = not isinstance(tasks, (tuple,list))
             if single_task:
                 batch_results = [batch_results]
@@ -198,11 +200,11 @@ class TFModel(FieldSequenceModel):
 
     def save_model(self):
         dir = self.scene.subpath("checkpoint_%08d"%self.time)
-        self.sim.save(dir)
+        self.session.save(dir)
         return dir
 
     def load_model(self, checkpoint_dir):
-        self.sim.restore(checkpoint_dir, scope=self.model_scope_name)
+        self.session.restore(checkpoint_dir, scope=self.model_scope_name)
 
     def model_scope(self):
         return tf.variable_scope(self.model_scope_name)

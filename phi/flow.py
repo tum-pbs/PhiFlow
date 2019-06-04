@@ -19,7 +19,7 @@ Solves the simulation for a time increment self.dt.
         """
         raise NotImplementedError(self)
 
-    def empty(self):
+    def empty(self, batch_size=1):
         """
 Creates a new SimState instance that represents an empty / default state of the simulation.
         """
@@ -59,9 +59,8 @@ class SmokeState(SimState):
 
 class Smoke(Simulation):
 
-    def __init__(self, domain=Open2D, world=world, state=None,
-                 gravity=-9.81, buoyancy_factor=0.1, conserve_density=False,
-                 batch_size=None, pressure_solver=None, dt=1.0):
+    def __init__(self, domain=Open2D, world=world, dt=1.0,
+                 gravity=-9.81, buoyancy_factor=0.1, conserve_density=False, pressure_solver=None):
         Simulation.__init__(self, world, dt)
         self.domain = domain
         if isinstance(gravity, (tuple, list)):
@@ -70,7 +69,6 @@ class Smoke(Simulation):
         else:
             gravity = [gravity] + ([0] * (domain.rank - 1))
             self.gravity = np.array(gravity)
-        self.batch_size = batch_size
         self.buoyancy_factor = buoyancy_factor
         self.conserve_density = conserve_density
         # Pressure Solver
@@ -85,14 +83,30 @@ class Smoke(Simulation):
     def step(self, smokestate):
         return smokestate * self.advect * self.inflow * self.buoyancy * self.friction * self.divergence_free
 
-    def empty(self):
-        density = self.domain.grid.zeros(1, self.batch_size)
-        velocity = self.domain.grid.staggered_zeros(self.batch_size)
+    def empty(self, batch_size=1):
+        density = self.domain.grid.zeros(1, batch_size)
+        velocity = self.domain.grid.staggered_zeros(batch_size)
         return SmokeState(density, velocity)
 
     def _update_domain(self):
         mask = 1 - geometry_mask(self.world, self.domain.grid, 'obstacle')
         self.domainstate = DomainState(self.domain, self.world.state, active=mask, accessible=mask)
+
+    def serialize_to_dict(self):
+        return {
+            "type": "smoke",
+            "class": self.__class__.__name__,
+            "module": self.__class__.__module__,
+            "rank": self.domain.rank,
+            "domain": self.domain.serialize_to_dict(),
+            "gravity": list(self.gravity),
+            "buoyancy_factor": self.buoyancy_factor,
+            "conserve_density": self.conserve_density,
+            "solver": self.pressure_solver.name,
+        }
+
+    def unserialize_from_dict(self):
+        raise NotImplementedError()
 
     def inflow(self, smokestate):
         inflow = inflow_mask(self.world, self.domain.grid)

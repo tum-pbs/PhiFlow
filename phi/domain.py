@@ -45,6 +45,12 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
     def boundaries(self):
         return self._boundaries
 
+    def serialize_to_dict(self):
+        return {
+            "dimensions": self.grid.dimensions,
+            # "boundaries": TODO
+        }
+
     def _get_paddings(self, material_condition, margin=1):
         true_paddings = [[0, 0] for i in range(self.rank)]
         false_paddings = [[0, 0] for i in range(self.rank)]
