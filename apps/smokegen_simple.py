@@ -6,7 +6,7 @@ class RandomSmoke(FieldSequenceModel):
 
     def __init__(self, size, steps=12):
         FieldSequenceModel.__init__(self, "Random Smoke Simulation",
-                                    "PhiFlow demo showcasing complete smoke simulation within tensorflow",
+                                    "PhiFlow demo showcasing complete state simulation within tensorflow",
                                     record_data=True,
                                     base_dir="SmokeIK",
                                     recorded_fields=("Density", "Velocity"),

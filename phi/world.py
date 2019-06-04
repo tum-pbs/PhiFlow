@@ -1,33 +1,31 @@
+from sets import ImmutableSet
+
 from phi import math
 from phi.physics.material import SLIPPERY
 
 
-class World(object):
+class WorldState(object):
 
-    def __init__(self):
-        self._objects = set()
-        self._observers = set()
+    def __init__(self, objects=()):
+        self._objects = objects if isinstance(objects, ImmutableSet) else ImmutableSet(objects)
 
+    def __add__(self, other):
+        if isinstance(other, WorldObject):
+            return WorldState(self._objects | ImmutableSet((other,)))
+        if isinstance(other, WorldState):
+            return WorldState(self._objects | other._objects)
+        if isinstance(other, (tuple, list)):
+            return WorldState(self._objects | ImmutableSet(other))
 
-    def add_object(self, object):
-        self._objects.add(object)
-        for observer in self._observers: observer(self, [object])
-        return object
+    __radd__ = __add__
 
-    def remove_object(self, object):
-        self._objects.remove(object)
-        for observer in self._observers: observer(self, [object])
-
-    def on_change(self, observer):
-        """
-Register an observer that will be called when objects are added to the world or removed from the world.
-The observer must define __call__ and will be given the world and a list of changed objects as parameters.
-        :param observer:
-        """
-        self._observers.add(observer)
-
-    def remove_on_change(self, observer):
-        self._observers.remove(observer)
+    def __sub__(self, other):
+        if isinstance(other, WorldObject):
+            return WorldState(self._objects - ImmutableSet((other,)))
+        if isinstance(other, WorldState):
+            return WorldState(self._objects - other._objects)
+        if isinstance(other, (tuple, list)):
+            return WorldState(self._objects - ImmutableSet(other))
 
     def objects_with_tag(self, tag):
         return filter(lambda o: tag in o.tags, self._objects)
@@ -36,8 +34,43 @@ The observer must define __call__ and will be given the world and a list of chan
         return [o.geometry for o in self.objects_with_tag(tag)]
 
     @property
-    def all_objects(self):
+    def objects(self):
         return self._objects
+
+
+
+class World(object):
+
+    def __init__(self):
+        self._state = WorldState()
+        self._observers = set()
+
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, state):
+        self._state = state
+        for observer in self._observers: observer(self)
+
+    def add(self, objects):
+        self.state += objects
+        return objects
+
+    def remove(self, objects):
+        self.state -= objects
+
+    def on_change(self, observer):
+        """
+Register an observer that will be called when objects are added to the world or removed from the world.
+The observer must define __call__ and will be given the world as parameter.
+        :param observer:
+        """
+        self._observers.add(observer)
+
+    def remove_on_change(self, observer):
+        self._observers.remove(observer)
 
 
 
@@ -59,7 +92,7 @@ class Obstacle(WorldObject):
 
 
 def obstacle(geometry, material=SLIPPERY, world=world):
-    return world.add_object(Obstacle(geometry, material))
+    return world.add(Obstacle(geometry, material))
 
 
 class Inflow(WorldObject):
@@ -70,16 +103,20 @@ class Inflow(WorldObject):
 
 
 def inflow(geometry, rate=1.0, world=world):
-    return world.add_object(Inflow(geometry, rate))
+    return world.add(Inflow(geometry, rate))
 
 
 def inflow_mask(world, grid):
+    inflows = world.state.objects_with_tag('inflow')
+    if len(inflows) == 0:
+        return grid.zeros()
     location = grid.center_points()
-    inflows = world.objects_with_tag('inflow')
     return math.add([inflow.geometry.value_at(location) * inflow.rate for inflow in inflows])
 
 
 def geometry_mask(world, grid, tag):
+    geometries = world.state.geometries_with_tag(tag)
+    if len(geometries) == 0:
+        return grid.zeros()
     location = grid.center_points()
-    geometries = world.geometries_with_tag(tag)
     return math.max([geometry.value_at(location) for geometry in geometries], axis=0)

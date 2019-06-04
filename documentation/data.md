@@ -17,7 +17,7 @@ Arrays hold the spatial distribution of one property of the simulation at a cert
 Each array is stored as one compressed NumPy (.npz) file. The contained NumPy array has the shape `(height, width, components)` in 2D and `(depth, height, width, components)` in 3D where `components` refers to number of dimensions stored per cell, 1 for scalar fields such as density, 2 for vector fields in 2D, 3 for vector fields in 3D.
 
 The spatial size of the arrays is not the same as the number of valid voxels in the simulation.
-In the following, `x`, `y` and `z` refer to the shape of valid entries in centered fields like smoke density.
+In the following, `x`, `y` and `z` refer to the shape of valid entries in centered fields like state density.
 There are two conventions for how the array sizes can be derived from these:
 
 - Mantaflow: The outer voxels of centered fields are invalid (depth=z+2, height=y+2, widht=x+2). Staggered grids store the component at the lower face of the cell with same index (depth=z+2, height=y+2, widht=x+2), the top rows are invalid.

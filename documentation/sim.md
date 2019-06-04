@@ -34,7 +34,7 @@ with FluidSimulation([64, 64]):
     initial_density = zeros()
 ```
 
-A typical simulation step could comprise of the following steps. The following code takes the state of a smoke simulation, density and velocity, to the next time step.
+A typical simulation step could comprise of the following steps. The following code takes the state of a state simulation, density and velocity, to the next time step.
 
 ```python
 density = velocity.advect(density) + inflow_density

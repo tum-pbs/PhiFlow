@@ -34,6 +34,8 @@ class SciPyBackend(Backend):
         return np.concatenate(values, axis)
 
     def pad(self, value, pad_width, mode="constant", constant_values=0):
+        if np.sum(np.array(pad_width)) == 0:
+            return value
         if mode.lower() == "constant":
             return np.pad(value, pad_width, "constant", constant_values=constant_values)
         else:

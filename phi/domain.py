@@ -7,7 +7,7 @@ from phi.world import *
 
 class Domain(object):
 
-    def __init__(self, grid, boundaries=OPEN, active=None, accessible=None):
+    def __init__(self, grid, boundaries=OPEN):
         """
 Simulation domain that specifies size and boundary conditions.
 
@@ -31,12 +31,7 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         assert isinstance(world, World)
         if isinstance(boundaries, (tuple, list)):
             assert len(boundaries) == self._grid.rank
-
         self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
-        self._world = world
-
-        self._active = active if active is not None else self._grid.ones()
-        self._accessible = accessible if accessible is not None else self._grid.ones()
 
     @property
     def grid(self):
@@ -44,40 +39,11 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
 
     @property
     def rank(self):
-        return self._grid.rank
+        return self.grid.rank
 
     @property
     def boundaries(self):
         return self._boundaries
-
-    def with_hard_boundary_conditions(self, velocity):
-        masked = velocity * _frictionless_velocity_mask(self.accessible(extend=1))
-        return masked  # TODO add surface velocity
-
-    def active(self, extend=0):
-        """
-Scalar field encoding active cells as ones and inactive (open/obstacle) as zero.
-Active cells are those for which physical properties such as pressure or velocity are calculated.
-        :param extend: Extend the grid in all directions beyond the grid size specified by the domain
-        """
-        if extend is None or  extend == 0:
-            return self._active
-        else:
-            return pad(self._active, [[0, 0]] + [[1, 1]] * self.rank + [[0, 0]], "constant")
-
-    def accessible(self, extend=0):
-        """
-Scalar field encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
-        :param extend: Extend the grid in all directions beyond the grid size specified by the domain
-        """
-        if extend is None or  extend == 0:
-            return self._accessible
-        else:
-            solid_paddings, open_paddings = self._get_paddings(lambda material: material.solid, margin=extend)
-            mask = self._accessible
-            mask = pad(mask, open_paddings, "constant", 1)
-            mask = pad(mask, solid_paddings, "constant", 0)
-            return mask
 
     def _get_paddings(self, material_condition, margin=1):
         true_paddings = [[0, 0] for i in range(self.rank)]
@@ -99,6 +65,59 @@ Scalar field encoding cells that are accessible, i.e. not solid, as ones and obs
                 return dim_boundaries
             else:
                 return dim_boundaries[upper_boundary]
+
+
+class DomainState(object):
+
+    def __init__(self, domain, worldstate, active=None, accessible=None):
+        self._domain = domain
+        self._worldstate = worldstate
+        self._active = active if active is not None else self._domain._grid.ones()
+        self._accessible = accessible if accessible is not None else self._domain._grid.ones()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def grid(self):
+        return self.domain._grid
+
+    @property
+    def rank(self):
+        return self.grid.rank
+
+    def with_hard_boundary_conditions(self, velocity):
+        masked = velocity * _frictionless_velocity_mask(self.accessible(extend=1))
+        return masked  # TODO add surface velocity
+
+    def active(self, extend=0):
+        """
+Scalar field encoding active cells as ones and inactive (open/obstacle) as zero.
+Active cells are those for which physical properties such as pressure or velocity are calculated.
+        :param extend: Extend the grid in all directions beyond the grid size specified by the domain
+        """
+        if extend is None or extend == 0:
+            return self._active
+        else:
+            return pad(self._active, [[0, 0]] + [[1, 1]] * self.rank + [[0, 0]], "constant")
+
+    def accessible(self, extend=0):
+        """
+Scalar field encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
+        :param extend: Extend the grid in all directions beyond the grid size specified by the domain
+        """
+        if extend is None or extend == 0:
+            return self._accessible
+        else:
+            solid_paddings, open_paddings = self.domain._get_paddings(lambda material: material.solid, margin=extend)
+            mask = self._accessible
+            mask = pad(mask, open_paddings, "constant", 1)
+            mask = pad(mask, solid_paddings, "constant", 0)
+            return mask
+
+
+
             
 
 
@@ -118,7 +137,7 @@ def _collapse_equals(obj, leaf_type):
     if isinstance(obj, leaf_type):
         return obj
     else:
-        list = [_collapse_equals(element, leaf_type) for element in obj]
+        list = tuple([_collapse_equals(element, leaf_type) for element in obj])
         first = list[0]
         for element in list[1:]:
             if element != first:

@@ -25,7 +25,7 @@ See the [detailed installation instructions](documentation/install.md) on how to
 Here is the short version:
 ```
 $ pip install tensorflow
-$ git clone https://bitbucket.org/thunil/mantaflowgit.git
+$ git clone https://gitlab.lrz.de/ga67fet/phiflow.git
 $ cd mantaflowgit
 $ git checkout phiflow/master
 $ python setup.py cuda
@@ -36,7 +36,7 @@ $ pip install .[gui]
 
 If you would like to get right into it and have a look at some example code, check out the following files in the `apps` directory:
 
-- [simulation101.py](apps/simulation101.py): Runs a smoke simulation and displays it in the browser
+- [simulation101.py](apps/simulation101.py): Runs a state simulation and displays it in the browser
 - [optimize_pressure.py](apps/optimize_pressure.py): Uses TensorFlow to optimize a velocity field. TensorBoard can be started from the GUI and displays the loss.
 
 

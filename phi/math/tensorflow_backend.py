@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from numpy import ndarray
 import collections
 import uuid
@@ -27,6 +28,8 @@ class TFBackend(Backend):
         return tf.concat(values, axis)
 
     def pad(self, value, pad_width, mode="constant", constant_values=0):
+        if np.sum(np.array(pad_width)) == 0:
+            return value
         return tf.pad(value, pad_width, mode, constant_values=constant_values)
 
     def add(self, values):
