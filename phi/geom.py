@@ -5,9 +5,6 @@ import numpy as np
 
 class Geometry(object):
 
-    def __init__(self):
-        pass
-
     def value_at(self, location):
         raise NotImplementedError(self.__class__)
 
@@ -15,7 +12,6 @@ class Geometry(object):
 class Box(Geometry):
 
     def __init__(self, origin, size):
-        Geometry.__init__(self)
         self.origin = np.array(origin)
         self.size = np.array(size)
         self.upper = self.origin + self.size
@@ -57,6 +53,25 @@ class BoxGenerator(object):
 
 
 box = BoxGenerator()
+
+
+class Sphere(Geometry):
+
+    def __init__(self, center, radius):
+        self._center = center
+        self._radius = radius
+
+    @property
+    def radius(self):
+        return self._radius
+
+    @property
+    def center(self):
+        return self._center
+
+    def value_at(self, location):
+        bool_inside = np.expand_dims(math.sum((location - self._center)**2, axis=-1) <= self._radius ** 2, -1)
+        return math.to_float(bool_inside)
 
 
 class Grid(object):
