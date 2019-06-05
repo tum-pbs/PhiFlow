@@ -77,21 +77,25 @@ class Sphere(Geometry):
 class Grid(object):
 
     def __init__(self, dimensions, box=None):
-        self.dimensions = list(dimensions)
+        self._dimensions = np.array(dimensions)
         if box is not None:
-            self.box = box
+            self._box = box
         else:
-            self.box = Box([0 for d in dimensions], self.dimensions)
+            self._box = Box([0 for d in dimensions], self.dimensions)
+
+    @property
+    def dimensions(self):
+        return self._dimensions
 
     @property
     def rank(self):
         return len(self.dimensions)
 
     def cell_index(self, global_position):
-        local_position = self.box.global_to_local(global_position) * self.dimensions
+        local_position = self._box.global_to_local(global_position) * self.dimensions
         position = math.to_int(local_position - 0.5)
         position = math.maximum(0, position)
-        position = math.minimum(position, [d-1 for d in self.dimensions])
+        position = math.minimum(position, self.dimensions-1)
         return position
 
     def center_points(self):
@@ -110,28 +114,26 @@ class Grid(object):
         return math.expand_dims(np.stack(idx_zyx, axis=-1))
 
     def shape(self, components=1, batch_size=1):
-        return _shape(batch_size, self.dimensions, components)
+        return tensor_shape(batch_size, self.dimensions, components)
 
     def staggered_shape(self, batch_size=1):
-        return _shape(batch_size, [d + 1 for d in self.dimensions], self.rank)
+        return tensor_shape(batch_size, self.dimensions + 1, self.rank)
 
     def zeros(self, components=1, batch_size=1, dtype=np.float32):
-        return np.zeros(_shape(batch_size, self.dimensions, components), dtype)
+        return np.zeros(tensor_shape(batch_size, self.dimensions, components), dtype)
 
     def staggered_zeros(self, batch_size=1, dtype=np.float32):
-        return StaggeredGrid(np.zeros(_shape(batch_size, [d + 1 for d in self.dimensions], self.rank), dtype))
+        return StaggeredGrid(np.zeros(tensor_shape(batch_size, self.dimensions + 1, self.rank), dtype))
 
     def ones(self, components=1, batch_size=1, dtype=np.float32):
-        return np.ones(_shape(batch_size, self.dimensions, components), dtype)
+        return np.ones(tensor_shape(batch_size, self.dimensions, components), dtype)
 
     def staggered_ones(self, batch_size=1, dtype=np.float32):
-        return StaggeredGrid(np.ones(_shape(batch_size, [d + 1 for d in self.dimensions], self.rank), dtype))
-
-    def half_res(self):
-        return Grid([d//2 for d in self.dimensions], self.box)
+        return StaggeredGrid(np.ones(tensor_shape(batch_size, self.dimensions + 1, self.rank), dtype))
 
 
-def _shape(batch_size, dimensions, components):
+
+def tensor_shape(batch_size, dimensions, components):
     if batch_size is None:
         batch_size = 1
-    return [batch_size] + dimensions + [components]
+    return np.concatenate([[batch_size], dimensions, [components]])

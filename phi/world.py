@@ -1,5 +1,3 @@
-from sets import ImmutableSet
-
 from phi import math
 from phi.physics.material import SLIPPERY
 
@@ -7,31 +5,31 @@ from phi.physics.material import SLIPPERY
 class WorldState(object):
 
     def __init__(self, objects=()):
-        self._objects = objects if isinstance(objects, ImmutableSet) else ImmutableSet(objects)
+        self._objects = objects if isinstance(objects, set) else set(objects)
 
     def __add__(self, other):
         if isinstance(other, WorldObject):
-            return WorldState(self._objects | ImmutableSet((other,)))
+            return WorldState(self._objects | {other})
         if isinstance(other, WorldState):
             return WorldState(self._objects | other._objects)
         if isinstance(other, (tuple, list)):
-            return WorldState(self._objects | ImmutableSet(other))
+            return WorldState(self._objects | set(other))
 
     __radd__ = __add__
 
     def __sub__(self, other):
         if isinstance(other, WorldObject):
-            return WorldState(self._objects - ImmutableSet((other,)))
+            return WorldState(self._objects - {other})
         if isinstance(other, WorldState):
             return WorldState(self._objects - other._objects)
         if isinstance(other, (tuple, list)):
-            return WorldState(self._objects - ImmutableSet(other))
+            return WorldState(self._objects - set(other))
 
     def objects_with_tag(self, tag):
-        return filter(lambda o: tag in o.tags, self._objects)
+        return [o for o in self._objects if tag in o.tags]
 
     def geometries_with_tag(self, tag):
-        return [o.geometry for o in self.objects_with_tag(tag)]
+        return [o.geometry for o in self.objects if tag in o.tags]
 
     @property
     def objects(self):
@@ -43,7 +41,7 @@ class World(object):
 
     def __init__(self):
         self._state = WorldState()
-        self._simulations = []
+        self._physics = []
         self._observers = set()
         self.batch_size = None
 
@@ -74,15 +72,15 @@ The observer must define __call__ and will be given the world as parameter.
     def remove_on_change(self, observer):
         self._observers.remove(observer)
 
-    def register_simulation(self, simulation):
-        self._simulations.append(simulation)
+    def register_physics(self, physics):
+        self._physics.append(physics)
 
-    def unregister_simulation(self, simulation):
-        self._simulations.remove(simulation)
+    def unregister_physics(self, physics):
+        self._physics.remove(physics)
 
     @property
     def simulations(self):
-        return self._simulations
+        return self._physics
 
 
 

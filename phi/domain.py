@@ -47,7 +47,7 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
 
     def serialize_to_dict(self):
         return {
-            "dimensions": self.grid.dimensions,
+            "dimensions": [int(d) for d in self.grid.dimensions],
             # "boundaries": TODO
         }
 

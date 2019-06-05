@@ -4,7 +4,7 @@ from phi.geom import *
 
 
 size = [128]*2
-smoke = Smoke(Domain(size, SLIPPERY))
+physics = Smoke(Domain(size, SLIPPERY))
 obstacle(box[60:64, 40:128-40])
 inflow(box[size[-2]//8, size[-1]*3//8:size[-1]*5//8])
 
@@ -13,16 +13,16 @@ class SimpleplumeNP(TFModel):
 
     def __init__(self):
         TFModel.__init__(self, 'Simpleplume'+'x'.join([str(d) for d in size]), stride=3)
-        self.current_state = SmokeState(tf.placeholder(tf.float32, smoke.domain.grid.shape(1)),
-                                        StaggeredGrid(tf.placeholder(tf.float32, smoke.domain.grid.staggered_shape())))
-        self.next_state = smoke.step(self.current_state)
-        self.state = smoke.empty()
+        self.current_state = SmokeState(tf.placeholder(tf.float32, physics.domain.grid.shape(1)),
+                                        StaggeredGrid(tf.placeholder(tf.float32, physics.domain.grid.staggered_shape())))
+        self.next_state = physics.step(self.current_state)
+        self.state = physics.empty()
 
         self.add_field('Density', lambda: self.state.density)
         self.add_field('Velocity', lambda: self.state.velocity)
-        self.add_field('Pressure', lambda: smoke.last_pressure)
+        self.add_field('Pressure', lambda: physics.last_pressure)
         self.add_field('Divergence after', lambda: divergence(self.state.velocity))
-        self.add_field('Domain', lambda: smoke.domainstate.active(extend=1))
+        self.add_field('Domain', lambda: physics.domainstate.active(extend=1))
 
     def step(self):
         self.state = self.session.run(self.next_state, {self.current_state: self.state})

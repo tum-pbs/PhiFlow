@@ -6,7 +6,6 @@ import dash, dash_core_components as dcc, dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from phi.flow import Fluid, FluidProperty
 from phi.viz.plot import *
 import phi.tf.profiling
 
@@ -563,10 +562,6 @@ class DashFieldSequenceGui:
         if data is None:
             self.fieldshapes[figindex] = [0, 0]
             return self.empty_figure()
-        if isinstance(data, Fluid):
-            data = data.occupied_mask()
-        if isinstance(data, FluidProperty):
-            data = data.to_grid()
         self.fieldshapes[figindex] = data.shape
 
         if self.same_scale:

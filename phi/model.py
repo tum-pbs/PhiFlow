@@ -238,7 +238,7 @@ class FieldSequenceModel(object):
             "controls": [{control.name: control.value} for control in self.controls],
             "summary": self.scene_summary(),
             "time_of_writing": self.time,
-            "simulations": [sim.serialize_to_dict() for sim in self.world.simulations]
+            "physics": [sim.serialize_to_dict() for sim in self.world.simulations]
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties

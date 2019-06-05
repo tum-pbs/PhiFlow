@@ -235,9 +235,9 @@ def _sliced_laplace_nd(tensor):
     dims = range(spatial_rank(tensor))
     components = []
     for dimension in dims:
-        center_slices = [(slice(1, -1) if i == dimension else slice(1,-1)) for i in dims]
-        upper_slices = [(slice(2, None) if i == dimension else slice(1,-1)) for i in dims]
-        lower_slices = [(slice(-2) if i == dimension else slice(1,-1)) for i in dims]
+        center_slices = tuple([(slice(1, -1) if i == dimension else slice(1,-1)) for i in dims])
+        upper_slices = tuple([(slice(2, None) if i == dimension else slice(1,-1)) for i in dims])
+        lower_slices = tuple([(slice(-2) if i == dimension else slice(1,-1)) for i in dims])
         diff = tensor[(slice(None),) + upper_slices + (slice(None),)] \
                + tensor[(slice(None),) + lower_slices + (slice(None),)] \
                - 2 * tensor[(slice(None),) + center_slices + (slice(None),)]
@@ -278,8 +278,8 @@ def downsample2x(tensor, interpolation="LINEAR"):
                           [([0, 1] if (dim % 2) != 0 else [0,0]) for dim in tensor.shape[1:-1]]
                           + [[0,0]], "SYMMETRIC")
     for dimension in dims:
-        upper_slices = [(slice(1, None, 2) if i==dimension else slice(None)) for i in dims]
-        lower_slices = [(slice(0, None, 2) if i==dimension else slice(None)) for i in dims]
+        upper_slices = tuple([(slice(1, None, 2) if i==dimension else slice(None)) for i in dims])
+        lower_slices = tuple([(slice(0, None, 2) if i==dimension else slice(None)) for i in dims])
         sum = tensor[(slice(None),)+upper_slices+(slice(None),)] + tensor[(slice(None),)+lower_slices+(slice(None),)]
         tensor = sum / 2
     return tensor
@@ -293,10 +293,10 @@ def upsample2x(tensor, interpolation="LINEAR"):
     spatial_dims = tensor.shape[1:-1]
     tensor = math.pad(tensor, [[0, 0]] + [[1, 1]]*spatial_rank(tensor) + [[0, 0]], "SYMMETRIC")
     for dim in dims:
-        left_slices_1 =  [(slice(2, None) if i==dim else slice(None)) for i in dims]
-        left_slices_2 =  [(slice(1,-1)    if i==dim else slice(None)) for i in dims]
-        right_slices_1 = [(slice(1, -1)   if i==dim else slice(None)) for i in dims]
-        right_slices_2 = [(slice(-2)      if i==dim else slice(None)) for i in dims]
+        left_slices_1 =  tuple([(slice(2, None) if i==dim else slice(None)) for i in dims])
+        left_slices_2 =  tuple([(slice(1,-1)    if i==dim else slice(None)) for i in dims])
+        right_slices_1 = tuple([(slice(1, -1)   if i==dim else slice(None)) for i in dims])
+        right_slices_2 = tuple([(slice(-2)      if i==dim else slice(None)) for i in dims])
         left = 0.75 * tensor[(slice(None),)+left_slices_2+(slice(None),)] + 0.25 * tensor[(slice(None),)+left_slices_1+(slice(None),)]
         right = 0.25 * tensor[(slice(None),)+right_slices_2+(slice(None),)] + 0.75 * tensor[(slice(None),)+right_slices_1+(slice(None),)]
         combined = math.stack([right, left], axis=2+dim)

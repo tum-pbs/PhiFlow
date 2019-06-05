@@ -4,7 +4,7 @@
 
 ## Design principles and Core Classes
 
-The core classes are `FluidSimulation` and `StaggeredGrid` which are located in [phi.flow](../phi/flow.py) and [phi.math.nd](../phi/math/nd.py), respectively.
+The core classes are `FluidSimulation` and `StaggeredGrid` which are located in [phi.flow](../phi/flow/flow.py) and [phi.math.nd](../phi/math/nd.py), respectively.
 
 ```python
 from phi.flow import FluidSimulation, StaggeredGrid
@@ -58,7 +58,7 @@ Staggered grids are a key component of the marker and cell (MAC) method. They sa
 
 In Φ-*Flow*, staggered grids are represented as instances of [StaggeredGrid](../phi/math/nd.py). They have one more entry in every spatial dimension than corresponding centered fields since the upper face of the upper most cell needs to be included as well.
 
-Staggered grids can be created from the [FluidSimulation](../phi/flow.py) or [TFFluidSimulation](../phi/tf/flow.py) object.
+Staggered grids can be created from the [FluidSimulation](../phi/flow/flow.py) or [TFFluidSimulation](../phi/tf/flow.py) object.
 
 ```python
 # Create a StaggeredGrid
