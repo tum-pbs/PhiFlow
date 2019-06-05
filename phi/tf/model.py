@@ -170,11 +170,11 @@ class TFModel(FieldSequenceModel):
         if tasks is None:
             return None
         if all_batches or self.world.batch_size is not None or isinstance(self.figures.batches, slice):
-            return self.session.run(tasks, self.val_dict())
+            return self.session.run(tasks, self.feed_dict(self.view_iterator(), False))
         else:
             # TODO return Viewable object that indicates batch index
             batches = self.figures.batches
-            batch_results = self.session.run(tasks, self.val_dict(subrange=batches))
+            batch_results = self.session.run(tasks, self.feed_dict(self.view_iterator(), False, subrange=batches))
             single_task = not isinstance(tasks, (tuple,list))
             if single_task:
                 batch_results = [batch_results]

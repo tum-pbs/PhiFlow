@@ -80,6 +80,14 @@ class Smoke(Simulation):
         world.on_change(lambda *_: self._update_domain())
         self._update_domain()
 
+    @property
+    def grid(self):
+        return self.domain.grid
+
+    @property
+    def dimensions(self):
+        return self.grid.dimensions
+
     def step(self, smokestate):
         return smokestate * self.advect * self.inflow * self.buoyancy * self.friction * self.divergence_free
 

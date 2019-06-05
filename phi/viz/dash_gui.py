@@ -17,7 +17,7 @@ class DashFieldSequenceGui:
                  display=None, depth=0, batch=0,
                  figure_builder=None,
                  framerate=1.0,
-                 sequence_count=100,
+                 sequence_count=1,
                  same_scale=False,
                  production=False,
                  port=None,
@@ -478,7 +478,7 @@ class DashFieldSequenceGui:
             def launch_tb(n1):
                 if not n1: return
                 logging.info('Launching TensorBoard...')
-                logdir = field_sequence_model.summary_directory
+                logdir = field_sequence_model.session.summary_directory
                 url = phi.tf.profiling.launch_tensorboard(logdir, port=self.tensorboard_port)
                 logging.info('TensorBoard launched, URL: %s' % url)
                 return url
@@ -491,14 +491,13 @@ class DashFieldSequenceGui:
                 if self.model.running: return ['App is running.']
                 target_count = self.sequence_count * self.model.sequence_stride
                 profile = True if not bench else (False if not prof else prof > bench)
-                timeline_file = os.path.join(field_sequence_model.profiling_directory,
-                                             'timeline_t%06d.json' % field_sequence_model.time)
                 if profile:
-                    field_sequence_model.sim.start_tracing(timeline_file)
+                    field_sequence_model.session.tracing = True
+                    timeline_file = field_sequence_model.session.timeline_file
                 self.benchmarking = True
                 step_count, time_elapsed = self.model.benchmark(target_count)
                 self.benchmarking = False
-                if profile: field_sequence_model.sim.stop_tracing()
+                if profile: field_sequence_model.session.tracing = False
                 output = '### Benchmark Results\n'
                 if step_count != target_count:
                     output += 'The benchmark was stopped prematurely.  \n'
