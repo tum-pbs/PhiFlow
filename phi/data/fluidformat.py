@@ -9,12 +9,16 @@ def read_zipped_array(filename):
     array = file[file.files[0]]
     if array.shape[0] != 1:
         array = array.reshape((1,)+array.shape)
+    if array.shape[-1] != 1:
+        array = array[...,::-1]
     return array
 
 
 def write_zipped_array(filename, array):
     if array.shape[0] == 1:
         array = array[0,...]
+    if array.shape[-1] != 1:
+        array = array[...,::-1]
     np.savez_compressed(filename, array)
 
 

@@ -1,7 +1,6 @@
-import json, threading, os, socket, urllib
+import json, threading, os, socket
 import tensorflow as tf
 from tensorflow.python.client import timeline
-# from tensorboard import default, program
 
 
 class Timeliner:

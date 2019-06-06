@@ -1,5 +1,5 @@
 from unittest import TestCase
-from phi.domain import *
+from phi.physics.domain import *
 
 
 class TestDomain(TestCase):

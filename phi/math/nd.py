@@ -532,6 +532,9 @@ class StaggeredGrid(container.TensorContainer):
     def shape(self):
         return self.staggered.shape
 
+    def container_shape(self):
+        return StaggeredGrid(self.shape)
+
     @property
     def tensor_rank(self):
         return len(self.staggered.shape)

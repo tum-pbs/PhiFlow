@@ -1,3 +1,4 @@
+import numpy as np
 
 
 class TensorContainer(object):
@@ -8,6 +9,12 @@ Disassembles the container into its element tensors.
     :return: 1. List of component tensors, 2. Reassemble: A function that recombines these tensors to produce an equivalent TensorContainer
         """
         raise NotImplementedError(self)
+
+
+def shape(object):
+    tensors, reassemble = disassemble(object)
+    shapes = [tensor.shape for tensor in tensors]
+    return reassemble(shapes)
 
 
 def disassemble(tensor_or_container):

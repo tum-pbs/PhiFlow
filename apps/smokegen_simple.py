@@ -1,4 +1,4 @@
-from phi.tf.flow import *
+from phi.tf.util import *
 from phi.model import *
 
 

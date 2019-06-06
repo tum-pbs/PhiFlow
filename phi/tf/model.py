@@ -1,8 +1,7 @@
 from __future__ import print_function
 from phi.model import *
-from phi.tf.flow import *
+from phi.tf.util import *
 from phi.data import *
-from phi.tf.util import istensor
 from phi.tf.session import Session
 
 

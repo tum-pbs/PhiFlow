@@ -2,6 +2,7 @@ import numpy as np
 from phi.math.container import *
 from phi.math import load_tensorflow
 from .profiling import *
+import contextlib
 
 
 class Session(object):
@@ -12,8 +13,6 @@ class Session(object):
         self._session = session
         assert self._session.graph == tf.get_default_graph()
         self.graph = tf.get_default_graph()
-        self.timeliner = None
-        self.timeline_file = None
         self.summary_writers = {}
         self.summary_directory = scene.subpath('summary')
         self.profiling_directory = scene.subpath("profile")
@@ -46,9 +45,10 @@ class Session(object):
         tensor_fetches, reassemble = list_tensors(fetches)
 
         # Handle tracing
-        if self.timeliner:
-            options = self.timeliner.options
-            run_metadata = self.timeliner.run_metadata
+        trace = _trace_stack.get_default(raise_error=False)
+        if trace:
+            options = trace.timeliner.options
+            run_metadata = trace.timeliner.run_metadata
         else:
             options = None
             run_metadata = None
@@ -70,8 +70,8 @@ class Session(object):
             summary_writer.add_summary(summary_buffer, time)
             summary_writer.flush()
 
-        if self.timeliner:
-            self.timeliner.add_run()
+        if trace:
+            trace.timeliner.add_run()
 
         result_fetches_containers = reassemble(result_fetches)
         if single_task:
@@ -79,22 +79,10 @@ class Session(object):
         else:
             return result_fetches_containers
 
-    @property
-    def tracing(self):
-        return self.timeliner is not None
-
-    @tracing.setter
-    def tracing(self, value):
-        if (self.timeliner is not None) == value: return
-        if value:
-            os.path.isdir(self.profiling_directory) or os.makedirs(self.profiling_directory)
-            self.trace_count += 1
-            self.timeline_file = os.path.join(self.profiling_directory, 'trace %d.json' % self.trace_count)
-            self.timeliner = Timeliner()
-        else:
-            self.timeliner.save(self.timeline_file)
-            self.timeliner = None
-
+    def profiler(self):
+        os.path.isdir(self.profiling_directory) or os.makedirs(self.profiling_directory)
+        self.trace_count += 1
+        return Trace(self.trace_count, self.profiling_directory)
 
     def save(self, dir):
         assert self.saver is not None, "save() called before initialize_variables()"
@@ -120,3 +108,62 @@ class Session(object):
             from tensorflow.contrib.framework.python.framework import checkpoint_utils
             print(checkpoint_utils.list_variables(dir))
             raise e
+
+    def as_default(self):
+        return self._session.as_default()
+
+
+
+class Trace(object):
+
+    def __init__(self, index, directory):
+        self.index = index
+        self.directory = directory
+        self.timeliner = None
+        self.timeline_file = None
+
+    def __enter__(self):
+        self.timeline_file = os.path.join(self.directory, 'trace %d.json' % self.index)
+        self.timeliner = Timeliner()
+
+        if self._default_simulation_context_manager is None:
+            self._default_simulation_context_manager = _trace_stack.get_controller(self)
+        return self._default_simulation_context_manager.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.timeliner.save(self.timeline_file)
+
+        self._default_simulation_context_manager.__exit__(exc_type, exc_val, exc_tb)
+        self._default_simulation_context_manager = None
+
+
+class _TraceStack(threading.local):
+
+    def __init__(self):
+        self.stack = []
+
+    def get_default(self, raise_error=True):
+        if raise_error:
+            assert len(self.stack) > 0, "Default simulation required. Use 'with simulation:' or 'with simulation.as_default():"
+        return self.stack[-1] if len(self.stack) >= 1 else None
+
+    def reset(self):
+        self.stack = []
+
+    def is_cleared(self):
+        return not self.stack
+
+    @contextlib.contextmanager
+    def get_controller(self, default):
+        """Returns a context manager for manipulating a default stack."""
+        try:
+            self.stack.append(default)
+            yield default
+        finally:
+            # stack may be empty if reset() was called
+            if self.stack:
+                self.stack.remove(default)
+
+
+_trace_stack = _TraceStack()
+

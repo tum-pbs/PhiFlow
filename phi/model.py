@@ -2,9 +2,9 @@
 from __future__ import print_function
 import logging, os, numbers, six, numpy, threading, inspect, time, sys
 from os.path import isfile
-import phi.fluidformat, phi.math.nd
+import phi.data.fluidformat, phi.math.nd
 from phi.viz.plot import PlotlyFigureBuilder
-from phi.world import world
+from phi.physics.world import world
 
 
 def synchronized_method(method):
@@ -110,7 +110,7 @@ class FieldSequenceModel(object):
         self.info("Setting up model...")
 
     def new_scene(self):
-        self.scene = phi.fluidformat.new_scene(self.base_dir, self.scene_summary(), mkdir=True)
+        self.scene = phi.data.fluidformat.new_scene(self.base_dir, self.scene_summary(), mkdir=True)
 
     @property
     def directory(self):
@@ -238,7 +238,7 @@ class FieldSequenceModel(object):
             "controls": [{control.name: control.value} for control in self.controls],
             "summary": self.scene_summary(),
             "time_of_writing": self.time,
-            "physics": [sim.serialize_to_dict() for sim in self.world.simulations]
+            "smoke": [sim.serialize_to_dict() for sim in self.world.simulations]
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties
@@ -330,7 +330,7 @@ class FieldSequenceModel(object):
         if self.record_data:
             arrays = [self.get_field(field) for field in self.recorded_fields]
             arrays = [a.staggered if isinstance(a, phi.math.nd.StaggeredGrid) else a for a in arrays]
-            files += phi.fluidformat.write_sim_frame(self.directory, arrays, self.recorded_fields, self.time)
+            files += phi.data.fluidformat.write_sim_frame(self.directory, arrays, self.recorded_fields, self.time)
 
         if files:
             self.message = "Frame written to %s" % files

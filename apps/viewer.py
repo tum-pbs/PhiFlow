@@ -1,5 +1,5 @@
 # coding=utf-8
-from phi.fluidformat import *
+from phi.data.fluidformat import *
 from phi.model import FieldSequenceModel
 import sys
 

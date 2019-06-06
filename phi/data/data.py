@@ -1,5 +1,5 @@
 from __future__ import print_function
-from phi.fluidformat import *
+from phi.data.fluidformat import *
 from phi.math.nd import StaggeredGrid
 import six, logging, math, itertools, threading, time
 

@@ -1,4 +1,4 @@
-from phi.domain import *
+from phi.physics.domain import *
 from phi.math.container import *
 
 
@@ -32,10 +32,7 @@ Solves the simulation for a time increment self.dt.
         """
         raise NotImplementedError(self)
 
-    def empty(self, batch_size=1):
-        """
-Creates a new SimState instance that represents an empty / default state of the simulation.
-        """
+    def shape(self, batch_size=1):
         raise NotImplementedError(self)
 
     def serialize_to_dict(self):

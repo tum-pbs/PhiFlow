@@ -117,20 +117,7 @@ class Grid(object):
         return tensor_shape(batch_size, self.dimensions, components)
 
     def staggered_shape(self, batch_size=1):
-        return tensor_shape(batch_size, self.dimensions + 1, self.rank)
-
-    def zeros(self, components=1, batch_size=1, dtype=np.float32):
-        return np.zeros(tensor_shape(batch_size, self.dimensions, components), dtype)
-
-    def staggered_zeros(self, batch_size=1, dtype=np.float32):
-        return StaggeredGrid(np.zeros(tensor_shape(batch_size, self.dimensions + 1, self.rank), dtype))
-
-    def ones(self, components=1, batch_size=1, dtype=np.float32):
-        return np.ones(tensor_shape(batch_size, self.dimensions, components), dtype)
-
-    def staggered_ones(self, batch_size=1, dtype=np.float32):
-        return StaggeredGrid(np.ones(tensor_shape(batch_size, self.dimensions + 1, self.rank), dtype))
-
+        return StaggeredGrid(tensor_shape(batch_size, self.dimensions + 1, self.rank))
 
 
 def tensor_shape(batch_size, dimensions, components):

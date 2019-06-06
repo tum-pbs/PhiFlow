@@ -1,5 +1,4 @@
-from phi.tf.model import *
-from phi.flow import *
+from phi.tf.flow import *
 import sys
 
 
@@ -40,7 +39,7 @@ class SimpleplumeTF(TFModel):
     def __init__(self, size):
         TFModel.__init__(self, "TUMsmoke", "Smoke simulation with obstacles",
                          summary="TUMsmoke" + "x".join([str(d) for d in size]), stride=20)
-        self.state = smoke.empty()
+        self.state = zeros(smoke.shape())
         self.add_field("Density", lambda: self.state.density)
         self.add_field("Velocity", lambda: self.state.velocity)
         self.add_field("Domain", lambda: smoke.domainstate.active(extend=1))
@@ -50,7 +49,7 @@ class SimpleplumeTF(TFModel):
 
     def action_reset(self):
         self.time = 0
-        self.state = smoke.empty()
+        self.state = zeros(smoke.shape())
 
 
 app = SimpleplumeTF([size]*2).show(display=("Density", "Velocity"), framerate=2, production=__name__ != "__main__")

@@ -1,4 +1,4 @@
-from .flow import *
+from .physics import *
 from phi.math import *
 
 
@@ -9,21 +9,14 @@ class Burger(VolumetricPhysics):
         self.viscosity = viscosity
 
     def step(self, velocity):
-        return self.diffuse(self.advect(velocity))
+        return self.advect(self.diffuse(velocity))
 
     def _update_domain(self):
         mask = 1 - geometry_mask(self.world, self.domain.grid, 'obstacle')
         self.domainstate = DomainState(self.domain, self.world.state, active=mask, accessible=mask)
 
-    def empty(self, batch_size=1):
-        return self.grid.zeros(self.rank, batch_size=batch_size)
-
-    def random(self, batch_size=1, initial_res=3, rnd_scale=2):
-        shape = tensor_shape(1, self.grid.dimensions // 2 ** initial_res, self.rank)
-        rnd = np.random.randn(*shape) * rnd_scale
-        for i in range(initial_res):
-            rnd = upsample2x(rnd)
-        return rnd
+    def shape(self, batch_size=1):
+        return self.grid.shape(self.rank, batch_size=batch_size)
 
     def serialize_to_dict(self):
         return {

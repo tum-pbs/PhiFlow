@@ -1,4 +1,4 @@
-from .flow import *
+from .physics import *
 from phi.math import *
 
 
@@ -21,7 +21,8 @@ class SmokeState(State):
         return [self._density] + v, lambda tensors: SmokeState(tensors[0], v_re(tensors[1:]))
 
 
-class Smoke(Physics):
+
+class Smoke(VolumetricPhysics):
 
     def __init__(self, domain=Open2D, world=world, dt=1.0,
                  gravity=-9.81, buoyancy_factor=0.1, conserve_density=False, pressure_solver=None):
@@ -44,21 +45,11 @@ class Smoke(Physics):
         world.on_change(lambda *_: self._update_domain())
         self._update_domain()
 
-    @property
-    def grid(self):
-        return self.domain.grid
-
-    @property
-    def dimensions(self):
-        return self.grid.dimensions
+    def shape(self, batch_size=1):
+        return SmokeState(self.grid.shape(batch_size=batch_size), self.grid.staggered_shape(batch_size=batch_size))
 
     def step(self, smokestate):
         return smokestate * self.advect * self.inflow * self.buoyancy * self.friction * self.divergence_free
-
-    def empty(self, batch_size=1):
-        density = self.domain.grid.zeros(1, batch_size)
-        velocity = self.domain.grid.staggered_zeros(batch_size)
-        return SmokeState(density, velocity)
 
     def _update_domain(self):
         mask = 1 - geometry_mask(self.world, self.domain.grid, 'obstacle')

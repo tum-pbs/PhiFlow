@@ -1,8 +1,4 @@
-from phi.tf.model import *
-from phi.flow import *
-from phi import math
-
-
+from phi.tf.flow import *
 
 
 class PressureOptim(TFModel):
@@ -23,7 +19,7 @@ class PressureOptim(TFModel):
         y, x = np.meshgrid(*[np.arange(-0.5, dim + 0.5) for dim in smoke.dimensions])
         target_velocity_y = 2 * np.exp(-0.5 * ((x - 40) ** 2 + (y - 10) ** 2) / 32 ** 2)
         target_velocity_y[:, 0:32] = 0
-        target_velocity = math.expand_dims(np.stack([target_velocity_y, np.zeros_like(target_velocity_y)], axis=-1), 0)
+        target_velocity = expand_dims(np.stack([target_velocity_y, np.zeros_like(target_velocity_y)], axis=-1), 0)
         target_velocity = StaggeredGrid(tf.constant(target_velocity, tf.float32) * self.editable_int("Target_Direction", 1, (-1,1)))
 
         # Optimization

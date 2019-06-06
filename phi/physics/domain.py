@@ -1,9 +1,7 @@
 from phi.math import *
-from phi.geom import *
+from phi.physics.geom import *
 from phi.physics.material import *
-import numpy as np
-from phi.world import *
-
+from phi.physics.world import *
 
 class Domain(object):
 
@@ -170,3 +168,19 @@ def _friction_mask(masks_and_multipliers):
 
 Open3D = Domain(Grid([0] * 3))
 Open2D = Domain(Grid([0] * 2))
+
+
+def inflow_mask(world, grid):
+    inflows = world.state.objects_with_tag('inflow')
+    if len(inflows) == 0:
+        return zeros(grid.shape())
+    location = grid.center_points()
+    return math.add([inflow.geometry.value_at(location) * inflow.rate for inflow in inflows])
+
+
+def geometry_mask(world, grid, tag):
+    geometries = world.state.geometries_with_tag(tag)
+    if len(geometries) == 0:
+        return zeros(grid.shape())
+    location = grid.center_points()
+    return math.max([geometry.value_at(location) for geometry in geometries], axis=0)

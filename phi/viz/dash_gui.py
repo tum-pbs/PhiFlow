@@ -490,11 +490,14 @@ class DashFieldSequenceGui:
                 if self.model.running: return ['App is running.']
                 target_count = self.sequence_count * self.model.sequence_stride
                 profile = True if not bench else (False if not prof else prof > bench)
+                self.benchmarking = True
                 if profile:
                     field_sequence_model.session.tracing = True
-                    timeline_file = field_sequence_model.session.timeline_file
-                self.benchmarking = True
-                step_count, time_elapsed = self.model.benchmark(target_count)
+                    with field_sequence_model.session.profiler() as profiler:
+                        timeline_file = profiler.timeline_file
+                        step_count, time_elapsed = self.model.benchmark(target_count)
+                else:
+                    step_count, time_elapsed = self.model.benchmark(target_count)
                 self.benchmarking = False
                 if profile: field_sequence_model.session.tracing = False
                 output = '### Benchmark Results\n'

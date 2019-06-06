@@ -115,18 +115,3 @@ class Inflow(WorldObject):
 def inflow(geometry, rate=1.0, world=world):
     return world.add(Inflow(geometry, rate))
 
-
-def inflow_mask(world, grid):
-    inflows = world.state.objects_with_tag('inflow')
-    if len(inflows) == 0:
-        return grid.zeros()
-    location = grid.center_points()
-    return math.add([inflow.geometry.value_at(location) * inflow.rate for inflow in inflows])
-
-
-def geometry_mask(world, grid, tag):
-    geometries = world.state.geometries_with_tag(tag)
-    if len(geometries) == 0:
-        return grid.zeros()
-    location = grid.center_points()
-    return math.max([geometry.value_at(location) for geometry in geometries], axis=0)
