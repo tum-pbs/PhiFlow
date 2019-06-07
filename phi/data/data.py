@@ -210,52 +210,6 @@ def None_in(list):
 
 # Core classes
 
-class DataSource(object):
-
-    def __init__(self, flags):
-        self.flags = flags
-
-    def get(self, fieldname, index):
-        raise NotImplementedError()
-
-    def get_any(self, fieldname):
-        raise NotImplementedError()
-
-
-class SceneSource(DataSource):
-
-    def __init__(self, scene, indices, flags):
-        DataSource.__init__(self, flags)
-        self.scene = scene
-        self.indices = indices
-
-    @property
-    def size(self):
-        return len(self.indices)
-
-    def get(self, fieldname, index):
-        real_index = self.indices[index]
-        logging.debug("Reading field %s at %d from scene %s" % (fieldname, real_index, self.scene))
-        data = self.scene.read_array(fieldname, real_index)
-        return data
-
-    def get_any(self, fieldname):
-        return self.get(fieldname, self.indices[0])
-
-
-class GeneratorSource(DataSource):
-
-    def __init__(self, size, fieldname_to_generator_dict, flags):
-        DataSource.__init__(self, flags)
-        self.size = size
-        self.generators = fieldname_to_generator_dict
-
-    def get(self, fieldname, index):
-        return self.generators[fieldname](index)
-
-    def get_any(self, fieldname):
-        return self.generators[fieldname](0)
-
 
 class Dataset(object):
 

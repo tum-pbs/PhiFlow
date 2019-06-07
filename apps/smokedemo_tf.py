@@ -10,7 +10,7 @@ inflow(box[size[-2]//8, size[-1]*3//8:size[-1]*5//8])
 class SmokeDemoTF(TFModel):
 
     def __init__(self):
-        TFModel.__init__(self, 'Simpleplume'+'x'.join([str(d) for d in size]), stride=3)
+        TFModel.__init__(self, 'Smoke Demo'+'x'.join([str(d) for d in size]), stride=3)
         self.state_in = placeholder(smoke.shape())
         self.state_out = smoke.step(self.state_in)
         self.state = zeros(smoke.shape())

@@ -10,7 +10,7 @@ inflow(box[size[-2]//8, size[-1]*3//8:size[-1]*5//8])
 class SmokeDemo(FieldSequenceModel):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, 'Simpleplume'+'x'.join([str(d) for d in size]), stride=3)
+        FieldSequenceModel.__init__(self, 'Smoke Demo '+'x'.join([str(d) for d in size]), stride=3)
         self.state = zeros(smoke.shape())
 
         self.add_field('Density', lambda: self.state.density)

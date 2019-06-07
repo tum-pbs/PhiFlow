@@ -44,7 +44,7 @@ Installing Φ-*Flow* as a package is not required if your Python PATH points to 
 
 ## Verifying the installation
 
-To verify your Φ-*Flow* installation (including TensorFlow), run smoke_tf.py like so:
+To verify your Φ-*Flow* installation (including TensorFlow), run smokedemo_tf.py like so:
 ```
 $ cd apps
 $ python simpleplume_np.py

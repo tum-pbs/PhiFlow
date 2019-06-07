@@ -61,7 +61,7 @@ class SciPyBackend(Backend):
         if boundary.lower() == "zero":
             pass # default
         elif boundary.lower() == "replicate":
-            sample_coords = clamp(sample_coords, inputs.shape[1:-1][::-1])
+            sample_coords = clamp(sample_coords, inputs.shape[1:-1])
         else:
             raise ValueError("Unsupported boundary: %s"%boundary)
 
