@@ -191,7 +191,7 @@ class SciPyBackend(Backend):
 def clamp(coordinates, shape):
     assert coordinates.shape[-1] == len(shape)
     for i in range(len(shape)):
-        coordinates[...,i] = np.maximum(0, np.minimum(shape[i], coordinates[...,i]))
+        coordinates[...,i] = np.maximum(0, np.minimum(shape[i]-1, coordinates[...,i]))
     return coordinates
 
 
