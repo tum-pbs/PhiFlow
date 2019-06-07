@@ -97,7 +97,7 @@ class DomainState(object):
 
     def active(self, extend=0):
         """
-Scalar field encoding active cells as ones and inactive (open/obstacle) as zero.
+Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
 Active cells are those for which physical properties such as pressure or velocity are calculated.
         :param extend: Extend the grid in all directions beyond the grid size specified by the domain
         """
@@ -108,7 +108,7 @@ Active cells are those for which physical properties such as pressure or velocit
 
     def accessible(self, extend=0):
         """
-Scalar field encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
+Scalar channel encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
         :param extend: Extend the grid in all directions beyond the grid size specified by the domain
         """
         if extend is None or extend == 0:
@@ -130,9 +130,9 @@ Scalar field encoding cells that are accessible, i.e. not solid, as ones and obs
 
 
 """
-        :param active_mask: (Optional) Scalar field encoding active cells as ones and inactive (open/obstacle) as zero.
-        :param fluid_mask: (Optional) Scalar field encoding fluid cells as ones and obstacles as zero.
-         Has the same dimensions as the divergence field. If no obstacles are present, None may be passed.
+        :param active_mask: (Optional) Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
+        :param fluid_mask: (Optional) Scalar channel encoding fluid cells as ones and obstacles as zero.
+         Has the same dimensions as the divergence channel. If no obstacles are present, None may be passed.
         :param boundaries: DomainBoundary object defining open and closed boundaries
 """
 

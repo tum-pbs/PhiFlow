@@ -89,7 +89,7 @@ def at_centers(field):
 
 def divergence(vel, dx=1, difference="central"):
     """
-Computes the spatial divergence of a vector field from finite differences.
+Computes the spatial divergence of a vector channel from finite differences.
     :param vel: tensor of shape (batch size, spatial dimensions..., spatial rank) or StaggeredGrid
     :param dx: distance between adjacent grid points (default 1)
     :param difference: type of difference, one of ('forward', 'central') (default 'forward')
@@ -138,14 +138,14 @@ def _central_divergence_nd(tensor):
 
 def gradient(tensor, dx=1, difference="forward"):
     """
-Calculates the gradient of a scalar field from finite differences.
+Calculates the gradient of a scalar channel from finite differences.
 The gradient vectors are in reverse order, lowest dimension first.
-    :param tensor: field with shape (batch_size, spatial_dimensions..., 1)
+    :param tensor: channel with shape (batch_size, spatial_dimensions..., 1)
     :param dx: physical distance between grid points (default 1)
     :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
     :return: tensor of shape (batch_size, spatial_dimensions..., spatial rank)
     """
-    if tensor.shape[-1] != 1: raise ValueError("Gradient requires a scalar field as input")
+    if tensor.shape[-1] != 1: raise ValueError("Gradient requires a scalar channel as input")
     dims = range(spatial_rank(tensor))
     field = tensor[...,0]
 
@@ -199,7 +199,7 @@ def _central_diff_nd(field, dims):
 
 def laplace(tensor, weights=None, padding="symmetric"):
     if tensor.shape[-1] != 1:
-        raise ValueError("Laplace operator requires a scalar field as input")
+        raise ValueError("Laplace operator requires a scalar channel as input")
     rank = spatial_rank(tensor)
 
     if padding.lower() != "valid":
@@ -246,7 +246,7 @@ def _sliced_laplace_nd(tensor):
 
 
 def _weighted_sliced_laplace_nd(tensor, weights):
-    if tensor.shape[-1] != 1: raise ValueError("Laplace operator requires a scalar field as input")
+    if tensor.shape[-1] != 1: raise ValueError("Laplace operator requires a scalar channel as input")
     dims = range(spatial_rank(tensor))
     components = []
     for dimension in dims:
@@ -315,16 +315,16 @@ def spatial_sum(tensor):
 
 class StaggeredGrid(container.TensorContainer):
     """
-        MACGrids represent a staggered vector field in which each vector component is sampled at the
+        MACGrids represent a staggered vector channel in which each vector component is sampled at the
         face centers of centered hypercubes.
         Going in the direction of a vector component, the first entry samples the lower face of the first cube and the
         last entry the upper face of the last cube.
-        Therefore staggered grids contain one more entry in each spatial dimension than a centered field.
+        Therefore staggered grids contain one more entry in each spatial dimension than a centered channel.
         This results in oversampling in the other directions. There, highest element lies outside the grid.
 
         Attributes:
-            shape (tuple Tensorshape): the shape of the staggered field
-            staggered (tensor): array or tensor holding the staggered field
+            shape (tuple Tensorshape): the shape of the staggered channel
+            staggered (tensor): array or tensor holding the staggered channel
 
         """
     def __init__(self, staggered):
@@ -410,13 +410,13 @@ class StaggeredGrid(container.TensorContainer):
 
     def advect(self, field, interpolation="LINEAR", dt=1):
         """
-    Performs a semi-Lagrangian advection step, propagating the field through the velocity field.
+    Performs a semi-Lagrangian advection step, propagating the channel through the velocity channel.
     A backwards Euler step is performed and the smpling is performed according to the interpolation specified.
-        :param field: scalar or vector field to propagate
-        :param velocity: vector field specifying the velocity at each point in space. Shape (batch_size, grid_size,
+        :param field: scalar or vector channel to propagate
+        :param velocity: vector channel specifying the velocity at each point in space. Shape (batch_size, grid_size,
         :param dt:
         :param interpolation: LINEAR, BSPLINE, IDW (default is LINEAR)
-        :return: the advected field
+        :return: the advected channel
         """
         if isinstance(field, StaggeredGrid):
             return self._advect_mac(field, interpolation=interpolation, dt=dt)
@@ -451,7 +451,7 @@ class StaggeredGrid(container.TensorContainer):
         elif rank == 2:
             return self._staggered_curl_2d()
         else:
-            raise ValueError("Curl requires a two or three-dimensional vector field")
+            raise ValueError("Curl requires a two or three-dimensional vector channel")
 
     def pad(self, lower, upper=None, mode="symmetric"):
         upper = upper if upper is not None else lower
@@ -460,12 +460,12 @@ class StaggeredGrid(container.TensorContainer):
 
     def _staggered_curl_3d(self):  # TODO wrong component order
         """
-    Calculates the curl operator on a staggered three-dimensional field.
-    The resulting vector field is a staggered grid.
+    Calculates the curl operator on a staggered three-dimensional channel.
+    The resulting vector channel is a staggered grid.
     If the velocities of the vector potential were sampled at the lower faces of a cube, the resulting velocities
     are sampled at the centers of the upper edges.
         :param vector_potential: three-dimensional vector potential
-        :return: three-dimensional staggered vector field
+        :return: three-dimensional staggered vector channel
         """
         kernel = np.zeros((2, 2, 2, 3, 3), np.float32)
         derivative = np.array([-1, 1])
@@ -552,7 +552,7 @@ class StaggeredGrid(container.TensorContainer):
 
     @staticmethod
     def gradient(scalar_field, padding="symmetric"):
-        if scalar_field.shape[-1] != 1: raise ValueError("Gradient requires a scalar field as input")
+        if scalar_field.shape[-1] != 1: raise ValueError("Gradient requires a scalar channel as input")
         rank = spatial_rank(scalar_field)
         dims = range(rank)
         field = math.pad(scalar_field, [[0,0]]+[[1,1]]*rank+[[0,0]], mode=padding)
@@ -566,7 +566,7 @@ class StaggeredGrid(container.TensorContainer):
 
     @staticmethod
     def from_scalar(scalar_field, axis_forces, padding_mode="constant"):
-        assert scalar_field.shape[-1] == 1, "field must be scalar but has %d components" % scalar_field.shape[-1]
+        assert scalar_field.shape[-1] == 1, "channel must be scalar but has %d components" % scalar_field.shape[-1]
         rank = spatial_rank(scalar_field)
         dims = range(rank)
         df_dq = []

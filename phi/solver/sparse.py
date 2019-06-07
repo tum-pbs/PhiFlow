@@ -35,12 +35,12 @@ It does not support initial guesses for the pressure and does not keep track of 
 
 def sparse_pressure_matrix(dimensions, extended_active_mask, extended_fluid_mask):
     """
-Builds a sparse matrix such that when applied to a flattened pressure field, it calculates the laplace
-of that field, taking into account obstacles and empty cells.
-    :param dimensions: valid simulation dimensions. Pressure field should be of shape (batch size, dimensions..., 1)
+Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
+of that channel, taking into account obstacles and empty cells.
+    :param dimensions: valid simulation dimensions. Pressure channel should be of shape (batch size, dimensions..., 1)
     :param extended_active_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
     :param extended_fluid_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
-    :return: SciPy sparse matrix that acts as a laplace on a flattened pressure field given obstacles and empty cells
+    :return: SciPy sparse matrix that acts as a laplace on a flattened pressure channel given obstacles and empty cells
     """
     N = int(np.prod(dimensions))
     d = len(dimensions)
@@ -96,7 +96,7 @@ class SparseCG(PressureSolver):
                  autodiff=False):
         """
 Conjugate gradient solver using sparse matrix multiplications.
-        :param accuracy: the maximally allowed error on the divergence field for each cell
+        :param accuracy: the maximally allowed error on the divergence channel for each cell
         :param gradient_accuracy: accuracy applied during backpropagation, number of 'same' to use forward accuracy
         :param max_iterations: integer specifying maximum conjugent gradient loop iterations or None for no limit
         :param max_gradient_iterations: maximum loop iterations during backpropagation,
@@ -201,12 +201,12 @@ def sparse_indices(dimensions):
 
 def sparse_values(dimensions, extended_active_mask, extended_fluid_mask, sorting=None):
     """
-Builds a sparse matrix such that when applied to a flattened pressure field, it calculates the laplace
-of that field, taking into account obstacles and empty cells.
-    :param dimensions: valid simulation dimensions. Pressure field should be of shape (batch size, dimensions..., 1)
+Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
+of that channel, taking into account obstacles and empty cells.
+    :param dimensions: valid simulation dimensions. Pressure channel should be of shape (batch size, dimensions..., 1)
     :param extended_active_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
     :param extended_fluid_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
-    :return: SciPy sparse matrix that acts as a laplace on a flattened pressure field given obstacles and empty cells
+    :return: SciPy sparse matrix that acts as a laplace on a flattened pressure channel given obstacles and empty cells
     """
     N = int(np.prod(dimensions))
     d = len(dimensions)

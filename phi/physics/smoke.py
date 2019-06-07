@@ -99,7 +99,7 @@ class Smoke(VolumetricPhysics):
     Calculates the pressure from the given velocity or velocity divergence using the specified solver.
             :param input: tensor containing the centered velocity divergence values or velocity as StaggeredGrid
             :param solver: PressureSolver to use, options DEFAULT, SCIPY or MANTA
-            :return: scalar pressure field as tensor
+            :return: scalar pressure channel as tensor
             """
             if isinstance(input, StaggeredGrid):
                 input = input.divergence()

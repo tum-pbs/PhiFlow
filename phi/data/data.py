@@ -10,83 +10,7 @@ DATAFLAG_TEST = "test"
 
 # Channels
 
-class DataChannel(object):
 
-    def __init__(self):
-        pass
-
-    def shape(self, datasource):
-        raise NotImplementedError()
-
-    def size(self, datasource):
-        raise NotImplementedError()
-
-    def get(self, datasource, indices):
-        raise NotImplementedError()
-
-
-class SourceChannel(DataChannel):
-
-    def __init__(self, name):
-        DataChannel.__init__(self)
-        self.name = name
-
-    def shape(self, datasource):
-        shape = self.any_array(datasource).shape
-        return tuple(shape)
-
-    def size(self, datasource):
-        return datasource.size
-
-    def any_array(self, datasource):
-        return datasource.get_any(self.name)
-
-    def get(self, datasource, indices):
-        for index in indices:
-            yield datasource.get(self.name, index)
-
-    def __str__(self):
-        return self.name
-
-
-class DerivedChannel(DataChannel):
-
-    def __init__(self, input_fields):
-        DataChannel.__init__(self)
-        self.input_fields = [SourceChannel(f) if isinstance(f, six.string_types) else f for f in input_fields]
-
-    def __str__(self):
-        return "%s(%s)" % (type(self), self.input_fields)
-
-
-class BatchSelect(DerivedChannel):
-
-    def __init__(self, selection_function, field):
-        DerivedChannel.__init__(self, [field])
-        self.field = self.input_fields[0]
-        if callable(selection_function):
-            self.selection_function = selection_function
-        else:
-            if isinstance(selection_function, int):
-                selection_function = [selection_function]
-            self.selection_function = lambda len: selection_function
-
-    def shape(self, datasource):
-        input_shape = self.field.shape(datasource)
-        return [len(self.selection_function(input_shape[0]))] + list(input_shape)[1:]
-
-    def get(self, datasource, indices):
-        selected_batches = self.selection_function(self.field.size(datasource))
-        if isinstance(selected_batches, int):
-            selected_batches = [selected_batches]
-        try:
-            prop_indices = [selected_batches[i] for i in indices]
-        except:
-            raise ValueError("BatchSelect: selection function must return a list of integers, but got %s for indices %s" % (selected_batches, indices))
-        return self.field.get(datasource, prop_indices)
-
-    def size(self, datasource):
-        return len(self.selection_function(self.field.size(datasource)))
 
 
 class Interleave(DerivedChannel):
@@ -149,7 +73,7 @@ class DirectIndexLookupTable(IndexLookupTable):
             self.accum = []
 
     def lookup(self, field, indices):
-        logging.debug("Looking up field %s at %s" % (field, indices))
+        logging.debug("Looking up channel %s at %s" % (field, indices))
         idx_by_source = self.decode_indices(indices)
         generators = []
         for datasource, indices in idx_by_source.items():
@@ -211,30 +135,6 @@ def None_in(list):
 # Core classes
 
 
-class Dataset(object):
-
-    def __init__(self, name, target_size, flags):
-        self.name = name
-        self.target_size = target_size
-        self.sources = []
-        self.flags = flags
-
-    @property
-    def size(self):
-        return sum([source.size for source in self.sources])
-
-    def __repr__(self):
-        return self.name
-
-    def need_factor(self, total_size, add_count):
-        if isinstance(self.target_size, float):
-            if not self.sources:
-                return self.target_size
-            else:
-                return self.target_size - (self.size+add_count) / float(total_size)
-        else:
-            raise NotImplementedError()
-
 
 class Database(object):
 
@@ -279,7 +179,7 @@ class Database(object):
                 if allow_scene_split:
                     self.put_scene(scene, per_scene_indices, dataset=None, logf=logf)
                 else:
-                    indices = per_scene_indices if per_scene_indices else scene.indices
+                    indices = per_scene_indices if per_scene_indices else scene.frames
                     datasets = list(self.sets.values())
                     needs = [d.need_factor(self.total_size(), len(indices)) for d in datasets]
                     set_max_need = datasets[ needs.index(max(needs)) ]
@@ -288,7 +188,7 @@ class Database(object):
 
     def put_scene(self, scene, indices=None, dataset=None, logf=None):
         if not indices:
-            indices = scene.indices
+            indices = scene.frames
             logf and logf("Adding %d frames from scene %s" % (len(indices), scene))
         self.scene_count += 1
 

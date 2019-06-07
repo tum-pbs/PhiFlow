@@ -211,7 +211,7 @@ class TFModel(FieldSequenceModel):
     def add_field(self, name, field):
         """
 
-        :param name: field name
+        :param name: channel name
         :param field: Tensor, string (database fieldname) or function
         """
         if istensor(field):

@@ -13,7 +13,7 @@ class GeometricCG(PressureSolver):
 Conjugate gradient solver that geometrically calculates laplace pressure in each iteration.
 Unlike most other solvers, this algorithm is TPU compatible but usually performs worse than SparseCG.
 At the moment, boundary conditions are only partly supported.
-        :param accuracy: the maximally allowed error on the divergence field for each cell
+        :param accuracy: the maximally allowed error on the divergence channel for each cell
         :param gradient_accuracy: accuracy applied during backpropagation, number of 'same' to use forward accuracy
         :param max_iterations: integer specifying maximum conjugent gradient loop iterations or None for no limit
         :param max_gradient_iterations: maximum loop iterations during backpropagation,

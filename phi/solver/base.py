@@ -14,9 +14,9 @@ class PressureSolver(object):
         """
 Solves the pressure equation Δp = ∇·v for all active fluid cells where active cells are given by the active_mask.
 The resulting pressure is expected to fulfill (Δp-∇·v) ≤ accuracy for every active cell.
-        :param divergence: the scalar divergence of the velocity field, ∇·v
+        :param divergence: the scalar divergence of the velocity channel, ∇·v
         :param domain: DomainState object specifying boundary conditions and active/fluid masks
-        :param pressure_guess: (Optional) Pressure field which can be used as an initial state for the solver
+        :param pressure_guess: (Optional) Pressure channel which can be used as an initial state for the solver
         :return: pressure tensor (same shape as divergence tensor), number of iterations (integer, 1D integer tensor or None if unknown)
         """
         raise NotImplementedError(self.__class__)

@@ -28,7 +28,7 @@ You should see the _Hello World_ text at the top, followed by two empty diagrams
 
 A key part of any [FieldSequenceModel](../phi/model.py) is that it contains two or three-dimensional fields which can change over time. How these fields are generated and how they evolve is up to the application. They could change as part of an evolving fluid simulation, they could be the predictions of a neural network that is being optimized or they could simply be a sequence read from disc.
 
-In any case, these fields must be exposed to the GUI. This is done by calling the inherited `add_field` method in the constructor. Its first argument is the name (can contain unicode characters) and the second is a field generator, typically a lambda expression.
+In any case, these fields must be exposed to the GUI. This is done by calling the inherited `add_field` method in the constructor. Its first argument is the name (can contain unicode characters) and the second is a channel generator, typically a lambda expression.
 
 A simple example, generating random fields could look like this
 
@@ -48,7 +48,7 @@ The `step` method is the core part of the model. It defines how the next step is
 
 Your subclass of [FieldSequenceModel](../phi/model.py) automatically inherits the variable `time` which holds the current frame as an integer. It is automatically incremented before step is called and is displayed in the GUI, below the diagrams.
 
-After `step` finishes, the GUI is updated to reflect the change in the data. Consequently, the field generators (lambda expressions in the above example) can be called after each step. In practice, however, steps can often be performed at a higher framerate than the GUI update rate.
+After `step` finishes, the GUI is updated to reflect the change in the data. Consequently, the channel generators (lambda expressions in the above example) can be called after each step. In practice, however, steps can often be performed at a higher framerate than the GUI update rate.
 
 
 ### Custom Controls
@@ -101,13 +101,13 @@ If the purpose of your application is to train a TensorFlow model, you can exten
 - Profiling tools can be used in the browser
 - A database is set up (see [the guide on data handling](data.md))
 - The `step` method is implemented by default
-- Tensor nodes and database field names can be passed to `add_field`
+- Tensor nodes and database channel names can be passed to `add_field`
 - Properties and the application source file are written to the output directory
 - A learning rate control is available by default and more controls can be created easily using `editable_float`, `editable_int`
 
 ### Simple Example
 
-The following example trains a neural network, referenced as `network` to predict a force field from two velocity fields.
+The following example trains a neural network, referenced as `network` to predict a force channel from two velocity fields.
 
 ```python
 from phi.tf.model import *
@@ -151,7 +151,7 @@ The inherited method `minimizer` sets up the optimizer. This optimizer will be u
 The following block sets up the database by registering the required fields and adding all scenes from one category (see [the data documentation](data.md) for more).
 The call to `finalize_setup` is mandatory in the constructor and sets up the TensorFlow summary as well as database iterators.
 
-Finally, the viewable fields are exposed to the GUI. The first line exposes the field `Force` which was registered with the database while the second line exposes the graph output `pred_force` which will be recalculated each time the GUI is updated.
+Finally, the viewable fields are exposed to the GUI. The first line exposes the channel `Force` which was registered with the database while the second line exposes the graph output `pred_force` which will be recalculated each time the GUI is updated.
 
 Lastly, the app is instantiated and the GUI created in the same way as with a [FieldSequenceModel](../phi/model.py).
 

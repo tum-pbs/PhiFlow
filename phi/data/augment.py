@@ -59,13 +59,13 @@ class AxisFlip(AugmentChannel):
 
 # class SpatialShift(AugmentChannel):
 #
-#     def __init__(self, shift_dimensions, shift, field, padding="symmetric", affect_flags=(DATAFLAG_TRAIN,)):
-#         AugmentChannel.__init__(self, shift_dimensions, field, affect_flags)
+#     def __init__(self, shift_dimensions, shift, channel, padding="symmetric", affect_flags=(DATAFLAG_TRAIN,)):
+#         AugmentChannel.__init__(self, shift_dimensions, channel, affect_flags)
 #         self.shift = shift
 #         self.padding = padding
 #
 #     def shape(self, datasource):
-#         input_shape = self.field.shape(datasource)
+#         input_shape = self.channel.shape(datasource)
 #         if self.padding is not None:
 #             return input_shape
 #         else:
@@ -76,4 +76,4 @@ class AxisFlip(AugmentChannel):
 #     def augment_single(self, array, perm):
 #         slices = [slice(None, None, -1) if d >= 1 and perm & 2 ** (d - 1) != 0 else slice(None) for d in range(len(array.shape))]
 #
-#     def velocity_adjustment(self, field):
+#     def velocity_adjustment(self, channel):

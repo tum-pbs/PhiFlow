@@ -132,14 +132,14 @@ class DashFieldSequenceGui:
                                        html.Div([
                                            html.Div([
                                                dcc.Dropdown(options=field_options, value=self.selected_fields[0],
-                                                            id='field-select'),
+                                                            id='channel-select'),
                                                dcc.Graph(
                                                    id='graph',
                                                    figure=self.empty_figure()
                                                )], style={'width': '50%', 'display': 'inline-block'}),
                                            html.Div([
                                                dcc.Dropdown(options=field_options, value=self.selected_fields[1],
-                                                            id='field-select2'),
+                                                            id='channel-select2'),
                                                dcc.Graph(
                                                    id='graph2',
                                                    figure=self.empty_figure()
@@ -260,7 +260,7 @@ class DashFieldSequenceGui:
             return self.model.status
 
         @self.app.callback(Output('graph', 'figure'),
-                           inputs=[Input('field-select', 'value'),
+                           inputs=[Input('channel-select', 'value'),
                                    Input('batch-slider', 'value'),
                                    Input('depth-slider', 'value'),
                                    Input('component-slider', 'value'),
@@ -275,7 +275,7 @@ class DashFieldSequenceGui:
             return self.create_figure(0, view, batch, depth, component)
 
         @self.app.callback(Output('graph2', 'figure'),
-                           inputs=[Input('field-select2', 'value'),
+                           inputs=[Input('channel-select2', 'value'),
                                    Input('batch-slider', 'value'),
                                    Input('depth-slider', 'value'),
                                    Input('component-slider', 'value'),

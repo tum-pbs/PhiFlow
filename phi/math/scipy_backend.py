@@ -197,5 +197,5 @@ def clamp(coordinates, shape):
 
 def tensor_spatial_rank(field):
     dims = len(field.shape) - 2
-    assert dims > 0, "field has no spatial dimensions"
+    assert dims > 0, "channel has no spatial dimensions"
     return dims

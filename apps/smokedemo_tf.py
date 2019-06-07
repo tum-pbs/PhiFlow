@@ -23,6 +23,7 @@ class SmokeDemoTF(TFModel):
 
     def step(self):
         self.state = self.session.run(self.state_out, {self.state_in: self.state})
+        self.state.velocity.staggered
 
 
 app = SmokeDemoTF().show(display=('Density', 'Velocity'), framerate=2, production=__name__ != '__main__')

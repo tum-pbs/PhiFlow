@@ -10,12 +10,12 @@ class UnknownShapeError(RuntimeError):
 
 class DataSource(object):
 
-    def get(self, fieldname, indices):
+    def get(self, fieldname, frames):
         """
 Returns a NumPy array (or list of arrays) holding the data for a given fieldname.
 The batch size of the array (or list length) is equal to len(indices).
-        :param fieldname: field identifier string
-        :param indices: list or tuple of indices
+        :param fieldname: channel identifier string
+        :param frames: list or tuple of indices
         """
         raise NotImplementedError(self)
 
@@ -35,7 +35,7 @@ If the size is unknown at this point and lookup=False, returns None.
         """
         raise NotImplementedError(self)
     
-    def indices(self):
+    def frames(self):
         """
 Returns an iteratable object to read all indices of this DataSource.
 The iterator need not provide a length.
@@ -48,7 +48,7 @@ Returns a 1D tensor holding the tensor shape of a single data point from the fie
 The first entry, specifying the batch dimension, must be equal to 1.
 
 If the shape cannot be determined, this method returns None.
-        :param fieldname: field identifier string
+        :param fieldname: channel identifier string
         """
         raise NotImplementedError(self)
 
@@ -57,37 +57,36 @@ If the shape cannot be determined, this method returns None.
 
 class SceneSource(DataSource):
 
-    def __init__(self, scene, indices=None, shape=None):
+    def __init__(self, scene, frames=None, shape_map=None):
         self.scene = scene
-        self._indices = indices
-        self._shape = shape
+        self._frames = frames
+        self._shape_map = shape_map
 
-    def get(self, fieldname, indices):
-        return self.scene.read_sim_frames([fieldname], indices)
+    def get(self, fieldname, frames):
+        for frame in frames:
+            yield self.scene.read_array(fieldname, frame)
 
     def list_fieldnames(self):
         return self.scene.fieldnames
 
     def size(self, lookup=False):
-        if self._indices is None and lookup:
-            self._indices = self.scene.indices
-        return len(self._indices) if self._indices is not None else None
+        if self._frames is None and lookup:
+            self._frames = self.scene.frames
+        return len(self._frames) if self._frames is not None else None
 
-    def indices(self):
-        return self._indices
+    def frames(self):
+        if self._frames is None:
+            self._frames = self.scene.frames
+        return self._frames
 
     def shape(self, fieldname):
         if self._shape is not None:
             return self._shape
         if self.size(lookup=True) is None:
             return None
-        first_index = next(self.indices())
-        first_array = self.get(fieldname, [first_index])
+        first_frame = next(self.frames())
+        first_array = self.get(fieldname, [first_frame])
         return first_array.shape
 
     def __repr__(self):
-        return "SceneSource[%s, indices=%s, shape=%s]" % (self.scene, self._indices, self._shape)
-
-    @staticmethod
-    def list(directory, assume_same_indices=True, assume_same_shapes=True):
-        raise NotImplementedError()
+        return "SceneSource[%s, indices=%s, shape=%s]" % (self.scene, self._frames, self._shape)

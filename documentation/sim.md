@@ -47,12 +47,12 @@ In detail, this performs the following steps:
 - Add the inflow density to the advected density
 - Advect the velocity
 - Add buoyancy force to the velocity, depending on the density
-- Make the velocity field divergence-free by solving for pressure and subtracting the pressure divergence
+- Make the velocity channel divergence-free by solving for pressure and subtracting the pressure divergence
 
 
 ### Staggered grids
 
-Staggered grids are a key component of the marker and cell (MAC) method. They sample the velocity components at the centers of the corresponding lower faces of grid cells. This makes them fundamentally different from regular arrays or tensors which are sampled at the cell centers. Staggered grids make it easy to compute the divergence of a velocity field.
+Staggered grids are a key component of the marker and cell (MAC) method. They sample the velocity components at the centers of the corresponding lower faces of grid cells. This makes them fundamentally different from regular arrays or tensors which are sampled at the cell centers. Staggered grids make it easy to compute the divergence of a velocity channel.
 
 ![](./Staggered.png)
 
@@ -95,7 +95,7 @@ velocity.at_faces(axis)  # Interpolated to face centers of given axis index
 
 ### Pressure Solvers
 
-Given a simulation and velocity field or divergence thereof, the corresponding pressure field can be calculated using
+Given a simulation and velocity channel or divergence thereof, the corresponding pressure channel can be calculated using
 ```python
 pressure = sim.solve_pressure(velocity)
 ```

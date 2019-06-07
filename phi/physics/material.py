@@ -12,7 +12,7 @@ The total velocity at a surface point is global_velocity + local_to_global(local
 If local_velocity is None, the latter term will be ignored.
         :param solid: Fluid can only enter non-solid cells or pass through non-solid boundaries
         :param friction: (only for solid materials) velocity decay rate in units of 1/time. 0: fluid can move parallell to the surface (no-stick), 1: fluid cannot move parallel (no-slip)
-        :param extrapolate_fluid: Boundary condition when extrapolating the fluid field into the object
+        :param extrapolate_fluid: Boundary condition when extrapolating the fluid channel into the object
         :param global_velocity: velocity offset in unmoving reference frame or 0 if unmoving.
         :param local_velocity: velocity offset in object reference frame. Set to 0 to add object's velocity, None to ignore completely.
         """
