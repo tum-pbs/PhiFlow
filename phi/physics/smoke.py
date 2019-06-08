@@ -1,10 +1,13 @@
 from .physics import *
+from .world import *
+from .domain import *
 from phi.math import *
 
 
 class SmokeState(State):
 
     def __init__(self, density, velocity):
+        State.__init__(self, tags=('smoke',))
         self._density = density
         self._velocity = velocity
 
@@ -26,7 +29,7 @@ class Smoke(VolumetricPhysics):
 
     def __init__(self, domain=Open2D, world=world, dt=1.0,
                  gravity=-9.81, buoyancy_factor=0.1, conserve_density=False, pressure_solver=None):
-        Physics.__init__(self, world, dt)
+        Physics.__init__(self, world=world, state_tag='smoke', dt=dt)
         self.domain = domain
         if isinstance(gravity, (tuple, list)):
             assert len(gravity == domain.rank)
@@ -44,6 +47,7 @@ class Smoke(VolumetricPhysics):
         # Cache
         world.on_change(lambda *_: self._update_domain())
         self._update_domain()
+        world.add(self)
 
     def shape(self, batch_size=1):
         return SmokeState(self.grid.shape(batch_size=batch_size), self.grid.staggered_shape(batch_size=batch_size))
@@ -52,12 +56,13 @@ class Smoke(VolumetricPhysics):
         return smokestate * self.advect * self.inflow * self.buoyancy * self.friction * self.divergence_free
 
     def _update_domain(self):
+        print("Smoke: Updating domain")
         mask = 1 - geometry_mask(self.world, self.domain.grid, 'obstacle')
         self.domainstate = DomainState(self.domain, self.world.state, active=mask, accessible=mask)
 
     def serialize_to_dict(self):
         return {
-            'type': 'smoke',
+            'type': self.state_tag,
             'class': self.__class__.__name__,
             'module': self.__class__.__module__,
             'rank': self.domain.rank,

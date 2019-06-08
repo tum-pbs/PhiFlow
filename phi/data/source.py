@@ -60,7 +60,7 @@ class SceneSource(DataSource):
     def __init__(self, scene, frames=None, shape_map=None):
         self.scene = scene
         self._frames = frames
-        self._shape_map = shape_map
+        self._shape_map = shape_map if shape_map is not None else dict()
 
     def get(self, fieldname, frames):
         for frame in frames:
@@ -71,22 +71,22 @@ class SceneSource(DataSource):
 
     def size(self, lookup=False):
         if self._frames is None and lookup:
-            self._frames = self.scene.frames
+            self._frames = self.scene.indices
         return len(self._frames) if self._frames is not None else None
 
     def frames(self):
         if self._frames is None:
-            self._frames = self.scene.frames
+            self._frames = self.scene.indices
         return self._frames
 
     def shape(self, fieldname):
-        if self._shape is not None:
-            return self._shape
-        if self.size(lookup=True) is None:
-            return None
+        if fieldname in self._shape_map:
+            return self._shape_map[fieldname]
         first_frame = next(self.frames())
         first_array = self.get(fieldname, [first_frame])
-        return first_array.shape
+        shape = first_array.shape
+        self._shape_map[fieldname] = shape
+        return shape
 
     def __repr__(self):
-        return "SceneSource[%s, indices=%s, shape=%s]" % (self.scene, self._frames, self._shape)
+        return "SceneSource[%s, frames=%s]" % (self.scene, self._frames)

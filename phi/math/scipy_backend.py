@@ -199,3 +199,10 @@ def tensor_spatial_rank(field):
     dims = len(field.shape) - 2
     assert dims > 0, "channel has no spatial dimensions"
     return dims
+
+
+def as_tensor(x):
+    if isinstance(x, (list, tuple)):
+        return np.array(x)
+    else:
+        return x

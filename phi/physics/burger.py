@@ -1,5 +1,6 @@
 from .physics import *
 from phi.math import *
+from .domain import *
 
 
 class Burger(VolumetricPhysics):
@@ -7,6 +8,7 @@ class Burger(VolumetricPhysics):
     def __init__(self, domain, viscosity=0.1, world=world, dt=1.0):
         VolumetricPhysics.__init__(self, domain, world, dt)
         self.viscosity = viscosity
+        world.add(self)
 
     def step(self, velocity):
         return self.advect(self.diffuse(velocity))

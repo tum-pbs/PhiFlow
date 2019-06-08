@@ -9,7 +9,7 @@ from phi.physics.world import world
 
 def synchronized_method(method):
     outer_lock = threading.Lock()
-    lock_name = "__" + method.__name__ + "_lock" + "__"
+    lock_name = '__' + method.__name__ + '_lock' + '__'
 
     def sync_method(self, *args, **kws):
         with outer_lock:
@@ -40,12 +40,12 @@ class TimeDependentField(object):
 class FieldSequenceModel(object):
 
     def __init__(self,
-                 name="Φ-*flow* Application",
-                 subtitle="Interactive demo based on PhiFlow",
+                 name='Φ-*flow* Application',
+                 subtitle='Interactive demo based on PhiFlow',
                  fields=None,
                  stride=1,
                  record_images=False, record_data=False,
-                 base_dir=os.path.expanduser(os.path.join("~", "model")),
+                 base_dir=os.path.expanduser(os.path.join('~', 'model')),
                  recorded_fields=None,
                  summary=None,
                  custom_properties=None,
@@ -76,19 +76,19 @@ class FieldSequenceModel(object):
         else:
             self.scene = target_scene
             self.uses_existing_scene = True
-        if not isfile(self.scene.subpath("info.log")):
-            logfile = self.scene.subpath("info.log")
+        if not isfile(self.scene.subpath('info.log')):
+            logfile = self.scene.subpath('info.log')
         else:
             index = 2
             while True:
-                logfile = self.scene.subpath("info_%d.log"%index)
+                logfile = self.scene.subpath('info_%d.log'%index)
                 if not isfile(logfile): break
                 else: index += 1
         # Setup logging
-        logFormatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
+        logFormatter = logging.Formatter('%(message)s (%(levelname)s), %(asctime)sn\n')
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
-        customLogger = logging.Logger("app", logging.DEBUG)
+        customLogger = logging.Logger('app', logging.DEBUG)
         fileHandler = logging.FileHandler(logfile)
         fileHandler.setFormatter(logFormatter)
         customLogger.addHandler(fileHandler)
@@ -97,7 +97,7 @@ class FieldSequenceModel(object):
         consoleHandler.setLevel(logging.INFO)
         customLogger.addHandler(consoleHandler)
         self.logger = customLogger
-        print("Scene directory is %s" % self.scene.path)
+        print('Scene directory is %s' % self.scene.path)
         # Recording
         self.record_images = record_images
         self.record_data = record_data
@@ -107,7 +107,7 @@ class FieldSequenceModel(object):
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
         self.world = world
-        self.info("Setting up model...")
+        self.info('Setting up model...')
 
     def new_scene(self):
         self.scene = phi.data.fluidformat.new_scene(self.base_dir, self.scene_summary(), mkdir=True)
@@ -118,10 +118,10 @@ class FieldSequenceModel(object):
 
     @property
     def image_dir(self):
-        return self.scene.subpath("images")
+        return self.scene.subpath('images')
 
     def get_image_dir(self):
-        return self.scene.subpath("images", create=True)
+        return self.scene.subpath('images', create=True)
 
     def progress(self):
         self.time += 1
@@ -132,7 +132,7 @@ class FieldSequenceModel(object):
         self._invalidation_counter += 1
 
     def step(self):
-        self.info("Implement step(self) to have something happen")
+        self.info('Implement step(self) to have something happen')
 
     @property
     def fieldnames(self):
@@ -140,11 +140,11 @@ class FieldSequenceModel(object):
 
     def get_field(self, fieldname):
         if not fieldname in self.fields:
-            raise KeyError("Field %s not declared. Available fields are %s" % (fieldname, self.fields.keys()))
+            raise KeyError('Field %s not declared. Available fields are %s' % (fieldname, self.fields.keys()))
         return self.fields[fieldname].get(self._invalidation_counter)
 
     def add_field(self, name, generator):
-        assert not self.prepared, "Cannot add fields to a prepared model"
+        assert not self.prepared, 'Cannot add fields to a prepared model'
         self.fields[name] = TimeDependentField(name, generator)
 
     @property
@@ -160,17 +160,17 @@ class FieldSequenceModel(object):
         self.invalidate()
         message_after = self.message
         if message_before == message_after:
-            if self.message is None or self.message == "":
+            if self.message is None or self.message == '':
                 self.message = display_name(action.name)
             else:
-                self.message += " | " + display_name(action.name)
+                self.message += ' | ' + display_name(action.name)
 
     @property
     def traits(self):
         return self._traits
 
     def add_trait(self, trait):
-        assert not self.prepared, "Cannot add traits to a prepared model"
+        assert not self.prepared, 'Cannot add traits to a prepared model'
         self._traits.append(trait)
 
     @property
@@ -180,7 +180,7 @@ class FieldSequenceModel(object):
     def prepare(self):
         if self.prepared:
             return
-        logging.info("Gathering model data...")
+        logging.info('Gathering model data...')
         self.prepared = True
         # Controls
         for name in dir(self):
@@ -189,7 +189,7 @@ class FieldSequenceModel(object):
             if isinstance(val, EditableValue):
                 editable_value = val
                 setattr(self, name, val.initial_value) # Replace EditableValue with initial value
-            elif name.startswith("value_"):
+            elif name.startswith('value_'):
                 value_name = display_name(name[6:])
                 dtype = type(val)
                 if dtype == bool:
@@ -204,7 +204,7 @@ class FieldSequenceModel(object):
                 self._controls.append(Control(self, name, editable_value))
         # Actions
         for method_name in dir(self):
-            if method_name.startswith("action_") and callable(getattr(self, method_name)):
+            if method_name.startswith('action_') and callable(getattr(self, method_name)):
                 self._actions.append(Action(display_name(method_name[7:]), getattr(self, method_name), method_name))
         # Scene
         self._update_scene_properties()
@@ -227,25 +227,25 @@ class FieldSequenceModel(object):
         app_name = inspect.getfile(self.__class__)
         app_path = inspect.getabsfile(self.__class__)
         properties = {
-            "instigator": "FieldSequenceModel",
-            "traits": self.traits,
-            "app": str(app_name),
-            "app_path": str(app_path),
-            "name": self.name,
-            "description": self.subtitle,
-            "all_fields": self.fieldnames,
-            "actions": [action.name for action in self.actions],
-            "controls": [{control.name: control.value} for control in self.controls],
-            "summary": self.scene_summary(),
-            "time_of_writing": self.time,
-            "smoke": [sim.serialize_to_dict() for sim in self.world.simulations]
+            'instigator': 'FieldSequenceModel',
+            'traits': self.traits,
+            'app': str(app_name),
+            'app_path': str(app_path),
+            'name': self.name,
+            'description': self.subtitle,
+            'all_fields': self.fieldnames,
+            'actions': [action.name for action in self.actions],
+            'controls': [{control.name: control.value} for control in self.controls],
+            'summary': self.scene_summary(),
+            'time_of_writing': self.time,
+            'physics': self.world.physics.serialize_to_dict()
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties
 
     def settings_str(self):
-        return "".join([
-            " " + str(control) for control in self.controls
+        return ''.join([
+            ' ' + str(control) for control in self.controls
         ])
 
     def custom_properties(self):
@@ -254,7 +254,7 @@ class FieldSequenceModel(object):
     def info(self, message):
         if isinstance(message, int):
             self.time = message
-            logging.warning("info(int) is deprecated.")
+            logging.warning('info(int) is deprecated.')
         message = str(message)
         self.message = message
         self.logger.info(message)
@@ -275,13 +275,13 @@ class FieldSequenceModel(object):
 
     @property
     def status(self):
-        pausing = "/Pausing" if self._pause and self.current_action else ""
-        action = self.current_action if self.current_action else "Idle"
-        message = (" - %s"%self.message) if self.message else ""
-        return "{}{} ({}){}".format(action, pausing, self.time, message)
+        pausing = '/Pausing' if self._pause and self.current_action else ''
+        action = self.current_action if self.current_action else 'Idle'
+        message = (' - %s'%self.message) if self.message else ''
+        return '{}{} ({}){}'.format(action, pausing, self.time, message)
 
     def run_step(self, framerate=None, allow_recording=True):
-        self.current_action = "Running"
+        self.current_action = 'Running'
         starttime = time.time()
         self.progress()
         if allow_recording and self.time % self.sequence_stride == 0:
@@ -290,7 +290,7 @@ class FieldSequenceModel(object):
             duration = time.time() - starttime
             rest = 1.0/framerate/self.sequence_stride - duration
             if rest > 0:
-                self.current_action = "Waiting"
+                self.current_action = 'Waiting'
                 time.sleep(rest)
         self.current_action = None
 
@@ -318,7 +318,7 @@ class FieldSequenceModel(object):
         return self.current_action is not None
 
     def record_frame(self):
-        self.current_action = "Recording"
+        self.current_action = 'Recording'
         files = []
 
         if self.record_images:
@@ -333,7 +333,7 @@ class FieldSequenceModel(object):
             files += phi.data.fluidformat.write_sim_frame(self.directory, arrays, self.recorded_fields, self.time)
 
         if files:
-            self.message = "Frame written to %s" % files
+            self.message = 'Frame written to %s' % files
         self.current_action = None
 
     def benchmark(self, sequence_count):
@@ -377,7 +377,7 @@ class EditableFloat(EditableValue):
 
     def __init__(self, name, initial_value, minmax=None, category=None, log_scale=None):
         if minmax is not None:
-            assert len(minmax) == 2, "minmax must be pair (min, max)"
+            assert len(minmax) == 2, 'minmax must be pair (min, max)'
 
         if log_scale is None:
             if minmax is None:
@@ -398,7 +398,7 @@ class EditableFloat(EditableValue):
                     minmax = (2. * initial_value, -2. * initial_value)
         else:
             minmax = (float(minmax[0]), float(minmax[1]))
-        EditableValue.__init__(self, name, "float", initial_value, category, minmax, not log_scale)
+        EditableValue.__init__(self, name, 'float', initial_value, category, minmax, not log_scale)
 
     @property
     def use_log_scale(self):
@@ -415,19 +415,19 @@ class EditableInt(EditableValue):
                 minmax = (0, 4*initial_value)
             else:
                 minmax = (2 * initial_value, -2 * initial_value)
-        EditableValue.__init__(self, name, "int", initial_value, category, minmax, True)
+        EditableValue.__init__(self, name, 'int', initial_value, category, minmax, True)
 
 
 class EditableBool(EditableValue):
 
     def __init__(self, name, initial_value, category=None):
-        EditableValue.__init__(self, name, "bool", initial_value, category, (False, True), True)
+        EditableValue.__init__(self, name, 'bool', initial_value, category, (False, True), True)
 
 
 class EditableString(EditableValue):
 
     def __init__(self, name, initial_value, category=None, rows=20):
-        EditableValue.__init__(self, name, "text", initial_value, category, ("", "A"*rows), True)
+        EditableValue.__init__(self, name, 'text', initial_value, category, ('', 'A'*rows), True)
 
     @property
     def rows(self):
@@ -468,7 +468,7 @@ class Control(object):
         return self.attribute_name
 
     def __str__(self):
-        return self.name + "_" + str(self.value)
+        return self.name + '_' + str(self.value)
 
     @property
     def range(self):
@@ -491,8 +491,8 @@ def display_name(python_name):
     n = list(python_name)
     n[0] = n[0].upper()
     for i in range(1,len(n)):
-        if n[i] == "_":
-            n[i] = " "
+        if n[i] == '_':
+            n[i] = ' '
             if len(n) > i+1:
                 n[i+1] = n[i+1].upper()
-    return "".join(n)
+    return ''.join(n)

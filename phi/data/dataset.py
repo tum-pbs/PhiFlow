@@ -16,6 +16,14 @@ class Dataset(object):
     def remove(self, datasource):
         self.sources.remove(datasource)
 
+    def size(self, lookup=True):
+        total = 0
+        for datasource in self.sources:
+            s = datasource.size(lookup=lookup)
+            if s is not None:
+                total += s
+        return total
+
     def __iadd__(self, other):
         if isinstance(other, DataSource):
             self.add(other)
@@ -32,7 +40,7 @@ class Dataset(object):
         return self
 
     @staticmethod
-    def load(directory, dataset_name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
+    def load(directory, dataset_name=None, indices=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
         import os
         from .fluidformat import scenes
 
@@ -41,13 +49,18 @@ class Dataset(object):
 
         dataset = Dataset(dataset_name)
 
+        shape_map = dict() if assume_same_shapes else None
         frames = None
-        shape
 
-        scene_iterator = scenes(directory, max_count=max_scenes)
+        indexfilter = None if indices is None else lambda i: i in indices
+        scene_iterator = scenes(directory, max_count=max_scenes, indexfilter=indexfilter)
+
         for scene in scene_iterator:
-            dataset.add(SceneSource(scene))
-        pass  # TODO
+            if assume_same_frames and frames is None:
+                frames = scene.indices
+            dataset.add(SceneSource(scene, frames=frames, shape_map=shape_map))
+
+        return dataset
 
 
 # def split():

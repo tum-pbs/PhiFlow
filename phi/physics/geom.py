@@ -58,8 +58,8 @@ box = BoxGenerator()
 class Sphere(Geometry):
 
     def __init__(self, center, radius):
-        self._center = center
-        self._radius = radius
+        self._center = math.as_tensor(center)
+        self._radius = math.as_tensor(radius)
 
     @property
     def radius(self):

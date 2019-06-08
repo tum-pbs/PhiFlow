@@ -268,7 +268,7 @@ class NoBackendFound(Exception):
 
 backend = DynamicBackend()
 
-from phi.math.scipy_backend import SciPyBackend
+from phi.math.scipy_backend import SciPyBackend, as_tensor
 backend.backends.append(SciPyBackend())
 
 abs = backend.abs

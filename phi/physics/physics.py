@@ -1,8 +1,14 @@
-from phi.physics.domain import *
 from phi.math.container import *
 
 
 class State(TensorContainer):
+
+    def __init__(self, tags=()):
+        self._tags = tuple(tags)
+
+    @property
+    def tags(self):
+        return self._tags
 
     def __mul__(self, operation):
         return operation(self)
@@ -10,7 +16,7 @@ class State(TensorContainer):
 
 class Physics(object):
 
-    def __init__(self, world=world, dt=1.0):
+    def __init__(self, world, state_tag='physics', dt=1.0):
         """
 A Physics object describes a set of physical laws that can be used to simulate a system by moving from state to state,
 tracing out a trajectory.
@@ -18,10 +24,11 @@ The description of the physical systems (e.g. obstacles, boundary conditions) is
 and the enclosing world.
         :param world: the world this system lives in
         :param dt: simulation time increment
+        :param state_tag: This Physics acts on all states with this tag
         """
         self.dt = dt
+        self.state_tag = state_tag
         self.world = world
-        world.register_physics(self)
 
     def step(self, state):
         """
@@ -36,16 +43,16 @@ Solves the simulation for a time increment self.dt.
         raise NotImplementedError(self)
 
     def serialize_to_dict(self):
-        raise NotImplementedError(self)
+        return { 'type': self.state_tag }
 
     def unserialize_from_dict(self):
-        raise NotImplementedError(self)
+        pass
 
 
 class VolumetricPhysics(Physics):
 
-    def __init__(self, domain, world=world, dt=1.0):
-        Physics.__init__(self, world, dt)
+    def __init__(self, domain, world, state_tag='physics', dt=1.0):
+        Physics.__init__(self, world=world, state_tag=state_tag, dt=dt)
         self.domain = domain
         # Cache
         world.on_change(lambda *_: self._update_domain())
