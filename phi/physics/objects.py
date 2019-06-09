@@ -1,13 +1,12 @@
 from .physics import *
-from .world import *
-from .material import *
+from phi.math import shape
 from copy import copy
 
 
 class StaticObject(Physics):
 
-    def __init__(self, objectstate, world=world):
-        Physics.__init__(self, world=world, state_tag=objectstate.tags[0], dt=0.0)
+    def __init__(self, objectstate):
+        Physics.__init__(self)
         self.objectstate = objectstate
 
     def step(self, state):
@@ -19,8 +18,8 @@ class StaticObject(Physics):
 
 class DynamicObject(Physics):
 
-    def __init__(self, world=world):
-        Physics.__init__(self, world, state_tag=self.object_at(-1.0).tags[0])
+    def __init__(self):
+        Physics.__init__(self)
         self.internal_time = 0.0
 
     def step(self, state):
@@ -64,25 +63,12 @@ class Obstacle(ObjectState):
         self.material = material
 
 
-def obstacle(geometry, material=SLIPPERY, world=world):
-    objectstate = Obstacle(geometry, material)
-    staticobject = StaticObject(objectstate, world)
-    world.add(staticobject)
-    return staticobject
-
-
 class Inflow(ObjectState):
 
     def __init__(self, geometry, rate, tags=('inflow',)):
         ObjectState.__init__(self, geometry=geometry, tags=tags)
         self.rate = rate
 
-
-def inflow(geometry, rate=1.0, world=world):
-    objectstate = Inflow(geometry, rate)
-    staticobject = StaticObject(objectstate, world)
-    world.add(staticobject)
-    return staticobject
 
 
 def geometries_with_tag(collectivestate, tag):

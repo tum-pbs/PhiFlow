@@ -2,9 +2,9 @@ from phi.tf.flow import *
 
 
 size = [128]*2
-smoke = Smoke(Domain(size, SLIPPERY))
-obstacle(box[60:64, 40:128-40])
-inflow(box[size[-2]//8, size[-1]*3//8:size[-1]*5//8])
+smoke = world.smoke(Domain(size, SLIPPERY))
+world.obstacle(box[60:64, 40:128-40])
+world.inflow(box[size[-2]//8, size[-1]*3//8:size[-1]*5//8])
 
 
 class SmokeDemoTF(TFModel):
@@ -23,7 +23,6 @@ class SmokeDemoTF(TFModel):
 
     def step(self):
         self.state = self.session.run(self.state_out, {self.state_in: self.state})
-        self.state.velocity.staggered
 
 
 app = SmokeDemoTF().show(display=('Density', 'Velocity'), framerate=2, production=__name__ != '__main__')

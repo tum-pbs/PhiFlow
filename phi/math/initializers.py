@@ -1,6 +1,7 @@
-from .container import *
+from .struct import *
 from .nd import upsample2x
 from .base import backend as math
+import numpy as np
 
 
 def zeros(shape, dtype=np.float32):

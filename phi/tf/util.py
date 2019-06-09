@@ -1,7 +1,7 @@
 # coding=utf-8
 import tensorflow as tf
 from phi.math.nd import *
-from phi.math.container import *
+from phi.math import disassemble
 from tensorflow.python import pywrap_tensorflow
 
 

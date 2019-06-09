@@ -22,4 +22,5 @@ This function is called automatically once a TFSimulation is instantiated.
 
 
 from phi.math.nd import *
+from .struct import *
 from .initializers import *  # this replaces zeros_like (possibly more) and must be handled carefully

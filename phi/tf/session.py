@@ -1,6 +1,5 @@
 import numpy as np
-from phi.math.container import *
-from phi.math import load_tensorflow
+from phi.math import load_tensorflow, disassemble
 from .profiling import *
 import contextlib
 
@@ -29,9 +28,6 @@ class Session(object):
             return fetches
         if fetches is None:
             return None
-        single_task = not isinstance(fetches, (tuple,list))
-        if single_task:
-            fetches = [fetches]
 
         if feed_dict is not None:
             new_feed_dict = {}
@@ -42,7 +38,7 @@ class Session(object):
                     new_feed_dict[key_tensor] = value_tensor
             feed_dict = new_feed_dict
 
-        tensor_fetches, reassemble = list_tensors(fetches)
+        tensor_fetches, reassemble = disassemble(fetches)
 
         # Handle tracing
         trace = _trace_stack.get_default(raise_error=False)
@@ -73,11 +69,7 @@ class Session(object):
         if trace:
             trace.timeliner.add_run()
 
-        result_fetches_containers = reassemble(result_fetches)
-        if single_task:
-            return result_fetches_containers[0]
-        else:
-            return result_fetches_containers
+        return reassemble(result_fetches)
 
     def profiler(self):
         os.path.isdir(self.profiling_directory) or os.makedirs(self.profiling_directory)

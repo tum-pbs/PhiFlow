@@ -1,8 +1,7 @@
 from phi.math import *
 from .geom import *
-from .material import *
-from .world import *
 from .objects import *
+from .material import *
 
 
 class Domain(object):
@@ -28,7 +27,6 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         """
         self._grid = grid if isinstance(grid, Grid) else Grid(grid)
         assert isinstance(boundaries, (Material, list, tuple))
-        assert isinstance(world, World)
         if isinstance(boundaries, (tuple, list)):
             assert len(boundaries) == self._grid.rank
         self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
@@ -172,16 +170,16 @@ Open3D = Domain(Grid([0] * 3))
 Open2D = Domain(Grid([0] * 2))
 
 
-def inflow_mask(world, grid):
-    inflows = world.state.get_by_tag('inflow')
+def inflow_mask(worldstate, grid):
+    inflows = worldstate.get_by_tag('inflow')
     if len(inflows) == 0:
         return zeros(grid.shape())
     location = grid.center_points()
     return add([inflow.geometry.value_at(location) * inflow.rate for inflow in inflows])
 
 
-def geometry_mask(world, grid, tag):
-    geometries = geometries_with_tag(world.state, tag)
+def geometry_mask(worldstate, grid, tag):
+    geometries = geometries_with_tag(worldstate, tag)
     if len(geometries) == 0:
         return zeros(grid.shape())
     location = grid.center_points()

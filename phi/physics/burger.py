@@ -1,21 +1,16 @@
-from .physics import *
-from phi.math import *
+from .volumetric import *
 from .domain import *
+from phi.math import *
 
 
 class Burger(VolumetricPhysics):
 
-    def __init__(self, domain, viscosity=0.1, world=world, dt=1.0):
-        VolumetricPhysics.__init__(self, domain, world, dt)
+    def __init__(self, domain, viscosity=0.1):
+        VolumetricPhysics.__init__(self, domain)
         self.viscosity = viscosity
-        world.add(self)
 
     def step(self, velocity):
         return self.advect(self.diffuse(velocity))
-
-    def _update_domain(self):
-        mask = 1 - geometry_mask(self.world, self.domain.grid, 'obstacle')
-        self.domainstate = DomainState(self.domain, self.world.state, active=mask, accessible=mask)
 
     def shape(self, batch_size=1):
         return self.grid.shape(self.rank, batch_size=batch_size)

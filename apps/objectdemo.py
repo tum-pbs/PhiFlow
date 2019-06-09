@@ -1,8 +1,8 @@
 from phi.flow import *
 
 
-smoke = Smoke(Domain([64, 64], SLIPPERY))
-inflow(Sphere((10,32), 5), rate=0.2)
+smoke = world.smoke(Domain([64, 64], SLIPPERY))
+world.inflow(Sphere((10,32), 5), rate=0.2)
 
 
 class MovingSphere(DynamicObject):

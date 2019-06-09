@@ -1,6 +1,6 @@
 import numpy as np
 from . import base as math
-from . import container
+from . import struct
 
 
 def spatial_rank(tensor_or_mac):
@@ -313,7 +313,7 @@ def spatial_sum(tensor):
     return summed
 
 
-class StaggeredGrid(container.TensorContainer):
+class StaggeredGrid(struct.Struct):
     """
         MACGrids represent a staggered vector channel in which each vector component is sampled at the
         face centers of centered hypercubes.

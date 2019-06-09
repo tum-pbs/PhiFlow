@@ -1,6 +1,4 @@
-from .physics import *
-from .world import *
-from .domain import *
+from .volumetric import *
 from phi.math import *
 
 
@@ -24,13 +22,10 @@ class SmokeState(State):
         return [self._density] + v, lambda tensors: SmokeState(tensors[0], v_re(tensors[1:]))
 
 
-
 class Smoke(VolumetricPhysics):
 
-    def __init__(self, domain=Open2D, world=world, dt=1.0,
-                 gravity=-9.81, buoyancy_factor=0.1, conserve_density=False, pressure_solver=None):
-        Physics.__init__(self, world=world, state_tag='smoke', dt=dt)
-        self.domain = domain
+    def __init__(self, domain=Open2D, gravity=-9.81, buoyancy_factor=0.1, conserve_density=False, pressure_solver=None):
+        VolumetricPhysics.__init__(self, domain)
         if isinstance(gravity, (tuple, list)):
             assert len(gravity == domain.rank)
             self.gravity = np.array(gravity)
@@ -44,10 +39,6 @@ class Smoke(VolumetricPhysics):
         if self.pressure_solver is None:
             from phi.solver.sparse import SparseCG
             self.pressure_solver = SparseCG(accuracy=1e-3)
-        # Cache
-        world.on_change(lambda *_: self._update_domain())
-        self._update_domain()
-        world.add(self)
 
     def shape(self, batch_size=1):
         return SmokeState(self.grid.shape(batch_size=batch_size), self.grid.staggered_shape(batch_size=batch_size))
@@ -55,14 +46,9 @@ class Smoke(VolumetricPhysics):
     def step(self, smokestate):
         return smokestate * self.advect * self.inflow * self.buoyancy * self.friction * self.divergence_free
 
-    def _update_domain(self):
-        print("Smoke: Updating domain")
-        mask = 1 - geometry_mask(self.world, self.domain.grid, 'obstacle')
-        self.domainstate = DomainState(self.domain, self.world.state, active=mask, accessible=mask)
-
     def serialize_to_dict(self):
         return {
-            'type': self.state_tag,
+            'type': 'Smoke',
             'class': self.__class__.__name__,
             'module': self.__class__.__module__,
             'rank': self.domain.rank,
@@ -77,7 +63,7 @@ class Smoke(VolumetricPhysics):
         raise NotImplementedError()
 
     def inflow(self, smokestate):
-        inflow = inflow_mask(self.world, self.domain.grid)
+        inflow = inflow_mask(self.worldstate, self.domain.grid)
         return SmokeState(smokestate.density + inflow * self.dt, smokestate.velocity)
 
     def buoyancy(self, smokestate):
