@@ -213,13 +213,13 @@ def scenes(directory, category=None, indexfilter=None, max_count=None):
         directory = os.path.dirname(directory)
     else:
         root_path = join(directory, category)
+    if not os.path.isdir(root_path): return []
     indices = [int(sim[4:]) for sim in os.listdir(root_path) if sim.startswith("sim_")]
     if indexfilter:
         indices = indexfilter(indices)
     if max_count and len(indices) >=  max_count:
         indices = indices[0:max_count]
-    for scene_index in indices:
-        yield Scene(directory, category, scene_index)
+    return [Scene(directory, category, scene_index) for scene_index in indices]
 
 
 def new_scene(directory, category=None, mkdir=True):

@@ -1,15 +1,8 @@
-from .source import *
+from .source import DataSource
 import numpy as np
 
 
 class DataChannel(object):
-
-    def __init__(self, name=None):
-        self._name = name
-
-    @property
-    def name(self):
-        return self._name
 
     def shape(self, datasource):
         raise NotImplementedError(self)
@@ -23,17 +16,14 @@ class DataChannel(object):
     def frames(self, datasource):
         raise NotImplementedError(self)
 
-    def __repr__(self):
-        return self._name
-
 
 class SourceChannel(DataChannel):
 
     def __init__(self, name):
-        DataChannel.__init__(self, name)
+        self._name = name
 
     def shape(self, datasource):
-        return datasource.shape(self.name)
+        return datasource.shape(self._name)
 
     def size(self, datasource, lookup=False):
         return datasource.size(lookup=lookup)
@@ -41,46 +31,78 @@ class SourceChannel(DataChannel):
     def get(self, datasource, indices):
         frames = datasource.frames()
         frames = [frames[i] for i in indices]
-        return datasource.get(frames)
+        return datasource.get(self._name, frames)
+
+    def frames(self, datasource):
+        return datasource.frames()
+
+    def __repr__(self):
+        return self._name
+
+
+class _SourceFrame(DataChannel):
+
+    def shape(self, datasource):
+        return (1, )
+
+    def size(self, datasource, lookup=False):
+        return datasource.size(lookup=lookup)
+
+    def get(self, datasource, indices):
+        frames = datasource.frames()
+        return np.expand_dims([frames[i] for i in indices], -1)
 
     def frames(self, datasource):
         return datasource.frames()
 
 
-# class SourceFrame(DataChannel):
-#
-#     def shape(self, datasource):
-#         return (1, )
-#
-#     def size(self, datasource, lookup=False):
-#         return datasource.size(lookup=lookup)
-#
-#     def get(self, datasource, indices):
-#         frames = datasource.frames()
-#         return [frames[i] for i in indices]
-#
-#
-# class SourceScene(DataChannel):
-#
-#     def shape(self, datasource):
-#         return (1, )
-#
-#     def size(self, datasource, lookup=False):
-#         return datasource.size(lookup=lookup)
-#
-#     def get(self, datasource, indices):
-#         return [datasource.scene] * len(indices)
+FRAME = _SourceFrame()
+
+
+class _SourceScene(DataChannel):
+
+    def shape(self, datasource):
+        return (1, )
+
+    def size(self, datasource, lookup=False):
+        return datasource.size(lookup=lookup)
+
+    def get(self, datasource, indices):
+        return np.expand_dims([datasource.scene] * len(indices), -1)
+
+    def frames(self, datasource):
+        return datasource.frames()
+
+
+SCENE = _SourceScene()
+
+
+class _Source(DataChannel):
+
+    def shape(self, datasource):
+        return (1, )
+
+    def size(self, datasource, lookup=False):
+        return datasource.size(lookup=lookup)
+
+    def get(self, datasource, indices):
+        return np.expand_dims([datasource] * len(indices), -1)
+
+    def frames(self, datasource):
+        return datasource.frames()
+
+
+SOURCE = _Source()
 
 
 
 class DerivedChannel(DataChannel):
 
     def __init__(self, input_channels):
-        DataChannel.__init__(self)
         self.input_fields = [c if isinstance(c, DataChannel) else SourceChannel(c) for c in input_channels]
 
     def __repr__(self):
-        return "%s:%s(%s)" % (self.name, type(self), self.input_fields)
+        return "%s(%s)" % (type(self), self.input_fields)
 
 
 class FrameSelect(DerivedChannel):

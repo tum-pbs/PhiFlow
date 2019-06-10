@@ -24,8 +24,6 @@ class TFModel(FieldSequenceModel):
         self.training = tf.placeholder(tf.bool, (), "training")
         self.recent_optimizer_node = None
         self.add_trait("tensorflow")
-        self.database = Database(Dataset("train", 1-data_validation_fraction, (DATAFLAG_TRAIN,)),
-                                 Dataset("val", data_validation_fraction, (DATAFLAG_TEST,)))
         self.value_view_training_data = view_training_data
         self.training_batch_size = training_batch_size
         self.validation_batch_size = validation_batch_size
@@ -33,6 +31,9 @@ class TFModel(FieldSequenceModel):
         self.model_scope_name = model_scope_name
         self.feed_fields = []
         self.shuffle_training_data = True
+
+    def create_datasets(self):
+        return BatchReader(Dataset('train'), []), BatchReader(Dataset('val'), [])
 
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
@@ -68,25 +69,14 @@ class TFModel(FieldSequenceModel):
         self.add_custom_property("parameter_count", model_parameter_count)
         self.info("Model variables contain %d total parameters." % model_parameter_count)
 
+        self.train_iterator, self.val_iterator = self.create_datasets()
+
         if self.world.batch_size is not None:
             self.training_batch_size = self.world.batch_size
             self.validation_batch_size = self.world.batch_size
-        if self.database.scene_count > 0:
-            self.train_iterator = self.database.linear_iterator("train", self.feed_fields, self.training_batch_size, shuffled=self.shuffle_training_data)
-            self.val_iterator = self.database.fixed_range("val", self.feed_fields, range(self.validation_batch_size))
-            self.view_train_iterator = self.database.fixed_range("train", self.feed_fields, range(self.validation_batch_size))
-        else:
-            self.train_iterator = None
-            self.val_iterator = None
-            self.view_train_iterator = None
 
         if self.train_iterator is not None:
-            self.info("Loading initial data...")
-            self.feed_dict(self.train_iterator, True)  # is this still necessary?
-            self.feed_dict(self.val_iterator, False)
-            self.feed_dict(self.view_train_iterator, False)
-            self.info("Done.")
-            self.sequence_stride = self.train_iterator.batch_count
+            self.sequence_stride = len(self.train_iterator) // self.training_batch_size  # TODO depends on last
             if not np.isfinite(self.sequence_stride): self.sequence_stride = 1
             self.validate()
         else:
