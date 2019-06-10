@@ -7,7 +7,7 @@ class SmokeState(State):
     def __init__(self, density, velocity):
         State.__init__(self, tags=('smoke',))
         self._density = density
-        self._velocity = velocity
+        self._velocity = velocity if isinstance(velocity, StaggeredGrid) else StaggeredGrid(velocity)
 
     @property
     def density(self):

@@ -2,9 +2,9 @@ from phi.tf.flow import *
 
 
 size = [128]*2
-smoke = world.smoke(Domain(size, SLIPPERY))
-world.obstacle(box[60:64, 40:128-40])
-world.inflow(box[size[-2]//8, size[-1]*3//8:size[-1]*5//8])
+smoke = world.Smoke(Domain(size, SLIPPERY))
+world.Obstacle(box[60:64, 40:128-40])
+world.Inflow(box[size[-2]//8, size[-1]*3//8:size[-1]*5//8])
 
 
 class SmokeDemoTF(TFModel):

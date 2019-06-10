@@ -1,5 +1,6 @@
 from .collective import CollectiveState, CollectivePhysics
 from .smoke import *
+from .burger import *
 
 
 class World(object):
@@ -9,6 +10,29 @@ class World(object):
         self._state = self.physics.initial_state()
         self.observers = set()
         self.batch_size = None
+
+        # Physics Shortcuts
+        for target,source in {'Smoke': Smoke, 'Burger': Burger}.items():
+            def buildadd(*args, sourcefunction=source, **kwargs):
+                obj = sourcefunction(*args, **kwargs)
+                self.add(obj)
+                return obj
+            setattr(self, target, buildadd)
+
+        # StaticObject Shortcuts
+        for target, source in {'Inflow': Inflow, 'Obstacle': Obstacle}.items():
+            def buildadd(*args, sourcefunction=source, **kwargs):
+                obj = sourcefunction(*args, **kwargs)
+                self.add(StaticObject(obj))
+                return obj
+
+            setattr(self, target, buildadd)
+
+    Smoke = Smoke
+    Burger = Burger
+
+    Inflow = Inflow
+    Obstacle = Obstacle
 
     @property
     def state(self):
@@ -47,15 +71,6 @@ class World(object):
         if remove_states:
             states = self.state.get_by_tag(physics.state_tag)
             self.state -= states
-
-    def obstacle(self, geometry, material=SLIPPERY):
-        return self.add(StaticObject(Obstacle(geometry, material)))
-
-    def inflow(self, geometry, rate=1.0):
-        return self.add(StaticObject(Inflow(geometry, rate)))
-
-    def smoke(self, domain=Open2D, gravity=-9.81, buoyancy_factor=0.1, conserve_density=False, pressure_solver=None):
-        return self.add(Smoke(domain, gravity, buoyancy_factor, conserve_density, pressure_solver))
 
 
 world = World()

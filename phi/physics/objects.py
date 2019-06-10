@@ -1,4 +1,5 @@
 from .physics import *
+from .material import *
 from phi.math import shape
 from copy import copy
 
@@ -58,14 +59,14 @@ class ObjectState(State):
 
 class Obstacle(ObjectState):
 
-    def __init__(self, geometry, material, velocity=0, tags=('obstacle',)):
+    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',)):
         ObjectState.__init__(self, geometry=geometry, velocity=velocity, tags=tags)
         self.material = material
 
 
 class Inflow(ObjectState):
 
-    def __init__(self, geometry, rate, tags=('inflow',)):
+    def __init__(self, geometry, rate=1.0, tags=('inflow',)):
         ObjectState.__init__(self, geometry=geometry, tags=tags)
         self.rate = rate
 

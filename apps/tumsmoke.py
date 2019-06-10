@@ -13,9 +13,9 @@ def build_inflow():
     dx, dy = x * 0.07, y * 0.07
     offset_x = 0.5 * (x - dx * 10)
     offset_y = y - y * 0.1 - dy * 7
-    world.inflow(box[y/16, 2*dx:3*dx])
-    world.inflow(box[y/16, x-3*dx:x-2*dx])
-    world.inflow(box[offset_y+dy+1, offset_x+4*dx:offset_x+4.5*dx], 0.1)
+    world.Inflow(box[y/16, 2*dx:3*dx])
+    world.Inflow(box[y/16, x-3*dx:x-2*dx])
+    world.Inflow(box[offset_y+dy+1, offset_x+4*dx:offset_x+4.5*dx], 0.1)
 
 
 def create_tum_logo():
@@ -24,10 +24,10 @@ def create_tum_logo():
     offset_x = 0.5 * (x - dx * 10)
     offset_y = y - y * 0.1 - dy * 7
     for i in range(1, 10, 2):
-        world.obstacle(box[offset_y:offset_y+6*dy, offset_x + i * dx:offset_x + (i+1) * dx])
-    world.obstacle(box[offset_y:offset_y+dy, offset_x + 4 * dx:offset_x + 4 * dx+ dx])
-    world.obstacle(box[offset_y + 6 * dy:offset_y + 7 * dy, offset_x:offset_x+dx * 4])
-    world.obstacle(box[offset_y + 6 * dy:offset_y + 7 * dy, offset_x + 5 * dx:offset_x + 10 * dx])
+        world.Obstacle(box[offset_y:offset_y+6*dy, offset_x + i * dx:offset_x + (i+1) * dx])
+    world.Obstacle(box[offset_y:offset_y+dy, offset_x + 4 * dx:offset_x + 4 * dx+ dx])
+    world.Obstacle(box[offset_y + 6 * dy:offset_y + 7 * dy, offset_x:offset_x+dx * 4])
+    world.Obstacle(box[offset_y + 6 * dy:offset_y + 7 * dy, offset_x + 5 * dx:offset_x + 10 * dx])
 
 
 build_inflow()

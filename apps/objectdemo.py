@@ -1,8 +1,8 @@
 from phi.flow import *
 
 
-smoke = world.smoke(Domain([64, 64], SLIPPERY))
-world.inflow(Sphere((10,32), 5), rate=0.2)
+smoke = world.Smoke(Domain([64, 64], SLIPPERY))
+world.Inflow(Sphere((10,32), 5), rate=0.2)
 
 
 class MovingSphere(DynamicObject):
@@ -18,7 +18,7 @@ class Simpleplume(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, "Simpleplume", stride=5)
-        self.add_field("Density", lambda: world.state[smoke].density)
+        self.add_field("Density", lambda: world.state[smoke].density)  # TODO implement new [smoke]
         self.add_field("Velocity", lambda: world.state[smoke].velocity)
         self.add_field("Domain", lambda: smoke.domainstate.active(1))
 
