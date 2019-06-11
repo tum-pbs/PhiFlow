@@ -21,6 +21,12 @@ class SmokeState(State):
         v, v_re = disassemble(self._velocity)
         return [self._density] + v, lambda tensors: SmokeState(tensors[0], v_re(tensors[1:]))
 
+    def __eq__(self, other):
+        if isinstance(other, SmokeState):
+            return self._density == other._density and self._velocity == other._velocity
+        else:
+            return False
+
 
 class Smoke(VolumetricPhysics):
 

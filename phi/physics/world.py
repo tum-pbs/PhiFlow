@@ -13,20 +13,24 @@ class World(object):
 
         # Physics Shortcuts
         for target,source in {'Smoke': Smoke, 'Burger': Burger}.items():
-            def buildadd(*args, sourcefunction=source, **kwargs):
-                obj = sourcefunction(*args, **kwargs)
-                self.add(obj)
-                return obj
-            setattr(self, target, buildadd)
+            def wrapper(sourcefunction):
+                def buildadd(*args, **kwargs):
+                    obj = sourcefunction(*args, **kwargs)
+                    self.add(obj)
+                    return obj
+                return buildadd
+            setattr(self, target, wrapper(source))
 
         # StaticObject Shortcuts
         for target, source in {'Inflow': Inflow, 'Obstacle': Obstacle}.items():
-            def buildadd(*args, sourcefunction=source, **kwargs):
-                obj = sourcefunction(*args, **kwargs)
-                self.add(StaticObject(obj))
-                return obj
+            def wrapper(sourcefunction):
+                def buildadd(*args, **kwargs):
+                    obj = sourcefunction(*args, **kwargs)
+                    self.add(StaticObject(obj))
+                    return obj
+                return buildadd
 
-            setattr(self, target, buildadd)
+            setattr(self, target, wrapper(source))
 
     Smoke = Smoke
     Burger = Burger

@@ -331,7 +331,16 @@ class StaggeredGrid(struct.Struct):
         self.staggered = staggered
 
     def __repr__(self):
-        return "StaggeredGrid(shape=%s)" % (self.shape,)
+        try:
+            return "StaggeredGrid(shape=%s)" % (self.shape,)
+        except:
+            return "StaggeredGrid(%s)" % self.staggered
+
+    def __eq__(self, other):
+        if isinstance(other, StaggeredGrid):
+            return self.staggered == other.staggered
+        else:
+            return False
 
     def disassemble(self):
         return [self.staggered], lambda tensors: StaggeredGrid(tensors[0])
