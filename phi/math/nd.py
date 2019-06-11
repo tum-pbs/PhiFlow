@@ -342,6 +342,9 @@ class StaggeredGrid(struct.Struct):
         else:
             return False
 
+    def __hash__(self):
+        return hash(self.staggered)
+
     def disassemble(self):
         return [self.staggered], lambda tensors: StaggeredGrid(tensors[0])
 

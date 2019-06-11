@@ -210,6 +210,13 @@ class _AdaptiveBatchIterator(object):
 
     next = __next__
 
+    def __len__(self):
+        assert not self.loop, "Looping iterator has no finite length"
+        if self.last == SKIP:
+            return len(self.reader) // self.batch_size
+        if self.last == CLIP or self.last == WRAP:
+            return int(math.ceil(float(len(self.reader)) / self.batch_size))
+
 
 def list_swap_axes(list, concatenate=True):
     if len(list) == 0: return list

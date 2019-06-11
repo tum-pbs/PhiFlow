@@ -183,7 +183,7 @@ class FieldSequenceModel(object):
         logging.info('Gathering model data...')
         self.prepared = True
         # Controls
-        for name in dir(self):
+        for name in self.__dict__:
             val = getattr(self, name)
             editable_value = None
             if isinstance(val, EditableValue):

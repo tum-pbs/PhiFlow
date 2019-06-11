@@ -1,7 +1,9 @@
 from __future__ import print_function
-from phi.model import *
+
+from collections import Iterable
+
+from phi.flow import *
 from phi.tf.util import *
-from phi.data import *
 from phi.tf.session import Session
 
 
@@ -22,18 +24,17 @@ class TFModel(FieldSequenceModel):
         self.editable_placeholders = {}
         self.learning_rate = self.editable_float("Learning_Rate", learning_rate)
         self.training = tf.placeholder(tf.bool, (), "training")
-        self.recent_optimizer_node = None
+        self.all_optimizers = []
         self.add_trait("tensorflow")
         self.value_view_training_data = view_training_data
         self.training_batch_size = training_batch_size
         self.validation_batch_size = validation_batch_size
-        self.train_iterator = None
+        self.train_reader = None
+        self.val_reader = None
         self.model_scope_name = model_scope_name
         self.feed_fields = []
         self.shuffle_training_data = True
-
-    def create_datasets(self):
-        return BatchReader(Dataset('train'), []), BatchReader(Dataset('val'), [])
+        self._read_ref = None
 
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
@@ -69,22 +70,19 @@ class TFModel(FieldSequenceModel):
         self.add_custom_property("parameter_count", model_parameter_count)
         self.info("Model variables contain %d total parameters." % model_parameter_count)
 
-        self.train_iterator, self.val_iterator = self.create_datasets()
-
         if self.world.batch_size is not None:
             self.training_batch_size = self.world.batch_size
             self.validation_batch_size = self.world.batch_size
 
-        if self.train_iterator is not None:
-            self.sequence_stride = len(self.train_iterator) // self.training_batch_size  # TODO depends on last
-            if not np.isfinite(self.sequence_stride): self.sequence_stride = 1
+        if self.train_reader is not None:
+            self.sequence_stride = len(self.train_reader.all_batches(batch_size=self.training_batch_size))
             self.validate()
         else:
             self.info("Preparing model before database is set up.")
 
         return self
 
-    def minimizer(self, name, loss, optimizer=None, reg=None, vars=None):
+    def minimize(self, name, loss, optimizer=None, reg=None, vars=None):
         assert len(loss.shape) <= 1, "Loss function must be a scalar"
         if not optimizer:
             optimizer = tf.train.AdamOptimizer(self.learning_rate)
@@ -101,7 +99,7 @@ class TFModel(FieldSequenceModel):
         node = optimizer.minimize(optim_function, var_list=vars)
 
         self.add_scalar(name, loss)
-        self.recent_optimizer_node = node
+        self.all_optimizers.append(node)
         return node
 
     def add_scalar(self, name, node):
@@ -110,24 +108,24 @@ class TFModel(FieldSequenceModel):
         self.scalars.append(node)
 
     def step(self):
-        self.tfstep()
-        return self
-
-    def tfstep(self, optimizer=None):
-        if not optimizer:
-            optimizer = self.recent_optimizer_node
-        self.optimize(optimizer)
+        self.optimize(self.all_optimizers)
         if self.time % self.sequence_stride == 0:
             self.validate(create_checkpoint=True)
+        return self
 
-    def optimize(self, optim_node):
-        scalar_values = self.session.run([optim_node] + self.scalars, self.feed_dict(self.train_iterator, True),
+    def optimize(self, optim_nodes, log_loss=False):
+        if isinstance(optim_nodes, Iterable):
+            optim_nodes = list(optim_nodes)
+        else:
+            optim_nodes = [optim_nodes]
+        scalar_values = self.session.run(optim_nodes + self.scalars, self.feed_dict(self.train_reader, True),
                                      summary_key="train", merged_summary=self.merged_scalars, time=self.time)[1:]
-        # self.info("Optimization Done.") #+", ".join([self.scalar_names[i]+": "+str(scalar_values[i]) for i in range(len(self.scalars))]))
+        if log_loss:
+            self.info("Optimization: " + ", ".join([self.scalar_names[i]+": "+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
     def validate(self, create_checkpoint=False):
         # self.info("Running validation...")
-        self.session.run(self.scalars, self.feed_dict(self.val_iterator, False),
+        self.session.run(self.scalars, self.feed_dict(self.val_reader, False),
                      summary_key="val", merged_summary=self.merged_scalars, time=self.time)
         if create_checkpoint:
             self.save_model()
@@ -136,7 +134,7 @@ class TFModel(FieldSequenceModel):
     def base_feed_dict(self):
         return {}
 
-    def feed_dict(self, iterator, training, subrange=None):
+    def feed_dict(self, reader, training, subrange=None):
         base_feed_dict = self.base_feed_dict()
         for placeholder, attrname in self.editable_placeholders.items():
             val = getattr(self, attrname)
@@ -144,26 +142,29 @@ class TFModel(FieldSequenceModel):
                 val = val.initial_value
             base_feed_dict[placeholder] = val
         base_feed_dict[self.training] = training
-        if iterator is None:
+        if reader is None:
             return base_feed_dict
         else:
-            return iterator.fill_feed_dict(base_feed_dict, self.feed_fields, subrange=subrange)
-
-    def view_iterator(self):
-        return self.view_train_iterator if self.value_view_training_data else self.val_iterator
+            raise NotImplementedError()
+            # base_feed_dict[properties] = reader
+            # return iterator.fill_feed_dict(base_feed_dict, self.feed_fields, subrange=subrange)
 
     def val(self, fetches, subrange=None):
         return self.session.run(fetches, self.feed_dict(self.val_iterator, False, subrange=subrange))
+
+    @property
+    def view_reader(self):
+        return self.train_reader if self.value_view_training_data else self.val_reader
 
     def view(self, tasks, all_batches=False):
         if tasks is None:
             return None
         if all_batches or self.world.batch_size is not None or isinstance(self.figures.batches, slice):
-            return self.session.run(tasks, self.feed_dict(self.view_iterator(), False))
+            return self.session.run(tasks, self.feed_dict(self.view_reader, False))
         else:
             # TODO return Viewable object that indicates batch index
             batches = self.figures.batches
-            batch_results = self.session.run(tasks, self.feed_dict(self.view_iterator(), False, subrange=batches))
+            batch_results = self.session.run(tasks, self.feed_dict(self.view_reader, False, subrange=batches))
             single_task = not isinstance(tasks, (tuple,list))
             if single_task:
                 batch_results = [batch_results]
@@ -179,13 +180,13 @@ class TFModel(FieldSequenceModel):
             else:
                 return results
 
-    def view_batch(self, fieldname, subrange=None):
-        iterator = self.view_train_iterator if self.value_view_training_data else self.val_iterator
-        if isinstance(subrange, int):
-            subrange = [subrange]
-        result = iterator.get_batch([fieldname], subrange)[fieldname]
-        iterator.progress()
-        return result
+    def view_batch(self, get_attribute):
+        batch = self.view_reader[0:self.validation_batch_size]
+        return get_attribute(batch)
+
+    @property
+    def read(self):
+        return self._read_ref  # TODO set this when val_reader / train_reader are initialized  selector(self.val_reader.struct)
 
     def save_model(self):
         dir = self.scene.subpath("checkpoint_%08d"%self.time)
@@ -198,7 +199,7 @@ class TFModel(FieldSequenceModel):
     def model_scope(self):
         return tf.variable_scope(self.model_scope_name)
 
-    def add_field(self, name, field):
+    def expose(self, field, name=None):
         """
 
         :param name: channel name
@@ -206,7 +207,7 @@ class TFModel(FieldSequenceModel):
         """
         if istensor(field):
             FieldSequenceModel.add_field(self, name, lambda: self.view(field))
-        elif isinstance(field, six.string_types):
+        elif isinstance(field, StructAttributeGetter):
             FieldSequenceModel.add_field(self, name, lambda: self.view_batch(field))
         else:
             FieldSequenceModel.add_field(self, name, field)

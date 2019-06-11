@@ -89,3 +89,24 @@ def _recursive_attributes(struct, ids, remove_prefix, qualified_names, qualifier
                 setattr(struct, attr, qualified_name)
             else:
                 _recursive_attributes(val, ids, remove_prefix, qualified_names, qualified_name)
+
+
+class StructAttributeGetter(object):
+
+    def __init__(self, getter):
+        self.getter = getter
+
+    def __call__(self, struct):
+        return self.getter(struct)
+
+
+def selector(struct):
+    array, reassemble = disassemble(struct)
+    ids = ['#ref' % i for i in range(len(array))]
+    tagged_struct = reassemble(ids)
+    _recursive_selector(tagged_struct)
+    return tagged_struct
+
+
+def _recursive_selector(struct):
+    pass

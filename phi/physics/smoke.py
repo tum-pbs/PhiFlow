@@ -27,6 +27,9 @@ class SmokeState(State):
         else:
             return False
 
+    def __hash__(self):
+        return hash(self._density) + hash(self._velocity)
+
 
 class Smoke(VolumetricPhysics):
 
