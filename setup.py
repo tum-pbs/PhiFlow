@@ -102,7 +102,7 @@ extras = {
 setup(
     name='phiflow',
     version='0.3.0',
-    packages=['phi', 'phi.data', 'phi.local', 'phi.math', 'phi.solver', 'phi.solver.cuda', 'phi.tf', 'phi.viz'],
+    packages=['phi', 'phi.data', 'phi.local', 'phi.math', 'phi.physics', 'phi.solver', 'phi.tf', 'phi.viz'],
     cmdclass={
         "cuda": CudaCommand,
     },
