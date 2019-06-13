@@ -106,7 +106,7 @@ Reading data can be achieved with one of the following:
 ```python
 array = scene.read_array(fieldname, index)  # Locates the desired npz file and returns the contents as a numpy array
 
-scene.read_sim_frames(fieldnames, indices)  # Reads multiple fieldnames, concatenating the frames in the batch dimension
+scene.read_sim_frames(fieldnames, frames)  # Reads multiple fieldnames, concatenating the frames in the batch dimension
 densities, velocities = scene.read_sim_frames(["Density, Velocity"], range(10))  # Reads the first 10 densities and velocities
 ```
 
@@ -125,7 +125,7 @@ To obtain information about a scene:
 | scene.dir  | directory containing the category  |
 | scene.index  | index within the category  |
 |  scene.properties | dict containing the values stored in description.json  |
-| scene.indices  | list of all frames contained in the scene  |
+| scene.frames  | list of all frames contained in the scene  |
 | scene.fieldnames  | list of all fields contained in the scene  |
 
 Subdirectories in the scene can be created using
@@ -155,7 +155,7 @@ Subclasses of [TFModel](../phi/tf/model.py) are supplied with an instance of dat
 Scenes are the primary way to add data to a database.
 
 ```python
-database.put_scene(scene, indices=None, dataset=None, logf=None)  # Add a single scene
+database.put_scene(scene, frames=None, dataset=None, logf=None)  # Add a single scene
 database.put_scenes(scenes, per_scene_indices=None, dataset=None, allow_scene_split=False, logf=None)  # Add multiple scenes
 ```
 

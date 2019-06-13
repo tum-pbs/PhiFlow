@@ -50,7 +50,7 @@ of that channel, taking into account obstacles and empty cells.
     center_values = None # diagonal matrix entries
 
     gridpoints_linear = np.arange(N)
-    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions))  # d * (N^2) array mapping from linear to spatial indices
+    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions))  # d * (N^2) array mapping from linear to spatial frames
 
     for dim in dims:
         upper_indices = tuple([slice(None)] + [slice(2, None) if i == dim else slice(1, -1) for i in dims] + [slice(None)])
@@ -71,12 +71,12 @@ of that channel, taking into account obstacles and empty cells.
 
         dim_direction = np.zeros_like(gridpoints)
         dim_direction[dim] = 1
-        # Upper indices
+        # Upper frames
         upper_indices = gridpoints + dim_direction
         upper_in_range_inx = np.nonzero(upper_indices[dim] < dimensions[dim])
         upper_indices_linear = np.ravel_multi_index(upper_indices[:,upper_in_range_inx], dimensions)
         A[gridpoints_linear[upper_in_range_inx], upper_indices_linear] = stencil_upper.flatten()[upper_in_range_inx]
-        # Lower indices
+        # Lower frames
         lower_indices = gridpoints - dim_direction
         lower_in_range_inx = np.nonzero(lower_indices[dim] >= 0)
         lower_indices_linear = np.ravel_multi_index(lower_indices[:, lower_in_range_inx], dimensions)
@@ -172,19 +172,19 @@ def sparse_indices(dimensions):
     dims = range(d)
 
     gridpoints_linear = np.arange(N)
-    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial indices
+    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial frames
 
     indices_list = [ np.stack([gridpoints_linear] * 2, axis=-1) ]
 
     for dim in dims:
         dim_direction = np.zeros_like(gridpoints)
         dim_direction[dim] = 1
-        # Upper indices
+        # Upper frames
         upper_indices = gridpoints + dim_direction
         upper_in_range_inx = np.nonzero(upper_indices[dim] < dimensions[dim])
         upper_indices_linear = np.ravel_multi_index(upper_indices[:,upper_in_range_inx], dimensions)[0,:]
         indices_list.append(np.stack([gridpoints_linear[upper_in_range_inx], upper_indices_linear], axis=-1))
-        # Lower indices
+        # Lower frames
         lower_indices = gridpoints - dim_direction
         lower_in_range_inx = np.nonzero(lower_indices[dim] >= 0)
         lower_indices_linear = np.ravel_multi_index(lower_indices[:, lower_in_range_inx], dimensions)[0,:]
@@ -216,7 +216,7 @@ of that channel, taking into account obstacles and empty cells.
     center_values = None # diagonal matrix entries
 
     gridpoints_linear = np.arange(N)
-    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial indices
+    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial frames
 
     for dim in dims:
         upper_indices = tuple([slice(None)] + [slice(2, None) if i == dim else slice(1, -1) for i in dims] + [slice(None)])
@@ -235,11 +235,11 @@ of that channel, taking into account obstacles and empty cells.
 
         dim_direction = np.zeros_like(gridpoints)
         dim_direction[dim] = 1
-        # Upper indices
+        # Upper frames
         upper_indices = gridpoints + dim_direction
         upper_in_range_inx = np.nonzero(upper_indices[dim] < dimensions[dim])[0]
         values_list.append(math.gather(math.flatten(stencil_upper), upper_in_range_inx))
-        # Lower indices
+        # Lower frames
         lower_indices = gridpoints - dim_direction
         lower_in_range_inx = np.nonzero(lower_indices[dim] >= 0)[0]
         values_list.append(math.gather(math.flatten(stencil_lower), lower_in_range_inx))

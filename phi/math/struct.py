@@ -19,6 +19,17 @@ class Struct(object):
     def __names__(self):
         return self.__class__.__struct__.attributes
 
+    def __mapnames__(self, basename):
+        values = self.__values__()
+        result_list = []
+        for attr, value in zip(self.__class__.__struct__.attributes, values):
+            fullname = attr if basename is None else basename+'.'+attr
+            if Struct.isstruct(value):
+                result_list.append(Struct.mapnames(value, fullname))
+            else:
+                result_list.append(fullname)
+        return self.__build__(result_list)
+
     def __build__(self, values):
         new_struct = copy(self)
         for val, attr in zip(values, self.__class__.__struct__.attributes):
@@ -41,14 +52,28 @@ class Struct(object):
             return struct.__values__()
         raise ValueError("Not a struct: %s" % struct)
 
-    # @staticmethod
-    # def names(struct):
-    #     if isinstance(struct, (list, tuple)):
-    #         return ['[%d]' % i for i in range(len(struct))]
-    #     if isinstance(struct, Struct):
-    #         return struct.__names__()
-    #     raise ValueError("Not a struct: %s" % struct)
+    @staticmethod
+    def names(struct):
+        if isinstance(struct, (list, tuple)):
+            return ['[%d]' % i for i in range(len(struct))]
+        if isinstance(struct, Struct):
+            return struct.__names__()
+        raise ValueError("Not a struct: %s" % struct)
 
+    @staticmethod
+    def mapnames(struct, basename=None):
+        if isinstance(struct, (list, tuple)):
+            fullname = lambda i: 'index%d'%i if basename is None else basename+'.index%d'%i
+            result = []
+            for i, element in enumerate(struct):
+                if Struct.isstruct(element):
+                    result.append(Struct.mapnames(struct[i], fullname(i)))
+                else:
+                    result.append(fullname(i))
+            return tuple(result) if isinstance(struct, tuple) else result
+        if isinstance(struct, Struct):
+            return struct.__mapnames__(basename)
+        raise ValueError("Not a struct: %s" % struct)
 
     @staticmethod
     def build(values, source_struct):

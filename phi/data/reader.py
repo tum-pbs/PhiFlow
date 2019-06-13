@@ -45,7 +45,7 @@ class BatchReader(object):
             for channel in self._channels:
                 source, local_index = self.indexcache.get_source_and_local_index(index)
                 data = channel.get(source, [local_index])
-                array = next(iter(data))  # TODO group indices by source before calling get
+                array = next(iter(data))  # TODO group frames by source before calling get
                 arrays.append(array)
             result.append(arrays)
         return result
@@ -197,7 +197,7 @@ class _AdaptiveBatchIterator(object):
                     else: raise AssertionError("Looping iterator with 0 batches")
             indices = range(start, stop)
         elif self.last == WRAP:
-            # Repeat first indices at the end
+            # Repeat first frames at the end
             indices = range(start, start + self.batch_size)
             indices = [i % len(self.reader) for i in indices]
             stop = (start + self.batch_size) % len(self.reader)

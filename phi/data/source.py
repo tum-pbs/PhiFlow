@@ -13,9 +13,9 @@ class DataSource(object):
     def get(self, fieldname, frames):
         """
 Returns a NumPy array (or list of arrays) holding the data for a given fieldname.
-The batch size of the array (or list length) is equal to len(indices).
+The batch size of the array (or list length) is equal to len(frames).
         :param fieldname: channel identifier string
-        :param frames: list or tuple of indices
+        :param frames: list or tuple of frames
         """
         raise NotImplementedError(self)
 
@@ -37,7 +37,7 @@ If the size is unknown at this point and lookup=False, returns None.
     
     def frames(self):
         """
-Returns an iteratable object to read all indices of this DataSource.
+Returns an iteratable object to read all frames of this DataSource.
 The iterator need not provide a length.
         """
         raise NotImplementedError(self)
@@ -71,12 +71,12 @@ class SceneSource(DataSource):
 
     def size(self, lookup=False):
         if self._frames is None and lookup:
-            self._frames = self.scene.indices
+            self._frames = self.scene.frames
         return len(self._frames) if self._frames is not None else None
 
     def frames(self):
         if self._frames is None:
-            self._frames = self.scene.indices
+            self._frames = self.scene.frames
         return self._frames
 
     def shape(self, fieldname):

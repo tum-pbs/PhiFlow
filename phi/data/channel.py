@@ -110,7 +110,7 @@ class FrameSelect(DerivedChannel):
     def __init__(self, selector, channel):
         """
 Selects specific frames from the input.
-        :param selector: Either a frame index, list of frame indices or a selection function mapping a list of all frames to a list of selected frames
+        :param selector: Either a frame index, list of frame frames or a selection function mapping a list of all frames to a list of selected frames
         :param channel: input channel
         """
         DerivedChannel.__init__(self, [channel])

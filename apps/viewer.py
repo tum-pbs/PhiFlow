@@ -34,7 +34,7 @@ class Viewer(FieldSequenceModel):
 
     def action_refresh(self):
         self.view_scene = scene_at(self.value_directory)
-        self.indices = self.view_scene.get_indices(mode="union")
+        self.indices = self.view_scene.get_frames(mode="union")
         for fieldname in self.view_scene.fieldnames:
             def getfield(fieldname=fieldname):
                 return self.view_scene.read_array(fieldname, self.time)

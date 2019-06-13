@@ -3,6 +3,8 @@ import numpy as np
 import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
 
+from phi.math import Struct
+
 
 def read_zipped_array(filename):
     file = np.load(filename)
@@ -28,41 +30,41 @@ def _check_same_dimensions(arrays):
             raise ValueError("All arrays should have the same spatial dimensions, but got %s and %s" % (array.shape, arrays[0].shape))
 
 
-def read_sim_frame(simpath, fieldnames, index, set_missing_to_none=True):
+def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
     if isinstance(fieldnames, six.string_types): fieldnames = [fieldnames]
     for fieldname in fieldnames:
-        filename = join(simpath, "%s_%06i.npz"%(fieldname,index))
+        filename = join(simpath, "%s_%06i.npz" % (fieldname, frame))
         if os.path.isfile(filename):
             yield read_zipped_array(filename)
         else:
             if set_missing_to_none:
                 yield None
             else:
-                raise IOError("Missing frame at index %d: %s"%(index,filename))
+                raise IOError("Missing frame at frame %d: %s" % (frame, filename))
 
 
-def write_sim_frame(simpath, arrays, fieldnames, index, check_same_dimensions=False):
+def write_sim_frame(simpath, arrays, fieldnames, frame, check_same_dimensions=False):
     if check_same_dimensions: _check_same_dimensions(arrays)
     os.path.isdir(simpath) or os.mkdir(simpath)
     if not isinstance(fieldnames, (tuple, list)) and not isinstance(arrays, (tuple, list)):
         fieldnames = [fieldnames]
         arrays = [arrays]
-    filenames = [join(simpath, "%s_%06i.npz"%(name,index)) for name in fieldnames]
+    filenames = [join(simpath, "%s_%06i.npz" % (name, frame)) for name in fieldnames]
     for i in range(len(arrays)):
         write_zipped_array(filenames[i], arrays[i])
     return filenames
 
 
-def read_sim_frames(simpath, fieldnames=None, indices=None):
+def read_sim_frames(simpath, fieldnames=None, frames=None):
     if fieldnames is None: fieldnames = get_fieldnames(simpath)
     if not fieldnames: return []
-    if indices is None: indices = get_indices(simpath, fieldnames[0])
-    if isinstance(indices, int): indices = [indices]
+    if frames is None: frames = get_frames(simpath, fieldnames[0])
+    if isinstance(frames, int): frames = [frames]
     single_fieldname = isinstance(fieldnames, six.string_types)
     if single_fieldname: fieldnames = [fieldnames]
 
     field_lists = [[] for f in fieldnames]
-    for i in indices:
+    for i in frames:
         fields = read_sim_frame(simpath, fieldnames, i, set_missing_to_none=False)
         for j in range(len(fieldnames)):
             field_lists[j].append(fields[j])
@@ -75,23 +77,23 @@ def get_fieldnames(simpath):
     return sorted(fieldnames_set)
 
 
-def first_index(simpath, fieldname=None):
-    return min(get_indices(simpath, fieldname))
+def first_frame(simpath, fieldname=None):
+    return min(get_frames(simpath, fieldname))
 
 
-def get_indices(simpath, fieldname=None, mode="intersect"):
+def get_frames(simpath, fieldname=None, mode="intersect"):
     if fieldname is not None:
-        all_indices = {int(f[-10:-4]) for f in os.listdir(simpath) if f.startswith(fieldname) and f.endswith(".npz")}
-        return sorted(all_indices)
+        all_frames = {int(f[-10:-4]) for f in os.listdir(simpath) if f.startswith(fieldname) and f.endswith(".npz")}
+        return sorted(all_frames)
     else:
-        indices_lists = [get_indices(simpath, fieldname) for fieldname in get_fieldnames(simpath)]
+        frames_lists = [get_frames(simpath, fieldname) for fieldname in get_fieldnames(simpath)]
         if mode.lower() == "intersect":
-            intersection = set(indices_lists[0]).intersection(*indices_lists[1:])
+            intersection = set(frames_lists[0]).intersection(*frames_lists[1:])
             return sorted(intersection)
         elif mode.lower() == "union":
-            if not indices_lists:
+            if not frames_lists:
                 return []
-            union = set(indices_lists[0]).union(*indices_lists[1:])
+            union = set(frames_lists[0]).union(*frames_lists[1:])
             return sorted(union)
 
 
@@ -143,25 +145,37 @@ class Scene(object):
             json.dump(self._properties, out, indent=2)
 
 
-    def read_sim_frames(self, fieldnames=None, indices=None):
-        return read_sim_frames(self.path, fieldnames=fieldnames, indices=indices)
+    def read_sim_frames(self, fieldnames=None, frames=None):
+        return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames)
 
-    def read_array(self, fieldname, index):
-        return next(read_sim_frame(self.path, [fieldname], index, set_missing_to_none=False))
+    def read_array(self, fieldname, frame):
+        return next(read_sim_frame(self.path, [fieldname], frame, set_missing_to_none=False))
 
-    def write_sim_frame(self, arrays, fieldnames, index, check_same_dimensions=False):
-        write_sim_frame(self.path, arrays, fieldnames, index, check_same_dimensions=check_same_dimensions)
+    def write_sim_frame(self, arrays, fieldnames, frame, check_same_dimensions=False):
+        write_sim_frame(self.path, arrays, fieldnames, frame, check_same_dimensions=check_same_dimensions)
+
+    def write(self, struct, names=None, frame=0):
+        if Struct.isstruct(struct):
+            if names is None:
+                names = Struct.mapnames(struct)
+            values, _ = Struct.flatten(struct)
+            names, _ = Struct.flatten(names)
+            names = [n.replace('_', '').replace('.', '_') for n in names]
+            self.write_sim_frame(values, names, frame)
+        else:
+            name = str(names) if names is not None else 'unnamed'
+            self.write_sim_frame(struct, name, frame)
 
     @property
     def fieldnames(self):
         return get_fieldnames(self.path)
 
     @property
-    def indices(self):
-        return get_indices(self.path)
+    def frames(self):
+        return get_frames(self.path)
 
-    def get_indices(self, mode="intersect"):
-        return get_indices(self.path, None, mode)
+    def get_frames(self, mode="intersect"):
+        return get_frames(self.path, None, mode)
 
     def __str__(self):
         return self.path
@@ -204,57 +218,57 @@ class Scene(object):
         if isdir(self.path):
             shutil.rmtree(self.path)
 
+    @staticmethod
+    def create(directory, category=None, mkdir=True):
+        directory = os.path.expanduser(directory)
+        if category is None:
+            category = os.path.basename(directory)
+            directory = os.path.dirname(directory)
+        else:
+            category = slugify(category)
 
-def scenes(directory, category=None, indexfilter=None, max_count=None):
-    directory = os.path.expanduser(directory)
-    if not category:
-        root_path = directory
-        category = os.path.basename(directory)
-        directory = os.path.dirname(directory)
-    else:
-        root_path = join(directory, category)
-    if not os.path.isdir(root_path): return []
-    indices = [int(sim[4:]) for sim in os.listdir(root_path) if sim.startswith("sim_")]
-    if indexfilter:
-        indices = indexfilter(indices)
-    if max_count and len(indices) >=  max_count:
-        indices = indices[0:max_count]
-    return [Scene(directory, category, scene_index) for scene_index in indices]
-
-
-def new_scene(directory, category=None, mkdir=True):
-    directory = os.path.expanduser(directory)
-    if category is None:
-        category = os.path.basename(directory)
-        directory = os.path.dirname(directory)
-    else:
-        category = slugify(category)
-
-    scenedir = join(directory, category)
-    if not isdir(scenedir):
-        os.makedirs(scenedir)
-        next_index = 0
-    else:
-        indices = [int(name[4:]) for name in os.listdir(scenedir) if name.startswith("sim_")]
-        if not indices:
+        scenedir = join(directory, category)
+        if not isdir(scenedir):
+            os.makedirs(scenedir)
             next_index = 0
         else:
-            next_index = max(indices) + 1
-    scene = Scene(directory, category, next_index)
-    if mkdir: scene.mkdir()
-    return scene
+            indices = [int(name[4:]) for name in os.listdir(scenedir) if name.startswith("sim_")]
+            if not indices:
+                next_index = 0
+            else:
+                next_index = max(indices) + 1
+        scene = Scene(directory, category, next_index)
+        if mkdir: scene.mkdir()
+        return scene
 
+    @staticmethod
+    def list(directory, category=None, indexfilter=None, max_count=None):
+        directory = os.path.expanduser(directory)
+        if not category:
+            root_path = directory
+            category = os.path.basename(directory)
+            directory = os.path.dirname(directory)
+        else:
+            root_path = join(directory, category)
+        if not os.path.isdir(root_path): return []
+        indices = [int(sim[4:]) for sim in os.listdir(root_path) if sim.startswith("sim_")]
+        if indexfilter:
+            indices = indexfilter(indices)
+        if max_count and len(indices) >=  max_count:
+            indices = indices[0:max_count]
+        return [Scene(directory, category, scene_index) for scene_index in indices]
 
-def scene_at(sim_dir):
-    sim_dir = os.path.expanduser(sim_dir)
-    dirname = os.path.basename(sim_dir)
-    if not dirname.startswith("sim_"):
-        raise ValueError("%s is not a valid scene directory."%sim_dir)
-    category_directory = os.path.dirname(sim_dir)
-    category = os.path.basename(category_directory)
-    directory = os.path.dirname(category_directory)
-    index = int(dirname[4:])
-    return Scene(directory, category, index)
+    @staticmethod
+    def at(sim_dir):
+        sim_dir = os.path.expanduser(sim_dir)
+        dirname = os.path.basename(sim_dir)
+        if not dirname.startswith("sim_"):
+            raise ValueError("%s is not a valid scene directory."%sim_dir)
+        category_directory = os.path.dirname(sim_dir)
+        category = os.path.basename(category_directory)
+        directory = os.path.dirname(category_directory)
+        index = int(dirname[4:])
+        return Scene(directory, category, index)
 
 
 def slugify(value):

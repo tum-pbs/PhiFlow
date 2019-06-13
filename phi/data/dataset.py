@@ -72,7 +72,7 @@ class Dataset(object):
 
         for scene in scene_iterator:
             if assume_same_frames and frames is None:
-                frames = scene.indices
+                frames = scene.frames
             dataset.add(SceneSource(scene, frames=frames, shape_map=shape_map))
 
         return dataset
