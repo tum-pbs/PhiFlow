@@ -270,9 +270,7 @@ def unit_direction(dim, spatial_rank):  # ordered like z,y,x
 
 
 def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
-
-    in_size = inputs.get_shape().as_list()
-    in_spatial_size = in_size[1:-1]
+    in_spatial_size = [int(d) for d in inputs.shape[1:-1]]
     in_spatial_rank = tensor_spatial_rank(inputs)
     batch_size = tf.shape(inputs)[0]
 
