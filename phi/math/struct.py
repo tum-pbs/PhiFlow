@@ -1,39 +1,74 @@
+from copy import copy
+
+
+class StructInfo(object):
+
+    def __init__(self, attributes):
+        self.attributes = tuple(attributes)
+
 
 class Struct(object):
+    __struct__ = StructInfo(())
 
-    def disassemble(self):
+    def __disassemble__(self):
         """
 Disassembles the container into its element tensors.
     :return: 1. List of component tensors, 2. Reassemble: A function that recombines these tensors to produce an equivalent TensorContainer
         """
-        raise NotImplementedError(self)
+        def reassemble(values):
+            new_struct = copy(self)
+            for val, attr in zip(values, self.__class__.__struct__.attributes):
+                setattr(new_struct, attr, val)
+            return new_struct
+
+        return Struct.values(self), reassemble
 
     @staticmethod
     def foreach(struct, element_function):
-        tensors, reassemble = disassemble(struct)
+        tensors, reassemble = Struct.disassemble(struct)
         tensors = [element_function(element) for element in tensors]
         return reassemble(tensors)
 
+    @staticmethod
+    def values(struct):
+        if isinstance(struct, (list, tuple)):
+            return struct
+        if isinstance(struct, Struct):
+            attributes = struct.__class__.__struct__.attributes
+            values = [getattr(struct, a) for a in attributes]
+            return values
+        raise ValueError("Not a struct: %s" % struct)
 
-def disassemble(struct):
-    if isinstance(struct, Struct):
-        return struct.disassemble()
-    if isinstance(struct, (tuple, list)):
-        return _disassemble_list(struct)
-    else:
-        return [struct], lambda tensors: tensors[0]
+    @staticmethod
+    def disassemble(struct):
+        if isinstance(struct, Struct):
+            return struct.__disassemble__()
+        if isinstance(struct, (tuple, list)):
+            return _flatten_list(struct)
+        else:
+            raise ValueError("Not a struct: %s" % struct)
+            return [struct], lambda tensors: tensors[0]
+
+    @staticmethod
+    def isstruct(object):
+        return isinstance(object, (Struct, list, tuple))
+
+    @staticmethod
+    def flatten(struct):
+        if isinstance(struct, Struct):
+            return struct.__disassemble__()
+        if isinstance(struct, (tuple, list)):
+            return _flatten_list(struct)
+        else:
+            return [struct], lambda tensors: tensors[0]
 
 
-def isstruct(object):
-    return isinstance(object, (Struct, list, tuple))
-
-
-def _disassemble_list(struct_list):
+def _flatten_list(struct_list):
     tensor_counts = []
     reassemblers = []
     tensor_list = []
     for struct in struct_list:
-        tensors, reassemble = disassemble(struct)
+        tensors, reassemble = Struct.disassemble(struct)
         tensor_list += tensors
         tensor_counts.append(len(tensors))
         reassemblers.append(reassemble)
@@ -62,7 +97,7 @@ def batch_gather(struct, batches):
 
 
 def attributes(struct, remove_prefix=True, qualified_names=True):
-    array, reassemble = disassemble(struct)
+    array, reassemble = Struct.disassemble(struct)
     ids = ["id%d" % i for i in range(len(array))]
     id_struct = reassemble(ids)
     _recursive_attributes(id_struct, ids, remove_prefix, qualified_names, None)
@@ -70,7 +105,7 @@ def attributes(struct, remove_prefix=True, qualified_names=True):
 
 
 def _recursive_attributes(struct, ids, remove_prefix, qualified_names, qualifier):
-    if not isstruct(struct): return
+    if not Struct.isstruct(struct): return
 
     if isinstance(struct, (tuple,list)):
         for entry in struct:
@@ -91,22 +126,22 @@ def _recursive_attributes(struct, ids, remove_prefix, qualified_names, qualifier
                 _recursive_attributes(val, ids, remove_prefix, qualified_names, qualified_name)
 
 
-class StructAttributeGetter(object):
-
-    def __init__(self, getter):
-        self.getter = getter
-
-    def __call__(self, struct):
-        return self.getter(struct)
-
-
-def selector(struct):
-    array, reassemble = disassemble(struct)
-    ids = ['#ref' % i for i in range(len(array))]
-    tagged_struct = reassemble(ids)
-    _recursive_selector(tagged_struct)
-    return tagged_struct
-
-
-def _recursive_selector(struct):
-    pass
+# class StructAttributeGetter(object):
+#
+#     def __init__(self, getter):
+#         self.getter = getter
+#
+#     def __call__(self, struct):
+#         return self.getter(struct)
+#
+#
+# def selector(struct):
+#     array, reassemble = disassemble(struct)
+#     ids = ['#ref' % i for i in range(len(array))]
+#     tagged_struct = reassemble(ids)
+#     _recursive_selector(tagged_struct)
+#     return tagged_struct
+#
+#
+# def _recursive_selector(struct):
+#     pass

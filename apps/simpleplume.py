@@ -15,6 +15,7 @@ class Simpleplume(FieldSequenceModel):
 
     def step(self):
         self.state = smoke.step(self.state)
+        sum()
 
 
 app = Simpleplume().show(production=__name__ != "__main__")

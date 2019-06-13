@@ -314,6 +314,8 @@ def spatial_sum(tensor):
 
 
 class StaggeredGrid(struct.Struct):
+    __struct__ = struct.StructInfo(['_staggered'])
+
     """
         MACGrids represent a staggered vector channel in which each vector component is sampled at the
         face centers of centered hypercubes.
@@ -328,7 +330,11 @@ class StaggeredGrid(struct.Struct):
 
         """
     def __init__(self, staggered):
-        self.staggered = staggered
+        self._staggered = staggered
+
+    @property
+    def staggered(self):
+        return self._staggered
 
     def __repr__(self):
         try:
