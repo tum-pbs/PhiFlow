@@ -1,5 +1,5 @@
 from .physics import *
-from phi.math import disassemble
+from phi.math import Struct
 
 
 class CollectiveState(State):
@@ -36,11 +36,11 @@ class CollectiveState(State):
     def states(self):
         return self._states
 
-    def disassemble(self):
-        tensors, reassemble_states = disassemble(self._states)
-        def reassemble(tensors):
-            return CollectiveState(reassemble_states(tensors), self.time)
-        return tensors, reassemble
+    def __names__(self):
+        return [None for state in self._states]
+
+    def __values__(self):
+        return self.states
 
 
 class CollectivePhysics(Physics):

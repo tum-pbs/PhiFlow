@@ -1,9 +1,21 @@
 import numpy as np
 from . import base as math
-from . import struct
+from .struct import *
 
 
-def spatial_rank(tensor_or_mac):
+def shape(obj):
+    if Struct.isstruct(obj):
+        return Struct.flatmap(lambda tensor: tensor.shape, obj)
+    return math.shape(obj)
+
+
+def batch_gather(struct, batches):
+    if isinstance(batches, int):
+        batches = [batches]
+    return Struct.map(lambda tensor: tensor[batches,...], struct)
+
+
+def spatial_rank(obj):
     """
 Returns the number of spatial dimensions.
 Arrays are expected to be of the shape (batch size, spatial dimensions..., component size)
@@ -11,10 +23,11 @@ The number of spatial dimensions is equal to the tensor rank minus two.
     :param tensor_or_mac: a tensor or StaggeredGrid instance
     :return: the number of spatial dimensions as an integer
     """
-    if isinstance(tensor_or_mac, StaggeredGrid):
-        return tensor_or_mac.spatial_rank
-    else:
-        return len(tensor_or_mac.shape) - 2
+    if isinstance(obj, StaggeredGrid):
+        return obj.spatial_rank
+    if Struct.isstruct(obj):
+        return Struct.map(lambda o: spatial_rank(o), obj)
+    return len(obj.shape) - 2
 
 
 def indices_tensor(tensor, dtype=np.float32):
@@ -27,7 +40,7 @@ Indices are encoded as vectors in the index tensor.
     :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
     """
     spatial_dimensions = list(tensor.shape[1:-1])
-    idx_zyx = np.meshgrid(*[range(dim) for dim in spatial_dimensions], indexing="ij")
+    idx_zyx = np.meshgrid(*[range(dim) for dim in spatial_dimensions], indexing='ij')
     idx = np.stack(idx_zyx, axis=-1).reshape([1, ] + spatial_dimensions + [len(spatial_dimensions)])
     return idx.astype(dtype)
 
@@ -87,7 +100,7 @@ def at_centers(field):
 
 # Divergence
 
-def divergence(vel, dx=1, difference="central"):
+def divergence(vel, dx=1, difference='central'):
     """
 Computes the spatial divergence of a vector channel from finite differences.
     :param vel: tensor of shape (batch size, spatial dimensions..., spatial rank) or StaggeredGrid
@@ -100,7 +113,7 @@ Computes the spatial divergence of a vector channel from finite differences.
 
     assert difference in ('central', 'forward')
     rank = spatial_rank(vel)
-    if difference == "forward":
+    if difference == 'forward':
         return _forward_divergence_nd(vel) / dx ** rank
     else:
         return _central_divergence_nd(vel) / (2 * dx) ** rank
@@ -136,7 +149,7 @@ def _central_divergence_nd(tensor):
 
 # Gradient
 
-def gradient(tensor, dx=1, difference="forward"):
+def gradient(tensor, dx=1, difference='forward'):
     """
 Calculates the gradient of a scalar channel from finite differences.
 The gradient vectors are in reverse order, lowest dimension first.
@@ -145,21 +158,21 @@ The gradient vectors are in reverse order, lowest dimension first.
     :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
     :return: tensor of shape (batch_size, spatial_dimensions..., spatial rank)
     """
-    if tensor.shape[-1] != 1: raise ValueError("Gradient requires a scalar channel as input")
+    if tensor.shape[-1] != 1: raise ValueError('Gradient requires a scalar channel as input')
     dims = range(spatial_rank(tensor))
     field = tensor[...,0]
 
     if 1 in field.shape[1:]:
-        raise ValueError("All spatial dimensions must have size larger than 1, got {}".format(tensor.shape))
+        raise ValueError('All spatial dimensions must have size larger than 1, got {}'.format(tensor.shape))
 
-    if difference.lower() == "central":
+    if difference.lower() == 'central':
         return _central_diff_nd(tensor, dims) / (dx * 2)
-    elif difference.lower() == "forward":
+    elif difference.lower() == 'forward':
         return _forward_diff_nd(field, dims) / dx
-    elif difference.lower() == "backward":
+    elif difference.lower() == 'backward':
         return _backward_diff_nd(field, dims) / dx
     else:
-        raise ValueError("Invalid difference type: {}. Can be CENTRAL or FORWARD".format(difference))
+        raise ValueError('Invalid difference type: {}. Can be CENTRAL or FORWARD'.format(difference))
 
 
 def _backward_diff_nd(field, dims):
@@ -185,7 +198,7 @@ def _forward_diff_nd(field, dims):
 
 
 def _central_diff_nd(field, dims):
-    field = math.pad(field, [[0,0]] + [[1,1]]*spatial_rank(field) + [[0, 0]], "symmetric")
+    field = math.pad(field, [[0,0]] + [[1,1]]*spatial_rank(field) + [[0, 0]], 'symmetric')
     df_dq = []
     for dimension in dims:
         upper_slices = [(slice(2, None) if i==dimension else slice(1,-1)) for i in dims]
@@ -197,12 +210,12 @@ def _central_diff_nd(field, dims):
 
 # Laplace
 
-def laplace(tensor, weights=None, padding="symmetric"):
+def laplace(tensor, weights=None, padding='symmetric'):
     if tensor.shape[-1] != 1:
-        raise ValueError("Laplace operator requires a scalar channel as input")
+        raise ValueError('Laplace operator requires a scalar channel as input')
     rank = spatial_rank(tensor)
 
-    if padding.lower() != "valid":
+    if padding.lower() != 'valid':
         tensor = math.pad(tensor, [[0,0]] + [[1,1]] * rank + [[0,0]], padding)
 
     if weights is not None:
@@ -220,14 +233,14 @@ def _conv_laplace_2d(tensor):
     kernel = np.zeros((3, 3, 1, 1), np.float32)
     kernel[1,1,0,0] = -4
     kernel[(0,1,1,2),(1,0,2,1),0,0] = 1
-    return math.conv(tensor, kernel, padding="VALID")
+    return math.conv(tensor, kernel, padding='VALID')
 
 
 def _conv_laplace_3d(tensor):
     kernel = np.zeros((3, 3, 3, 1, 1), np.float32)
     kernel[1,1,1,0,0] = -6
     kernel[(0,1,1,1,1,2), (1,0,2,1,1,1), (1,1,1,0,2,1), 0,0] = 1
-    return math.conv(tensor, kernel, padding="VALID")
+    return math.conv(tensor, kernel, padding='VALID')
 
 
 def _sliced_laplace_nd(tensor):
@@ -246,7 +259,7 @@ def _sliced_laplace_nd(tensor):
 
 
 def _weighted_sliced_laplace_nd(tensor, weights):
-    if tensor.shape[-1] != 1: raise ValueError("Laplace operator requires a scalar channel as input")
+    if tensor.shape[-1] != 1: raise ValueError('Laplace operator requires a scalar channel as input')
     dims = range(spatial_rank(tensor))
     components = []
     for dimension in dims:
@@ -270,13 +283,18 @@ def _weighted_sliced_laplace_nd(tensor, weights):
 
 # Downsample / Upsample
 
-def downsample2x(tensor, interpolation="LINEAR"):
-    if interpolation.lower() != "linear":
-        raise ValueError("Only linear interpolation supported")
+def downsample2x(tensor, interpolation='linear'):
+    if isinstance(tensor, StaggeredGrid):
+        return tensor.downsample2x(interpolation=interpolation)
+    if Struct.isstruct(tensor):
+        return Struct.map(lambda s: downsample2x(s, interpolation), tensor)
+
+    if interpolation.lower() != 'linear':
+        raise ValueError('Only linear interpolation supported')
     dims = range(spatial_rank(tensor))
     tensor = math.pad(tensor, [[0,0]]+
                           [([0, 1] if (dim % 2) != 0 else [0,0]) for dim in tensor.shape[1:-1]]
-                          + [[0,0]], "SYMMETRIC")
+                          + [[0,0]], 'SYMMETRIC')
     for dimension in dims:
         upper_slices = tuple([(slice(1, None, 2) if i==dimension else slice(None)) for i in dims])
         lower_slices = tuple([(slice(0, None, 2) if i==dimension else slice(None)) for i in dims])
@@ -285,13 +303,18 @@ def downsample2x(tensor, interpolation="LINEAR"):
     return tensor
 
 
-def upsample2x(tensor, interpolation="LINEAR"):
-    if interpolation.lower() != "linear":
-        raise ValueError("Only linear interpolation supported")
+def upsample2x(tensor, interpolation='linear'):
+    if isinstance(tensor, StaggeredGrid):
+        return tensor.upsample2x(interpolation=interpolation)
+    if Struct.isstruct(tensor):
+        return Struct.map(lambda s: upsample2x(s, interpolation), tensor)
+
+    if interpolation.lower() != 'linear':
+        raise ValueError('Only linear interpolation supported')
     dims = range(spatial_rank(tensor))
     vlen = tensor.shape[-1]
     spatial_dims = tensor.shape[1:-1]
-    tensor = math.pad(tensor, [[0, 0]] + [[1, 1]]*spatial_rank(tensor) + [[0, 0]], "SYMMETRIC")
+    tensor = math.pad(tensor, [[0, 0]] + [[1, 1]]*spatial_rank(tensor) + [[0, 0]], 'SYMMETRIC')
     for dim in dims:
         left_slices_1 =  tuple([(slice(2, None) if i==dim else slice(None)) for i in dims])
         left_slices_2 =  tuple([(slice(1,-1)    if i==dim else slice(None)) for i in dims])
@@ -313,12 +336,11 @@ def spatial_sum(tensor):
     return summed
 
 
-class StaggeredGrid(struct.Struct):
-    __struct__ = struct.StructInfo(['_staggered'])
-
+class StaggeredGrid(Struct):
     """
         MACGrids represent a staggered vector channel in which each vector component is sampled at the
         face centers of centered hypercubes.
+
         Going in the direction of a vector component, the first entry samples the lower face of the first cube and the
         last entry the upper face of the last cube.
         Therefore staggered grids contain one more entry in each spatial dimension than a centered channel.
@@ -328,7 +350,10 @@ class StaggeredGrid(struct.Struct):
             shape (tuple Tensorshape): the shape of the staggered channel
             staggered (tensor): array or tensor holding the staggered channel
 
-        """
+    """
+    __struct__ = StructInfo(['_staggered'])
+
+
     def __init__(self, staggered):
         self._staggered = staggered
 
@@ -338,9 +363,9 @@ class StaggeredGrid(struct.Struct):
 
     def __repr__(self):
         try:
-            return "StaggeredGrid(shape=%s)" % (self.shape,)
+            return 'StaggeredGrid(shape=%s)' % (self.shape,)
         except:
-            return "StaggeredGrid(%s)" % self.staggered
+            return 'StaggeredGrid(%s)' % self.staggered
 
     def __eq__(self, other):
         if isinstance(other, StaggeredGrid):
@@ -350,9 +375,6 @@ class StaggeredGrid(struct.Struct):
 
     def __hash__(self):
         return hash(self.staggered)
-
-    def disassemble(self):
-        return [self.staggered], lambda tensors: StaggeredGrid(tensors[0])
 
     def at_centers(self):
         rank = self.spatial_rank
@@ -426,14 +448,14 @@ class StaggeredGrid(struct.Struct):
     def batch_div(self, tensor):
         return StaggeredGrid(self.staggered / tensor)
 
-    def advect(self, field, interpolation="LINEAR", dt=1):
+    def advect(self, field, interpolation='linear', dt=1):
         """
     Performs a semi-Lagrangian advection step, propagating the channel through the velocity channel.
     A backwards Euler step is performed and the smpling is performed according to the interpolation specified.
         :param field: scalar or vector channel to propagate
         :param velocity: vector channel specifying the velocity at each point in space. Shape (batch_size, grid_size,
         :param dt:
-        :param interpolation: LINEAR, BSPLINE, IDW (default is LINEAR)
+        :param interpolation: linear
         :return: the advected channel
         """
         if isinstance(field, StaggeredGrid):
@@ -445,7 +467,7 @@ class StaggeredGrid(struct.Struct):
         idx = indices_tensor(field)
         centered_velocity = self.at_centers()
         sample_coords = idx - centered_velocity * dt
-        result = math.resample(field, sample_coords, interpolation=interpolation, boundary="REPLICATE")
+        result = math.resample(field, sample_coords, interpolation=interpolation, boundary='REPLICATE')
         return result
 
     def _advect_mac(self, field_mac, dt, interpolation):  # TODO wrong component order
@@ -456,7 +478,7 @@ class StaggeredGrid(struct.Struct):
         for d in range(self.spatial_rank):
             velocity_at_staggered_points = self.at_faces(d)
             sample_coords = idx - velocity_at_staggered_points * dt
-            advected = math.resample(field_mac.staggered[..., d:d + 1], sample_coords, interpolation=interpolation, boundary="REPLICATE")
+            advected = math.resample(field_mac.staggered[..., d:d + 1], sample_coords, interpolation=interpolation, boundary='REPLICATE')
             advected_component_fields.append(advected)
 
         all_advected = math.concat(advected_component_fields, axis=-1)
@@ -469,9 +491,9 @@ class StaggeredGrid(struct.Struct):
         elif rank == 2:
             return self._staggered_curl_2d()
         else:
-            raise ValueError("Curl requires a two or three-dimensional vector channel")
+            raise ValueError('Curl requires a two or three-dimensional vector channel')
 
-    def pad(self, lower, upper=None, mode="symmetric"):
+    def pad(self, lower, upper=None, mode='symmetric'):
         upper = upper if upper is not None else lower
         padded = math.pad(self.staggered, [[0,0]] + [[lower,upper]]*self.spatial_rank + [[0,0]], mode)
         return StaggeredGrid(padded)
@@ -497,8 +519,8 @@ class StaggeredGrid(struct.Struct):
         kernel[0, 0, :, 1, 2] = derivative
         kernel[0, :, 0, 0, 2] = -derivative
 
-        vector_potential = math.pad(self.staggered, [[0, 0], [0, 1], [0, 1], [0, 1], [0, 0]], "SYMMETRIC")
-        vector_field = math.conv(vector_potential, kernel, padding="VALID")
+        vector_potential = math.pad(self.staggered, [[0, 0], [0, 1], [0, 1], [0, 1], [0, 0]], 'SYMMETRIC')
+        vector_field = math.conv(vector_potential, kernel, padding='VALID')
         return StaggeredGrid(vector_field)
 
     def _staggered_curl_2d(self):  # TODO wrong component order
@@ -509,9 +531,17 @@ class StaggeredGrid(struct.Struct):
         # y-component: - dz/dx
         kernel[0, :, 0, 1] = -derivative
 
-        scalar_potential = math.pad(self.staggered, [[0, 0], [0, 1], [0, 1], [0, 0]], "SYMMETRIC")
-        vector_field = math.conv(scalar_potential, kernel, padding="VALID")
+        scalar_potential = math.pad(self.staggered, [[0, 0], [0, 1], [0, 1], [0, 0]], 'SYMMETRIC')
+        vector_field = math.conv(scalar_potential, kernel, padding='VALID')
         return StaggeredGrid(vector_field)
+    
+    def downsample2x(self, interpolation='linear'):
+        print("StaggeredGrid.downsample2x() not implemented")
+        return self
+    
+    def upsample2x(self, interpolation='linear'):
+        print("StaggeredGrid.upsample2x() not implemented")
+        return self
 
     def __add__(self, other):
         if isinstance(other, StaggeredGrid):
@@ -569,8 +599,8 @@ class StaggeredGrid(struct.Struct):
             return None
 
     @staticmethod
-    def gradient(scalar_field, padding="symmetric"):
-        if scalar_field.shape[-1] != 1: raise ValueError("Gradient requires a scalar channel as input")
+    def gradient(scalar_field, padding='symmetric'):
+        if scalar_field.shape[-1] != 1: raise ValueError('Gradient requires a scalar channel as input')
         rank = spatial_rank(scalar_field)
         dims = range(rank)
         field = math.pad(scalar_field, [[0,0]]+[[1,1]]*rank+[[0,0]], mode=padding)
@@ -583,8 +613,8 @@ class StaggeredGrid(struct.Struct):
         return StaggeredGrid(math.concat(df_dq, axis=-1))
 
     @staticmethod
-    def from_scalar(scalar_field, axis_forces, padding_mode="constant"):
-        assert scalar_field.shape[-1] == 1, "channel must be scalar but has %d components" % scalar_field.shape[-1]
+    def from_scalar(scalar_field, axis_forces, padding_mode='constant'):
+        assert scalar_field.shape[-1] == 1, 'channel must be scalar but has %d components' % scalar_field.shape[-1]
         rank = spatial_rank(scalar_field)
         dims = range(rank)
         df_dq = []

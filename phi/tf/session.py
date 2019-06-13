@@ -1,5 +1,5 @@
 import numpy as np
-from phi.math import load_tensorflow, disassemble
+from phi.math import load_tensorflow, Struct
 from .profiling import *
 import contextlib
 
@@ -32,13 +32,14 @@ class Session(object):
         if feed_dict is not None:
             new_feed_dict = {}
             for (key, value) in feed_dict.items():
-                key_tensors, _ = disassemble(key)
-                value_tensors, _ = disassemble(value)
+                key_tensors, _ = Struct.flatten(key)
+                value_tensors, _ = Struct.flatten(value)
                 for key_tensor, value_tensor in zip(key_tensors, value_tensors):
-                    new_feed_dict[key_tensor] = value_tensor
+                    if isinstance(key, tf.Tensor) and key.op.type == 'Placeholder':
+                        new_feed_dict[key_tensor] = value_tensor
             feed_dict = new_feed_dict
 
-        tensor_fetches, reassemble = disassemble(fetches)
+        tensor_fetches, reassemble = Struct.flatten(fetches)
 
         # Handle tracing
         trace = _trace_stack.get_default(raise_error=False)

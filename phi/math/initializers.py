@@ -5,39 +5,28 @@ import numpy as np
 
 
 def zeros(shape, dtype=np.float32):
-    shapes, reassemble = disassemble(shape)
-    zeros = [np.zeros(shape, dtype) for shape in shapes]
-    return reassemble(zeros)
+    return Struct.flatmap(lambda s: np.zeros(s, dtype), shape)
+
 
 def zeros_like(object):
-    tensors, reassemble = disassemble(object)
-    zeros = [math.zeros_like(tensor) for tensor in tensors]
-    return reassemble(zeros)
+    return Struct.flatmap(lambda tensor: math.zeros_like(tensor), object)
+
 
 def ones(shape, dtype=np.float32):
-    shapes, reassemble = disassemble(shape)
-    zeros = [np.ones(shape, dtype) for shape in shapes]
-    return reassemble(zeros)
+    return Struct.flatmap(lambda s: np.ones(s, dtype), shape)
 
-def ones_like(object):
-    tensors, reassemble = disassemble(object)
-    zeros = [np.ones_like(tensor) for tensor in tensors]
-    return reassemble(zeros)
 
 def empty(shape, dtype=np.float32):
-    shapes, reassemble = disassemble(shape)
-    zeros = [np.empty(shape, dtype) for shape in shapes]
-    return reassemble(zeros)
+    return Struct.flatmap(lambda s: np.empty(s, dtype), shape)
+
 
 def empty_like(object):
-    tensors, reassemble = disassemble(object)
-    zeros = [np.empty_like(tensor) for tensor in tensors]
-    return reassemble(zeros)
+    return Struct.flatmap(lambda tensor: np.empty_like(tensor), object)
+
 
 def randn(shape, levels=(1.0,)):
-    shapes, reassemble = disassemble(shape)
-    zeros = [_random_tensor(shape, levels) for shape in shapes]
-    return reassemble(zeros)
+    return Struct.flatmap(lambda s: _random_tensor(s, levels), shape)
+
 
 def _random_tensor(shape, levels):
     result = 0

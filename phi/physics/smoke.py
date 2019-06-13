@@ -3,6 +3,7 @@ from phi.math import *
 
 
 class SmokeState(State):
+    __struct__ = StructInfo(('_density', '_velocity'))
 
     def __init__(self, density, velocity):
         State.__init__(self, tags=('smoke',))
@@ -17,10 +18,6 @@ class SmokeState(State):
     def velocity(self):
         return self._velocity
 
-    def disassemble(self):
-        v, v_re = disassemble(self._velocity)
-        return [self._density] + v, lambda tensors: SmokeState(tensors[0], v_re(tensors[1:]))
-
     def __eq__(self, other):
         if isinstance(other, SmokeState):
             return self._density == other._density and self._velocity == other._velocity
@@ -29,6 +26,9 @@ class SmokeState(State):
 
     def __hash__(self):
         return hash(self._density) + hash(self._velocity)
+
+    def __repr__(self):
+        return "SmokeState[density: %s, velocity: %s]" % (self.density, self.velocity)
 
 
 class Smoke(VolumetricPhysics):

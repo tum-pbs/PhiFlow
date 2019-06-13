@@ -76,5 +76,13 @@ class World(object):
             states = self.state.get_by_tag(physics.state_tag)
             self.state -= states
 
+    def clear(self):
+        self.physics = CollectivePhysics()
+        self.state = self.physics.initial_state()
+
+    def reset(self):
+        World.__init__(self)
+
+
 
 world = World()
