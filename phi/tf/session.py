@@ -35,7 +35,7 @@ class Session(object):
                 key_tensors, _ = Struct.flatten(key)
                 value_tensors, _ = Struct.flatten(value)
                 for key_tensor, value_tensor in zip(key_tensors, value_tensors):
-                    if isinstance(key, tf.Tensor) and key.op.type == 'Placeholder':
+                    if isinstance(key_tensor, tf.Tensor) and key_tensor.op.type == 'Placeholder':
                         new_feed_dict[key_tensor] = value_tensor
             feed_dict = new_feed_dict
 

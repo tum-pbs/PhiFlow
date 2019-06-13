@@ -1,19 +1,14 @@
 # coding=utf-8
 import tensorflow as tf
 from phi.math.nd import *
-from phi.math import disassemble
 from tensorflow.python import pywrap_tensorflow
 
 
 def placeholder(shape, dtype=np.float32, name=None):
-    shapes, reassemble = disassemble(shape)
-    zeros = [tf.placeholder(dtype, shape, name) for shape in shapes]
-    return reassemble(zeros)
+    return Struct.flatmap(lambda s: tf.placeholder(dtype, s, name), shape)
 
-def variable(container, dtype=np.float32, name=None, trainable=True):
-    initial_values, reassemble = disassemble(container)
-    vars = [tf.Variable(val, name=name, dtype=dtype, trainable=trainable) for val in initial_values]
-    return reassemble(vars)
+def variable(initial_value, dtype=np.float32, name=None, trainable=True):
+    return Struct.flatmap(lambda val: tf.Variable(val, name=name, dtype=dtype, trainable=trainable), initial_value)
 
 
 

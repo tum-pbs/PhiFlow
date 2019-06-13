@@ -330,7 +330,7 @@ Resamples an N-dimensional tensor at the locations provided by sample_coords
     #         raise ValueError("Shape of input must be known, got {}".format(inputs.shape))
 
     boundary_func = SUPPORTED_BOUNDARY[boundary]
-    assert interpolation == "LINEAR"
+    assert interpolation.upper() == "LINEAR"
     # return _resample_linear(inputs, sample_coords, boundary, boundary_func)
     return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 

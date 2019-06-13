@@ -2,7 +2,8 @@
 from __future__ import print_function
 import logging, os, numbers, six, numpy, threading, inspect, time, sys
 from os.path import isfile
-import phi.data.fluidformat, phi.math.nd
+from phi.data.fluidformat import Scene
+import phi.math.nd
 from phi.viz.plot import PlotlyFigureBuilder
 from phi.physics.world import world
 
@@ -110,7 +111,7 @@ class FieldSequenceModel(object):
         self.info('Setting up model...')
 
     def new_scene(self):
-        self.scene = phi.data.fluidformat.new_scene(self.base_dir, self.scene_summary(), mkdir=True)
+        self.scene = Scene.create(self.base_dir, self.scene_summary(), mkdir=True)
 
     @property
     def directory(self):
