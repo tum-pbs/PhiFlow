@@ -1,12 +1,27 @@
-test:pylint:
-    image: python:3.6
+stages:
+    - analysis
+    - build
+    - test
+
+analysis:pylint:
+    stage: analysis
+    image: python:2.7
     script:
+        - echo "Running static analysis with PyLint"
         - pip install pylint --quiet
         - pylint --ignored-classes=_socketobject *.py
 
+build:pip:
+    stage: build
+    image: python:2.7
+    script:
+        - echo "Building"
+        - pip install .
 
 test:pytest:
-  image: python:3.6
-  script:
-    - pip install pytest --quiet
-    - pytest
+    stage: test
+    image: python:2.7
+    script:
+        - echo "Running Tests"
+        - pip install pytest --quiet
+        - pytest
