@@ -160,11 +160,25 @@ class Scene(object):
                 names = Struct.mapnames(struct)
             values, _ = Struct.flatten(struct)
             names, _ = Struct.flatten(names)
-            names = [n.replace('_', '').replace('.', '_') for n in names]
+            names = [self._filename(name) for name in names]
             self.write_sim_frame(values, names, frame)
         else:
             name = str(names) if names is not None else 'unnamed'
             self.write_sim_frame(struct, name, frame)
+
+    def read(self, struct, frame=0):
+        if Struct.isstruct(struct):
+            names = Struct.flatten(struct)
+            if not np.all([isinstance(n, six.string_types) for n in names]):
+                struct = Struct.mapnames(struct)
+            return Struct.flatmap(lambda name: self.read_array(self._filename(name), frame), struct)
+        else:
+            return self.read_array('unnamed', frame)
+
+    def _filename(self, structname):
+        structname = structname.replace('._', '.').replace('.', '_')
+        if structname.startswith('_'): structname = structname[1:]
+        return structname
 
     @property
     def fieldnames(self):

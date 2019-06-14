@@ -1,5 +1,6 @@
 from .volumetric import *
 from phi.math import *
+from operator import itemgetter
 
 
 class SmokeState(State):
@@ -65,7 +66,7 @@ class Smoke(VolumetricPhysics):
         return SmokeState(self.grid.shape(batch_size=batch_size), self.grid.staggered_shape(batch_size=batch_size))
 
     def step(self, smokestate):
-        return smokestate * self.advect * self.inflow * self.buoyancy * self.friction * self.divergence_free
+        return smokestate * self.advect * self.inflow * self.buoyancy * self.stick * self.divergence_free
 
     def serialize_to_dict(self):
         return {
@@ -99,9 +100,9 @@ class Smoke(VolumetricPhysics):
             density = nd.normalize_to(density, prev_density)
         return SmokeState(density, velocity)
 
-    def friction(self, smokestate):
+    def stick(self, smokestate):
         velocity = self.domainstate.with_hard_boundary_conditions(smokestate.velocity)
-        # TODO friction
+        # TODO wall friction
         # self.world.geom
         # friction = material.friction_multiplier(dt)
         return SmokeState(smokestate.density, velocity)
