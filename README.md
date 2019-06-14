@@ -1,5 +1,8 @@
 # Φ-*Flow*
 
+[![pipeline status](https://gitlab.lrz.de/ga67fet/phiflow/badges/master/pipeline.svg)](https://gitlab.lrz.de/ga67fet/phiflow/commits/master)
+
+
 ![Gui](documentation/Gui.png)
 
 Φ-*Flow* is an open-source fluid simulation toolkit.
