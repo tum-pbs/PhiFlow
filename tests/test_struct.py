@@ -7,7 +7,8 @@ def generate_test_structs():
             StaggeredGrid('Staggered Grid'),
             SmokeState('Density', 'Velocity'),
             [StaggeredGrid('Staggered Grid')],
-            [('Item',)]
+            [('Item',)],
+        {'A': 'Entry A', 'Vel': StaggeredGrid('v')}
         ]
 
 

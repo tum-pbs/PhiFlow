@@ -19,8 +19,9 @@ Instead, structs must support data of any type.
 The following objects are structs:
 
 - Subclasses of `phi.math.struct.Struct`
-- Lists of structs
-- Tuples of structs
+- Lists
+- Tuples
+- Dicts containing strings as keys
 
 Subclasses of `phi.math.struct.Struct` must override the `disassemble` method
 which returns a list of all contained attributes, including attributes of sub-structs, and a reassembly function.

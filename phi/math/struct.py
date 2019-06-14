@@ -30,7 +30,6 @@ class Struct(object):
 
     with_ = copy
 
-
     def __values__(self):
         attributes = self.__class__.__struct__.attributes
         values = [getattr(self, a) for a in attributes]
@@ -66,43 +65,44 @@ class Struct(object):
 
     @staticmethod
     def values(struct):
-        if isinstance(struct, (list, tuple)):
-            return struct
         if isinstance(struct, Struct):
             return struct.__values__()
+        if isinstance(struct, (list, tuple)):
+            return struct
+        if isinstance(struct, dict):
+            return struct.values()
         raise ValueError("Not a struct: %s" % struct)
 
     @staticmethod
     def names(struct):
-        if isinstance(struct, (list, tuple)):
-            return ['[%d]' % i for i in range(len(struct))]
         if isinstance(struct, Struct):
             return struct.__names__()
+        if isinstance(struct, (list, tuple)):
+            return ['[%d]' % i for i in range(len(struct))]
+        if isinstance(struct, dict):
+            return struct.keys()
         raise ValueError("Not a struct: %s" % struct)
 
     @staticmethod
     def mapnames(struct, basename=None):
-        if isinstance(struct, (list, tuple)):
-            fullname = lambda i: 'index%d'%i if basename is None else basename+'.index%d'%i
-            result = []
-            for i, element in enumerate(struct):
-                if Struct.isstruct(element):
-                    result.append(Struct.mapnames(struct[i], fullname(i)))
-                else:
-                    result.append(fullname(i))
-            return tuple(result) if isinstance(struct, tuple) else result
         if isinstance(struct, Struct):
             return struct.__mapnames__(basename)
+        if isinstance(struct, (list, tuple)):
+            return _mapnames_list(struct, basename)
+        if isinstance(struct, dict):
+            return _mapnames_dict(struct, basename)
         raise ValueError("Not a struct: %s" % struct)
 
     @staticmethod
     def build(values, source_struct):
+        if isinstance(source_struct, Struct):
+            return source_struct.__build__(values)
         if isinstance(source_struct, list):
             return list(values)
         if isinstance(source_struct, tuple):
             return tuple(values)
-        if isinstance(source_struct, Struct):
-            return source_struct.__build__(values)
+        if isinstance(source_struct, dict):
+            return {name: value for value, (name, _) in zip(values, source_struct.items())}
         raise ValueError("Not a struct: %s" % source_struct)
 
     @staticmethod
@@ -111,11 +111,13 @@ class Struct(object):
             return struct.__flatten__()
         if isinstance(struct, (tuple, list)):
             return _flatten_list(struct)
+        if isinstance(struct, dict):
+            return _flatten_dict(struct)
         return [struct], lambda tensors: tensors[0]
 
     @staticmethod
     def isstruct(object):
-        return isinstance(object, (Struct, list, tuple))
+        return isinstance(object, (Struct, list, tuple, dict))
 
     @staticmethod
     def map(f, struct):
@@ -157,6 +159,39 @@ def _flatten_list(struct_list):
     return values, recombine
 
 
+def _flatten_dict(struct_dict):
+    values = struct_dict.values()
+    keys = struct_dict.keys()
+
+    values_list, recombine_list = _flatten_list(values)
+
+    def recombine(values_list):
+        values = recombine_list(values_list)
+        return {key: value for key, value in zip(keys, values)}
+
+    return values_list, recombine
+
+
+def _mapnames_list(struct, basename):
+    fullname = lambda i: "%d" % i if basename is None else basename + '.%d' % i
+    result = []
+    for i, element in enumerate(struct):
+        if Struct.isstruct(element):
+            result.append(Struct.mapnames(element, fullname(i)))
+        else:
+            result.append(fullname(i))
+    return tuple(result) if isinstance(struct, tuple) else result
+
+
+def _mapnames_dict(struct, basename):
+    fullname = lambda key: key if basename is None else basename + '.' + key
+    result = {}
+    for key, value in struct.items():
+        if Struct.isstruct(value):
+            result[key] = Struct.mapnames(value, fullname(key))
+        else:
+            result[key] = fullname(key)
+    return result
 
 
 
