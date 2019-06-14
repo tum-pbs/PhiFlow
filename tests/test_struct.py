@@ -36,7 +36,7 @@ class TestStruct(TestCase):
         self.assertEqual(n.velocity.staggered, '_velocity._staggered')
 
         n = Struct.mapnames([(None,)])
-        self.assertEqual(n[0][0], 'index0.index0')
+        self.assertEqual(n[0][0], '0.0')
 
     def test_copy(self):
         smoke = SmokeState('Density', 'Velocity')

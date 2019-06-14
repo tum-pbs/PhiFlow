@@ -30,6 +30,18 @@ class SmokeState(State):
     def __repr__(self):
         return "SmokeState[density: %s, velocity: %s]" % (self.density, self.velocity)
 
+    def __add__(self, other):
+        if isinstance(other, StaggeredGrid):
+            return self.copy(velocity=self.velocity + other)
+        else:
+            return self.copy(density=self.density+other)
+
+    def __sub__(self, other):
+        if isinstance(other, StaggeredGrid):
+            return self.copy(velocity=self.velocity - other)
+        else:
+            return self.copy(density=self.density - other)
+
 
 class Smoke(VolumetricPhysics):
 
