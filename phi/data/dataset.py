@@ -57,7 +57,7 @@ class Dataset(object):
     @staticmethod
     def load(directory, dataset_name=None, indices=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
         import os
-        from .fluidformat import scenes
+        from .fluidformat import Scene
 
         if dataset_name is None:
             dataset_name = os.path.basename(directory)
@@ -68,7 +68,7 @@ class Dataset(object):
         frames = None
 
         indexfilter = None if indices is None else lambda i: i in indices
-        scene_iterator = scenes(directory, max_count=max_scenes, indexfilter=indexfilter)
+        scene_iterator = Scene.list(directory, max_count=max_scenes, indexfilter=indexfilter)
 
         for scene in scene_iterator:
             if assume_same_frames and frames is None:

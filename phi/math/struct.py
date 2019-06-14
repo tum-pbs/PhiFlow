@@ -6,9 +6,29 @@ class StructInfo(object):
     def __init__(self, attributes):
         self.attributes = tuple(attributes)
 
+    def find(self, name):
+        for attr in self.attributes:
+            if attr == name:
+                return attr
+            if attr.startswith('_') and attr[1:] == name:
+                return attr
+        raise KeyError('No attribute %s' % name)
+
 
 class Struct(object):
     __struct__ = StructInfo(())
+
+
+    def copy(self, **kwargs):
+        duplicate = copy(self)
+        for name, value in kwargs.items():
+            attr = self.__class__.__struct__.find(name)
+            was_struct = Struct.isstruct(getattr(self, attr))
+            assert was_struct == Struct.isstruct(value), 'Cannot set attribute %s to %s, structure does not match' % (name, value)
+            setattr(duplicate, attr, value)
+        return duplicate
+
+    with_ = copy
 
 
     def __values__(self):

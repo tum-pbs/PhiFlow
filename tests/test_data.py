@@ -3,10 +3,11 @@ from phi.flow import *
 
 
 def build_test_database(path='data'):
-    if len(scenes(path)) >= 2: return
+    for scene in Scene.list(path):
+        scene.remove()
     val = 1.0
     for sceneindex in range(2):
-        scene = new_scene(path)
+        scene = Scene.create(path)
         for t in range(4):
             scene.write_sim_frame([np.zeros([1,4,4,1])+val, np.zeros([1,5,5,2])], ['Density', 'Velocity'], t)
             val += 1
