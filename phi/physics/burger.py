@@ -30,6 +30,7 @@ class Burger(VolumetricPhysics):
         velocity = velocity[..., ::-1]
         sample_coords = idx - velocity * self.dt
         result = math.resample(velocity, sample_coords, interpolation='linear', boundary='REPLICATE')
+        result = result[..., ::-1]
         return result
 
     def diffuse(self, velocity):

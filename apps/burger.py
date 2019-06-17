@@ -2,10 +2,12 @@ from phi.flow import *
 
 
 size = [64] * 2
-physics = Burger(Domain(size, STICKY), viscosity=0.1)
+dt = 1.0
+physics = Burger(Domain(size, STICKY), viscosity=0.1 * dt)
+physics.dt = dt
 
 
-class Burger(FieldSequenceModel):
+class BurgerApp(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, "Burger's equation")
@@ -21,4 +23,4 @@ class Burger(FieldSequenceModel):
         self.time = 0
 
 
-app = Burger().show(framerate=4, production=__name__ != "__main__")
+app = BurgerApp().show(framerate=4, production=__name__ != "__main__")
