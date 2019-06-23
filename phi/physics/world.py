@@ -3,31 +3,53 @@ from .smoke import *
 from .burger import *
 
 
+class StateTracker(object):
+
+    def __init__(self, world, trajectorykey):
+        self.world = world
+        self.trajectorykey = trajectorykey
+
+    @property
+    def state(self):
+        return self.world.state[self.trajectorykey]
+
+    def __getattr__(self, item):
+        return getattr(self.state, item)
+
+    def __setattr__(self, key, value):
+        if key in ('world', 'trajectorykey'):
+            object.__setattr__(self, key, value)
+        else:
+            new_state = self.state.copied_with(**{key:value})
+            self.world.state = self.world.state.state_replaced(self.state, new_state)
+
+
+
 class World(object):
 
     def __init__(self):
-        self.physics = CollectivePhysics()
-        self._state = self.physics.initial_state()
+        self._state = CollectiveState()
+        self.physics = self._state.default_physics()
         self.observers = set()
         self.batch_size = None
 
         # Physics Shortcuts
         for target,source in {'Smoke': Smoke, 'Burger': Burger}.items():
-            def wrapper(sourcefunction):
+            def wrapper(constructor):
                 def buildadd(*args, **kwargs):
-                    obj = sourcefunction(*args, **kwargs)
-                    self.add(obj)
-                    return obj
+                    state = constructor(*args, **kwargs)
+                    self.add(state)
+                    return StateTracker(self, state.trajectorykey)
                 return buildadd
             setattr(self, target, wrapper(source))
 
         # StaticObject Shortcuts
         for target, source in {'Inflow': Inflow, 'Obstacle': Obstacle}.items():
-            def wrapper(sourcefunction):
+            def wrapper(constructor):
                 def buildadd(*args, **kwargs):
-                    obj = sourcefunction(*args, **kwargs)
-                    self.add(StaticObject(obj))
-                    return obj
+                    state = constructor(*args, **kwargs)
+                    self.add(state)
+                    return StateTracker(self, state.trajectorykey)
                 return buildadd
 
             setattr(self, target, wrapper(source))
@@ -48,9 +70,23 @@ class World(object):
         self._state = state
         for observer in self.observers: observer(self)
 
-    def step(self, dt=1.0):
-        self.physics.dt = dt
-        self.state = self.physics.step(self._state)
+    def step(self, state=None, dt=1.0):
+        if state is None:
+            self.physics.dt = dt
+            self.state = self.physics.step(self._state, None, dt)
+        else:
+            if isinstance(state, StateTracker):
+                state = state.state
+            s = self.physics.substep(state, self._state, dt)
+            self.state = self._state.state_replaced(state, s).copied_with(age=self._state.age + dt)
+
+    def stepped(self, state=None, dt=1.0):
+        if state is None:
+            return self.physics.step(self._state, None, dt)
+        else:
+            if isinstance(state, StateTracker):
+                state = state.state
+            return self.physics.substep(state, self._state, dt)
 
 #     def on_change(self, observer):
 #         """
@@ -63,25 +99,23 @@ class World(object):
 #     def remove_on_change(self, observer):
 #         self.observers.remove(observer)
 
-    def add(self, physics, initial_state=None):
-        self.physics.add(physics)
-        if initial_state is None:
-            initial_state = physics.initial_state(batch_size=self.batch_size)
-        self.state += initial_state
-        return physics
+    def add(self, state, physics=None):
+        self.state += state
+        if physics is not None:
+            self.physics.add(state.trajectorykey, physics)
 
-    def remove(self, physics, remove_states=True):
-        self.physics.remove(physics)
-        if remove_states:
-            states = self.state.get_by_tag(physics.state_tag)
-            self.state -= states
+    def remove(self, state):
+        self.state -= state
+        self.physics.remove(state.trajectorykey)
 
     def clear(self):
-        self.physics = CollectivePhysics()
-        self.state = self.physics.initial_state()
+        self._state = CollectiveState()
+        self.physics = self._state.default_physics()
+        self.state = self._state
 
     def reset(self):
         World.__init__(self)
+        self.state = self._state
 
 
 

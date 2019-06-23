@@ -24,8 +24,10 @@ def empty_like(object):
     return Struct.flatmap(lambda tensor: np.empty_like(tensor), object)
 
 
-def randn(shape, levels=(1.0,)):
-    return Struct.flatmap(lambda s: _random_tensor(s, levels), shape)
+def randn(levels=(1.0,)):
+    def randn_impl(shape):
+        return Struct.flatmap(lambda s: _random_tensor(s, levels), shape)
+    return randn_impl
 
 
 def _random_tensor(shape, levels):
