@@ -1,21 +1,19 @@
 from .domain import *
+import six
 
 
 def initialize_field(value, shape):
-    if value is None:
-        return None
     if isinstance(value, (int, float)):
         return zeros(shape) + value
     elif callable(value):
         return value(shape)
-    else:
-        if isinstance(shape, Struct):
-            if type(shape) == type(value):
-                return Struct.zippedmap(lambda val, sh: initialize_field(val, sh), value, shape)
-            else:
-                return type(shape)(value)
+    if isinstance(shape, Struct):
+        if type(shape) == type(value):
+            return Struct.zippedmap(lambda val, sh: initialize_field(val, sh), value, shape)
         else:
-            return value
+            return type(shape)(value)
+    else:
+        return value
 
 
 def domain(smoke, obstacles):
@@ -55,7 +53,7 @@ class Smoke(State):
     def __init__(self, domain=Open2D,
                  density=0.0, velocity=zeros,
                  gravity=-9.81, buoyancy_factor=0.1, conserve_density=False):
-        State.__init__(self, tags=('smoke',))
+        State.__init__(self, tags=('smoke', 'velocityfield'))
         self._domain = domain
         self._density = density
         self._velocity = velocity
@@ -116,6 +114,14 @@ class Smoke(State):
     @property
     def conserve_density(self):
         return self._conserve_density
+
+    @property
+    def last_pressure(self):
+        return self._last_pressure
+
+    @property
+    def last_pressure_iterations(self):
+        return self._last_pressure_iterations
 
     def __repr__(self):
         return "Smoke[density: %s, velocity: %s]" % (self.density, self.velocity)

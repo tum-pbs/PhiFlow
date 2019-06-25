@@ -54,7 +54,7 @@ class Static(Physics):
         Physics.__init__(self, {})
 
     def step(self, state, dependent_states, dt=1.0):
-        return state.copied_with()
+        return state.copied_with(age=state.age + dt)
 
 
 STATIC = Static()

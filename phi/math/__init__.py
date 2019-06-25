@@ -9,16 +9,19 @@ This function is called automatically once a TFSimulation is instantiated.
     :return: True if TensorFlow could be imported, else False
     """
     try:
-        import phi.math.tensorflow_backend as tfb
+        from .tensorflow_backend import TFBackend
         for b in backend.backends:
-            if isinstance(b, tfb.TFBackend): return True
-        backend.backends.append(tfb.TFBackend())
+            if isinstance(b, TFBackend): return True
+        backend.backends.append(TFBackend())
         return True
     except BaseException as e:
         import logging
         logging.fatal("Failed to load TensorFlow backend. Error: %s" % e)
         print("Failed to load TensorFlow backend. Error: %s" % e)
         return False
+
+
+load_tensorflow()
 
 
 from phi.math.nd import *

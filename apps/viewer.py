@@ -6,19 +6,19 @@ import sys
 
 class Viewer(FieldSequenceModel):
     def __init__(self, simpath):
-        FieldSequenceModel.__init__(self, name="Φ-*flow* Viewer", subtitle="Play a recorded simulation")
+        FieldSequenceModel.__init__(self, name='Φ-*flow* Viewer', subtitle='Play a recorded simulation')
         self.value_directory = simpath
         self.action_rewind()
 
     def update(self):
         if not self.indices:
-            self.info("No frames present.")
+            self.info('No frames present.')
             self.time = 0
         else:
             self.time = self.indices[self.timeindex % len(self.indices)]
-            self.info("Loading frame %d..." % self.time)
+            self.info('Loading frame %d...' % self.time)
             self.fieldvalues = read_sim_frame(self.value_directory, self.fieldnames, self.time)
-            self.info("")
+            self.info('')
 
     def step(self):
         self.timeindex += 1
@@ -33,8 +33,8 @@ class Viewer(FieldSequenceModel):
             self.time = 0
 
     def action_refresh(self):
-        self.view_scene = scene_at(self.value_directory)
-        self.indices = self.view_scene.get_frames(mode="union")
+        self.view_scene = Scene.at(self.value_directory)
+        self.indices = self.view_scene.get_frames(mode='union')
         for fieldname in self.view_scene.fieldnames:
             def getfield(fieldname=fieldname):
                 return self.view_scene.read_array(fieldname, self.time)
@@ -42,10 +42,10 @@ class Viewer(FieldSequenceModel):
         self.update()
 
 
-scene_path = sys.argv[1] if len(sys.argv) >= 2 else "~/model/simpleplume64x64/sim_000000"
+scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/model/simpleplume64x64/sim_000000'
 scene_path = os.path.expanduser(scene_path)
 if os.path.isdir(scene_path):
-    app = Viewer(scene_path).show(framerate=3, production=__name__!="__main__", port=8050)
+    app = Viewer(scene_path).show(framerate=3, production=__name__!='__main__', port=8050)
 else:
     import logging
-    logging.fatal("Scene path %s does not exist." % scene_path)
+    logging.fatal('Scene path %s does not exist.' % scene_path)

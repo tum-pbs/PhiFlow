@@ -7,6 +7,10 @@ from tensorflow.python import pywrap_tensorflow
 def placeholder(shape, dtype=np.float32, name=None):
     return Struct.flatmap(lambda s: tf.placeholder(dtype, s, name), shape)
 
+def placeholder_like(struct, dtype=np.float32, name=None):
+    names = Struct.mapnames(struct)
+    return Struct.zippedflatmap(lambda name, alike: tf.placeholder(dtype, alike.shape, name), names, struct)
+
 def variable(initial_value, dtype=np.float32, name=None, trainable=True):
     return Struct.flatmap(lambda val: tf.Variable(val, name=name, dtype=dtype, trainable=trainable), initial_value)
 

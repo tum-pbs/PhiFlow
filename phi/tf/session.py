@@ -7,7 +7,6 @@ import contextlib
 class Session(object):
 
     def __init__(self, scene, session=tf.Session()):
-        load_tensorflow()
         self._scene = scene
         self._session = session
         assert self._session.graph == tf.get_default_graph()

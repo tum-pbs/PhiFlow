@@ -8,13 +8,14 @@ class TestSmoke(TestCase):
         smoke.default_physics().step(smoke, {'obstacles': [], 'inflows': []})
 
     def test_simpleplume(self):
-        world.reset()
+        world = World()
         smoke = world.Smoke(Domain([16, 16]))
         inflow = world.Inflow(Sphere((8, 8), radius=4))
         world.step()
         world.step(smoke)
         self.assertAlmostEqual(world.state.age, 2.0)
         self.assertAlmostEqual(smoke.age, 2.0)
+        self.assertAlmostEqual(inflow.age, 1.0)
 
     def test_smoke_initializers(self):
         def typetest(smoke):

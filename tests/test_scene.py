@@ -8,14 +8,14 @@ class TestScene(TestCase):
     def test_read_write_struct(self):
         for scene in Scene.list('data'): scene.remove()
 
-        state = Smoke(Domain([4,4])).initial_state()
+        state = Smoke(Domain([4,4]))
         scene = Scene.create('data')
 
         scene.write(state, frame=0)
         self.assert_(isfile(scene.subpath('density_000000.npz')))
         self.assert_(isfile(scene.subpath('velocity_staggered_000000.npz')))
         loaded_state = scene.read(state, frame=0)
-        self.assertIsInstance(loaded_state, SmokeState)
+        self.assertIsInstance(loaded_state, Smoke)
         self.assertIsInstance(loaded_state.velocity, StaggeredGrid)
         np.testing.assert_equal(loaded_state.density, state.density)
         np.testing.assert_equal(loaded_state.velocity.staggered, state.velocity.staggered)

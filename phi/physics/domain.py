@@ -73,11 +73,11 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
 class DomainCache(Struct):
     __struct__ = StructInfo(('_active', 'accessible'))
 
-    def __init__(self, domain, validstate, active=None, accessible=None):
+    def __init__(self, domain, validstate=(), active=None, accessible=None):
         self._domain = domain
         self._validstate = validstate
-        self._active = active if active is not None else self._domain._grid.ones()
-        self._accessible = accessible if accessible is not None else self._domain._grid.ones()
+        self._active = active if active is not None else ones(domain.grid.shape())
+        self._accessible = accessible if accessible is not None else ones(domain.grid.shape())
 
     @property
     def domain(self):

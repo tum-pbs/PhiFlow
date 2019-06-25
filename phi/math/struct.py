@@ -88,6 +88,21 @@ class Struct(object):
             return self.__build__(values)
         return flat_list, recombine_self
 
+    def __eq__(self, other):
+        if type(self) != type(other): return False
+        for attr in self.__class__.__struct__.all:
+            v1 = getattr(self, attr.name)
+            v2 = getattr(other, attr.name)
+            try:
+                if v1 != v2: return False
+            except:
+                if v1 is not v2: return False
+        return True
+
+
+    def __hash__(self):
+        return hash(tuple(self.__values__()))
+
     @staticmethod
     def values(struct):
         if isinstance(struct, Struct):
@@ -177,6 +192,17 @@ class Struct(object):
             result_value = f(main_values[i], *[values[i] for values in others_values])
             result_values.append(result_value)
         return Struct.build(result_values, struct)
+
+    @staticmethod
+    def zippedflatmap(f, struct, *structs):
+        main_values, main_recombine = Struct.flatten(struct)
+        others_values = [Struct.flatten(s)[0] for s in structs]
+        result_values = []
+        for i in range(len(main_values)):
+            result_value = f(main_values[i], *[values[i] for values in others_values])
+            result_values.append(result_value)
+        return main_recombine(result_values)
+
 
     @staticmethod
     def flatmap(f, struct):

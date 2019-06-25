@@ -134,7 +134,7 @@ class FieldSequenceModel(object):
         self._invalidation_counter += 1
 
     def step(self):
-        self.info('Implement step(self) to have something happen')
+        world.step()
 
     @property
     def fieldnames(self):

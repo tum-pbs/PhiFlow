@@ -82,7 +82,7 @@ class CollectivePhysics(Physics):
         return CollectiveState(next_states, age=collectivestate.age + dt)
 
     def substep(self, state, collectivestate, dt):
-        physics = self._physics[state.trajectorykey] if state.trajectorykey in self._physics else state.default_physics()
+        physics = self.for_(state)
         dependent_states = {}
         for name, deps in physics.dependencies.items():
             dep_states = []
@@ -94,6 +94,9 @@ class CollectivePhysics(Physics):
             dependent_states[name] = dep_states
         next_state = physics.step(state, dependent_states, dt)
         return next_state
+
+    def for_(self, state):
+        return self._physics[state.trajectorykey] if state.trajectorykey in self._physics else state.default_physics()
 
     def add(self, trajectorykey, physics):
         self._physics[trajectorykey] = physics

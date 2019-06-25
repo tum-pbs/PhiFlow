@@ -4,44 +4,26 @@ from phi.math import shape
 from copy import copy
 
 
-class StaticObject(Physics):
+class GeometryMovement(Physics):
 
-    def __init__(self, objectstate):
-        Physics.__init__(self)
-        self.objectstate = objectstate
+    def __init__(self, geometry_function):
+        Physics.__init__(self, {})
+        self.geometry_at = geometry_function
 
-    def step(self, state):
-        return state
+    def step(self, obj, dependent_states, dt=1.0):
+        next_geometry = self.geometry_at(obj.age + dt)
+        h = 1e-2 * dt if dt > 0 else 1e-2
+        perturbed_geometry = self.geometry_at(obj.age + dt + h)
+        velocity = (perturbed_geometry.center - next_geometry.center) / h
+        return obj.copied_with(geometry=next_geometry, velocity=velocity, age=obj.age + dt)
 
-    def shape(self, batch_size=1):
-        return shape(self.objectstate)
-
-
-class DynamicObject(Physics):
-
-    def __init__(self):
-        Physics.__init__(self)
-        self.internal_time = 0.0
-
-    def step(self, state):
-        self.internal_time += self.dt
-        result = self.object_at(self.internal_time)
-        h = 1e-2 * self.dt
-        perturbed = self.object_at(self.internal_time + h)
-        result._velocity = (perturbed.geometry.center - result.geometry.center) / h
-        return result
-
-    def object_at(self, time):
-        raise NotImplementedError(self)
-
-    def shape(self, batch_size=1):
-        return shape(self.object_at(-1.0))
 
 
 class ObjectState(State):
+    __struct__ = State.__struct__.extend((), ('_geometry', '_velocity'))
 
     def __init__(self, geometry, velocity=0, tags=()):
-        State.__init__(self, tags)
+        State.__init__(self, tags=tags)
         self._geometry = geometry
         self._velocity = velocity
 
@@ -58,17 +40,27 @@ class ObjectState(State):
 
 
 class Obstacle(ObjectState):
+    __struct__ = ObjectState.__struct__.extend((), ('_material',))
 
     def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',)):
         ObjectState.__init__(self, geometry=geometry, velocity=velocity, tags=tags)
-        self.material = material
+        self._material = material
+
+    @property
+    def material(self):
+        return self._material
 
 
 class Inflow(ObjectState):
+    __struct__ = ObjectState.__struct__.extend((), ('_rate',))
 
     def __init__(self, geometry, rate=1.0, tags=('inflow',)):
         ObjectState.__init__(self, geometry=geometry, tags=tags)
-        self.rate = rate
+        self._rate = rate
+
+    @property
+    def rate(self):
+        return self._rate
 
 
 

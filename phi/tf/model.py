@@ -199,7 +199,7 @@ class TFModel(FieldSequenceModel):
     def model_scope(self):
         return tf.variable_scope(self.model_scope_name)
 
-    def expose(self, field, name=None):
+    def add_field(self, name, field):
         """
 
         :param name: channel name
@@ -207,7 +207,7 @@ class TFModel(FieldSequenceModel):
         """
         if istensor(field):
             FieldSequenceModel.add_field(self, name, lambda: self.view(field))
-        elif isinstance(field, StructAttributeGetter):
-            FieldSequenceModel.add_field(self, name, lambda: self.view_batch(field))
+        # elif isinstance(field, StructAttributeGetter):
+        #     FieldSequenceModel.add_field(self, name, lambda: self.view_batch(field))
         else:
             FieldSequenceModel.add_field(self, name, field)

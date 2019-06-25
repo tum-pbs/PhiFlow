@@ -11,17 +11,33 @@ class StateTracker(object):
 
     @property
     def state(self):
-        return self.world.state[self.trajectorykey]
+        state = self.world.state[self.trajectorykey]
+        assert state is not None
+        return state
+
+    @state.setter
+    def state(self, state):
+        self.world.state = self.world.state.state_replaced(self.state, state)
+
+    @property
+    def physics(self):
+        physics = self.world.physics.for_(self.state)
+        assert physics is not None
+        return physics
+
+    @physics.setter
+    def physics(self, phys):
+        self.world.physics.add(self.trajectorykey, phys)
 
     def __getattr__(self, item):
+        assert item not in ('world', 'trajectorykey', 'physics', 'state')
         return getattr(self.state, item)
 
     def __setattr__(self, key, value):
-        if key in ('world', 'trajectorykey'):
+        if key in ('world', 'trajectorykey', 'physics', 'state'):
             object.__setattr__(self, key, value)
         else:
-            new_state = self.state.copied_with(**{key:value})
-            self.world.state = self.world.state.state_replaced(self.state, new_state)
+            self.state = self.state.copied_with(**{key:value})
 
 
 
@@ -79,6 +95,7 @@ class World(object):
                 state = state.state
             s = self.physics.substep(state, self._state, dt)
             self.state = self._state.state_replaced(state, s).copied_with(age=self._state.age + dt)
+            return s
 
     def stepped(self, state=None, dt=1.0):
         if state is None:
@@ -112,11 +129,6 @@ class World(object):
         self._state = CollectiveState()
         self.physics = self._state.default_physics()
         self.state = self._state
-
-    def reset(self):
-        World.__init__(self)
-        self.state = self._state
-
 
 
 world = World()
