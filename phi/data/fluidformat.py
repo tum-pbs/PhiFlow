@@ -233,7 +233,7 @@ class Scene(object):
             shutil.rmtree(self.path)
 
     @staticmethod
-    def create(directory, category=None, mkdir=True):
+    def create(directory, category=None, mkdir=True, copy_calling_script=True):
         directory = os.path.expanduser(directory)
         if category is None:
             category = os.path.basename(directory)
@@ -253,6 +253,9 @@ class Scene(object):
                 next_index = max(indices) + 1
         scene = Scene(directory, category, next_index)
         if mkdir: scene.mkdir()
+        if copy_calling_script:
+            assert mkdir
+            scene.copy_calling_script()
         return scene
 
     @staticmethod
