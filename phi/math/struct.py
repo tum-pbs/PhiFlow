@@ -99,6 +99,8 @@ class Struct(object):
                 if v1 is not v2: return False
         return True
 
+    def __ne__(self, other):
+        return not self == other
 
     def __hash__(self):
         return hash(tuple(self.__values__()))
