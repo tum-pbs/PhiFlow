@@ -297,7 +297,37 @@ def slugify(value):
     value = six.u(value)
     # value = u"{}".format(value.decode('utf-8'))
     value = unicodedata.normalize('NFKD', value)#.encode('ascii', 'ignore')
-    value = re.sub('Φ', "Phi", value)
+    for greek_letter, name in greek.items():
+        value = value.replace(greek_letter, name)
+    # value = re.sub('Φ', "Phi", value).sub('')
     value = re.sub('[^\w\s-]', '', value).strip().lower()
     value = re.sub('[-\s]+', '-', value)
     return value
+
+
+greek = {
+    'Α': 'Alpha', 'α': 'alpha',
+    'Β': 'Beta', 'β': 'beta',
+    'Γ': 'Gamma', 'γ': 'gamma',
+    'Δ': 'Delta', 'δ': 'delta',
+    'Ε': 'Epsilon', 'ε': 'epsilon',
+    'Ζ': 'Zeta', 'ζ': 'zeta',
+    'Η': 'Eta', 'η': 'eta',
+    'Θ': 'Theta', 'θ': 'theta',
+    'Ι': 'Iota', 'ι': 'iota',
+    'Κ': 'Kappa', 'κ': 'kappa',
+    'Λ': 'Lambda', 'λ': 'lambda',
+    'Μ': 'Mu', 'μ': 'mu',
+    'Ν': 'Nu', 'ν': 'nu',
+    'Ξ': 'Xi', 'ξ': 'xi',
+    'Ο': 'Omicron', 'ο': 'omicron',
+    'Π': 'Pi', 'π': 'pi',
+    'Ρ': 'Rho', 'ρ': 'rho',
+    'Σ': 'Sigma', 'σ': 'sigma',
+    'Τ': 'Tau', 'τ': 'tau',
+    'Υ': 'Upsilon', 'υ': 'upsilon',
+    'Φ': 'Phi', 'φ': 'phi',
+    'Χ': 'Chi', 'χ': 'chi',
+    'Ψ': 'Psi', 'ψ': 'psi',
+    'Ω': 'Omega', 'ω': 'omega',
+}
