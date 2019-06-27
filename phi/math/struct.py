@@ -126,9 +126,9 @@ class Struct(object):
         if isinstance(struct, np.ndarray):
             assert len(struct.shape) == 1
             struct = struct.tolist()
-        import json, io
+        import json
         try:
-            json.dump(struct, io.BytesIO())
+            json.dumps(struct)
             return struct
         except:
             raise TypeError('Object "%s" of type "%s" is not JSON serializable' % (struct,type(struct)))
