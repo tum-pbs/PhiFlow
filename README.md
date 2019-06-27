@@ -29,8 +29,7 @@ Here is the short version:
 ```
 $ pip install tensorflow
 $ git clone https://gitlab.lrz.de/ga67fet/phiflow.git
-$ cd mantaflowgit
-$ git checkout phiflow/master
+$ cd phiflow
 $ python setup.py cuda
 $ pip install .[gui]
 ```
