@@ -5,7 +5,11 @@ from phi.flow import *
 class TestSmoke(TestCase):
     def test_direct_smoke(self):
         smoke = Smoke(Domain([16, 16]))
-        smoke.default_physics().step(smoke, {'obstacles': [], 'inflows': []})
+        assert smoke.default_physics() == SMOKE
+        smoke2 = SMOKE.step(smoke)
+        assert(smoke2.age == 1.0)
+        assert(smoke.age == 0.0)
+        assert(smoke2.trajectorykey == smoke.trajectorykey)
 
     def test_simpleplume(self):
         world = World()

@@ -43,7 +43,8 @@ class BurgerPhysics(Physics):
     def __init__(self):
         Physics.__init__(self, {})
 
-    def step(self, state, dependent_states, dt=1.0):
+    def step(self, state, dt=1.0, **dependent_states):
+        assert len(dependent_states) == 0
         v = advect(diffuse(state.velocity, state.viscosity, dt), dt)
         return state.copied_with(velocity=v)
 

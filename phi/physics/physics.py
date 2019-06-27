@@ -36,7 +36,7 @@ tracing out a trajectory.
     def __init__(self, dependencies):
         self.dependencies = dependencies  # Map from String to List<tag or TrajectoryKey>
 
-    def step(self, state, dependent_states, dt=1.0):
+    def step(self, state, dt=1.0, **dependent_states):
         """
 Computes the next state of the simulation, given the current state.
 Solves the simulation for a time increment self.dt.
@@ -53,7 +53,7 @@ class Static(Physics):
     def __init__(self):
         Physics.__init__(self, {})
 
-    def step(self, state, dependent_states, dt=1.0):
+    def step(self, state, dt=1.0, **dependent_states):
         return state.copied_with(age=state.age + dt)
 
 

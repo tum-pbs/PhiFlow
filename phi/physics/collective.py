@@ -74,7 +74,8 @@ class CollectivePhysics(Physics):
         Physics.__init__(self, {})
         self._physics = {}  # map from TrajectoryKey to Physics
 
-    def step(self, collectivestate, dependent_states, dt=1.0):
+    def step(self, collectivestate, dt=1.0, **dependent_states):
+        assert len(dependent_states) == 0
         next_states = []
         for state in collectivestate.states:
             next_state = self.substep(state, collectivestate, dt)
@@ -92,7 +93,7 @@ class CollectivePhysics(Physics):
             else:
                 dep_states = collectivestate[deps]
             dependent_states[name] = dep_states
-        next_state = physics.step(state, dependent_states, dt)
+        next_state = physics.step(state, dt, **dependent_states)
         return next_state
 
     def for_(self, state):

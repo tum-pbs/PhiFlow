@@ -29,9 +29,8 @@ class SmokePhysics(Physics):
         Physics.__init__(self, {'obstacles': ['obstacle'], 'inflows': 'inflow'})
         self.pressure_solver = pressure_solver
 
-    def step(self, smoke, dependent_states, dt=1.0):
-        obstacles = dependent_states['obstacles']
-        inflows = dependent_states['inflows']
+    def step(self, smoke, dt=1.0, obstacles=(), inflows=(), **dependent_states):
+        assert len(dependent_states) == 0
         domaincache = domain(smoke, obstacles)
         # step
         inflow_density = dt * inflow(inflows, smoke.grid)
