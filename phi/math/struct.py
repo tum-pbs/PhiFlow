@@ -128,7 +128,7 @@ class Struct(object):
             struct = struct.tolist()
         import json, io
         try:
-            json.dump(struct, io.StringIO())
+            json.dump(struct, io.BytesIO())
             return struct
         except:
             raise TypeError('Object "%s" of type "%s" is not JSON serializable' % (struct,type(struct)))

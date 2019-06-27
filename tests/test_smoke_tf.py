@@ -18,7 +18,7 @@ class TestSmokeTF(TestCase):
     def test_tf_world(self):
         world = World()
         smoke = world.Smoke(Domain([16, 16]))
-        shadow_world_tf(smoke, Session(Scene.create('data')))
+        tf_bake_subgraph(smoke, Session(Scene.create('data')))
         world.step()
         self.assertIsInstance(smoke.state, Smoke)
         self.assertIsInstance(smoke.state.density, np.ndarray)

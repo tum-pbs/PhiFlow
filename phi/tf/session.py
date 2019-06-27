@@ -113,6 +113,7 @@ class Trace(object):
         self.directory = directory
         self.timeliner = None
         self.timeline_file = None
+        self._default_simulation_context_manager = None
 
     def __enter__(self):
         self.timeline_file = os.path.join(self.directory, 'trace %d.json' % self.index)

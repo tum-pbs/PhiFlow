@@ -23,6 +23,7 @@ class DashFieldSequenceGui:
                  tb_port=6006):
         self.model = field_sequence_model
         istf = 'tensorflow' in self.model.traits
+        hasmodel = 'model' in self.model.traits
         self.model.prepare()
 
         self.app = dash.Dash()
@@ -163,7 +164,7 @@ class DashFieldSequenceGui:
                                         if controls or actions else []) + model_sliders_int +
 
                                    ([
-                                        dcc.Markdown('### TensorFlow'),
+                                        dcc.Markdown('### TensorFlow Model'),
                                         html.Div([
                                             html.Button('Save Model', id='button-save-model'),
                                             html.Button('Load Model from: ', id='button-load-model'),
@@ -178,7 +179,7 @@ class DashFieldSequenceGui:
                                             html.Button('Launch TensorBoard', id='launch-tensorboard'),
                                             html.Div([html.A('Open TensorBoard', href='', id='tensorboard-href')]),
                                         ]),
-                                    ] if istf else []) + [
+                                    ] if hasmodel else []) + [
 
                                        html.Div([
                                            dcc.Markdown('### Framerate'),
@@ -472,7 +473,7 @@ class DashFieldSequenceGui:
                 time_elapsed / step_count, step_count / time_elapsed)
                 return output
 
-        if istf:
+        if hasmodel:
             @self.app.callback(Output('tensorboard-href', 'href'), [Input('launch-tensorboard', 'n_clicks')])
             def launch_tb(n1):
                 if not n1: return
@@ -482,6 +483,7 @@ class DashFieldSequenceGui:
                 logging.info('TensorBoard launched, URL: %s' % url)
                 return url
 
+        if istf:
             @self.app.callback(Output('run-statistics', 'children'),
                                [Input('button-benchmark', 'n_clicks_timestamp'),
                                 Input('button-profile', 'n_clicks_timestamp')])
@@ -512,6 +514,7 @@ class DashFieldSequenceGui:
                     output += '  \nProfile saved. Open  \n*chrome://tracing/*  \n and load file  \n *%s*' % timeline_file
                 return output
 
+        if hasmodel:
             @self.app.callback(Output('model-info', 'children'),
                                [Input('button-save-model', 'n_clicks_timestamp'),
                                 Input('button-load-model', 'n_clicks_timestamp'),

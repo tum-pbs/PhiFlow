@@ -1,40 +1,26 @@
 from __future__ import print_function
-
-from collections import Iterable
-
 from phi.flow import *
-from phi.tf.util import *
-from phi.tf.session import Session
+from .util import *
+from .session import Session
+from .world import tf_bake_graph
+import phi.model as nontf
 
 
-class TFModel(FieldSequenceModel):
+class FieldSequenceModel(nontf.FieldSequenceModel):
 
-    def __init__(self, name="Network Training", subtitle="Interactive training of a neural network",
-                 learning_rate=1e-3,
-                 data_validation_fraction=0.6,
-                 view_training_data=False,
-                 training_batch_size=4,
-                 validation_batch_size=16,
-                 model_scope_name="model",
-                 **kwargs):
-        FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, **kwargs)
+    def __init__(self, *args, **kwargs):
+        nontf.FieldSequenceModel.__init__(self, *args, **kwargs)
         self.session = Session(self.scene)
         self.scalars = []
         self.scalar_names = []
         self.editable_placeholders = {}
-        self.learning_rate = self.editable_float("Learning_Rate", learning_rate)
-        self.training = tf.placeholder(tf.bool, (), "training")
-        self.all_optimizers = []
+        self.auto_bake = True
         self.add_trait("tensorflow")
-        self.value_view_training_data = view_training_data
-        self.training_batch_size = training_batch_size
-        self.validation_batch_size = validation_batch_size
-        self.train_reader = None
-        self.val_reader = None
-        self.model_scope_name = model_scope_name
-        self.feed_fields = []
-        self.shuffle_training_data = True
-        self._read_ref = None
+
+    def add_scalar(self, name, node):
+        assert isinstance(node, tf.Tensor)
+        self.scalar_names.append(name)
+        self.scalars.append(node)
 
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
@@ -53,13 +39,44 @@ class TFModel(FieldSequenceModel):
         return placeholder
 
     def prepare(self):
-        FieldSequenceModel.prepare(self)
+        nontf.FieldSequenceModel.prepare(self)
+        self.info("Initializing variables")
+        self.session.initialize_variables()
+        if self.auto_bake:
+            tf_bake_graph(self.session)
+        return self
 
+
+
+class TFModel(FieldSequenceModel):
+
+    def __init__(self, name="Network Training", subtitle="Interactive training of a neural network",
+                 learning_rate=1e-3,
+                 view_training_data=False,
+                 training_batch_size=4,
+                 validation_batch_size=16,
+                 model_scope_name="model",
+                 **kwargs):
+        FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, **kwargs)
+        self.learning_rate = self.editable_float("Learning_Rate", learning_rate)
+        self.training = tf.placeholder(tf.bool, (), "training")
+        self.all_optimizers = []
+        self.value_view_training_data = view_training_data
+        self.training_batch_size = training_batch_size
+        self.validation_batch_size = validation_batch_size
+        self.train_reader = None
+        self.val_reader = None
+        self.model_scope_name = model_scope_name
+        self.feed_fields = []
+        self.shuffle_training_data = True
+        self._read_ref = None
+        self.add_trait("model")
+
+    def prepare(self):
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
         self.merged_scalars = tf.summary.merge(scalars)
 
-        self.info("Initializing variables")
-        self.session.initialize_variables()
+        FieldSequenceModel.prepare(self)  # initializes global variables
 
         model_parameter_count = 0
         for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.model_scope_name):
@@ -101,11 +118,6 @@ class TFModel(FieldSequenceModel):
         self.add_scalar(name, loss)
         self.all_optimizers.append(node)
         return node
-
-    def add_scalar(self, name, node):
-        assert isinstance(node, tf.Tensor)
-        self.scalar_names.append(name)
-        self.scalars.append(node)
 
     def step(self):
         self.optimize(self.all_optimizers)

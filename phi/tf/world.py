@@ -2,8 +2,11 @@ from phi.physics.world import *
 from .util import *
 
 
+def tf_bake_graph(session, world=world):
+    tf_bake_subgraph(StateTracker(world, world.state.states[0].trajectorykey), session)  # TODO bake whole world
 
-def shadow_world_tf(tracker, session):
+
+def tf_bake_subgraph(tracker, session):
     tfworld = World()
     tfworld.add(tracker.state)
     state_in = placeholder_like(tracker.state)
@@ -22,5 +25,5 @@ class CallTFPhysics(Physics):
         self.session = session
         self.dt = dt
 
-    def step(self, state, dependent_states, dt=1.0):
+    def step(self, state, dt=1.0, **dependent_states):
         return self.session.run(self.state_out, {self.state_in: state, self.dt: dt})

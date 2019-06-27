@@ -1,5 +1,8 @@
-from phi.flow import *
 import sys
+if 'tf' in sys.argv:
+    from phi.tf.flow import *  # Use TensorFlow
+else:
+    from phi.flow import *  # Use NumPy
 
 
 def build_inflow(x, y, world=world):
