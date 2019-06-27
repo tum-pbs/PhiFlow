@@ -83,9 +83,18 @@ class DashFieldSequenceGui:
         model_inputs += [Input(control.id, 'values') for control in model_bools]
 
         self.app.layout = html.Div([
+                                    dcc.Markdown('# %s' % field_sequence_model.name)
+                                    ] +
+            ([
+                 dcc.Markdown("""
+---
 
-                                       dcc.Markdown('# {}\n*{}*'.format(field_sequence_model.name,
-                                                                        field_sequence_model.subtitle)),
+> **_About this application:_**
+
+%s
+
+---""" % field_sequence_model.subtitle),
+             ] if field_sequence_model.subtitle is not None and len(field_sequence_model.subtitle) > 0 else []) + [
 
                                        html.Div([
 
@@ -193,7 +202,7 @@ class DashFieldSequenceGui:
 
                                            ], style={'height': '32px', 'width': '60%', 'display': 'inline-block'}),
                                            html.Div([
-                                               'Steps per frame: ',
+                                               'Substeps: ',
                                                dcc.Textarea(placeholder='1', id='stride',
                                                             value=str(self.model.sequence_stride), rows=1,
                                                             style={'width': '100px', 'display': 'inline-block'})
@@ -212,7 +221,7 @@ class DashFieldSequenceGui:
                                                      ] if istf else []) + [
 
                                                     html.Div([
-                                                        'Number of frames: ',
+                                                        'Sequence length: ',
                                                         dcc.Textarea(placeholder='100', id='sequence-count',
                                                                      value=str(sequence_count), rows=1,
                                                                      style={'width': '100px',

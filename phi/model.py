@@ -43,7 +43,7 @@ class FieldSequenceModel(object):
 
     def __init__(self,
                  name='Φ-*flow* Application',
-                 subtitle='Interactive demo based on PhiFlow',
+                 subtitle='',
                  fields=None,
                  stride=1,
                  record_images=False, record_data=False,
@@ -126,8 +126,8 @@ class FieldSequenceModel(object):
         return self.scene.subpath('images', create=True)
 
     def progress(self):
-        self.time += 1
         self.step()
+        self.time += 1
         self.invalidate()
 
     def invalidate(self):
@@ -296,7 +296,7 @@ class FieldSequenceModel(object):
                 time.sleep(rest)
         self.current_action = None
 
-    def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True):
+    def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
         def target():
             self._pause = False
             step_count = 0
@@ -306,7 +306,8 @@ class FieldSequenceModel(object):
                 if max_steps and step_count >= max_steps:
                     break
             if callback is not None:
-                callback()
+                if not self._pause or callback_if_aborted:
+                    callback()
 
         thread = threading.Thread(target=target)
         thread.start()
