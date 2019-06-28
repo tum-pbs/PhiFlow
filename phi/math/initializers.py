@@ -43,6 +43,7 @@ def randn(levels=(1.0,)):  # TODO pass mean, sigma, doesn't correctly scale stag
 
 
 def _random_tensor(shape, levels):
+    shape = _none_to_one(shape)
     result = 0
     for i in range(len(levels)): # high-res first
         lowres_shape = np.array(shape)
