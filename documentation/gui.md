@@ -126,7 +126,7 @@ class TrainingTest(TFModel):
         with self.model_scope():
             pred_force = network(initial_velocity, target_velocity)
         loss = l2_loss(pred_force - true_force)
-        self.minimize("Supervised_Loss", loss)
+        self.add_objective("Supervised_Loss", loss)
 
         self.database.add(["InitialVelocity", "TargetVelocity", "Force"])
         self.database.put_scenes(scenes("SmokeIK/forces"), logf=self.info)
@@ -146,7 +146,7 @@ The following three lines create input fields for TensorFlow's graph. We allow t
 
 Now that the network inputs are set up, the network can be built. The use of `with self.model_scope()` ensures that the network parameters can be saved and loaded automatically and from the GUI.
 The `l2_loss` is part of Φ-*Flow*'s n-d math package but a regular TensorFlow loss can also be used.
-The inherited method `minimize` sets up the optimizer. This optimizer will be used in the default `step` implementation.
+The inherited method `add_objective` sets up the optimizer. This optimizer will be used in the default `step` implementation.
 
 The following block sets up the database by registering the required fields and adding all scenes from one category (see [the data documentation](data.md) for more).
 The call to `finalize_setup` is mandatory in the constructor and sets up the TensorFlow summary as well as database iterators.

@@ -23,7 +23,7 @@ class PressureOptim(TFModel):
 
         # Optimization
         loss = l2_loss(final_velocity[:, :, 33:, :] - target_velocity[:, :, 33:, :])
-        self.minimize("Loss", loss)
+        self.add_objective("Loss", loss)
 
         self.add_field("Velocity n", velocity)
         self.add_field("Final Velocity", final_velocity)

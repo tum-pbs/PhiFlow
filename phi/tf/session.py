@@ -12,7 +12,7 @@ class Session(object):
         assert self._session.graph == tf.get_default_graph()
         self.graph = tf.get_default_graph()
         self.summary_writers = {}
-        self.summary_directory = scene.subpath('summary')
+        self.summary_directory = os.path.abspath(scene.subpath('summary'))
         self.profiling_directory = scene.subpath("profile")
         self.trace_count = 0
         self.saver = None
