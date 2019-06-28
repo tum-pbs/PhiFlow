@@ -11,13 +11,13 @@ class TestObjects(TestCase):
         obstacle = Obstacle(geometry_at(0))
         phys = GeometryMovement(geometry_at)
 
-        obstacle = phys.step(obstacle, {}, dt=2.0)
+        obstacle = phys.step(obstacle, dt=2.0)
         self.assertIsInstance(obstacle, Obstacle)
         self.assertAlmostEqual(obstacle.age, 2.0)
         self.assertAlmostEqual(obstacle.geometry.center[0], 2.0)
         self.assertAlmostEqual(obstacle.velocity[0], 1.0)
 
-        obstacle = phys.step(obstacle, {}, dt=2.0)
+        obstacle = phys.step(obstacle, dt=2.0)
         self.assertIsInstance(obstacle, Obstacle)
         self.assertAlmostEqual(obstacle.age, 4.0)
         self.assertAlmostEqual(obstacle.geometry.center[0], 4.0)

@@ -127,6 +127,4 @@ class Grid(Struct):
 
 
 def tensor_shape(batch_size, dimensions, components):
-    if batch_size is None:
-        batch_size = 1
     return np.concatenate([[batch_size], dimensions, [components]])

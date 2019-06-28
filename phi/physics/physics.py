@@ -9,10 +9,11 @@ class State(Struct):
 
     __struct__ = StructInfo((), ('_age',))
 
-    def __init__(self, tags=(), age=0.0):
+    def __init__(self, tags=(), age=0.0, batch_size=None):
         self._tags = tuple(tags)
         self.trajectorykey = TrajectoryKey()
         self._age = age
+        self._batch_size = batch_size
 
     @property
     def tags(self):

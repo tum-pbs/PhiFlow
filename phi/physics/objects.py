@@ -10,7 +10,7 @@ class GeometryMovement(Physics):
         Physics.__init__(self, {})
         self.geometry_at = geometry_function
 
-    def step(self, obj, dependent_states, dt=1.0):
+    def step(self, obj, dt=1.0, **dependent_states):
         next_geometry = self.geometry_at(obj.age + dt)
         h = 1e-2 * dt if dt > 0 else 1e-2
         perturbed_geometry = self.geometry_at(obj.age + dt + h)
@@ -22,8 +22,8 @@ class GeometryMovement(Physics):
 class ObjectState(State):
     __struct__ = State.__struct__.extend((), ('_geometry', '_velocity'))
 
-    def __init__(self, geometry, velocity=0, tags=()):
-        State.__init__(self, tags=tags)
+    def __init__(self, geometry, velocity=0, tags=(), batch_size=None):
+        State.__init__(self, tags=tags, batch_size=batch_size)
         self._geometry = geometry
         self._velocity = velocity
 
@@ -42,8 +42,8 @@ class ObjectState(State):
 class Obstacle(ObjectState):
     __struct__ = ObjectState.__struct__.extend((), ('_material',))
 
-    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',)):
-        ObjectState.__init__(self, geometry=geometry, velocity=velocity, tags=tags)
+    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), batch_size=None):
+        ObjectState.__init__(self, geometry=geometry, velocity=velocity, tags=tags, batch_size=batch_size)
         self._material = material
 
     @property
@@ -54,8 +54,8 @@ class Obstacle(ObjectState):
 class Inflow(ObjectState):
     __struct__ = ObjectState.__struct__.extend((), ('_rate',))
 
-    def __init__(self, geometry, rate=1.0, tags=('inflow',)):
-        ObjectState.__init__(self, geometry=geometry, tags=tags)
+    def __init__(self, geometry, rate=1.0, tags=('inflow',), batch_size=None):
+        ObjectState.__init__(self, geometry=geometry, tags=tags, batch_size=batch_size)
         self._rate = rate
 
     @property

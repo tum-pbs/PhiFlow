@@ -40,6 +40,15 @@ class StateTracker(object):
             self.state = self.state.copied_with(**{key:value})
 
 
+def _wrapper(world, constructor):
+    def buildadd(*args, **kwargs):
+        if 'batch_size' not in kwargs:
+            kwargs['batch_size'] = world.batch_size
+        state = constructor(*args, **kwargs)
+        world.add(state)
+        return StateTracker(world, state.trajectorykey)
+    return buildadd
+
 
 class World(object):
 
@@ -48,31 +57,13 @@ class World(object):
         self.physics = self._state.default_physics()
         self.observers = set()
         self.batch_size = None
-
         # Physics Shortcuts
-        for target,source in {'Smoke': Smoke, 'Burger': Burger}.items():
-            def wrapper(constructor):
-                def buildadd(*args, **kwargs):
-                    state = constructor(*args, **kwargs)
-                    self.add(state)
-                    return StateTracker(self, state.trajectorykey)
-                return buildadd
-            setattr(self, target, wrapper(source))
-
-        # StaticObject Shortcuts
-        for target, source in {'Inflow': Inflow, 'Obstacle': Obstacle}.items():
-            def wrapper(constructor):
-                def buildadd(*args, **kwargs):
-                    state = constructor(*args, **kwargs)
-                    self.add(state)
-                    return StateTracker(self, state.trajectorykey)
-                return buildadd
-
-            setattr(self, target, wrapper(source))
+        for target,source in {'Smoke': Smoke, 'Burger': Burger,
+                              'Inflow': Inflow, 'Obstacle': Obstacle}.items():
+            setattr(self, target, _wrapper(self, source))
 
     Smoke = Smoke
     Burger = Burger
-
     Inflow = Inflow
     Obstacle = Obstacle
 

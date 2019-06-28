@@ -4,8 +4,8 @@ from .smoke import *
 class Burger(State):
     __struct__ = State.__struct__.extend(('_velocity',), ('_viscosity',))
 
-    def __init__(self, domain, velocity, viscosity=0.1):
-        State.__init__(self, tags=('burger', 'velocityfield'))
+    def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
+        State.__init__(self, tags=('burger', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
         self._velocity = velocity
         self._viscosity = viscosity
@@ -23,7 +23,7 @@ class Burger(State):
 
     @_velocity.setter
     def _velocity(self, value):
-        self._velocity_field = initialize_field(value, self.grid.shape(self.grid.rank))
+        self._velocity_field = initialize_field(value, self.grid.shape(self.grid.rank, self._batch_size))
 
     @property
     def domain(self):

@@ -51,8 +51,9 @@ class Smoke(State):
 
     def __init__(self, domain=Open2D,
                  density=0.0, velocity=zeros,
-                 gravity=-9.81, buoyancy_factor=0.1, conserve_density=False):
-        State.__init__(self, tags=('smoke', 'velocityfield'))
+                 gravity=-9.81, buoyancy_factor=0.1, conserve_density=False,
+                 batch_size=None):
+        State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
         self._density = density
         self._velocity = velocity
@@ -76,7 +77,7 @@ class Smoke(State):
 
     @_density.setter
     def _density(self, value):
-        self._density_field = initialize_field(value, self.grid.shape())
+        self._density_field = initialize_field(value, self.grid.shape(1, self._batch_size))
 
     @property
     def velocity(self):
@@ -88,7 +89,7 @@ class Smoke(State):
 
     @_velocity.setter
     def _velocity(self, value):
-        self._velocity_field = initialize_field(value, self.grid.staggered_shape())
+        self._velocity_field = initialize_field(value, self.grid.staggered_shape(self._batch_size))
 
     @property
     def domain(self):

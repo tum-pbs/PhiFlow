@@ -20,8 +20,12 @@ def _map_shapes(f, shape):
     return f(shape)
 
 
+def _none_to_one(shape):
+    return list(map(lambda val: 1 if val is None else val, shape))
+
+
 def zeros(shape, dtype=np.float32):
-    return _map_shapes(lambda s: np.zeros(s, dtype), shape)
+    return _map_shapes(lambda s: np.zeros(_none_to_one(s), dtype), shape)
 
 
 def zeros_like(object):
@@ -29,15 +33,7 @@ def zeros_like(object):
 
 
 def ones(shape, dtype=np.float32):
-    return _map_shapes(lambda s: np.ones(s, dtype), shape)
-
-
-def empty(shape, dtype=np.float32):
-    return _map_shapes(lambda s: np.empty(s, dtype), shape)
-
-
-def empty_like(object):
-    return Struct.flatmap(lambda tensor: np.empty_like(tensor), object)
+    return _map_shapes(lambda s: np.ones(_none_to_one(s), dtype), shape)
 
 
 def randn(levels=(1.0,)):  # TODO pass mean, sigma, doesn't correctly scale staggered grids
