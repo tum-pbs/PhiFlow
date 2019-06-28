@@ -42,12 +42,12 @@ class TimeDependentField(object):
 class FieldSequenceModel(object):
 
     def __init__(self,
-                 name='Φ-*flow* Application',
+                 name='*Φ-Flow* Application',
                  subtitle='',
                  fields=None,
                  stride=1,
                  record_images=False, record_data=False,
-                 base_dir='~/phi/model',
+                 base_dir='~/phi/data/',
                  recorded_fields=None,
                  summary=None,
                  custom_properties=None,

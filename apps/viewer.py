@@ -6,7 +6,7 @@ import sys
 
 class Viewer(FieldSequenceModel):
     def __init__(self, simpath):
-        FieldSequenceModel.__init__(self, name='Φ-*flow* Viewer', subtitle='Play a recorded simulation')
+        FieldSequenceModel.__init__(self, name='*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
         self.value_directory = simpath
         self.action_rewind()
 
@@ -42,10 +42,10 @@ class Viewer(FieldSequenceModel):
         self.update()
 
 
-scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/model/simpleplume64x64/sim_000000'
+scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume/sim_000000'
 scene_path = os.path.expanduser(scene_path)
 if os.path.isdir(scene_path):
-    app = Viewer(scene_path).show(framerate=3, production=__name__!='__main__', port=8050)
+    app = Viewer(scene_path).show(framerate=3, production=__name__!='__main__')
 else:
     import logging
     logging.fatal('Scene path %s does not exist.' % scene_path)

@@ -1,12 +1,12 @@
 
-# Φ-*Flow* Browser GUI
+# Φ<sub>*Flow*</sub> Browser GUI
 
-Φ-*Flow* contains an interactive GUI that can display any kind of two-dimensional or three-dimensional fields. The interface is displayed in the browser and is very easy to set up.
+Φ<sub>*Flow*</sub> contains an interactive GUI that can display any kind of two-dimensional or three-dimensional fields. The interface is displayed in the browser and is very easy to set up.
 
 The default GUI will display your application in the browser.
 If you intend to use the GUI for interactive training of a TensorFlow model, make sure to read the TensorFlow specific sections below. Else, you can simply create a subclass of [FieldSequenceModel](../phi/model.py) as described below.
 
-## General (Non-TensorFlow) App
+## Writing an app to run a simulation
 
 ### Simple Example
 
@@ -91,7 +91,7 @@ Controls can be configured by creating an instance of `EditableValue`. In this c
 ```
 
 
-## TensorFlow App
+## Writing an app to optimize or train
 
 If the purpose of your application is to train a TensorFlow model, you can extend from [TFModel](../phi/tf/model.py) instead. This has a couple of benefits:
 
@@ -145,7 +145,7 @@ Next, the fluid simulation is created and assigned to `self.sim`. This variable 
 The following three lines create input fields for TensorFlow's graph. We allow the true_force tensor to be scaled by a user-defined value which can be set in the GUI.
 
 Now that the network inputs are set up, the network can be built. The use of `with self.model_scope()` ensures that the network parameters can be saved and loaded automatically and from the GUI.
-The `l2_loss` is part of Φ-*Flow*'s n-d math package but a regular TensorFlow loss can also be used.
+The `l2_loss` is part of Φ<sub>*Flow*</sub>'s n-d math package but a regular TensorFlow loss can also be used.
 The inherited method `add_objective` sets up the optimizer. This optimizer will be used in the default `step` implementation.
 
 The following block sets up the database by registering the required fields and adding all scenes from one category (see [the data documentation](data.md) for more).

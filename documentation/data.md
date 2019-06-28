@@ -3,7 +3,7 @@
 
 ## Scene data format
 
-Φ-*Flow* uses a NumPy based format which is also being implemented into MantaFlow.
+Φ<sub>*Flow*</sub> uses a NumPy based format which is also being implemented into MantaFlow.
 
 It specifies the following elements:
 
@@ -21,7 +21,7 @@ In the following, `x`, `y` and `z` refer to the shape of valid entries in center
 There are two conventions for how the array sizes can be derived from these:
 
 - Mantaflow: The outer voxels of centered fields are invalid (depth=z+2, height=y+2, widht=x+2). Staggered grids store the component at the lower face of the cell with same index (depth=z+2, height=y+2, widht=x+2), the top rows are invalid.
-- Φ-*Flow*: The arrays of centered fields store only valid values (depth=z, height=y, width=x). Staggered grids store the component at the lower face of the cell with same index, the top-most rows hold partly invalid values (depth=z+1, height=y+1, width=x+1).
+- Φ<sub>*Flow*</sub>: The arrays of centered fields store only valid values (depth=z, height=y, width=x). Staggered grids store the component at the lower face of the cell with same index, the top-most rows hold partly invalid values (depth=z+1, height=y+1, width=x+1).
 
 The filename of an array at a certain frame is:
 
@@ -81,9 +81,9 @@ Categories are used to organize scenes that belong together. Categories are real
 Scenes within that directory are assumed to have the same properties and the same number of frames but these restrictions are optional.
 
 
-## Handling fluid data I/O in Φ-*Flow*
+## Handling fluid data I/O in Φ<sub>*Flow*</sub>
 
-The fluid I/O functionality of Φ-*Flow* is located in [phi.fluidformat](../phi/fluidformat.py).
+The fluid I/O functionality of Φ<sub>*Flow*</sub> is located in [phi.fluidformat](../phi/fluidformat.py).
 
 There are two possibilities to reference existing scenes:
 
@@ -146,7 +146,7 @@ This automatically creates a `src` folder within the scene and places the specif
 
 ## Managing the data
 
-Φ-*Flow*'s built-in [Database](../phi/data/data.py) class is the primary way to organize large quantities of data. It supports on-the-fly loading of an arbitrary amount of scenes, organized into multiple datasets.
+Φ<sub>*Flow*</sub>'s built-in [Database](../phi/data/data.py) class is the primary way to organize large quantities of data. It supports on-the-fly loading of an arbitrary amount of scenes, organized into multiple datasets.
 
 Subclasses of [TFModel](../phi/tf/model.py) are supplied with an instance of database, referenced as `self.database`. This database is set up with a training and validation dataset.
 

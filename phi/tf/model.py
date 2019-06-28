@@ -65,8 +65,9 @@ class TFModel(FieldSequenceModel):
                  training_batch_size=4,
                  validation_batch_size=16,
                  model_scope_name='model',
+                 base_dir='~/phi/model/',
                  **kwargs):
-        FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, **kwargs)
+        FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
         self.learning_rate = self.editable_float('Learning_Rate', learning_rate)
         self.training = tf.placeholder(tf.bool, (), 'training')

@@ -1,6 +1,6 @@
 # States
 
-Introduced in Φ-*Flow* v0.3, simulations are split into a temporally evolving state and a fixed physics object that encodes the time evolution.
+Introduced in Φ<sub>*Flow*</sub> v0.3, simulations are split into a temporally evolving state and a fixed physics object that encodes the time evolution.
 
 
 |                 | States                                                                                             | Physics                                                                                                |
