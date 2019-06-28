@@ -270,7 +270,7 @@ class Scene(object):
         if not os.path.isdir(root_path): return []
         indices = [int(sim[4:]) for sim in os.listdir(root_path) if sim.startswith("sim_")]
         if indexfilter:
-            indices = indexfilter(indices)
+            indices = [i for i in indices if indexfilter(i)]
         if max_count and len(indices) >=  max_count:
             indices = indices[0:max_count]
         return [Scene(directory, category, scene_index) for scene_index in indices]

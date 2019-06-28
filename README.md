@@ -40,7 +40,7 @@ $ pip install .[gui]
 If you would like to get right into it and have a look at some example code, check out the following files in the `apps` directory:
 
 - [simulation101.py](apps/simulation101.py): Runs a state simulation and displays it in the browser
-- [optimize_pressure.py](apps/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
+- [optimize_pressure.py](apps/optimize_pressure.py): Uses TensorFlow to optimization_step a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
 
 The [simulation documentation](documentation/sim.md) explains the core simulation classes and gives code examples of how to use them.

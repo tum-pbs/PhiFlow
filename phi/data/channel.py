@@ -1,5 +1,6 @@
-from .source import DataSource
+import six
 import numpy as np
+from .source import DataSource
 
 
 class DataChannel(object):
@@ -20,6 +21,7 @@ class DataChannel(object):
 class SourceChannel(DataChannel):
 
     def __init__(self, name):
+        assert isinstance(name, six.string_types)
         self._name = name
 
     def shape(self, datasource):

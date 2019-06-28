@@ -47,7 +47,7 @@ class FieldSequenceModel(object):
                  fields=None,
                  stride=1,
                  record_images=False, record_data=False,
-                 base_dir=os.path.expanduser(os.path.join('~', 'model')),
+                 base_dir='~/phi/model',
                  recorded_fields=None,
                  summary=None,
                  custom_properties=None,
@@ -215,6 +215,7 @@ class FieldSequenceModel(object):
             source_files_to_save.add(inspect.getabsfile(object))
         for source_file in source_files_to_save:
             self.scene.copy_src(source_file)
+        return self
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value

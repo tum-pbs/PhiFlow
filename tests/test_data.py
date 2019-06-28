@@ -65,7 +65,8 @@ class TestData(TestCase):
 
     def test_empty(self):
         build_test_database()
-        reader = BatchReader(Dataset.load('data'), ())
+        reader = BatchReader(Dataset.load('data', name='empty'), ())
+        self.assertEqual(reader.dataset.name, 'empty')
         self.assertEqual(len(reader), 0)
         batch = reader[0]
 
