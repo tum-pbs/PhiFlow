@@ -1,7 +1,10 @@
 
 # Simulations in Φ<sub>*Flow*</sub>
 
-Φ<sub>*Flow*</sub> is a research oriented toolkit that enables running and interacting with simulations.
+This document gives an overview of how to run simulations using Φ<sub>*Flow*</sub>.
+For a deeper look into how the code is structured, check out [the simulation architecture documentaiton](simdesign.md).
+If you are interested in how specific simulations work, check out their respective documentations, e.g.
+[Smoke](documentation/smoke.md).
 
 
 ## Running simulations
@@ -31,14 +34,14 @@ For more on staggered grids, see [the documentation](./staggered.md).
 To run a simulation, we can use the `step` method:
 
 ```python
-world.step(dt=2.0)
+world.step(dt=1.0)
 ```
 
 This progresses all simulations that are associated with that world by a time increment `dt` (defaults to `1.0`).
 Accessing any property of a simulation reference (such as `smoke`) will now return the updated value.
 
 
-### Enabling the GUI
+### Simulation + GUI
 
 To use the browser-based GUI that comes with Φ<sub>*Flow*</sub>, we need to wrap our simulation code with a
 `FieldSequenceModel`.
@@ -59,10 +62,15 @@ class Simpleplume(FieldSequenceModel):
 Simpleplume().show()
 ```
 
-By default, `FieldSequenceModel` is configured to call `world.step()` on the default world for every step.
+By subclassing `FieldSequenceModel`, we inherit the functions
 
-[smokedemo.py](../apps/smokedemo.py) also adds obstacles to the scene and 
-[movementdemo.py](../apps/movementdemo.py) moves the inflow around.
+- `add_field` to make data visible in the GUI,
+- `show` which launches the web service,
+- `step` which calls `world.step()` by default but can be overriden to implement custom behaviour.
+
+Slightly more complex examples can be found in 
+[smokedemo.py](../apps/smokedemo.py) which adds obstacles to the scene and 
+[movementdemo.py](../apps/movementdemo.py) which moves the inflow around.
 
 
 ### Running on the GPU
@@ -70,16 +78,6 @@ By default, `FieldSequenceModel` is configured to call `world.step()` on the def
 For GPU execution, TensorFlow needs to be installed (see the [installation instructions](./install.md)).
 To run the simulation using TensorFlow, change the first line `from phi.flow import *` to `from phi.tf.flow import *`.
 This replaces the imported `FieldSequenceModel` with a TensorFlow-enabled version.
+This new `FieldSequenceModel` bakes the physics into a TensorFlow graph in `show()` before the GUI is launched.
 
-
-## Advanced simulations
-
-Immutable states
-
-
-Physics objects
-[Pressure solvers](./solvers.md)
-
-
-Placeholders
 

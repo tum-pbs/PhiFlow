@@ -231,7 +231,7 @@ class FieldSequenceModel(object):
 
     def _update_scene_properties(self):
         if self.uses_existing_scene: return
-        app_name = inspect.getfile(self.__class__)
+        app_name = os.path.basename(inspect.getfile(self.__class__))
         app_path = inspect.getabsfile(self.__class__)
         properties = {
             'instigator': 'FieldSequenceModel',
@@ -245,7 +245,7 @@ class FieldSequenceModel(object):
             'controls': [{control.name: control.value} for control in self.controls],
             'summary': self.scene_summary(),
             'time_of_writing': self.time,
-            'physics': Struct.properties(self.world.state)
+            'world': Struct.properties(self.world.state)
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties

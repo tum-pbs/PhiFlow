@@ -12,7 +12,8 @@ For smoke, this defaults to the global object `SMOKE`.
 If you want to use a custom solver, simply replace the physics with a new SmokePhysics, e.g.
 
 ```python
-smoke = world.Smoke(...)
+from phi.flow import *; from phi.solver.sparse import SparseCG; smoke = world.Smoke()
+my_solver = SparseCG(accuracy=1e-4, max_iterations=200)
 smoke.physics = SmokePhysics(pressure_solver=my_solver)
 ```
 

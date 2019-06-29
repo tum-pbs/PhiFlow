@@ -42,11 +42,16 @@ If you would like to get right into it and have a look at some example code, che
 - [simpleplume.py](./apps/simpleplume.py): Runs a smoke simulation and displays it in the browser
 - [optimize_pressure.py](./apps/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
+The [simulation overview](documentation/sim.md) explains how to run predefined simulations using either the NumPy or TensorFlow backend. It also introduces the GUI.
 
-The [simulation documentation](documentation/sim.md) explains the core simulation classes and gives code examples of how to use them.
-Related documentations: [staggered grids](documentation/staggered.md), [states](documentation/states.md), [structs](documentation/structs.md)
+The [simulation code design documentation](documentation/simdesign.md) provides a deeper look into the object-oriented code design of simulations.
 
-[Writing a Φ<sub>*Flow*</sub> Application](documentation/gui.md) introduces the high-level classes and expalins how to use the Φ<sub>*Flow*</sub> GUI.
+To learn how specific simulations are implemented, check out the documentation for [Smoke](documentation/smoke.md). 
+
+[Writing a Φ<sub>*Flow*</sub> Application](documentation/gui.md) introduces the high-level classes and expalins how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
+
+For training machine learning models, [this document](documentation/tfmodel.md) gives an introduction int o writing a GUI-enabled application.
+
 
 For I/O and data management, see the [data documentation](documentation/data.md).
 
@@ -58,7 +63,7 @@ The directory structure is as follows:
 - [apps](apps) contains python executables that use Φ<sub>*Flow*</sub> and display the simulation using the GUI.
 - [documentation](documentation) further information and guides.
 - [phi](phi) and subpackages contain the core Φ<sub>*Flow*</sub> library.
-- [tests](tests) contains tests of Φ<sub>*Flow*</sub> that mostly run without Gui.
+- [tests](tests) contains tests of Φ<sub>*Flow*</sub> that mostly run without the GUI.
 
 
 ## Known Issues

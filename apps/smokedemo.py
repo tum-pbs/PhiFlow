@@ -1,8 +1,10 @@
 import sys
 if 'tf' in sys.argv:
     from phi.tf.flow import *  # Use TensorFlow
+    mode = 'TensorFlow'
 else:
     from phi.flow import *  # Use NumPy
+    mode = 'NumPy'
 
 
 def build_inflow(x, y, world=world):
@@ -28,8 +30,8 @@ def create_tum_logo(x, y, world=world):
 class SmokeDemo(FieldSequenceModel):
 
     def __init__(self, size):
-        FieldSequenceModel.__init__(self, 'TUMsmoke', 'Smoke simulation with obstacles',
-                         summary='TUMsmoke' + 'x'.join([str(d) for d in size]), stride=20)
+        FieldSequenceModel.__init__(self, 'Smoke Demo','Run a smoke simulation using %s for processing.' % mode,
+                         summary='smokedemo' + 'x'.join([str(d) for d in size]), stride=20)
         smoke = self.smoke = world.Smoke(Domain(size, SLIPPERY))
         build_inflow(*size)
         create_tum_logo(*size)
