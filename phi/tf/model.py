@@ -114,6 +114,7 @@ class TFModel(FieldSequenceModel):
             self._train_iterator = self._train_reader.all_batches(batch_size=1, loop=True)
         else:
             self._train_reader = None
+            self._train_iterator = None
         # Val
         if self._validation_set is not None:
             fields = Struct.flatmap(lambda s: s.replace('.', '_'), Struct.mapnames(placeholders))  # TODO this is already defined in fluidformat
@@ -153,15 +154,17 @@ class TFModel(FieldSequenceModel):
             optim_nodes = list(optim_nodes)
         else:
             optim_nodes = [optim_nodes]
-        batch = next(self._train_iterator)
+        batch = next(self._train_iterator) if self._train_iterator is not None else None
         scalar_values = self.session.run(optim_nodes + self.scalars, self._feed_dict(batch, True),
                                          summary_key='train', merged_summary=self.merged_scalars, time=self.time)[1:]
         if log_loss:
             self.info('Optimization: ' + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
     def validation_step(self, create_checkpoint=False):
-        # self.info('Running validation...')
-        self.session.run(self.scalars, self._feed_dict(self._val_reader[0:self.validation_batch_size], False),
+        if self._val_reader is None:
+            return
+        batch = self._val_reader[0:self.validation_batch_size]
+        self.session.run(self.scalars, self._feed_dict(batch, False),
                          summary_key='val', merged_summary=self.merged_scalars, time=self.time)
         if create_checkpoint:
             self.save_model()
@@ -174,7 +177,8 @@ class TFModel(FieldSequenceModel):
         feed_dict = self.base_feed_dict()
         feed_dict.update(self.editable_values_dict())
         feed_dict[self.training] = training
-        feed_dict[self._placeholders] = batch
+        if batch is not None:
+            feed_dict[self._placeholders] = batch
         return feed_dict
 
     # def val(self, fetches, subrange=None):
@@ -182,14 +186,24 @@ class TFModel(FieldSequenceModel):
 
     @property
     def view_reader(self):
+        if self._val_reader is None and self._train_reader is None:
+            return None
+        if self._val_reader is None:
+            return self._train_reader
         return self._train_reader if self.value_view_training_data else self._val_reader
 
     def view(self, tasks):
         if tasks is None:
             return None
         reader = self.view_reader
-        batch = reader[0:self.validation_batch_size]
+        batch = reader[0:self.validation_batch_size] if reader is not None else None
         return self.session.run(tasks, self._feed_dict(batch, False))
+
+    @property
+    def viewed_batch(self):
+        assert self.view_reader is not None, 'There is no data to view.'
+        return self.view_reader[0:self.validation_batch_size]
+
 
     def view_batch(self, get_attribute):
         batch = self.view_reader[0:self.validation_batch_size]
