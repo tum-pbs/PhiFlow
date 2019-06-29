@@ -1,7 +1,10 @@
 # Interactive training or optimization
 
+This document assumes you have some basic knowledge of `FieldSequenceModels` and how they interact with the GUI.
+If not, checkout the [documentation](gui.md).
 
-If the purpose of your application is to train a TensorFlow model, you can extend from [TFModel](../phi/tf/model.py) instead. This has a couple of benefits:
+If the purpose of your application is to train a TensorFlow model, your main application class should extend [TFModel](../phi/tf/model.py) which in turn extends `FieldSequenceModel`.
+This has a couple of benefits:
 
 - Model parameters can be saved and loaded from the GUI
 - Summaries including the loss value are created and can easily be extended using `add_scalar`
@@ -18,27 +21,22 @@ If the purpose of your application is to train a TensorFlow model, you can exten
 The following example trains a neural network, referenced as `network` to predict a force channel from two velocity fields.
 
 ```python
-from phi.tf.model import *
-from phi.data import *
+from phi.tf.flow import *
 
 class TrainingTest(TFModel):
 
     def __init__(self):
         TFModel.__init__(self, "Training")
-        sim = self.sim = TFFluidSimulation([128] * 2, "open")
-
-        initial_velocity = sim.placeholder("velocity", "InitialVelocity")
-        target_velocity = sim.placeholder("velocity", "TargetVelocity")
-        true_force = sim.placeholder("velocity", "Force") * self.editable_float("Scale", 1.0)
+        smoke = world.Smoke(Domain([64] * 2), density=placeholder, velocity=placeholder)
 
         with self.model_scope():
-            pred_force = network(initial_velocity, target_velocity)
+            pred_force = network(smoke.density, smoke.devlocity)
         loss = l2_loss(pred_force - true_force)
         self.add_objective("Supervised_Loss", loss)
-
-        self.database.add(["InitialVelocity", "TargetVelocity", "Force"])
-        self.database.put_scenes(scenes("SmokeIK/forces"), logf=self.info)
-        self.finalize_setup([initial_velocity, target_velocity, true_force])
+        
+        self.set_data(val=Dataset.load('~/phi/data/simpleplume', range(10)),
+                      train=Dataset.load('~/phi/data/simpleplume', range(10,100)),
+                      placeholders=smoke)
 
         self.add_field("Force (Ground Truth)", "Force")
         self.add_field("Force (Model)", pred_force)
@@ -48,7 +46,7 @@ app = TrainingTest().show(production=__name__!="__main__")
 
 Let's go over what's happening here in detail.
 First, the app calls the super constructor, passing only the app's name.
-Next, the fluid simulation is created and assigned to `self.sim`. This variable is inherited from `TFModel` and must be initialized with a `TFFluidSimulation` in the constructor.
+Next, a fluid simulation state is initialized with placeholders and added to the world.
 
 The following three lines create input fields for TensorFlow's graph. We allow the true_force tensor to be scaled by a user-defined value which can be set in the GUI.
 
