@@ -7,13 +7,12 @@ import contextlib
 class Session(object):
 
     def __init__(self, scene, session=tf.Session()):
-        load_tensorflow()
         self._scene = scene
         self._session = session
         assert self._session.graph == tf.get_default_graph()
         self.graph = tf.get_default_graph()
         self.summary_writers = {}
-        self.summary_directory = scene.subpath('summary')
+        self.summary_directory = os.path.abspath(scene.subpath('summary'))
         self.profiling_directory = scene.subpath("profile")
         self.trace_count = 0
         self.saver = None
@@ -114,6 +113,7 @@ class Trace(object):
         self.directory = directory
         self.timeliner = None
         self.timeline_file = None
+        self._default_simulation_context_manager = None
 
     def __enter__(self):
         self.timeline_file = os.path.join(self.directory, 'trace %d.json' % self.index)

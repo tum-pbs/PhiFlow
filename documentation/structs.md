@@ -40,9 +40,9 @@ Note, that the elements of `tensors` can be altered or replaced before reassembl
 The function `shape(struct)` makes use of this to return a `struct` holding the shapes of tensors from the original struct.
 
 
-## Usages in Φ-*Flow*
+## Usages in Φ<sub>*Flow*</sub>
 
-All state-related objects in Φ-*Flow* are compatible with the Struct interface.
+All state-related objects in Φ<sub>*Flow*</sub> are compatible with the Struct interface.
 
 In particular, the `State` class is a subclass of `Struct` while TensorFlow tensors and NumPy arrays are supported as well.
 

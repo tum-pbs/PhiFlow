@@ -1,12 +1,12 @@
-# Φ-*Flow*
+# Φ<sub>*Flow*</sub>
 
 [![pipeline status](https://gitlab.lrz.de/ga67fet/phiflow/badges/master/pipeline.svg)](https://gitlab.lrz.de/ga67fet/phiflow/commits/master)
 
 
 ![Gui](documentation/Gui.png)
 
-Φ-*Flow* is an open-source fluid simulation toolkit.
-It is written entirely in Python and targets TensorFlow and NumPy for execution.
+Φ<sub>*Flow*</sub> is a research-oriented, open-source fluid simulation toolkit.
+It is written mostly in Python and can use both NumPy and TensorFlow for execution.
 
 Having all functionality of a fluid simulation running in TensorFlow opens up the possibility of back-propagating gradients through the simulation as well as running the simulation on GPUs.
 
@@ -24,46 +24,50 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 
 ## Installation
 
-See the [detailed installation instructions](documentation/install.md) on how to install Φ-*Flow*.
-Here is the short version:
+The following commands will get you Φ<sub>*Flow*</sub> + browser-GUI + NumPy execution:
+
 ```
-$ pip install tensorflow
 $ git clone https://gitlab.lrz.de/ga67fet/phiflow.git
-$ cd mantaflowgit
-$ git checkout phiflow/master
-$ python setup.py cuda
-$ pip install .[gui]
+$ pip install phiflow/[gui]
 ```
+
+See the [detailed installation instructions](documentation/install.md) on how to install Φ<sub>*Flow*</sub>
+with TensorFlow support.
+
 
 ## Documentation and Guides
 
 If you would like to get right into it and have a look at some example code, check out the following files in the `apps` directory:
 
-- [simulation101.py](apps/simulation101.py): Runs a state simulation and displays it in the browser
-- [optimize_pressure.py](apps/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
+- [simpleplume.py](./apps/simpleplume.py): Runs a smoke simulation and displays it in the browser
+- [optimize_pressure.py](./apps/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
+The [simulation overview](documentation/sim.md) explains how to run predefined simulations using either the NumPy or TensorFlow backend. It also introduces the GUI.
 
-The [simulation documentation](documentation/sim.md) explains the core simulation classes and gives code examples of how to use them.
+The [simulation code design documentation](documentation/simdesign.md) provides a deeper look into the object-oriented code design of simulations.
 
-[Writing a Φ-*Flow* Application](documentation/gui.md) introduces the high-level classes and expalins how to use the Φ-*Flow* GUI.
+To learn how specific simulations are implemented, check out the documentation for [Smoke](documentation/smoke.md). 
+
+[Writing a Φ<sub>*Flow*</sub> Application](documentation/gui.md) introduces the high-level classes and expalins how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
+
+For training machine learning models, [this document](documentation/tfmodel.md) gives an introduction int o writing a GUI-enabled application.
+
 
 For I/O and data management, see the [data documentation](documentation/data.md).
-
-(If the links are not working, go into the documentation folder and open the Markdown files manually)
 
 
 ## Directory structure
 
 The directory structure is as follows:
 
-- [apps](apps) contains python executables that use Φ-*Flow* and display the simulation using the GUI.
+- [apps](apps) contains python executables that use Φ<sub>*Flow*</sub> and display the simulation using the GUI.
 - [documentation](documentation) further information and guides.
-- [phi](phi) and subpackages contain the core Φ-*Flow* library.
-- [tests](tests) contains tests of Φ-*Flow* that mostly run without Gui.
+- [phi](phi) and subpackages contain the core Φ<sub>*Flow*</sub> library.
+- [tests](tests) contains tests of Φ<sub>*Flow*</sub> that mostly run without the GUI.
 
 
 ## Known Issues
 
-GUI: Update problem with some Chrome installations on Windows.
+GUI: Message not updating correctly on some Chrome installations on Windows.
 
 TensorBoard: Live supervision does not work when running a local app that writes to a remote directory.

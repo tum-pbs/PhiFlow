@@ -367,15 +367,6 @@ class StaggeredGrid(Struct):
         except:
             return 'StaggeredGrid(%s)' % self.staggered
 
-    def __eq__(self, other):
-        if isinstance(other, StaggeredGrid):
-            return self.staggered == other.staggered
-        else:
-            return False
-
-    def __hash__(self):
-        return hash(self.staggered)
-
     def at_centers(self):
         rank = self.spatial_rank
         dims = range(rank)

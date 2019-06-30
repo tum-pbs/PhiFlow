@@ -1,41 +1,64 @@
-from .volumetric import *
-from .domain import *
-from phi.math import *
+from .smoke import *
 
 
-class Burger(VolumetricPhysics):
+class Burger(State):
+    __struct__ = State.__struct__.extend(('_velocity',), ('_viscosity',))
 
-    def __init__(self, domain, viscosity=0.1):
-        VolumetricPhysics.__init__(self, domain)
-        self.viscosity = viscosity
+    def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
+        State.__init__(self, tags=('burger', 'velocityfield'), batch_size=batch_size)
+        self._domain = domain
+        self._velocity = velocity
+        self._viscosity = viscosity
 
-    def step(self, velocity):
-        return self.advect(self.diffuse(velocity))
+    def default_physics(self):
+        return BurgerPhysics()
 
-    def shape(self, batch_size=1):
-        return self.grid.shape(self.rank, batch_size=batch_size)
+    @property
+    def velocity(self):
+        return self._velocity
 
-    def serialize_to_dict(self):
-        return {
-            'type': 'burger',
-            'class': self.__class__.__name__,
-            'module': self.__class__.__module__,
-            'rank': self.domain.rank,
-            'domain': self.domain.serialize_to_dict(),
-            'viscosity': self.viscosity,
-        }
+    @property
+    def _velocity(self):
+        return self._velocity_field
 
-    def advect(self, velocity):
-        idx = indices_tensor(velocity)
-        velocity = velocity[..., ::-1]
-        sample_coords = idx - velocity * self.dt
-        result = math.resample(velocity, sample_coords, interpolation='linear', boundary='REPLICATE')
-        result = result[..., ::-1]
-        return result
+    @_velocity.setter
+    def _velocity(self, value):
+        self._velocity_field = initialize_field(value, self.grid.shape(self.grid.rank, self._batch_size))
 
-    def diffuse(self, velocity):
-        return velocity + self.viscosity * vector_laplace(velocity)
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def grid(self):
+        return self.domain.grid
+
+    @property
+    def viscosity(self):
+        return self._viscosity
+
+
+class BurgerPhysics(Physics):
+
+    def __init__(self):
+        Physics.__init__(self, {})
+
+    def step(self, state, dt=1.0, **dependent_states):
+        assert len(dependent_states) == 0
+        v = advect(diffuse(state.velocity, state.viscosity, dt), dt)
+        return state.copied_with(velocity=v)
 
 
 def vector_laplace(v):
     return np.concatenate([laplace(v[...,i:i+1]) for i in range(v.shape[-1])], -1)
+
+
+def advect(velocity, dt):
+    idx = indices_tensor(velocity)
+    sample_coords = idx - velocity * dt
+    result = resample(velocity, sample_coords, interpolation='linear', boundary='REPLICATE')
+    return result
+
+
+def diffuse(velocity, viscosity, dt):
+    return velocity + dt * viscosity * vector_laplace(velocity)

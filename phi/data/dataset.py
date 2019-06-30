@@ -55,14 +55,14 @@ class Dataset(object):
         return newset
 
     @staticmethod
-    def load(directory, dataset_name=None, indices=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
+    def load(directory, indices=None, name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
         import os
         from .fluidformat import Scene
 
-        if dataset_name is None:
-            dataset_name = os.path.basename(directory)
+        if name is None:
+            name = os.path.basename(directory)
 
-        dataset = Dataset(dataset_name)
+        dataset = Dataset(name)
 
         shape_map = dict() if assume_same_shapes else None
         frames = None

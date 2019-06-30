@@ -1,63 +1,61 @@
-from phi.math import Struct, zeros
+from phi.math import Struct, StructInfo
+
+
+class TrajectoryKey(object):
+    pass
 
 
 class State(Struct):
 
-    def __init__(self, tags=()):
+    __struct__ = StructInfo((), ('_age',))
+
+    def __init__(self, tags=(), age=0.0, batch_size=None):
         self._tags = tuple(tags)
+        self.trajectorykey = TrajectoryKey()
+        self._age = age
+        self._batch_size = batch_size
 
     @property
     def tags(self):
         return self._tags
 
-    def __mul__(self, operation):
-        return operation(self)
+    @property
+    def age(self):
+        return self._age
+
+    def default_physics(self):
+        return STATIC
 
 
 class Physics(object):
-
-    def __init__(self):
-        """
-A Physics object describes a set of physical laws that can be used to simulate a system by moving from state to state,
+    """
+    A Physics object describes a set of physical laws that can be used to simulate a system by moving from state to state,
 tracing out a trajectory.
-The description of the physical systems (e.g. obstacles, boundary conditions) is also included in the Physics object
-and the enclosing world.
-        :param world: (optional) the world this system lives in, used to update the worldstate when change
-        :param dt: simulation time increment
-        :param identifier: This Physics acts on all states with this tag
-        """
-        self.dt = 1.0
-        self._worldstate = None
+    Physics objects are stateless and always support an empty constructor.
+    """
 
-    @property
-    def worldstate(self):
-        if self._worldstate is not None:
-            return self._worldstate
-        else:
-            from .world import world
-            return world.state
+    def __init__(self, dependencies):
+        self.dependencies = dependencies  # Map from String to List<tag or TrajectoryKey>
 
-    @worldstate.setter
-    def worldstate(self, value):
-        self._worldstate = value
-
-    def step(self, state):
+    def step(self, state, dt=1.0, **dependent_states):
         """
 Computes the next state of the simulation, given the current state.
 Solves the simulation for a time increment self.dt.
         :param state: current state
+        :param dependent_states: dict from String to List<State>
+        :param dt: time increment (can be positive, negative or zero)
         :return next state
         """
         raise NotImplementedError(self)
 
-    def shape(self, batch_size=1):
-        raise NotImplementedError(self)
 
-    def serialize_to_dict(self):
-        return {'type': self.__class__.__name__}
+class Static(Physics):
 
-    def unserialize_from_dict(self):
-        pass
+    def __init__(self):
+        Physics.__init__(self, {})
 
-    def initial_state(self, batch_size=1):
-        return zeros(self.shape())
+    def step(self, state, dt=1.0, **dependent_states):
+        return state.copied_with(age=state.age + dt)
+
+
+STATIC = Static()

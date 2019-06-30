@@ -233,7 +233,7 @@ class Scene(object):
             shutil.rmtree(self.path)
 
     @staticmethod
-    def create(directory, category=None, mkdir=True):
+    def create(directory, category=None, mkdir=True, copy_calling_script=True):
         directory = os.path.expanduser(directory)
         if category is None:
             category = os.path.basename(directory)
@@ -253,6 +253,9 @@ class Scene(object):
                 next_index = max(indices) + 1
         scene = Scene(directory, category, next_index)
         if mkdir: scene.mkdir()
+        if copy_calling_script:
+            assert mkdir
+            scene.copy_calling_script()
         return scene
 
     @staticmethod
@@ -267,7 +270,7 @@ class Scene(object):
         if not os.path.isdir(root_path): return []
         indices = [int(sim[4:]) for sim in os.listdir(root_path) if sim.startswith("sim_")]
         if indexfilter:
-            indices = indexfilter(indices)
+            indices = [i for i in indices if indexfilter(i)]
         if max_count and len(indices) >=  max_count:
             indices = indices[0:max_count]
         return [Scene(directory, category, scene_index) for scene_index in indices]
@@ -294,7 +297,37 @@ def slugify(value):
     value = six.u(value)
     # value = u"{}".format(value.decode('utf-8'))
     value = unicodedata.normalize('NFKD', value)#.encode('ascii', 'ignore')
-    value = re.sub('Φ', "Phi", value)
+    for greek_letter, name in greek.items():
+        value = value.replace(greek_letter, name)
+    # value = re.sub('Φ', "Phi", value).sub('')
     value = re.sub('[^\w\s-]', '', value).strip().lower()
     value = re.sub('[-\s]+', '-', value)
     return value
+
+
+greek = {
+    'Α': 'Alpha', 'α': 'alpha',
+    'Β': 'Beta', 'β': 'beta',
+    'Γ': 'Gamma', 'γ': 'gamma',
+    'Δ': 'Delta', 'δ': 'delta',
+    'Ε': 'Epsilon', 'ε': 'epsilon',
+    'Ζ': 'Zeta', 'ζ': 'zeta',
+    'Η': 'Eta', 'η': 'eta',
+    'Θ': 'Theta', 'θ': 'theta',
+    'Ι': 'Iota', 'ι': 'iota',
+    'Κ': 'Kappa', 'κ': 'kappa',
+    'Λ': 'Lambda', 'λ': 'lambda',
+    'Μ': 'Mu', 'μ': 'mu',
+    'Ν': 'Nu', 'ν': 'nu',
+    'Ξ': 'Xi', 'ξ': 'xi',
+    'Ο': 'Omicron', 'ο': 'omicron',
+    'Π': 'Pi', 'π': 'pi',
+    'Ρ': 'Rho', 'ρ': 'rho',
+    'Σ': 'Sigma', 'σ': 'sigma',
+    'Τ': 'Tau', 'τ': 'tau',
+    'Υ': 'Upsilon', 'υ': 'upsilon',
+    'Φ': 'Phi', 'φ': 'phi',
+    'Χ': 'Chi', 'χ': 'chi',
+    'Ψ': 'Psi', 'ψ': 'psi',
+    'Ω': 'Omega', 'ω': 'omega',
+}

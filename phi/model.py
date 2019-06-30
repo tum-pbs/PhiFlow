@@ -4,6 +4,7 @@ import logging, os, numbers, six, numpy, threading, inspect, time, sys
 from os.path import isfile
 from phi.data.fluidformat import Scene
 import phi.math.nd
+from phi.math import Struct
 from phi.viz.plot import PlotlyFigureBuilder
 from phi.physics.world import world
 
@@ -41,12 +42,12 @@ class TimeDependentField(object):
 class FieldSequenceModel(object):
 
     def __init__(self,
-                 name='Φ-*flow* Application',
-                 subtitle='Interactive demo based on PhiFlow',
+                 name='*Φ-Flow* Application',
+                 subtitle='',
                  fields=None,
                  stride=1,
                  record_images=False, record_data=False,
-                 base_dir=os.path.expanduser(os.path.join('~', 'model')),
+                 base_dir='~/phi/data/',
                  recorded_fields=None,
                  summary=None,
                  custom_properties=None,
@@ -125,15 +126,15 @@ class FieldSequenceModel(object):
         return self.scene.subpath('images', create=True)
 
     def progress(self):
-        self.time += 1
         self.step()
+        self.time += 1
         self.invalidate()
 
     def invalidate(self):
         self._invalidation_counter += 1
 
     def step(self):
-        self.info('Implement step(self) to have something happen')
+        world.step()
 
     @property
     def fieldnames(self):
@@ -146,6 +147,10 @@ class FieldSequenceModel(object):
 
     def add_field(self, name, generator):
         assert not self.prepared, 'Cannot add fields to a prepared model'
+        if not callable(generator):
+            assert isinstance(generator, numpy.ndarray)
+            array = generator
+            generator = lambda: array
         self.fields[name] = TimeDependentField(name, generator)
 
     @property
@@ -214,6 +219,7 @@ class FieldSequenceModel(object):
             source_files_to_save.add(inspect.getabsfile(object))
         for source_file in source_files_to_save:
             self.scene.copy_src(source_file)
+        return self
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
@@ -225,7 +231,7 @@ class FieldSequenceModel(object):
 
     def _update_scene_properties(self):
         if self.uses_existing_scene: return
-        app_name = inspect.getfile(self.__class__)
+        app_name = os.path.basename(inspect.getfile(self.__class__))
         app_path = inspect.getabsfile(self.__class__)
         properties = {
             'instigator': 'FieldSequenceModel',
@@ -239,7 +245,7 @@ class FieldSequenceModel(object):
             'controls': [{control.name: control.value} for control in self.controls],
             'summary': self.scene_summary(),
             'time_of_writing': self.time,
-            'physics': self.world.physics.serialize_to_dict()
+            'world': Struct.properties(self.world.state)
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties
@@ -295,7 +301,7 @@ class FieldSequenceModel(object):
                 time.sleep(rest)
         self.current_action = None
 
-    def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True):
+    def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
         def target():
             self._pause = False
             step_count = 0
@@ -305,7 +311,8 @@ class FieldSequenceModel(object):
                 if max_steps and step_count >= max_steps:
                     break
             if callback is not None:
-                callback()
+                if not self._pause or callback_if_aborted:
+                    callback()
 
         thread = threading.Thread(target=target)
         thread.start()

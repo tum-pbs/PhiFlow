@@ -4,7 +4,8 @@ from .objects import *
 from .material import *
 
 
-class Domain(object):
+class Domain(State):
+    __struct__ = StructInfo((), ('_grid', '_boundaries'))
 
     def __init__(self, grid, boundaries=OPEN):
         """
@@ -25,29 +26,27 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
         """
+        State.__init__(self, ('domain',))
         self._grid = grid if isinstance(grid, Grid) else Grid(grid)
         assert isinstance(boundaries, (Material, list, tuple))
         if isinstance(boundaries, (tuple, list)):
             assert len(boundaries) == self._grid.rank
         self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
 
+    def default_physics(self):
+        return STATIC
+
     @property
     def grid(self):
         return self._grid
 
     @property
-    def rank(self):
-        return self.grid.rank
-
-    @property
     def boundaries(self):
         return self._boundaries
 
-    def serialize_to_dict(self):
-        return {
-            "dimensions": [int(d) for d in self.grid.dimensions],
-            # "boundaries": TODO
-        }
+    @property
+    def rank(self):
+        return self.grid.rank
 
     def _get_paddings(self, material_condition, margin=1):
         true_paddings = [[0, 0] for i in range(self.rank)]
@@ -71,13 +70,14 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
                 return dim_boundaries[upper_boundary]
 
 
-class DomainState(object):
+class DomainCache(Struct):
+    __struct__ = StructInfo(('_active', 'accessible'))
 
-    def __init__(self, domain, worldstate, active=None, accessible=None):
+    def __init__(self, domain, validstate=(), active=None, accessible=None):
         self._domain = domain
-        self._worldstate = worldstate
-        self._active = active if active is not None else self._domain._grid.ones()
-        self._accessible = accessible if accessible is not None else self._domain._grid.ones()
+        self._validstate = validstate
+        self._active = active if active is not None else ones(domain.grid.shape())
+        self._accessible = accessible if accessible is not None else ones(domain.grid.shape())
 
     @property
     def domain(self):
@@ -90,6 +90,9 @@ class DomainState(object):
     @property
     def rank(self):
         return self.grid.rank
+
+    def is_valid(self, state):
+        return self._validstate == state
 
     def with_hard_boundary_conditions(self, velocity):
         masked = velocity * _frictionless_velocity_mask(self.accessible(extend=1))
@@ -119,11 +122,6 @@ Scalar channel encoding cells that are accessible, i.e. not solid, as ones and o
             mask = pad(mask, open_paddings, "constant", 1)
             mask = pad(mask, solid_paddings, "constant", 0)
             return mask
-
-
-
-            
-
 
     # def _friction_mask(self, dt=1): TODO
     #     material.friction_multiplier(dt=dt)
@@ -170,16 +168,7 @@ Open3D = Domain(Grid([0] * 3))
 Open2D = Domain(Grid([0] * 2))
 
 
-def inflow_mask(worldstate, grid):
-    inflows = worldstate.get_by_tag('inflow')
-    if len(inflows) == 0:
-        return zeros(grid.shape())
-    location = grid.center_points()
-    return add([inflow.geometry.value_at(location) * inflow.rate for inflow in inflows])
-
-
-def geometry_mask(worldstate, grid, tag):
-    geometries = geometries_with_tag(worldstate, tag)
+def geometry_mask(geometries, grid):
     if len(geometries) == 0:
         return zeros(grid.shape())
     location = grid.center_points()
