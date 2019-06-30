@@ -12,4 +12,5 @@ test:pytest:
     stage: test
     image: python:2.7
     script:
+        - pytest --version
         - pytest
