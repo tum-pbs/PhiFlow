@@ -6,13 +6,12 @@ build:pip:
     stage: build
     image: python:2.7
     script:
-        - echo "Building"
         - pip install .
 
 test:pytest:
     stage: test
     image: python:2.7
     script:
-        - echo "Running Tests"
-        - pip install pytest --quiet
+        - pip install pytest==4.6.4 --quiet
+        - pytest --version
         - pytest
