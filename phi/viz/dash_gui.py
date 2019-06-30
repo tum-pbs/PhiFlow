@@ -23,6 +23,7 @@ class DashFieldSequenceGui:
                  tb_port=6006):
         self.model = field_sequence_model
         istf = 'tensorflow' in self.model.traits
+        hasmodel = 'model' in self.model.traits
         self.model.prepare()
 
         self.app = dash.Dash()
@@ -82,9 +83,18 @@ class DashFieldSequenceGui:
         model_inputs += [Input(control.id, 'values') for control in model_bools]
 
         self.app.layout = html.Div([
+                                    dcc.Markdown('# %s' % field_sequence_model.name)
+                                    ] +
+            ([
+                 dcc.Markdown("""
+---
 
-                                       dcc.Markdown('# {}\n*{}*'.format(field_sequence_model.name,
-                                                                        field_sequence_model.subtitle)),
+> **_About this application:_**
+
+%s
+
+---""" % field_sequence_model.subtitle),
+             ] if field_sequence_model.subtitle is not None and len(field_sequence_model.subtitle) > 0 else []) + [
 
                                        html.Div([
 
@@ -163,7 +173,7 @@ class DashFieldSequenceGui:
                                         if controls or actions else []) + model_sliders_int +
 
                                    ([
-                                        dcc.Markdown('### TensorFlow'),
+                                        dcc.Markdown('### TensorFlow Model'),
                                         html.Div([
                                             html.Button('Save Model', id='button-save-model'),
                                             html.Button('Load Model from: ', id='button-load-model'),
@@ -178,7 +188,7 @@ class DashFieldSequenceGui:
                                             html.Button('Launch TensorBoard', id='launch-tensorboard'),
                                             html.Div([html.A('Open TensorBoard', href='', id='tensorboard-href')]),
                                         ]),
-                                    ] if istf else []) + [
+                                    ] if hasmodel else []) + [
 
                                        html.Div([
                                            dcc.Markdown('### Framerate'),
@@ -192,7 +202,7 @@ class DashFieldSequenceGui:
 
                                            ], style={'height': '32px', 'width': '60%', 'display': 'inline-block'}),
                                            html.Div([
-                                               'Steps per frame: ',
+                                               'Substeps: ',
                                                dcc.Textarea(placeholder='1', id='stride',
                                                             value=str(self.model.sequence_stride), rows=1,
                                                             style={'width': '100px', 'display': 'inline-block'})
@@ -211,7 +221,7 @@ class DashFieldSequenceGui:
                                                      ] if istf else []) + [
 
                                                     html.Div([
-                                                        'Number of frames: ',
+                                                        'Sequence length: ',
                                                         dcc.Textarea(placeholder='100', id='sequence-count',
                                                                      value=str(sequence_count), rows=1,
                                                                      style={'width': '100px',
@@ -472,7 +482,7 @@ class DashFieldSequenceGui:
                 time_elapsed / step_count, step_count / time_elapsed)
                 return output
 
-        if istf:
+        if hasmodel:
             @self.app.callback(Output('tensorboard-href', 'href'), [Input('launch-tensorboard', 'n_clicks')])
             def launch_tb(n1):
                 if not n1: return
@@ -482,6 +492,7 @@ class DashFieldSequenceGui:
                 logging.info('TensorBoard launched, URL: %s' % url)
                 return url
 
+        if istf:
             @self.app.callback(Output('run-statistics', 'children'),
                                [Input('button-benchmark', 'n_clicks_timestamp'),
                                 Input('button-profile', 'n_clicks_timestamp')])
@@ -512,6 +523,7 @@ class DashFieldSequenceGui:
                     output += '  \nProfile saved. Open  \n*chrome://tracing/*  \n and load file  \n *%s*' % timeline_file
                 return output
 
+        if hasmodel:
             @self.app.callback(Output('model-info', 'children'),
                                [Input('button-save-model', 'n_clicks_timestamp'),
                                 Input('button-load-model', 'n_clicks_timestamp'),

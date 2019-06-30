@@ -1,39 +1,64 @@
 from copy import copy
+import numpy as np
+
+
+class StructAttr(object):
+
+    def __init__(self, ref_string, name=None, is_property=False):
+        self.ref_string = ref_string
+        self.name = name if name is not None else (ref_string[1:] if ref_string.startswith('_') else ref_string)
+        self.is_property = is_property
+
+    def matches(self, string):
+        return self.name == string or self.ref_string == string
+
+    def __repr__(self):
+        return self.ref_string
 
 
 class StructInfo(object):
 
-    def __init__(self, attributes):
-        self.attributes = tuple(attributes)
+    def __init__(self, attributes, properties=()):
+        assert isinstance(attributes, (list, tuple))
+        assert isinstance(properties, (list, tuple))
+        self.attributes = [a if isinstance(a, StructAttr) else StructAttr(a, is_property=False) for a in attributes]
+        self.properties = [p if isinstance(p, StructAttr) else StructAttr(p, is_property=True) for p in properties]
+        self.all = self.attributes + self.properties
+
+    def find_attribute(self, name):
+        for structattribute in self.attributes:
+            if structattribute.matches(name):
+                return structattribute
+        raise KeyError('No attribute %s' % name)
 
     def find(self, name):
-        for attr in self.attributes:
-            if attr == name:
-                return attr
-            if attr.startswith('_') and attr[1:] == name:
-                return attr
-        raise KeyError('No attribute %s' % name)
+        for structattribute in self.all:
+            if structattribute.matches(name):
+                return structattribute
+        raise KeyError('No attribute or property: %s' % name)
+
+    def extend(self, attributes, properties=()):
+        return StructInfo(self.attributes + list(attributes), self.properties + list(properties))
 
 
 class Struct(object):
     __struct__ = StructInfo(())
 
-
-    def copy(self, **kwargs):
+    def copied_with(self, **kwargs):
         duplicate = copy(self)
         for name, value in kwargs.items():
-            attr = self.__class__.__struct__.find(name)
-            was_struct = Struct.isstruct(getattr(self, attr))
-            assert was_struct == Struct.isstruct(value), 'Cannot set attribute %s to %s, structure does not match' % (name, value)
+            attr = self.__class__.__struct__.find(name).ref_string
             setattr(duplicate, attr, value)
         return duplicate
 
-    with_ = copy
-
     def __values__(self):
-        attributes = self.__class__.__struct__.attributes
-        values = [getattr(self, a) for a in attributes]
-        return values
+        return [getattr(self, a.name) for a in self.__class__.__struct__.attributes]
+
+    def __properties__(self):
+        result = {p.name: Struct.properties(getattr(self, p.name)) for p in self.__class__.__struct__.properties}
+        result['type'] = str(self.__class__.__name__)
+        result['module'] = str(self.__class__.__module__)
+        return result
 
     def __names__(self):
         return self.__class__.__struct__.attributes
@@ -42,7 +67,7 @@ class Struct(object):
         values = self.__values__()
         result_list = []
         for attr, value in zip(self.__class__.__struct__.attributes, values):
-            fullname = attr if basename is None else basename+'.'+attr
+            fullname = attr.name if basename is None else basename+'.'+attr.name
             if Struct.isstruct(value):
                 result_list.append(Struct.mapnames(value, fullname))
             else:
@@ -52,7 +77,7 @@ class Struct(object):
     def __build__(self, values):
         new_struct = copy(self)
         for val, attr in zip(values, self.__class__.__struct__.attributes):
-            setattr(new_struct, attr, val)
+            setattr(new_struct, attr.ref_string, val)
         return new_struct
 
     def __flatten__(self):
@@ -63,6 +88,23 @@ class Struct(object):
             return self.__build__(values)
         return flat_list, recombine_self
 
+    def __eq__(self, other):
+        if type(self) != type(other): return False
+        for attr in self.__class__.__struct__.all:
+            v1 = getattr(self, attr.name)
+            v2 = getattr(other, attr.name)
+            try:
+                if v1 != v2: return False
+            except:
+                if v1 is not v2: return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(tuple(self.__values__()))
+
     @staticmethod
     def values(struct):
         if isinstance(struct, Struct):
@@ -72,6 +114,24 @@ class Struct(object):
         if isinstance(struct, dict):
             return struct.values()
         raise ValueError("Not a struct: %s" % struct)
+
+    @staticmethod
+    def properties(struct):
+        if isinstance(struct, Struct):
+            return struct.__properties__()
+        if isinstance(struct, (list, tuple)):
+            return [Struct.properties(s) for s in struct]
+        if isinstance(struct, dict):
+            return {key: Struct.properties(value) for key,value in struct.items()}
+        if isinstance(struct, np.ndarray):
+            assert len(struct.shape) == 1
+            struct = struct.tolist()
+        import json
+        try:
+            json.dumps(struct)
+            return struct
+        except:
+            raise TypeError('Object "%s" of type "%s" is not JSON serializable' % (struct,type(struct)))
 
     @staticmethod
     def names(struct):
@@ -124,6 +184,27 @@ class Struct(object):
         values = Struct.values(struct)
         values = [f(element) for element in values]
         return Struct.build(values, struct)
+
+    @staticmethod
+    def zippedmap(f, struct, *structs):
+        main_values = Struct.values(struct)
+        others_values = [Struct.values(s) for s in structs]
+        result_values = []
+        for i in range(len(main_values)):
+            result_value = f(main_values[i], *[values[i] for values in others_values])
+            result_values.append(result_value)
+        return Struct.build(result_values, struct)
+
+    @staticmethod
+    def zippedflatmap(f, struct, *structs):
+        main_values, main_recombine = Struct.flatten(struct)
+        others_values = [Struct.flatten(s)[0] for s in structs]
+        result_values = []
+        for i in range(len(main_values)):
+            result_value = f(main_values[i], *[values[i] for values in others_values])
+            result_values.append(result_value)
+        return main_recombine(result_values)
+
 
     @staticmethod
     def flatmap(f, struct):
@@ -192,55 +273,3 @@ def _mapnames_dict(struct, basename):
         else:
             result[key] = fullname(key)
     return result
-
-
-
-# def attributes(struct, remove_prefix=True, qualified_names=True):
-#     array, reassemble = Struct.disassemble(struct)
-#     ids = ["id%d" % i for i in range(len(array))]
-#     id_struct = reassemble(ids)
-#     _recursive_attributes(id_struct, ids, remove_prefix, qualified_names, None)
-#     return id_struct
-#
-#
-# def _recursive_attributes(struct, ids, remove_prefix, qualified_names, qualifier):
-#     if not Struct.isstruct(struct): return
-#
-#     if isinstance(struct, (tuple,list)):
-#         for entry in struct:
-#             _recursive_attributes(entry, ids, remove_prefix, qualified_names, qualifier)
-#     else:  # must be a Struct instance
-#         for attr, val in struct.__dict__.items():
-#             name = attr
-#             if remove_prefix and name.startswith('_'):
-#                 name = name[1:]
-#             if qualified_names:
-#                 if qualifier is None: qualified_name = name
-#                 else: qualified_name = qualifier + '.' + name
-#             else:
-#                 qualified_name = name
-#             if val in ids:
-#                 setattr(struct, attr, qualified_name)
-#             else:
-#                 _recursive_attributes(val, ids, remove_prefix, qualified_names, qualified_name)
-
-
-# class StructAttributeGetter(object):
-#
-#     def __init__(self, getter):
-#         self.getter = getter
-#
-#     def __call__(self, struct):
-#         return self.getter(struct)
-#
-#
-# def selector(struct):
-#     array, reassemble = disassemble(struct)
-#     ids = ['#ref' % i for i in range(len(array))]
-#     tagged_struct = reassemble(ids)
-#     _recursive_selector(tagged_struct)
-#     return tagged_struct
-#
-#
-# def _recursive_selector(struct):
-#     pass

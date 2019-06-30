@@ -1,209 +1,83 @@
 
-# Fluid Simulation
+# Simulations in Φ<sub>*Flow*</sub>
+
+This document gives an overview of how to run simulations using Φ<sub>*Flow*</sub>.
+For a deeper look into how the code is structured, check out [the simulation architecture documentaiton](simdesign.md).
+If you are interested in how specific simulations work, check out their respective documentations, e.g.
+[Smoke](documentation/smoke.md).
 
 
-## Design principles and Core Classes
+## Running simulations
 
-The core classes are `FluidSimulation` and `StaggeredGrid` which are located in [phi.flow](../phi/flow/flow.py) and [phi.math.nd](../phi/math/nd.py), respectively.
+### Simulation references and worlds
 
-```python
-from phi.flow import FluidSimulation, StaggeredGrid
-sim = FluidSimulation([64, 64])
-```
+The easiest way to run a simulation or set of interacting simulations forward in time, is using the `World` interface.
+A `World` manages the current states of registered simulations as well as the physical behaviour that drives them.
 
-Φ-*Flow* is dimensionality-agnostic, meaning it can run in any Euclidean space. The dimensions are passed to the `FluidSimulation` in the constructor.
-
-Once a simulation object is created, it can be used to create the required fields.
-
-```python
-velocity = sim.placeholder("staggered", "velocity)
-density = sim.placeholder(1, "density")
-initial_velocity = sim.zeros("staggered")
-initial_density = sim.zeros()
-```
-
-Notice that in the above example, velocity and initial_velocity are instances of `StaggeredGrid`.
-
-The above code can also be rewritten using Python's `with` statement:
-
-```python
-with FluidSimulation([64, 64]):
-    velocity = placeholder("staggered", "velocity)
-    density = placeholder(1, "density")
-    initial_velocity = zeros("staggered")
-    initial_density = zeros()
-```
-
-A typical simulation step could comprise of the following steps. The following code takes the state of a state simulation, density and velocity, to the next time step.
-
-```python
-density = velocity.advect(density) + inflow_density
-velocity = divergence_free(velocity.advect(velocity) + buoyancy(density))
-```
-
-In detail, this performs the following steps:
-
-- Advect the density using the current velocity
-- Add the inflow density to the advected density
-- Advect the velocity
-- Add buoyancy force to the velocity, depending on the density
-- Make the velocity channel divergence-free by solving for pressure and subtracting the pressure divergence
-
-
-### Staggered grids
-
-Staggered grids are a key component of the marker and cell (MAC) method. They sample the velocity components at the centers of the corresponding lower faces of grid cells. This makes them fundamentally different from regular arrays or tensors which are sampled at the cell centers. Staggered grids make it easy to compute the divergence of a velocity channel.
-
-![](./Staggered.png)
-
-In Φ-*Flow*, staggered grids are represented as instances of [StaggeredGrid](../phi/math/nd.py). They have one more entry in every spatial dimension than corresponding centered fields since the upper face of the upper most cell needs to be included as well.
-
-Staggered grids can be created from the [FluidSimulation](../phi/flow/flow.py) or [TFFluidSimulation](../phi/tf/flow.py) object.
-
-```python
-# Create a StaggeredGrid
-velocity = sim.placeholder("staggered")
-velocity = sim.zeros("staggered")
-```
-
-They can also be created from centered fields.
-
-```python
-staggered_grad = StaggeredGrid.gradient(centered_field)
-staggered_field_x = StaggeredGrid.from_scalar(centered_field, [0, 0, 1])
-```
-
-`StaggeredGrid`s can hold both TensorFlow tensors and NumPy `ndarray`s, depending on the simulation configuration. They support basic backend operations and can be passed to `TFSimulation.run()` like TensorFlow tensors.
-
-Some useful operations include:
-
-```python
-advected_field = velocity.advect(field)
-curl = velocity.curl()
-divergence = velocity.divergence()
-```
-
-To get a tensor or ndarray object from a staggered grid, one of the following sampling methods can be used.
-
-```python
-velocity.staggered  # array containing staggered components
-velocity.at_centers()  # Interpolated to cell centers
-velocity.at_faces(axis)  # Interpolated to face centers of given axis index
-```
-
-
-
-### Pressure Solvers
-
-Given a simulation and velocity channel or divergence thereof, the corresponding pressure channel can be calculated using
-```python
-pressure = sim.solve_pressure(velocity)
-```
-which is implicitly called by `sim.divergence_free(velocity)`.
-
-By default, the solver, registered with the `FluidSimulation` upon construction, is used.
-A custom solver can be set using
-```python
-sim = FluidSimulation(..., solver=my_solver)
-```
-
-Here is an overview of the pressure solvers implemented in Φ-*Flow*:
-
-| Solver   | Package             | Device       | Dependencies    | Status                                             |
-| ---------|---------------------|--------------|-----------------|----------------------------------------------------|
-| SparseCG   |[phi.solver.sparse](../phi/solver/sparse.py)    | CPU/GPU      | SciPy           | Stable                                             |
-| SparseSciPy|[phi.solver.sparse](../phi/solver/sparse.py)  | CPU          | SciPy           | Stable, no control over accuracy, no loop counter  |
-| CUDA     |[phi.solver.cuda](../phi/solver/cuda.py)      | GPU          | TensorFlow      | Stable, no support for initial guess               |
-| GeometricCG |[phi.solver.geom](../phi/solver/geom.py)   | CPU/GPU/TPU  |                 | Stable, limited boundary condition support         |
-| Multigrid |[phi.solver.multigrid](../phi/solver/multigrid.py)|              |                 | Stable, best performance in absence of boundaries  |
-
-
-All solvers provide a gradient function for TensorFlow, needed to back-propagate weight updates through the pressure solve operation.
-
-*Which solver should I use?*
-
-Φ-*Flow* auto-selects an appropriate solver if you don't specify one manually.
-If you have no special requirements, that selection should be fine.
-Nevertheless, here are some recommendations:
-
-- If you're working exclusively on the CPU, SparseSciPy is the fastest single-grid solver but offers the least amount of control.
-
-- For the GPU, CUDA is the fastest single-grid solver.
-
-- If your grid size is larger than 100 in any dimension, Multigrid can reduce the amount of iterations required.
-It can currently use the following solvers per level: SparseCG, GeometricCG.
-The multigrid solver is not yet optimized for obstacles.
-
-- If you want to run a small number of iterations only and require backpropagation, use SparseCG, setting `max_iterations` and `autodiff=True`.
-
-- GeometricCG is the slowest implementation.
-However, it is also the simplest implementation and the easiest to understand.
-It's also the only solver that is compatible with TensorFlow's TPU support.
-
-You can also write your own solver.
-Simply extend the class `phi.solver.base.PressureSolver` and implement the method `solve(...)`.
-
-
-## Functional-style offline simulation
-
-It is recommended to run simulations within the FieldSequenceModel framework which provides a browser-based GUI.
-See [the documentation](gui.md) for how to implement an app with vizualization.
-All simulation functionality can, however, be used without making use of the higher-level framework.
-
-The following code sets up a NumPy simulation and runs it for 100 frames:
+The following code uses the default world to initialize a smoke simulation and create an inflow.
 
 ```python
 from phi.flow import *
-
-sim = FluidSimulation([64, 64], "closed")
-inflow_density = sim.zeros()
-inflow_density[0, 8, 22:64-22, 0] = 1
-velocity = sim.zeros("velocity")
-density = inflow_density
-for i in range(100):
-    print("Computing frame %d" % i)
-    density = velocity.advect(density) + inflow_density
-    velocity = sim.divergence_free(velocity.advect(velocity) + sim.buoyancy(density))
+smoke = world.Smoke(Domain([80, 64]), density=0)
+world.Inflow(Sphere((10, 32), 5), rate=0.2)
 ```
 
-Here is the same simulation using TensorFlow:
+Most properties of the smoke simulation can be accessed and manipulated through the simulation reference,
+`smoke` in this case.
+This includes fields such as `smoke.density`, `smoke.velocity` as well as properties like `smoke.buoyancy_factor`.
+
+Note that while `smoke.density` directly returns a NumPy array, the velocity is held in staggered form and
+`smoke.velocity` returns an instance of `StaggeredGrid`.
+To access the actual NumPy array holding the staggered values, write `smoke.velocity.staggered` (read-only).
+For more on staggered grids, see [the documentation](./staggered.md).
+
+To run a simulation, we can use the `step` method:
 
 ```python
-from phi.tf.flow import *
-
-sim = TFFluidSimulation([64, 64], "closed")
-inflow_density = sim.zeros()
-inflow_density[0, 8, 22:64-22, 0] = 1
-velocity_data = sim.zeros("staggered")
-density_data = inflow_density
-density = sim.placeholder(1, "density")
-velocity = sim.placeholder("staggered", "velocity")
-next_density = velocity.advect(density) + inflow_density
-next_velocity = sim.divergence_free(velocity.advect(velocity) + sim.buoyancy(next_density))
-for i in range(100):
-    print("Computing frame %d" % i)
-    density_data, velocity_data = sim.run([next_density, next_velocity], {density: density_data, velocity:velocity_data})
+world.step(dt=1.0)
 ```
 
-In this example, the TensorFlow graph only computes one frame of the simulation and is invoked multiple times. With this approach, the result of each frame computation is converted to NumPy arrays on the CPU.
-It is also possible to build a graph with multiple frames but then the memory requirements and graph complexity scale with the number of time steps.
+This progresses all simulations that are associated with that world by a time increment `dt` (defaults to `1.0`).
+Accessing any property of a simulation reference (such as `smoke`) will now return the updated value.
 
-In any case, `sim.run(...)` needs to be called to execute the graph. This method extends TensorFlow's `session.run(...)` and can handle `StaggeredGrid`s.
 
-## Boundary Conditions
+### Simulation + GUI
 
-Boundary conditions always exist at the borders of the domain and can also be enforced within the domain.
+To use the browser-based GUI that comes with Φ<sub>*Flow*</sub>, we need to wrap our simulation code with a
+`FieldSequenceModel`.
+How to use `FieldSequenceModel`s is documented [here](./gui.md).
 
-To specify what boundary conditions should be used at the borders, use the second argument of the FluidSimulation constructor. It can take the values `"open"`, `"closed"` or a `DomainBoundary` object specifying the boundary conditions for each face of the bounding box.
-
-Boundary conditions within the domain usually correspond to obstacles that prevent fluid from flowing in or out of it. Obstacles can be added to the simulation using the `set_obstacle` method.
-It can be used in two ways:
+The following code is taken from [the simpleplume example](../apps/simpleplume.py).
 
 ```python
-sim.set_obstacle(box_size, origin)  # create a box obstacle from origin to origin+size
-sim.set_obstacle(mask, origin)  # create an obstacle with a custom shape
+class Simpleplume(FieldSequenceModel):
+
+    def __init__(self):
+        FieldSequenceModel.__init__(self, 'Simpleplume', stride=5)
+        smoke = world.Smoke(Domain([80, 64], SLIPPERY))
+        world.Inflow(Sphere((10, 32), 5), rate=0.2)
+        self.add_field('Density', lambda: smoke.density)
+        self.add_field('Velocity', lambda: smoke.velocity)
+
+Simpleplume().show()
 ```
 
-To enable obstacles with a TensorFlow simulation, set `force_use_masks=True` in the constructor of `TFFluidSimulation`.
+By subclassing `FieldSequenceModel`, we inherit the functions
 
-Internally, boundary conditions are handled using an `active_mask` and a `fluid_mask` tensor. For the purpose of displaying them, use `sim.extended_active_mask` or `sim.run(sim.extended_active_mask)`.
+- `add_field` to make data visible in the GUI,
+- `show` which launches the web service,
+- `step` which calls `world.step()` by default but can be overriden to implement custom behaviour.
+
+Slightly more complex examples can be found in 
+[smokedemo.py](../apps/smokedemo.py) which adds obstacles to the scene and 
+[movementdemo.py](../apps/movementdemo.py) which moves the inflow around.
+
+
+### Running on the GPU
+
+For GPU execution, TensorFlow needs to be installed (see the [installation instructions](./install.md)).
+To run the simulation using TensorFlow, change the first line `from phi.flow import *` to `from phi.tf.flow import *`.
+This replaces the imported `FieldSequenceModel` with a TensorFlow-enabled version.
+This new `FieldSequenceModel` bakes the physics into a TensorFlow graph in `show()` before the GUI is launched.
+
+

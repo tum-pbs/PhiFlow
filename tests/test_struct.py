@@ -5,7 +5,7 @@ from phi.flow import *
 def generate_test_structs():
     return [
             StaggeredGrid('Staggered Grid'),
-            SmokeState('Density', 'Velocity'),
+            Smoke(density='Density', velocity='Velocity'),
             [StaggeredGrid('Staggered Grid')],
             [('Item',)],
         {'A': 'Entry A', 'Vel': StaggeredGrid('v')}
@@ -29,20 +29,20 @@ class TestStruct(TestCase):
 
     def test_names(self):
         n = Struct.mapnames(StaggeredGrid(None))
-        self.assertEqual(n.staggered, '_staggered')
+        self.assertEqual(n.staggered, 'staggered')
 
-        n = Struct.mapnames(SmokeState(None, None))
-        self.assertEqual(n.density, '_density')
-        self.assertEqual(n.velocity.staggered, '_velocity._staggered')
+        n = Struct.mapnames(Smoke(density=None, velocity=None))
+        self.assertEqual(n.density, 'density')
+        self.assertEqual(n.velocity.staggered, 'velocity.staggered')
 
         n = Struct.mapnames([(None,)])
         self.assertEqual(n[0][0], '0.0')
 
     def test_copy(self):
-        smoke = SmokeState('Density', 'Velocity')
-        v = smoke.copy(velocity=StaggeredGrid('V2'))
+        smoke = Smoke(density='Density', velocity='Velocity')
+        v = smoke.copied_with(velocity=StaggeredGrid('V2'))
         self.assertEqual(v.velocity.staggered, 'V2')
         self.assertEqual(v.density, 'Density')
 
-        d = smoke.copy(density='D2')
+        d = smoke.copied_with(density='D2')
         self.assertEqual(d.density, 'D2')

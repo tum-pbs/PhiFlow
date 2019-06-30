@@ -7,8 +7,15 @@ from tensorflow.python import pywrap_tensorflow
 def placeholder(shape, dtype=np.float32, name=None):
     return Struct.flatmap(lambda s: tf.placeholder(dtype, s, name), shape)
 
-def variable(initial_value, dtype=np.float32, name=None, trainable=True):
-    return Struct.flatmap(lambda val: tf.Variable(val, name=name, dtype=dtype, trainable=trainable), initial_value)
+def placeholder_like(struct, dtype=np.float32, name=None):
+    names = Struct.mapnames(struct)
+    return Struct.zippedflatmap(lambda name, alike: tf.placeholder(dtype, alike.shape, name), names, struct)
+
+def variable(initializer, dtype=np.float32, name=None, trainable=True):
+    def create_variable(shape):
+        initial_value = initializer(shape)
+        return Struct.flatmap(lambda val: tf.Variable(val, name=name, dtype=dtype, trainable=trainable), initial_value)
+    return create_variable
 
 
 
@@ -99,7 +106,7 @@ def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activatio
 def istensor(object):
     if isinstance(object, StaggeredGrid):
         object = object.staggered
-    return isinstance(object, tf.Tensor)
+    return isinstance(object, (tf.Tensor, tf.Variable))
 
 
 
