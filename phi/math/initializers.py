@@ -9,6 +9,7 @@ def _is_python_1d_tensor(obj):
     if not isinstance(obj, (tuple, list)): return False
     for element in obj:
         if not isinstance(element, Number): return False
+    return True
 
 
 def _map_shapes(f, shape):
@@ -21,7 +22,8 @@ def _map_shapes(f, shape):
 
 
 def _none_to_one(shape):
-    return list(map(lambda val: 1 if val is None else val, shape))
+    result = list(map(lambda val: 1 if val is None else val, shape))
+    return result
 
 
 def zeros(shape, dtype=np.float32):
