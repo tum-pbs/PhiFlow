@@ -61,7 +61,7 @@ class FieldSequenceModel(object):
         else:
             self.fields = {}
         self.message = None
-        self.time = 0
+        self.time = 0.0
         self._invalidation_counter = 0
         self._controls = []
         self._actions = []
@@ -109,6 +109,7 @@ class FieldSequenceModel(object):
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
         self.world = world
+        self.dt = 1.0
         self.info('Setting up model...')
 
     def new_scene(self):
@@ -127,14 +128,14 @@ class FieldSequenceModel(object):
 
     def progress(self):
         self.step()
-        self.time += 1
+        self.time += self.dt
         self.invalidate()
 
     def invalidate(self):
         self._invalidation_counter += 1
 
     def step(self):
-        world.step()
+        world.step(dt=self.dt)
 
     @property
     def fieldnames(self):
