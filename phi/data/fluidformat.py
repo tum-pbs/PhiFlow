@@ -144,7 +144,6 @@ class Scene(object):
         with open(join(self.path, "description.json"), "w") as out:
             json.dump(self._properties, out, indent=2)
 
-
     def read_sim_frames(self, fieldnames=None, frames=None):
         return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames)
 
@@ -233,7 +232,10 @@ class Scene(object):
             shutil.rmtree(self.path)
 
     @staticmethod
-    def create(directory, category=None, mkdir=True, copy_calling_script=True):
+    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True):
+        if count > 1:
+            return SceneBatch([Scene.create(directory, category, 1, mkdir, copy_calling_script) for i in range(count)])
+        # Single scene
         directory = os.path.expanduser(directory)
         if category is None:
             category = os.path.basename(directory)
@@ -286,6 +288,32 @@ class Scene(object):
         directory = os.path.dirname(category_directory)
         index = int(dirname[4:])
         return Scene(directory, category, index)
+
+
+class SceneBatch(Scene):
+
+    def __init__(self, scenes):
+        Scene.__init__(self, scenes[0].dir, scenes[0].category, scenes[0].index)
+        self.scenes = scenes
+
+    @property
+    def batch_size(self):
+        return len(self.scenes)
+
+    def write_sim_frame(self, arrays, fieldnames, frame, check_same_dimensions=False):
+        for array in arrays:
+            assert array.shape[0] == len(self.scenes)
+        for i,scene in enumerate(self.scenes):
+            array_slices = [array[i,...] for array in arrays]
+            scene.write_sim_frame(array_slices, fieldnames, frame=frame, check_same_dimensions=check_same_dimensions)
+
+    def read_sim_frames(self, fieldnames=None, frames=None):
+        raise NotImplementedError()
+
+    def read_array(self, fieldname, frame):
+        return np.concatenate([scene.read_array(fieldname, frame) for scene in self.scenes])
+
+
 
 
 def slugify(value):
