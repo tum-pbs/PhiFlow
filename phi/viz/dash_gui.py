@@ -68,7 +68,7 @@ class DashFieldSequenceGui:
         model_sliders_int = create_sliders(model_ints)
 
         model_checkboxes = [dcc.Checklist(options=[{'label': control.name, 'value': control.id}],
-                                          values=[control.id] if control.value else [], id=control.id)
+                                          value=[control.id] if control.value else [], id=control.id)
                             for control in model_bools]
 
         model_textfields = []
@@ -125,7 +125,7 @@ class DashFieldSequenceGui:
 
                                                dcc.Checklist(options=[{'label': 'Antisymmetry', 'value': 'selected'},
                                                                       {'label': 'Staggered', 'value': 'staggered'}],
-                                                             values=[], id='antisymmetry-checkbox'),
+                                                             value=[], id='antisymmetry-checkbox'),
                                                html.Button('Refresh', id='button-refresh'),
                                                html.Div([
                                                    'Component',
@@ -194,7 +194,7 @@ class DashFieldSequenceGui:
                                            dcc.Markdown('### Framerate'),
                                            dcc.Checklist(
                                                options=[{'label': 'Enable framerate control', 'value': 'selected'}],
-                                               values=['selected'], id='framerate-checkbox'),
+                                               value=['selected'], id='framerate-checkbox'),
                                            html.Div([
                                                dcc.Slider(min=0.5, max=15, step=0.5, value=self.framerate,
                                                           marks={i: '%.1f' % i for i in numpy.linspace(0.5, 15, 30)},
@@ -237,19 +237,19 @@ class DashFieldSequenceGui:
                                                dcc.Markdown('### Record  \n' + os.path.abspath(self.model.directory)),
                                                dcc.Checklist(options=[{'value': 'images', 'label': 'Images'},
                                                                       {'value': 'data', 'label': 'Data'}],
-                                                             values=initial_record_values, id='record-types',
+                                                             value=initial_record_values, id='record-types',
                                                              style={'width': '300px', 'display': 'inline-block'}),
                                            ]),
                                            html.Div([
                                                'Fields to record: ',
-                                               dcc.Checklist(options=field_options, values=self.model.recorded_fields,
+                                               dcc.Checklist(options=field_options, value=self.model.recorded_fields,
                                                              style={'width': '80%', 'display': 'inline-block'},
                                                              id='rec-fields'),
                                            ]),
                                            'Image generation',
                                            dcc.Checklist(
                                                options=[{'label': 'All slices (depth)', 'value': 'all-slices'},
-                                                        {'label': 'All batches', 'value': 'all-batches'}], values=[],
+                                                        {'label': 'All batches', 'value': 'all-batches'}], value=[],
                                                style={'width': '300px', 'display': 'inline-block'}, id='rec-slices'),
                                            html.Div([
                                                html.Button('Write current frame', id='button-write-frame'),
@@ -278,7 +278,7 @@ class DashFieldSequenceGui:
                                    Input('interval', 'n_intervals'),
                                    Input('step-complete', 'children'),
                                    Input('button-refresh', 'n_clicks'),
-                                   Input('antisymmetry-checkbox', 'values')]
+                                   Input('antisymmetry-checkbox', 'value')]
                                   + model_inputs)
         def update_graph1(fieldname, batch, depth, component, view, *kwargs):
             self.selected_fields[0] = fieldname
@@ -293,7 +293,7 @@ class DashFieldSequenceGui:
                                    Input('interval', 'n_intervals'),
                                    Input('step-complete', 'children'),
                                    Input('button-refresh', 'n_clicks'),
-                                   Input('antisymmetry-checkbox', 'values')]
+                                   Input('antisymmetry-checkbox', 'value')]
                                   + model_inputs)
         def update_graph2(fieldname, batch, depth, component, view, *kwargs):
             self.selected_fields[1] = fieldname
@@ -321,7 +321,7 @@ class DashFieldSequenceGui:
                 raise PreventUpdate()
 
         @self.app.callback(Output('framerate-slider', 'disabled'),
-                           [Input('framerate-slider', 'value'), Input('framerate-checkbox', 'values')])
+                           [Input('framerate-slider', 'value'), Input('framerate-checkbox', 'value')])
         def set_framerate(value, enabled):
             if value is not None and enabled is not None:
                 self.framerate = value if enabled else None
@@ -330,7 +330,7 @@ class DashFieldSequenceGui:
             else:
                 return True
 
-        @self.app.callback(Output('antisymmetry-checkbox', 'style'), [Input('antisymmetry-checkbox', 'values')])
+        @self.app.callback(Output('antisymmetry-checkbox', 'style'), [Input('antisymmetry-checkbox', 'value')])
         def set_antisymmetry(checked):
             self.figures.antisymmetry = 'selected' in checked
             self.figures.staggered = 'staggered' in checked
@@ -437,9 +437,9 @@ class DashFieldSequenceGui:
             return False
 
         @self.app.callback(Output('record-types', 'style'),
-                           [Input('record-types', 'values'),
-                            Input('rec-fields', 'values'),
-                            Input('rec-slices', 'values'),
+                           [Input('record-types', 'value'),
+                            Input('rec-fields', 'value'),
+                            Input('rec-slices', 'value'),
                             Input('batch-slider', 'value'),
                             Input('depth-slider', 'value')])
         def update_record_params(types, fields, image_count_selection, batch, depth):
