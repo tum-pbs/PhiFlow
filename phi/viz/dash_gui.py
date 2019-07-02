@@ -534,14 +534,14 @@ class DashFieldSequenceGui:
                 if save:
                     try:
                         path = self.model.save_model()
-                        return 'Model at time %d saved to:    %s' % (self.model.time, path)
+                        return 'Model at time %d saved to:    %s' % (self.model.steps, path)
                     except Exception as e:
                         traceback.print_exc()
                         return 'Saving model failed: %s  \nSee console for details.' % e
                 else:
                     try:
                         self.model.load_model(load_path)
-                        return '%d: Model loaded from %s' % (self.model.time, load_path)
+                        return '%d: Model loaded from %s' % (self.model.steps, load_path)
                     except Exception as e:
                         traceback.print_exc()
                         return 'Loading model failed: %s  \nSee console for details.' % e
