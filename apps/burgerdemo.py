@@ -11,11 +11,12 @@ class BurgerDemo(FieldSequenceModel):
 
     def action_reset(self):
         self.burger.velocity = randn(levels=[0, 0, self.value_velocity_scale])
+        self.burger.age = 0
         self.steps = 0
 
     def step(self):
         world.step(dt=0.2)
-        self.info('Simulation time: %1f' % world.age)
+        self.info('Simulation time: %1f' % self.burger.age)
 
 
 app = BurgerDemo().show(framerate=4, production=__name__ != '__main__')
