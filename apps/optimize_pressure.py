@@ -31,7 +31,7 @@ class PressureOptim(TFModel):
 
     def action_reset(self):
         self.session.run(self.reset_velocity)
-        self.time = 0
+        self.steps = 0
 
 
 app = PressureOptim().show(display=("Final Velocity", "Target Velocity"), production=__name__!="__main__")

@@ -42,7 +42,7 @@ class SmokeDemo(FieldSequenceModel):
         self.add_field('Remaining Divergence', lambda: divergence(smoke.velocity))
 
     def action_reset(self):
-        self.time = 0
+        self.steps = 0
         self.smoke.density = self.smoke.velocity = 0
 
 
