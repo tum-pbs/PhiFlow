@@ -71,6 +71,10 @@ class World(object):
     def state(self):
         return self._state
 
+    @property
+    def age(self):
+        return self._state.age
+
     @state.setter
     def state(self, state):
         assert state is not None

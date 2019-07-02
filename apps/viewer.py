@@ -6,7 +6,7 @@ import sys
 
 class Viewer(FieldSequenceModel):
     def __init__(self, simpath):
-        FieldSequenceModel.__init__(self, name='*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
+        FieldSequenceModel.__init__(self, name=u'*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
         self.value_directory = simpath
         self.action_rewind()
 
