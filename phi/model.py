@@ -61,7 +61,7 @@ class FieldSequenceModel(object):
         else:
             self.fields = {}
         self.message = None
-        self.time = 0.0
+        self.time = 0
         self._invalidation_counter = 0
         self._controls = []
         self._actions = []
@@ -69,6 +69,7 @@ class FieldSequenceModel(object):
         self.prepared = False
         self.current_action = None
         self._pause = False
+        self.world = world
         # Setup directory & Logging
         self.objects_to_save = [ self.__class__ ] if objects_to_save is None else list(objects_to_save)
         self.base_dir = os.path.expanduser(base_dir)
@@ -108,12 +109,11 @@ class FieldSequenceModel(object):
         self.sequence_stride = stride
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
-        self.world = world
-        self.dt = 1.0
         self.info('Setting up model...')
 
     def new_scene(self):
-        self.scene = Scene.create(self.base_dir, self.scene_summary(), mkdir=True)
+        self.scene = Scene.create(self.base_dir, self.scene_summary(),
+                                  count=1 if self.world.batch_size is None else self.world.batch_size, mkdir=True)
 
     @property
     def directory(self):
@@ -128,14 +128,14 @@ class FieldSequenceModel(object):
 
     def progress(self):
         self.step()
-        self.time += self.dt
+        self.time += 1
         self.invalidate()
 
     def invalidate(self):
         self._invalidation_counter += 1
 
     def step(self):
-        world.step(dt=self.dt)
+        world.step()
 
     @property
     def fieldnames(self):

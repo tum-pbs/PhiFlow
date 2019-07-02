@@ -144,7 +144,6 @@ class Scene(object):
         with open(join(self.path, "description.json"), "w") as out:
             json.dump(self._properties, out, indent=2)
 
-
     def read_sim_frames(self, fieldnames=None, frames=None):
         return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames)
 
@@ -233,7 +232,10 @@ class Scene(object):
             shutil.rmtree(self.path)
 
     @staticmethod
-    def create(directory, category=None, mkdir=True, copy_calling_script=True):
+    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True):
+        if count > 1:
+            return SceneBatch([Scene.create(directory, category, 1, mkdir, copy_calling_script) for i in range(count)])
+        # Single scene
         directory = os.path.expanduser(directory)
         if category is None:
             category = os.path.basename(directory)
@@ -288,46 +290,67 @@ class Scene(object):
         return Scene(directory, category, index)
 
 
+class SceneBatch(Scene):
+
+    def __init__(self, scenes):
+        Scene.__init__(self, scenes[0].dir, scenes[0].category, scenes[0].index)
+        self.scenes = scenes
+
+    @property
+    def batch_size(self):
+        return len(self.scenes)
+
+    def write_sim_frame(self, arrays, fieldnames, frame, check_same_dimensions=False):
+        for array in arrays:
+            assert array.shape[0] == len(self.scenes)
+        for i,scene in enumerate(self.scenes):
+            array_slices = [array[i,...] for array in arrays]
+            scene.write_sim_frame(array_slices, fieldnames, frame=frame, check_same_dimensions=check_same_dimensions)
+
+    def read_sim_frames(self, fieldnames=None, frames=None):
+        raise NotImplementedError()
+
+    def read_array(self, fieldname, frame):
+        return np.concatenate([scene.read_array(fieldname, frame) for scene in self.scenes])
+
+
+
+
 def slugify(value):
     """
     Normalizes string, converts to lowercase, removes non-alpha characters,
     and converts spaces to hyphens.
     """
-    import unicodedata
-    value = six.u(value)
-    # value = u"{}".format(value.decode('utf-8'))
-    value = unicodedata.normalize('NFKD', value)#.encode('ascii', 'ignore')
     for greek_letter, name in greek.items():
         value = value.replace(greek_letter, name)
-    # value = re.sub('Φ', "Phi", value).sub('')
     value = re.sub('[^\w\s-]', '', value).strip().lower()
     value = re.sub('[-\s]+', '-', value)
     return value
 
 
 greek = {
-    'Α': 'Alpha', 'α': 'alpha',
-    'Β': 'Beta', 'β': 'beta',
-    'Γ': 'Gamma', 'γ': 'gamma',
-    'Δ': 'Delta', 'δ': 'delta',
-    'Ε': 'Epsilon', 'ε': 'epsilon',
-    'Ζ': 'Zeta', 'ζ': 'zeta',
-    'Η': 'Eta', 'η': 'eta',
-    'Θ': 'Theta', 'θ': 'theta',
-    'Ι': 'Iota', 'ι': 'iota',
-    'Κ': 'Kappa', 'κ': 'kappa',
-    'Λ': 'Lambda', 'λ': 'lambda',
-    'Μ': 'Mu', 'μ': 'mu',
-    'Ν': 'Nu', 'ν': 'nu',
-    'Ξ': 'Xi', 'ξ': 'xi',
-    'Ο': 'Omicron', 'ο': 'omicron',
-    'Π': 'Pi', 'π': 'pi',
-    'Ρ': 'Rho', 'ρ': 'rho',
-    'Σ': 'Sigma', 'σ': 'sigma',
-    'Τ': 'Tau', 'τ': 'tau',
-    'Υ': 'Upsilon', 'υ': 'upsilon',
-    'Φ': 'Phi', 'φ': 'phi',
-    'Χ': 'Chi', 'χ': 'chi',
-    'Ψ': 'Psi', 'ψ': 'psi',
-    'Ω': 'Omega', 'ω': 'omega',
+    u'Α': 'Alpha',      u'α': 'alpha',
+    u'Β': 'Beta',       u'β': 'beta',
+    u'Γ': 'Gamma',      u'γ': 'gamma',
+    u'Δ': 'Delta',      u'δ': 'delta',
+    u'Ε': 'Epsilon',    u'ε': 'epsilon',
+    u'Ζ': 'Zeta',       u'ζ': 'zeta',
+    u'Η': 'Eta',        u'η': 'eta',
+    u'Θ': 'Theta',      u'θ': 'theta',
+    u'Ι': 'Iota',       u'ι': 'iota',
+    u'Κ': 'Kappa',      u'κ': 'kappa',
+    u'Λ': 'Lambda',     u'λ': 'lambda',
+    u'Μ': 'Mu',         u'μ': 'mu',
+    u'Ν': 'Nu',         u'ν': 'nu',
+    u'Ξ': 'Xi',         u'ξ': 'xi',
+    u'Ο': 'Omicron',    u'ο': 'omicron',
+    u'Π': 'Pi',         u'π': 'pi',
+    u'Ρ': 'Rho',        u'ρ': 'rho',
+    u'Σ': 'Sigma',      u'σ': 'sigma',
+    u'Τ': 'Tau',        u'τ': 'tau',
+    u'Υ': 'Upsilon',    u'υ': 'upsilon',
+    u'Φ': 'Phi',        u'φ': 'phi',
+    u'Χ': 'Chi',        u'χ': 'chi',
+    u'Ψ': 'Psi',        u'ψ': 'psi',
+    u'Ω': 'Omega',      u'ω': 'omega',
 }
