@@ -168,8 +168,8 @@ class Scene(object):
         if struct.isstruct(obj):
             names = struct.flatten(obj)
             if not np.all([isinstance(n, six.string_types) for n in names]):
-                struct = struct.names(obj)
-            return struct.map(lambda name: self.read_array(self._filename(name), frame), struct)
+                names = struct.names(obj)
+            return struct.map(lambda name: self.read_array(self._filename(name), frame), names)
         else:
             return self.read_array('unnamed', frame)
 

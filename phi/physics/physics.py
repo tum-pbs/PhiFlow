@@ -1,4 +1,4 @@
-from phi.math import Struct, StructInfo
+from phi.math import Struct, struct
 
 
 class TrajectoryKey(object):
@@ -7,7 +7,7 @@ class TrajectoryKey(object):
 
 class State(Struct):
 
-    __struct__ = StructInfo((), ('_age',))
+    __struct__ = struct.Def((), ('_age',))
 
     def __init__(self, tags=(), age=0.0, batch_size=None):
         self._tags = tuple(tags)

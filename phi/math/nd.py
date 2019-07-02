@@ -1,10 +1,11 @@
 import numpy as np
 from . import base as math
-import struct
+from . import struct
 
 
 def shape(obj):
-    return struct.map(lambda tensor: tensor.shape, obj)
+    result = struct.map(lambda tensor: math.shape(tensor), obj)
+    return result
 
 
 def batch_gather(struct, batches):
@@ -349,7 +350,7 @@ class StaggeredGrid(struct.Struct):
             staggered (tensor): array or tensor holding the staggered channel
 
     """
-    __struct__ = struct.StructInfo(['_staggered'])
+    __struct__ = struct.Def(['_staggered'])
 
 
     def __init__(self, staggered):

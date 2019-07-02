@@ -1,11 +1,11 @@
-from phi.math import *
+
 from .geom import *
 from .objects import *
 from .material import *
 
 
 class Domain(State):
-    __struct__ = StructInfo((), ('_grid', '_boundaries'))
+    __struct__ = struct.Def((), ('_grid', '_boundaries'))
 
     def __init__(self, grid, boundaries=OPEN):
         """
@@ -71,7 +71,7 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
 
 
 class DomainCache(Struct):
-    __struct__ = StructInfo(('_active', 'accessible'))
+    __struct__ = struct.Def(('_active', 'accessible'))
 
     def __init__(self, domain, validstate=(), active=None, accessible=None):
         self._domain = domain

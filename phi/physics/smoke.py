@@ -1,4 +1,5 @@
 from .domain import *
+from phi.math.initializers import _is_python_shape
 
 
 def initialize_field(value, shape):
@@ -8,7 +9,8 @@ def initialize_field(value, shape):
         return value(shape)
     if isinstance(shape, Struct):
         if type(shape) == type(value):
-            return struct.map(lambda val_sh: initialize_field(val_sh[0], val_sh[1]), struct.stack(value, shape))
+            stacked = struct.stack([value, shape], leaf_condition=_is_python_shape)
+            return struct.map(lambda val_sh: initialize_field(val_sh[0], val_sh[1]), stacked)
         else:
             return type(shape)(value)
     else:

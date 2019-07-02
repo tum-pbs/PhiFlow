@@ -25,6 +25,6 @@ load_tensorflow()
 
 
 from phi.math.nd import *
-import struct
+from . import struct
 from .struct import Struct
 from .initializers import *  # this replaces zeros_like (possibly more) and must be handled carefully

@@ -1,5 +1,5 @@
 import numpy as np
-from phi.math import load_tensorflow, struct
+from phi.math import struct
 from .profiling import *
 import contextlib
 
@@ -31,14 +31,14 @@ class Session(object):
         if feed_dict is not None:
             new_feed_dict = {}
             for (key, value) in feed_dict.items():
-                key_tensors, _ = struct.flatten(key)
-                value_tensors, _ = struct.flatten(value)
+                key_tensors = struct.flatten(key)
+                value_tensors = struct.flatten(value)
                 for key_tensor, value_tensor in zip(key_tensors, value_tensors):
                     if isinstance(key_tensor, tf.Tensor) and key_tensor.op.type == 'Placeholder':
                         new_feed_dict[key_tensor] = value_tensor
             feed_dict = new_feed_dict
 
-        tensor_fetches, reassemble = struct.flatten(fetches)
+        tensor_fetches = struct.flatten(fetches)
 
         # Handle tracing
         trace = _trace_stack.get_default(raise_error=False)
@@ -54,6 +54,7 @@ class Session(object):
             tensor_fetches = [merged_summary] + tensor_fetches
 
         result_fetches = self._session.run(tensor_fetches, feed_dict, options, run_metadata)
+        result_dict = {fetch: result for fetch, result in zip(tensor_fetches, result_fetches)}
 
         if summary_key:
             summary_buffer = result_fetches[0]
@@ -69,7 +70,7 @@ class Session(object):
         if trace:
             trace.timeliner.add_run()
 
-        return reassemble(result_fetches)
+        return struct.map(lambda fetch: result_dict[fetch], fetches)
 
     def profiler(self):
         os.path.isdir(self.profiling_directory) or os.makedirs(self.profiling_directory)

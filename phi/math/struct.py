@@ -17,7 +17,7 @@ class StructAttr(object):
         return self.ref_string
 
 
-class StructInfo(object):
+class Def(object):
 
     def __init__(self, attributes, properties=()):
         assert isinstance(attributes, (list, tuple))
@@ -39,11 +39,11 @@ class StructInfo(object):
         raise KeyError('No attribute or property: %s' % name)
 
     def extend(self, attributes, properties=()):
-        return StructInfo(self.attributes + list(attributes), self.properties + list(properties))
+        return Def(self.attributes + list(attributes), self.properties + list(properties))
 
 
 class Struct(object):
-    __struct__ = StructInfo(())
+    __struct__ = Def(())
 
     def copied_with(self, **kwargs):
         duplicate = copy(self)
@@ -170,8 +170,9 @@ def map(f, struct, leaf_condition=None, recursive=True, trace=False):
 def stack(structs, leaf_condition=None):
     assert len(structs) > 0
     first = structs[0]
-    for s in structs[1:]:
-        assert type(s) == type(first)
+    if isstruct(first, leaf_condition):
+        for s in structs[1:]:
+            assert type(s) == type(first)
 
     if not isstruct(first, leaf_condition):
         return np.array(structs)
