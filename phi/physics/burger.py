@@ -46,7 +46,7 @@ class BurgerPhysics(Physics):
     def step(self, state, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
         v = advect(diffuse(state.velocity, state.viscosity, dt), dt)
-        return state.copied_with(velocity=v)
+        return state.copied_with(velocity=v, age=state.age + dt)
 
 
 def vector_laplace(v):
@@ -55,7 +55,6 @@ def vector_laplace(v):
 
 def advect(velocity, dt):
     idx = indices_tensor(velocity)
-    velocity = velocity[..., ::-1]
     sample_coords = idx - velocity * dt
     result = resample(velocity, sample_coords, interpolation='linear', boundary='REPLICATE')
     return result

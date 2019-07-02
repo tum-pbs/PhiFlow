@@ -42,7 +42,7 @@ class TimeDependentField(object):
 class FieldSequenceModel(object):
 
     def __init__(self,
-                 name='*Φ-Flow* Application',
+                 name=u'*Φ-Flow* Application',
                  subtitle='',
                  fields=None,
                  stride=1,
@@ -61,7 +61,7 @@ class FieldSequenceModel(object):
         else:
             self.fields = {}
         self.message = None
-        self.time = 0
+        self.steps = 0
         self._invalidation_counter = 0
         self._controls = []
         self._actions = []
@@ -128,7 +128,7 @@ class FieldSequenceModel(object):
 
     def progress(self):
         self.step()
-        self.time += 1
+        self.steps += 1
         self.invalidate()
 
     def invalidate(self):
@@ -245,7 +245,7 @@ class FieldSequenceModel(object):
             'actions': [action.name for action in self.actions],
             'controls': [{control.name: control.value} for control in self.controls],
             'summary': self.scene_summary(),
-            'time_of_writing': self.time,
+            'time_of_writing': self.steps,
             'world': Struct.properties(self.world.state)
         }
         properties.update(self.custom_properties())
@@ -260,9 +260,6 @@ class FieldSequenceModel(object):
         return self._custom_properties
 
     def info(self, message):
-        if isinstance(message, int):
-            self.time = message
-            logging.warning('info(int) is deprecated.')
         message = str(message)
         self.message = message
         self.logger.info(message)
@@ -286,13 +283,13 @@ class FieldSequenceModel(object):
         pausing = '/Pausing' if self._pause and self.current_action else ''
         action = self.current_action if self.current_action else 'Idle'
         message = (' - %s'%self.message) if self.message else ''
-        return '{}{} ({}){}'.format(action, pausing, self.time, message)
+        return '{}{} ({}){}'.format(action, pausing, self.steps, message)
 
     def run_step(self, framerate=None, allow_recording=True):
         self.current_action = 'Running'
         starttime = time.time()
         self.progress()
-        if allow_recording and self.time % self.sequence_stride == 0:
+        if allow_recording and self.steps % self.sequence_stride == 0:
             self.record_frame()
         if framerate is not None:
             duration = time.time() - starttime
@@ -334,12 +331,12 @@ class FieldSequenceModel(object):
             os.path.isdir(self.image_dir) or os.makedirs(self.image_dir)
             arrays = [self.get_field(field) for field in self.recorded_fields]
             for name, array in zip(self.recorded_fields, arrays):
-                files += self.figures.save_figures(self.image_dir, name, self.time, array)
+                files += self.figures.save_figures(self.image_dir, name, self.steps, array)
 
         if self.record_data:
             arrays = [self.get_field(field) for field in self.recorded_fields]
             arrays = [a.staggered if isinstance(a, phi.math.nd.StaggeredGrid) else a for a in arrays]
-            files += phi.data.fluidformat.write_sim_frame(self.directory, arrays, self.recorded_fields, self.time)
+            files += phi.data.fluidformat.write_sim_frame(self.directory, arrays, self.recorded_fields, self.steps)
 
         if files:
             self.message = 'Frame written to %s' % files

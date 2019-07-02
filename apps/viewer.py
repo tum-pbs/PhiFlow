@@ -6,18 +6,18 @@ import sys
 
 class Viewer(FieldSequenceModel):
     def __init__(self, simpath):
-        FieldSequenceModel.__init__(self, name='*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
+        FieldSequenceModel.__init__(self, name=u'*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
         self.value_directory = simpath
         self.action_rewind()
 
     def update(self):
         if not self.indices:
             self.info('No frames present.')
-            self.time = 0
+            self.steps = 0
         else:
-            self.time = self.indices[self.timeindex % len(self.indices)]
-            self.info('Loading frame %d...' % self.time)
-            self.fieldvalues = read_sim_frame(self.value_directory, self.fieldnames, self.time)
+            self.steps = self.indices[self.timeindex % len(self.indices)]
+            self.info('Loading frame %d...' % self.steps)
+            self.fieldvalues = read_sim_frame(self.value_directory, self.fieldnames, self.steps)
             self.info('')
 
     def step(self):
@@ -28,16 +28,16 @@ class Viewer(FieldSequenceModel):
         self.timeindex = 0
         self.action_refresh()
         if self.indices:
-            self.time = self.indices[0]
+            self.steps = self.indices[0]
         else:
-            self.time = 0
+            self.steps = 0
 
     def action_refresh(self):
         self.view_scene = Scene.at(self.value_directory)
         self.indices = self.view_scene.get_frames(mode='union')
         for fieldname in self.view_scene.fieldnames:
             def getfield(fieldname=fieldname):
-                return self.view_scene.read_array(fieldname, self.time)
+                return self.view_scene.read_array(fieldname, self.steps)
             self.add_field(fieldname, getfield)
         self.update()
 
