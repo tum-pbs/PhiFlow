@@ -1,11 +1,11 @@
 from unittest import TestCase
 from phi.flow import *
+from phi.math.struct import *
 
 
 def generate_test_structs():
     return [
             StaggeredGrid('Staggered Grid'),
-            Smoke(density='Density', velocity='Velocity'),
             [StaggeredGrid('Staggered Grid')],
             [('Item',)],
         {'A': 'Entry A', 'Vel': StaggeredGrid('v')}
@@ -15,28 +15,30 @@ def generate_test_structs():
 class TestStruct(TestCase):
     def test_identity(self):
         for struct in generate_test_structs():
-            struct2 = Struct.map(lambda s: s, struct)
+            struct2 = map(lambda s: s, struct, recursive=False)
             self.assertEqual(struct, struct2)
-            struct3 = Struct.flatmap(lambda t: t, struct)
+            struct3 = map(lambda t: t, struct, recursive=True)
             self.assertEqual(struct, struct3)
 
     def test_flatten(self):
         for struct in generate_test_structs():
-            flat, _ = Struct.flatten(struct)
+            flat = flatten(struct)
             self.assertIsInstance(flat, list)
+            self.assertGreater(len(flat), 0)
             for item in flat:
-                self.assert_(not Struct.isstruct(item), 'The result of flatten(%s) is not flat.' % struct)
+                self.assert_(not isstruct(item), 'The result of flatten(%s) is not flat.' % struct)
 
     def test_names(self):
-        n = Struct.mapnames(StaggeredGrid(None))
-        self.assertEqual(n.staggered, 'staggered')
+        for struct in generate_test_structs():
+            names = flatten(map(lambda attr: attr.name, struct, trace=True))
+            self.assertGreater(len(names), 0)
+            for name in names:
+                self.assertIsInstance(name, str)
 
-        n = Struct.mapnames(Smoke(density=None, velocity=None))
-        self.assertEqual(n.density, 'density')
-        self.assertEqual(n.velocity.staggered, 'velocity.staggered')
-
-        n = Struct.mapnames([(None,)])
-        self.assertEqual(n[0][0], '0.0')
+    def test_paths(self):
+        struct = {'Vels': [StaggeredGrid('v')]}
+        names = flatten(map(lambda attr: attr.path(), struct, trace=True))
+        self.assertEqual(names[0], 'Vels.0.staggered')
 
     def test_copy(self):
         smoke = Smoke(density='Density', velocity='Velocity')
@@ -46,3 +48,9 @@ class TestStruct(TestCase):
 
         d = smoke.copied_with(density='D2')
         self.assertEqual(d.density, 'D2')
+
+    def test_zip(self):
+        a = StaggeredGrid('a')
+        b = StaggeredGrid('b')
+        zipped = stack([a, b])
+        numpy.testing.assert_equal(zipped.staggered, ('a', 'b'))

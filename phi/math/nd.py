@@ -1,18 +1,16 @@
 import numpy as np
 from . import base as math
-from .struct import *
+import struct
 
 
 def shape(obj):
-    if Struct.isstruct(obj):
-        return Struct.flatmap(lambda tensor: tensor.shape, obj)
-    return math.shape(obj)
+    return struct.map(lambda tensor: tensor.shape, obj)
 
 
 def batch_gather(struct, batches):
     if isinstance(batches, int):
         batches = [batches]
-    return Struct.map(lambda tensor: tensor[batches,...], struct)
+    return struct.map(lambda tensor: tensor[batches,...], struct)
 
 
 def spatial_rank(obj):
@@ -25,8 +23,8 @@ The number of spatial dimensions is equal to the tensor rank minus two.
     """
     if isinstance(obj, StaggeredGrid):
         return obj.spatial_rank
-    if Struct.isstruct(obj):
-        return Struct.map(lambda o: spatial_rank(o), obj)
+    if struct.isstruct(obj):
+        return struct.map(lambda o: spatial_rank(o), obj, recursive=False)
     return len(obj.shape) - 2
 
 
@@ -286,8 +284,8 @@ def _weighted_sliced_laplace_nd(tensor, weights):
 def downsample2x(tensor, interpolation='linear'):
     if isinstance(tensor, StaggeredGrid):
         return tensor.downsample2x(interpolation=interpolation)
-    if Struct.isstruct(tensor):
-        return Struct.map(lambda s: downsample2x(s, interpolation), tensor)
+    if struct.isstruct(tensor):
+        return struct.map(lambda s: downsample2x(s, interpolation), tensor, recursive=False)
 
     if interpolation.lower() != 'linear':
         raise ValueError('Only linear interpolation supported')
@@ -306,8 +304,8 @@ def downsample2x(tensor, interpolation='linear'):
 def upsample2x(tensor, interpolation='linear'):
     if isinstance(tensor, StaggeredGrid):
         return tensor.upsample2x(interpolation=interpolation)
-    if Struct.isstruct(tensor):
-        return Struct.map(lambda s: upsample2x(s, interpolation), tensor)
+    if struct.isstruct(tensor):
+        return struct.map(lambda s: upsample2x(s, interpolation), tensor, recursive=False)
 
     if interpolation.lower() != 'linear':
         raise ValueError('Only linear interpolation supported')
@@ -336,7 +334,7 @@ def spatial_sum(tensor):
     return summed
 
 
-class StaggeredGrid(Struct):
+class StaggeredGrid(struct.Struct):
     """
         MACGrids represent a staggered vector channel in which each vector component is sampled at the
         face centers of centered hypercubes.
@@ -351,7 +349,7 @@ class StaggeredGrid(Struct):
             staggered (tensor): array or tensor holding the staggered channel
 
     """
-    __struct__ = StructInfo(['_staggered'])
+    __struct__ = struct.StructInfo(['_staggered'])
 
 
     def __init__(self, staggered):

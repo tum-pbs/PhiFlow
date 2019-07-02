@@ -2,8 +2,7 @@
 import numpy as np
 import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
-
-from phi.math import Struct
+from phi.math import struct
 
 
 def read_zipped_array(filename):
@@ -153,24 +152,24 @@ class Scene(object):
     def write_sim_frame(self, arrays, fieldnames, frame, check_same_dimensions=False):
         write_sim_frame(self.path, arrays, fieldnames, frame, check_same_dimensions=check_same_dimensions)
 
-    def write(self, struct, names=None, frame=0):
-        if Struct.isstruct(struct):
+    def write(self, obj, names=None, frame=0):
+        if struct.isstruct(obj):
             if names is None:
-                names = Struct.mapnames(struct)
-            values, _ = Struct.flatten(struct)
-            names, _ = Struct.flatten(names)
+                names = struct.names(obj)
+            values = struct.flatten(obj)
+            names = struct.flatten(names)
             names = [self._filename(name) for name in names]
             self.write_sim_frame(values, names, frame)
         else:
             name = str(names) if names is not None else 'unnamed'
-            self.write_sim_frame(struct, name, frame)
+            self.write_sim_frame(obj, name, frame)
 
-    def read(self, struct, frame=0):
-        if Struct.isstruct(struct):
-            names = Struct.flatten(struct)
+    def read(self, obj, frame=0):
+        if struct.isstruct(obj):
+            names = struct.flatten(obj)
             if not np.all([isinstance(n, six.string_types) for n in names]):
-                struct = Struct.mapnames(struct)
-            return Struct.flatmap(lambda name: self.read_array(self._filename(name), frame), struct)
+                struct = struct.names(obj)
+            return struct.map(lambda name: self.read_array(self._filename(name), frame), struct)
         else:
             return self.read_array('unnamed', frame)
 

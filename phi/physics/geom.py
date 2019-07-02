@@ -7,6 +7,9 @@ class Geometry(Struct):
     def value_at(self, location):
         raise NotImplementedError(self.__class__)
 
+    def at(self, grid):
+        return self.value_at(grid.center_points())
+
 
 class Box(Geometry):
     __struct__ = StructInfo((), ('origin', 'size'))

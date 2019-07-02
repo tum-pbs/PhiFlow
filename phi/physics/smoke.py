@@ -1,5 +1,4 @@
 from .domain import *
-import six
 
 
 def initialize_field(value, shape):
@@ -9,7 +8,7 @@ def initialize_field(value, shape):
         return value(shape)
     if isinstance(shape, Struct):
         if type(shape) == type(value):
-            return Struct.zippedmap(lambda val, sh: initialize_field(val, sh), value, shape)
+            return struct.map(lambda val_sh: initialize_field(val_sh[0], val_sh[1]), struct.stack(value, shape))
         else:
             return type(shape)(value)
     else:

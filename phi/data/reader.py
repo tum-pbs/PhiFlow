@@ -17,7 +17,7 @@ class BatchReader(object):
         self._dataset = dataset
         self._index = 0
         self._channels = []
-        channels, self._reassemble = Struct.flatten(fields)
+        channels, self._reassemble = struct.flatten(fields)
         for channel in channels:
             if isinstance(channel, DataChannel):
                 self._channels.append(channel)

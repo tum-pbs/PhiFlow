@@ -2,19 +2,29 @@
 import tensorflow as tf
 from phi.math.nd import *
 from tensorflow.python import pywrap_tensorflow
+from phi.math.initializers import _is_python_shape
 
 
-def placeholder(shape, dtype=np.float32, name=None):
-    return Struct.flatmap(lambda s: tf.placeholder(dtype, s, name), shape)
+def _tf_name(attr, basename):
+    if basename is None:
+        return attr.path('/')
+    else:
+        return basename + '/' + attr.path('/')
 
-def placeholder_like(struct, dtype=np.float32, name=None):
-    names = Struct.mapnames(struct)
-    return Struct.zippedflatmap(lambda name, alike: tf.placeholder(dtype, alike.shape, name), names, struct)
 
-def variable(initializer, dtype=np.float32, name=None, trainable=True):
+def placeholder(shape, dtype=np.float32, basename=None):
+    f = lambda attr: tf.placeholder(dtype, attr.value, _tf_name(attr, basename))
+    return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True)
+
+def placeholder_like(obj, dtype=np.float32, basename=None):
+    f = lambda attr: tf.placeholder(dtype, attr.value.shape, _tf_name(attr, basename))
+    return struct.map(f, obj, leaf_condition=_is_python_shape, trace=True)
+
+def variable(initializer, dtype=np.float32, basename=None, trainable=True):
     def create_variable(shape):
         initial_value = initializer(shape)
-        return Struct.flatmap(lambda val: tf.Variable(val, name=name, dtype=dtype, trainable=trainable), initial_value)
+        f = lambda attr: tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
+        return struct.map(f, initial_value, leaf_condition=_is_python_shape, trace=True)
     return create_variable
 
 

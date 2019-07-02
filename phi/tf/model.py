@@ -109,7 +109,7 @@ class TFModel(FieldSequenceModel):
         self._placeholders = placeholders
         # Train
         if self._training_set is not None:
-            fields = Struct.flatmap(lambda s: s.replace('.', '_'), Struct.mapnames(placeholders))  # TODO this is already defined in fluidformat
+            fields = struct.map(lambda s: s.replace('.', '_'), struct.names(placeholders))  # TODO this is already defined in fluidformat
             self._train_reader = BatchReader(self._training_set, fields)
             self._train_iterator = self._train_reader.all_batches(batch_size=1, loop=True)
         else:
@@ -117,7 +117,7 @@ class TFModel(FieldSequenceModel):
             self._train_iterator = None
         # Val
         if self._validation_set is not None:
-            fields = Struct.flatmap(lambda s: s.replace('.', '_'), Struct.mapnames(placeholders))  # TODO this is already defined in fluidformat
+            fields = struct.map(lambda s: s.replace('.', '_'), struct.names(placeholders))  # TODO this is already defined in fluidformat
             self.value_view_training_data = False
             self._val_reader = BatchReader(self._validation_set, fields)
         else:
