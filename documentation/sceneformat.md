@@ -13,7 +13,12 @@ The data format specifies the following elements:
 ### Arrays
 
 Arrays hold the spatial distribution of one property of the simulation at a certain frame.
-Each array is stored as one compressed NumPy (.npz) file. The contained NumPy array has the shape `(height, width, components)` in 2D and `(depth, height, width, components)` in 3D where `components` refers to number of dimensions stored per cell, 1 for scalar fields such as density, 2 for vector fields in 2D, 3 for vector fields in 3D.
+Each array is stored as one compressed NumPy (.npz) file.
+The contained NumPy array has the shape `(height, width, components)` in 2D and `(depth, height, width, components)` in 3D where `components` refers to number of dimensions stored per cell,
+1 for scalar fields such as density,
+2 for vector fields in 2D,
+3 for vector fields in 3D.
+I.e., the formats are [ZYXC] in 3D, and [YXC] in 2D. As npz files can contain multipe arrays, the last entry with a file has to contain the array data to be loaded.
 
 The spatial size of the arrays is not the same as the number of valid voxels in the simulation.
 In the following, `x`, `y` and `z` refer to the shape of valid entries in centered fields like state density.
