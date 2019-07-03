@@ -4,7 +4,7 @@ import logging, os, numbers, six, numpy, threading, inspect, time, sys
 from os.path import isfile
 from phi.data.fluidformat import Scene
 import phi.math.nd
-from phi.math import Struct
+from phi.math import struct
 from phi.viz.plot import PlotlyFigureBuilder
 from phi.physics.world import world
 
@@ -246,7 +246,7 @@ class FieldSequenceModel(object):
             'controls': [{control.name: control.value} for control in self.controls],
             'summary': self.scene_summary(),
             'time_of_writing': self.steps,
-            'world': Struct.properties(self.world.state)
+            'world': struct.properties(self.world.state)
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties
@@ -269,9 +269,6 @@ class FieldSequenceModel(object):
 
     def scene_summary(self):
         return self.summary
-
-    def list_controls(self, names):
-        return
 
     def show(self, *args, **kwargs):
         from phi.viz.dash_gui import DashFieldSequenceGui

@@ -17,8 +17,9 @@ class BatchReader(object):
         self._dataset = dataset
         self._index = 0
         self._channels = []
-        channels, self._reassemble = Struct.flatten(fields)
-        for channel in channels:
+        self._fields = fields
+        self.channels = struct.flatten(fields)
+        for channel in self.channels:
             if isinstance(channel, DataChannel):
                 self._channels.append(channel)
             else:
@@ -36,7 +37,8 @@ class BatchReader(object):
     def _get_batch(self, indices):
         data_list = self._cache.get(indices, self._load, add_to_cache=True)
         data = list_swap_axes(data_list)
-        return self._reassemble(data)
+        data_map = {self.channels[i]: data[i] for i in range(len(self._channels))}
+        return struct.map(lambda channel: data_map[channel], self._fields)
 
     def _load(self, indices):
         result = []

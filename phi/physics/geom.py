@@ -7,9 +7,12 @@ class Geometry(Struct):
     def value_at(self, location):
         raise NotImplementedError(self.__class__)
 
+    def at(self, grid):
+        return self.value_at(grid.center_points())
+
 
 class Box(Geometry):
-    __struct__ = StructInfo((), ('origin', 'size'))
+    __struct__ = struct.Def((), ('origin', 'size'))
 
     def __init__(self, origin, size):
         self.origin = np.array(origin)
@@ -56,7 +59,7 @@ box = BoxGenerator()
 
 
 class Sphere(Geometry):
-    __struct__ = StructInfo((), ('_center', '_radius'))
+    __struct__ = struct.Def((), ('_center', '_radius'))
 
     def __init__(self, center, radius):
         self._center = as_tensor(center)
@@ -76,7 +79,7 @@ class Sphere(Geometry):
 
 
 class Grid(Struct):
-    __struct__ = StructInfo((), ('_dimensions', '_box'))
+    __struct__ = struct.Def((), ('_dimensions', '_box'))
 
     def __init__(self, dimensions, box=None):
         self._dimensions = np.array(dimensions)

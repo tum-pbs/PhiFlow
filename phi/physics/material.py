@@ -1,9 +1,9 @@
 import math
-from phi.math import Struct, StructInfo
+from phi.math import Struct, struct
 
 
 class Material(Struct):
-    __struct__ = StructInfo((), ('solid', 'friction', 'extrapolate_fluid', 'global_velocity', 'local_velocity'))
+    __struct__ = struct.Def((), ('solid', 'friction', 'extrapolate_fluid', 'global_velocity', 'local_velocity'))
 
     def __init__(self, solid=True, friction=0.0, extrapolate_fluid=True, global_velocity=0.0, local_velocity=0.0):
         """
