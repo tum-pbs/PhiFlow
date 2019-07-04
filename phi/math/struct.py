@@ -175,7 +175,7 @@ def stack(structs, leaf_condition=None):
             assert type(s) == type(first)
 
     if not isstruct(first, leaf_condition):
-        return np.array(structs)
+        return LeafStack(structs)
 
     dicts = [attributes(struct) for struct in structs]
     keys = dicts[0].keys()
@@ -185,6 +185,21 @@ def stack(structs, leaf_condition=None):
         values = stack(values, leaf_condition)
         new_dict[key] = values
     return copy_with(first, new_dict)
+
+
+class LeafStack(object):
+
+    def __init__(self, values):
+        self.values = values
+
+    def __getitem__(self, item):
+        return self.values[item]
+
+    def __repr__(self):
+        return repr(self.values)
+
+    def __str__(self):
+        return str(self.values)
 
 
 
