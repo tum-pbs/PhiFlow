@@ -153,7 +153,10 @@ def map(f, struct, leaf_condition=None, recursive=True, trace=False):
         trace = Trace(struct, None, None)
     if not isstruct(struct, leaf_condition):
         if trace is False:
-            return f(struct)
+            if isinstance(struct, LeafZip):
+                return f(*struct.values)
+            else:
+                return f(struct)
         else:
             return f(trace)
     else:
@@ -167,7 +170,7 @@ def map(f, struct, leaf_condition=None, recursive=True, trace=False):
         return copy_with(struct, new_values)
 
 
-def stack(structs, leaf_condition=None):
+def zip(structs, leaf_condition=None):
     assert len(structs) > 0
     first = structs[0]
     if isstruct(first, leaf_condition):
@@ -175,19 +178,19 @@ def stack(structs, leaf_condition=None):
             assert type(s) == type(first)
 
     if not isstruct(first, leaf_condition):
-        return LeafStack(structs)
+        return LeafZip(structs)
 
     dicts = [attributes(struct) for struct in structs]
     keys = dicts[0].keys()
     new_dict = {}
     for key in keys:
         values = [d[key] for d in dicts]
-        values = stack(values, leaf_condition)
+        values = zip(values, leaf_condition)
         new_dict[key] = values
     return copy_with(first, new_dict)
 
 
-class LeafStack(object):
+class LeafZip(object):
 
     def __init__(self, values):
         self.values = values
