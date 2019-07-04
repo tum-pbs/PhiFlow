@@ -56,6 +56,8 @@ densities, velocities = scene.read_sim_frames(fieldnames=['density', 'velocity']
 smoke = scene.read(Smoke(), frame=0)
 ```
 
+The last call makes use of Φ<sub>*Flow*</sub>'s [`struct` system](structs.md).
+
 
 ## Writing to a scene
 
