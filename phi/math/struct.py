@@ -56,10 +56,18 @@ class Struct(object):
         return {a.name: getattr(self, a.name) for a in self.__class__.__struct__.attributes}
 
     def __properties__(self):
-        result = {p.name: properties(getattr(self, p.name)) for p in self.__class__.__struct__.properties}
+        return {p.name: getattr(self, p.name) for p in self.__class__.__struct__.properties}
+
+    def __properties_dict__(self):
+        result = {p.name: properties_dict(getattr(self, p.name)) for p in self.__class__.__struct__.properties}
+        for a in self.__class__.__struct__.attributes:
+            if isstruct(getattr(self, a.name)):
+                result[a.name] = properties_dict(getattr(self, a.name))
         result['type'] = str(self.__class__.__name__)
         result['module'] = str(self.__class__.__module__)
         return result
+
+
 
     def __eq__(self, other):
         if type(self) != type(other): return False
@@ -92,10 +100,18 @@ def attributes(struct):
 def properties(struct):
     if isinstance(struct, Struct):
         return struct.__properties__()
+    if isinstance(struct, (list, tuple, dict)):
+        return {}
+    raise ValueError("Not a struct: %s" % struct)
+
+
+def properties_dict(struct):
+    if isinstance(struct, Struct):
+        return struct.__properties_dict__()
     if isinstance(struct, (list, tuple)):
-        return [properties(s) for s in struct]
+        return [properties_dict(s) for s in struct]
     if isinstance(struct, dict):
-        return {key: properties(value) for key,value in struct.items()}
+        return {key: properties_dict(value) for key,value in struct.items()}
     if isinstance(struct, np.ndarray):
         assert len(struct.shape) == 1
         struct = struct.tolist()
@@ -148,7 +164,7 @@ class Trace(object):
             return self.name
 
 
-def map(f, struct, leaf_condition=None, recursive=True, trace=False):
+def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):
     if trace is True:
         trace = Trace(struct, None, None)
     if not isstruct(struct, leaf_condition):
@@ -158,11 +174,15 @@ def map(f, struct, leaf_condition=None, recursive=True, trace=False):
             return f(trace)
     else:
         old_values = attributes(struct)
+        if include_properties:
+            for k, v in properties(struct).items():  # TODO properties can return lists
+                old_values[k] = v
         new_values = {}
         if not recursive:
             leaf_condition = lambda x: True
         for key, value in old_values.items():
-            new_values[key] = map(f, value, leaf_condition, recursive, Trace(value, key, trace) if trace is not False else False)
+            new_values[key] = map(f, value, leaf_condition, recursive,
+                                  Trace(value, key, trace) if trace is not False else False, include_properties)
 
         return copy_with(struct, new_values)
 
@@ -197,12 +217,12 @@ def isstruct(object, leaf_condition=None):
     return True
 
 
-def flatten(struct, leaf_condition=None, trace=False):
+def flatten(struct, leaf_condition=None, trace=False, include_properties=False):
     list = []
     def map_leaf(value):
         list.append(value)
-        return None
-    map(map_leaf, struct, leaf_condition, recursive=True, trace=trace)
+        return value
+    map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, include_properties=include_properties)
     return list
 
 

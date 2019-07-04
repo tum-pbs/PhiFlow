@@ -4,7 +4,7 @@ import six
 
 
 class CollectiveState(State):
-    __struct__ = State.__struct__.extend((), ('_states',))
+    __struct__ = State.__struct__.extend(('_states',))
 
     def __init__(self, states=(), age=0.0):
         State.__init__(self, tags=(), age=age)
@@ -66,6 +66,9 @@ class CollectiveState(State):
         for state in self._states:
             phys.add(state.trajectorykey, state.default_physics())
         return phys
+
+    def __repr__(self):
+        return '[' + ', '.join((str(s) for s in self._states)) + ']'
 
 
 class CollectivePhysics(Physics):
