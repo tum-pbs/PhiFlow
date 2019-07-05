@@ -24,7 +24,7 @@ class FieldSequenceModel(nontf.FieldSequenceModel):
         self.info('Initializing variables')
         self.session.initialize_variables()
         if self.auto_bake:
-            tf_bake_graph(self.session)
+            tf_bake_graph(self.world, self.session)
         return self
 
     def add_scalar(self, name, node):

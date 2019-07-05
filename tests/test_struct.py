@@ -8,7 +8,8 @@ def generate_test_structs():
             StaggeredGrid('Staggered Grid'),
             [StaggeredGrid('Staggered Grid')],
             [('Item',)],
-        {'A': 'Entry A', 'Vel': StaggeredGrid('v')}
+        {'A': 'Entry A', 'Vel': StaggeredGrid('v')},
+        CollectiveState((Smoke(density='density', velocity='velocity'),))
         ]
 
 
@@ -19,6 +20,8 @@ class TestStruct(TestCase):
             self.assertEqual(struct, struct2)
             struct3 = map(lambda t: t, struct, recursive=True)
             self.assertEqual(struct, struct3)
+            struct4 = map(lambda t: t, struct, include_properties=True)
+            self.assertEqual(struct, struct4)
 
     def test_flatten(self):
         for struct in generate_test_structs():

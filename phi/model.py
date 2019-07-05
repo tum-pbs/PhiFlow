@@ -246,7 +246,7 @@ class FieldSequenceModel(object):
             'controls': [{control.name: control.value} for control in self.controls],
             'summary': self.scene_summary(),
             'time_of_writing': self.steps,
-            'world': struct.properties(self.world.state)
+            'world': struct.properties_dict(self.world.state)
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties

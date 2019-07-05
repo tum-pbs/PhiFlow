@@ -83,7 +83,6 @@ class World(object):
 
     def step(self, state=None, dt=1.0):
         if state is None:
-            self.physics.dt = dt
             self.state = self.physics.step(self._state, dt)
         else:
             if isinstance(state, StateTracker):
