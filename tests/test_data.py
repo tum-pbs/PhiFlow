@@ -3,8 +3,7 @@ from phi.flow import *
 
 
 def build_test_database(path='data'):
-    for scene in Scene.list(path):
-        scene.remove()
+    for scene in Scene.list(path): scene.remove()
     val = 1.0
     for sceneindex in range(2):
         scene = Scene.create(path)
@@ -70,4 +69,16 @@ class TestData(TestCase):
         self.assertEqual(len(reader), 0)
         batch = reader[0]
 
-    # def test_lazy_size_eval(self):
+    def test_write_batch(self):
+        for scene in Scene.list('data'): scene.remove()
+        scene_batch = Scene.create('data', count=2)
+        self.assertEqual(scene_batch.batch_size, 2)
+        self.assertEqual(len(Scene.list('data')), 2)
+        batched_data = np.zeros([2, 4, 4, 1])
+        unbatched_data = np.ones([1, 4, 4, 1])
+        scene_batch.write(batched_data, frame=0)
+        scene_batch.write(unbatched_data, frame=1)
+        self.assert_(os.path.exists('data/sim_000000/unnamed_000000.npz'))
+        self.assert_(os.path.exists('data/sim_000000/unnamed_000001.npz'))
+        self.assert_(os.path.exists('data/sim_000001/unnamed_000000.npz'))
+        self.assert_(os.path.exists('data/sim_000001/unnamed_000001.npz'))

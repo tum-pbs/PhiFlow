@@ -52,5 +52,5 @@ class TestStruct(TestCase):
     def test_zip(self):
         a = StaggeredGrid('a')
         b = StaggeredGrid('b')
-        zipped = stack([a, b])
-        numpy.testing.assert_equal(zipped.staggered, ('a', 'b'))
+        stacked = map(lambda *x: x, zip([a, b]))
+        numpy.testing.assert_equal(stacked.staggered, ('a', 'b'))
