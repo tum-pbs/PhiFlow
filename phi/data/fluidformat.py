@@ -9,7 +9,7 @@ def read_zipped_array(filename):
     file = np.load(filename)
     array = file[file.files[-1]] # last entry in npz file has to be data array
     if array.shape[0] != 1:
-        array = array.reshape((1,)+array.shape)
+        array = np.expand_dims(array, axis=0)
     if array.shape[-1] != 1:
         array = array[...,::-1]
     return array

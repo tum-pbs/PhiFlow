@@ -82,3 +82,11 @@ class TestData(TestCase):
         self.assert_(os.path.exists('data/sim_000000/unnamed_000001.npz'))
         self.assert_(os.path.exists('data/sim_000001/unnamed_000000.npz'))
         self.assert_(os.path.exists('data/sim_000001/unnamed_000001.npz'))
+
+    def test_calc(self):
+        build_test_database()
+        reader = BatchReader(Dataset.load('data'), ['Density', SourceChannel('Density') + 1, SourceChannel('Density') * SourceChannel('Density')])
+        for i in range(len(reader)):
+            d, d_1, d_2 = reader[i]
+            numpy.testing.assert_equal(d+1, d_1)
+            numpy.testing.assert_equal(d**2, d_2)

@@ -17,6 +17,30 @@ class DataChannel(object):
     def frames(self, datasource):
         raise NotImplementedError(self)
 
+    def __add__(self, other):
+        if isinstance(other, DataChannel):
+            return ElementwiseOperationChannel([self, other], lambda a, b: a + b)
+        else:
+            return ElementwiseOperationChannel([self], lambda a: a + other)
+
+    def __sub__(self, other):
+        if isinstance(other, DataChannel):
+            return ElementwiseOperationChannel([self, other], lambda a, b: a - b)
+        else:
+            return ElementwiseOperationChannel([self], lambda a: a - other)
+
+    def __mul__(self, other):
+        if isinstance(other, DataChannel):
+            return ElementwiseOperationChannel([self, other], lambda a, b: a * b)
+        else:
+            return ElementwiseOperationChannel([self], lambda a: a * other)
+
+    def __div__(self, other):
+        if isinstance(other, DataChannel):
+            return ElementwiseOperationChannel([self, other], lambda a, b: a / b)
+        else:
+            return ElementwiseOperationChannel([self], lambda a: a / other)
+
 
 class SourceChannel(DataChannel):
 
@@ -101,10 +125,32 @@ SOURCE = _Source()
 class DerivedChannel(DataChannel):
 
     def __init__(self, input_channels):
-        self.input_fields = [c if isinstance(c, DataChannel) else SourceChannel(c) for c in input_channels]
+        self.inputs = [c if isinstance(c, DataChannel) else SourceChannel(c) for c in input_channels]
 
     def __repr__(self):
-        return "%s(%s)" % (type(self), self.input_fields)
+        return "%s(%s)" % (type(self), self.inputs)
+
+
+class ElementwiseOperationChannel(DerivedChannel):
+
+    def __init__(self, input_channels, function):
+        DerivedChannel.__init__(self, input_channels)
+        self.function = function
+
+    def shape(self, datasource):
+        return self.inputs[0].shape(datasource)
+
+    def size(self, datasource, lookup=False):
+        return self.inputs[0].size(datasource, lookup=lookup)
+
+    def frames(self, datasource):
+        return self.inputs[0].frames(datasource)
+
+    def get(self, datasource, indices):
+        for index in indices:
+            input_values = [np.concatenate(list(i.get(datasource, [index]))) for i in self.inputs]
+            result = self.function(*input_values)
+            yield result
 
 
 class FrameSelect(DerivedChannel):
@@ -116,7 +162,7 @@ Selects specific frames from the input.
         :param channel: input channel
         """
         DerivedChannel.__init__(self, [channel])
-        self.channel = self.input_fields[0]
+        self.channel = self.inputs[0]
         if callable(selector):
             self.selection_function = selector
         else:
