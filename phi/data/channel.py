@@ -182,7 +182,7 @@ Selects specific frames from the input.
         try:
             selected_frames = [frames[i] for i in indices]
         except:
-            raise ValueError("FrameSelect: selection function must return a list of integers, but got %s for frames %s" % (frames, datasource.frames()))
+            raise ValueError("BatchSelect: selection function must return a list of integers that is large enough, but got %s for frames %s" % (frames, datasource.frames()))
         return self.channel.get(datasource, selected_frames)
 
     def size(self, datasource, lookup=False):
