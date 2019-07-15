@@ -4,7 +4,7 @@
 Staggered grids are a key component of the marker and cell (MAC) method. They sample the velocity components at the centers of the corresponding lower faces of grid cells. This makes them fundamentally different from regular arrays or tensors which are sampled at the cell centers. 
 The main advantage of Staggered grids is that it makes computing the divergence straightforward and exact.
 
-![image](./Staggered.png)
+![image](./figures/Staggered.png)
 
 In Φ<sub>*Flow*</sub>, staggered grids are represented as instances of [StaggeredGrid](../phi/math/nd.py). They have one more entry in every spatial dimension than corresponding centered fields since the upper face of the upper most cell needs to be included as well.
 

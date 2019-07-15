@@ -1,6 +1,8 @@
 
 # Φ<sub>*Flow*</sub> Browser GUI
 
+![Gui](./figures/Gui.png)
+
 Φ<sub>*Flow*</sub> contains an interactive GUI that can display any kind of two-dimensional or three-dimensional fields. The interface is displayed in the browser and is very easy to set up.
 
 The default GUI will display your application in the browser.

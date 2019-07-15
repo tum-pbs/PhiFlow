@@ -3,7 +3,7 @@
 [![pipeline status](https://gitlab.lrz.de/ga67fet/phiflow/badges/master/pipeline.svg)](https://gitlab.lrz.de/ga67fet/phiflow/commits/master)
 
 
-![Gui](documentation/Gui.png)
+![Gui](documentation/figures/Gui.png)
 
 Φ<sub>*Flow*</sub> is a research-oriented, open-source fluid simulation toolkit.
 It is written mostly in Python and can use both NumPy and TensorFlow for execution.
@@ -37,6 +37,9 @@ with TensorFlow support.
 
 ## Documentation and Guides
 
+| [Index](documentation) | [Demos](apps) / [Tests](tests) | [Source](phi) |
+|-------|---------------|--------|
+
 If you would like to get right into it and have a look at some example code, check out the following files in the `apps` directory:
 
 - [simpleplume.py](./apps/simpleplume.py): Runs a smoke simulation and displays it in the browser
@@ -54,17 +57,6 @@ For training machine learning models, [this document](documentation/tfmodel.md) 
 
 
 For I/O and data management, see the [data documentation](documentation/data.md).
-
-
-## Directory structure
-
-The directory structure is as follows:
-
-- [apps](apps) contains python executables that use Φ<sub>*Flow*</sub> and display the simulation using the GUI.
-- [documentation](documentation) further information and guides.
-- [phi](phi) and subpackages contain the core Φ<sub>*Flow*</sub> library.
-- [tests](tests) contains tests of Φ<sub>*Flow*</sub> that mostly run without the GUI.
-
 
 ## Known Issues
 
