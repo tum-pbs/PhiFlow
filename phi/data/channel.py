@@ -213,3 +213,35 @@ Every DataSource accessed through these channels must contain at least n frames.
     :return: tuple containing n DataChannels
     """
     return tuple([FrameSelect(lambda frames, i=i: frames[i:i-n+1+len(frames)], channel) for i in range(n)])
+
+
+class MantaScalar(DerivedChannel):
+
+    def __init__(self, channel):
+        """
+Removes one layer of cells on the positive sides for scalar channels.
+This can be used to load mantaflow fluid sim scenes, for which the staggered velocity
+will be loaded unmodified, while the scalar grids are cropped to match the size
+of the phiflow arrays.
+        """
+        DerivedChannel.__init__(self, [channel]) 
+        self.channel = self.input_fields[0]
+
+    def shape(self, datasource):
+        return self.channel.shape(datasource)
+
+    def get(self, datasource, indices):
+        a = self.channel.get(datasource, indices)
+        c = []
+        for b in a:
+            b = b[...,0:b.shape[1]-1, 0:b.shape[2]-1,:] # crop 1 layer
+            c.append( b )
+        a = np.asarray(c)
+        return a
+
+    def size(self, datasource, lookup=False):
+        return self.channel.size(datasource, lookup)
+
+    def frames(self, datasource):
+        return self.channel.frames(datasource)
+
