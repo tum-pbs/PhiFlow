@@ -279,9 +279,11 @@ class Scene(object):
     @staticmethod
     def at(sim_dir):
         sim_dir = os.path.expanduser(sim_dir)
+        if sim_dir[-1]=='/':  # remove trailing backslash
+            sim_dir = sim_dir[0:-1]
         dirname = os.path.basename(sim_dir)
         if not dirname.startswith("sim_"):
-            raise ValueError("%s is not a valid scene directory."%sim_dir)
+            raise ValueError("%s with dir %s is not a valid scene directory."%(sim_dir,dirname))
         category_directory = os.path.dirname(sim_dir)
         category = os.path.basename(category_directory)
         directory = os.path.dirname(category_directory)
