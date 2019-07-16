@@ -1,23 +1,19 @@
 from phi.tf.flow import *
 import os
 
-# this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
-# from the given directory
-scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume/sim_000000'
-scene_path = os.path.expanduser(scene_path)
-
-# this is the original resolution of the mantaflow sim
-# allocate one size smaller so that velocity matches, and crop
-# scalar fields to (mantaflowRes-1) via MantaScalar() channels
-mantaflowRes = 48
-
-# 2D or 3D
 dims = 2
+data_dir = '/Users/thuerey/Dropbox/shareTmp/temp2/TEST2D_000001/'
+
 
 class DataDemo(TFModel):
 
     def __init__(self):
         TFModel.__init__(self, 'Data Demo')
+
+        # this is the original resolution of the mantaflow sim
+        # allocate one size smaller so that velocity matches, and crop
+        # scalar fields to (mantaflowRes-1) via MantaScalar() channels
+        mantaflowRes = 48
 
         if dims==2:
             smoke = world.Smoke(Domain([mantaflowRes-1, mantaflowRes-1])) # 2D YXc
@@ -29,24 +25,17 @@ class DataDemo(TFModel):
         state_out = world.step(smoke) # generates tensors now
                 
         # set up manta reader 
-        reader = BatchReader( Dataset.load(scene_path) , (MantaScalar('pressure'), 'vel') ) 
+        reader = BatchReader( Dataset.load(data_dir) , (MantaScalar('pressure'), 'vel') ) 
 
         i = 0 
         for batch in reader.all_batches(batch_size=1):
-
-            # batch[0] is a numpy array with pressure now, batch[1] has the velocities
-            # could be modified here; warning - note uses pressure to density here...
+            #print("Shape batch mantaload "+format(batch[0].shape)+" "+ format(batch[1].shape))  
             state = smoke.copied_with(density=batch[0], velocity=batch[1])
 
             self.session.run(state_out, {state_in: state}) # give to TF
-            #self.session.run(state_out, {state_in: (batch[0], batch[1]) }) # alternative, without state copy
-            
-            # now we have tensor version in state_out
             i = i + 1
-
         print("MantaScalar demo done, %d batches read " % i)
 
         exit(1)
 
-# note, no GUI , use viewer.py instead to display
-app = DataDemo()
+app = DataDemo().show(framerate=1, production=__name__!="__main__") 
