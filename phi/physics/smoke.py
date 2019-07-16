@@ -105,6 +105,14 @@ class Smoke(State):
         return self.grid.rank
 
     @property
+    def staggered_shape(self):
+        return self.grid.staggered_shape(self._batch_size)
+
+    @property
+    def centered_shape(self):
+        return self.grid.shape(1, self._batch_size)
+
+    @property
     def gravity(self):
         return self._gravity
 

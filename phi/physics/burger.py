@@ -37,6 +37,10 @@ class Burger(State):
     def viscosity(self):
         return self._viscosity
 
+    @property
+    def centered_shape(self):
+        return self.grid.shape(1, self._batch_size)
+
 
 class BurgerPhysics(Physics):
 
