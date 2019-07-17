@@ -149,7 +149,7 @@ class FieldSequenceModel(object):
     def add_field(self, name, generator):
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if not callable(generator):
-            assert isinstance(generator, numpy.ndarray)
+            assert isinstance(generator, (numpy.ndarray, phi.math.nd.StaggeredGrid))
             array = generator
             generator = lambda: array
         self.fields[name] = TimeDependentField(name, generator)
