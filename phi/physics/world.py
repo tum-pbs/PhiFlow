@@ -3,7 +3,17 @@ from .smoke import *
 from .burger import *
 
 
-class StateTracker(object):
+class StateProxy(object):
+    """
+    StateProxy mirrors all attributes of a state in an associated world.
+    While State objects are generally immutable, StateProxy also implements setting any attribute of the state.
+    When an attribute is set, a copy of the state with the new value replaces the old state in the world.
+    This object then mirrors the values of the new state.
+
+    After world.step() is invoked, all Proxies of that world will mirror the state after stepping.
+
+    To reference the current immutable state of
+    """
 
     def __init__(self, world, trajectorykey):
         self.world = world
@@ -46,11 +56,18 @@ def _wrapper(world, constructor):
             kwargs['batch_size'] = world.batch_size
         state = constructor(*args, **kwargs)
         world.add(state)
-        return StateTracker(world, state.trajectorykey)
+        return StateProxy(world, state.trajectorykey)
     return buildadd
 
 
 class World(object):
+    """
+    A world object defines a global state as well as a set of rules (Physics objects) that define how the state evolves.
+
+    The world manages dependencies among the contained simulations and provides convenience methods for creating proxies for specific simulations.
+
+    The method world.step() evolves the whole state or optionally a specific state in time.
+    """
 
     def __init__(self):
         self._state = CollectiveState()
@@ -85,7 +102,7 @@ class World(object):
         if state is None:
             self.state = self.physics.step(self._state, dt)
         else:
-            if isinstance(state, StateTracker):
+            if isinstance(state, StateProxy):
                 state = state.state
             s = self.physics.substep(state, self._state, dt)
             self.state = self._state.state_replaced(state, s).copied_with(age=self._state.age + dt)
@@ -95,7 +112,7 @@ class World(object):
         if state is None:
             return self.physics.step(self._state, None, dt)
         else:
-            if isinstance(state, StateTracker):
+            if isinstance(state, StateProxy):
                 state = state.state
             return self.physics.substep(state, self._state, dt)
 
