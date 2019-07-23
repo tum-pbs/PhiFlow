@@ -85,8 +85,8 @@ class CollectivePhysics(Physics):
             next_states.append(next_state)
         return CollectiveState(next_states, age=collectivestate.age + dt)
 
-    def substep(self, state, collectivestate, dt):
-        physics = self.for_(state)
+    def substep(self, state, collectivestate, dt, override_physics=None):
+        physics = self.for_(state) if override_physics is None else override_physics
         dependent_states = {}
         for name, deps in physics.dependencies.items():
             dep_states = []
