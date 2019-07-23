@@ -271,12 +271,20 @@ class FieldSequenceModel(object):
         return self.summary
 
     def show(self, *args, **kwargs):
-        from phi.viz.dash_gui import DashFieldSequenceGui
-        gui = DashFieldSequenceGui(self, *args, **kwargs)
+        headless = 'headless' in sys.argv
+        gui = None
+        if not headless:
+            from phi.viz.dash_gui import DashFieldSequenceGui
+            gui = DashFieldSequenceGui(self, *args, **kwargs)
+        # --- Autorun ---
         if 'autorun' in sys.argv:
             self.info('Starting execution because autorun is enabled.')
             self.play()
-        return gui.show()  # blocking call
+        # --- Show ---
+        if gui is None:
+            return self
+        else:
+            return gui.show()  # blocking call
 
     @property
     def status(self):
