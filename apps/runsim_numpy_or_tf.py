@@ -4,7 +4,7 @@ from phi.flow import *
 from phi.tf.flow import *
 
 
-useNumpy   = 1   # main switch, TF (0) or numpy (1)?
+useNumpy   = 0   # main switch, TF (0) or numpy (1)?
 
 dim        = 2   # 2d / 3d
 bs         = 1   # batch size, process multiple independent simulations at once
@@ -15,8 +15,8 @@ res        = 32
 dt         = 1.0
 
 world = World()
-smoke = world.Smoke(Domain( np.repeat(res, dim) ) , batch_size=bs).state  # numpy state
-domaincache = domain(smoke, () ) # no obstacles
+# by default, the following call creates a numpy state, i.e. "smoke.density" is a numpy array
+smoke = world.Smoke(Domain( np.repeat(res, dim) ) , batch_size=bs).state  
 session = Session(Scene.create('data'))
 smoke_in  = smoke.copied_with(density=placeholder, velocity=placeholder)
 
@@ -27,7 +27,16 @@ else:
     density = smoke_in.density
     velocity = smoke_in.velocity
 
-# this example doesnt use dash, write out PNG images via PIL instead
+# the domaincache initializes flag grid for other ops (like pressure solver in divergence_free() )
+# optionally, obstacles can be added here
+obstacles = [] # none
+#if dim==2:
+#    obstacles = [ Obstacle(box[ (res//4*3):(res//4*3+2), (res//4*1):(res//4*3) ]) ] 
+#if dim==3:
+#    obstacles = [ Obstacle(box[(res//4*3):(res//4*3+2), (res//4*1):(res//4*3), (res//4*1):(res//4*3)]) ] 
+domaincache = domain(smoke, obstacles )
+
+# this example does not use dash, instead it creates PNG images via PIL 
 from PIL import Image
 def saveImg(a, scale, name, idx=0):
     if len( a.shape )<=4:
@@ -71,29 +80,29 @@ for i in range(steps if useNumpy else graphSteps):
         print("TF graph created for step %d " % i)
 
 
-# main , step 2: feed to TF (numpy) or do actual run (TF)
+# main , step 2: feed to TF (numpy) or do actual sim run (TF)
 
 if useNumpy:
     # for numpy run, just feed last computed state to TF, no more simulation to do here...
     smoke_in_data = smoke.copied_with(density=density, velocity=velocity)
-
-    smoke_in = smoke.copied_with(density=placeholder, velocity=placeholder) # dummy output
-    smoke_out = smoke_in 
-
+    smoke_out = smoke_in # output placeholders, could be skipped for numpy version
 else:
     # for TF, all the work still needs to be done, feed empty state and start simulation
     initDens = np.zeros( np.concatenate( ([bs], np.repeat(res,   dim),[1])   ))
     initVel  = np.zeros( np.concatenate( ([bs], np.repeat(res+1, dim),[dim]) ))
-    smoke_in_data = smoke.copied_with(density=initDens, velocity=initVel)
-
+    smoke_in_data = smoke.copied_with(density=initDens, velocity=initVel) 
     smoke_out = smoke.copied_with(density=density, velocity=velocity, age=smoke.age + dt)
 
 # run session
 for i in range(1 if useNumpy else (steps//graphSteps)):
-    smoke = session.run(smoke_out, {smoke_in: smoke_in_data })
-
+	# version 1: using phiflow states (i.e., smoke states in this case)
+    smoke = session.run(smoke_out, {smoke_in: smoke_in_data }) 
     outDens = np.asarray( smoke.density )
     outVel  = np.asarray( smoke.velocity.staggered )
+
+	# version 2 (alternative), using explicit lists 
+    #(outDens, outVel) = session.run( (smoke_out.density,smoke_out.velocity), {smoke_in: smoke_in_data })
+
     if not useNumpy: 
         # for TF, we only have results now after each graphSteps iterations, write images
         saveImg( outDens, 10000., "tf_%04d.png"%(steps if useNumpy else graphSteps*(i+1)-1) )
