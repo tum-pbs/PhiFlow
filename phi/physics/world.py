@@ -39,6 +39,9 @@ class StateProxy(object):
     def physics(self, phys):
         self.world.physics.add(self.trajectorykey, phys)
 
+    def step(self, dt=1.0, physics=None):
+        self.world.step(self, dt=dt, physics=physics)
+
     def __getattr__(self, item):
         assert item not in ('world', 'trajectorykey', 'physics', 'state')
         return getattr(self.state, item)
@@ -50,7 +53,7 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
-def _wrapper(world, constructor):
+def _proxy_wrap(world, constructor):
     def buildadd(*args, **kwargs):
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = world.batch_size
@@ -77,7 +80,7 @@ class World(object):
         # Physics Shortcuts
         for target,source in {'Smoke': Smoke, 'Burger': Burger,
                               'Inflow': Inflow, 'Obstacle': Obstacle}.items():
-            setattr(self, target, _wrapper(self, source))
+            setattr(self, target, _proxy_wrap(self, source))
 
     Smoke = Smoke
     Burger = Burger
@@ -98,23 +101,39 @@ class World(object):
         self._state = state
         for observer in self.observers: observer(self)
 
-    def step(self, state=None, dt=1.0):
+    def step(self, state=None, dt=1.0, physics=None):
+        """
+Evolves the current world state by a time increment dt.
+If state is provided, only that state is evolved, leaving the others untouched.
+The optional physics parameter can then be used to override the default physics.
+Otherwise, all states are evolved.
+
+Calling World.step resolves all dependencies among simulations and then calls Physics.step on each simulation to evolve the states.
+
+Invoking this method alters the world state. To create a copy of the state, use :func:`World.stepped <~world.World.stepped>` instead.
+        :param state: State, StateProxy or None
+        :param dt: time increment, default 1.0
+        :param physics: Physics object for the state or None for default
+        :return: evolved state if a specific state was provided
+        """
         if state is None:
-            self.state = self.physics.step(self._state, dt)
+            if physics is None: physics = self.physics
+            self.state = physics.step(self._state, dt)
         else:
             if isinstance(state, StateProxy):
                 state = state.state
-            s = self.physics.substep(state, self._state, dt)
+            s = self.physics.substep(state, self._state, dt, override_physics=physics)
             self.state = self._state.state_replaced(state, s).copied_with(age=self._state.age + dt)
             return s
 
-    def stepped(self, state=None, dt=1.0):
+    def stepped(self, state=None, dt=1.0, physics=None):
         if state is None:
-            return self.physics.step(self._state, None, dt)
+            if physics is None: physics = self.physics
+            return physics.step(self._state, None, dt)
         else:
             if isinstance(state, StateProxy):
                 state = state.state
-            return self.physics.substep(state, self._state, dt)
+            return self.physics.substep(state, self._state, dt, override_physics=physics)
 
 #     def on_change(self, observer):
 #         """

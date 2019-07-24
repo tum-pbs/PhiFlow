@@ -26,19 +26,25 @@ def domain(smoke, obstacles):
 
 class SmokePhysics(Physics):
 
-    def __init__(self, pressure_solver=None):
+    def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True):
         Physics.__init__(self, {'obstacles': ['obstacle'], 'inflows': 'inflow'})
         self.pressure_solver = pressure_solver
+        self.make_input_divfree = make_input_divfree
+        self.make_output_divfree = make_output_divfree
 
     def step(self, smoke, dt=1.0, obstacles=(), inflows=(), **dependent_states):
         assert len(dependent_states) == 0
         domaincache = domain(smoke, obstacles)
         # step
+        velocity = smoke.velocity
+        if self.make_input_divfree:
+            velocity = divergence_free(velocity, domaincache, self.pressure_solver, smoke=smoke)
         inflow_density = dt * inflow(inflows, smoke.grid)
-        density = smoke.velocity.advect(smoke.density, dt=dt) + inflow_density
-        velocity = stick(smoke.velocity, domaincache, dt)
+        density = velocity.advect(smoke.density, dt=dt) + inflow_density
+        velocity = stick(velocity, domaincache, dt)
         velocity = velocity.advect(velocity, dt=dt) + dt * buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor)
-        velocity = divergence_free(velocity, domaincache, self.pressure_solver, smoke=smoke)
+        if self.make_output_divfree:
+            velocity = divergence_free(velocity, domaincache, self.pressure_solver, smoke=smoke)
         return smoke.copied_with(density=density, velocity=velocity, age=smoke.age + dt)
 
 

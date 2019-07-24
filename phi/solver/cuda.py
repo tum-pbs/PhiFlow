@@ -2,6 +2,8 @@ import tensorflow as tf
 import os
 from numbers import Number
 from phi.solver.base import *
+from phi import math
+import numpy as np
 
 
 # Load Custom Ops
@@ -34,16 +36,15 @@ class CUDA(PressureSolver):
         else:
             self.max_gradient_iterations = max_gradient_iterations
 
-    def solve(self, divergence, active_mask, fluid_mask, boundaries, pressure_guess):
+    def solve(self, divergence, domain, pressure_guess):
         # pressure_guess: not used in this implementation, Kernel takes the last pressure value for initial_guess
-        active_mask = valid_active_mask(active_mask, divergence, boundaries)
-        fluid_mask = valid_fluid_mask(fluid_mask, divergence, boundaries)
+        active, accessible = domain.active(extend=1), domain.accessible(extend=1)
 
         def pressure_gradient(op, grad):
-            return cuda_solve_forward(grad, active_mask, fluid_mask, self.gradient_accuracy, max_gradient_iterations)[0]
+            return cuda_solve_forward(grad, active, accessible, self.gradient_accuracy, max_gradient_iterations)[0]
 
         pressure, iter = math.with_custom_gradient(cuda_solve_forward,
-                                                   [divergence, active_mask, fluid_mask, self.accuracy, self.max_iterations],
+                                                   [divergence, active, accessible, self.accuracy, self.max_iterations],
                                                    pressure_gradient, input_index=0, output_index=0, name_base='cuda_pressure_solve')
         max_gradient_iterations = iter if self.max_gradient_iterations == 'mirror' else self.max_gradient_iterations
         return pressure, iter

@@ -149,7 +149,7 @@ class FieldSequenceModel(object):
     def add_field(self, name, generator):
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if not callable(generator):
-            assert isinstance(generator, numpy.ndarray)
+            assert isinstance(generator, (numpy.ndarray, phi.math.nd.StaggeredGrid))
             array = generator
             generator = lambda: array
         self.fields[name] = TimeDependentField(name, generator)
@@ -271,9 +271,20 @@ class FieldSequenceModel(object):
         return self.summary
 
     def show(self, *args, **kwargs):
-        from phi.viz.dash_gui import DashFieldSequenceGui
-        gui = DashFieldSequenceGui(self, *args, **kwargs)
-        return gui.show()
+        headless = 'headless' in sys.argv
+        gui = None
+        if not headless:
+            from phi.viz.dash_gui import DashFieldSequenceGui
+            gui = DashFieldSequenceGui(self, *args, **kwargs)
+        # --- Autorun ---
+        if 'autorun' in sys.argv:
+            self.info('Starting execution because autorun is enabled.')
+            self.play()
+        # --- Show ---
+        if gui is None:
+            return self
+        else:
+            return gui.show()  # blocking call
 
     @property
     def status(self):

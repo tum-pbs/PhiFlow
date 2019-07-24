@@ -35,7 +35,7 @@ class FieldSequenceModel(nontf.FieldSequenceModel):
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
         setattr(self, 'float_'+name.lower(), val)
-        placeholder = tf.placeholder(tf.float32, (), name.lower())
+        placeholder = tf.placeholder(tf.float32, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
         self.editable_placeholders[placeholder] = 'float_'+name.lower()
         return placeholder
@@ -43,7 +43,7 @@ class FieldSequenceModel(nontf.FieldSequenceModel):
     def editable_int(self, name, initial_value, minmax=None):
         val = EditableInt(name, initial_value, minmax, None)
         setattr(self, 'int_'+name.lower(), val)
-        placeholder = tf.placeholder(tf.float32, (), name.lower())
+        placeholder = tf.placeholder(tf.float32, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
         self.editable_placeholders[placeholder] = 'int_'+name.lower()
         return placeholder

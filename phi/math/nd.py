@@ -54,6 +54,24 @@ Multiplies the target so that its total content matches the source.
     return target * (math.sum(source) / math.sum(target))
 
 
+def blur(field, radius, cutoff=None, kernel="1/1+x"):
+    if cutoff is None:
+        cutoff = min(int(round(radius * 3)), *field.shape[1:-1])
+
+    xyz = np.meshgrid(*[range(-int(cutoff), (cutoff)+1) for _ in field.shape[1:-1]])
+    d = np.float32(np.sqrt(np.sum([x ** 2 for x in xyz], axis=0)))
+    if kernel == "1/1+x":
+        weights = np.float32(1) / ( d / radius + 1)
+    elif kernel.lower() == "gauss":
+        weights = math.exp(- d / radius / 2)
+    else:
+        raise ValueError("Unknown kernel: %s"%kernel)
+    weights /= math.sum(weights)
+    weights = math.reshape(weights, list(weights.shape) + [1, 1])
+    return math.conv(field, weights)
+
+
+
 def l1_loss(tensor, batch_norm=True, reduce_batches=True):
     if isinstance(tensor, StaggeredGrid):
         tensor = tensor.staggered

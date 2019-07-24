@@ -141,7 +141,7 @@ class TFBackend(Backend):
         rank = tensor_spatial_rank(tensor)
         padding = padding.upper()
         if rank == 1:
-            result = tf.nn.conv1d(tensor, kernel, [1, 1, 1], padding)
+            result = tf.nn.conv1d(tensor, kernel, 1, padding)
         elif rank == 2:
             result = tf.nn.conv2d(tensor, kernel, [1, 1, 1, 1], padding)
         elif rank == 3:
