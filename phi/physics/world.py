@@ -1,6 +1,8 @@
 from .collective import CollectiveState, CollectivePhysics
 from .smoke import *
 from .burger import *
+from .obstacle import *
+from .effect import *
 
 
 class StateProxy(object):
@@ -53,11 +55,12 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
-def _proxy_wrap(world, constructor):
+def _proxy_wrap(world, constructor, static):
     def buildadd(*args, **kwargs):
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = world.batch_size
-        state = constructor(*args, **kwargs)
+        invok = constructor.__func__ if static else constructor
+        state = invok(*args, **kwargs)
         world.add(state)
         return StateProxy(world, state.trajectorykey)
     return buildadd
@@ -77,15 +80,18 @@ class World(object):
         self.physics = self._state.default_physics()
         self.observers = set()
         self.batch_size = None
-        # Physics Shortcuts
-        for target,source in {'Smoke': Smoke, 'Burger': Burger,
-                              'Inflow': Inflow, 'Obstacle': Obstacle}.items():
-            setattr(self, target, _proxy_wrap(self, source))
+        # --- Insert object / create proxy shortcuts ---
+        for proxy in ('Smoke', 'Burger', 'Obstacle'):
+            setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy), static=False))
+        for proxy in ('Inflow', 'Fan', 'ConstantDensity'):
+            setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy), static=True))
 
     Smoke = Smoke
     Burger = Burger
-    Inflow = Inflow
     Obstacle = Obstacle
+    Inflow = Inflow
+    Fan = Fan
+    ConstantDensity = ConstantDensity
 
     @property
     def state(self):
@@ -110,7 +116,7 @@ Otherwise, all states are evolved.
 
 Calling World.step resolves all dependencies among simulations and then calls Physics.step on each simulation to evolve the states.
 
-Invoking this method alters the world state. To create a copy of the state, use :func:`World.stepped <~world.World.stepped>` instead.
+Invoking this method alters the world state. To to_field a copy of the state, use :func:`World.stepped <~world.World.stepped>` instead.
         :param state: State, StateProxy or None
         :param dt: time increment, default 1.0
         :param physics: Physics object for the state or None for default

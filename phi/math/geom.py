@@ -111,6 +111,11 @@ class Grid(Struct):
         idx_zyx = np.meshgrid(*[np.arange(0.5,dim+0.5,1) for dim in self.dimensions], indexing="ij")
         return expand_dims(stack(idx_zyx, axis=-1), 0)
 
+    def staggered_points(self, dimension):
+        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+1.5,1) if dim != dimension else np.arange(0,dim+1,1) for dim in self.dimensions], indexing="ij")
+        return expand_dims(stack(idx_zyx, axis=-1), 0)
+
+
     def indices(self):
         """
     Constructs a grid containing the index-location as components.

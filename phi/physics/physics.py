@@ -7,7 +7,7 @@ class TrajectoryKey(object):
 
 class State(Struct):
 
-    __struct__ = struct.Def((), ('_age',))
+    __struct__ = struct.Def((), ('_age', '_tags'))
 
     def __init__(self, tags=(), age=0.0, batch_size=None):
         self._tags = tuple(tags)

@@ -1,6 +1,6 @@
 
-from .geom import *
-from .objects import *
+from phi.math.geom import *
+from .obstacle import *
 from .material import *
 
 

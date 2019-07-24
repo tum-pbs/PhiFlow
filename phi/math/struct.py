@@ -59,7 +59,7 @@ class Struct(object):
         return {p.name: getattr(self, p.name) for p in self.__class__.__struct__.properties}
 
     def __properties_dict__(self):
-        result = {p.name: properties_dict(getattr(self, p.name)) for p in self.__class__.__struct__.properties}
+        result = {p.name: properties_dict(getattr(self, p.name)) for p in self.__class__.__struct__.properties if p.is_property}
         for a in self.__class__.__struct__.attributes:
             if isstruct(getattr(self, a.name)):
                 result[a.name] = properties_dict(getattr(self, a.name))
