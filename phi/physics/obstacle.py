@@ -1,5 +1,6 @@
 from .physics import *
 from .material import *
+from .effect import *
 
 
 class Obstacle(State):
@@ -35,8 +36,7 @@ class GeometryMovement(Physics):
         h = 1e-2 * dt if dt > 0 else 1e-2
         perturbed_geometry = self.geometry_at(obj.age + dt + h)
         velocity = (perturbed_geometry.center - next_geometry.center) / h
-        hasvelocity = 'velocity' in struct.properties(obj)
-        if hasvelocity:
+        if isinstance(obj, Obstacle):
             return obj.copied_with(geometry=next_geometry, velocity=velocity, age=obj.age + dt)
-        else:
-            return obj.copied_with(geometry=next_geometry, age=obj.age + dt)
+        if isinstance(obj, FieldEffect):
+            return obj.copied_with(field=obj.field.copied_with(bounds=next_geometry), age=obj.age + dt)

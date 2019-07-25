@@ -8,7 +8,7 @@ FIX = 'replace'
 
 class FieldEffect(State):
 
-    __struct__ = State.__struct__.extend((), ('_field', '_mode', '_targets', 'geometry'))
+    __struct__ = State.__struct__.extend((), ('_field', '_mode', '_targets'))
 
     def __init__(self, fieldlike, targets, mode=GROW, tags=('effect',), age=0.0, batch_size=None):
         State.__init__(self, tags=tuple(tags) + tuple('%s_effect' % target for target in targets), age=age, batch_size=batch_size)
@@ -27,14 +27,6 @@ class FieldEffect(State):
     @property
     def targets(self):
         return self._targets
-
-    @property
-    def geometry(self):
-        return self.field.bounds
-
-    @geometry.setter
-    def geometry(self, value):
-        self.field._bounds = value
 
     def apply_grid(self, target, grid, staggered, dt):
         if self._mode == GROW:
