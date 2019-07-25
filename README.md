@@ -31,7 +31,7 @@ $ git clone https://gitlab.lrz.de/ga67fet/phiflow.git
 $ pip install phiflow/[gui]
 ```
 
-See the [detailed installation instructions](documentation/install.md) on how to install Φ<sub>*Flow*</sub>
+See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to install Φ<sub>*Flow*</sub>
 with TensorFlow support.
 
 
@@ -45,18 +45,18 @@ If you would like to get right into it and have a look at some example code, che
 - [simpleplume.py](./apps/simpleplume.py): Runs a smoke simulation and displays it in the browser
 - [optimize_pressure.py](./apps/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
-The [simulation overview](documentation/sim.md) explains how to run predefined simulations using either the NumPy or TensorFlow backend. It also introduces the GUI.
+The [simulation overview](documentation/Simulation_Overview.md) explains how to run predefined simulations using either the NumPy or TensorFlow backend. It also introduces the GUI.
 
-The [simulation code design documentation](documentation/simdesign.md) provides a deeper look into the object-oriented code design of simulations.
+The [simulation code design documentation](documentation/Simulation_Architecture.md) provides a deeper look into the object-oriented code design of simulations.
 
-To learn how specific simulations are implemented, check out the documentation for [Smoke](documentation/smoke.md). 
+To learn how specific simulations are implemented, check out the documentation for [Smoke](documentation/Smoke_Simulation.md). 
 
-[Writing a Φ<sub>*Flow*</sub> Application](documentation/gui.md) introduces the high-level classes and expalins how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
+[Writing a Φ<sub>*Flow*</sub> Application](documentation/Browser_GUI.md) introduces the high-level classes and expalins how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
 
-For training machine learning models, [this document](documentation/tfmodel.md) gives an introduction int o writing a GUI-enabled application.
+For training machine learning models, [this document](documentation/Interactive_Training_Apps.md) gives an introduction int o writing a GUI-enabled application.
 
 
-For I/O and data management, see the [data documentation](documentation/data.md).
+For I/O and data management, see the [data documentation](documentation/Reading_and_Writing_Data.md).
 
 ## Known Issues
 

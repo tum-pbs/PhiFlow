@@ -2,7 +2,7 @@
 # Simulations in Φ<sub>*Flow*</sub>
 
 This document gives an overview of how to run simulations using Φ<sub>*Flow*</sub>.
-For a deeper look into how the code is structured, check out [the simulation architecture documentaiton](simdesign.md).
+For a deeper look into how the code is structured, check out [the simulation architecture documentaiton](Simulation_Architecture.md).
 If you are interested in how specific simulations work, check out their respective documentations, e.g.
 [Smoke](documentation/smoke.md).
 
@@ -29,7 +29,7 @@ This includes fields such as `smoke.density`, `smoke.velocity` as well as proper
 Note that while `smoke.density` directly returns a NumPy array, the velocity is held in staggered form and
 `smoke.velocity` returns an instance of `StaggeredGrid`.
 To access the actual NumPy array holding the staggered values, write `smoke.velocity.staggered` (read-only).
-For more on staggered grids, see [the documentation](./staggered.md).
+For more on staggered grids, see [the documentation](Staggered_Grids.md).
 
 To run a simulation, we can use the `step` method:
 
@@ -45,7 +45,7 @@ Accessing any property of a simulation reference (such as `smoke`) will now retu
 
 To use the browser-based GUI that comes with Φ<sub>*Flow*</sub>, we need to wrap our simulation code with a
 `FieldSequenceModel`.
-How to use `FieldSequenceModel`s is documented [here](./gui.md).
+How to use `FieldSequenceModel`s is documented [here](Browser_GUI.md).
 
 The following code is taken from [the simpleplume example](../apps/simpleplume.py).
 
@@ -75,7 +75,7 @@ Slightly more complex examples can be found in
 
 ### Running on the GPU
 
-For GPU execution, TensorFlow needs to be installed (see the [installation instructions](./install.md)).
+For GPU execution, TensorFlow needs to be installed (see the [installation instructions](Installation_Instructions.md)).
 To run the simulation using TensorFlow, change the first line `from phi.flow import *` to `from phi.tf.flow import *`.
 This replaces the imported `FieldSequenceModel` with a TensorFlow-enabled version.
 This new `FieldSequenceModel` bakes the physics into a TensorFlow graph in `show()` before the GUI is launched.

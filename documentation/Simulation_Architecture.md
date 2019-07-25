@@ -41,7 +41,7 @@ state1 = SMOKE.step(state0, dt=1.0, inflows=[inflow])
 The constructor of [`Smoke`](../phi/physics/smoke.py) takes the same arguments as `world.Smoke` but unlike the return value of `world.Smoke`, `Smoke` is an immutable object.
 
 `SMOKE` is a global instance of [`SmokePhysics`](../phi/physics/smoke.py), a subclass of [`Physics`](../phi/physics/physics.py).
-We could also create our own physics object, e.g. to use a specific [pressure solver](solvers.md):
+We could also create our own physics object, e.g. to use a specific [pressure solver](Pressure_Solvers.md):
 ```python
 physics = SmokePhysics(custom_solver)
 physics.step(state0)

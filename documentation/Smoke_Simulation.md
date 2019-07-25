@@ -16,9 +16,9 @@ smoke = Smoke(Domain([64, 64]), density=0, velocity=0, buoyancy_factor=0.1, cons
 
 The `step` method, defined in [`SmokePhysics`](../phi/physics/smoke.py), executes the steps mentioned above.
 
-The velocity of a smoke state is sampled in [staggered form](staggered.md), i.e. an instance of
+The velocity of a smoke state is sampled in [staggered form](Staggered_Grids.md), i.e. an instance of
 [`StaggeredGrid`](../phi/math/nd.py).
 
 For the pressure solve, a [`PressuresSolver`](../phi/solver/base.py) object is managed by the `SmokePhysics`.
-The [documentation on pressure solvers](solvers.md) explains the differences between the available solvers.
+The [documentation on pressure solvers](Pressure_Solvers.md) explains the differences between the available solvers.
 

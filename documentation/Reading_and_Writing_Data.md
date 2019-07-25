@@ -1,7 +1,7 @@
 # Reading and writing simulation data
 
 This document describes how simulation data can be written and read using Φ<sub>*Flow*</sub>.
-The data format itself is described in the [data format specification](sceneformat.md).
+The data format itself is described in the [data format specification](Scene_Format_Specification.md).
 
 
 ## Referencing a scene object
@@ -28,7 +28,7 @@ It also copies the python script that created that scene into the `src` folder u
 ## Reading from a specific scene
 
 The main simulation data is stored in individual files, one for each field and frame.
-Other properties are listed in the accompanying `description.json` (see the [data format specification](sceneformat.md)).
+Other properties are listed in the accompanying `description.json` (see the [data format specification](Scene_Format_Specification.md)).
 
 The following table gives an overview of what information can be obtained from a `scene` object.
 
@@ -56,7 +56,7 @@ densities, velocities = scene.read_sim_frames(fieldnames=['density', 'velocity']
 smoke = scene.read(Smoke(), frame=0)
 ```
 
-The last call makes use of Φ<sub>*Flow*</sub>'s [`struct` system](structs.md).
+The last call makes use of Φ<sub>*Flow*</sub>'s [`struct` system](Structs.md).
 
 
 ## Writing to a scene
@@ -94,7 +94,7 @@ whole_dataset = Dataset.load('~/phi/data/simpleplume')
 training_data = Dataset.load('~/phi/data/simpleplume', range(1000), name='train')
 ```
 
-Classes that extend [`TFModel`](../phi/tf/model.py) only need to call `self.set_data`, passing a training and validation dataset as well as a struct containing TensorFlow placeholders (see the [documentation](tfmodel.md)).
+Classes that extend [`TFModel`](../phi/tf/model.py) only need to call `self.set_data`, passing a training and validation dataset as well as a struct containing TensorFlow placeholders (see the [documentation](Interactive_Training_Apps.md)).
 
 ### Channels
 

@@ -1,7 +1,7 @@
 # Interactive training or optimization
 
 This document assumes you have some basic knowledge of `FieldSequenceModels` and how they interact with the GUI.
-If not, checkout the [documentation](gui.md).
+If not, checkout the [documentation](Browser_GUI.md).
 
 If the purpose of your application is to train a TensorFlow model, your main application class should extend [TFModel](../phi/tf/model.py) which in turn extends `FieldSequenceModel`.
 This has a couple of benefits:
@@ -10,7 +10,7 @@ This has a couple of benefits:
 - Summaries including the loss value are created and can easily be extended using `add_scalar`
 - [TensorBoard](https://www.tensorflow.org/guide/summaries_and_tensorboard) can be launched from the GUI
 - Profiling tools can be used in the browser
-- A database is set up (see [the guide on data handling](data.md))
+- A database is set up (see [the guide on data handling](Reading_and_Writing_Data.md))
 - The `step` method is implemented by default
 - Tensor nodes and database channel names can be passed to `add_field`
 - Properties and the application source file are written to the output directory
@@ -54,7 +54,7 @@ Now that the network inputs are set up, the network can be built. The use of `wi
 The `l2_loss` is part of Φ<sub>*Flow*</sub>'s n-d math package but a regular TensorFlow loss can also be used.
 The inherited method `add_objective` sets up the optimizer. This optimizer will be used in the default `step` implementation.
 
-The following block sets up the database by registering the required fields and adding all scenes from one category (see [the data documentation](data.md) for more).
+The following block sets up the database by registering the required fields and adding all scenes from one category (see [the data documentation](Reading_and_Writing_Data.md) for more).
 The call to `finalize_setup` is mandatory in the constructor and sets up the TensorFlow summary as well as database iterators.
 
 Finally, the viewable fields are exposed to the GUI. The first line exposes the channel `Force` which was registered with the database while the second line exposes the graph output `pred_force` which will be recalculated each time the GUI is updated.

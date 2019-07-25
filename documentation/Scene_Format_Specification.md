@@ -2,7 +2,7 @@
 # Data format specification
 
 Φ<sub>*Flow*</sub> and [MantaFlow](http://mantaflow.com/) use a similar format to store simulation data.
-This document explains the file structure of this format. If you only want to read an write data without knowing the specifics, check out the [data documentation](data.md).
+This document explains the file structure of this format. If you only want to read an write data without knowing the specifics, check out the [data documentation](Reading_and_Writing_Data.md).
 
 The data format specifies the following elements:
 

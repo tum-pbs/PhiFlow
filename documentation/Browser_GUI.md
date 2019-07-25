@@ -7,7 +7,7 @@
 
 The default GUI will display your application in the browser.
 If you intend to use the GUI for interactive training of a TensorFlow model, make sure to read the 
-[TensorFlow specific section](tfmodel.md) as well. Else, you can simply create a subclass of [FieldSequenceModel](../phi/model.py) as described below.
+[TensorFlow specific section](Interactive_Training_Apps.md) as well. Else, you can simply create a subclass of [FieldSequenceModel](../phi/model.py) as described below.
 
 ## Launching the GUI
 

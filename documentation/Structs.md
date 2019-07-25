@@ -1,4 +1,3 @@
-
 # Structs
 
 In the most general sense, structs are containers for data.
@@ -98,7 +97,7 @@ The `placeholder` and `variable` initializers also infer the name of the resulti
 ### Data I/O
 
 The data writing and reading system accepts structs and automatically infers their names from the attributes.
-See the [data documentation](data.md).
+See the [data documentation](Reading_and_Writing_Data.md).
 
 
 ### Session
