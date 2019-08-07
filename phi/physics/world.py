@@ -57,8 +57,11 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
+
+
+
 def _proxy_wrap(world, constructor):
-    const_args = inspect.getfullargspec(constructor)[0]
+    const_args = inspect.getargspec(constructor)[0]
     static = const_args[0] != 'self'
     def buildadd(*args, **kwargs):
         if 'batch_size' not in kwargs and 'batch_size' in const_args:
