@@ -57,9 +57,6 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
-
-
-
 def _proxy_wrap(world, constructor):
     try:
         const_args = inspect.getargspec(constructor)[0]
