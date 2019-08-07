@@ -58,10 +58,10 @@ class StateProxy(object):
 
 
 def _proxy_wrap(world, constructor):
-    args = inspect.getfullargspec(constructor)[0]
-    static = args[0] != 'self'
+    const_args = inspect.getfullargspec(constructor)[0]
+    static = const_args[0] != 'self'
     def buildadd(*args, **kwargs):
-        if 'batch_size' not in kwargs and 'batch_size' in args:
+        if 'batch_size' not in kwargs and 'batch_size' in const_args:
             kwargs['batch_size'] = world.batch_size
         invok = constructor.__func__ if static else constructor
         state = invok(*args, **kwargs)
