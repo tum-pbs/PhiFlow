@@ -62,3 +62,6 @@ class ConstantField(Field):
             return self.value
         else:
             return self.bounds.value_at(location) * self.value
+
+    def __repr__(self):
+        return repr(self._value)

@@ -1,8 +1,10 @@
 from .collective import CollectiveState, CollectivePhysics
 from .smoke import *
 from .burger import *
+from .heat import *
 from .obstacle import *
 from .effect import *
+import inspect
 
 
 class StateProxy(object):
@@ -55,9 +57,11 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
-def _proxy_wrap(world, constructor, static):
+def _proxy_wrap(world, constructor):
+    args = inspect.getfullargspec(constructor)[0]
+    static = args[0] != 'self'
     def buildadd(*args, **kwargs):
-        if 'batch_size' not in kwargs:
+        if 'batch_size' not in kwargs and 'batch_size' in args:
             kwargs['batch_size'] = world.batch_size
         invok = constructor.__func__ if static else constructor
         state = invok(*args, **kwargs)
@@ -81,10 +85,9 @@ class World(object):
         self.observers = set()
         self.batch_size = None
         # --- Insert object / create proxy shortcuts ---
-        for proxy in ('Smoke', 'Burger', 'Obstacle'):
-            setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy), static=False))
-        for proxy in ('Inflow', 'Fan', 'ConstantDensity'):
-            setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy), static=True))
+        for proxy in ('Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
+                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource'):
+            setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Smoke = Smoke
     Burger = Burger
@@ -92,6 +95,11 @@ class World(object):
     Inflow = Inflow
     Fan = Fan
     ConstantDensity = ConstantDensity
+    Heat = Heat
+    ConstantTemperature = ConstantTemperature
+    HeatSource = HeatSource
+    ColdSource = ColdSource
+
 
     @property
     def state(self):

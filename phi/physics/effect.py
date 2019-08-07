@@ -45,7 +45,19 @@ class FieldEffect(State):
         else:
             raise ValueError('Invalid mode: %s' % self.mode)
 
+    def __repr__(self):
+        return '%s(%s to %s)' % (self.mode, self. field, self.targets)
 
-Inflow = lambda geometry, rate=1.0, batch_size=None: FieldEffect(ConstantField(geometry, rate), ('density',), GROW, tags=('inflow', 'effect'), batch_size=batch_size)
-Fan = lambda geometry, acceleration, batch_size=None: FieldEffect(ConstantField(geometry, acceleration), ('velocity',), GROW, tags=('fan', 'effect'))
-ConstantDensity = lambda geometry, density, batch_size=None: FieldEffect(ConstantField(geometry, density), ('density',), FIX)
+
+Inflow = lambda geometry, rate=1.0:\
+    FieldEffect(ConstantField(geometry, rate), ('density',), GROW, tags=('inflow', 'effect'))
+Fan = lambda geometry, acceleration:\
+    FieldEffect(ConstantField(geometry, acceleration), ('velocity',), GROW, tags=('fan', 'effect'))
+ConstantDensity = lambda geometry, density:\
+    FieldEffect(ConstantField(geometry, density), ('density',), FIX)
+ConstantTemperature = lambda geometry, temperature:\
+    FieldEffect(ConstantField(geometry, temperature), ('temperature',), FIX)
+HeatSource = lambda geometry, rate:\
+    FieldEffect(ConstantField(geometry, rate), ('temperature',), GROW)
+ColdSource = lambda geometry, rate:\
+    FieldEffect(ConstantField(geometry, -rate), ('temperature',), GROW)

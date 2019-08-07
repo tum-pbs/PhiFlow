@@ -2,7 +2,7 @@ from .smoke import *
 
 
 class Burger(State):
-    __struct__ = State.__struct__.extend(('_velocity',), ('_viscosity',))
+    __struct__ = State.__struct__.extend(('_velocity',), ('_domain', '_viscosity',))
 
     def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
         State.__init__(self, tags=('burger', 'velocityfield'), batch_size=batch_size)
