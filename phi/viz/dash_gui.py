@@ -80,7 +80,7 @@ class DashFieldSequenceGui:
         model_inputs = [Input(control.id, 'n_clicks') for control in field_sequence_model.actions]
         model_inputs += [Input(control.id, 'value') for control in model_floats]
         model_inputs += [Input(control.id, 'value') for control in model_ints]
-        model_inputs += [Input(control.id, 'values') for control in model_bools]
+        model_inputs += [Input(control.id, 'value') for control in model_bools]
 
         self.app.layout = html.Div([
                                     dcc.Markdown('# %s' % field_sequence_model.name)
@@ -363,7 +363,7 @@ class DashFieldSequenceGui:
                 return 1
 
         for control in model_bools:
-            @self.app.callback(Output(control.id, 'style'), [Input(control.id, 'values')])
+            @self.app.callback(Output(control.id, 'style'), [Input(control.id, 'value')])
             def set_model_bool(values, control=control):
                 control.value = True if values else False
                 return {}
