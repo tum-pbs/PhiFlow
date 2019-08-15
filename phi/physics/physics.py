@@ -1,4 +1,4 @@
-from phi.math import Struct, struct
+from phi.math import Struct, struct, shape
 
 
 class TrajectoryKey(object):
@@ -25,6 +25,14 @@ class State(Struct):
 
     def default_physics(self):
         return STATIC
+
+    @property
+    def shape(self):
+        def tensorshape(tensor):
+            default_batched_shape = shape(tensor)
+            if len(default_batched_shape) >= 2:
+                return [self._batch_size] + list(default_batched_shape)[1:]
+        return struct.map(tensorshape, self)
 
 
 class Physics(object):

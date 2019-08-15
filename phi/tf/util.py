@@ -3,6 +3,7 @@ import tensorflow as tf
 from phi.math.nd import *
 from tensorflow.python import pywrap_tensorflow
 from phi.math.initializers import _is_python_shape
+import warnings
 
 
 def _tf_name(attr, basename):
@@ -16,9 +17,13 @@ def placeholder(shape, dtype=np.float32, basename=None):
     f = lambda attr: tf.placeholder(dtype, attr.value, _tf_name(attr, basename))
     return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True)
 
+
 def placeholder_like(obj, dtype=np.float32, basename=None):
+    warnings.warn("placeholder_like may not respect the batch dimension. "
+                  "For State objects, use placeholder(state.shape) instead.", DeprecationWarning, stacklevel=2)
     f = lambda attr: tf.placeholder(dtype, attr.value.shape, _tf_name(attr, basename))
     return struct.map(f, obj, leaf_condition=_is_python_shape, trace=True)
+
 
 def variable(initializer, dtype=np.float32, basename=None, trainable=True):
     def create_variable(shape):
