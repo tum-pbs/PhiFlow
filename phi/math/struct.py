@@ -67,17 +67,18 @@ class Struct(object):
         result['module'] = str(self.__class__.__module__)
         return result
 
-
-
     def __eq__(self, other):
         if type(self) != type(other): return False
         for attr in self.__class__.__struct__.all:
             v1 = getattr(self, attr.name)
             v2 = getattr(other, attr.name)
-            try:
-                if v1 != v2: return False
-            except:
-                if v1 is not v2: return False
+            if isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
+                if not np.all(np.equal(v1, v2)): return False
+            else:
+                try:
+                    if v1 != v2: return False
+                except:
+                    if v1 is not v2: return False
         return True
 
     def __ne__(self, other):

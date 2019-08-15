@@ -129,8 +129,9 @@ class TFModel(FieldSequenceModel):
             optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
         if reg is not None:
-            self.add_scalar(name+'_reg', reg)
-            optim_function = loss + reg
+            self.add_scalar(name+'_reg_unscaled', reg)
+            reg_scale = self.editable_float(name + '_reg_scale', 1.0)
+            optim_function = loss + reg * reg_scale
         else:
             optim_function = loss
 

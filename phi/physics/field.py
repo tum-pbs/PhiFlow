@@ -15,7 +15,7 @@ class Field(State):
         return self._bounds
 
     def sample_at(self, location):
-        pass
+        raise NotImplementedError(self)
 
     def sample_component_at(self, component, location):
         all_components = self.sample_at(location)
@@ -65,3 +65,27 @@ class ConstantField(Field):
 
     def __repr__(self):
         return repr(self._value)
+
+
+class GridField(Field):
+
+    def __init__(self, domain, values, **kwargs):
+        Field.__init__(self, domain.grid.box, **kwargs)
+        self._values = values
+        self._domain = domain
+
+    def sample_grid(self, grid, staggered=False):
+        if staggered:
+            raise NotImplementedError(self)
+        if grid == self._domain.grid:
+            return self._values
+        else:
+            return self.sample_at(grid.center_points())
+
+    @property
+    def values(self):
+        return self._values
+
+    @property
+    def domain(self):
+        return self._domain
