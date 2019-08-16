@@ -3,11 +3,11 @@ from phi.math.geom import *
 from phi import math
 
 
-class Field(State):
-    __struct__ = State.__struct__.extend((), ('_bounds',))
+class Field(Struct):
+    __struct__ = Struct.__struct__.extend((), ('_bounds',))
 
-    def __init__(self, bounds=None, tags=(), age=0.0, batch_size=None):
-        State.__init__(self, tags=tags, age=age, batch_size=batch_size)
+    def __init__(self, bounds=None):
+        Struct.__init__(self)
         self._bounds = bounds
 
     @property
@@ -47,8 +47,8 @@ class ConstantField(Field):
 
     __struct__ = Field.__struct__.extend((), ('_value',))
 
-    def __init__(self, bounds=None, value=1.0, tags=(), age=0.0, batch_size=None):
-        Field.__init__(self, bounds, tags, age, batch_size)
+    def __init__(self, bounds=None, value=1.0):
+        Field.__init__(self, bounds)
         if isinstance(value, math.Number):
             value = math.expand_dims(value)
         self._value = value
@@ -69,8 +69,8 @@ class ConstantField(Field):
 
 class GridField(Field):
 
-    def __init__(self, domain, values, **kwargs):
-        Field.__init__(self, domain.grid.box, **kwargs)
+    def __init__(self, domain, values):
+        Field.__init__(self, domain.grid.box)
         self._values = values
         self._domain = domain
 
