@@ -43,7 +43,7 @@ class Heat(State):
 class HeatPhysics(Physics):
 
     def __init__(self):
-        Physics.__init__(self, {'effects': 'temperature_effect'})
+        Physics.__init__(self, blocking_dependencies={'effects': 'temperature_effect'})
 
     def step(self, heat, dt=1.0, effects=()):
         temperature = heat.temperature + heat.diffusivity * laplace(heat.temperature)
