@@ -2,6 +2,11 @@ from phi.math import Struct, struct, shape
 
 
 class TrajectoryKey(object):
+    """
+    Used to identify State objects that are part of one trajectory.
+    States from the same trajectory reference the same TrajectoryKey object.
+    TrajectoryKey objects use their object identity with the default equals and hash implementation.
+    """
     pass
 
 
