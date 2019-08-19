@@ -274,6 +274,7 @@ class Scene(object):
             indices = [i for i in indices if indexfilter(i)]
         if max_count and len(indices) >=  max_count:
             indices = indices[0:max_count]
+        indices = sorted(indices)
         return [Scene(directory, category, scene_index) for scene_index in indices]
 
     @staticmethod
