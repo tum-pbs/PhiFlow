@@ -101,7 +101,7 @@ class World(object):
         self.batch_size = None
         # --- Insert object / create proxy shortcuts ---
         for proxy in ('Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
-                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource'):
+                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Smoke = Smoke
@@ -114,6 +114,7 @@ class World(object):
     ConstantTemperature = ConstantTemperature
     HeatSource = HeatSource
     ColdSource = ColdSource
+    FieldEffect = FieldEffect
 
 
     @property

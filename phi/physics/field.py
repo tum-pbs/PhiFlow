@@ -34,6 +34,8 @@ class Field(Struct):
 
     @staticmethod
     def to_field(value):
+        if value is None:
+            return None
         if isinstance(value, Field):
             return value
         if isinstance(value, Geometry):
@@ -89,3 +91,6 @@ class GridField(Field):
     @property
     def domain(self):
         return self._domain
+
+    def __repr__(self):
+        return 'Grid'

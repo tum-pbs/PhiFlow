@@ -6,7 +6,7 @@ class Heat(State):
     __struct__ = State.__struct__.extend(('_temperature',), ('_domain', '_diffusivity'))
 
     def __init__(self, domain, temperature=0.0, diffusivity=0.1, batch_size=None):
-        State.__init__(self, tags=('heat', 'temperaturefield'), batch_size=batch_size)
+        State.__init__(self, tags=('heat', 'pde', 'temperaturefield'), batch_size=batch_size)
         self._domain = domain
         self._temperature = temperature
         self._diffusivity = diffusivity

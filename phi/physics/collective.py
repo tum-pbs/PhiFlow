@@ -90,13 +90,12 @@ class CollectivePhysics(Physics):
             for state in unhandled_states:
                 physics = self.for_(state)
                 if self._all_dependencies_fulfilled(physics.blocking_dependencies, collectivestate, partial_next_collectivestate):
-                    next_state = self.substep(state, collectivestate, dt)
+                    next_state = self.substep(state, collectivestate, dt, partial_next_collectivestate=partial_next_collectivestate)
                     next_states.append(next_state)
                     unhandled_states.remove(state)
+            partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
             if len(unhandled_states) == 0:
                 return partial_next_collectivestate
-            else:
-                partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
 
         raise AssertionError('Cyclic blocking_dependencies in simulation.')
 

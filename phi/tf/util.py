@@ -33,6 +33,9 @@ def variable(initializer, dtype=np.float32, basename=None, trainable=True):
     return create_variable
 
 
+def isplaceholder(obj):
+    return isinstance(obj, tf.Tensor) and obj.op.type == 'Placeholder'
+
 
 def group_normalization(x, group_count, eps=1e-5):
     batch_size, H, W, C = tf.shape(x)
