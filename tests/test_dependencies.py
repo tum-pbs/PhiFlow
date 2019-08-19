@@ -2,7 +2,7 @@ from unittest import TestCase
 from phi.flow import *
 
 
-class TestPhysics(Physics):
+class CustomPhysics(Physics):
 
     def __init__(self, name, list, deps, blocking):
         Physics.__init__(self, deps, blocking)
@@ -19,10 +19,8 @@ class TestDependencies(TestCase):
     def test_order(self):
         world = World()
         order = []
-        inflow = world.Inflow(box[0:0])
-        inflow.physics = TestPhysics('Inflow', order, {}, {'d': 'fan'})
-        fan = world.Fan(box[0:0], 0)
-        fan.physics = TestPhysics('Fan', order, {}, {})
+        world.Inflow(box[0:0], physics=CustomPhysics('Inflow', order, {}, {'d': 'fan'}))
+        world.Fan(box[0:0], 0, physics=CustomPhysics('Fan', order, {}, {}))
         world.step()
         np.testing.assert_equal(order, ['Fan', 'Inflow'])
 
@@ -30,9 +28,9 @@ class TestDependencies(TestCase):
         world = World()
         order = []
         inflow = world.Inflow(box[0:0])
-        inflow.physics = TestPhysics('Inflow', order, {}, {'d': 'fan'})
+        inflow.physics = CustomPhysics('Inflow', order, {}, {'d': 'fan'})
         fan = world.Fan(box[0:0], 0)
-        fan.physics = TestPhysics('Fan', order, {}, {'d': 'inflow'})
+        fan.physics = CustomPhysics('Fan', order, {}, {'d': 'inflow'})
         try:
             world.step()
             self.fail('Cycle not recognized.')

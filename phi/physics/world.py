@@ -70,10 +70,18 @@ def _proxy_wrap(world, constructor):
     def buildadd(*args, **kwargs):
         if 'batch_size' not in kwargs and 'batch_size' in const_args:
             kwargs['batch_size'] = world.batch_size
+        if 'physics' in kwargs:
+            physics = kwargs['physics']
+            assert physics is not None
+            del kwargs['physics']
+        else: physics = None
         invok = constructor.__func__ if static else constructor
         state = invok(*args, **kwargs)
         world.add(state)
-        return StateProxy(world, state.trajectorykey)
+        proxy = StateProxy(world, state.trajectorykey)
+        if physics is not None:
+            proxy.physics = physics
+        return proxy
     return buildadd
 
 
