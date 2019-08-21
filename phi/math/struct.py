@@ -164,6 +164,9 @@ class Trace(object):
         else:
             return self.name
 
+    def __repr__(self):
+        return "%s = %s" % (self.path(), self.value)
+
 
 def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):
     if trace is True:

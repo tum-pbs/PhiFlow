@@ -50,6 +50,10 @@ class CollectiveState(State):
             return self.get_by_tag(item)
         if isinstance(item, (tuple, list)):
             return [self[i] for i in item]
+        try:
+            return self[item.trajectorykey]
+        except:
+            pass
         raise ValueError('Illegal argument: %s' % item)
 
     def default_physics(self):

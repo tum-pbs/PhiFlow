@@ -71,6 +71,8 @@ class ConstantField(Field):
 
 class GridField(Field):
 
+    __struct__ = Field.__struct__.extend(('_values',), ('_domain',))
+
     def __init__(self, domain, values):
         Field.__init__(self, domain.grid.box)
         self._values = values

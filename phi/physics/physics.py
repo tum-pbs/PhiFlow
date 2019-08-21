@@ -34,6 +34,7 @@ class State(Struct):
     @property
     def shape(self):
         def tensorshape(tensor):
+            if tensor is None: return None
             default_batched_shape = shape(tensor)
             if len(default_batched_shape) >= 2:
                 return [self._batch_size] + list(default_batched_shape)[1:]
