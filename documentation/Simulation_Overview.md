@@ -67,11 +67,14 @@ By subclassing `FieldSequenceModel`, we inherit the functions
 
 - `add_field` to make data visible in the GUI,
 - `show` which launches the web service,
-- `step` which calls `world.step()` by default but can be overriden to implement custom behaviour.
+- `step` which calls `world.step()` by default but can be overwritten to implement custom behaviour.
 
 Slightly more complex examples can be found in 
 [smokedemo.py](../demos/smokedemo.py) which adds obstacles to the scene and 
 [movementdemo.py](../demos/movementdemo.py) which moves the inflow around.
+The example [runsim_numpy_or_tf.py](../demos/runsim_numpy_or_tf.py) shows a simple
+smoke sim with custom inflow, that can run via NumPy or TensorFlow with a switch,
+to illustrate similarities and differences of the two execution modes.
 
 
 ### Running on the GPU
