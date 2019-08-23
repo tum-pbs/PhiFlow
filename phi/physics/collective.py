@@ -44,7 +44,7 @@ class CollectiveState(State):
             else: raise ValueError('State %s not part of CollectiveState' % item)
         if isinstance(item, TrajectoryKey):
             states = list(filter(lambda s: s.trajectorykey==item, self._states))
-            assert len(states) == 1, 'CollectiveState[%s] returned %d states' % (item, len(states))
+            assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
             return states[0]
         if isinstance(item, six.string_types):
             return self.get_by_tag(item)
@@ -52,7 +52,7 @@ class CollectiveState(State):
             return [self[i] for i in item]
         try:
             return self[item.trajectorykey]
-        except:
+        except AttributeError as e:
             pass
         raise ValueError('Illegal argument: %s' % item)
 
@@ -86,6 +86,7 @@ class CollectivePhysics(Physics):
 
     def step(self, collectivestate, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
+        if len(collectivestate) == 0: return CollectiveState(age=collectivestate.age + dt)
         unhandled_states = list(collectivestate.states)
         next_states = []
         partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
@@ -101,7 +102,7 @@ class CollectivePhysics(Physics):
             if len(unhandled_states) == 0:
                 return partial_next_collectivestate
 
-        raise AssertionError('Cyclic blocking_dependencies in simulation.')
+        raise AssertionError('Cyclic blocking_dependencies in simulation: %s' % unhandled_states)
 
     def substep(self, state, collectivestate, dt, override_physics=None, partial_next_collectivestate=None):
         physics = self.for_(state) if override_physics is None else override_physics
