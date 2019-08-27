@@ -14,7 +14,7 @@ mantaflowRes = 48
 # 2D or 3D
 dims = 2
 
-class DataDemo(TFModel):
+class DataLoader(TFModel):
 
     def __init__(self):
         TFModel.__init__(self, 'Data Demo')
@@ -49,4 +49,4 @@ class DataDemo(TFModel):
         exit(1)
 
 # note, no GUI , use viewer.py instead to display
-app = DataDemo()
+app = DataLoader()
