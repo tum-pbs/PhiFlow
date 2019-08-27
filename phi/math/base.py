@@ -31,7 +31,7 @@ class Backend:
     def reshape(self, value, shape):
         raise NotImplementedError()
 
-    def sum(self, value, axis=None):
+    def sum(self, value, axis=None, keepdims=False):
         raise NotImplementedError()
 
     def mean(self, value, axis=None):
@@ -170,8 +170,8 @@ class DynamicBackend(Backend):
     def reshape(self, value, shape):
         return self.choose_backend(value).reshape(value, shape)
 
-    def sum(self, value, axis=None):
-        return self.choose_backend(value).sum(value, axis)
+    def sum(self, value, axis=None, keepdims=False):
+        return self.choose_backend(value).sum(value, axis=axis, keepdims=keepdims)
 
     def mean(self, value, axis=None):
         return self.choose_backend(value).mean(value, axis)

@@ -29,6 +29,14 @@ The number of spatial dimensions is equal to the tensor rank minus two.
     return len(obj.shape) - 2
 
 
+def spatial_dimensions(obj):
+    if isinstance(obj, StaggeredGrid):
+        return obj.spatial_rank
+    if struct.isstruct(obj):
+        return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
+    return tuple(range(1, len(obj.shape) - 1))
+
+
 def indices_tensor(tensor, dtype=np.float32):
     """
 Returns an index tensor of the same spatial shape as the given tensor.

@@ -38,7 +38,7 @@ class TFBackend(Backend):
     def reshape(self, value, shape):
         return tf.reshape(value, shape)
 
-    def sum(self, value, axis=None):
+    def sum(self, value, axis=None, keepdims=False):
         if axis is not None:
             if not isinstance(axis, int):
                 axis = list(axis)

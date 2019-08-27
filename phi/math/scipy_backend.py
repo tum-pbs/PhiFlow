@@ -47,8 +47,8 @@ class SciPyBackend(Backend):
     def reshape(self, value, shape):
         return value.reshape(shape)
 
-    def sum(self, value, axis=None):
-        return np.sum(value, axis=axis)
+    def sum(self, value, axis=None, keepdims=False):
+        return np.sum(value, axis=axis, keepdims=keepdims)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         result = func(*inputs)
