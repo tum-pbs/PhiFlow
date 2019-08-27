@@ -103,23 +103,28 @@ class TFModel(FieldSequenceModel):
 
         return self
 
-    def set_data(self, train, placeholders, val=None):
+    def set_data(self, train, placeholders, channels=None, val=None):
+        if train is not None or val is not None:
+            assert placeholders is not None
+            if channels is None:
+                channels = struct.map(lambda s: s.replace('.', '_'), struct.names(placeholders))  # TODO this is already defined in fluidformat
+            if isinstance(placeholders, list):
+                placeholders = tuple(placeholders)  # make placeholders hashable
+            hash(placeholders)
         self._training_set = train
         self._validation_set = val
         self._placeholders = placeholders
         # Train
         if self._training_set is not None:
-            fields = struct.map(lambda s: s.replace('.', '_'), struct.names(placeholders))  # TODO this is already defined in fluidformat
-            self._train_reader = BatchReader(self._training_set, fields)
+            self._train_reader = BatchReader(self._training_set, channels)
             self._train_iterator = self._train_reader.all_batches(batch_size=1, loop=True)
         else:
             self._train_reader = None
             self._train_iterator = None
         # Val
         if self._validation_set is not None:
-            fields = struct.map(lambda s: s.replace('.', '_'), struct.names(placeholders))  # TODO this is already defined in fluidformat
             self.value_view_training_data = False
-            self._val_reader = BatchReader(self._validation_set, fields)
+            self._val_reader = BatchReader(self._validation_set, channels)
         else:
             self._val_reader = None
 
@@ -129,8 +134,9 @@ class TFModel(FieldSequenceModel):
             optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
         if reg is not None:
-            self.add_scalar(name+'_reg', reg)
-            optim_function = loss + reg
+            self.add_scalar(name+'_reg_unscaled', reg)
+            reg_scale = self.editable_float(name + '_reg_scale', 1.0)
+            optim_function = loss + reg * reg_scale
         else:
             optim_function = loss
 

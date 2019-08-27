@@ -28,3 +28,4 @@ from . import struct
 from .struct import Struct
 from phi.math.nd import *
 from .initializers import *  # this replaces zeros_like (possibly more) and must be handled carefully
+from numbers import Number, Real

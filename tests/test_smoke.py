@@ -13,7 +13,7 @@ class TestSmoke(TestCase):
 
     def test_simpleplume(self):
         world = World()
-        world.batch_size = 2
+        world.batch_size = 3
         smoke = world.Smoke(Domain([16, 16]))
         inflow = world.Inflow(Sphere((8, 8), radius=4))
         world.step()
@@ -21,7 +21,7 @@ class TestSmoke(TestCase):
         self.assertAlmostEqual(world.state.age, 2.0)
         self.assertAlmostEqual(smoke.age, 2.0)
         self.assertAlmostEqual(inflow.age, 1.0)
-        self.assertEqual(smoke._batch_size, 2)
+        self.assertEqual(smoke._batch_size, 3)
 
     def test_smoke_initializers(self):
         def typetest(smoke):
@@ -36,3 +36,20 @@ class TestSmoke(TestCase):
         typetest(Smoke(Domain([4, 4]), density=np.zeros([1, 4, 4, 1]), velocity=StaggeredGrid(np.zeros([1, 5, 5, 2]))))
         typetest(Smoke(Domain([4, 4]), density=np.zeros([1, 4, 4, 1]), velocity=np.zeros([1, 5, 5, 2])))
         typetest(Smoke(Domain([4, 4])))
+
+    def test_effects(self):
+        world = World()
+        world.Smoke(Domain([16, 16]))
+        world.Inflow(Sphere((8, 8), radius=4))
+        world.ConstantDensity(box[0:2, 6:10], 1.0)
+        world.Fan(Sphere((10, 8), 5), [-1, 0])
+        world.step()
+        world.step()
+
+    def test_properties_dict(self):
+        world = World()
+        world.Smoke(Domain([16, 16]))
+        world.Inflow(Sphere((8, 8), radius=4))
+        world.ConstantDensity(box[0:2, 6:10], 1.0)
+        world.Fan(Sphere((10, 8), 5), [-1, 0])
+        struct.properties_dict(world.state)

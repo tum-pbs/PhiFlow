@@ -1,6 +1,7 @@
 import numpy as np
 from phi.math import struct
 from .profiling import *
+from .util import isplaceholder
 import contextlib
 
 
@@ -34,7 +35,7 @@ class Session(object):
                 key_tensors = struct.flatten(key, include_properties=True)
                 value_tensors = struct.flatten(value, include_properties=True)
                 for key_tensor, value_tensor in zip(key_tensors, value_tensors):
-                    if isinstance(key_tensor, tf.Tensor) and key_tensor.op.type == 'Placeholder':
+                    if isplaceholder(key_tensor):
                         new_feed_dict[key_tensor] = value_tensor
             feed_dict = new_feed_dict
 

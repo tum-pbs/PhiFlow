@@ -39,7 +39,7 @@ def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
             if set_missing_to_none:
                 yield None
             else:
-                raise IOError("Missing frame at frame %d: %s" % (frame, filename))
+                raise IOError("Missing data at frame %d: %s" % (frame, filename))
 
 
 def write_sim_frame(simpath, arrays, fieldnames, frame, check_same_dimensions=False):

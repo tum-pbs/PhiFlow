@@ -27,22 +27,30 @@ def domain(smoke, obstacles):
 class SmokePhysics(Physics):
 
     def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True):
-        Physics.__init__(self, {'obstacles': ['obstacle'], 'inflows': 'inflow'})
+        Physics.__init__(self, dependencies={'obstacles': ['obstacle']},
+                         blocking_dependencies={'density_effects': 'density_effect', 'velocity_effects': 'velocity_effect'})
         self.pressure_solver = pressure_solver
         self.make_input_divfree = make_input_divfree
         self.make_output_divfree = make_output_divfree
 
-    def step(self, smoke, dt=1.0, obstacles=(), inflows=(), **dependent_states):
+    def step(self, smoke, dt=1.0, obstacles=(), density_effects=(), velocity_effects=(), **dependent_states):
         assert len(dependent_states) == 0
         domaincache = domain(smoke, obstacles)
-        # step
         velocity = smoke.velocity
+        density = smoke.density
         if self.make_input_divfree:
             velocity = divergence_free(velocity, domaincache, self.pressure_solver, smoke=smoke)
-        inflow_density = dt * inflow(inflows, smoke.grid)
-        density = velocity.advect(smoke.density, dt=dt) + inflow_density
+        # --- Advection ---
+        density = velocity.advect(density, dt=dt)
+        velocity = velocity.advect(velocity, dt=dt)
+        # --- Density effects ---
+        for effect in density_effects:
+            density = effect.apply_grid(density, smoke.grid, staggered=False, dt=dt)
+        # --- velocity effects
+        for effect in velocity_effects:
+            velocity = effect.apply_grid(velocity, smoke.grid, staggered=True, dt=dt)
         velocity = stick(velocity, domaincache, dt)
-        velocity = velocity.advect(velocity, dt=dt) + dt * buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor)
+        velocity += dt * buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor)
         if self.make_output_divfree:
             velocity = divergence_free(velocity, domaincache, self.pressure_solver, smoke=smoke)
         return smoke.copied_with(density=density, velocity=velocity, age=smoke.age + dt)
@@ -192,13 +200,6 @@ def divergence_free(obj, domaincache, pressure_solver=None, smoke=None):
         smoke._last_pressure = pressure
         smoke._last_pressure_iterations = iter
     return velocity
-
-
-def inflow(inflows, grid):
-    if len(inflows) == 0:
-        return zeros(grid.shape())
-    location = grid.center_points()
-    return add([inflow.geometry.value_at(location) * inflow.rate for inflow in inflows])
 
 
 def buoyancy(density, gravity, buoyancy_factor):

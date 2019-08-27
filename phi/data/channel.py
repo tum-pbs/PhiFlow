@@ -182,7 +182,7 @@ Selects specific frames from the input.
         try:
             selected_frames = [frames[i] for i in indices]
         except:
-            raise ValueError("BatchSelect: selection function must return a list of integers, but got %s for frames %s" % (frames, datasource.frames()))
+            raise ValueError("FrameSelect: selection function must return a list of integers, but got %s for frames %s" % (frames, datasource.frames()))
         return self.channel.get(datasource, selected_frames)
 
     def size(self, datasource, lookup=False):
@@ -198,3 +198,18 @@ Selects specific frames from the input.
         input_frames = self.channel.frames(datasource)
         frames = self.selection_function(input_frames)
         return [frames] if isinstance(frames, int) else frames
+
+
+def consecutive_frames(channel, n):
+    """
+Constructs n DataChannels to load a consequtive sequence of frames.
+For each sequence, the i-th DataChannel loads the i-th frame in that sequence.
+The number of sequences depends on the number of frames contained in each source.
+
+The frames of each source are assumed to be ordered and without frame gaps.
+Every DataSource accessed through these channels must contain at least n frames.
+    :param channel: Source channel holding the data
+    :param n: Number of frames to load
+    :return: tuple containing n DataChannels
+    """
+    return tuple([FrameSelect(lambda frames, i=i: frames[i:i-n+1+len(frames)], channel) for i in range(n)])

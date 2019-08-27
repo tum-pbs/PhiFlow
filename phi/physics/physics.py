@@ -1,13 +1,18 @@
-from phi.math import Struct, struct
+from phi.math import Struct, struct, staticshape
 
 
 class TrajectoryKey(object):
+    """
+    Used to identify State objects that are part of one trajectory.
+    States from the same trajectory reference the same TrajectoryKey object.
+    TrajectoryKey objects use their object identity with the default equals and hash implementation.
+    """
     pass
 
 
 class State(Struct):
 
-    __struct__ = struct.Def((), ('_age',))
+    __struct__ = struct.Def((), ('_age', '_tags'))
 
     def __init__(self, tags=(), age=0.0, batch_size=None):
         self._tags = tuple(tags)
@@ -26,6 +31,15 @@ class State(Struct):
     def default_physics(self):
         return STATIC
 
+    @property
+    def shape(self):
+        def tensorshape(tensor):
+            if tensor is None: return None
+            default_batched_shape = staticshape(tensor)
+            if len(default_batched_shape) >= 2:
+                return (self._batch_size,) + default_batched_shape[1:]
+        return struct.map(tensorshape, self)
+
 
 class Physics(object):
     """
@@ -34,8 +48,9 @@ tracing out a trajectory.
     Physics objects are stateless and always support an empty constructor.
     """
 
-    def __init__(self, dependencies):
-        self.dependencies = dependencies  # Map from String to List<tag or TrajectoryKey>
+    def __init__(self, dependencies=None, blocking_dependencies=None):
+        self.dependencies = dependencies if dependencies is not None else {}  # Map from String to List<tag or TrajectoryKey>
+        self.blocking_dependencies = blocking_dependencies if blocking_dependencies is not None else {}
 
     def step(self, state, dt=1.0, **dependent_states):
         """
@@ -50,9 +65,6 @@ Solves the simulation for a time increment self.dt.
 
 
 class Static(Physics):
-
-    def __init__(self):
-        Physics.__init__(self, {})
 
     def step(self, state, dt=1.0, **dependent_states):
         return state.copied_with(age=state.age + dt)

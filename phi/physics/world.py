@@ -1,6 +1,10 @@
 from .collective import CollectiveState, CollectivePhysics
 from .smoke import *
 from .burger import *
+from .heat import *
+from .obstacle import *
+from .effect import *
+import inspect
 
 
 class StateProxy(object):
@@ -53,13 +57,31 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
+
+
+
 def _proxy_wrap(world, constructor):
+    try:
+        const_args = inspect.getargspec(constructor)[0]
+        static = const_args[0] != 'self'
+    except:
+        static = False
+        const_args = ['batch_size']
     def buildadd(*args, **kwargs):
-        if 'batch_size' not in kwargs:
+        if 'batch_size' not in kwargs and 'batch_size' in const_args:
             kwargs['batch_size'] = world.batch_size
-        state = constructor(*args, **kwargs)
+        if 'physics' in kwargs:
+            physics = kwargs['physics']
+            assert physics is not None
+            del kwargs['physics']
+        else: physics = None
+        invok = constructor.__func__ if static else constructor
+        state = invok(*args, **kwargs)
         world.add(state)
-        return StateProxy(world, state.trajectorykey)
+        proxy = StateProxy(world, state.trajectorykey)
+        if physics is not None:
+            proxy.physics = physics
+        return proxy
     return buildadd
 
 
@@ -77,15 +99,23 @@ class World(object):
         self.physics = self._state.default_physics()
         self.observers = set()
         self.batch_size = None
-        # Physics Shortcuts
-        for target,source in {'Smoke': Smoke, 'Burger': Burger,
-                              'Inflow': Inflow, 'Obstacle': Obstacle}.items():
-            setattr(self, target, _proxy_wrap(self, source))
+        # --- Insert object / create proxy shortcuts ---
+        for proxy in ('Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
+                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect'):
+            setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Smoke = Smoke
     Burger = Burger
-    Inflow = Inflow
     Obstacle = Obstacle
+    Inflow = Inflow
+    Fan = Fan
+    ConstantDensity = ConstantDensity
+    Heat = Heat
+    ConstantTemperature = ConstantTemperature
+    HeatSource = HeatSource
+    ColdSource = ColdSource
+    FieldEffect = FieldEffect
+
 
     @property
     def state(self):
@@ -110,7 +140,7 @@ Otherwise, all states are evolved.
 
 Calling World.step resolves all dependencies among simulations and then calls Physics.step on each simulation to evolve the states.
 
-Invoking this method alters the world state. To create a copy of the state, use :func:`World.stepped <~world.World.stepped>` instead.
+Invoking this method alters the world state. To to_field a copy of the state, use :func:`World.stepped <~world.World.stepped>` instead.
         :param state: State, StateProxy or None
         :param dt: time increment, default 1.0
         :param physics: Physics object for the state or None for default

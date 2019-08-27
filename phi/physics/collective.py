@@ -21,15 +21,6 @@ class CollectiveState(State):
 
     __radd__ = __add__
 
-    # def __sub__(self, other):
-    #     if isinstance(other, CollectiveState):
-    #         return CollectiveState(self._states - other._states)
-    #     if isinstance(other, State):
-    #         return CollectiveState(self._states - {other})
-    #     if isinstance(other, (tuple, list)):
-    #         return CollectiveState(self._states - set(other))
-    #     raise ValueError("Illegal operation: CollectiveState - %s" % type(other))
-
     def get_by_tag(self, tag):
         return [o for o in self._states if tag in o.tags]
 
@@ -53,12 +44,16 @@ class CollectiveState(State):
             else: raise ValueError('State %s not part of CollectiveState' % item)
         if isinstance(item, TrajectoryKey):
             states = list(filter(lambda s: s.trajectorykey==item, self._states))
-            assert len(states) == 1, 'CollectiveState[%s] returned %d states' % (item, len(states))
+            assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
             return states[0]
         if isinstance(item, six.string_types):
             return self.get_by_tag(item)
         if isinstance(item, (tuple, list)):
             return [self[i] for i in item]
+        try:
+            return self[item.trajectorykey]
+        except AttributeError as e:
+            pass
         raise ValueError('Illegal argument: %s' % item)
 
     def default_physics(self):
@@ -70,6 +65,18 @@ class CollectiveState(State):
     def __repr__(self):
         return '[' + ', '.join((str(s) for s in self._states)) + ']'
 
+    def __len__(self):
+        return len(self.states)
+
+    def __contains__(self, item):
+        if isinstance(item, State):
+            return item in self._states
+        if isinstance(item, TrajectoryKey):
+            for state in self._states:
+                if state.trajectorykey == item: return True
+            return False
+        raise ValueError('Illegal type: %s' % type(item))
+
 
 class CollectivePhysics(Physics):
 
@@ -79,25 +86,53 @@ class CollectivePhysics(Physics):
 
     def step(self, collectivestate, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
+        if len(collectivestate) == 0: return CollectiveState(age=collectivestate.age + dt)
+        unhandled_states = list(collectivestate.states)
         next_states = []
-        for state in collectivestate.states:
-            next_state = self.substep(state, collectivestate, dt)
-            next_states.append(next_state)
-        return CollectiveState(next_states, age=collectivestate.age + dt)
+        partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
 
-    def substep(self, state, collectivestate, dt, override_physics=None):
+        for sweep in range(len(collectivestate)):
+            for state in unhandled_states:
+                physics = self.for_(state)
+                if self._all_dependencies_fulfilled(physics.blocking_dependencies, collectivestate, partial_next_collectivestate):
+                    next_state = self.substep(state, collectivestate, dt, partial_next_collectivestate=partial_next_collectivestate)
+                    next_states.append(next_state)
+                    unhandled_states.remove(state)
+            partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
+            if len(unhandled_states) == 0:
+                return partial_next_collectivestate
+
+        raise AssertionError('Cyclic blocking_dependencies in simulation: %s' % unhandled_states)
+
+    def substep(self, state, collectivestate, dt, override_physics=None, partial_next_collectivestate=None):
         physics = self.for_(state) if override_physics is None else override_physics
+        # --- gather dependencies
         dependent_states = {}
-        for name, deps in physics.dependencies.items():
+        self._gather_dependencies(physics.dependencies, collectivestate, dependent_states)
+        if partial_next_collectivestate is not None:
+            self._gather_dependencies(physics.blocking_dependencies, partial_next_collectivestate, dependent_states)
+        # --- execute step ---
+        next_state = physics.step(state, dt, **dependent_states)
+        return next_state
+
+    def _gather_dependencies(self, dependencies, collectivestate, result_dict):
+        for name, deps in dependencies.items():
             dep_states = []
             if isinstance(deps, (tuple,list)):
                 for dep in deps:
                     dep_states += list(collectivestate[dep])
             else:
                 dep_states = collectivestate[deps]
-            dependent_states[name] = dep_states
-        next_state = physics.step(state, dt, **dependent_states)
-        return next_state
+            result_dict[name] = dep_states
+        return result_dict
+
+    def _all_dependencies_fulfilled(self, dependencies, all_states, computed_states):
+        state_dict = self._gather_dependencies(dependencies, all_states, {})
+        for name, states in state_dict.items():
+            for state in states:
+                if state.trajectorykey not in computed_states:
+                    return False
+        return True
 
     def for_(self, state):
         return self._physics[state.trajectorykey] if state.trajectorykey in self._physics else state.default_physics()

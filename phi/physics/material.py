@@ -33,5 +33,5 @@ If local_velocity is None, the latter term will be ignored.
 
 
 OPEN = Material(solid=False, extrapolate_fluid=False, local_velocity=None)
-SLIPPERY = Material(solid=True, friction=0.0)
-STICKY = Material(solid=True, friction=1.0)
+NO_STICK = SLIPPERY = Material(solid=True, friction=0.0)
+NO_SLIP = STICKY = Material(solid=True, friction=1.0)

@@ -150,7 +150,10 @@ class SciPyBackend(Backend):
         return np.expand_dims(a, axis)
 
     def shape(self, tensor):
-        return tensor.shape
+        return np.shape(tensor)
+
+    def staticshape(self, tensor):
+        return np.shape(tensor)
 
     def to_float(self, x):
         return np.array(x).astype(np.float32)

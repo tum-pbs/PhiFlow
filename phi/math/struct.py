@@ -59,7 +59,7 @@ class Struct(object):
         return {p.name: getattr(self, p.name) for p in self.__class__.__struct__.properties}
 
     def __properties_dict__(self):
-        result = {p.name: properties_dict(getattr(self, p.name)) for p in self.__class__.__struct__.properties}
+        result = {p.name: properties_dict(getattr(self, p.name)) for p in self.__class__.__struct__.properties if p.is_property}
         for a in self.__class__.__struct__.attributes:
             if isstruct(getattr(self, a.name)):
                 result[a.name] = properties_dict(getattr(self, a.name))
@@ -67,17 +67,18 @@ class Struct(object):
         result['module'] = str(self.__class__.__module__)
         return result
 
-
-
     def __eq__(self, other):
         if type(self) != type(other): return False
         for attr in self.__class__.__struct__.all:
             v1 = getattr(self, attr.name)
             v2 = getattr(other, attr.name)
-            try:
-                if v1 != v2: return False
-            except:
-                if v1 is not v2: return False
+            if isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
+                if not np.all(np.equal(v1, v2)): return False
+            else:
+                try:
+                    if v1 != v2: return False
+                except:
+                    if v1 is not v2: return False
         return True
 
     def __ne__(self, other):
@@ -162,6 +163,9 @@ class Trace(object):
             return self.parent.path(separator) + separator + self.name
         else:
             return self.name
+
+    def __repr__(self):
+        return "%s = %s" % (self.path(), self.value)
 
 
 def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):

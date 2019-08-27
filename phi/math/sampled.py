@@ -1,4 +1,4 @@
-from phi.physics.geom import *
+from phi.math.geom import *
 import numpy as np
 
 

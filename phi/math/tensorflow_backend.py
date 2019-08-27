@@ -156,6 +156,9 @@ class TFBackend(Backend):
     def shape(self, tensor):
         return tf.shape(tensor)
 
+    def staticshape(self, tensor):
+        return tuple(tensor.shape.as_list())
+
     def to_float(self, x):
         return tf.to_float(x)
 
