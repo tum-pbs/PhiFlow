@@ -70,8 +70,8 @@ class Smoke(State):
                  batch_size=None):
         State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
-        self._density = density
-        self._velocity = velocity
+        self._density = initialize_field(density, self.grid.shape(1, self._batch_size))
+        self._velocity = initialize_field(velocity, self.grid.staggered_shape(self._batch_size))
         self._gravity = gravity
         self._buoyancy_factor = buoyancy_factor
         self._conserve_density = conserve_density
@@ -82,29 +82,20 @@ class Smoke(State):
     def default_physics(self):
         return SMOKE
 
+    def copied_with(self, **kwargs):
+        if 'density' in kwargs:
+            kwargs['density'] = initialize_field(kwargs['density'], self.grid.shape(1, self._batch_size))
+        if 'velocity' in kwargs:
+            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.grid.staggered_shape(self._batch_size))
+        return State.copied_with(self, **kwargs)
+
     @property
     def density(self):
         return self._density
 
     @property
-    def _density(self):
-        return self._density_field
-
-    @_density.setter
-    def _density(self, value):
-        self._density_field = initialize_field(value, self.grid.shape(1, self._batch_size))
-
-    @property
     def velocity(self):
         return self._velocity
-
-    @property
-    def _velocity(self):
-        return self._velocity_field
-
-    @_velocity.setter
-    def _velocity(self, value):
-        self._velocity_field = initialize_field(value, self.grid.staggered_shape(self._batch_size))
 
     @property
     def domain(self):
