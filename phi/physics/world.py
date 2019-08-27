@@ -4,6 +4,7 @@ from .burger import *
 from .heat import *
 from .obstacle import *
 from .effect import *
+from .schroedinger import *
 import inspect
 
 
@@ -98,7 +99,7 @@ class World(object):
         self.batch_size = None
         # --- Insert object / create proxy shortcuts ---
         for proxy in ('Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
-                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect'):
+                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect', 'ProbabilityAmplitude'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Smoke = Smoke
@@ -112,6 +113,7 @@ class World(object):
     HeatSource = HeatSource
     ColdSource = ColdSource
     FieldEffect = FieldEffect
+    ProbabilityAmplitude = ProbabilityAmplitude
 
 
     @property
