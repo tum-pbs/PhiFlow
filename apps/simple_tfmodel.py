@@ -1,8 +1,8 @@
 from phi.tf.flow import *
 import tensorflow as tf
 
-simSize = 32 # sim size
-path    = '~/phi/data/datagen/' # data to load, has to match sim size
+simSize  = 64 # sim size
+datapath = '~/phi/data/datagen/' # data to load, has to match sim size, at least 10 sims
 
 # setup very simple conv net 
 def network(density):
@@ -41,8 +41,8 @@ class TrainingTest(TFModel):
         
         # this assumes we have 10 sims in the path
         self.set_data( 
-            train=Dataset.load( path,  range(0, 8)),
-            val=  Dataset.load( path,  range(8,10)), 
+            train=Dataset.load( datapath,  range(0, 8)),
+            val=  Dataset.load( datapath,  range(8,10)), 
             placeholders=smoke.state )
 
         self.add_field("Velocity (Ground Truth)", smoke.velocity)

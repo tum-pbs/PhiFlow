@@ -10,10 +10,11 @@ world.Inflow(Sphere((8, px), 4), rate=0.5)
 
 for i in range(30):
     world.step() 
-    print("Step %d done " % i + ", stats: " + format(np.mean(smoke.density) ) + " " + format(np.mean(smoke.velocity.staggered) ) )
 
     # write smoke sim state
-    smoke = world.state.states[0]
+    smoke = world.state.states[1]
+    # NT_DEBUG , states[0] is add() !? is there a nicer way to get the smoke state?
+    print("Step %d done " % i + ", stats: " + format(np.mean(smoke.density) ) + " " + format(np.mean(smoke.velocity.staggered) ) )
     scene.write( smoke, frame=i) 
 
     # alternatively, specify which fields to write with:
