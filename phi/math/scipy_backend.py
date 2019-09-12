@@ -189,6 +189,27 @@ class SciPyBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return np.all(boolean_tensor, axis=axis, keepdims=keepdims)
 
+    def fft(self, x):
+        rank = len(x.shape) - 2
+        assert rank >= 1
+        if rank == 1:
+            return np.fft.fft(x, axis=1)
+        elif rank == 2:
+            return np.fft.fft2(x, axes=[1,2])
+        else:
+            return np.fft.fftn(x, axes=list(range(1,rank+1)))
+
+    def ifft(self, k):
+        rank = len(k.shape) - 2
+        assert rank >= 1
+        if rank == 1:
+            return np.fft.ifft(k, axis=1)
+        elif rank == 2:
+            return np.fft.ifft2(k, axes=[1,2])
+        else:
+            return np.fft.ifftn(k, axes=list(range(1,rank+1)))
+
+
 
 
 def clamp(coordinates, shape):

@@ -17,119 +17,133 @@ class Backend:
         return False
 
     def stack(self, values, axis=0):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def concat(self, values, axis):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def pad(self, value, pad_width, mode="constant", constant_values=0):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def add(self, values):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def reshape(self, value, shape):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def sum(self, value, axis=None, keepdims=False):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def mean(self, value, axis=None):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def zeros_like(self, tensor):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def ones_like(self, tensor):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def dot(self, a, b, axes):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def matmul(self, A, b):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
                    swap_memory=False, name=None, maximum_iterations=None):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def abs(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def ceil(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def floor(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def max(self, x, axis=None):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def maximum(self, a, b):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def minimum(self, a, b):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def sqrt(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def exp(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def conv(self, tensor, kernel, padding="SAME"):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def expand_dims(self, a, axis=0):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def shape(self, tensor):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def staticshape(self, tensor):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def to_float(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def to_int(self, x, int64=False):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def dimrange(self, tensor):
         return range(1, len(tensor.shape)-1)
 
     def gather(self, values, indices):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def flatten(self, x):
         return self.reshape(x, (-1,) )
 
     def unstack(self, tensor, axis=0):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def std(self, x, axis=None):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def boolean_mask(self, x, mask):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def isfinite(self, x):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
+
+    def fft(self, x):
+        """
+Computes the n-dimensional FFT along all but the first and last dimensions.
+        :param x: tensor of dimension 3 or higher
+        """
+        raise NotImplementedError(self)
+
+    def ifft(self, k):
+        """
+Computes the n-dimensional inverse FFT along all but the first and last dimensions.
+        :param k: tensor of dimension 3 or higher
+        """
+        raise NotImplementedError(self)
 
 
 
@@ -265,6 +279,12 @@ class DynamicBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return self.choose_backend(boolean_tensor).all(boolean_tensor, axis=axis, keepdims=keepdims)
 
+    def fft(self, x):
+        return self.choose_backend(x).fft(x)
+
+    def ifft(self, k):
+        return self.choose_backend(k).ifft(k)
+
 
 class NoBackendFound(Exception):
     def __init__(self, msg):
@@ -290,8 +310,10 @@ dimrange = backend.dimrange
 dot = backend.dot
 exp = backend.exp
 expand_dims = backend.expand_dims
+fft = backend.fft
 flatten = backend.flatten
 gather = backend.gather
+ifft = backend.ifft
 isfinite = backend.isfinite
 matmul = backend.matmul
 max = backend.max

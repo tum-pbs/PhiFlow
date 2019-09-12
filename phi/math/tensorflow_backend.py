@@ -187,6 +187,30 @@ class TFBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
 
+    def fft(self, x):
+        rank = len(x.shape) - 2
+        assert rank >= 1
+        if rank == 1:
+            return tf.stack([tf.fft(c) for c in tf.unstack(x, axis=-1)], axis=-1)
+        elif rank == 2:
+            return tf.stack([tf.fft2d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
+        elif rank == 3:
+            return tf.stack([tf.fft3d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
+        else:
+            raise NotImplementedError('n-dimensional FFT not implemented.')
+
+    def ifft(self, k):
+        rank = len(k.shape) - 2
+        assert rank >= 1
+        if rank == 1:
+            return tf.stack([tf.ifft(c) for c in tf.unstack(k, axis=-1)], axis=-1)
+        elif rank == 2:
+            return tf.stack([tf.ifft2d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
+        elif rank == 3:
+            return tf.stack([tf.ifft3d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
+        else:
+            raise NotImplementedError('n-dimensional inverse FFT not implemented.')
+
 
 # from niftynet.layer.resampler.py
 # https://cmiclab.cs.ucl.ac.uk/CMIC/NiftyNet/blob/69c98e5a95cc6788ad9fb8c5e27dc24d1acec634/niftynet/layer/resampler.py
