@@ -2,23 +2,36 @@
 from phi.flow import *
 
 
-dt = 0.2
+scale = 4
 
 
 class SchroedingerDemo(FieldSequenceModel):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, u'Schrödinger Demo', stride=2)
-        q = world.ProbabilityAmplitude(Domain([128, 128]))
-        q.real, q.imag = wave_packet(q.domain, [30, 40], 6, [0.5, 0.3])
-        q.imag = world.step(q, dt=dt/2).imag
-        # world.QuantumBarrier(box[60:80, 0:128], 1)
+        FieldSequenceModel.__init__(self, u'Schrödinger Demo', stride=10)
+        q = self.q = world.QuantumWave(Domain([128*scale, 128*scale]))
+        self.value_mass = 0.2
+        self.value_frequency = 1.0
+        self.value_size = 6.0
+        self.action_reset()
+        self.value_dt = 1.0
+        glassbar = world.StepPotential(box[30*scale:50*scale, 0:1024], height=1)
+        topbar = world.Obstacle(box[80*scale:90*scale, 0:1024])
 
-        self.add_field('Real', lambda: q.real)
-        self.add_field('Imag', lambda: q.imag)
+        self.add_field('Real', lambda: np.real(q.amplitude))
+        self.add_field('Imag', lambda: np.imag(q.amplitude))
+        self.add_field('Domain', lambda: geometry_mask([glassbar.field.bounds, topbar.geometry], q.grid))
+        self.add_field('Zoomed', lambda: np.real(q.amplitude)[:, 0:128, 0:128, :])
+        self.info('Total probability: %f' % sum(abs(self.q.amplitude)**2))
 
     def step(self):
-        world.step(dt=dt)
+        self.q.mass = self.value_mass
+        world.step(dt=self.value_dt)
+        self.info('Total probability: %f' % sum(abs(self.q.amplitude)**2))
+
+    def action_reset(self):
+        self.q.amplitude = normalize_probability(wave_packet(self.q.domain, [50, 50], self.value_size,
+                                                             [1*self.value_frequency, 0.6*self.value_frequency]))
 
 
-SchroedingerDemo().show(framerate=5)
+SchroedingerDemo().show(figure_builder=PlotlyFigureBuilder(batches=[0], depths=[0], max_resolution=128))

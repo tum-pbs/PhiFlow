@@ -2,11 +2,11 @@ from .domain import *
 from phi.math.initializers import _is_python_shape
 
 
-def initialize_field(value, shape):
+def initialize_field(value, shape, dtype=np.float32):
     if isinstance(value, (int, float)):
-        return zeros(shape) + value
+        return zeros(shape, dtype=dtype) + value
     elif callable(value):
-        return value(shape)
+        return value(shape, dtype=dtype)
     if isinstance(shape, Struct):
         if type(shape) == type(value):
             zipped = struct.zip([value, shape], leaf_condition=_is_python_shape)
