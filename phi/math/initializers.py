@@ -33,12 +33,12 @@ def ones(shape, dtype=np.float32):
 
 
 def randn(mean=0, sigma=1, levels=(1.0,)):  # TODO pass mean, sigma, doesn't correctly scale staggered grids
-    def randn_impl(shape):
-        return struct.map(lambda s: _random_tensor(s, levels)*sigma + mean, shape, leaf_condition=_is_python_shape)
+    def randn_impl(shape, dtype=np.float32):
+        return struct.map(lambda s: _random_tensor(s, levels, dtype) * sigma + mean, shape, leaf_condition=_is_python_shape)
     return randn_impl
 
 
-def _random_tensor(shape, levels):
+def _random_tensor(shape, levels, dtype):
     shape = _none_to_one(shape)
     result = 0
     for i in range(len(levels)): # high-res first
@@ -48,4 +48,4 @@ def _random_tensor(shape, levels):
         for j in range(i):
             rnd = upsample2x(rnd)
         result = result + rnd
-    return result
+    return result.astype(dtype)
