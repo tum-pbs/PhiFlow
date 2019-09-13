@@ -53,9 +53,10 @@ def normalize_probability(probability_amplitude):
 
 class Schroedinger(Physics):
 
-    def __init__(self):
+    def __init__(self, margin=1):
         Physics.__init__(self, dependencies={'obstacles': 'obstacle'},
                          blocking_dependencies={'potentials': 'potential_effect'})
+        self.margin = margin
 
     def step(self, state, dt=1.0, potentials=(), obstacles=()):
         if len(potentials) == 0:
@@ -82,7 +83,12 @@ class Schroedinger(Physics):
             amplitude *= 1 - obstacle.geometry.at(state.grid)
 
         normalized = False
-        symmetric = True
+        symmetric = False
+        if not symmetric:
+            boundary_mask = np.zeros(state.grid.shape(1, batch_size=1))
+            boundary_mask[[slice(None)] + [slice(self.margin,-self.margin) for i in spatial_dimensions(boundary_mask)] + [slice(None)]] = 1
+            amplitude *= boundary_mask
+
         if len(obstacles) > 0 or not symmetric:
             amplitude = normalize_probability(amplitude)
             normalized = True
