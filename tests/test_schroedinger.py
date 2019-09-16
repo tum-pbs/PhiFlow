@@ -16,4 +16,5 @@ class TestSchroedinger(TestCase):
         q = SCHROEDINGER.step(q, obstacles=[Obstacle(box[0:0, 0:0])])
         self.assertEqual(q.is_normalized, True)
         np.testing.assert_equal(q.amplitude.shape, [1, 64, 64, 1])
-        np.testing.assert_almost_equal(q.amplitude, 1.0/64)
+        np.testing.assert_almost_equal(q.amplitude[0, 0, 0, 0], 0)
+        np.testing.assert_almost_equal(q.amplitude[0, 10, 10, 0], 1.0/(64-2*SCHROEDINGER.margin))
