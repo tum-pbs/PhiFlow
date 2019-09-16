@@ -165,6 +165,9 @@ class TFBackend(Backend):
     def to_int(self, x, int64=False):
         return tf.to_int64(x) if int64 else tf.to_int32(x)
 
+    def to_complex(self, x):
+        return tf.to_complex64(x)
+
     def gather(self, values, indices):
         return tf.gather(values, indices)
 
@@ -216,6 +219,9 @@ class TFBackend(Backend):
 
     def real(self, complex):
         return tf.real(complex)
+
+    def cast(self, x, dtype):
+        return tf.cast(x, dtype)
 
 
 # from niftynet.layer.resampler.py

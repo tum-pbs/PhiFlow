@@ -161,6 +161,12 @@ class SciPyBackend(Backend):
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)
 
+    def to_complex(self, x):
+        return np.array(x).astype(np.complex64)
+
+    def cast(self, x, dtype):
+        return np.array(x).astype(dtype)
+
     def gather(self, values, indices):
         return values[indices]
 

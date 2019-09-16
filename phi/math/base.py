@@ -104,6 +104,9 @@ class Backend:
     def to_int(self, x, int64=False):
         raise NotImplementedError(self)
 
+    def to_complex(self, x):
+        raise NotImplementedError(self)
+
     def dimrange(self, tensor):
         return range(1, len(tensor.shape)-1)
 
@@ -149,6 +152,9 @@ Computes the n-dimensional inverse FFT along all but the first and last dimensio
         raise NotImplementedError(self)
 
     def real(self, complex):
+        raise NotImplementedError(self)
+
+    def cast(self, x, dtype):
         raise NotImplementedError(self)
 
 
@@ -264,6 +270,9 @@ class DynamicBackend(Backend):
     def to_int(self, x, int64=False):
         return self.choose_backend(x).to_int(x, int64=int64)
 
+    def to_complex(self, x):
+        return self.choose_backend(x).to_complex(x)
+
     def gather(self, values, indices):
         return self.choose_backend([values, indices]).gather(values, indices)
 
@@ -297,6 +306,9 @@ class DynamicBackend(Backend):
     def real(self, complex):
         return self.choose_backend(complex).real(complex)
 
+    def cast(self, x, dtype):
+        return self.choose_backend(x).cast(x, dtype)
+
 
 class NoBackendFound(Exception):
     def __init__(self, msg):
@@ -314,6 +326,7 @@ add = backend.add
 all = backend.all
 any = backend.any
 boolean_mask = backend.boolean_mask
+cast = backend.cast
 ceil = backend.ceil
 floor = backend.floor
 concat = backend.concat
@@ -346,6 +359,7 @@ stack = backend.stack
 staticshape = backend.staticshape
 std = backend.std
 sum = backend.sum
+to_complex = backend.to_complex
 to_float = backend.to_float
 to_int = backend.to_int
 unstack = backend.unstack
