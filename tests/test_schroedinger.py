@@ -13,8 +13,6 @@ class TestSchroedinger(TestCase):
         np.testing.assert_equal(q.amplitude.shape, [1, 64, 64, 1])
         q = q.copied_with(amplitude=1)
         self.assertEqual(q.is_normalized, False)
-        q = SCHROEDINGER.step(q)
-        self.assertEqual(q.is_normalized, False)
         q = SCHROEDINGER.step(q, obstacles=[Obstacle(box[0:0, 0:0])])
         self.assertEqual(q.is_normalized, True)
         np.testing.assert_equal(q.amplitude.shape, [1, 64, 64, 1])

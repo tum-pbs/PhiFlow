@@ -46,9 +46,19 @@ class QuantumWave(State):
 
 
 def normalize_probability(probability_amplitude):
-    p = abs(probability_amplitude) ** 2
+    p = to_float(abs(probability_amplitude) ** 2)
     P = sum(p, spatial_dimensions(p))
-    return probability_amplitude / sqrt(P)
+    return probability_amplitude / to_complex(sqrt(P))
+
+
+def psquare(complex):
+    return imag(complex) ** 2 + real(complex) ** 2
+
+
+def fftfreq(shape):
+    k = np.meshgrid(*[np.fft.fftfreq(n) for n in shape[1:-1]], indexing='ij')
+    k = expand_dims(stack(k, -1), 0)
+    return k
 
 
 class Schroedinger(Physics):
@@ -69,14 +79,12 @@ class Schroedinger(Physics):
         amplitude = state.amplitude
 
         # Rotate by potential
-        amplitude *= exp(1j * potential)
+        amplitude *= exp(1j * to_complex(potential) * dt)
 
         # Move by rotating in Fourier space
         amplitude_fft = fft(amplitude)
-        k = np.meshgrid(*[np.fft.fftfreq(n) for n in amplitude.shape[1:-1]], indexing='ij')
-        k = expand_dims(stack(k, -1), 0)
-        laplace = sum(k ** 2, axis=-1, keepdims=True)
-        amplitude_fft *= exp(-1j * np.pi * laplace / state.mass)
+        laplace = sum(fftfreq(staticshape(amplitude)) ** 2, axis=-1, keepdims=True)
+        amplitude_fft *= exp(-1j * np.pi * dt * laplace / state.mass)
         amplitude = ifft(amplitude_fft)
 
         for obstacle in obstacles:
@@ -99,7 +107,7 @@ class Schroedinger(Physics):
 SCHROEDINGER = Schroedinger()
 
 
-StepPotential = lambda geometry, height: FieldEffect(ConstantField(geometry, height), ['potential'])
+StepPotential = lambda geometry, height: FieldEffect(ComplexConstantField(geometry, height), ['potential'], mode=ADD)
 
 
 def wave_packet(domain, center, size, wave_vector):
@@ -107,4 +115,5 @@ def wave_packet(domain, center, size, wave_vector):
         wave_vector = expand_dims(wave_vector, 0)
     x = domain.grid.indices()
     envelope = exp(-0.5 * sum((x - center)**2, axis=-1, keepdims=True) / size**2)
-    return exp(1j * expand_dims(np.dot(x, wave_vector), -1)) * envelope
+    wave = exp(1j * expand_dims(np.dot(x, wave_vector), -1)) * envelope
+    return wave.astype(np.complex64)

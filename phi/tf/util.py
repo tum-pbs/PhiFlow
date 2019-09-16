@@ -18,10 +18,10 @@ def placeholder(shape, dtype=np.float32, basename=None):
     return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True)
 
 
-def placeholder_like(obj, dtype=np.float32, basename=None):
+def placeholder_like(obj, basename=None):
     warnings.warn("placeholder_like may not respect the batch dimension. "
                   "For State objects, use placeholder(state.shape) instead.", DeprecationWarning, stacklevel=2)
-    f = lambda attr: tf.placeholder(dtype, attr.value.shape, _tf_name(attr, basename))
+    f = lambda attr: tf.placeholder(attr.value.dtype, attr.value.shape, _tf_name(attr, basename))
     return struct.map(f, obj, leaf_condition=_is_python_shape, trace=True)
 
 
