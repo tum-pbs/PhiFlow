@@ -1,9 +1,10 @@
 from .field import *
 
 
-GROW = 'add'
-DECAY = 'mul'
-FIX = 'replace'
+GROW = 'grow'
+ADD = 'add'
+DECAY = 'decay'
+FIX = 'fix'
 
 
 class FieldEffect(State):
@@ -30,7 +31,11 @@ class FieldEffect(State):
 
     def apply_grid(self, target, grid, staggered, dt):
         if self._mode == GROW:
-            delta = self.field.sample_grid(grid, staggered=staggered) * dt
+            delta = self.field.sample_grid(grid, staggered=staggered)
+            dt = cast(dt, delta.dtype)
+            return target + delta * dt
+        elif self._mode == ADD:
+            delta = self.field.sample_grid(grid, staggered=staggered)
             return target + delta
         elif self._mode == DECAY:
             raise NotImplementedError()  # TODO
