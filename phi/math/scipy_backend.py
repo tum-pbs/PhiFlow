@@ -209,6 +209,12 @@ class SciPyBackend(Backend):
         else:
             return np.fft.ifftn(k, axes=list(range(1,rank+1)))
 
+    def imag(self, complex):
+        return np.imag(complex)
+
+    def real(self, complex):
+        return np.real(complex)
+
 
 
 

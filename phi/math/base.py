@@ -145,6 +145,12 @@ Computes the n-dimensional inverse FFT along all but the first and last dimensio
         """
         raise NotImplementedError(self)
 
+    def imag(self, complex):
+        raise NotImplementedError(self)
+
+    def real(self, complex):
+        raise NotImplementedError(self)
+
 
 
 class DynamicBackend(Backend):
@@ -285,6 +291,12 @@ class DynamicBackend(Backend):
     def ifft(self, k):
         return self.choose_backend(k).ifft(k)
 
+    def imag(self, complex):
+        return self.choose_backend(complex).imag(complex)
+
+    def real(self, complex):
+        return self.choose_backend(complex).real(complex)
+
 
 class NoBackendFound(Exception):
     def __init__(self, msg):
@@ -314,6 +326,7 @@ fft = backend.fft
 flatten = backend.flatten
 gather = backend.gather
 ifft = backend.ifft
+imag = backend.imag
 isfinite = backend.isfinite
 matmul = backend.matmul
 max = backend.max
@@ -324,6 +337,7 @@ name = backend.name
 ones_like = backend.ones_like
 pad = backend.pad
 py_func = backend.py_func
+real = backend.real
 resample = backend.resample
 reshape = backend.reshape
 shape = backend.shape
