@@ -72,19 +72,20 @@ class Schroedinger(Physics):
         if len(potentials) == 0:
             potential = 0
         else:
-            potential = zeros(state.amplitude.shape, np.float32)  # for the moment, allow only real potentials
+            potential = zeros_like(real(state.amplitude))  # for the moment, allow only real potentials
             for pot in potentials:
                 potential = pot.apply_grid(potential, state.grid, False, dt)
 
         amplitude = state.amplitude
 
         # Rotate by potential
-        amplitude *= exp(1j * to_complex(potential) * dt)
+        rotation = exp(1j * to_complex(potential * dt))
+        amplitude *= rotation
 
         # Move by rotating in Fourier space
         amplitude_fft = fft(amplitude)
         laplace = sum(fftfreq(staticshape(amplitude)) ** 2, axis=-1, keepdims=True)
-        amplitude_fft *= exp(-1j * np.pi * dt * laplace / state.mass)
+        amplitude_fft *= exp(-1j * np.pi * to_complex(dt) * laplace / state.mass)
         amplitude = ifft(amplitude_fft)
 
         for obstacle in obstacles:
@@ -117,7 +118,7 @@ def wave_packet(grid, center, size, wave_vector, normalized=True, dtype=np.compl
     x = grid.center_points()
     envelope = exp(-0.5 * sum((x - center)**2, axis=-1, keepdims=True) / size**2)
     wave = exp(1j * expand_dims(np.dot(x, wave_vector), -1)) * envelope
-    wave = wave.astype(dtype)
+    wave = cast(wave, dtype)
     if normalized: wave = normalize_probability(wave)
     return wave
 
@@ -129,17 +130,17 @@ def wave_packet_gen(center, size, wave_vector, normalized=True):
     return init
 
 
-def harmonic_potential(grid, center, unit_distance, maximum_value=1.0):
+def harmonic_potential(grid, center, unit_distance, maximum_value=1.0, dtype=np.float32):
     if isinstance(grid, Domain): grid = grid.grid
     x = (grid.center_points() - center) / unit_distance
     pot = sum(x ** 2, -1, keepdims=True)
     if maximum_value is not None:
         pot = minimum(pot, maximum_value)
-    return pot
+    return cast(pot, dtype)
 
 
-def sin_potential(grid, k, phase_offset=0):
+def sin_potential(grid, k, phase_offset=0, dtype=np.float32):
     if isinstance(grid, Domain): grid = grid.grid
     x = grid.center_points()
-    wave = sin(expand_dims(np.dot(x, k), -1) + phase_offset)
-    return wave
+    wave = sin(expand_dims(np.dot(x, k) + phase_offset, -1))
+    return cast(wave, dtype)
