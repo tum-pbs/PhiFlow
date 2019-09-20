@@ -141,5 +141,5 @@ def harmonic_potential(grid, center, unit_distance, maximum_value=1.0):
 def sin_potential(grid, k, phase_offset=0):
     if isinstance(grid, Domain): grid = grid.grid
     x = grid.center_points()
-    wave = np.sin(expand_dims(np.dot(x, k), -1) + phase_offset)
+    wave = sin(expand_dims(np.dot(x, k), -1) + phase_offset)
     return wave
