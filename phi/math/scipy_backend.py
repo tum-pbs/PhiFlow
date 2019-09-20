@@ -146,8 +146,10 @@ class SciPyBackend(Backend):
                     result[batch, ..., o] += scipy.signal.correlate(tensor[batch, ..., i], kernel[..., i, o], padding.lower())
         return result
 
-    def expand_dims(self, a, axis=0):
-        return np.expand_dims(a, axis)
+    def expand_dims(self, a, axis=0, number=1):
+        for i in range(number):
+            a = np.expand_dims(a, axis)
+        return a
 
     def shape(self, tensor):
         return np.shape(tensor)

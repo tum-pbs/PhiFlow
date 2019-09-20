@@ -150,8 +150,10 @@ class TFBackend(Backend):
             raise ValueError("Tensor must be of rank 1, 2 or 3 but is %d"%rank)
         return result
 
-    def expand_dims(self, a, axis=0):
-        return tf.expand_dims(a, axis)
+    def expand_dims(self, a, axis=0, number=1):
+        for i in range(number):
+            a = tf.expand_dims(a, axis)
+        return a
 
     def shape(self, tensor):
         return tf.shape(tensor)

@@ -89,7 +89,7 @@ class Backend:
     def conv(self, tensor, kernel, padding="SAME"):
         raise NotImplementedError(self)
 
-    def expand_dims(self, a, axis=0):
+    def expand_dims(self, a, axis=0, number=1):
         raise NotImplementedError(self)
 
     def shape(self, tensor):
@@ -261,8 +261,8 @@ class DynamicBackend(Backend):
     def conv(self, tensor, kernel, padding="SAME"):
         return self.choose_backend([tensor, kernel]).conv(tensor, kernel, padding)
 
-    def expand_dims(self, a, axis=0):
-        return self.choose_backend(a).expand_dims(a, axis)
+    def expand_dims(self, a, axis=0, number=1):
+        return self.choose_backend(a).expand_dims(a, axis, number)
 
     def shape(self, tensor):
         return self.choose_backend(tensor).shape(tensor)
