@@ -223,6 +223,12 @@ class TFBackend(Backend):
     def cast(self, x, dtype):
         return tf.cast(x, dtype)
 
+    def sin(self, x):
+        return tf.sin(x)
+
+    def cos(self, x):
+        return tf.cos(x)
+
 
 # from niftynet.layer.resampler.py
 # https://cmiclab.cs.ucl.ac.uk/CMIC/NiftyNet/blob/69c98e5a95cc6788ad9fb8c5e27dc24d1acec634/niftynet/layer/resampler.py

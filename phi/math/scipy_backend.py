@@ -221,6 +221,12 @@ class SciPyBackend(Backend):
     def real(self, complex):
         return np.real(complex)
 
+    def sin(self, x):
+        return np.sin(x)
+
+    def cos(self, x):
+        return np.cos(x)
+
 
 
 
