@@ -92,7 +92,7 @@ class CollectivePhysics(Physics):
         partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
 
         for sweep in range(len(collectivestate)):
-            for state in unhandled_states:
+            for state in tuple(unhandled_states):
                 physics = self.for_(state)
                 if self._all_dependencies_fulfilled(physics.blocking_dependencies, collectivestate, partial_next_collectivestate):
                     next_state = self.substep(state, collectivestate, dt, partial_next_collectivestate=partial_next_collectivestate)
