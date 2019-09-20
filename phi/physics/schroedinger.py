@@ -56,7 +56,7 @@ def psquare(complex):
 
 
 def fftfreq(shape):
-    k = np.meshgrid(*[np.fft.fftfreq(n) for n in shape[1:-1]], indexing='ij')
+    k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in list(shape)[1:-1]], indexing='ij')
     k = expand_dims(stack(k, -1), 0)
     return k
 
@@ -72,7 +72,7 @@ class Schroedinger(Physics):
         if len(potentials) == 0:
             potential = 0
         else:
-            potential = zeros_like(state.amplitude)
+            potential = zeros(state.amplitude.shape, np.float32)  # for the moment, allow only real potentials
             for pot in potentials:
                 potential = pot.apply_grid(potential, state.grid, False, dt)
 
@@ -110,10 +110,36 @@ SCHROEDINGER = Schroedinger()
 StepPotential = lambda geometry, height: FieldEffect(ComplexConstantField(geometry, height), ['potential'], mode=ADD)
 
 
-def wave_packet(domain, center, size, wave_vector):
+def wave_packet(grid, center, size, wave_vector, normalized=True, dtype=np.complex64):
+    if isinstance(grid, Domain): grid = grid.grid
     if len(np.shape(wave_vector)) == 0:
         wave_vector = expand_dims(wave_vector, 0)
-    x = domain.grid.indices()
+    x = grid.center_points()
     envelope = exp(-0.5 * sum((x - center)**2, axis=-1, keepdims=True) / size**2)
     wave = exp(1j * expand_dims(np.dot(x, wave_vector), -1)) * envelope
-    return wave.astype(np.complex64)
+    wave = wave.astype(dtype)
+    if normalized: wave = normalize_probability(wave)
+    return wave
+
+
+def wave_packet_gen(center, size, wave_vector, normalized=True):
+    def init(shape, dtype=np.complex64):
+        grid = Grid(shape[1:-1])
+        return wave_packet(grid, center, size, wave_vector, normalized, dtype=dtype)
+    return init
+
+
+def harmonic_potential(grid, center, unit_distance, maximum_value=1.0):
+    if isinstance(grid, Domain): grid = grid.grid
+    x = (grid.center_points() - center) / unit_distance
+    pot = sum(x ** 2, -1, keepdims=True)
+    if maximum_value is not None:
+        pot = minimum(pot, maximum_value)
+    return pot
+
+
+def sin_potential(grid, k, phase_offset=0):
+    if isinstance(grid, Domain): grid = grid.grid
+    x = grid.center_points()
+    wave = np.sin(expand_dims(np.dot(x, k), -1) + phase_offset)
+    return wave
