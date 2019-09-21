@@ -116,6 +116,9 @@ class PlotlyFigureBuilder(object):
             data = data[batch, ...]
         else:
             return { 'data': [{'type': 'heatmap', 'z': [[0]]}] }
+
+        if numpy.issubdtype(data.dtype, numpy.complex):
+            data = numpy.real(data)
         
         # 1D graph
         if len(data.shape) == 2:
