@@ -92,11 +92,11 @@ class World(object):
     The method world.step() evolves the whole state or optionally a specific state in time.
     """
 
-    def __init__(self):
+    def __init__(self, batch_size=None):
         self._state = CollectiveState()
         self.physics = self._state.default_physics()
         self.observers = set()
-        self.batch_size = None
+        self.batch_size = batch_size
         # --- Insert object / create proxy shortcuts ---
         for proxy in ('Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
                       'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect',

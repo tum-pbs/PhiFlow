@@ -117,7 +117,7 @@ class TFModel(FieldSequenceModel):
         # Train
         if self._training_set is not None:
             self._train_reader = BatchReader(self._training_set, channels)
-            self._train_iterator = self._train_reader.all_batches(batch_size=1, loop=True)
+            self._train_iterator = self._train_reader.all_batches(batch_size=self.training_batch_size, loop=True)
         else:
             self._train_reader = None
             self._train_iterator = None
@@ -161,8 +161,8 @@ class TFModel(FieldSequenceModel):
         else:
             optim_nodes = [optim_nodes]
         batch = next(self._train_iterator) if self._train_iterator is not None else None
-        scalar_values = self.session.run(optim_nodes + self.scalars, self._feed_dict(batch, True),
-                                         summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[1:]
+        feed_dict = self._feed_dict(batch, True)
+        scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[1:]
         if log_loss:
             self.info('Optimization: ' + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
@@ -170,8 +170,8 @@ class TFModel(FieldSequenceModel):
         if self._val_reader is None:
             return
         batch = self._val_reader[0:self.validation_batch_size]
-        self.session.run(self.scalars, self._feed_dict(batch, False),
-                         summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
+        feed_dict = self._feed_dict(batch, False)
+        self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
         if create_checkpoint:
             self.save_model()
         self.info('Validation Done.')

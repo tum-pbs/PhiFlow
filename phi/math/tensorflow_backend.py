@@ -42,7 +42,7 @@ class TFBackend(Backend):
         if axis is not None:
             if not isinstance(axis, int):
                 axis = list(axis)
-        return tf.reduce_sum(value, axis=axis)
+        return tf.reduce_sum(value, axis=axis, keepdims=keepdims)
 
     def mean(self, value, axis=None):
         if axis is not None:

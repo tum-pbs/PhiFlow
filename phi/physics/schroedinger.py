@@ -47,7 +47,7 @@ class QuantumWave(State):
 
 def normalize_probability(probability_amplitude):
     p = to_float(abs(probability_amplitude) ** 2)
-    P = sum(p, spatial_dimensions(p))
+    P = sum(p, spatial_dimensions(p), keepdims=True)
     return probability_amplitude / to_complex(sqrt(P))
 
 
@@ -142,5 +142,7 @@ def harmonic_potential(grid, center, unit_distance, maximum_value=1.0, dtype=np.
 def sin_potential(grid, k, phase_offset=0, dtype=np.float32):
     if isinstance(grid, Domain): grid = grid.grid
     x = grid.center_points()
-    wave = sin(expand_dims(np.dot(x, k) + phase_offset, -1))
+    phase_offset = expand_dims(phase_offset, -1, grid.rank+1)
+    x_k = expand_dims(np.dot(x, k), -1)
+    wave = sin(x_k + phase_offset)
     return cast(wave, dtype)
