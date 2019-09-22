@@ -76,6 +76,7 @@ class TFModel(FieldSequenceModel):
         self.validation_batch_size = validation_batch_size
         self.model_scope_name = model_scope_name
         self.auto_bake = False
+        self.scalar_values = {}
         self.set_data(None, None)
 
     def prepare(self):
@@ -162,7 +163,8 @@ class TFModel(FieldSequenceModel):
             optim_nodes = [optim_nodes]
         batch = next(self._train_iterator) if self._train_iterator is not None else None
         feed_dict = self._feed_dict(batch, True)
-        scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[1:]
+        scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
+        self.scalar_values = {name: value for name, value in zip(self.scalar_names, scalar_values) }
         if log_loss:
             self.info('Optimization: ' + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
@@ -174,7 +176,7 @@ class TFModel(FieldSequenceModel):
         self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
         if create_checkpoint:
             self.save_model()
-        self.info('Validation Done.')
+        self.info('Validation Done (%d).' % self.steps)
 
     def base_feed_dict(self):
         return {}
