@@ -66,6 +66,7 @@ class TFModel(FieldSequenceModel):
                  validation_batch_size=16,
                  model_scope_name='model',
                  base_dir='~/phi/model/',
+                 stride=None,
                  **kwargs):
         FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
@@ -78,6 +79,7 @@ class TFModel(FieldSequenceModel):
         self.auto_bake = False
         self.scalar_values = {}
         self.set_data(None, None)
+        self.custom_stride = stride
 
     def prepare(self):
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
@@ -101,6 +103,8 @@ class TFModel(FieldSequenceModel):
         if self._train_reader is not None:
             self.sequence_stride = len(self._train_reader.all_batches(batch_size=self.training_batch_size))
             self.validation_step()
+        if self.custom_stride is not None:
+            self.sequence_stride = min(self.custom_stride, self.sequence_stride)
 
         return self
 

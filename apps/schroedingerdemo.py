@@ -35,4 +35,4 @@ class SchroedingerDemo(FieldSequenceModel):
                                                              [1*self.value_frequency, 0.6*self.value_frequency]))
 
 
-SchroedingerDemo().show(figure_builder=PlotlyFigureBuilder(batches=[0], depths=[0], max_resolution=128), port=8050)
+SchroedingerDemo().show(figure_builder=PlotlyFigureBuilder(batches=[0], depths=[0], max_resolution=128))
