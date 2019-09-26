@@ -296,16 +296,18 @@ class FieldSequenceModel(object):
     def run_step(self, framerate=None, allow_recording=True):
         self.current_action = 'Running'
         starttime = time.time()
-        self.progress()
-        if allow_recording and self.steps % self.sequence_stride == 0:
-            self.record_frame()
-        if framerate is not None:
-            duration = time.time() - starttime
-            rest = 1.0/framerate/self.sequence_stride - duration
-            if rest > 0:
-                self.current_action = 'Waiting'
-                time.sleep(rest)
-        self.current_action = None
+        try:
+            self.progress()
+            if allow_recording and self.steps % self.sequence_stride == 0:
+                self.record_frame()
+            if framerate is not None:
+                duration = time.time() - starttime
+                rest = 1.0/framerate/self.sequence_stride - duration
+                if rest > 0:
+                    self.current_action = 'Waiting'
+                    time.sleep(rest)
+        finally:
+            self.current_action = None
 
     def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
         def target():

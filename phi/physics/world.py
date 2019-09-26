@@ -4,6 +4,7 @@ from .burger import *
 from .heat import *
 from .obstacle import *
 from .effect import *
+from .schroedinger import *
 import inspect
 
 
@@ -57,9 +58,6 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
-
-
-
 def _proxy_wrap(world, constructor):
     try:
         const_args = inspect.getargspec(constructor)[0]
@@ -94,14 +92,15 @@ class World(object):
     The method world.step() evolves the whole state or optionally a specific state in time.
     """
 
-    def __init__(self):
+    def __init__(self, batch_size=None):
         self._state = CollectiveState()
         self.physics = self._state.default_physics()
         self.observers = set()
-        self.batch_size = None
+        self.batch_size = batch_size
         # --- Insert object / create proxy shortcuts ---
         for proxy in ('Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
-                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect'):
+                      'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect',
+                      'QuantumWave', 'StepPotential'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Smoke = Smoke
@@ -115,6 +114,8 @@ class World(object):
     HeatSource = HeatSource
     ColdSource = ColdSource
     FieldEffect = FieldEffect
+    QuantumWave = QuantumWave
+    StepPotential = StepPotential
 
 
     @property

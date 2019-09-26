@@ -66,6 +66,7 @@ class TFModel(FieldSequenceModel):
                  validation_batch_size=16,
                  model_scope_name='model',
                  base_dir='~/phi/model/',
+                 stride=None,
                  **kwargs):
         FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
@@ -76,7 +77,9 @@ class TFModel(FieldSequenceModel):
         self.validation_batch_size = validation_batch_size
         self.model_scope_name = model_scope_name
         self.auto_bake = False
+        self.scalar_values = {}
         self.set_data(None, None)
+        self.custom_stride = stride
 
     def prepare(self):
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
@@ -100,6 +103,8 @@ class TFModel(FieldSequenceModel):
         if self._train_reader is not None:
             self.sequence_stride = len(self._train_reader.all_batches(batch_size=self.training_batch_size))
             self.validation_step()
+        if self.custom_stride is not None:
+            self.sequence_stride = min(self.custom_stride, self.sequence_stride)
 
         return self
 
@@ -117,7 +122,7 @@ class TFModel(FieldSequenceModel):
         # Train
         if self._training_set is not None:
             self._train_reader = BatchReader(self._training_set, channels)
-            self._train_iterator = self._train_reader.all_batches(batch_size=1, loop=True)
+            self._train_iterator = self._train_reader.all_batches(batch_size=self.training_batch_size, loop=True)
         else:
             self._train_reader = None
             self._train_iterator = None
@@ -161,8 +166,9 @@ class TFModel(FieldSequenceModel):
         else:
             optim_nodes = [optim_nodes]
         batch = next(self._train_iterator) if self._train_iterator is not None else None
-        scalar_values = self.session.run(optim_nodes + self.scalars, self._feed_dict(batch, True),
-                                         summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[1:]
+        feed_dict = self._feed_dict(batch, True)
+        scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
+        self.scalar_values = {name: value for name, value in zip(self.scalar_names, scalar_values) }
         if log_loss:
             self.info('Optimization: ' + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
@@ -170,11 +176,11 @@ class TFModel(FieldSequenceModel):
         if self._val_reader is None:
             return
         batch = self._val_reader[0:self.validation_batch_size]
-        self.session.run(self.scalars, self._feed_dict(batch, False),
-                         summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
+        feed_dict = self._feed_dict(batch, False)
+        self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
         if create_checkpoint:
             self.save_model()
-        self.info('Validation Done.')
+        self.info('Validation Done (%d).' % self.steps)
 
     def base_feed_dict(self):
         return {}

@@ -41,7 +41,7 @@ class CollectiveState(State):
     def __getitem__(self, item):
         if isinstance(item, State):
             if item in self._states: return item
-            else: raise ValueError('State %s not part of CollectiveState' % item)
+            else: return self[item.trajectorykey]
         if isinstance(item, TrajectoryKey):
             states = list(filter(lambda s: s.trajectorykey==item, self._states))
             assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
@@ -92,7 +92,7 @@ class CollectivePhysics(Physics):
         partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
 
         for sweep in range(len(collectivestate)):
-            for state in unhandled_states:
+            for state in tuple(unhandled_states):
                 physics = self.for_(state)
                 if self._all_dependencies_fulfilled(physics.blocking_dependencies, collectivestate, partial_next_collectivestate):
                     next_state = self.substep(state, collectivestate, dt, partial_next_collectivestate=partial_next_collectivestate)
@@ -100,7 +100,8 @@ class CollectivePhysics(Physics):
                     unhandled_states.remove(state)
             partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
             if len(unhandled_states) == 0:
-                return partial_next_collectivestate
+                ordered_states = [partial_next_collectivestate[state] for state in collectivestate.states]
+                return partial_next_collectivestate.copied_with(states=ordered_states)
 
         raise AssertionError('Cyclic blocking_dependencies in simulation: %s' % unhandled_states)
 

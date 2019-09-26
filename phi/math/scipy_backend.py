@@ -47,8 +47,8 @@ class SciPyBackend(Backend):
     def reshape(self, value, shape):
         return value.reshape(shape)
 
-    def sum(self, value, axis=None):
-        return np.sum(value, axis=axis)
+    def sum(self, value, axis=None, keepdims=False):
+        return np.sum(value, axis=axis, keepdims=keepdims)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         result = func(*inputs)
@@ -146,8 +146,10 @@ class SciPyBackend(Backend):
                     result[batch, ..., o] += scipy.signal.correlate(tensor[batch, ..., i], kernel[..., i, o], padding.lower())
         return result
 
-    def expand_dims(self, a, axis=0):
-        return np.expand_dims(a, axis)
+    def expand_dims(self, a, axis=0, number=1):
+        for i in range(number):
+            a = np.expand_dims(a, axis)
+        return a
 
     def shape(self, tensor):
         return np.shape(tensor)
@@ -160,6 +162,12 @@ class SciPyBackend(Backend):
 
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)
+
+    def to_complex(self, x):
+        return np.array(x).astype(np.complex64)
+
+    def cast(self, x, dtype):
+        return np.array(x).astype(dtype)
 
     def gather(self, values, indices):
         return values[indices]
@@ -188,6 +196,39 @@ class SciPyBackend(Backend):
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return np.all(boolean_tensor, axis=axis, keepdims=keepdims)
+
+    def fft(self, x):
+        rank = len(x.shape) - 2
+        assert rank >= 1
+        if rank == 1:
+            return np.fft.fft(x, axis=1)
+        elif rank == 2:
+            return np.fft.fft2(x, axes=[1,2])
+        else:
+            return np.fft.fftn(x, axes=list(range(1,rank+1)))
+
+    def ifft(self, k):
+        rank = len(k.shape) - 2
+        assert rank >= 1
+        if rank == 1:
+            return np.fft.ifft(k, axis=1)
+        elif rank == 2:
+            return np.fft.ifft2(k, axes=[1,2])
+        else:
+            return np.fft.ifftn(k, axes=list(range(1,rank+1)))
+
+    def imag(self, complex):
+        return np.imag(complex)
+
+    def real(self, complex):
+        return np.real(complex)
+
+    def sin(self, x):
+        return np.sin(x)
+
+    def cos(self, x):
+        return np.cos(x)
+
 
 
 

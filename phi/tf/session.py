@@ -86,6 +86,8 @@ class Session(object):
     def restore(self, dir, scope=None):
         path = os.path.join(dir, "model.ckpt")
         vars = self.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope)
+        if len(vars) == 0:
+            raise ValueError('The current graph does not contain any variables in scope "%s.\nAll: %s"' % (scope, self.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)))
         saver = tf.train.Saver(var_list=vars)
         saver.restore(self._session, path)
 

@@ -47,7 +47,7 @@ class Field(Struct):
 
 class ConstantField(Field):
 
-    __struct__ = Field.__struct__.extend((), ('_value',))
+    __struct__ = Field.__struct__.extend([], ['_value'])
 
     def __init__(self, bounds=None, value=1.0):
         Field.__init__(self, bounds)
@@ -67,6 +67,31 @@ class ConstantField(Field):
 
     def __repr__(self):
         return repr(self._value)
+
+
+class ComplexConstantField(ConstantField):
+    """
+    This class is required because complex numbers are not JSON serializable, see https://github.com/bmabey/pyLDAvis/issues/69
+    """
+
+    __struct__ = Field.__struct__.extend([], ['_real', '_imag'])
+
+    def __init__(self, bounds=None, value=1.0):
+        Field.__init__(self, bounds)
+        if isinstance(value, math.Number):
+            value = math.expand_dims(value)
+        self._value = value
+
+    @property
+    def real(self):
+        return real(self.value)
+
+    @property
+    def imag(self):
+        return imag(self.value)
+
+    def sample_at(self, location):
+        return to_complex(ConstantField.sample_at(self, location))
 
 
 class GridField(Field):
