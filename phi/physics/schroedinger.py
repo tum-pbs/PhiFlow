@@ -10,17 +10,13 @@ class QuantumWave(State):
     def __init__(self, domain, amplitude=1, is_normalized=False, mass=0.1, batch_size=None):
         State.__init__(self, tags=('qwave',), batch_size=batch_size)
         self._domain = domain
-        self._amplitude = initialize_field(amplitude, self.grid.shape(1, self._batch_size), dtype=np.complex64)
+        self._amplitude = initialize_field(amplitude, self.domain.shape(1, self._batch_size), dtype=np.complex64)
         self._is_normalized = is_normalized
         self._mass = mass
 
     @property
     def domain(self):
         return self._domain
-
-    @property
-    def grid(self):
-        return self._domain._grid
 
     @property
     def amplitude(self):
@@ -38,7 +34,7 @@ class QuantumWave(State):
         if ('amplitude' in kwargs) and 'is_normalized' not in kwargs:
             kwargs['is_normalized'] = False
         if 'amplitude' in kwargs:
-            kwargs['amplitude'] = initialize_field(kwargs['amplitude'], self.grid.shape(1, self._batch_size), dtype=np.complex64)
+            kwargs['amplitude'] = initialize_field(kwargs['amplitude'], self.domain.shape(1, self._batch_size), dtype=np.complex64)
         return State.copied_with(self, **kwargs)
 
     def default_physics(self):
@@ -74,7 +70,7 @@ class Schroedinger(Physics):
         else:
             potential = zeros_like(real(state.amplitude))  # for the moment, allow only real potentials
             for pot in potentials:
-                potential = pot.apply_grid(potential, state.grid, False, dt)
+                potential = pot.apply_grid(potential, state.domain, False, dt)
 
         amplitude = state.amplitude
 
@@ -89,12 +85,12 @@ class Schroedinger(Physics):
         amplitude = ifft(amplitude_fft)
 
         for obstacle in obstacles:
-            amplitude *= 1 - obstacle.geometry.at(state.grid)
+            amplitude *= 1 - obstacle.geometry.at(state.domain)
 
         normalized = False
         symmetric = False
         if not symmetric:
-            boundary_mask = np.zeros(state.grid.shape(1, batch_size=1))
+            boundary_mask = np.zeros(state.domain.shape(1, batch_size=1))
             boundary_mask[[slice(None)] + [slice(self.margin,-self.margin) for i in spatial_dimensions(boundary_mask)] + [slice(None)]] = 1
             amplitude *= boundary_mask
 
@@ -112,7 +108,6 @@ StepPotential = lambda geometry, height: FieldEffect(ComplexConstantField(geomet
 
 
 def wave_packet(grid, center, size, wave_vector, normalized=True, dtype=np.complex64):
-    if isinstance(grid, Domain): grid = grid.grid
     if len(np.shape(wave_vector)) == 0:
         wave_vector = expand_dims(wave_vector, 0)
     x = grid.center_points()
@@ -131,7 +126,6 @@ def wave_packet_gen(center, size, wave_vector, normalized=True):
 
 
 def harmonic_potential(grid, center, unit_distance, maximum_value=1.0, dtype=np.float32):
-    if isinstance(grid, Domain): grid = grid.grid
     x = (grid.center_points() - center) / unit_distance
     pot = sum(x ** 2, -1, keepdims=True)
     if maximum_value is not None:
@@ -140,7 +134,6 @@ def harmonic_potential(grid, center, unit_distance, maximum_value=1.0, dtype=np.
 
 
 def sin_potential(grid, k, phase_offset=0, dtype=np.float32):
-    if isinstance(grid, Domain): grid = grid.grid
     x = grid.center_points()
     phase_offset = expand_dims(phase_offset, -1, grid.rank+1)
     x_k = expand_dims(np.dot(x, k), -1)

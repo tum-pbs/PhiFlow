@@ -20,7 +20,7 @@ class SchroedingerDemo(FieldSequenceModel):
 
         self.add_field('Real', lambda: np.real(q.amplitude))
         self.add_field('Imag', lambda: np.imag(q.amplitude))
-        self.add_field('Domain', lambda: geometry_mask([glassbar.field.bounds, topbar.geometry], q.grid))
+        self.add_field('Domain', lambda: geometry_mask([glassbar.field.bounds, topbar.geometry], q.domain))
         self.add_field('Zoomed', lambda: np.real(q.amplitude)[:, 0:128, 0:128, :])
         self.info('Total probability: %f' % sum(abs(self.q.amplitude)**2))
 

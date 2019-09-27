@@ -24,15 +24,11 @@ class Heat(State):
 
     @_temperature.setter
     def _temperature(self, value):
-        self._temperature_field = initialize_field(value, self.grid.shape(1, self._batch_size))
+        self._temperature_field = initialize_field(value, self.domain.shape(1, self._batch_size))
 
     @property
     def domain(self):
         return self._domain
-
-    @property
-    def grid(self):
-        return self.domain.grid
 
     @property
     def diffusivity(self):
@@ -48,5 +44,5 @@ class HeatPhysics(Physics):
     def step(self, heat, dt=1.0, effects=()):
         temperature = heat.temperature + heat.diffusivity * laplace(heat.temperature)
         for effect in effects:
-            temperature = effect.apply_grid(temperature, heat.domain.grid, staggered=False, dt=dt)
+            temperature = effect.apply_grid(temperature, heat.domain, staggered=False, dt=dt)
         return heat.copied_with(temperature=temperature, age=heat.age+dt)

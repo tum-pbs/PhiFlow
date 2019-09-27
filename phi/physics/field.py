@@ -99,14 +99,14 @@ class GridField(Field):
     __struct__ = Field.__struct__.extend(('_values',), ('_domain',))
 
     def __init__(self, domain, values):
-        Field.__init__(self, domain.grid.box)
+        Field.__init__(self, domain.box)
         self._values = values
         self._domain = domain
 
     def sample_grid(self, grid, staggered=False):
         if staggered:
             raise NotImplementedError(self)
-        if grid == self._domain.grid:
+        if Grid.equal(grid, self._domain):
             return self._values
         else:
             return self.sample_at(grid.center_points())

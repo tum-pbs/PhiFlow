@@ -4,10 +4,10 @@ from .obstacle import *
 from .material import *
 
 
-class Domain(State):
-    __struct__ = struct.Def((), ('_grid', '_boundaries'))
+class Domain(Grid):
+    __struct__ = Grid.__struct__.extend([], ['_boundaries'])
 
-    def __init__(self, grid, boundaries=OPEN):
+    def __init__(self, dimensions, boundaries=OPEN, box=None):
         """
 Simulation domain that specifies size and boundary conditions.
 
@@ -26,27 +26,18 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
         """
-        State.__init__(self, ('domain',))
-        self._grid = grid if isinstance(grid, Grid) else Grid(grid)
+        Grid.__init__(self, dimensions, box=box)
         assert isinstance(boundaries, (Material, list, tuple))
         if isinstance(boundaries, (tuple, list)):
-            assert len(boundaries) == self._grid.rank
+            assert len(boundaries) == self.rank
         self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
 
     def default_physics(self):
         return STATIC
 
     @property
-    def grid(self):
-        return self._grid
-
-    @property
     def boundaries(self):
         return self._boundaries
-
-    @property
-    def rank(self):
-        return self.grid.rank
 
     def _get_paddings(self, material_condition, margin=1):
         true_paddings = [[0, 0] for i in range(self.rank)]
@@ -76,20 +67,16 @@ class DomainCache(Struct):
     def __init__(self, domain, validstate=(), active=None, accessible=None):
         self._domain = domain
         self._validstate = validstate
-        self._active = active if active is not None else ones(domain.grid.shape())
-        self._accessible = accessible if accessible is not None else ones(domain.grid.shape())
+        self._active = active if active is not None else ones(domain.shape())
+        self._accessible = accessible if accessible is not None else ones(domain.shape())
 
     @property
     def domain(self):
         return self._domain
 
     @property
-    def grid(self):
-        return self.domain._grid
-
-    @property
     def rank(self):
-        return self.grid.rank
+        return self.domain.rank
 
     def is_valid(self, state):
         return self._validstate == state
@@ -162,10 +149,6 @@ def _frictionless_velocity_mask(accessible_mask):
 def _friction_mask(masks_and_multipliers):
     for mask, multiplier in masks_and_multipliers:
         return mask
-
-
-Open3D = Domain(Grid([0] * 3))
-Open2D = Domain(Grid([0] * 2))
 
 
 def geometry_mask(geometries, grid):

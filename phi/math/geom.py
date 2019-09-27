@@ -133,6 +133,12 @@ class Grid(Struct):
     def staggered_shape(self, batch_size=1):
         return StaggeredGrid(tensor_shape(batch_size, self.dimensions + 1, self.rank))
 
+    @staticmethod
+    def equal(grid1, grid2):
+        assert isinstance(grid1, Grid), 'Not a grid: %s' % type(grid1)
+        assert isinstance(grid2, Grid), 'Not a grid: %s' % type(grid2)
+        return grid1._dimensions == grid2._dimensions and grid1._box == grid2._box
+
 
 def tensor_shape(batch_size, dimensions, components):
     return np.concatenate([[batch_size], dimensions, [components]])

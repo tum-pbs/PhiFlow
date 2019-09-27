@@ -19,7 +19,7 @@ def initialize_field(value, shape, dtype=np.float32):
 
 def domain(smoke, obstacles):
     if smoke.domaincache is None or not smoke.domaincache.is_valid(obstacles):
-        mask = 1 - geometry_mask([o.geometry for o in obstacles], smoke.grid)
+        mask = 1 - geometry_mask([o.geometry for o in obstacles], smoke.domain)
         smoke.domaincache = DomainCache(smoke.domain, obstacles, active=mask, accessible=mask)
     return smoke.domaincache
 
@@ -45,10 +45,10 @@ class SmokePhysics(Physics):
         velocity = velocity.advect(velocity, dt=dt)
         # --- Density effects ---
         for effect in density_effects:
-            density = effect.apply_grid(density, smoke.grid, staggered=False, dt=dt)
+            density = effect.apply_grid(density, smoke.domain, staggered=False, dt=dt)
         # --- velocity effects
         for effect in velocity_effects:
-            velocity = effect.apply_grid(velocity, smoke.grid, staggered=True, dt=dt)
+            velocity = effect.apply_grid(velocity, smoke.domain, staggered=True, dt=dt)
         velocity = stick(velocity, domaincache, dt)
         velocity += dt * buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor)
         if self.make_output_divfree:
@@ -64,14 +64,14 @@ class Smoke(State):
     __struct__ = State.__struct__.extend(('_density', '_velocity'),
                             ('_domain', '_gravity', '_buoyancy_factor', '_conserve_density'))
 
-    def __init__(self, domain=Open2D,
+    def __init__(self, domain,
                  density=0.0, velocity=zeros,
                  gravity=-9.81, buoyancy_factor=0.1, conserve_density=False,
                  batch_size=None):
         State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
-        self._density = initialize_field(density, self.grid.shape(1, self._batch_size))
-        self._velocity = initialize_field(velocity, self.grid.staggered_shape(self._batch_size))
+        self._density = initialize_field(density, self.domain.shape(1, self._batch_size))
+        self._velocity = initialize_field(velocity, self.domain.staggered_shape(self._batch_size))
         self._gravity = gravity
         self._buoyancy_factor = buoyancy_factor
         self._conserve_density = conserve_density
@@ -84,9 +84,9 @@ class Smoke(State):
 
     def copied_with(self, **kwargs):
         if 'density' in kwargs:
-            kwargs['density'] = initialize_field(kwargs['density'], self.grid.shape(1, self._batch_size))
+            kwargs['density'] = initialize_field(kwargs['density'], self.domain.shape(1, self._batch_size))
         if 'velocity' in kwargs:
-            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.grid.staggered_shape(self._batch_size))
+            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.domain.staggered_shape(self._batch_size))
         return State.copied_with(self, **kwargs)
 
     @property
@@ -102,20 +102,16 @@ class Smoke(State):
         return self._domain
 
     @property
-    def grid(self):
-        return self.domain.grid
-
-    @property
     def rank(self):
-        return self.grid.rank
+        return self.domain.rank
 
     @property
     def staggered_shape(self):
-        return self.grid.staggered_shape(self._batch_size)
+        return self.domain.staggered_shape(self._batch_size)
 
     @property
     def centered_shape(self):
-        return self.grid.shape(1, self._batch_size)
+        return self.domain.shape(1, self._batch_size)
 
     @property
     def gravity(self):
