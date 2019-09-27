@@ -4,7 +4,7 @@ import logging, os, numbers, six, numpy, threading, inspect, time, sys
 from os.path import isfile
 from phi.data.fluidformat import Scene
 import phi.math.nd
-from phi.math import struct
+from phi import struct
 from phi.viz.plot import PlotlyFigureBuilder
 from phi.physics.world import world
 

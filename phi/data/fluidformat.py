@@ -2,7 +2,7 @@
 import numpy as np
 import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
-from phi.math import struct
+from phi import struct
 
 
 def read_zipped_array(filename):

@@ -42,18 +42,18 @@ class QuantumWave(State):
 
 
 def normalize_probability(probability_amplitude):
-    p = to_float(abs(probability_amplitude) ** 2)
-    P = sum(p, spatial_dimensions(p), keepdims=True)
-    return probability_amplitude / to_complex(sqrt(P))
+    p = math.to_float(abs(probability_amplitude) ** 2)
+    P = math.sum(p, math.spatial_dimensions(p), keepdims=True)
+    return probability_amplitude / math.to_complex(math.sqrt(P))
 
 
 def psquare(complex):
-    return imag(complex) ** 2 + real(complex) ** 2
+    return math.imag(complex) ** 2 + math.real(complex) ** 2
 
 
 def fftfreq(shape):
     k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in list(shape)[1:-1]], indexing='ij')
-    k = expand_dims(stack(k, -1), 0)
+    k = math.expand_dims(math.stack(k, -1), 0)
     return k
 
 
@@ -68,21 +68,21 @@ class Schroedinger(Physics):
         if len(potentials) == 0:
             potential = 0
         else:
-            potential = zeros_like(real(state.amplitude))  # for the moment, allow only real potentials
+            potential = math.zeros_like(math.real(state.amplitude))  # for the moment, allow only real potentials
             for pot in potentials:
                 potential = pot.apply_grid(potential, state.domain, False, dt)
 
         amplitude = state.amplitude
 
         # Rotate by potential
-        rotation = exp(1j * to_complex(potential * dt))
+        rotation = math.exp(1j * math.to_complex(potential * dt))
         amplitude *= rotation
 
         # Move by rotating in Fourier space
-        amplitude_fft = fft(amplitude)
-        laplace = sum(fftfreq(staticshape(amplitude)) ** 2, axis=-1, keepdims=True)
-        amplitude_fft *= exp(-1j * np.pi * to_complex(dt) * laplace / state.mass)
-        amplitude = ifft(amplitude_fft)
+        amplitude_fft = math.fft(amplitude)
+        laplace = math.sum(fftfreq(staticshape(amplitude)) ** 2, axis=-1, keepdims=True)
+        amplitude_fft *= math.exp(-1j * np.pi * math.to_complex(dt) * laplace / state.mass)
+        amplitude = math.ifft(amplitude_fft)
 
         for obstacle in obstacles:
             amplitude *= 1 - obstacle.geometry.at(state.domain)
@@ -91,7 +91,7 @@ class Schroedinger(Physics):
         symmetric = False
         if not symmetric:
             boundary_mask = np.zeros(state.domain.shape(1, batch_size=1))
-            boundary_mask[[slice(None)] + [slice(self.margin,-self.margin) for i in spatial_dimensions(boundary_mask)] + [slice(None)]] = 1
+            boundary_mask[[slice(None)] + [slice(self.margin,-self.margin) for i in math.spatial_dimensions(boundary_mask)] + [slice(None)]] = 1
             amplitude *= boundary_mask
 
         if len(obstacles) > 0 or not symmetric:
@@ -109,11 +109,11 @@ StepPotential = lambda geometry, height: FieldEffect(ComplexConstantField(geomet
 
 def wave_packet(grid, center, size, wave_vector, normalized=True, dtype=np.complex64):
     if len(np.shape(wave_vector)) == 0:
-        wave_vector = expand_dims(wave_vector, 0)
+        wave_vector = math.expand_dims(wave_vector, 0)
     x = grid.center_points()
-    envelope = exp(-0.5 * sum((x - center)**2, axis=-1, keepdims=True) / size**2)
-    wave = exp(1j * expand_dims(np.dot(x, wave_vector), -1)) * envelope
-    wave = cast(wave, dtype)
+    envelope = math.exp(-0.5 * math.sum((x - center)**2, axis=-1, keepdims=True) / size**2)
+    wave = math.exp(1j * math.expand_dims(np.dot(x, wave_vector), -1)) * envelope
+    wave = math.cast(wave, dtype)
     if normalized: wave = normalize_probability(wave)
     return wave
 
@@ -127,15 +127,15 @@ def wave_packet_gen(center, size, wave_vector, normalized=True):
 
 def harmonic_potential(grid, center, unit_distance, maximum_value=1.0, dtype=np.float32):
     x = (grid.center_points() - center) / unit_distance
-    pot = sum(x ** 2, -1, keepdims=True)
+    pot = math.sum(x ** 2, -1, keepdims=True)
     if maximum_value is not None:
-        pot = minimum(pot, maximum_value)
-    return cast(pot, dtype)
+        pot = math.minimum(pot, maximum_value)
+    return math.cast(pot, dtype)
 
 
 def sin_potential(grid, k, phase_offset=0, dtype=np.float32):
     x = grid.center_points()
-    phase_offset = expand_dims(phase_offset, -1, grid.rank+1)
-    x_k = expand_dims(np.dot(x, k), -1)
-    wave = sin(x_k + phase_offset)
-    return cast(wave, dtype)
+    phase_offset = math.expand_dims(phase_offset, -1, grid.rank+1)
+    x_k = math.expand_dims(np.dot(x, k), -1)
+    wave = math.sin(x_k + phase_offset)
+    return math.cast(wave, dtype)

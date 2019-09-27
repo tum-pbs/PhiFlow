@@ -1,13 +1,14 @@
 from .physics import *
 from phi.math.geom import *
 from phi import math
+from numbers import Number
 
 
-class Field(Struct):
-    __struct__ = Struct.__struct__.extend((), ('_bounds',))
+class Field(struct.Struct):
+    __struct__ = struct.Def((), ('_bounds',))
 
     def __init__(self, bounds=None):
-        Struct.__init__(self)
+        struct.Struct.__init__(self)
         self._bounds = bounds
 
     @property
@@ -84,14 +85,14 @@ class ComplexConstantField(ConstantField):
 
     @property
     def real(self):
-        return real(self.value)
+        return math.real(self.value)
 
     @property
     def imag(self):
-        return imag(self.value)
+        return math.imag(self.value)
 
     def sample_at(self, location):
-        return to_complex(ConstantField.sample_at(self, location))
+        return math.to_complex(ConstantField.sample_at(self, location))
 
 
 class GridField(Field):

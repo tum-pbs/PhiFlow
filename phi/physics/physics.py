@@ -1,4 +1,5 @@
-from phi.math import Struct, struct, staticshape
+from phi.math import staticshape
+from phi import struct
 
 
 class TrajectoryKey(object):
@@ -10,7 +11,7 @@ class TrajectoryKey(object):
     pass
 
 
-class State(Struct):
+class State(struct.Struct):
 
     __struct__ = struct.Def((), ('_age', '_tags'))
 

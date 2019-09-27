@@ -1,8 +1,8 @@
-from phi.math import *
+from phi import math, struct
 import numpy as np
 
 
-class Geometry(Struct):
+class Geometry(struct.Struct):
 
     def value_at(self, location):
         raise NotImplementedError(self.__class__)
@@ -33,8 +33,8 @@ class Box(Geometry):
         # local = self.global_to_local(global_position)
         # bool_inside = (local >= 0) & (local <= 1)
         bool_inside = (global_position >= self.origin) & (global_position <= (self.upper))
-        bool_inside = all(bool_inside, axis=-1, keepdims=True)
-        return to_float(bool_inside)
+        bool_inside = math.all(bool_inside, axis=-1, keepdims=True)
+        return math.to_float(bool_inside)
 
 
 class BoxGenerator(object):
@@ -62,8 +62,8 @@ class Sphere(Geometry):
     __struct__ = struct.Def((), ('_center', '_radius'))
 
     def __init__(self, center, radius):
-        self._center = as_tensor(center)
-        self._radius = as_tensor(radius)
+        self._center = math.as_tensor(center)
+        self._radius = math.as_tensor(radius)
 
     @property
     def radius(self):
@@ -74,11 +74,11 @@ class Sphere(Geometry):
         return self._center
 
     def value_at(self, location):
-        bool_inside = np.expand_dims(sum((location - self._center)**2, axis=-1) <= self._radius ** 2, -1)
-        return to_float(bool_inside)
+        bool_inside = math.expand_dims(math.sum((location - self._center)**2, axis=-1) <= self._radius ** 2, -1)
+        return math.to_float(bool_inside)
 
 
-class Grid(Struct):
+class Grid(struct.Struct):
     __struct__ = struct.Def((), ('_dimensions', '_box'))
 
     def __init__(self, dimensions, box=None):
@@ -102,18 +102,18 @@ class Grid(Struct):
 
     def cell_index(self, global_position):
         local_position = self._box.global_to_local(global_position) * self.dimensions
-        position = to_int(local_position - 0.5)
-        position = maximum(0, position)
-        position = minimum(position, self.dimensions-1)
+        position = math.to_int(local_position - 0.5)
+        position = math.maximum(0, position)
+        position = math.minimum(position, self.dimensions-1)
         return position
 
     def center_points(self):
         idx_zyx = np.meshgrid(*[np.arange(0.5,dim+0.5,1) for dim in self.dimensions], indexing="ij")
-        return expand_dims(stack(idx_zyx, axis=-1), 0)
+        return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
     def staggered_points(self, dimension):
         idx_zyx = np.meshgrid(*[np.arange(0.5,dim+1.5,1) if dim != dimension else np.arange(0,dim+1,1) for dim in self.dimensions], indexing="ij")
-        return expand_dims(stack(idx_zyx, axis=-1), 0)
+        return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
 
     def indices(self):
@@ -125,13 +125,13 @@ class Grid(Struct):
         :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
         """
         idx_zyx = np.meshgrid(*[range(dim) for dim in self.dimensions], indexing="ij")
-        return expand_dims(np.stack(idx_zyx, axis=-1))
+        return math.expand_dims(np.stack(idx_zyx, axis=-1))
 
     def shape(self, components=1, batch_size=1):
         return tensor_shape(batch_size, self.dimensions, components)
 
     def staggered_shape(self, batch_size=1):
-        return StaggeredGrid(tensor_shape(batch_size, self.dimensions + 1, self.rank))
+        return math.StaggeredGrid(tensor_shape(batch_size, self.dimensions + 1, self.rank))
 
     @staticmethod
     def equal(grid1, grid2):

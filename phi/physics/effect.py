@@ -32,7 +32,7 @@ class FieldEffect(State):
     def apply_grid(self, target, grid, staggered, dt):
         if self._mode == GROW:
             delta = self.field.sample_grid(grid, staggered=staggered)
-            dt = cast(dt, delta.dtype)
+            dt = math.cast(dt, delta.dtype)
             return target + delta * dt
         elif self._mode == ADD:
             delta = self.field.sample_grid(grid, staggered=staggered)

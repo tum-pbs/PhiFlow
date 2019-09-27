@@ -1,6 +1,6 @@
 from .dataset import *
 from .channel import *
-from phi.math import *
+from phi import struct
 from bisect import bisect_left
 from sys import getsizeof
 from collections import Iterable

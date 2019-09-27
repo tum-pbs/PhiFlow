@@ -1,6 +1,6 @@
 import numpy as np
 from . import base as math
-from . import struct
+from phi import struct
 
 
 def shape(obj):
@@ -31,7 +31,7 @@ The number of spatial dimensions is equal to the tensor rank minus two.
 
 def spatial_dimensions(obj):
     if isinstance(obj, StaggeredGrid):
-        return obj.spatial_rank
+        return tuple(range(1, obj.spatial_rank - 1))
     if struct.isstruct(obj):
         return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(1, len(obj.shape) - 1))
