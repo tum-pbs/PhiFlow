@@ -25,7 +25,7 @@ Here is an overview of the pressure solvers implemented in Φ<sub>*Flow*</sub>:
 | SparseSciPy|[phi.solver.sparse](../phi/solver/sparse.py)  | CPU          | SciPy           | Stable, no control over accuracy, no loop counter  |
 | CUDA     |[phi.solver.cuda](../phi/solver/cuda.py)      | GPU          | TensorFlow      | Stable, no support for initial guess               |
 | GeometricCG |[phi.solver.geom](../phi/solver/geom.py)   | CPU/GPU/TPU  |                 | Stable, limited boundary condition support         |
-| Multigrid |[phi.solver.multigrid](../phi/solver/multigrid.py)|              |                 | Stable, best performance in absence of boundaries  |
+| Multiscale |[phi.solver.multigrid](../phi/solver/multiscale.py)|              |                 | Stable, best performance in absence of boundaries  |
 
 
 All solvers provide a gradient function for TensorFlow, needed to back-propagate weight updates through the pressure solve operation.
@@ -40,7 +40,7 @@ Nevertheless, here are some recommendations:
 
 - For the GPU, CUDA is the fastest single-grid solver.
 
-- If your grid size is larger than 100 in any dimension, Multigrid can reduce the amount of iterations required.
+- If your grid size is larger than 100 in any dimension, Multiscale can reduce the amount of iterations required.
 It can currently use the following solvers per level: SparseCG, GeometricCG.
 The multigrid solver is not yet optimized for obstacles.
 
