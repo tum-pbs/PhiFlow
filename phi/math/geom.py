@@ -79,18 +79,18 @@ class Sphere(Geometry):
 
 
 class Grid(Struct):
-    __struct__ = struct.Def((), ('_dimensions', '_box'))
+    __struct__ = struct.Def((), ('_resolution', '_box'))
 
-    def __init__(self, dimensions, box=None):
-        self._dimensions = np.array(dimensions)
+    def __init__(self, resolution, box=None):
+        self._resolution = np.array(resolution)
         if box is not None:
             self._box = box
         else:
-            self._box = Box([0 for d in dimensions], self.dimensions)
+            self._box = Box([0 for d in resolution], self._resolution)
 
     @property
-    def dimensions(self):
-        return self._dimensions
+    def resolution(self):
+        return self._resolution
 
     @property
     def box(self):
@@ -98,21 +98,21 @@ class Grid(Struct):
 
     @property
     def rank(self):
-        return len(self.dimensions)
+        return len(self._resolution)
 
     def cell_index(self, global_position):
-        local_position = self._box.global_to_local(global_position) * self.dimensions
+        local_position = self._box.global_to_local(global_position) * self._resolution
         position = to_int(local_position - 0.5)
         position = maximum(0, position)
-        position = minimum(position, self.dimensions-1)
+        position = minimum(position, self._resolution-1)
         return position
 
     def center_points(self):
-        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+0.5,1) for dim in self.dimensions], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+0.5,1) for dim in self._resolution], indexing="ij")
         return expand_dims(stack(idx_zyx, axis=-1), 0)
 
     def staggered_points(self, dimension):
-        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+1.5,1) if dim != dimension else np.arange(0,dim+1,1) for dim in self.dimensions], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+1.5,1) if dim != dimension else np.arange(0,dim+1,1) for dim in self._resolution], indexing="ij")
         return expand_dims(stack(idx_zyx, axis=-1), 0)
 
 
@@ -124,15 +124,15 @@ class Grid(Struct):
         :param dtype: a numpy data type (default float32)
         :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
         """
-        idx_zyx = np.meshgrid(*[range(dim) for dim in self.dimensions], indexing="ij")
+        idx_zyx = np.meshgrid(*[range(dim) for dim in self._resolution], indexing="ij")
         return expand_dims(np.stack(idx_zyx, axis=-1))
 
     def shape(self, components=1, batch_size=1):
-        return tensor_shape(batch_size, self.dimensions, components)
+        return tensor_shape(batch_size, self._resolution, components)
 
     def staggered_shape(self, batch_size=1):
-        return StaggeredGrid(tensor_shape(batch_size, self.dimensions + 1, self.rank))
+        return StaggeredGrid(tensor_shape(batch_size, self._resolution + 1, self.rank))
 
 
-def tensor_shape(batch_size, dimensions, components):
-    return np.concatenate([[batch_size], dimensions, [components]])
+def tensor_shape(batch_size, resolution, components):
+    return np.concatenate([[batch_size], resolution, [components]])
