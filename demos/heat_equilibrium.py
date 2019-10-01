@@ -1,7 +1,7 @@
 from phi.flow import *
 
 
-class HeatDemo(FieldSequenceModel):
+class HeatEquilibriumDemo(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, 'Heat Demo', stride=100)
@@ -11,4 +11,4 @@ class HeatDemo(FieldSequenceModel):
         self.add_field('Temperature', lambda: self.heat.temperature)
 
 
-HeatDemo().show()
+HeatEquilibriumDemo().show()

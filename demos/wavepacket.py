@@ -5,7 +5,7 @@ from phi.flow import *
 scale = 4
 
 
-class SchroedingerDemo(FieldSequenceModel):
+class WavePacketDemo(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, u'Schrödinger Demo', stride=10)
@@ -35,4 +35,4 @@ class SchroedingerDemo(FieldSequenceModel):
                                                              [1*self.value_frequency, 0.6*self.value_frequency]))
 
 
-SchroedingerDemo().show(figure_builder=PlotlyFigureBuilder(batches=[0], depths=[0], max_resolution=128))
+WavePacketDemo().show(figure_builder=PlotlyFigureBuilder(batches=[0], depths=[0], max_resolution=128))

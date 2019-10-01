@@ -27,7 +27,7 @@ def create_tum_logo(x, y, world=world):
     world.Obstacle(box[offset_y + 6 * dy:offset_y + 7 * dy, offset_x + 5 * dx:offset_x + 10 * dx])
 
 
-class SmokeDemo(FieldSequenceModel):
+class SmokeLogo(FieldSequenceModel):
 
     def __init__(self, size):
         FieldSequenceModel.__init__(self, 'Smoke Demo','Run a smoke simulation using %s for processing.' % mode,
@@ -46,5 +46,5 @@ class SmokeDemo(FieldSequenceModel):
         self.smoke.density = self.smoke.velocity = 0
 
 
-app = SmokeDemo([int(sys.argv[1])] * 2 if len(sys.argv) > 1 else [128] * 2)\
+app = SmokeLogo([int(sys.argv[1])] * 2 if len(sys.argv) > 1 else [128] * 2)\
     .show(display=('Density', 'Velocity'), framerate=2, production=__name__ != '__main__')

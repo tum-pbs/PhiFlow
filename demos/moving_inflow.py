@@ -10,7 +10,7 @@ def inflow_at(time):
     return Sphere([10, 32 + 15*math.sin(time * 0.1)], radius=5)
 
 
-class Movement(FieldSequenceModel):
+class MovingInflowDemo(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, 'Moving Objects Demo', stride=5)
@@ -24,4 +24,4 @@ class Movement(FieldSequenceModel):
         self.add_field('Domain', lambda: smoke.domaincache.active(1))
 
 
-app = Movement().show(display=('Density', 'Velocity'), production=__name__ != '__main__')
+app = MovingInflowDemo().show(display=('Density', 'Velocity'), production=__name__ != '__main__')
