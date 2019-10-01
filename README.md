@@ -37,13 +37,13 @@ with TensorFlow support.
 
 ## Documentation and Guides
 
-| [Index](documentation) | [Demos](apps) / [Tests](tests) | [Source](phi) |
+| [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) |
 |-------|---------------|--------|
 
-If you would like to get right into it and have a look at some example code, check out the following files in the `apps` directory:
+If you would like to get right into it and have a look at some example code, check out the following files in the `demos` directory:
 
-- [simpleplume.py](./apps/simpleplume.py): Runs a smoke simulation and displays it in the browser
-- [optimize_pressure.py](./apps/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
+- [simpleplume.py](./demos/simpleplume.py): Runs a smoke simulation and displays it in the browser
+- [optimize_pressure.py](./demos/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
 The [simulation overview](documentation/Simulation_Overview.md) explains how to run predefined simulations using either the [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md) backend. It also introduces the GUI.
 The [simulation code design documentation](documentation/Simulation_Architecture.md) provides a deeper look into the object-oriented code design of simulations.
