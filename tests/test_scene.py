@@ -1,6 +1,7 @@
 from unittest import TestCase
 from phi.flow import *
 from os.path import isfile
+from phi.math import *
 
 
 class TestScene(TestCase):

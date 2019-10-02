@@ -1,5 +1,6 @@
 from unittest import TestCase
 from phi.flow import *
+from phi.math import *
 
 
 def build_test_database(path='data'):
