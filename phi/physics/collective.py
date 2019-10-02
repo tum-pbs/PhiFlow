@@ -102,7 +102,13 @@ class CollectivePhysics(Physics):
                 ordered_states = [partial_next_collectivestate[state] for state in collectivestate.states]
                 return partial_next_collectivestate.copied_with(states=ordered_states)
 
-        raise AssertionError('Cyclic blocking_dependencies in simulation: %s' % unhandled_states)
+        # Error
+        errstr = 'Cyclic blocking_dependencies in simulation: %s' % unhandled_states
+        for state in tuple(unhandled_states):
+            physics = self.for_(state)
+            state_dict = self._gather_dependencies(physics.blocking_dependencies, collectivestate, {})
+            errstr += '\nState "%s" with physics "%s" depends on %s' % (state, physics, state_dict)
+        raise AssertionError(errstr)
 
     def substep(self, state, collectivestate, dt, override_physics=None, partial_next_collectivestate=None):
         physics = self.for_(state) if override_physics is None else override_physics
