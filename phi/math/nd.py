@@ -37,6 +37,10 @@ def spatial_dimensions(obj):
     return tuple(range(1, len(obj.shape) - 1))
 
 
+def is_scalar(obj):
+    return len(math.staticshape(obj)) == 0
+
+
 def indices_tensor(tensor, dtype=np.float32):
     """
 Returns an index tensor of the same spatial shape as the given tensor.
@@ -643,5 +647,6 @@ class StaggeredGrid(struct.Struct):
             lower_slices = [(slice(-1) if i == dimension else slice(None)) for i in dims]
             neighbour_sum = padded_field[(slice(None),) + tuple(upper_slices) + (slice(None),)] + \
                             padded_field[(slice(None),) + tuple(lower_slices) + (slice(None),)]
-            df_dq.append(axis_forces[dimension] * neighbour_sum * 0.5 / rank)
-        return StaggeredGrid(math.concat(df_dq, axis=-1))
+            df_dq.append(neighbour_sum * 0.5 / rank)
+        df_dq = math.concat(df_dq, axis=-1)
+        return StaggeredGrid(df_dq * axis_forces)
