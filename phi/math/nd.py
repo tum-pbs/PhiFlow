@@ -235,17 +235,20 @@ def _central_diff_nd(field, dims):
 
 # Laplace
 
-def laplace(tensor, weights=None, padding='symmetric'):
-    if tensor.shape[-1] != 1:
-        raise ValueError('Laplace operator requires a scalar channel as input')
+def laplace(tensor, padding='symmetric'):
+    """
+Spatial Laplace operator as defined for scalar fields.
+If a vector field is passed, the laplace is computed component-wise.
+    :param tensor: n-dimensional field of shape (batch, spacial dimensions..., components)
+    :param padding: 'valid', 'constant', 'reflect', 'symmetric', 'cyclic'
+    :return:
+    """
+    if padding.lower() == 'cyclic':
+        return fourier_laplace(tensor)
     rank = spatial_rank(tensor)
-
-    if padding.lower() != 'valid':
+    if padding.lower() in ('constant', 'reflect', 'symmetric'):
         tensor = math.pad(tensor, [[0,0]] + [[1,1]] * rank + [[0,0]], padding)
-
-    if weights is not None:
-        return _weighted_sliced_laplace_nd(tensor, weights)
-
+    # --- convolutional laplace ---
     if rank == 2:
         return _conv_laplace_2d(tensor)
     elif rank == 3:
@@ -258,14 +261,23 @@ def _conv_laplace_2d(tensor):
     kernel = np.zeros((3, 3, 1, 1), np.float32)
     kernel[1,1,0,0] = -4
     kernel[(0,1,1,2),(1,0,2,1),0,0] = 1
-    return math.conv(tensor, kernel, padding='VALID')
+    if tensor.shape[-1] == 1:
+        return math.conv(tensor, kernel, padding='VALID')
+    else:
+        return math.concat([math.conv(tensor[...,i:i+1], kernel, padding='VALID') for i in range(tensor.shape[-1])], -1)
 
+
+# def vector_laplace(v):
+#     return np.concatenate([math.laplace(v[...,i:i+1]) for i in range(v.shape[-1])], -1)
 
 def _conv_laplace_3d(tensor):
     kernel = np.zeros((3, 3, 3, 1, 1), np.float32)
     kernel[1,1,1,0,0] = -6
     kernel[(0,1,1,1,1,2), (1,0,2,1,1,1), (1,1,1,0,2,1), 0,0] = 1
-    return math.conv(tensor, kernel, padding='VALID')
+    if tensor.shape[-1] == 1:
+        return math.conv(tensor, kernel, padding='VALID')
+    else:
+        return math.concat([math.conv(tensor[...,i:i+1], kernel, padding='VALID') for i in range(tensor.shape[-1])], -1)
 
 
 def _sliced_laplace_nd(tensor):
@@ -283,26 +295,17 @@ def _sliced_laplace_nd(tensor):
     return math.add(components)
 
 
-def _weighted_sliced_laplace_nd(tensor, weights):
-    if tensor.shape[-1] != 1: raise ValueError('Laplace operator requires a scalar channel as input')
-    dims = range(spatial_rank(tensor))
-    components = []
-    for dimension in dims:
-        center_slices = [(slice(1, -1) if i == dimension else slice(1,-1)) for i in dims]
-        upper_slices = [(slice(2, None) if i == dimension else slice(1,-1)) for i in dims]
-        lower_slices = [(slice(-2) if i == dimension else slice(1,-1)) for i in dims]
+def fourier_laplace(tensor):
+    frequencies = math.fft(math.to_complex(tensor))
+    k = fftfreq(math.staticshape(tensor)[1:-1])
+    fft_laplace = -(2*np.pi)**2 * math.sum(k ** 2, axis=-1, keepdims=True)
+    return math.ifft(frequencies * fft_laplace)
 
-        lower_weights = weights[(slice(None),) + lower_slices + (slice(None),)] * weights[(slice(None),) + center_slices + (slice(None),)]
-        upper_weights = weights[(slice(None),) + upper_slices + (slice(None),)] * weights[(slice(None),) + center_slices + (slice(None),)]
-        center_weights = - lower_weights - upper_weights
 
-        lower_values = tensor[(slice(None),) + lower_slices + (slice(None),)]
-        upper_values = tensor[(slice(None),) + upper_slices + (slice(None),)]
-        center_values = tensor[(slice(None),) + center_slices + (slice(None),)]
-
-        diff = upper_values * upper_weights + lower_values * lower_weights + center_values * center_weights
-        components.append(diff)
-    return math.add(components)
+def fftfreq(resolution):
+    k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution], indexing='ij')
+    k = math.expand_dims(math.stack(k, -1), 0)
+    return k
 
 
 
