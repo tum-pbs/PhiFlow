@@ -1,4 +1,5 @@
 from .domain import *
+from phi.solver.base import *
 from phi.math.initializers import _is_python_shape, zeros
 
 
@@ -20,7 +21,7 @@ def initialize_field(value, shape, dtype=np.float32):
 def domain(smoke, obstacles):
     if smoke.domaincache is None or not smoke.domaincache.is_valid(obstacles):
         mask = 1 - geometry_mask([o.geometry for o in obstacles], smoke.domain)
-        smoke.domaincache = DomainCache(smoke.domain, obstacles, active=mask, accessible=mask)
+        smoke.domaincache = FluidDomain(smoke.domain, obstacles, active=mask, accessible=mask)
     return smoke.domaincache
 
 
