@@ -263,7 +263,7 @@ class DashFieldSequenceGui:
                                        dcc.Interval(id='interval', interval=1000),
                                        dcc.Interval(id='status-interval', interval=200),
                                        html.Div(id='step-complete', style={'display': 'none'})
-                                   ])
+                                   ], style={'fontFamily': 'arial'})
 
         @self.app.callback(Output('statusbar', 'children'), [Input('status-interval', 'n_intervals')])
         def update_statusbar(n_intervals):

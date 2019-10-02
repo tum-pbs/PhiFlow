@@ -47,7 +47,7 @@ To use the browser-based GUI that comes with Φ<sub>*Flow*</sub>, we need to wra
 `FieldSequenceModel`.
 How to use `FieldSequenceModel`s is documented [here](Browser_GUI.md).
 
-The following code is taken from [the simpleplume example](../apps/simpleplume.py).
+The following code is taken from [the simpleplume example](../demos/simpleplume.py).
 
 ```python
 class Simpleplume(FieldSequenceModel):
@@ -69,8 +69,8 @@ By subclassing `FieldSequenceModel`, we inherit the functions
 - `step` which calls `world.step()` by default but can be overriden to implement custom behaviour.
 
 Slightly more complex examples can be found in 
-[smokedemo.py](../apps/smokedemo.py) which adds obstacles to the scene and 
-[movementdemo.py](../apps/movementdemo.py) which moves the inflow around.
+[smokedemo.py](../demos/smokedemo.py) which adds obstacles to the scene and 
+[movementdemo.py](../demos/movementdemo.py) which moves the inflow around.
 
 
 ### Running on the GPU

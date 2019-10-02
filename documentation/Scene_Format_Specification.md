@@ -47,14 +47,14 @@ In addition to arrays, scenes store properties of the simulation in a JSON file 
 This file describes both simulation properties and the origin of the data.
 It can store any number of properties, depending on the application.
  
-The following content was created by running the [simpleplume.py](../apps/simpleplume.py) demo and can be used as a reference.
+The following content was created by running the [simpleplume.py](../demos/simpleplume.py) demo and can be used as a reference.
 
 ```json
 {
   "instigator": "FieldSequenceModel",
   "traits": [],
   "app": "simpleplume.py",
-  "app_path": "~/phiflow/apps/simpleplume.py",
+  "app_path": "~/phiflow/demos/simpleplume.py",
   "name": "Simpleplume",
   "description": "",
   "all_fields": [

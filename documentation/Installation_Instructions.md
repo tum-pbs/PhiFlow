@@ -55,7 +55,7 @@ Installing Φ<sub>*Flow*</sub> as a package is not required if your Python PATH 
 
 To verify your Φ<sub>*Flow*</sub> installation (including TensorFlow), run smokedemo_tf.py like so:
 ```
-$ python phiflow/apps/smokedemo.py tf
+$ python phiflow/demos/smokedemo.py tf
 ```
 To test Φ<sub>*Flow*</sub> without TensorFlow, leave out the `tf` at the end.
 
