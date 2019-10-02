@@ -6,11 +6,11 @@ class BurgerDemo(FieldSequenceModel):
     def __init__(self, size=(64, 64)):
         FieldSequenceModel.__init__(self, "Burger's equation")
         self.value_velocity_scale = 2.0
-        self.burger = world.Burger(Domain(size), randn(levels=[0, 0, self.value_velocity_scale]), viscosity=0.1)
+        self.burger = world.Burger(Domain(size), math.randn(levels=[0, 0, self.value_velocity_scale]), viscosity=0.2)
         self.add_field('Velocity', lambda: self.burger.velocity)
 
     def action_reset(self):
-        self.burger.velocity = randn(levels=[0, 0, self.value_velocity_scale])
+        self.burger.velocity = math.randn(levels=[0, 0, self.value_velocity_scale])
         self.burger.age = 0
         self.steps = 0
 

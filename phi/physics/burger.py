@@ -1,4 +1,5 @@
 from .smoke import *
+from .util import diffuse
 
 
 class Burger(State):
@@ -42,20 +43,12 @@ class BurgerPhysics(Physics):
 
     def step(self, state, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
-        v = advect(diffuse(state.velocity, state.viscosity, dt), dt)
+        v = advect(diffuse(state.velocity, dt * state.viscosity), dt)
         return state.copied_with(velocity=v, age=state.age + dt)
 
 
-def vector_laplace(v):
-    return np.concatenate([laplace(v[...,i:i+1]) for i in range(v.shape[-1])], -1)
-
-
 def advect(velocity, dt):
-    idx = indices_tensor(velocity)
+    idx = math.indices_tensor(velocity)
     sample_coords = idx - velocity * dt
-    result = resample(velocity, sample_coords, interpolation='linear', boundary='REPLICATE')
+    result = math.resample(velocity, sample_coords, interpolation='linear', boundary='REPLICATE')
     return result
-
-
-def diffuse(velocity, viscosity, dt):
-    return velocity + dt * viscosity * vector_laplace(velocity)

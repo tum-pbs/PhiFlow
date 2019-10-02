@@ -51,12 +51,6 @@ def psquare(complex):
     return math.imag(complex) ** 2 + math.real(complex) ** 2
 
 
-def fftfreq(shape):
-    k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in list(shape)[1:-1]], indexing='ij')
-    k = math.expand_dims(math.stack(k, -1), 0)
-    return k
-
-
 class Schroedinger(Physics):
 
     def __init__(self, margin=1):
@@ -80,8 +74,8 @@ class Schroedinger(Physics):
 
         # Move by rotating in Fourier space
         amplitude_fft = math.fft(amplitude)
-        laplace = math.sum(fftfreq(staticshape(amplitude)) ** 2, axis=-1, keepdims=True)
-        amplitude_fft *= math.exp(-1j * np.pi * math.to_complex(dt) * laplace / state.mass)
+        laplace = math.sum(math.fftfreq(staticshape(amplitude)[1:-1]) ** 2, axis=-1, keepdims=True)
+        amplitude_fft *= math.exp(-1j * np.pi * math.to_complex(dt) * laplace / state.mass)  # TODO should be 2 pi^2
         amplitude = math.ifft(amplitude_fft)
 
         for obstacle in obstacles:
