@@ -95,7 +95,7 @@ class ComplexConstantField(ConstantField):
         return math.to_complex(ConstantField.sample_at(self, location))
 
 
-class GridField(Field):
+class CenteredGridField(Field):
 
     __struct__ = Field.__struct__.extend(('_values',), ('_domain',))
 
@@ -106,9 +106,41 @@ class GridField(Field):
 
     def sample_grid(self, grid, staggered=False):
         if staggered:
-            raise NotImplementedError(self)
+            raise NotImplementedError()
         if Grid.equal(grid, self._domain):
             return self._values
+        else:
+            return self.sample_at(grid.center_points())
+
+    @property
+    def values(self):
+        return self._values
+
+    @property
+    def domain(self):
+        return self._domain
+
+    def __repr__(self):
+        return 'Grid'
+
+
+class StaggeredGridField(Field):
+
+    __struct__ = Field.__struct__.extend(('_values',), ('_domain',))
+
+    def __init__(self, domain, values):
+        Field.__init__(self, domain.box)
+        self._values = values
+        self._domain = domain
+
+    def sample_grid(self, grid, staggered=False):
+        if Grid.equal(grid, self._domain):
+        if staggered:
+            return self._values
+            if isinstance(self._values, math.StaggeredGrid):
+                raise NotImplementedError()
+            else:
+                return self._values
         else:
             return self.sample_at(grid.center_points())
 

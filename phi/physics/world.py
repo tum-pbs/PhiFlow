@@ -5,6 +5,7 @@ from .heat import *
 from .obstacle import *
 from .effect import *
 from .schroedinger import QuantumWave, StepPotential
+from .fluid import *
 import inspect
 
 
@@ -101,7 +102,8 @@ class World(object):
         for proxy in ('Gravity',
                       'Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
                       'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect',
-                      'QuantumWave', 'StepPotential'):
+                      'QuantumWave', 'StepPotential',
+                      'DenseFluid', 'FluidProperty', 'Buoyancy'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Gravity = Gravity
@@ -118,6 +120,9 @@ class World(object):
     FieldEffect = FieldEffect
     QuantumWave = QuantumWave
     StepPotential = StepPotential
+    DenseFluid = DenseFluid
+    FluidProperty = FluidProperty
+    Buoyancy = Buoyancy
 
 
     @property
