@@ -163,6 +163,9 @@ Computes the n-dimensional inverse FFT along all but the first and last dimensio
     def cos(self, x):
         raise NotImplementedError(self)
 
+    def dtype(self, array):
+        raise NotImplementedError(self)
+
 
 
 class DynamicBackend(Backend):
@@ -321,6 +324,9 @@ class DynamicBackend(Backend):
     def cos(self, x):
         return self.choose_backend(x).cos(x)
 
+    def dtype(self, array):
+        return self.choose_backend(array).dtype(array)
+
 
 class NoBackendFound(Exception):
     def __init__(self, msg):
@@ -341,6 +347,7 @@ boolean_mask = backend.boolean_mask
 cast = backend.cast
 ceil = backend.ceil
 cos = backend.cos
+dtype = backend.dtype
 floor = backend.floor
 concat = backend.concat
 conv = backend.conv
