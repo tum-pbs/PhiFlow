@@ -12,15 +12,15 @@ for i in range(30):
     world.step() 
 
     # write smoke sim state
-    smoke = world.state.states[1]
-    # NT_DEBUG , states[0] is add() !? is there a nicer way to get the smoke state?
+    smoke = world.state.states[0] 
     print("Step %d done " % i + ", stats: " + format(np.mean(smoke.density) ) + " " + format(np.mean(smoke.velocity.staggered) ) )
     scene.write( smoke, frame=i) 
 
     # alternatively, specify which fields to write with:
     #scene.write([smoke.density, smoke.velocity, smoke._last_pressure], names=["density","velocity_staggered","pressure"], frame=i)
 
-    # another alternative, write all states of the world:
+    # another alternative, write all states of the world 
+    # this gives different filenames, e.g. states_0_density_0000xx.npz (instead of density_0000xx.npz)
     #scene.write( world.state, frame=i) 
 
 print("Data written to '"+path+"'")
