@@ -2,14 +2,14 @@ from phi.tf.flow import *
 import os
 
 # this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
-# from the given directory
-scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume/sim_000000'
+# from the simulations sim_XXXXXX in the given directory
+scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume'
 scene_path = os.path.expanduser(scene_path)
 
 # this is the original resolution of the mantaflow sim
 # allocate one size smaller so that velocity matches, and crop
 # scalar fields to (mantaflowRes-1) via MantaScalar() channels
-mantaflowRes = 48
+mantaflowRes = 64
 
 # 2D or 3D
 dims = 2

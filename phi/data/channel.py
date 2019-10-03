@@ -210,7 +210,7 @@ will be loaded unmodified, while the scalar grids are cropped to match the size
 of the phiflow arrays.
         """
         DerivedChannel.__init__(self, [channel]) 
-        self.channel = self.input_fields[0]
+        self.channel = self.inputs[0]
 
     def shape(self, datasource):
         return self.channel.shape(datasource)

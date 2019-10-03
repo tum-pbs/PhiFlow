@@ -3,6 +3,7 @@ import numpy as np
 import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
 from phi.math import struct
+import logging
 
 
 def read_zipped_array(filename):
@@ -275,6 +276,8 @@ class Scene(object):
         if max_count and len(indices) >=  max_count:
             indices = indices[0:max_count]
         indices = sorted(indices)
+        if len(indices)==0:
+            logging.warning("No simulations sim_XXXXXX found in '%s'" % root_path)
         return [Scene(directory, category, scene_index) for scene_index in indices]
 
     @staticmethod
