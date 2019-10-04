@@ -15,9 +15,21 @@ class Box(Geometry):
     __struct__ = struct.Def((), ('origin', 'size'))
 
     def __init__(self, origin, size):
-        self.origin = np.array(origin)
-        self.size = np.array(size)
-        self.upper = self.origin + self.size
+        self._origin = math.as_tensor(origin)
+        self._size = math.as_tensor(size)
+        self._upper = self.origin + self.size
+
+    @property
+    def origin(self):
+        return self._origin
+
+    @property
+    def size(self):
+        return self._size
+
+    @property
+    def upper(self):
+        return self._upper
 
     @property
     def spatial_rank(self):
@@ -35,6 +47,12 @@ class Box(Geometry):
         bool_inside = (global_position >= self.origin) & (global_position <= (self.upper))
         bool_inside = math.all(bool_inside, axis=-1, keepdims=True)
         return math.to_float(bool_inside)
+
+    def contains(self, other):
+        if isinstance(other, Box):
+            return np.all(other.origin >= self.origin) and np.all(other.upper <= self.upper)
+        else:
+            raise NotImplementedError()
 
 
 class BoxGenerator(object):

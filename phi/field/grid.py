@@ -19,6 +19,12 @@ def initialize_field(value, shape, dtype=np.float32):
         return value
 
 
+def _crop_for_interpolation(data, offset_float, window_resolution):
+    offset = math.to_int(offset_float)
+    slices = [slice(o, o+res+1) for o, res in zip(offset, window_resolution)]
+    data = data[[slice(None)] + slices + [slice(None)]]
+    return data
+
 class CenteredGrid(Field):
 
     __struct__ = Field.__struct__.extend([], ['_interpolation'])
@@ -32,22 +38,33 @@ class CenteredGrid(Field):
 
     @property
     def resolution(self):
-        return math.staticshape(self._data)[1:-1]
+        return math.as_tensor(math.staticshape(self._data)[1:-1])
+
+    @property
+    def dx(self):
+        return self.bounds.size / self.resolution
 
     @property
     def domain(self):
         return self.bounds
 
     def sample_at(self, points):
-        local_points = self.domain.global_to_local(points)
+        local_points = self.domain.global_to_local(points) * self.resolution - 0.5
         return math.resample(self.data, local_points, boundary=self._boundary, interpolation=self._interpolation)
 
-    def resample(self, other_field):
+    def resample(self, other_field, force_optimization=False):
         if self.compatible(other_field):
             return self
-        # TODO fully inside, same dx -> simple interpolation
 
-        return Field.resample(self, other_field)
+        if isinstance(other_field, CenteredGrid) and np.all(self.dx == other_field.dx) and self.bounds.contains(other_field.bounds):
+            origin_in_local = self.bounds.global_to_local(other_field.bounds.origin) * self.resolution
+            data = _crop_for_interpolation(self.data, origin_in_local, other_field.resolution)
+            dimensions = self.resolution != other_field.resolution
+            dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d-1]]
+            data = math.interpolate_linear(data, origin_in_local % 1.0, dimensions)
+            return CenteredGrid(self.name, other_field.bounds, data, batch_size=self._batch_size)
+
+        return Field.resample(self, other_field, force_optimization=force_optimization)
 
     def component_count(self):
         return self._data.shape[-1]
@@ -68,6 +85,9 @@ class CenteredGrid(Field):
 
     def compatible(self, other_field):
         if isinstance(other_field, CenteredGrid):
-            return self.bounds == other_field.bounds and self.resolution == other_field.resolution
+            return self.bounds == other_field.bounds and np.all(self.resolution == other_field.resolution)
         else:
             return False
+
+    def __repr__(self):
+        return 'Grid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.bounds.size)

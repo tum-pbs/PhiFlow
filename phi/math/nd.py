@@ -37,6 +37,10 @@ def spatial_dimensions(obj):
     return tuple(range(1, len(obj.shape) - 1))
 
 
+def all_dimensions(tensor):
+    return range(len(tensor.shape))
+
+
 def is_scalar(obj):
     return len(math.staticshape(obj)) == 0
 
@@ -366,6 +370,23 @@ def spatial_sum(tensor):
     for i in math.dimrange(tensor):
         summed = math.expand_dims(summed, i)
     return summed
+
+
+def interpolate_linear(tensor, upper_weight, dimensions):
+    """
+
+    :param tensor:
+    :param upper_weight: tensor of floats (leading dimensions must be 1) or nan to ignore interpolation along this axis
+    :param dimensions: list or tuple of dimensions (first spatial axis=1) to be interpolated. Other axes are ignored.
+    :return:
+    """
+    lower_weight = 1 - upper_weight
+    for dimension in spatial_dimensions(tensor):
+        if dimension in dimensions:
+            upper_slices = [(slice(1, None) if i == dimension else slice(None)) for i in all_dimensions(tensor)]
+            lower_slices = [(slice(-1) if i == dimension else slice(None)) for i in all_dimensions(tensor)]
+            tensor = tensor[upper_slices] * upper_weight[...,dimension-1] + tensor[lower_slices] * lower_weight[...,dimension-1]
+    return tensor
 
 
 class StaggeredGrid(struct.Struct):

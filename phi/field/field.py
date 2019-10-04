@@ -53,13 +53,16 @@ Resample this field at the given points.
         """
         raise NotImplementedError(self)
 
-    def resample(self, other_field):
+    def resample(self, other_field, force_optimization=False):
         """
 Resample this field at the same points as other_field.
 The returned Field is compatible with other_field.
         :param location: Field
+        :param force_optimization: If true, this algorithm either uses an optimized implementation
         :return: a new Field which samples all components of this field at the points of other_field
         """
+        if force_optimization:
+            raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
         try:
             resampled = self.sample_at(other_field.points.data)
             resampled = other_field.copied_with(data=resampled)
