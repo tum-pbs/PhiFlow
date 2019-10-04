@@ -1,13 +1,32 @@
-from phi import struct
+from phi.physics.physics import State
+from phi import math
 
 
-class Field(struct.Struct):
-    __struct__ = struct.Def((), ('_bounds',))
+DIVERGENCE_FREE = 'divergence-free'
 
-    def __init__(self, bounds=None, flags=()):
-        struct.Struct.__init__(self)
+
+class Field(State):
+    __struct__ = State.__struct__.extend(['_data'], ['_bounds', '_name', '_flags'])
+
+    def __init__(self, name, bounds, data, flags=(), batch_size=None):
+        State.__init__(self, tags=[name, 'field'], batch_size=batch_size)
+        self._data = data
+        self._name = name
         self._bounds = bounds
         self._flags = flags
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def data(self):
+        """
+Data holds the values of this field according to the order specified by points.
+For composite fields, data holds a tuple of component fields.
+        :return: n-dimensional tensor
+        """
+        return self._data
 
     @property
     def bounds(self):
@@ -26,17 +45,37 @@ Flags describe properties of a Field such as divergence-freeness.
         """
         return self._flags
 
-    def resample(self, location):
+    def sample_at(self, points):
         """
-Resample this field at the given location(s).
-Resampled values outside the bounds may be extrapolated.
-        :param location: VectorField or n-dimensional tensor containing world-space vectors
-        :return: a new Field which samples all components of this field at the given locations
+Resample this field at the given points.
+        :param points: tensor or rank >= 2 containing world-space vectors
+        :return: tensor of shape location.shape[:-1]+[components]
         """
         raise NotImplementedError(self)
 
+    def resample(self, other_field):
+        """
+Resample this field at the same points as other_field.
+The returned Field is compatible with other_field.
+        :param location: Field
+        :return: a new Field which samples all components of this field at the points of other_field
+        """
+        try:
+            resampled = self.sample_at(other_field.points.data)
+            resampled = other_field.copied_with(data=resampled)
+            return resampled
+        except StaggeredSamplePoints:
+            assert self.component_count == other_field.component_count, 'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
+            new_components = [f1.resample(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
+            return other_field.copied_with(data=tuple(new_components))
+
     @property
     def component_count(self):
+        """
+Number of components of this Field.
+The components can be sampled at the same points or at different points (like with StaggeredGrids).
+        :return: int
+        """
         raise NotImplementedError(self)
 
     def unstack(self):
@@ -48,11 +87,12 @@ If the field only has one component, returns a list containing itself.
         raise NotImplementedError(self)
 
     @property
-    def sample_points(self):
+    def points(self):
         """
-Returns an n-dimensional tensor containing all sample points of this field.
+Returns a Field containing all sample points of this field.
+The returned Field is compatible with this one.
 If the components of this field are sampled at different locations, this method raises StaggeredSamplePoints.
-        :return: n-dimensional tensor
+        :return: VectorField
         """
         raise NotImplementedError(self)
 
@@ -64,7 +104,7 @@ Even if this method returns False, the sample points may still be the same.
         :param other_field:
         :return: True if both Fields have the same sample points.
         """
-        return other_field.sample_points is self.sample_points
+        return other_field.points == self.points
 
 
 class StaggeredSamplePoints(Exception):
