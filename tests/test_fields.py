@@ -25,3 +25,21 @@ class TestMath(TestCase):
         resampled2 = Field.resample(f, g)
         self.assertTrue(resampled2.compatible(g))
         np.testing.assert_equal(resampled2.data[0,...,0], [[1.5, 2.5], [4.5, 5.5]])
+
+    def test_staggered_interpolation(self):
+        # 2x2 cells
+        data_x = math.zeros([1, 2, 3, 1])
+        data_x[0, :, :, 0] = [[1,2,3], [4,5,6]]
+        data_y = math.zeros([1, 3, 2, 1])
+        data_y[0, :, :, 0] = [[-1,-2], [-3,-4], [-5,-6]]
+        x = CenteredGrid('f', None, data_x)
+        y = CenteredGrid('f', None, data_y)
+        v = StaggeredGrid('v', box[0:2, 0:3], [x, y])
+
+    def test_staggered_format_conversion(self):
+        tensor = math.zeros([1, 5, 5, 2])
+        tensor[:, 0, 0, :] = 1
+        components = unstack_staggered_tensor(tensor)
+        self.assertEqual(len(components), 2)
+        np.testing.assert_equal(components[0].shape, [1, 5, 4, 1])
+        np.testing.assert_equal(components[1].shape, [1, 4, 5, 1])
