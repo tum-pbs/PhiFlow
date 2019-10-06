@@ -343,8 +343,13 @@ class NoBackendFound(Exception):
 
 backend = DynamicBackend()
 
-from phi.math.scipy_backend import SciPyBackend, as_tensor
+from .scipy_backend import SciPyBackend, as_tensor
 backend.backends.append(SciPyBackend())
+
+
+from .struct_backend import StructBroadcastBackend
+backend.backends.append(StructBroadcastBackend(backend))
+
 
 abs = backend.abs
 add = backend.add
