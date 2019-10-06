@@ -25,6 +25,7 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
     data = data[[slice(None)] + slices + [slice(None)]]
     return data
 
+
 class CenteredGrid(Field):
 
     __struct__ = Field.__struct__.extend([], ['_interpolation'])
@@ -47,6 +48,10 @@ class CenteredGrid(Field):
     @property
     def domain(self):
         return self.bounds
+
+    @property
+    def rank(self):
+        return math.spatial_rank(self.data)
 
     def sample_at(self, points):
         local_points = self.domain.global_to_local(points) * self.resolution - 0.5

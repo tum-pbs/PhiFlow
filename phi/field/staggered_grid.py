@@ -1,3 +1,4 @@
+from phi.math.geom import Box
 from .field import *
 from .grid import *
 from phi import math
@@ -19,12 +20,19 @@ def _res(tensor, dim):
     return tuple(res)
 
 
-def _create_fields(name, staggered_box, data):
+def _create_fields(name, staggered_box, components):
+    """
+    Sets up the bounds of the component fields.
+    """
     components = []
-    for i, component in enumerate(data):
-        box = None  # TODO
-        raise NotImplementedError()
+    for i, component in enumerate(components):
+        assert component.data is None, 'bounds of component fields are set during creation of StaggeredGrid'
+        resolution_i = component.resolution[i] - 1
+        unit = np.array([1 if i==d else 0 for d in range(len(components))])
+        unit *= staggered_box.size / resolution_i
+        box = Box(staggered_box.origin - unit/2, size=staggered_box.size + unit)
         components.append(CenteredGrid(_subname(name, i), box, component))
+    return components
 
 
 def unstack_staggered_tensor(tensor):
@@ -37,13 +45,16 @@ def unstack_staggered_tensor(tensor):
 
 class StaggeredGrid(Field):
 
-    def __init__(self, name, box, data, flags=(), batch_size=None):
-        components = _create_fields(name, box, data)
-        components = [c.copied_with(bounds=_bounds(box, i)) for i, c in enumerate(components)]
+    def __init__(self, name, box, components, flags=(), batch_size=None):
+        components = _create_fields(name, box, components)
         Field.__init__(self, name, box, tuple(components), flags=flags, batch_size=batch_size)
         self._resolution = _res(components[0], 0)
         for i, c in enumerate(components):
             assert _res(c, i) == self._resolution
+
+    @property
+    def rank(self):
+        return self.component_count
 
     @property
     def cell_resolution(self):
@@ -52,6 +63,7 @@ class StaggeredGrid(Field):
     def sample_at(self, points):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
+    @property
     def component_count(self):
         return len(self.data)
 

@@ -1,5 +1,6 @@
 from phi.physics.physics import State
 from phi import math
+from .flag import Flag, _PROPAGATOR
 
 
 DIVERGENCE_FREE = 'divergence-free'
@@ -13,7 +14,10 @@ class Field(State):
         self._data = data
         self._name = name
         self._bounds = bounds
-        self._flags = flags
+        self._flags = tuple(set(flags))  # remove duplicates
+        for flag in flags:
+            if not flag.is_applicable(self.rank, self.component_count):
+                raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
 
     @property
     def name(self):
@@ -65,18 +69,27 @@ The returned Field is compatible with other_field.
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
         try:
             resampled = self.sample_at(other_field.points.data)
-            resampled = other_field.copied_with(data=resampled)
+            resampled = other_field.copied_with(data=resampled, flags=propagate_flags(self, other_field))
             return resampled
         except StaggeredSamplePoints:
             assert self.component_count == other_field.component_count, 'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
             new_components = [f1.resample(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
-            return other_field.copied_with(data=tuple(new_components))
+            return other_field.copied_with(data=tuple(new_components), flags=propagate_flags(self, other_field))
 
     @property
     def component_count(self):
         """
 Number of components of this Field.
 The components can be sampled at the same points or at different points (like with StaggeredGrids).
+        :return: int
+        """
+        raise NotImplementedError(self)
+
+    @property
+    def rank(self):
+        """
+        Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
+        Note that this does not indicate the shape of the data array.
         :return: int
         """
         raise NotImplementedError(self)
@@ -113,3 +126,18 @@ Even if this method returns False, the sample points may still be the same.
 class StaggeredSamplePoints(Exception):
     def __init__(self, *args, **kwargs):
         Exception.__init__(*args, **kwargs)
+
+
+def propagate_flags(data_field, structure_field):
+    flags = []
+    for flag in data_field.flags:
+        if flag.is_data_bound and \
+                flag.propagates(_PROPAGATOR.RESAMPLE) and \
+                flag.is_applicable(structure_field.rank, data_field.component_count):
+            flags.append(flag)
+    for flag in structure_field.flags:
+        if flag.is_structure_bound and \
+                flag.propagates(_PROPAGATOR.RESAMPLE) and \
+                flag.is_applicable(structure_field.rank, data_field.component_count):
+            flags.append(flag)
+    return flags
