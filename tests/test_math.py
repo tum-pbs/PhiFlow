@@ -44,3 +44,8 @@ class TestMath(TestCase):
             l = laplace(a, padding='valid')
             np.testing.assert_equal(l, 0)
             np.testing.assert_equal(l.shape, [2]+[2]*dims+[3])
+
+    def test_struct_broadcast(self):
+        s = {'a': 0, 'b': 1}
+        result = cos(s)
+        print(result)
