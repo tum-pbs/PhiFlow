@@ -1,6 +1,6 @@
 from .domain import *
 from phi.solver.base import *
-from phi.math.initializers import _is_python_shape, zeros
+from phi.math.initializers import _is_python_shape, zeros, np
 
 
 def initialize_field(value, shape, dtype=np.float32):

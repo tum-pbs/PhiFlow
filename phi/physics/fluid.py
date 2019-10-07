@@ -1,6 +1,8 @@
 from .domain import *
+from .effect import *
 from phi.solver.base import *
 from phi.math.initializers import _is_python_shape, zeros
+import numpy as np
 
 
 def initialize_field(value, shape, dtype=np.float32):
@@ -23,72 +25,6 @@ def _is_div_free(velocity, is_div_free):
     if isinstance(is_div_free, bool): return is_div_free
     if isinstance(velocity, Number): return True
     return False
-
-
-class DenseFluid(State):
-    __struct__ = State.__struct__.extend(['_velocity'], ['_domain', '_is_divergence_free'])
-
-    def __init__(self, domain, velocity=0, is_divergence_free=None, batch_size=None):
-        State.__init__(self, tags=['fluid', 'densefluid'], batch_size=batch_size)
-        self._domain = domain
-        self._velocity = initialize_field(velocity, self.domain.staggered_shape(self._batch_size))
-        self._is_divergence_free = _is_div_free(velocity, is_divergence_free)
-
-    def default_physics(self):
-        return INCOMPRESSIBLE_FLOW
-
-    def copied_with(self, **kwargs):
-        if 'is_divergence_free' not in kwargs: kwargs['is_divergence_free'] = None
-        if 'velocity' in kwargs:
-            kwargs['is_divergence_free'] = _is_div_free(kwargs['velocity'], kwargs['is_divergence_free'])
-            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.domain.staggered_shape(self._batch_size))
-        return State.copied_with(self, **kwargs)
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def velocity(self):
-        return self._velocity
-
-    @property
-    def is_divergence_free(self):
-        return self._is_divergence_free
-
-
-
-class FluidProperty(State):
-    __struct__ = State.__struct__.extend(['_field'], ['_domain'])
-
-    def __init__(self, domain, name, field=0.0, batch_size=None):
-        State.__init__(self, tags=[name, 'fluidproperty'], batch_size=batch_size)
-        self._name = name
-        self._domain = domain
-        self._field = initialize_field(field, domain.shape(1, self._batch_size))
-
-    def default_physics(self):
-        return PassiveFlow([self._name])
-
-    def copied_with(self, **kwargs):
-        if 'field' in kwargs:
-            kwargs['field'] = initialize_field(kwargs['field'], self.domain.shape(1, self._batch_size))
-        return State.copied_with(self, **kwargs)
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def field(self):
-        return self._field
-
-    @property
-    def name(self):
-        return self._name
-
-    def __repr__(self):
-        return 'fluid.%s' % self._name
 
 
 def solve_pressure(obj, domaincache, pressure_solver=None):

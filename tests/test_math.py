@@ -48,4 +48,4 @@ class TestMath(TestCase):
     def test_struct_broadcast(self):
         s = {'a': 0, 'b': 1}
         result = cos(s)
-        print(result)
+        self.assertEqual(result['a'], 1)

@@ -53,6 +53,13 @@ def unstack_staggered_tensor(tensor):
     return tensors
 
 
+def stack_staggered_components(tensors):
+    for i, tensor in enumerate(tensors):
+        paddings = [[0, 1] if d != i else [0, 0] for d in range(len(tensors))]
+        tensors[i] = math.pad(tensor, [[0, 0]] + paddings + [[0, 0]])
+    return math.concat(tensors, -1)
+
+
 class StaggeredGrid(Field):
 
     def __init__(self, name, box, data, flags=(), batch_size=None):
@@ -89,3 +96,7 @@ class StaggeredGrid(Field):
             return self.bounds == other_field.bounds and self.cell_resolution == other_field.cell_resolution
         else:
             return False
+
+    def staggered_tensor(self):
+        tensors = [c.data for c in self.data]
+        return stack_staggered_components(tensors)

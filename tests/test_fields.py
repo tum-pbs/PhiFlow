@@ -43,6 +43,9 @@ class TestMath(TestCase):
         self.assertEqual(len(components), 2)
         np.testing.assert_equal(components[0].shape, [1, 5, 4, 1])
         np.testing.assert_equal(components[1].shape, [1, 4, 5, 1])
+        tensor2 = stack_staggered_components(components)
+        np.testing.assert_equal(tensor, tensor2)
+
 
     def test_points_flag(self):
         data = math.zeros([1, 2, 3, 1])

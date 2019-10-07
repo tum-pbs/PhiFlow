@@ -1,6 +1,6 @@
 from .physics import *
 from .material import *
-from .effect import *
+# from .effect import *
 
 
 class Obstacle(State):

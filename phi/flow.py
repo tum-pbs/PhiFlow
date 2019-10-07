@@ -1,6 +1,6 @@
-
+from phi.math.geom import *
 from .physics.world import *
-from .physics.schroedinger import *
+from .field import *
 from .model import *
 from .data.fluidformat import *
 from .data.dataset import *
