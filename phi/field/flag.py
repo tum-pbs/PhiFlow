@@ -79,3 +79,11 @@ class _L2Norm(Flag): pass
 L2_NORMALIZED = _L2Norm('L2-normalized', True, False,
                         propagators=[],
                         field_types=[_FIELD_TYPE.ANY])
+
+
+class SamplePoints(Flag): pass
+
+
+SAMPLE_POINTS = SamplePoints('sample-points', True, True,
+                             propagators=[],
+                             field_types=[_FIELD_TYPE.VECTOR])

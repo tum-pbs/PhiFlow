@@ -43,3 +43,10 @@ class TestMath(TestCase):
         self.assertEqual(len(components), 2)
         np.testing.assert_equal(components[0].shape, [1, 5, 4, 1])
         np.testing.assert_equal(components[1].shape, [1, 4, 5, 1])
+
+    def test_points_flag(self):
+        data = math.zeros([1, 2, 3, 1])
+        f = CenteredGrid('f', box[0:2, 0:3], data)
+        p = f.points
+        assert SAMPLE_POINTS in p.flags
+        assert p.points is p

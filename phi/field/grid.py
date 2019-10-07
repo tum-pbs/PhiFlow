@@ -1,22 +1,7 @@
 from .field import *
-from phi import math, struct
-from phi.math.initializers import _is_python_shape
+from .flag import SAMPLE_POINTS
+from phi import math
 import numpy as np
-
-
-def initialize_field(value, shape, dtype=np.float32):
-    if isinstance(value, (int, float)):
-        return math.zeros(shape, dtype=dtype) + value
-    elif callable(value):
-        return value(shape, dtype=dtype)
-    if isinstance(shape, struct.Struct):
-        if type(shape) == type(value):
-            zipped = struct.zip([value, shape], leaf_condition=_is_python_shape)
-            return struct.map(lambda val, sh: initialize_field(val, sh), zipped)
-        else:
-            return type(shape)(value)
-    else:
-        return value
 
 
 def _crop_for_interpolation(data, offset_float, window_resolution):
@@ -71,6 +56,7 @@ class CenteredGrid(Field):
 
         return Field.resample(self, other_field, force_optimization=force_optimization)
 
+    @property
     def component_count(self):
         return self._data.shape[-1]
 
@@ -79,13 +65,13 @@ class CenteredGrid(Field):
 
     @property
     def points(self):
-        if 'points' in self.flags:
+        if SAMPLE_POINTS in self.flags:
             return self
         if self._sample_points is None:
             idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in self.resolution], indexing="ij")
             local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
             points = self.bounds.local_to_global(local_coords)
-            self._sample_points = CenteredGrid('%s.points', self.domain, points, flags=['points'])
+            self._sample_points = CenteredGrid('%s.points', self.domain, points, flags=[SAMPLE_POINTS])
         return self._sample_points
 
     def compatible(self, other_field):
@@ -95,4 +81,4 @@ class CenteredGrid(Field):
             return False
 
     def __repr__(self):
-        return 'Grid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.bounds.size)
+        return 'Grid[%s-%d, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.bounds.size)
