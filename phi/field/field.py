@@ -19,6 +19,13 @@ class Field(State):
             if not flag.is_applicable(self.rank, self.component_count):
                 raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
 
+    def copied_with(self, **kwargs):
+        if 'flags' in kwargs:
+            kwargs['flags'] = tuple(kwargs['flags'])
+        if 'data' in kwargs and 'flags' not in kwargs:
+            kwargs['flags'] = ()
+        return State.copied_with(self, **kwargs)
+
     @property
     def name(self):
         return self._name
@@ -69,12 +76,12 @@ The returned Field is compatible with other_field.
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
         try:
             resampled = self.sample_at(other_field.points.data)
-            resampled = other_field.copied_with(data=resampled, flags=propagate_flags(self, other_field))
+            resampled = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field))
             return resampled
         except StaggeredSamplePoints:
             assert self.component_count == other_field.component_count, 'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
             new_components = [f1.resample(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
-            return other_field.copied_with(data=tuple(new_components), flags=propagate_flags(self, other_field))
+            return other_field.copied_with(data=tuple(new_components), flags=propagate_flags_resample(self, other_field))
 
     @property
     def component_count(self):
@@ -122,13 +129,38 @@ Even if this method returns False, the sample points may still be the same.
         """
         return other_field.points == self.points
 
+    def __mul__(self, other):
+        return self.__dataop__(other, True, lambda d1, d2: d1 * d2)
+
+    def __sub__(self, other):
+        return self.__dataop__(other, False, lambda d1, d2: d1 - d2)
+
+    def __rsub__(self, other):
+        return self.__dataop__(other, False, lambda d1, d2: d2 - d1)
+
+    def __add__(self, other):
+        return self.__dataop__(other, False, lambda d1, d2: d1 + d2)
+
+    __radd__ = __add__
+
+    def __dataop__(self, other, linear_if_scalar, data_operator):
+        if isinstance(other, Field):
+            assert self.compatible(other)
+            flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
+            data = data_operator(self.data, other.data)
+        else:
+            flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
+            data = data_operator(self.data, other)
+        return self.copied_with(data=data, flags=flags)
+
+
 
 class StaggeredSamplePoints(Exception):
-    def __init__(self, *args, **kwargs):
-        Exception.__init__(*args, **kwargs)
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
 
 
-def propagate_flags(data_field, structure_field):
+def propagate_flags_resample(data_field, structure_field):
     flags = []
     for flag in data_field.flags:
         if flag.is_data_bound and \
@@ -141,3 +173,22 @@ def propagate_flags(data_field, structure_field):
                 flag.is_applicable(structure_field.rank, data_field.component_count):
             flags.append(flag)
     return flags
+
+
+def propagate_flags_children(flags, child_rank, child_component_count):
+    result = []
+    for flag in flags:
+        if flag.propagates(_PROPAGATOR.CHILDREN) and flag.is_applicable(child_rank, child_component_count):
+            result.append(flag)
+    return result
+
+
+def propagate_flags_operation(flags, is_linear, result_rank, result_components):
+    result = []
+    propagator = _PROPAGATOR.LINEAR_OPERATIONS if is_linear else _PROPAGATOR.ALL_OPERATIONS
+    for flag in flags:
+        if flag.is_data_bound and\
+                flag.propagates(propagator) and\
+                flag.is_applicable(result_rank, result_components):
+            result.append(flag)
+    return result

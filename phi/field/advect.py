@@ -10,7 +10,7 @@ Semi-Lagrangian advection with simple backward lookup.
     :return: Field compatible with input field
     """
     try:
-        x0 = field.sample_points
+        x0 = field.points
         v = velocity_field.resample(field)
         x = x0 - v * dt
         data = field.resample(x).data

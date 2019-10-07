@@ -20,19 +20,29 @@ def _res(tensor, dim):
     return tuple(res)
 
 
-def _create_fields(name, staggered_box, components):
+def _create_components(name, staggered_box, data, staggered_flags, batch_size):
     """
     Sets up the bounds of the component fields.
+    :return: tuple of Field
     """
+    result = []
+    if not isinstance(data, (list, tuple)):
+        data = unstack_staggered_tensor(data)
     components = []
+    for c in data:
+        if isinstance(c, CenteredGrid):
+            components.append(c.data)
+        else:
+            components.append(c)
+
     for i, component in enumerate(components):
-        assert component.data is None, 'bounds of component fields are set during creation of StaggeredGrid'
-        resolution_i = component.resolution[i] - 1
+        resolution_i = math.staticshape(component)[i+1] - 1
         unit = np.array([1 if i==d else 0 for d in range(len(components))])
-        unit *= staggered_box.size / resolution_i
+        unit = unit * staggered_box.size / resolution_i
         box = Box(staggered_box.origin - unit/2, size=staggered_box.size + unit)
-        components.append(CenteredGrid(_subname(name, i), box, component))
-    return components
+        flags = propagate_flags_children(staggered_flags, math.spatial_rank(component), 1)
+        result.append(CenteredGrid(_subname(name, i), box, component, flags=flags, batch_size=batch_size))
+    return tuple(result)
 
 
 def unstack_staggered_tensor(tensor):
@@ -45,12 +55,12 @@ def unstack_staggered_tensor(tensor):
 
 class StaggeredGrid(Field):
 
-    def __init__(self, name, box, components, flags=(), batch_size=None):
-        components = _create_fields(name, box, components)
-        Field.__init__(self, name, box, tuple(components), flags=flags, batch_size=batch_size)
-        self._resolution = _res(components[0], 0)
+    def __init__(self, name, box, data, flags=(), batch_size=None):
+        components = _create_components(name, box, data, flags, batch_size)
+        Field.__init__(self, name, box, components, flags=flags, batch_size=batch_size)
+        self._resolution = _res(components[0].data, 0)
         for i, c in enumerate(components):
-            assert _res(c, i) == self._resolution
+            assert _res(c.data, i) == self._resolution
 
     @property
     def rank(self):
