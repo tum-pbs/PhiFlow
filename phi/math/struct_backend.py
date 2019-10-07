@@ -11,9 +11,11 @@ class StructBroadcastBackend(Backend):
             if fname not in ('__init__', 'is_applicable', 'broadcast_function') and not fname.startswith('__'):
                 function = getattr(self, fname)
                 if callable(function):
-                    def proxy(*args, **kwargs):
-                        return self.broadcast_function(args[0], fname, *args[1:], **kwargs)
-                    setattr(self, fname, proxy)
+                    def context(fname=fname):
+                        def proxy(*args, **kwargs):
+                            return self.broadcast_function(args[0], fname, *args[1:], **kwargs)
+                        return proxy
+                    setattr(self, fname, context())
 
     def is_applicable(self, values):
         for value in values:

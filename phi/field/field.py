@@ -3,9 +3,6 @@ from phi import math
 from .flag import Flag, _PROPAGATOR
 
 
-DIVERGENCE_FREE = 'divergence-free'
-
-
 class Field(State):
     __struct__ = State.__struct__.extend(['_data'], ['_bounds', '_name', '_flags'])
 
@@ -76,27 +73,27 @@ The returned Field is compatible with other_field.
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
         try:
             resampled = self.sample_at(other_field.points.data)
-            resampled = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field))
+            resampled = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
             return resampled
         except StaggeredSamplePoints:
             assert self.component_count == other_field.component_count, 'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
             new_components = [f1.resample(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
-            return other_field.copied_with(data=tuple(new_components), flags=propagate_flags_resample(self, other_field))
-
-    @property
-    def component_count(self):
-        """
-Number of components of this Field.
-The components can be sampled at the same points or at different points (like with StaggeredGrids).
-        :return: int
-        """
-        raise NotImplementedError(self)
+            return other_field.copied_with(data=tuple(new_components), flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
 
     @property
     def rank(self):
         """
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         Note that this does not indicate the shape of the data array.
+        :return: int
+        """
+        raise NotImplementedError(self)
+
+    @property
+    def component_count(self):
+        """
+Number of components of this Field.
+The components can be sampled at the same points or at different points (like with StaggeredGrids).
         :return: int
         """
         raise NotImplementedError(self)
@@ -160,17 +157,17 @@ class StaggeredSamplePoints(Exception):
         Exception.__init__(self, *args)
 
 
-def propagate_flags_resample(data_field, structure_field):
+def propagate_flags_resample(data_field, structure_flags, resulting_rank):
     flags = []
     for flag in data_field.flags:
         if flag.is_data_bound and \
                 flag.propagates(_PROPAGATOR.RESAMPLE) and \
-                flag.is_applicable(structure_field.rank, data_field.component_count):
+                flag.is_applicable(resulting_rank, data_field.component_count):
             flags.append(flag)
-    for flag in structure_field.flags:
+    for flag in structure_flags:
         if flag.is_structure_bound and \
                 flag.propagates(_PROPAGATOR.RESAMPLE) and \
-                flag.is_applicable(structure_field.rank, data_field.component_count):
+                flag.is_applicable(resulting_rank, data_field.component_count):
             flags.append(flag)
     return flags
 

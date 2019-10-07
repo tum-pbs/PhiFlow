@@ -1,6 +1,7 @@
 from .obstacle import *
 from .material import *
 from phi import math
+from phi.math.geom import Grid
 
 class Domain(Grid):
     __struct__ = Grid.__struct__.extend([], ['_boundaries'])

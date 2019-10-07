@@ -103,7 +103,7 @@ class World(object):
                       'Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
                       'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect',
                       'QuantumWave', 'StepPotential',
-                      'DenseFluid', 'FluidProperty', 'Buoyancy'):
+                      'Buoyancy'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Gravity = Gravity
@@ -120,8 +120,6 @@ class World(object):
     FieldEffect = FieldEffect
     QuantumWave = QuantumWave
     StepPotential = StepPotential
-    DenseFluid = DenseFluid
-    FluidProperty = FluidProperty
     Buoyancy = Buoyancy
 
 

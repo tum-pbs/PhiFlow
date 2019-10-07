@@ -1,4 +1,5 @@
 from .domain import *
+from .effect import *
 from .smoke import initialize_field
 
 

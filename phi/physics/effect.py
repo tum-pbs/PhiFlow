@@ -1,4 +1,5 @@
-from .field import *
+from .physics import *
+from phi.field import *
 
 
 GROW = 'grow'
@@ -11,9 +12,9 @@ class FieldEffect(State):
 
     __struct__ = State.__struct__.extend(('_field', ), ('_mode', '_targets'))
 
-    def __init__(self, fieldlike, targets, mode=GROW, tags=('effect',), age=0.0, batch_size=None):
+    def __init__(self, field, targets, mode=GROW, tags=('effect',), age=0.0, batch_size=None):
         State.__init__(self, tags=tuple(tags) + tuple('%s_effect' % target for target in targets), age=age, batch_size=batch_size)
-        self._field = Field.to_field(fieldlike)
+        self._field = field
         self._mode = mode
         self._targets = tuple(targets)
 

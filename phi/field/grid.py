@@ -61,7 +61,8 @@ class CenteredGrid(Field):
         return self._data.shape[-1]
 
     def unstack(self):
-        return [CenteredGrid('%s[...,%d]' % (self.name, i), self.bounds, c) for i,c in enumerate(math.unstack(self._data, -1))]
+        flags = propagate_flags_children(self.flags, self.rank, 1)
+        return [CenteredGrid('%s[...,%d]' % (self.name, i), self.bounds, c, flags=flags, batch_size=self._batch_size) for i,c in enumerate(math.unstack(self._data, -1))]
 
     @property
     def points(self):
