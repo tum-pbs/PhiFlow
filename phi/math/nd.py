@@ -241,6 +241,14 @@ def _central_diff_nd(field, dims):
     return math.stack(df_dq, axis=-1)
 
 
+def axis_gradient(tensor, spatial_axis):
+    dims = range(spatial_rank(tensor))
+    upper_slices = tuple([(slice(1, None) if i == spatial_axis else slice(None)) for i in dims])
+    lower_slices = tuple([(slice(-1) if i == spatial_axis else slice(None)) for i in dims])
+    diff = tensor[(slice(None),) + upper_slices + (slice(None),)] - \
+           tensor[(slice(None),) + lower_slices + (slice(None),)]
+    return diff
+
 # Laplace
 
 def laplace(tensor, padding='symmetric'):
@@ -389,7 +397,7 @@ def interpolate_linear(tensor, upper_weight, dimensions):
     return tensor
 
 
-class StaggeredGrid(struct.Struct):
+class _StaggeredGrid(struct.Struct):
     """
         MACGrids represent a staggered vector channel in which each vector component is sampled at the
         face centers of centered hypercubes.

@@ -124,7 +124,7 @@ Even if this method returns False, the sample points may still be the same.
         :param other_field:
         :return: True if both Fields have the same sample points.
         """
-        return other_field.points == self.points
+        raise NotImplementedError(self)
 
     def __mul__(self, other):
         return self.__dataop__(other, True, lambda d1, d2: d1 * d2)
@@ -144,10 +144,16 @@ Even if this method returns False, the sample points may still be the same.
         if isinstance(other, Field):
             assert self.compatible(other)
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
-            data = data_operator(self.data, other.data)
+            try:
+                data = data_operator(self.data, other.data)
+            except TypeError:
+                data = [data_operator(a, b) for a,b in zip(self.data, other.data)]
         else:
             flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
-            data = data_operator(self.data, other)
+            try:
+                data = data_operator(self.data, other)
+            except TypeError:
+                data = [data_operator(a, other) for a in self.data]
         return self.copied_with(data=data, flags=flags)
 
 

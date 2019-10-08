@@ -87,3 +87,11 @@ class SamplePoints(Flag): pass
 SAMPLE_POINTS = SamplePoints('sample-points', True, True,
                              propagators=[],
                              field_types=[_FIELD_TYPE.VECTOR])
+
+
+class Cubic(Flag): pass
+
+
+# CUBIC = Cubic('cubic', False, True,
+#               propagators=[_PROPAGATOR.ALL_OPERATIONS, _PROPAGATOR.CHILDREN, _PROPAGATOR.RESAMPLE],
+#               field_types=[_FIELD_TYPE.ANY])
