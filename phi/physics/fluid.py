@@ -27,39 +27,41 @@ def _is_div_free(velocity, is_div_free):
     return False
 
 
-def solve_pressure(obj, domaincache, pressure_solver=None):
+def solve_pressure(divergence, pressure_solver=None):
     """
 Calculates the pressure from the given velocity or velocity divergence using the specified solver.
-    :param obj: tensor containing the centered velocity divergence values or velocity as StaggeredGrid
-    :param solver: PressureSolver to use, options DEFAULT, SCIPY or MANTA
-    :return: scalar pressure channel as tensor
+    :param divergence: CenteredGrid
+    :param fluiddomain: FluidDomain instance
+    :param pressure_solver: PressureSolver to use, None for default
+    :return: scalar tensor or CenteredGrid, depending on the type of divergence
     """
-    if isinstance(obj, DenseFluid):
-        div = obj.velocity.divergence()
-    elif isinstance(obj, math.StaggeredGrid):
-        div = obj.divergence()
-    elif obj.shape[-1] == domaincache.rank:
-        div = math.divergence(obj, difference='central')
-    else:
-        raise ValueError("Cannot solve pressure for %s" % obj)
+    assert isinstance(divergence, CenteredGrid)
 
     if pressure_solver is None:
         from phi.solver.sparse import SparseCG
         pressure_solver = SparseCG()
 
-    pressure, iter = pressure_solver.solve(div, domaincache, pressure_guess=None)
+    fluiddomain = FluidDomain(Domain(divergence.resolution), active=None, accessible=None)
+
+    pressure, iter = pressure_solver.solve(divergence.data, fluiddomain, pressure_guess=None)
+
+    if isinstance(divergence, CenteredGrid):
+        pressure = CenteredGrid('pressure', divergence.bounds, pressure)
+
     return pressure, iter
 
 
-def divergence_free(velocity, domaincache, pressure_solver=None, return_pressure_and_iterations=False):
-    assert isinstance(velocity, math.StaggeredGrid)
-    velocity = domaincache.with_hard_boundary_conditions(velocity)
-    pressure, iter = solve_pressure(velocity, domaincache, pressure_solver)
-    gradp = math.StaggeredGrid.gradient(pressure)
-    velocity -= domaincache.with_hard_boundary_conditions(gradp)
-    if return_pressure_and_iterations:
-        return velocity, (pressure, iter)
-    else: return velocity
+def divergence_free(velocity, pressure_solver=None):
+    assert isinstance(velocity, StaggeredGrid)
+    # velocity = fluiddomain.with_hard_boundary_conditions(velocity)
+    divergence_field = velocity.divergence()
+    pressure, iter = solve_pressure(divergence_field, pressure_solver)
+    print(iter)
+    pressure *= velocity.dx[0] ** 2
+    gradp = StaggeredGrid.gradient(pressure)
+    # velocity -= fluiddomain.with_hard_boundary_conditions(gradp)
+    velocity = velocity - gradp
+    return velocity
 
 
 def _build_fluiddomain(domain, obstacles):

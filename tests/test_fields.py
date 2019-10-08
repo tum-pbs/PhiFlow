@@ -1,6 +1,6 @@
 from unittest import TestCase
 from phi.field import *
-from phi.math.geom import *
+from phi.geom import *
 
 
 class TestMath(TestCase):

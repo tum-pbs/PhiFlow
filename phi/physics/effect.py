@@ -92,6 +92,8 @@ class Gravity(State):
             sum_tensor = self.gravity_tensor(rank) + other.gravity_tensor(rank)
             return Gravity(sum_tensor)
 
+    __radd__ = __add__
+
     def gravity_tensor(self, rank):
         if math.is_scalar(self._gravity):
             return math.expand_dims([self._gravity] + [0] * (rank-1), 0, rank+1)
