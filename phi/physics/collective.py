@@ -1,5 +1,4 @@
 from .physics import *
-from phi.math import *
 import six
 
 

@@ -4,7 +4,7 @@ from .burger import *
 from .heat import *
 from .obstacle import *
 from .effect import *
-from .schroedinger import *
+from .schroedinger import QuantumWave, StepPotential
 import inspect
 
 

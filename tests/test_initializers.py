@@ -1,5 +1,6 @@
 from unittest import TestCase
 from phi.flow import *
+from phi.math import *
 
 
 # placeholder, variable tested in test_tensorflow.py

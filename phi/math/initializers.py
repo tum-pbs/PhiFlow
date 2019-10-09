@@ -1,4 +1,4 @@
-from . import struct
+from phi import struct
 from .nd import upsample2x
 from .base import backend as math
 import numpy as np

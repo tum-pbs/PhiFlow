@@ -1,6 +1,7 @@
 from unittest import TestCase
+from phi.math import *
+from phi.struct import *
 from phi.flow import *
-from phi.math.struct import *
 
 
 def generate_test_structs():
@@ -9,7 +10,7 @@ def generate_test_structs():
             [StaggeredGrid('Staggered Grid')],
             [('Item',)],
         {'A': 'Entry A', 'Vel': StaggeredGrid('v')},
-        CollectiveState((Smoke(density='density', velocity='velocity'),))
+        CollectiveState((Smoke(Domain([4]), density='density', velocity='velocity'),))
         ]
 
 
@@ -44,7 +45,7 @@ class TestStruct(TestCase):
         self.assertEqual(names[0], 'Vels.0.staggered')
 
     def test_copy(self):
-        smoke = Smoke(density='Density', velocity='Velocity')
+        smoke = Smoke(Domain([4]), density='Density', velocity='Velocity')
         v = smoke.copied_with(velocity=StaggeredGrid('V2'))
         self.assertEqual(v.velocity.staggered, 'V2')
         self.assertEqual(v.density, 'Density')

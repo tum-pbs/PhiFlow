@@ -9,10 +9,9 @@ import tensorflow as tf
 class TestMath(TestCase):
 
     def test_fft(self):
-        sess = tf.InteractiveSession()
+        tf.InteractiveSession()
         for dims in range(1, 4):
             shape = [2]+[4]*dims+[3]
-            print(shape)
             x_np = np.random.randn(*shape) + 1j * np.random.randn(*shape)
             x_np = x_np.astype(np.complex64)
             x_tf = tf.constant(x_np, tf.complex64)
@@ -26,3 +25,22 @@ class TestMath(TestCase):
             x_tf = ifft(k_tf)
 
             self.assertLess(max(abs(x_np - x_tf.eval())), 1e-3)
+
+    def test_laplace(self):
+        tf.InteractiveSession()
+
+        for dims in range(1, 4):
+            shape = [2]+[4]*dims+[3]
+            a = zeros(shape)
+            l = laplace(a, padding='symmetric')
+            np.testing.assert_equal(l, 0)
+            np.testing.assert_equal(l.shape, a.shape)
+            l = laplace(a, padding='reflect')
+            np.testing.assert_equal(l, 0)
+            np.testing.assert_equal(l.shape, a.shape)
+            l = laplace(a, padding='cyclic')
+            np.testing.assert_equal(l, 0)
+            np.testing.assert_equal(l.shape, a.shape)
+            l = laplace(a, padding='valid')
+            np.testing.assert_equal(l, 0)
+            np.testing.assert_equal(l.shape, [2]+[2]*dims+[3])

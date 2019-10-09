@@ -1,5 +1,6 @@
 from .domain import *
-from phi.math.initializers import _is_python_shape
+from phi.solver.base import *
+from phi.math.initializers import _is_python_shape, zeros
 
 
 def initialize_field(value, shape, dtype=np.float32):
@@ -7,7 +8,7 @@ def initialize_field(value, shape, dtype=np.float32):
         return zeros(shape, dtype=dtype) + value
     elif callable(value):
         return value(shape, dtype=dtype)
-    if isinstance(shape, Struct):
+    if isinstance(shape, struct.Struct):
         if type(shape) == type(value):
             zipped = struct.zip([value, shape], leaf_condition=_is_python_shape)
             return struct.map(lambda val, sh: initialize_field(val, sh), zipped)
@@ -19,8 +20,8 @@ def initialize_field(value, shape, dtype=np.float32):
 
 def domain(smoke, obstacles):
     if smoke.domaincache is None or not smoke.domaincache.is_valid(obstacles):
-        mask = 1 - geometry_mask([o.geometry for o in obstacles], smoke.grid)
-        smoke.domaincache = DomainCache(smoke.domain, obstacles, active=mask, accessible=mask)
+        mask = 1 - geometry_mask([o.geometry for o in obstacles], smoke.domain)
+        smoke.domaincache = FluidDomain(smoke.domain, obstacles, active=mask, accessible=mask)
     return smoke.domaincache
 
 
@@ -45,10 +46,10 @@ class SmokePhysics(Physics):
         velocity = velocity.advect(velocity, dt=dt)
         # --- Density effects ---
         for effect in density_effects:
-            density = effect.apply_grid(density, smoke.grid, staggered=False, dt=dt)
+            density = effect.apply_grid(density, smoke.domain, staggered=False, dt=dt)
         # --- velocity effects
         for effect in velocity_effects:
-            velocity = effect.apply_grid(velocity, smoke.grid, staggered=True, dt=dt)
+            velocity = effect.apply_grid(velocity, smoke.domain, staggered=True, dt=dt)
         velocity = stick(velocity, domaincache, dt)
         velocity += dt * buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor)
         if self.make_output_divfree:
@@ -64,14 +65,14 @@ class Smoke(State):
     __struct__ = State.__struct__.extend(('_density', '_velocity'),
                             ('_domain', '_gravity', '_buoyancy_factor', '_conserve_density'))
 
-    def __init__(self, domain=Open2D,
-                 density=0.0, velocity=zeros,
+    def __init__(self, domain,
+                 density=0.0, velocity=0,
                  gravity=-9.81, buoyancy_factor=0.1, conserve_density=False,
                  batch_size=None):
         State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
-        self._density = initialize_field(density, self.grid.shape(1, self._batch_size))
-        self._velocity = initialize_field(velocity, self.grid.staggered_shape(self._batch_size))
+        self._density = initialize_field(density, self.domain.shape(1, self._batch_size))
+        self._velocity = initialize_field(velocity, self.domain.staggered_shape(self._batch_size))
         self._gravity = gravity
         self._buoyancy_factor = buoyancy_factor
         self._conserve_density = conserve_density
@@ -84,9 +85,9 @@ class Smoke(State):
 
     def copied_with(self, **kwargs):
         if 'density' in kwargs:
-            kwargs['density'] = initialize_field(kwargs['density'], self.grid.shape(1, self._batch_size))
+            kwargs['density'] = initialize_field(kwargs['density'], self.domain.shape(1, self._batch_size))
         if 'velocity' in kwargs:
-            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.grid.staggered_shape(self._batch_size))
+            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.domain.staggered_shape(self._batch_size))
         return State.copied_with(self, **kwargs)
 
     @property
@@ -102,20 +103,16 @@ class Smoke(State):
         return self._domain
 
     @property
-    def grid(self):
-        return self.domain.grid
-
-    @property
     def rank(self):
-        return self.grid.rank
+        return self.domain.rank
 
     @property
     def staggered_shape(self):
-        return self.grid.staggered_shape(self._batch_size)
+        return self.domain.staggered_shape(self._batch_size)
 
     @property
     def centered_shape(self):
-        return self.grid.shape(1, self._batch_size)
+        return self.domain.shape(1, self._batch_size)
 
     @property
     def gravity(self):
@@ -141,13 +138,13 @@ class Smoke(State):
         return "Smoke[density: %s, velocity: %s]" % (self.density, self.velocity)
 
     def __add__(self, other):
-        if isinstance(other, StaggeredGrid):
+        if isinstance(other, math.StaggeredGrid):
             return self.copied_with(velocity=self.velocity + other)
         else:
             return self.copied_with(density=self.density + other)
 
     def __sub__(self, other):
-        if isinstance(other, StaggeredGrid):
+        if isinstance(other, math.StaggeredGrid):
             return self.copied_with(velocity=self.velocity - other)
         else:
             return self.copied_with(density=self.density - other)
@@ -163,10 +160,10 @@ Calculates the pressure from the given velocity or velocity divergence using the
     """
     if isinstance(obj, Smoke):
         div = obj.velocity.divergence()
-    elif isinstance(obj, StaggeredGrid):
+    elif isinstance(obj, math.StaggeredGrid):
         div = obj.divergence()
     elif obj.shape[-1] == domaincache.rank:
-        div = nd.divergence(obj, difference='central')
+        div = math.divergence(obj, difference='central')
     else:
         raise ValueError("Cannot solve pressure for %s" % obj)
 
@@ -181,11 +178,11 @@ Calculates the pressure from the given velocity or velocity divergence using the
 def divergence_free(obj, domaincache, pressure_solver=None, smoke=None):
     if isinstance(obj, Smoke):
         return obj.copied_with(velocity=divergence_free(obj.velocity, domaincache))
-    assert isinstance(obj, StaggeredGrid)
+    assert isinstance(obj, math.StaggeredGrid)
     velocity = obj
     velocity = domaincache.with_hard_boundary_conditions(velocity)
     pressure, iter = solve_pressure(velocity, domaincache, pressure_solver)
-    gradp = StaggeredGrid.gradient(pressure)
+    gradp = math.StaggeredGrid.gradient(pressure)
     velocity -= domaincache.with_hard_boundary_conditions(gradp)
     if smoke is not None:
         smoke._last_pressure = pressure
@@ -195,8 +192,8 @@ def divergence_free(obj, domaincache, pressure_solver=None, smoke=None):
 
 def buoyancy(density, gravity, buoyancy_factor):
     if isinstance(gravity, (int, float)):
-        gravity = np.array([gravity] + ([0] * (spatial_rank(density) - 1)))
-    return StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
+        gravity = np.array([gravity] + ([0] * (math.spatial_rank(density) - 1)))
+    return math.StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
 
 
 def stick(velocity, domaincache, dt):
