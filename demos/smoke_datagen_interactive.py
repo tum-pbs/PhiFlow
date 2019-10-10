@@ -17,7 +17,7 @@ Each generated scene contains 'Substeps' many frames.
 class SmokeDataGen(FieldSequenceModel):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, 'DataGen', howto, stride=16, base_dir='~/phi/data')
+        FieldSequenceModel.__init__(self, 'SmokeDataGen', howto, stride=16, base_dir='~/phi/data')
         self.smoke = world.Smoke(Domain([64, 64]), density=randn(levels=(0,0,1)))
         self.add_field('Density', lambda: self.smoke.density)
         self.add_field('Velocity', lambda: self.smoke.velocity)
