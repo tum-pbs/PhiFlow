@@ -11,10 +11,13 @@ class Field(State):
         self._data = data
         self._name = name
         self._bounds = bounds
-        self._flags = tuple(set(flags))  # remove duplicates
-        for flag in flags:
-            if not flag.is_applicable(self.rank, self.component_count):
-                raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
+        if flags is None:
+            self._flags = None
+        else:
+            self._flags = tuple(set(flags))  # remove duplicates
+            for flag in flags:
+                if not flag.is_applicable(self.rank, self.component_count):
+                    raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
 
     def copied_with(self, **kwargs):
         if 'flags' in kwargs:
@@ -128,6 +131,8 @@ Even if this method returns False, the sample points may still be the same.
 
     def __mul__(self, other):
         return self.__dataop__(other, True, lambda d1, d2: d1 * d2)
+
+    __rmul__ = __mul__
 
     def __sub__(self, other):
         return self.__dataop__(other, False, lambda d1, d2: d1 - d2)

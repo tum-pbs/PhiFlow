@@ -20,6 +20,29 @@ def initialize_field(value, shape, dtype=np.float32):
         return value
 
 
+
+def _shape(grid, components=1, batch_size=1, name=None):
+    return CenteredGrid(name, grid.box, tensor_shape(batch_size, grid._resolution, components), batch_size=batch_size)
+
+
+def _staggered_shape(grid, batch_size=1, name=None):
+    shapes = [_extend1(tensor_shape(batch_size, grid.resolution, 1), i) for i in range(grid.rank)]
+    grids = [CenteredGrid(None, None, shapes[i], batch_size=batch_size) for i in range(grid.rank)]
+    staggered = StaggeredGrid(name, grid.box, None, grid.resolution, batch_size=batch_size)
+    data = complete_staggered_properties(grids, staggered)
+    return staggered.copied_with(data=data)
+
+
+def tensor_shape(batch_size, resolution, components):
+    return np.concatenate([[batch_size], resolution, [components]])
+
+
+def _extend1(shape, axis):
+    shape = list(shape)
+    shape[axis+1] += 1
+    return shape
+
+
 class Smoke(State):
     __struct__ = State.__struct__.extend(('_density', '_velocity'),
                             ('_domain', '_gravity', '_buoyancy_factor', '_conserve_density'))
@@ -30,8 +53,8 @@ class Smoke(State):
                  batch_size=None):
         State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
-        self._density = initialize_field(density, self.domain.shape(1, self._batch_size))
-        self._velocity = initialize_field(velocity, self.domain.staggered_shape(self._batch_size))
+        self._density = initialize_field(density, _shape(self.domain, 1, self._batch_size, 'density'))
+        self._velocity = initialize_field(velocity, _staggered_shape(self.domain, self._batch_size, 'velocity'))
         self._gravity = gravity
         self._buoyancy_factor = buoyancy_factor
         self._conserve_density = conserve_density
@@ -44,9 +67,9 @@ class Smoke(State):
 
     def copied_with(self, **kwargs):
         if 'density' in kwargs:
-            kwargs['density'] = initialize_field(kwargs['density'], self.domain.shape(1, self._batch_size))
+            kwargs['density'] = initialize_field(kwargs['density'], _shape(self.domain, 1, self._batch_size, 'density'))
         if 'velocity' in kwargs:
-            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.domain.staggered_shape(self._batch_size))
+            kwargs['velocity'] = initialize_field(kwargs['velocity'], _staggered_shape(self.domain, self._batch_size, 'velocity'))
         return State.copied_with(self, **kwargs)
 
     @property
@@ -113,8 +136,8 @@ class SmokePhysics(Physics):
         if self.make_input_divfree:
             velocity = divergence_free(velocity, self.pressure_solver)
         # --- Advection ---
-        density = velocity.advect(density, dt=dt)
-        velocity = velocity.advect(velocity, dt=dt)
+        density = advect.look_back(density, velocity, dt=dt)
+        velocity = advect.look_back(velocity, velocity, dt=dt)
         # --- Density effects ---
         for effect in density_effects:
             density = effect.apply_grid(density, smoke.domain, staggered=False, dt=dt)
@@ -132,6 +155,6 @@ SMOKE = SmokePhysics()
 
 def buoyancy(density, gravity, buoyancy_factor):
     if isinstance(gravity, (int, float)):
-        gravity = np.array([gravity] + ([0] * (math.spatial_rank(density) - 1)))
+        gravity = np.array([gravity] + ([0] * (density.rank - 1)))
     return StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
 

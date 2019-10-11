@@ -22,16 +22,12 @@ The number of spatial dimensions is equal to the tensor rank minus two.
     :param tensor_or_mac: a tensor or StaggeredGrid instance
     :return: the number of spatial dimensions as an integer
     """
-    if isinstance(obj, StaggeredGrid):
-        return obj.spatial_rank
     if struct.isstruct(obj):
-        return struct.map(lambda o: spatial_rank(o), obj, recursive=False)
+        return struct.map(lambda o: spatial_rank(o), obj, recursive=False)  # TODO this should be done by the Struct backend
     return len(obj.shape) - 2
 
 
 def spatial_dimensions(obj):
-    if isinstance(obj, StaggeredGrid):
-        return tuple(range(1, obj.spatial_rank - 1))
     if struct.isstruct(obj):
         return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(1, len(obj.shape) - 1))
