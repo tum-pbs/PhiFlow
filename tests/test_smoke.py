@@ -1,6 +1,5 @@
 from unittest import TestCase
 from phi.flow import *
-from phi.math import *
 
 
 class TestSmoke(TestCase):
@@ -32,8 +31,8 @@ class TestSmoke(TestCase):
             np.testing.assert_equal(smoke.velocity.shape, [1,5,5,2])
         typetest(Smoke(Domain([4, 4]), density=0.0, velocity=0.0))
         typetest(Smoke(Domain([4, 4]), density=1.0, velocity=1.0))
-        typetest(Smoke(Domain([4, 4]), density=zeros, velocity=zeros))
-        typetest(Smoke(Domain([4, 4]), density=randn(), velocity=randn()))
+        typetest(Smoke(Domain([4, 4]), density=0, velocity=zeros))
+        typetest(Smoke(Domain([4, 4]), density=math.randn(), velocity=math.randn()))
         typetest(Smoke(Domain([4, 4]), density=np.zeros([1, 4, 4, 1]), velocity=StaggeredGrid(np.zeros([1, 5, 5, 2]))))
         typetest(Smoke(Domain([4, 4]), density=np.zeros([1, 4, 4, 1]), velocity=np.zeros([1, 5, 5, 2])))
         typetest(Smoke(Domain([4, 4])))
