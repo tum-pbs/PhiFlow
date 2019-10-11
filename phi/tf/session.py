@@ -1,5 +1,5 @@
 import numpy as np
-from phi.math import struct
+from phi import struct
 from .profiling import *
 from .util import isplaceholder
 import contextlib

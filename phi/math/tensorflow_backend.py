@@ -231,6 +231,9 @@ class TFBackend(Backend):
     def cos(self, x):
         return tf.cos(x)
 
+    def dtype(self, array):
+        return array.dtype
+
 
 # from niftynet.layer.resampler.py
 # https://cmiclab.cs.ucl.ac.uk/CMIC/NiftyNet/blob/69c98e5a95cc6788ad9fb8c5e27dc24d1acec634/niftynet/layer/resampler.py

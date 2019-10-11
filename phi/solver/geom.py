@@ -63,7 +63,7 @@ At the moment, boundary conditions are only partly supported.
 
 
 def solve_pressure_forward(divergence, fluid_mask, max_iterations, guess, accuracy, boundaries, back_prop=False):
-    apply_A = lambda pressure: laplace(boundaries.pad_pressure(pressure), weights=fluid_mask, padding='valid')
+    apply_A = lambda pressure: _weighted_sliced_laplace_nd(boundaries.pad_pressure(pressure), weights=fluid_mask)
     return conjugate_gradient(divergence, apply_A, guess, accuracy, max_iterations, back_prop=back_prop)
 
 
@@ -73,3 +73,27 @@ def solve_pressure_forward(divergence, fluid_mask, max_iterations, guess, accura
     #     if self._has_any(False):
     #         pressure = pad(pressure, self._get_paddings(nd.spatial_rank(pressure), False), "symmetric")
     #     return pressure
+
+
+
+
+def _weighted_sliced_laplace_nd(tensor, weights):
+    if tensor.shape[-1] != 1: raise ValueError('Laplace operator requires a scalar channel as input')
+    dims = range(math.spatial_rank(tensor))
+    components = []
+    for dimension in dims:
+        center_slices = [(slice(1, -1) if i == dimension else slice(1,-1)) for i in dims]
+        upper_slices = [(slice(2, None) if i == dimension else slice(1,-1)) for i in dims]
+        lower_slices = [(slice(-2) if i == dimension else slice(1,-1)) for i in dims]
+
+        lower_weights = weights[(slice(None),) + lower_slices + (slice(None),)] * weights[(slice(None),) + center_slices + (slice(None),)]
+        upper_weights = weights[(slice(None),) + upper_slices + (slice(None),)] * weights[(slice(None),) + center_slices + (slice(None),)]
+        center_weights = - lower_weights - upper_weights
+
+        lower_values = tensor[(slice(None),) + lower_slices + (slice(None),)]
+        upper_values = tensor[(slice(None),) + upper_slices + (slice(None),)]
+        center_values = tensor[(slice(None),) + center_slices + (slice(None),)]
+
+        diff = upper_values * upper_weights + lower_values * lower_weights + center_values * center_weights
+        components.append(diff)
+    return math.add(components)

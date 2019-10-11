@@ -1,13 +1,11 @@
-
-from phi.math.geom import *
 from .obstacle import *
 from .material import *
+from phi import math
 
+class Domain(Grid):
+    __struct__ = Grid.__struct__.extend([], ['_boundaries'])
 
-class Domain(State):
-    __struct__ = struct.Def((), ('_grid', '_boundaries'))
-
-    def __init__(self, grid, boundaries=OPEN):
+    def __init__(self, dimensions, boundaries=OPEN, box=None):
         """
 Simulation domain that specifies size and boundary conditions.
 
@@ -26,27 +24,18 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
         """
-        State.__init__(self, ('domain',))
-        self._grid = grid if isinstance(grid, Grid) else Grid(grid)
+        Grid.__init__(self, dimensions, box=box)
         assert isinstance(boundaries, (Material, list, tuple))
         if isinstance(boundaries, (tuple, list)):
-            assert len(boundaries) == self._grid.rank
+            assert len(boundaries) == self.rank
         self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
 
     def default_physics(self):
         return STATIC
 
     @property
-    def grid(self):
-        return self._grid
-
-    @property
     def boundaries(self):
         return self._boundaries
-
-    @property
-    def rank(self):
-        return self.grid.rank
 
     def _get_paddings(self, material_condition, margin=1):
         true_paddings = [[0, 0] for i in range(self.rank)]
@@ -70,58 +59,6 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
                 return dim_boundaries[upper_boundary]
 
 
-class DomainCache(Struct):
-    __struct__ = struct.Def(('_active', 'accessible'))
-
-    def __init__(self, domain, validstate=(), active=None, accessible=None):
-        self._domain = domain
-        self._validstate = validstate
-        self._active = active if active is not None else ones(domain.grid.shape())
-        self._accessible = accessible if accessible is not None else ones(domain.grid.shape())
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def grid(self):
-        return self.domain._grid
-
-    @property
-    def rank(self):
-        return self.grid.rank
-
-    def is_valid(self, state):
-        return self._validstate == state
-
-    def with_hard_boundary_conditions(self, velocity):
-        masked = velocity * _frictionless_velocity_mask(self.accessible(extend=1))
-        return masked  # TODO add surface velocity
-
-    def active(self, extend=0):
-        """
-Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
-Active cells are those for which physical properties such as pressure or velocity are calculated.
-        :param extend: Extend the grid in all directions beyond the grid size specified by the domain
-        """
-        if extend is None or extend == 0:
-            return self._active
-        else:
-            return pad(self._active, [[0, 0]] + [[1, 1]] * self.rank + [[0, 0]], "constant")
-
-    def accessible(self, extend=0):
-        """
-Scalar channel encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
-        :param extend: Extend the grid in all directions beyond the grid size specified by the domain
-        """
-        if extend is None or extend == 0:
-            return self._accessible
-        else:
-            solid_paddings, open_paddings = self.domain._get_paddings(lambda material: material.solid, margin=extend)
-            mask = self._accessible
-            mask = pad(mask, open_paddings, "constant", 1)
-            mask = pad(mask, solid_paddings, "constant", 0)
-            return mask
 
     # def _friction_mask(self, dt=1): TODO
     #     material.friction_multiplier(dt=dt)
@@ -147,29 +84,13 @@ def _collapse_equals(obj, leaf_type):
         return first
 
 
-def _frictionless_velocity_mask(accessible_mask):
-    dims = range(spatial_rank(accessible_mask))
-    bcs = []
-    for d in dims:
-        upper_slices = tuple([(slice(1, None) if i == d else slice(1, None)) for i in dims])
-        lower_slices = tuple([(slice(0, -1) if i == d else slice(1, None)) for i in dims])
-        bc_d = minimum(accessible_mask[(slice(None),) + upper_slices + (slice(None),)],
-                       accessible_mask[(slice(None),) + lower_slices + (slice(None),)])
-        bcs.append(bc_d)
-    return nd.StaggeredGrid(concat(bcs, axis=-1))
-
-
 def _friction_mask(masks_and_multipliers):
     for mask, multiplier in masks_and_multipliers:
         return mask
 
 
-Open3D = Domain(Grid([0] * 3))
-Open2D = Domain(Grid([0] * 2))
-
-
 def geometry_mask(geometries, grid):
     if len(geometries) == 0:
-        return zeros(grid.shape())
+        return math.zeros(grid.shape())
     location = grid.center_points()
-    return max([geometry.value_at(location) for geometry in geometries], axis=0)
+    return math.max([geometry.value_at(location) for geometry in geometries], axis=0)

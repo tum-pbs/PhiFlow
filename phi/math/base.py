@@ -22,7 +22,14 @@ class Backend:
     def concat(self, values, axis):
         raise NotImplementedError(self)
 
-    def pad(self, value, pad_width, mode="constant", constant_values=0):
+    def pad(self, value, pad_width, mode='constant', constant_values=0):
+        """
+Pad a tensor.
+        :param value:
+        :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[before axis 0, after axis 0], ...].
+        :param mode: 'constant', 'symmetric', 'reflect'
+        :param constant_values:
+        """
         raise NotImplementedError(self)
 
     def add(self, values):
@@ -40,7 +47,7 @@ class Backend:
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError(self)
 
-    def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
+    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='ZERO'):
         raise NotImplementedError(self)
 
     def zeros_like(self, tensor):
@@ -77,7 +84,7 @@ class Backend:
     def minimum(self, a, b):
         raise NotImplementedError(self)
 
-    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
+    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         raise NotImplementedError(self)
 
     def sqrt(self, x):
@@ -86,7 +93,7 @@ class Backend:
     def exp(self, x):
         raise NotImplementedError(self)
 
-    def conv(self, tensor, kernel, padding="SAME"):
+    def conv(self, tensor, kernel, padding='SAME'):
         raise NotImplementedError(self)
 
     def expand_dims(self, a, axis=0, number=1):
@@ -163,12 +170,15 @@ Computes the n-dimensional inverse FFT along all but the first and last dimensio
     def cos(self, x):
         raise NotImplementedError(self)
 
+    def dtype(self, array):
+        raise NotImplementedError(self)
+
 
 
 class DynamicBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, "Dynamic")
+        Backend.__init__(self, 'Dynamic')
         self.backends = []
 
     def choose_backend(self, values):
@@ -177,7 +187,7 @@ class DynamicBackend(Backend):
         for backend in self.backends:
             if backend.is_applicable(values):
                 return backend
-        raise NoBackendFound("No backend found for values %s; registered backends are %s" % (values, self.backends))
+        raise NoBackendFound('No backend found for values %s; registered backends are %s' % (values, self.backends))
 
     def is_applicable(self, values):
         if not isinstance(values, tuple) and not isinstance(values, list):
@@ -193,7 +203,7 @@ class DynamicBackend(Backend):
     def concat(self, values, axis):
         return self.choose_backend(values).concat(values, axis)
 
-    def pad(self, value, pad_width, mode="constant", constant_values=0):
+    def pad(self, value, pad_width, mode='constant', constant_values=0):
         return self.choose_backend(value).pad(value, pad_width, mode, constant_values)
 
     def add(self, values):
@@ -211,7 +221,7 @@ class DynamicBackend(Backend):
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         return self.choose_backend(inputs).py_func(func, inputs, Tout, shape_out, stateful, name, grad)
 
-    def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
+    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='ZERO'):
         return self.choose_backend((inputs, sample_coords)).resample(inputs, sample_coords, interpolation, boundary)
 
     def zeros_like(self, tensor):
@@ -249,7 +259,7 @@ class DynamicBackend(Backend):
     def minimum(self, a, b):
         return self.choose_backend([a,b]).minimum(a, b)
 
-    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
+    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         return self.choose_backend(inputs[0]).with_custom_gradient(function, inputs, gradient, input_index, output_index, name_base)
 
     def sqrt(self, x):
@@ -258,7 +268,7 @@ class DynamicBackend(Backend):
     def exp(self, x):
         return self.choose_backend(x).exp(x)
 
-    def conv(self, tensor, kernel, padding="SAME"):
+    def conv(self, tensor, kernel, padding='SAME'):
         return self.choose_backend([tensor, kernel]).conv(tensor, kernel, padding)
 
     def expand_dims(self, a, axis=0, number=1):
@@ -321,6 +331,9 @@ class DynamicBackend(Backend):
     def cos(self, x):
         return self.choose_backend(x).cos(x)
 
+    def dtype(self, array):
+        return self.choose_backend(array).dtype(array)
+
 
 class NoBackendFound(Exception):
     def __init__(self, msg):
@@ -341,6 +354,7 @@ boolean_mask = backend.boolean_mask
 cast = backend.cast
 ceil = backend.ceil
 cos = backend.cos
+dtype = backend.dtype
 floor = backend.floor
 concat = backend.concat
 conv = backend.conv
