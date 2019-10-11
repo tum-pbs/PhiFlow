@@ -75,6 +75,9 @@ class Dataset(object):
                 frames = scene.frames
             dataset.add(SceneSource(scene, frames=frames, shape_map=shape_map))
 
+        if dataset.count()==0:
+            raise ValueError("No data sets found in '%s' " % directory)
+
         return dataset
 
 

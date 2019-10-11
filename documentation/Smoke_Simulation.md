@@ -21,4 +21,7 @@ The velocity of a smoke state is sampled in [staggered form](Staggered_Grids.md)
 
 For the pressure solve, a [`PressuresSolver`](../phi/solver/base.py) object is managed by the `SmokePhysics`.
 The [documentation on pressure solvers](Pressure_Solvers.md) explains the differences between the available solvers.
+The example [runsim_numpy_or_tf.py](../apps/runsim_numpy_or_tf.py) shows how the 
+sequence of simulation steps of a smoke simulation can be executed manually without
+using the `SmokePhysics` object.
 

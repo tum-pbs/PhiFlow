@@ -86,9 +86,14 @@ class BatchReader(object):
 
 class _IndexCache(object):
 
-    def __init__(self, sources, channel, randomize_scene_order=False, randomize_frame_order=False, randomize_indices=False):
+    def __init__(self, sources, channel, randomize_scene_order=False, randomize_frame_order=False, randomize_indices=True):
         if randomize_scene_order and not randomize_indices:
-            self.sources = sources[np.random.permutation(len(sources))]
+            # python2 doesnt yet support indexing via array, manually permutate
+            self.sources = []
+            p = np.random.permutation(len(sources))
+            for i in range(len(sources)):
+                self.sources.append( sources[p[i]] )
+            #replace sometime with original code: self.sources = sources[np.random.permutation(len(sources))]
         else:
             self.sources = sources
         self.datachannel = channel

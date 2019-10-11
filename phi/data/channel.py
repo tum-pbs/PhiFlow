@@ -182,7 +182,7 @@ Selects specific frames from the input.
         try:
             selected_frames = [frames[i] for i in indices]
         except:
-            raise ValueError("FrameSelect: selection function must return a list of integers, but got %s for frames %s" % (frames, datasource.frames()))
+            raise ValueError("BatchSelect: selection function must return a list of integers that is large enough, but got %s for frames %s" % (frames, datasource.frames()))
         return self.channel.get(datasource, selected_frames)
 
     def size(self, datasource, lookup=False):
@@ -200,16 +200,33 @@ Selects specific frames from the input.
         return [frames] if isinstance(frames, int) else frames
 
 
-def consecutive_frames(channel, n):
-    """
-Constructs n DataChannels to load a consequtive sequence of frames.
-For each sequence, the i-th DataChannel loads the i-th frame in that sequence.
-The number of sequences depends on the number of frames contained in each source.
+class MantaScalar(DerivedChannel):
 
-The frames of each source are assumed to be ordered and without frame gaps.
-Every DataSource accessed through these channels must contain at least n frames.
-    :param channel: Source channel holding the data
-    :param n: Number of frames to load
-    :return: tuple containing n DataChannels
-    """
-    return tuple([FrameSelect(lambda frames, i=i: frames[i:i-n+1+len(frames)], channel) for i in range(n)])
+    def __init__(self, channel):
+        """
+Removes one layer of cells on the positive sides for scalar channels.
+This can be used to load mantaflow fluid sim scenes, for which the staggered velocity
+will be loaded unmodified, while the scalar grids are cropped to match the size
+of the phiflow arrays.
+        """
+        DerivedChannel.__init__(self, [channel]) 
+        self.channel = self.inputs[0]
+
+    def shape(self, datasource):
+        return self.channel.shape(datasource)
+
+    def get(self, datasource, indices):
+        a = self.channel.get(datasource, indices)
+        c = []
+        for b in a:
+            b = b[...,0:b.shape[1]-1, 0:b.shape[2]-1,:] # crop 1 layer
+            c.append( b )
+        a = np.asarray(c)
+        return a
+
+    def size(self, datasource, lookup=False):
+        return self.channel.size(datasource, lookup)
+
+    def frames(self, datasource):
+        return self.channel.frames(datasource)
+
