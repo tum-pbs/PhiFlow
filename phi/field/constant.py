@@ -37,7 +37,7 @@ class ConstantField(Field):
         return math.zeros([])
 
     def compatible(self, other_field):
-        return isinstance(other_field, ConstantField)
+        return True
 
     def __repr__(self):
         return repr(self.data)

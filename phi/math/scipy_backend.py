@@ -230,9 +230,9 @@ class SciPyBackend(Backend):
         return np.cos(x)
 
     def dtype(self, array):
-        return np.dtype(array)
-
-
+        if not isinstance(array, np.ndarray):
+            array = np.array(array)
+        return array.dtype
 
 
 def clamp(coordinates, shape):

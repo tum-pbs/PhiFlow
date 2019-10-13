@@ -31,19 +31,11 @@ The resulting pressure is expected to fulfill (Δp-∇·v) ≤ accuracy for ever
 class FluidDomain(struct.Struct):
     __struct__ = struct.Def(('_active', 'accessible'))
 
-    def __init__(self, domain, validstate=(), active=None, accessible=None):
-        self._domain = domain
+    def __init__(self, shape, validstate=(), active=None, accessible=None):
+        self.rank = len(shape) - 2
         self._validstate = validstate
-        self._active = active if active is not None else math.ones(domain.shape())
-        self._accessible = accessible if accessible is not None else math.ones(domain.shape())
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def rank(self):
-        return self.domain.rank
+        self._active = active if active is not None else math.ones(shape)
+        self._accessible = accessible if accessible is not None else math.ones(shape)
 
     def is_valid(self, state):
         return self._validstate == state
@@ -71,11 +63,13 @@ Scalar channel encoding cells that are accessible, i.e. not solid, as ones and o
         if extend is None or extend == 0:
             return self._accessible
         else:
-            solid_paddings, open_paddings = self.domain._get_paddings(lambda material: material.solid, margin=extend)
+            # solid_paddings, open_paddings = self.domain._get_paddings(lambda material: material.solid, margin=extend)
+            open_paddings = [[0,0]] + [[1,1] for i in range(self.rank)] + [[0,0]]
             mask = self._accessible
             mask = math.pad(mask, open_paddings, "constant", 1)
-            mask = math.pad(mask, solid_paddings, "constant", 0)
+            # mask = math.pad(mask, solid_paddings, "constant", 0)
             return mask
+
 
 def _frictionless_velocity_mask(accessible_mask):
     dims = range(math.spatial_rank(accessible_mask))

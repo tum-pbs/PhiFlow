@@ -41,7 +41,7 @@ Calculates the pressure from the given velocity or velocity divergence using the
         from phi.solver.sparse import SparseCG
         pressure_solver = SparseCG()
 
-    fluiddomain = FluidDomain(Domain(divergence.resolution), active=None, accessible=None)
+    fluiddomain = FluidDomain(divergence.data.shape, active=None, accessible=None)
 
     pressure, iter = pressure_solver.solve(divergence.data, fluiddomain, pressure_guess=None)
 

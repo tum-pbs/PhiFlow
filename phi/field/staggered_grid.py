@@ -101,6 +101,7 @@ class StaggeredGrid(Field):
         raise StaggeredSamplePoints(self)
 
     def compatible(self, other_field):
+        if isinstance(other_field, ConstantField): return True
         if isinstance(other_field, StaggeredGrid):
             return self.bounds == other_field.bounds and np.all(self.resolution == other_field.resolution)
         else:
@@ -122,12 +123,15 @@ class StaggeredGrid(Field):
     def gradient(scalar_field, padding_mode='symmetric'):
         data = scalar_field.data
         if data.shape[-1] != 1: raise ValueError('input must be a scalar field')
-        components = []
+        staggeredgrid = StaggeredGrid(u'∇%s' % scalar_field.name, scalar_field.bounds, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
+        tensors = []
         for dim in math.spatial_dimensions(data):
             upper = math.pad(data, [[0,1] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
             lower = math.pad(data, [[1,0] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
-            components.append((upper - lower) / scalar_field.dx[dim - 1])
-        return StaggeredGrid(u'∇%s' % scalar_field.name, scalar_field.bounds, components, scalar_field.resolution, batch_size=scalar_field._batch_size)
+            tensors.append((upper - lower) / scalar_field.dx[dim - 1])
+        components = [CenteredGrid(None, None, t, None, None) for t in tensors]
+        data = complete_staggered_properties(components, staggeredgrid)
+        return staggeredgrid.copied_with(data=data)
 
     @staticmethod
     def from_scalar(scalar_field, axis_forces, padding_mode='constant', name=None):
@@ -138,7 +142,9 @@ class StaggeredGrid(Field):
         tensors = []
         for i, force in enumerate(axis_forces):
             if isinstance(force, Number) and force == 0:
-                tensors.append(math.zeros_like(scalar_field.data))
+                dims = list(math.staticshape(scalar_field.data))
+                dims[i+1] += 1
+                tensors.append(math.zeros(dims, math.dtype(scalar_field.data)))
             else:
                 upper = math.pad(scalar_field.data, [[0,1] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
                 lower = math.pad(scalar_field.data, [[1,0] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
