@@ -1,4 +1,5 @@
 from .field import *
+from .constant import *
 from .flag import SAMPLE_POINTS
 from phi import math
 import numpy as np
@@ -13,7 +14,7 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
 
 class CenteredGrid(Field):
 
-    __struct__ = Field.__struct__.extend([], ['_interpolation'])
+    __struct__ = Field.__struct__.extend([], [])
 
     def __init__(self, name, box, data, flags=(), batch_size=None):
         Field.__init__(self, name=name, bounds=box, data=data, flags=flags, batch_size=batch_size)
@@ -76,6 +77,7 @@ class CenteredGrid(Field):
         return self._sample_points
 
     def compatible(self, other_field):
+        if isinstance(other_field, ConstantField): return True
         if isinstance(other_field, CenteredGrid):
             return self.bounds == other_field.bounds and np.all(self.resolution == other_field.resolution)
         else:
