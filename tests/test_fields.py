@@ -34,7 +34,7 @@ class TestMath(TestCase):
         data_y[0, :, :, 0] = [[-1,-2], [-3,-4], [-5,-6]]
         x = CenteredGrid('f', None, data_x)
         y = CenteredGrid('f', None, data_y)
-        v = StaggeredGrid('v', box[0:2, 0:3], [x, y])
+        v = StaggeredGrid('v', box[0:2, 0:3], [x, y], [2, 2])
 
     def test_staggered_format_conversion(self):
         tensor = math.zeros([1, 5, 5, 2])

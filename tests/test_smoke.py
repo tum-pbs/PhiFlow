@@ -27,8 +27,9 @@ class TestSmoke(TestCase):
         def typetest(smoke):
             self.assertIsInstance(smoke, Smoke)
             self.assertIsInstance(smoke.velocity, StaggeredGrid)
-            np.testing.assert_equal(smoke.density.shape, [1,4,4,1])
-            np.testing.assert_equal(smoke.velocity.shape, [1,5,5,2])
+            np.testing.assert_equal(smoke.density.data.shape, [1,4,4,1])
+            np.testing.assert_equal(smoke.velocity.resolution, [4, 4])
+            np.testing.assert_equal(smoke.velocity.data[0].resolution, [5, 4])
         typetest(Smoke(Domain([4, 4]), density=0.0, velocity=0.0))
         typetest(Smoke(Domain([4, 4]), density=1.0, velocity=1.0))
         typetest(Smoke(Domain([4, 4]), density=0, velocity=zeros))
