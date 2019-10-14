@@ -1,6 +1,16 @@
 from phi.physics.physics import State
 from phi import math
 from .flag import Flag, _PROPAGATOR
+from phi.geom import Geometry
+import numpy as np
+
+
+def _to_valid_data(data):
+    if data is None: return None
+    if isinstance(data, (tuple, list)):
+        return np.array(data)
+    else:
+        return data
 
 
 class Field(State):
@@ -8,7 +18,8 @@ class Field(State):
 
     def __init__(self, name, bounds, data, flags=(), batch_size=None):
         State.__init__(self, tags=[name, 'field'], batch_size=batch_size)
-        self._data = data
+        assert bounds is None or isinstance(bounds, Geometry), 'bounds must be of type Geometry but got "%s"' % bounds
+        self._data = _to_valid_data(data)
         self._name = name
         self._bounds = bounds
         if flags is None:
@@ -24,7 +35,12 @@ class Field(State):
             kwargs['flags'] = tuple(kwargs['flags'])
         if 'data' in kwargs and 'flags' not in kwargs:
             kwargs['flags'] = ()
+            kwargs['data'] = _to_valid_data(kwargs['data'])
         return State.copied_with(self, **kwargs)
+
+    @property
+    def dtype(self):
+        return math.dtype(self._data)
 
     @property
     def name(self):
@@ -43,7 +59,8 @@ For composite fields, data holds a tuple of component fields.
     def bounds(self):
         """
 The bounds describe the spatial region inside which this field is defined.
-Depending on the boundary conditions, the field may be extrapolated beyond the bounds.
+Outside of bounds, the field is assumed to be zero / undefined.
+Fields with infinite range (such as extrapolated fields ) have bounds None.
         :return:
         """
         return self._bounds
@@ -59,6 +76,7 @@ Flags describe properties of a Field such as divergence-freeness.
     def sample_at(self, points):
         """
 Resample this field at the given points.
+The value of points that lie outside the bounds of this Field is undefined.
         :param points: tensor or rank >= 2 containing world-space vectors
         :return: tensor of shape location.shape[:-1]+[components]
         """
@@ -68,6 +86,7 @@ Resample this field at the given points.
         """
 Resample this field at the same points as other_field.
 The returned Field is compatible with other_field.
+The value of points that lie outside the bounds of this Field is undefined.
         :param location: Field
         :param force_optimization: If true, this algorithm either uses an optimized implementation
         :return: a new Field which samples all components of this field at the points of other_field
@@ -147,7 +166,7 @@ Even if this method returns False, the sample points may still be the same.
 
     def __dataop__(self, other, linear_if_scalar, data_operator):
         if isinstance(other, Field):
-            assert self.compatible(other)
+            assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
             try:
                 data = data_operator(self.data, other.data)

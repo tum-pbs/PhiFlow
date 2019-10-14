@@ -24,11 +24,11 @@ def complete_staggered_properties(components, staggeredgrid):
     data = []
     for i, component in enumerate(components):
         name = component.name if component.name is not None else _subname(staggeredgrid.name, i)
-        box = component.bounds
+        box = component.box
         if box is None:
             resolution_i = staggeredgrid._resolution[i]
             unit = np.array([1 if i == d else 0 for d in range(len(components))])
-            unit = unit * staggeredgrid.bounds.size / resolution_i
+            unit = unit * staggeredgrid.box.size / resolution_i
             box = Box(staggeredgrid.bounds.origin - unit / 2, size=staggeredgrid.bounds.size + unit)
         flags = component.flags
         if flags is None:
@@ -62,6 +62,8 @@ class StaggeredGrid(Field):
         if data is not None:
             for f in data:
                 assert isinstance(f, CenteredGrid)
+        assert isinstance(box, Box) or box is None
+        self._box = box
         self._resolution = resolution
 
     @staticmethod
@@ -83,8 +85,12 @@ class StaggeredGrid(Field):
         return math.as_tensor(self._resolution)
 
     @property
+    def box(self):
+        return self._box
+
+    @property
     def dx(self):
-        return self.bounds.size / self.resolution
+        return self.box.size / self.resolution
 
     def sample_at(self, points):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
@@ -100,10 +106,13 @@ class StaggeredGrid(Field):
     def points(self):
         raise StaggeredSamplePoints(self)
 
+    def __repr__(self):
+        return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
+
     def compatible(self, other_field):
         if isinstance(other_field, ConstantField): return True
         if isinstance(other_field, StaggeredGrid):
-            return self.bounds == other_field.bounds and np.all(self.resolution == other_field.resolution)
+            return self.box == other_field.box and np.all(self.resolution == other_field.resolution)
         else:
             return False
 
@@ -117,13 +126,14 @@ class StaggeredGrid(Field):
             grad = math.axis_gradient(field.data, dim) / self.dx[dim]
             components.append(grad)
         data = math.add(components)
-        return CenteredGrid(u'∇·%s' % self.name, self.bounds, data, batch_size=self._batch_size)
+        return CenteredGrid(u'∇·%s' % self.name, self.box, data, batch_size=self._batch_size)
 
     @staticmethod
     def gradient(scalar_field, padding_mode='symmetric'):
+        assert isinstance(scalar_field, CenteredGrid)
         data = scalar_field.data
         if data.shape[-1] != 1: raise ValueError('input must be a scalar field')
-        staggeredgrid = StaggeredGrid(u'∇%s' % scalar_field.name, scalar_field.bounds, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
+        staggeredgrid = StaggeredGrid(u'∇%s' % scalar_field.name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
         tensors = []
         for dim in math.spatial_dimensions(data):
             upper = math.pad(data, [[0,1] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
@@ -138,7 +148,7 @@ class StaggeredGrid(Field):
         assert isinstance(scalar_field, CenteredGrid)
         assert scalar_field.rank == len(axis_forces)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
-        staggeredgrid = StaggeredGrid(name, scalar_field.bounds, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
+        staggeredgrid = StaggeredGrid(name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
         tensors = []
         for i, force in enumerate(axis_forces):
             if isinstance(force, Number) and force == 0:
