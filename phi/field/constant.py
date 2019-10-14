@@ -9,7 +9,7 @@ class ConstantField(Field):
     def __init__(self, name, value=1.0, bounds=None, flags=(), batch_size=None):
         if isinstance(value, math.Number):
             value = math.expand_dims(value)
-        if math.spatial_rank(value) < 0:
+        if len(math.staticshape(value)) < 2:
             value = math.expand_dims(value)
         Field.__init__(self, name, bounds, value, flags=flags, batch_size=batch_size)
 
@@ -33,7 +33,7 @@ class ConstantField(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [ConstantField('%s[%d]' % (self.name, i), self.bounds, c, flags=flags, batch_size=self._batch_size) for i,c in enumerate(math.unstack(self.data, -1))]
+        return [ConstantField('%s[%d]' % (self.name, i), c, self.bounds, flags=flags, batch_size=self._batch_size) for i,c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):

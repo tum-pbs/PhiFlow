@@ -24,17 +24,17 @@ The number of spatial dimensions is equal to the tensor rank minus two.
     """
     if struct.isstruct(obj):
         return struct.map(lambda o: spatial_rank(o), obj, recursive=False)  # TODO this should be done by the Struct backend
-    return len(obj.shape) - 2
+    return len(math.staticshape(obj)) - 2
 
 
 def spatial_dimensions(obj):
     if struct.isstruct(obj):
         return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
-    return tuple(range(1, len(obj.shape) - 1))
+    return tuple(range(1, len(math.staticshape(obj)) - 1))
 
 
 def all_dimensions(tensor):
-    return range(len(tensor.shape))
+    return range(len(math.staticshape(tensor)))
 
 
 def is_scalar(obj):

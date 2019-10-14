@@ -7,8 +7,9 @@ class Geometry(struct.Struct):
     def value_at(self, location):
         raise NotImplementedError(self.__class__)
 
-    def at(self, grid):
-        return self.value_at(grid.center_points())
+    @property
+    def rank(self):
+        raise NotImplementedError()
 
 
 class Box(Geometry):
@@ -32,7 +33,7 @@ class Box(Geometry):
         return self._upper
 
     @property
-    def spatial_rank(self):
+    def rank(self):
         return len(self.size)
 
     def global_to_local(self, global_position):
@@ -95,3 +96,6 @@ class Sphere(Geometry):
         bool_inside = math.expand_dims(math.sum((location - self._center)**2, axis=-1) <= self._radius ** 2, -1)
         return math.to_float(bool_inside)
 
+    @property
+    def rank(self):
+        return len(self._center)

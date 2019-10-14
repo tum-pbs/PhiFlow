@@ -128,6 +128,10 @@ class StaggeredGrid(Field):
         data = math.add(components)
         return CenteredGrid(u'∇·%s' % self.name, self.box, data, batch_size=self._batch_size)
 
+    @property
+    def dtype(self):
+        return self.data[0].dtype
+
     @staticmethod
     def gradient(scalar_field, padding_mode='symmetric'):
         assert isinstance(scalar_field, CenteredGrid)

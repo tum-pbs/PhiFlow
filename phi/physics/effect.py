@@ -44,7 +44,7 @@ def effect_applied(effect, field, dt):
         return field + resampled
     elif effect._mode == FIX:
         assert effect.field.bounds is not None
-        mask = effect.field.bounds.at(grid)
+        mask = effect.field.bounds.value_at(field.points.data)
         return field * (1 - mask) + resampled * mask
     else:
         raise ValueError('Invalid mode: %s' % effect.mode)
