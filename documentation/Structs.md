@@ -9,6 +9,7 @@ The following objects are structs:
 - Lists
 - Tuples
 - Dicts containing strings as keys
+- NumPy arrays with `dtype=numpy.object`
 
 Structs differentiate between two kinds of entries:
 - *Attributes* hold the main data and can also hold sub-structs.

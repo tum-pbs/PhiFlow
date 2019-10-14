@@ -6,7 +6,7 @@ from numbers import Number
 
 
 def _is_python_shape(obj):
-    if not isinstance(obj, (tuple, list)): return False
+    if not isinstance(obj, (tuple, list, np.ndarray)): return False
     for element in obj:
         if not isinstance(element, Number) and element is not None: return False
     return True
@@ -18,7 +18,7 @@ def _none_to_one(shape):
 
 
 def zeros(shape, dtype=np.float32):
-    f = lambda s: np.zeros(_none_to_one(s), dtype)
+    f = lambda s: np.zeros(_none_to_one(s), dtype=dtype)
     return struct.map(f, shape, leaf_condition=_is_python_shape)
 
 

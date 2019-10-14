@@ -91,7 +91,7 @@ class Struct(object):
 def attributes(struct):
     if isinstance(struct, Struct):
         return struct.__attributes__()
-    if isinstance(struct, (list, tuple)):
+    if isinstance(struct, (list, tuple, np.ndarray)):
         return {i: struct[i] for i in range(len(struct))}
     if isinstance(struct, dict):
         return struct
@@ -101,7 +101,7 @@ def attributes(struct):
 def properties(struct):
     if isinstance(struct, Struct):
         return struct.__properties__()
-    if isinstance(struct, (list, tuple, dict)):
+    if isinstance(struct, (list, tuple, dict, np.ndarray)):
         return {}
     raise ValueError("Not a struct: %s" % struct)
 
@@ -111,10 +111,11 @@ def properties_dict(struct):
         return struct.__properties_dict__()
     if isinstance(struct, (list, tuple)):
         return [properties_dict(s) for s in struct]
+    if isinstance(struct, np.ndarray) and struct.dtype == np.object:
+        return [properties_dict(s) for s in struct]
     if isinstance(struct, dict):
         return {key: properties_dict(value) for key,value in struct.items()}
     if isinstance(struct, np.ndarray):
-        assert len(struct.shape) == 1
         struct = struct.tolist()
     import json
     try:
@@ -133,6 +134,10 @@ def copy_with(struct, new_values_dict):
         return tuple(duplicate)
     if isinstance(struct, list):
         duplicate = list(struct)
+        for key, value in new_values_dict.items(): duplicate[key] = value
+        return duplicate
+    if isinstance(struct, np.ndarray) and struct.dtype == np.object:
+        duplicate = struct.copy()
         for key, value in new_values_dict.items(): duplicate[key] = value
         return duplicate
     if isinstance(struct, dict):
@@ -231,8 +236,10 @@ class LeafZip(object):
 
 
 def isstruct(object, leaf_condition=None):
-    isstructclass =  isinstance(object, (Struct, list, tuple, dict))
+    isstructclass =  isinstance(object, (Struct, list, tuple, dict, np.ndarray))
     if not isstructclass:
+        return False
+    if isinstance(object, np.ndarray) and object.dtype != np.object:
         return False
     if leaf_condition is not None and leaf_condition(object):
         return False
