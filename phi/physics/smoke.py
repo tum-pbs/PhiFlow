@@ -7,7 +7,8 @@ from phi.math.initializers import _is_python_shape, zeros, np
 
 def initialize_field(value, shape, dtype=np.float32):
     if isinstance(value, (int, float)):
-        return zeros(shape, dtype=dtype) + value
+        const0 = zeros(shape, dtype=dtype)
+        return const0 + value
     elif callable(value):
         return value(shape, dtype=dtype)
     if isinstance(shape, struct.Struct):
@@ -140,11 +141,11 @@ class SmokePhysics(Physics):
         velocity = advect.look_back(velocity, velocity, dt=dt)
         # --- Density effects ---
         for effect in density_effects:
-            density = effect.apply_grid(density, smoke.domain, staggered=False, dt=dt)
+            density = effect_applied(effect, density, dt)
         # --- velocity effects
         for effect in velocity_effects:
-            velocity = effect.apply_grid(velocity, smoke.domain, staggered=True, dt=dt)
-        velocity += dt * buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor)
+            velocity = effect_applied(effect, velocity, dt)
+        velocity += buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor) * dt
         if self.make_output_divfree:
             velocity = divergence_free(velocity, self.pressure_solver)
         return smoke.copied_with(density=density, velocity=velocity, age=smoke.age + dt)
@@ -156,5 +157,6 @@ SMOKE = SmokePhysics()
 def buoyancy(density, gravity, buoyancy_factor):
     if isinstance(gravity, (int, float)):
         gravity = np.array([gravity] + ([0] * (density.rank - 1)))
-    return StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
+    result = StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
+    return result
 

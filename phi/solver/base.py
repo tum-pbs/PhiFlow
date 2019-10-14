@@ -33,6 +33,7 @@ class FluidDomain(struct.Struct):
 
     def __init__(self, shape, validstate=(), active=None, accessible=None):
         self.rank = len(shape) - 2
+        shape = [1] + list(shape)[1:]
         self._validstate = validstate
         self._active = active if active is not None else math.ones(shape)
         self._accessible = accessible if accessible is not None else math.ones(shape)
@@ -81,3 +82,5 @@ def _frictionless_velocity_mask(accessible_mask):
                             accessible_mask[(slice(None),) + lower_slices + (slice(None),)])
         bcs.append(bc_d)
     return math.StaggeredGrid(math.concat(bcs, axis=-1))
+
+
