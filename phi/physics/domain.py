@@ -1,7 +1,69 @@
 from .obstacle import *
 from .material import *
 from phi import math
-from phi.geom import Grid
+import numpy as np
+from phi.geom import Box
+
+
+
+class Grid(struct.Struct):
+    __struct__ = struct.Def((), ('_resolution', '_box'))
+
+    def __init__(self, resolution, box=None):
+        self._resolution = np.array(resolution)
+        if box is not None:
+            self._box = box
+        else:
+            self._box = Box([0 for d in resolution], self._resolution)
+
+    @property
+    def resolution(self):
+        return self._resolution
+
+    @property
+    def box(self):
+        return self._box
+
+    @property
+    def rank(self):
+        return len(self._resolution)
+
+    def cell_index(self, global_position):
+        local_position = self._box.global_to_local(global_position) * self._resolution
+        position = math.to_int(local_position - 0.5)
+        position = math.maximum(0, position)
+        position = math.minimum(position, self._resolution-1)
+        return position
+
+    def center_points(self):
+        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+0.5,1) for dim in self._resolution], indexing="ij")
+        return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
+
+    def staggered_points(self, dimension):
+        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+1.5,1) if dim != dimension else np.arange(0,dim+1,1) for dim in self._resolution], indexing="ij")
+        return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
+
+
+    def indices(self):
+        """
+    Constructs a grid containing the index-location as components.
+    Each index denotes the location within the tensor starting from zero.
+    Indices are encoded as vectors in the index tensor.
+        :param dtype: a numpy data type (default float32)
+        :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
+        """
+        idx_zyx = np.meshgrid(*[range(dim) for dim in self._resolution], indexing="ij")
+        return math.expand_dims(np.stack(idx_zyx, axis=-1))
+
+    @staticmethod
+    def equal(grid1, grid2):
+        assert isinstance(grid1, Grid), 'Not a grid: %s' % type(grid1)
+        assert isinstance(grid2, Grid), 'Not a grid: %s' % type(grid2)
+        return grid1._resolution == grid2._resolution and grid1._box == grid2._box
+
+
+
+
 
 class Domain(Grid):
     __struct__ = Grid.__struct__.extend([], ['_boundaries'])
