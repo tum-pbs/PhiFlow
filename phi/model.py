@@ -306,6 +306,9 @@ class FieldSequenceModel(object):
                 if rest > 0:
                     self.current_action = 'Waiting'
                     time.sleep(rest)
+        except Exception as e:
+            self.info('Error during %s.step() \n %s: %s' % (type(self).__name__, type(e).__name__, e))
+            self.logger.exception(e)
         finally:
             self.current_action = None
 
