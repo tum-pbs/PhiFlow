@@ -1,7 +1,7 @@
 import numpy, os
 import plotly.figure_factory as ff
 
-import phi.math.nd
+from phi.field import *
 
 # Views
 FRONT = 'front'
@@ -76,35 +76,49 @@ class PlotlyFigureBuilder(object):
             selected_depths = [self.slice_count(shape) - 1]
         return selected_depths
 
+    def slice_dims(self, data):
+        if isinstance(data, CenteredGrid):
+            return data.data.shape
+        if isinstance(data, StaggeredGrid):
+            return data.data[0].data.shape
+        else:
+            return data.shape
+
+
     def create_figure(self, data, same_scale_data=None, batch=None, depth=None, library='matplotlib'):
+        shape = self.slice_dims(data)
         # Determine batch
-        if data.shape[0] == 1:
+        if shape[0] == 1:
             batch = 0
         if batch is None:
             try:
-                selected_batches = numpy.arange(data.shape[0])[self.batches]
+                selected_batches = numpy.arange(shape[0])[self.batches]
                 if len(selected_batches) != 1:
                     raise ValueError('no batch specified and default batches contains more than one element')
             except:
                 return None
             batch = selected_batches[0]
         # Determine slice
-        if depth is None and len(data.shape) == 5:
-            selected_depths = self.get_selected_slices(data.shape)
+        if depth is None and len(shape) == 5:
+            selected_depths = self.get_selected_slices(shape)
             if len(selected_depths) != 1:
                 raise ValueError('no depth specified and default depths contains more than one element')
             depth = selected_depths[0]
 
+        if isinstance(data, CenteredGrid):
+            data = data.data
+
         # Antisymmetry
-        if isinstance(data, phi.math.nd.StaggeredGrid):
-            data = data.at_centers()
+        if isinstance(data, StaggeredGrid):
+            centered = CenteredGrid(None, data.box, np.zeros([0]+list(data.resolution)+[1]))
+            data = data.resample(centered).data
             staggered = True
         else:
             staggered = self.staggered
         if self.antisymmetry:
             if staggered:
                 data = data[..., 1:,:]
-            if data.shape[-1] != 1:
+            if shape[-1] != 1:
                 datax = data[..., ::-1, 0:1] + data[..., 0:1]
                 datayz = data[..., ::-1, 1:] - data[..., 1:]
                 data = numpy.concatenate((datax, datayz), axis=-1)
@@ -112,7 +126,7 @@ class PlotlyFigureBuilder(object):
                 data = data - data[..., ::-1, :]
 
         # Select batch
-        if batch < data.shape[0]:
+        if batch < shape[0]:
             data = data[batch, ...]
         else:
             return { 'data': [{'type': 'heatmap', 'z': [[0]]}] }
@@ -121,45 +135,45 @@ class PlotlyFigureBuilder(object):
             data = numpy.real(data)
         
         # 1D graph
-        if len(data.shape) == 2:
+        if len(shape) == 3:
             return self.graphs(data, library)
 
         # 3D projection / Select depth
-        if len(data.shape) == 4:
+        if len(shape) == 5:
             if self.view == FRONT:
-                data = data[:, min(depth, data.shape[1]), :, :]
+                data = data[:, min(depth, shape[2]), :, :]
             elif self.view == RIGHT:
-                data = data[:, :, min(depth, data.shape[2]), :]
+                data = data[:, :, min(depth, shape[3]), :]
                 data = numpy.transpose(data, axes=(1,0,2))
             elif self.view == TOP:
-                data = data[min(depth, data.shape[0]), :, :, :]
+                data = data[min(depth, shape[1]), :, :, :]
             else:
                 data = data[0, ...]
 
         # Create figure
-        component = 0 if data.shape[-1] == 1 else self.component
+        component = 0 if shape[-1] == 1 else self.component
 
         if component == VECTOR2:
             # Downsample
-            while numpy.prod(data.shape[:-1]) > self.max_vector_resolution ** 2:
+            while numpy.prod(shape[:-1]) > self.max_vector_resolution ** 2:
                 data = data[::2, ::2, :] * 0.5
             data = data[..., ::-1]
             return self.draw_vector_field(data, library)
 
         elif component == LENGTH:
-            if data.shape[-1] == 3:
+            if shape[-1] == 3:
                 data = numpy.sqrt( data[...,0:1]**2 + data[...,1:2]**2 + data[...,2:3]**2)
             else:
                 data = numpy.sqrt( data[...,0:1]**2 + data[...,1:2]**2)
         else:
             # Single vector component
-            if component >= data.shape[-1]:
+            if component >= shape[-1]:
                 data = numpy.zeros_like(data[...,0:1])
             else:
-                data = data[...,data.shape[-1]-1-component:data.shape[-1]-component]
+                data = data[...,shape[-1]-1-component:shape[-1]-component]
 
         # Downsample
-        while numpy.prod(data.shape[:-1]) > self.max_resolution ** 2:
+        while numpy.prod(shape[:-1]) > self.max_resolution ** 2:
             data = data[::2, ::2, :]
         if same_scale_data is not None:
             return self.heatmap(data[..., 0], library, minmax=global_minmax(same_scale_data))
