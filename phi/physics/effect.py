@@ -4,7 +4,7 @@ from phi.field import *
 
 GROW = 'grow'
 ADD = 'add'
-DECAY = 'decay'
+# DECAY = 'decay'
 FIX = 'fix'
 
 
@@ -30,43 +30,38 @@ class FieldEffect(State):
     def targets(self):
         return self._targets
 
-    def apply_grid(self, target, grid, staggered, dt):
-        if self._mode == GROW:
-            delta = self.field.sample_grid(grid, staggered=staggered)
-            dt = math.cast(dt, math.dtype(delta))
-            return target + delta * dt
-        elif self._mode == ADD:
-            delta = self.field.sample_grid(grid, staggered=staggered)
-            return target + delta
-        elif self._mode == DECAY:
-            raise NotImplementedError()  # TODO
-        elif self._mode == FIX:
-            assert self.field.bounds is not None
-            replacement = self.field.sample_grid(grid, staggered=staggered)
-            if staggered:
-                raise NotImplementedError()  # TODO
-            else:
-                mask = 1 - self.field.bounds.at(grid)
-                return target * mask + replacement
-        else:
-            raise ValueError('Invalid mode: %s' % self.mode)
-
     def __repr__(self):
         return '%s(%s to %s)' % (self.mode, self. field, self.targets)
 
 
+
+def effect_applied(effect, field, dt):
+    resampled = effect.field.resample(field)
+    if effect._mode == GROW:
+        dt = math.cast(dt, resampled.dtype)
+        return field + resampled * dt
+    elif effect._mode == ADD:
+        return field + resampled
+    elif effect._mode == FIX:
+        assert effect.field.bounds is not None
+        mask = effect.field.bounds.at(grid)
+        return field * (1 - mask) + resampled * mask
+    else:
+        raise ValueError('Invalid mode: %s' % effect.mode)
+
+
 Inflow = lambda geometry, rate=1.0:\
-    FieldEffect(ConstantField(geometry, rate), ('density',), GROW, tags=('inflow', 'effect'))
+    FieldEffect(ConstantField('inflow', rate, geometry), ('density',), GROW, tags=('inflow', 'effect'))
 Fan = lambda geometry, acceleration:\
-    FieldEffect(ConstantField(geometry, acceleration), ('velocity',), GROW, tags=('fan', 'effect'))
+    FieldEffect(ConstantField('fan', acceleration, geometry), ('velocity',), GROW, tags=('fan', 'effect'))
 ConstantDensity = lambda geometry, density:\
-    FieldEffect(ConstantField(geometry, density), ('density',), FIX)
+    FieldEffect(ConstantField('constant-density', density, geometry), ('density',), FIX)
 ConstantTemperature = lambda geometry, temperature:\
-    FieldEffect(ConstantField(geometry, temperature), ('temperature',), FIX)
+    FieldEffect(ConstantField('constant-temperature', temperature, geometry), ('temperature',), FIX)
 HeatSource = lambda geometry, rate:\
-    FieldEffect(ConstantField(geometry, rate), ('temperature',), GROW)
+    FieldEffect(ConstantField('heat-source', rate, geometry), ('temperature',), GROW)
 ColdSource = lambda geometry, rate:\
-    FieldEffect(ConstantField(geometry, -rate), ('temperature',), GROW)
+    FieldEffect(ConstantField('heat-source', -rate, geometry), ('temperature',), GROW)
 
 
 class Gravity(State):
@@ -82,6 +77,7 @@ class Gravity(State):
         return self._gravity
 
     def __add__(self, other):
+        if other is 0: return self
         assert isinstance(other, Gravity)
         if self._batch_size is not None: assert self._batch_size == other._batch_size
         # Add gravity

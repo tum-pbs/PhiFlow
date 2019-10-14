@@ -6,16 +6,19 @@ class ConstantField(Field):
 
     __struct__ = State.__struct__.extend([], ['_data', '_bounds', '_name', '_flags'])
 
-    def __init__(self, name, bounds=None, value=1.0, flags=(), batch_size=None):
+    def __init__(self, name, value=1.0, bounds=None, flags=(), batch_size=None):
         if isinstance(value, math.Number):
+            value = math.expand_dims(value)
+        if math.spatial_rank(value) < 0:
             value = math.expand_dims(value)
         Field.__init__(self, name, bounds, value, flags=flags, batch_size=batch_size)
 
     def sample_at(self, points):
-        if self._bounds is None:
-            return math.expand_dims(self.data, 1, math.spatial_rank(points))
+        if self.bounds is None:
+            result = math.expand_dims(self.data, 1, math.spatial_rank(points))
         else:
-            return self.bounds.value_at(points) * self.data
+            result = self.bounds.value_at(points) * self.data
+        return result
 
     @property
     def rank(self):
