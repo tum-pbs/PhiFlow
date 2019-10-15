@@ -12,13 +12,13 @@ class PressureOptim(TFModel):
         self.reset_velocity = optimizable_velocity.assign(tf.random_normal([1, 63, 32, 2]))
         velocity = StaggeredGrid(tf.concat([optimizable_velocity, np.zeros([1, 63, 31, 2], np.float32)], axis=-2))
         velocity = velocity.pad(1, 1, "constant")
-        final_velocity = divergence_free(velocity, DomainCache(Domain(size, SLIPPERY)))
+        final_velocity = divergence_free(velocity, FluidDomain(Domain(size, SLIPPERY)))
 
         # Target
         y, x = np.meshgrid(*[np.arange(-0.5, dim + 0.5) for dim in size])
         target_velocity_y = 2 * np.exp(-0.5 * ((x - 40) ** 2 + (y - 10) ** 2) / 32 ** 2)
         target_velocity_y[:, 0:32] = 0
-        target_velocity = expand_dims(np.stack([target_velocity_y, np.zeros_like(target_velocity_y)], axis=-1), 0)
+        target_velocity = math.expand_dims(np.stack([target_velocity_y, np.zeros_like(target_velocity_y)], axis=-1), 0)
         target_velocity = StaggeredGrid(tf.constant(target_velocity, tf.float32) * self.editable_int("Target_Direction", 1, (-1,1)))
 
         # Optimization
