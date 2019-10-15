@@ -80,7 +80,7 @@ class CenteredGrid(Field):
         return self._sample_points
 
     def compatible(self, other_field):
-        if isinstance(other_field, ConstantField): return True
+        if not other_field.has_points: return True
         if isinstance(other_field, CenteredGrid):
             if self.box != other_field.box: return False
             if self.rank != other_field.rank: return False

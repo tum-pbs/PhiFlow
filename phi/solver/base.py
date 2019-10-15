@@ -1,5 +1,5 @@
 # coding=utf-8
-from phi import struct, math
+from phi import struct, math, field
 
 
 class PressureSolver(object):
@@ -31,18 +31,25 @@ The resulting pressure is expected to fulfill (Δp-∇·v) ≤ accuracy for ever
 class FluidDomain(struct.Struct):
     __struct__ = struct.Def(('_active', 'accessible'))
 
-    def __init__(self, shape, validstate=(), active=None, accessible=None):
-        self.rank = len(shape) - 2
-        shape = [1] + list(shape)[1:]
+    def __init__(self, domain, validstate=(), active=None, accessible=None):
+        self._domain = domain
         self._validstate = validstate
-        self._active = active if active is not None else math.ones(shape)
-        self._accessible = accessible if accessible is not None else math.ones(shape)
+        self._active = active if active is not None else math.ones(domain.shape()).data
+        self._accessible = accessible if accessible is not None else math.ones(domain.shape()).data
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def rank(self):
+        return self.domain.rank
 
     def is_valid(self, state):
         return self._validstate == state
 
     def with_hard_boundary_conditions(self, velocity):
-        masked = velocity * _frictionless_velocity_mask(self.accessible(extend=1))
+        masked = velocity * self._frictionless_velocity_mask(velocity)
         return masked  # TODO add surface velocity
 
     def active(self, extend=0):
@@ -64,23 +71,20 @@ Scalar channel encoding cells that are accessible, i.e. not solid, as ones and o
         if extend is None or extend == 0:
             return self._accessible
         else:
-            # solid_paddings, open_paddings = self.domain._get_paddings(lambda material: material.solid, margin=extend)
-            open_paddings = [[0,0]] + [[1,1] for i in range(self.rank)] + [[0,0]]
+            solid_paddings, open_paddings = self.domain._get_paddings(lambda material: material.solid, margin=extend)
             mask = self._accessible
             mask = math.pad(mask, open_paddings, "constant", 1)
-            # mask = math.pad(mask, solid_paddings, "constant", 0)
+            mask = math.pad(mask, solid_paddings, "constant", 0)
             return mask
 
-
-def _frictionless_velocity_mask(accessible_mask):
-    dims = range(math.spatial_rank(accessible_mask))
-    bcs = []
-    for d in dims:
-        upper_slices = tuple([(slice(1, None) if i == d else slice(1, None)) for i in dims])
-        lower_slices = tuple([(slice(0, -1) if i == d else slice(1, None)) for i in dims])
-        bc_d = math.minimum(accessible_mask[(slice(None),) + upper_slices + (slice(None),)],
-                            accessible_mask[(slice(None),) + lower_slices + (slice(None),)])
-        bcs.append(bc_d)
-    return math.StaggeredGrid(math.concat(bcs, axis=-1))
-
-
+    def _frictionless_velocity_mask(self, velocity):
+        tensors = []
+        for dim in math.spatial_dimensions(self._accessible):
+            upper_pad = 0 if self.domain.surface_material(dim-1, True).solid else 1
+            lower_pad = 0 if self.domain.surface_material(dim-1, False).solid else 1
+            upper = math.pad(self._accessible, [[0, 1] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=upper_pad)
+            lower = math.pad(self._accessible, [[1, 0] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=lower_pad)
+            tensors.append(math.minimum(upper, lower))
+        components = [field.CenteredGrid(None, None, t, None, None) for t in tensors]
+        data = field.complete_staggered_properties(components, velocity)
+        return velocity.copied_with(data=data)

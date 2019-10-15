@@ -97,9 +97,13 @@ The value of points that lie outside the bounds of this Field is undefined.
             resampled = self.sample_at(other_field.points.data)
             resampled = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
             return resampled
-        except StaggeredSamplePoints:
-            assert self.component_count == other_field.component_count, 'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
-            new_components = [f1.resample(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
+        except StaggeredSamplePoints:  # other_field is staggered
+            assert self.component_count == other_field.component_count or self.component_count == 1,\
+                'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
+            if self.component_count == 1:
+                new_components = [self.resample(f2) for f2 in other_field.unstack()]
+            else:
+                new_components = [f1.resample(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
             return other_field.copied_with(data=tuple(new_components), flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
 
     @property
@@ -107,6 +111,7 @@ The value of points that lie outside the bounds of this Field is undefined.
         """
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         Note that this does not indicate the shape of the data array.
+        If the field is independent of the dimensionality, the rank property is None.
         :return: int
         """
         raise NotImplementedError(self)
@@ -134,9 +139,17 @@ If the field only has one component, returns a list containing itself.
 Returns a Field containing all sample points of this field.
 The returned Field is compatible with this one.
 If the components of this field are sampled at different locations, this method raises StaggeredSamplePoints.
-        :return: VectorField
+If this field has no sample points, points is None.
+        :return: vector Field
         """
         raise NotImplementedError(self)
+
+    @property
+    def has_points(self):
+        try:
+            return self.points is not None
+        except StaggeredSamplePoints:
+            return True
 
     def compatible(self, other_field):
         """
@@ -168,16 +181,12 @@ Even if this method returns False, the sample points may still be the same.
         if isinstance(other, Field):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
-            try:
-                data = data_operator(self.data, other.data)
-            except TypeError:
-                data = [data_operator(a, b) for a,b in zip(self.data, other.data)]
+            self_data = self.data if self.has_points else self.resample(other).data
+            other_data = other.data if other.has_points else other.resample(self).data
+            data = data_operator(self_data, other_data)
         else:
             flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
-            try:
-                data = data_operator(self.data, other)
-            except TypeError:
-                data = [data_operator(a, other) for a in self.data]
+            data = data_operator(self.data, other)
         return self.copied_with(data=data, flags=flags)
 
 

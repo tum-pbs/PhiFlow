@@ -51,17 +51,17 @@ def effect_applied(effect, field, dt):
 
 
 Inflow = lambda geometry, rate=1.0:\
-    FieldEffect(ConstantField('inflow', rate, geometry), ('density',), GROW, tags=('inflow', 'effect'))
+    FieldEffect(GeometryMask('inflow', [geometry], rate), ('density',), GROW, tags=('inflow', 'effect'))
 Fan = lambda geometry, acceleration:\
-    FieldEffect(ConstantField('fan', acceleration, geometry), ('velocity',), GROW, tags=('fan', 'effect'))
+    FieldEffect(GeometryMask('fan', [geometry], acceleration), ('velocity',), GROW, tags=('fan', 'effect'))
 ConstantDensity = lambda geometry, density:\
-    FieldEffect(ConstantField('constant-density', density, geometry), ('density',), FIX)
+    FieldEffect(GeometryMask('constant-density', [geometry], density), ('density',), FIX)
 ConstantTemperature = lambda geometry, temperature:\
-    FieldEffect(ConstantField('constant-temperature', temperature, geometry), ('temperature',), FIX)
+    FieldEffect(GeometryMask('constant-temperature', [geometry], temperature), ('temperature',), FIX)
 HeatSource = lambda geometry, rate:\
-    FieldEffect(ConstantField('heat-source', rate, geometry), ('temperature',), GROW)
+    FieldEffect(GeometryMask('heat-source', [geometry], rate), ('temperature',), GROW)
 ColdSource = lambda geometry, rate:\
-    FieldEffect(ConstantField('heat-source', -rate, geometry), ('temperature',), GROW)
+    FieldEffect(GeometryMask('heat-source', [geometry], -rate), ('temperature',), GROW)
 
 
 class Gravity(State):

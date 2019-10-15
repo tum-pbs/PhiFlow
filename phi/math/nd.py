@@ -33,6 +33,12 @@ def spatial_dimensions(obj):
     return tuple(range(1, len(math.staticshape(obj)) - 1))
 
 
+def axes(obj):
+    if struct.isstruct(obj):
+        return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
+    return tuple(range(len(math.staticshape(obj)) - 2))
+
+
 def all_dimensions(tensor):
     return range(len(math.staticshape(tensor)))
 
@@ -99,8 +105,6 @@ def l1_loss(tensor, batch_norm=True, reduce_batches=True):
 
 
 def l2_loss(tensor, batch_norm=True):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     total_loss = math.sum(tensor ** 2) / 2
     if batch_norm:
         batch_size = math.shape(tensor)[0]
@@ -110,21 +114,12 @@ def l2_loss(tensor, batch_norm=True):
 
 
 def l_n_loss(tensor, n, batch_norm=True):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     total_loss = math.sum(tensor ** n) / n
     if batch_norm:
         batch_size = math.shape(tensor)[0]
         return total_loss / math.to_float(batch_size)
     else:
         return total_loss
-
-
-def at_centers(field):
-    if isinstance(field, StaggeredGrid):
-        return field.at_centers()
-    else:
-        return field
 
 
 # Divergence

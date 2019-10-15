@@ -32,7 +32,13 @@ def ones(shape, dtype=np.float32):
     return struct.map(f, shape, leaf_condition=_is_python_shape)
 
 
-def randn(mean=0, sigma=1, levels=(1.0,)):  # TODO pass mean, sigma, doesn't correctly scale staggered grids
+def randn(shape, dtype=np.float32):
+    f = lambda s: np.random.randn(*_none_to_one(s)).astype(dtype)
+    return struct.map(f, shape, leaf_condition=_is_python_shape)
+
+
+
+def randn_generator(mean=0, sigma=1, levels=(1.0,)):  # TODO pass mean, sigma, doesn't correctly scale staggered grids
     def randn_impl(shape, dtype=np.float32):
         return struct.map(lambda s: _random_tensor(s, levels, dtype) * sigma + mean, shape, leaf_condition=_is_python_shape)
     return randn_impl
