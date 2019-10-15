@@ -110,7 +110,7 @@ class StaggeredGrid(Field):
         return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
 
     def compatible(self, other_field):
-        if isinstance(other_field, ConstantField): return True
+        if not other_field.has_points: return True
         if isinstance(other_field, StaggeredGrid):
             return self.box == other_field.box and np.all(self.resolution == other_field.resolution)
         else:
@@ -120,10 +120,11 @@ class StaggeredGrid(Field):
         tensors = [c.data for c in self.data]
         return stack_staggered_components(tensors)
 
-    def divergence(self):
+    def divergence(self, physical_units=True):
         components = []
         for dim, field in enumerate(self.data):
-            grad = math.axis_gradient(field.data, dim) / self.dx[dim]
+            grad = math.axis_gradient(field.data, dim)
+            if physical_units: grad /= self.dx[dim]
             components.append(grad)
         data = math.add(components)
         return CenteredGrid(u'∇·%s' % self.name, self.box, data, batch_size=self._batch_size)

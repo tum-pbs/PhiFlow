@@ -1,20 +1,39 @@
 from .obstacle import *
 from .material import *
-from phi import math
-import numpy as np
-from phi.geom import Box
+from phi.field import *
 
 
+class Domain(struct.Struct):
+    __struct__ = struct.Def([], ['_resolution', '_box', '_boundaries'])
 
-class Grid(struct.Struct):
-    __struct__ = struct.Def((), ('_resolution', '_box'))
+    def __init__(self, resolution, boundaries=OPEN, box=None):
+        """
+Simulation domain that specifies size and boundary conditions.
 
-    def __init__(self, resolution, box=None):
+If all boundary surfaces should have the same behaviour, pass a single Material instance.
+
+To specify the boundary properties per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
+Each element can either be a Material, specifying the faces perpendicular to that axis, or a pair
+of Material holding (lower_face_material, upper_face_material).
+
+Examples:
+
+Domain(grid, OPEN) - all surfaces are open
+
+DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain with an open top and otherwise solid boundaries
+
+        :param grid: Grid object or 1D tensor specifying the grid dimensions
+        :param boundaries: Material or list of Material/Pair of Material
+        """
         self._resolution = np.array(resolution)
         if box is not None:
             self._box = box
         else:
             self._box = Box([0 for d in resolution], self._resolution)
+        assert isinstance(boundaries, (Material, list, tuple))
+        if isinstance(boundaries, (tuple, list)):
+            assert len(boundaries) == self.rank
+        self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
 
     @property
     def resolution(self):
@@ -57,41 +76,19 @@ class Grid(struct.Struct):
 
     @staticmethod
     def equal(grid1, grid2):
-        assert isinstance(grid1, Grid), 'Not a grid: %s' % type(grid1)
-        assert isinstance(grid2, Grid), 'Not a grid: %s' % type(grid2)
-        return grid1._resolution == grid2._resolution and grid1._box == grid2._box
+        assert isinstance(grid1, Domain), 'Not a Domain: %s' % type(grid1)
+        assert isinstance(grid2, Domain), 'Not a Domain: %s' % type(grid2)
+        return np.all(grid1._resolution == grid2._resolution) and grid1._box == grid2._box
 
+    def shape(self, components=1, batch_size=1, name=None):
+        return CenteredGrid(name, self.box, tensor_shape(batch_size, self._resolution, components), batch_size=batch_size)
 
-
-
-
-class Domain(Grid):
-    __struct__ = Grid.__struct__.extend([], ['_boundaries'])
-
-    def __init__(self, dimensions, boundaries=OPEN, box=None):
-        """
-Simulation domain that specifies size and boundary conditions.
-
-If all boundary surfaces should have the same behaviour, pass a single Material instance.
-
-To specify the boundary properties per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
-Each element can either be a Material, specifying the faces perpendicular to that axis, or a pair
-of Material holding (lower_face_material, upper_face_material).
-
-Examples:
-
-Domain(grid, OPEN) - all surfaces are open
-
-DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain with an open top and otherwise solid boundaries
-
-        :param grid: Grid object or 1D tensor specifying the grid dimensions
-        :param boundaries: Material or list of Material/Pair of Material
-        """
-        Grid.__init__(self, dimensions, box=box)
-        assert isinstance(boundaries, (Material, list, tuple))
-        if isinstance(boundaries, (tuple, list)):
-            assert len(boundaries) == self.rank
-        self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
+    def staggered_shape(self, batch_size=1, name=None):
+        shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
+        grids = [CenteredGrid(None, None, shapes[i], batch_size=batch_size) for i in range(self.rank)]
+        staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
+        data = complete_staggered_properties(grids, staggered)
+        return staggered.copied_with(data=data)
 
     def default_physics(self):
         return STATIC
@@ -111,28 +108,15 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
                     false_paddings[dim][upper] = margin
         return [[0, 0]] + true_paddings + [[0, 0]], [[0, 0]] + false_paddings + [[0, 0]]
 
-    def surface_material(self, dimension=0, upper_boundary=False):
+    def surface_material(self, axis=0, upper_boundary=False):
         if isinstance(self._boundaries, Material):
             return self._boundaries
         else:
-            dim_boundaries = self._boundaries[dimension]
+            dim_boundaries = self._boundaries[axis]
             if isinstance(dim_boundaries, Material):
                 return dim_boundaries
             else:
                 return dim_boundaries[upper_boundary]
-
-
-
-    # def _friction_mask(self, dt=1): TODO
-    #     material.friction_multiplier(dt=dt)
-
-
-"""
-        :param active_mask: (Optional) Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
-        :param fluid_mask: (Optional) Scalar channel encoding fluid cells as ones and obstacles as zero.
-         Has the same dimensions as the divergence channel. If no obstacles are present, None may be passed.
-        :param boundaries: DomainBoundary object defining open and closed boundaries
-"""
 
 
 def _collapse_equals(obj, leaf_type):
@@ -157,3 +141,13 @@ def geometry_mask(geometries, grid):
         return math.zeros(grid.shape())
     location = grid.center_points()
     return math.max([geometry.value_at(location) for geometry in geometries], axis=0)
+
+
+def tensor_shape(batch_size, resolution, components):
+    return np.concatenate([[batch_size], resolution, [components]])
+
+
+def _extend1(shape, axis):
+    shape = list(shape)
+    shape[axis+1] += 1
+    return shape

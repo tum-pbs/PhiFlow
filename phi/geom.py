@@ -55,6 +55,9 @@ class Box(Geometry):
         else:
             raise NotImplementedError()
 
+    def __repr__(self):
+        return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.origin]))
+
 
 class BoxGenerator(object):
 

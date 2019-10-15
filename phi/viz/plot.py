@@ -110,8 +110,9 @@ class PlotlyFigureBuilder(object):
 
         # Antisymmetry
         if isinstance(data, StaggeredGrid):
-            centered = CenteredGrid(None, data.box, np.zeros([0]+list(data.resolution)+[1]))
-            data = data.resample(centered).data
+            # centered = CenteredGrid(None, data.box, np.zeros([0]+list(data.resolution)+[1]))
+            data = data.staggered_tensor()
+            shape = data.shape
             staggered = True
         else:
             staggered = self.staggered
@@ -155,7 +156,7 @@ class PlotlyFigureBuilder(object):
 
         if component == VECTOR2:
             # Downsample
-            while numpy.prod(shape[:-1]) > self.max_vector_resolution ** 2:
+            while numpy.prod(data.shape[:-1]) > self.max_vector_resolution ** 2:
                 data = data[::2, ::2, :] * 0.5
             data = data[..., ::-1]
             return self.draw_vector_field(data, library)

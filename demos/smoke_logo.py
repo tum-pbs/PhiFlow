@@ -39,7 +39,7 @@ class SmokeLogo(FieldSequenceModel):
         self.add_field('Velocity', lambda: smoke.velocity)
         self.add_field('Domain', lambda: smoke.domaincache.active(extend=1))
         self.add_field('Pressure', lambda: smoke.last_pressure)
-        self.add_field('Remaining Divergence', lambda: divergence(smoke.velocity))
+        self.add_field('Remaining Divergence', lambda: smoke.velocity.divergence())
 
     def action_reset(self):
         self.steps = 0

@@ -3,6 +3,7 @@ import tensorflow as tf
 from phi.math.nd import *
 from tensorflow.python import pywrap_tensorflow
 from phi.math.initializers import _is_python_shape
+from phi.field import *
 import warnings
 
 
@@ -25,11 +26,15 @@ def placeholder_like(obj, basename=None):
     return struct.map(f, obj, leaf_condition=_is_python_shape, trace=True)
 
 
-def variable(initializer, dtype=np.float32, basename=None, trainable=True):
+def variable(initial_value, dtype=np.float32, basename=None, trainable=True):
+    f = lambda attr: tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
+    return struct.map(f, initial_value, leaf_condition=_is_python_shape, trace=True)
+
+
+def variable_generator(initializer, dtype=np.float32, basename=None, trainable=True):
     def create_variable(shape):
         initial_value = initializer(shape)
-        f = lambda attr: tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
-        return struct.map(f, initial_value, leaf_condition=_is_python_shape, trace=True)
+        return variable(initial_value, dtype, basename, trainable)
     return create_variable
 
 
@@ -122,8 +127,10 @@ def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activatio
 
 
 def istensor(object):
+    if isinstance(object, CenteredGrid):
+        return istensor(object.data)
     if isinstance(object, StaggeredGrid):
-        object = object.staggered
+        return np.any([istensor(t) for t in object.data])
     return isinstance(object, (tf.Tensor, tf.Variable))
 
 

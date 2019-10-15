@@ -73,7 +73,7 @@ class Struct(object):
             v1 = getattr(self, attr.name)
             v2 = getattr(other, attr.name)
             if isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
-                if not np.all(np.equal(v1, v2)): return False
+                if not np.allclose(v1, v2): return False
             else:
                 try:
                     if v1 != v2: return False

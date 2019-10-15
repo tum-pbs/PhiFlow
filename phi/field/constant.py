@@ -4,28 +4,17 @@ from phi import math
 
 class ConstantField(Field):
 
-    __struct__ = State.__struct__.extend([], ['_data', '_bounds', '_name', '_flags'])
+    __struct__ = Field.__struct__
 
-    def __init__(self, name, value=1.0, bounds=None, flags=(), batch_size=None):
-        if isinstance(value, math.Number):
-            value = math.expand_dims(value)
-        if len(math.staticshape(value)) < 2:
-            value = math.expand_dims(value)
-        Field.__init__(self, name, bounds, value, flags=flags, batch_size=batch_size)
+    def __init__(self, name, value=1.0, flags=(), batch_size=None):
+        Field.__init__(self, name, None, _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
 
     def sample_at(self, points):
-        if self.bounds is None:
-            result = math.expand_dims(self.data, 1, math.spatial_rank(points))
-        else:
-            result = self.bounds.value_at(points) * self.data
-        return result
+        return math.expand_dims(self.data, 1, math.spatial_rank(points))
 
     @property
     def rank(self):
-        if self.bounds is None:
-            return 0
-        else:
-            return self.bounds.rank
+        return None
 
     @property
     def component_count(self):
@@ -33,11 +22,11 @@ class ConstantField(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [ConstantField('%s[%d]' % (self.name, i), c, self.bounds, flags=flags, batch_size=self._batch_size) for i,c in enumerate(math.unstack(self.data, -1))]
+        return [ConstantField('%s[%d]' % (self.name, i), c, flags, self._batch_size) for i,c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):
-        return math.zeros([])
+        return None
 
     def compatible(self, other_field):
         return True
@@ -46,25 +35,9 @@ class ConstantField(Field):
         return repr(self.data)
 
 
-class ComplexConstantField(ConstantField):
-    """
-    This class is required because complex numbers are not JSON serializable, see https://github.com/bmabey/pyLDAvis/issues/69
-    """
-
-    __struct__ = State.__struct__.extend([], ['_real', '_imag', '_bounds', '_name', '_flags'])
-
-    def __init__(self, name, bounds=None, value=1.0, flags=(), batch_size=None):
-        if isinstance(value, math.Number):
-            value = math.expand_dims(value)
-        Field.__init__(self, name, bounds, value, flags=flags, batch_size=batch_size)
-
-    @property
-    def real(self):
-        return math.real(self.data)
-
-    @property
-    def imag(self):
-        return math.imag(self.data)
-
-    def sample_at(self, location):
-        return math.to_complex(ConstantField.sample_at(self, location))
+def _convert_constant_to_data(value):
+    if isinstance(value, math.Number):
+        value = math.expand_dims(value)
+    if len(math.staticshape(value)) < 2:
+        value = math.expand_dims(value)
+    return value
