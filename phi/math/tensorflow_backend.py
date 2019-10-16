@@ -18,8 +18,17 @@ class TFBackend(Backend):
             if isinstance(value, tf.SparseTensor): return True
         return False
 
+    def divide_no_nan(self, x, y):
+        return tf.div_no_nan(x,y)
+
+    def random_like(self, shape):
+        return tf.random.uniform(shape)
+
     def rank(self, value):
         return len(value.shape)
+
+    def tile(self, value, multiples):
+        return tf.tile(value, multiples)
 
     def stack(self, values, axis=0):
         return tf.stack(values, axis=axis)
@@ -43,6 +52,17 @@ class TFBackend(Backend):
             if not isinstance(axis, int):
                 axis = list(axis)
         return tf.reduce_sum(value, axis=axis, keepdims=keepdims)
+
+    def prod(self, value, axis=None):
+        if axis is not None:
+            if not isinstance(axis, int):
+                axis = list(axis)
+        if value.dtype == bool:
+            return tf.reduce_all(value, axis=axis)
+        return tf.reduce_prod(value, axis=axis)
+
+    def where(self, condition, x=None, y=None):
+        return tf.where(condition, x, y)
 
     def mean(self, value, axis=None):
         if axis is not None:
@@ -96,6 +116,12 @@ class TFBackend(Backend):
 
     def abs(self, x):
         return tf.abs(x)
+
+    def sign(self, x):
+        return tf.sign(x)
+
+    def round(self, x):
+        return tf.round(x)
 
     def ceil(self, x):
         return tf.ceil(x)
@@ -158,14 +184,14 @@ class TFBackend(Backend):
     def shape(self, tensor):
         return tf.shape(tensor)
 
+    def to_float(self, x, float64=False):
+        return tf.cast(x, tf.float64) if float64 else tf.cast(x, tf.float32)
+
     def staticshape(self, tensor):
         return tuple(tensor.shape.as_list())
 
-    def to_float(self, x):
-        return tf.to_float(x)
-
     def to_int(self, x, int64=False):
-        return tf.to_int64(x) if int64 else tf.to_int32(x)
+        return tf.cast(x, tf.int64) if int64 else tf.cast(x, tf.int32)
 
     def to_complex(self, x):
         return tf.to_complex64(x)
@@ -191,6 +217,40 @@ class TFBackend(Backend):
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
+
+    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
+        # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
+        # Input indices only has the 2D coordinates.
+        # EDIT: This formatting should be already done before calling scatter.
+        z = tf.zeros(shape, dtype=values.dtype)
+
+        if duplicates_handling == 'add':
+            #Only for Tensorflow with custom gradient
+            @tf.custom_gradient
+            def scatter_density(points, indices, values):
+                result = tf.tensor_scatter_add(z, indices, values)
+
+                def grad(dr):
+                    return self.resample(gradient(dr, difference='central'), points), None, None
+
+                return result, grad
+
+            return scatter_density(points, indices, values)
+        elif duplicates_handling == 'mean':
+            # Won't entirely work with out of bounds particles (still counted in mean)
+            count = tf.tensor_scatter_add(z, indices, tf.ones_like(values))
+            total = tf.tensor_scatter_add(z, indices, values)
+
+            return (total / tf.maximum(1.0, count))
+        elif duplicates_handling == 'no duplicates':
+            st = tf.SparseTensor(indices, values, shape)
+            st = tf.sparse.reorder(st)   # only needed if not ordered
+            return tf.sparse.to_dense(st)
+        else: # last, any, undefined
+            # Same as 'no duplicates'?
+            st = tf.SparseTensor(indices, values, shape)
+            st = tf.sparse.reorder(st)   # only needed if not ordered
+            return tf.sparse.to_dense(st)
 
     def fft(self, x):
         rank = len(x.shape) - 2
