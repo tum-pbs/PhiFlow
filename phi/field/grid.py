@@ -42,11 +42,11 @@ class CenteredGrid(Field):
     def rank(self):
         return math.spatial_rank(self.data)
 
-    def sample_at(self, points):
+    def sample_at(self, points, collapse_dimensions=True):
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
         return math.resample(self.data, local_points, boundary=self._boundary, interpolation=self._interpolation)
 
-    def at(self, other_field, force_optimization=False):
+    def at(self, other_field, collapse_dimensions=True, force_optimization=False):
         if self.compatible(other_field):
             return self
 

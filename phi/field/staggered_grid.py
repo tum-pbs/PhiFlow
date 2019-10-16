@@ -92,7 +92,7 @@ class StaggeredGrid(Field):
     def dx(self):
         return self.box.size / self.resolution
 
-    def sample_at(self, points):
+    def sample_at(self, points, collapse_dimensions=True):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
     @property
