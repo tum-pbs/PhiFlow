@@ -43,7 +43,8 @@ class CenteredGrid(Field):
         return math.spatial_rank(self.data)
 
     def sample_at(self, points, collapse_dimensions=True):
-        local_points = self.box.global_to_local(points) * self.resolution - 0.5
+        local_points = self.box.global_to_local(points)
+        local_points = local_points * math.to_float(self.resolution) - 0.5
         return math.resample(self.data, local_points, boundary=self._boundary, interpolation=self._interpolation)
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False):
@@ -94,6 +95,6 @@ class CenteredGrid(Field):
     @staticmethod
     def getpoints(box, resolution):
         idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in resolution], indexing="ij")
-        local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
+        local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0).astype(np.float32)
         points = box.local_to_global(local_coords)
         return CenteredGrid('%s.points', box, points, flags=[SAMPLE_POINTS])

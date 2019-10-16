@@ -42,7 +42,7 @@ class HeatPhysics(Physics):
         Physics.__init__(self, blocking_dependencies={'effects': 'temperature_effect'})
 
     def step(self, heat, dt=1.0, effects=()):
-        temperature = heat.temperature + heat.diffusivity * laplace(heat.temperature)
+        temperature = heat.temperature + heat.diffusivity * math.laplace(heat.temperature)
         for effect in effects:
             temperature = effect.apply_grid(temperature, heat.domain, staggered=False, dt=dt)
         return heat.copied_with(temperature=temperature, age=heat.age+dt)

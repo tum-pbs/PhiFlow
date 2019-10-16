@@ -292,7 +292,7 @@ class TFBackend(Backend):
         return tf.cos(x)
 
     def dtype(self, array):
-        return array.dtype
+        return array.dtype.as_numpy_dtype
 
 
 # from niftynet.layer.resampler.py
@@ -380,6 +380,9 @@ def unit_direction(dim, spatial_rank):  # ordered like z,y,x
 
 
 def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
+    inputs = tf.convert_to_tensor(inputs)
+    sample_coords = tf.convert_to_tensor(sample_coords)
+
     in_spatial_size = [int(d) for d in inputs.shape[1:-1]]
     in_spatial_rank = tensor_spatial_rank(inputs)
     batch_size = tf.shape(inputs)[0]
@@ -472,10 +475,10 @@ def _boundary_symmetric(sample_coords, input_size):
 
 
 SUPPORTED_BOUNDARY = {
-    'ZERO': _boundary_replicate,
-    'REPLICATE': _boundary_replicate,
-    'CIRCULAR': _boundary_circular,
-    'SYMMETRIC': _boundary_symmetric
+    'zero': _boundary_replicate,
+    'replicate': _boundary_replicate,
+    'circular': _boundary_circular,
+    'symmetric': _boundary_symmetric
 }
 
 

@@ -63,7 +63,7 @@ def divergence_free(velocity, domain=None, obstacle_mask=None, pressure_solver=N
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)
     divergence_field = velocity.divergence(physical_units=False)
     pressure, iter = solve_pressure(divergence_field, fluiddomain, pressure_solver=pressure_solver)
-    pressure *= velocity.dx[0] ** 2
+    pressure *= velocity.dx[0]
     gradp = StaggeredGrid.gradient(pressure)
     velocity -= fluiddomain.with_hard_boundary_conditions(gradp)
     return velocity

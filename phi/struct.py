@@ -49,7 +49,10 @@ class Struct(object):
         duplicate = copy(self)
         for name, value in kwargs.items():
             attr = self.__class__.__struct__.find(name).ref_string
-            setattr(duplicate, attr, value)
+            try:
+                setattr(duplicate, attr, value)
+            except AttributeError as e:
+                raise AttributeError("can't copy struct %s because attribute %s cannot be set." % (self, attr))
         return duplicate
 
     def __attributes__(self):
@@ -85,7 +88,13 @@ class Struct(object):
         return not self == other
 
     def __hash__(self):
-        return hash(tuple(self.__attributes__().values()))
+        h = 0
+        for attr in self.__attributes__().values():
+            try:
+                h += hash(attr)
+            except:
+                pass
+        return h
 
 
 def attributes(struct):

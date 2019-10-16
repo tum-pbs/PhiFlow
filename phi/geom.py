@@ -13,11 +13,11 @@ class Geometry(struct.Struct):
 
 
 class Box(Geometry):
-    __struct__ = struct.Def((), ('origin', 'size'))
+    __struct__ = struct.Def([], ['_origin', '_size'])
 
     def __init__(self, origin, size):
-        self._origin = math.as_tensor(origin)
-        self._size = math.as_tensor(size)
+        self._origin = math.to_float(math.as_tensor(origin))
+        self._size = math.to_float(math.as_tensor(size))
         self._upper = self.origin + self.size
 
     @property
