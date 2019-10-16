@@ -37,9 +37,9 @@ class ConstantField(Field):
 
 def _convert_constant_to_data(value):
     if isinstance(value, math.Number):
-        value = math.expand_dims(value)
+        value = math.to_float(math.expand_dims(value))
     if isinstance(value, (list, tuple)):
-        value = np.array(value)
+        value = math.to_float(np.array(value))
     if len(math.staticshape(value)) < 2:
         value = math.expand_dims(value)
     return value

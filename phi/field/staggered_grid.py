@@ -120,6 +120,16 @@ class StaggeredGrid(Field):
         else:
             return False
 
+    def __dataop__(self, other, linear_if_scalar, data_operator):
+        if isinstance(other, StaggeredGrid):
+            assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
+            data = [data_operator(c1, c2) for c1, c2 in zip(self.data, other.data)]
+            flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
+        else:
+            flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
+            data = [data_operator(c1, other) for c1 in self.data]
+        return self.copied_with(data=np.array(data, dtype=np.object), flags=flags)
+
     def staggered_tensor(self):
         tensors = [c.data for c in self.data]
         return stack_staggered_components(tensors)
