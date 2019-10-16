@@ -24,8 +24,22 @@ class SciPyBackend(Backend):
                 return False
         return False
 
+
+    def divide_no_nan(self, x, y):
+        # Only for scalars, not arrays yet.
+        if y == 0:
+            return x * 0
+        else:
+            return (x/y)
+
+    def random_like(self, shape):
+        return np.random.random(shape).astype('f')
+
     def rank(self, value):
         return len(value.shape)
+
+    def tile(self, value, multiples):
+        return np.tile(value, multiples)
 
     def stack(self, values, axis=0):
         return np.stack(values, axis)
@@ -49,6 +63,16 @@ class SciPyBackend(Backend):
 
     def sum(self, value, axis=None, keepdims=False):
         return np.sum(value, axis=axis, keepdims=keepdims)
+
+    def prod(self, value, axis=None):
+        if value.dtype == bool:
+            return np.all(value, axis=axis)
+        return np.prod(value, axis=axis)
+
+    def where(self, condition, x=None, y=None):
+        if x is None or y is None:
+            return np.argwhere(condition)
+        return np.where(condition, x, y)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         result = func(*inputs)
@@ -106,6 +130,12 @@ class SciPyBackend(Backend):
     def abs(self, x):
         return np.abs(x)
 
+    def sign(self, x):
+        return np.sign(x)
+
+    def round(self, x):
+        return np.round(x)
+
     def ceil(self, x):
         return np.ceil(x)
 
@@ -157,8 +187,8 @@ class SciPyBackend(Backend):
     def staticshape(self, tensor):
         return np.shape(tensor)
 
-    def to_float(self, x):
-        return np.array(x).astype(np.float32)
+    def to_float(self, x, float64=False):
+        return np.array(x).astype(np.float64 if float64 else np.float32)
 
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)
@@ -179,7 +209,7 @@ class SciPyBackend(Backend):
             raise ValueError("Illegal axis value")
         result = []
         for i in range(tensor.shape[axis]):
-            result.append(tensor[[i if d==axis else slice(None) for d in range(len(tensor.shape))]])
+            result.append(tensor[tuple([i if d==axis else slice(None) for d in range(len(tensor.shape))])])
         return result
 
     def std(self, x, axis=None):
@@ -196,6 +226,21 @@ class SciPyBackend(Backend):
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return np.all(boolean_tensor, axis=axis, keepdims=keepdims)
+
+    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
+        indices = self.unstack(indices, axis=-1)
+        array = np.zeros(shape, np.float32)
+        if duplicates_handling == 'add':
+            np.add.at(array, tuple(indices), values)
+        elif duplicates_handling == 'mean':
+            count = np.zeros(shape, np.int32)
+            np.add.at(array, tuple(indices), values)
+            np.add.at(count, tuple(indices), 1)
+            count = np.maximum(1, count)
+            return array / count
+        else: # last, any, undefined
+            array[indices] = values
+        return array
 
     def fft(self, x):
         rank = len(x.shape) - 2
