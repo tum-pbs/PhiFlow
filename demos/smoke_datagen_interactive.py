@@ -18,7 +18,7 @@ class SmokeDataGen(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, 'SmokeDataGen', howto, stride=16, base_dir='~/phi/data')
-        self.smoke = world.Smoke(Domain([100, 64]), density=randn(levels=(0,0,1)))
+        self.smoke = world.Smoke(Domain([100, 64]), density=math.randn_generator(levels=(0,0,1)))
         self.add_field('Density', lambda: self.smoke.density)
         self.add_field('Velocity', lambda: self.smoke.velocity)
         self.add_field('Domain', lambda: self.smoke.domaincache.accessible(1))
@@ -28,7 +28,7 @@ class SmokeDataGen(FieldSequenceModel):
         if self.steps >= self.sequence_stride:
             self.new_scene()
             self.steps = 0
-            self.smoke.density = randn(levels=(0,0,1))
+            self.smoke.density = math.randn_generator(levels=(0,0,1))
             self.smoke.velocity = 0
             self.info('Starting data generation in scene %s' % self.scene)
         world.step()
