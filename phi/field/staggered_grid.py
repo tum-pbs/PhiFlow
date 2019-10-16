@@ -106,6 +106,10 @@ class StaggeredGrid(Field):
     def points(self):
         raise StaggeredSamplePoints(self)
 
+    @property
+    def center_points(self):
+        return CenteredGrid.getpoints(self.box, self.resolution)
+
     def __repr__(self):
         return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
 

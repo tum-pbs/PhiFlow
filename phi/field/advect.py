@@ -11,7 +11,7 @@ Semi-Lagrangian advection with simple backward lookup.
     """
     try:
         x0 = field.points
-        v = velocity_field.resample(x0)
+        v = velocity_field.at(x0)
         x = x0 - v * dt
         data = field.sample_at(x.data)
         return field.copied_with(data=data)

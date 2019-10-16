@@ -18,11 +18,11 @@ class TestMath(TestCase):
         f = CenteredGrid('f', box[0:2, 0:3], data)
         g = CenteredGrid('g', box[0:2, 0.5:2.5], math.zeros([1,2,2,1]))
         # Resample optimized
-        resampled = f.resample(g, force_optimization=True)
+        resampled = f.at(g, force_optimization=True)
         self.assertTrue(resampled.compatible(g))
         np.testing.assert_equal(resampled.data[0,...,0], [[1.5, 2.5], [4.5, 5.5]])
         # Resample unoptimized
-        resampled2 = Field.resample(f, g)
+        resampled2 = Field.at(f, g)
         self.assertTrue(resampled2.compatible(g))
         np.testing.assert_equal(resampled2.data[0,...,0], [[1.5, 2.5], [4.5, 5.5]])
 

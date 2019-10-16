@@ -49,11 +49,16 @@ Calculates the pressure from the given velocity or velocity divergence using the
     return pressure, iter
 
 
-def divergence_free(velocity, domain=None, pressure_solver=None):
+def divergence_free(velocity, domain=None, obstacle_mask=None, pressure_solver=None):
     assert isinstance(velocity, StaggeredGrid)
     if domain is None:
         domain = Domain(velocity.resolution, OPEN)
-    fluiddomain = FluidDomain(domain, active=None, accessible=None)
+    if obstacle_mask is not None:
+        obstacle_grid = obstacle_mask.at(velocity.center_points, collapse_dimensions=False).data
+        active_mask = 1 - obstacle_grid
+    else:
+        active_mask = math.ones(domain.shape()).data
+    fluiddomain = FluidDomain(domain, active=active_mask, accessible=active_mask)
 
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)
     divergence_field = velocity.divergence(physical_units=False)
@@ -61,7 +66,6 @@ def divergence_free(velocity, domain=None, pressure_solver=None):
     pressure *= velocity.dx[0] ** 2
     gradp = StaggeredGrid.gradient(pressure)
     velocity -= fluiddomain.with_hard_boundary_conditions(gradp)
-    velocity = velocity - gradp
     return velocity
 
 

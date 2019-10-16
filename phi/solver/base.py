@@ -1,5 +1,6 @@
 # coding=utf-8
 from phi import struct, math, field
+import numpy as np
 
 
 class PressureSolver(object):
@@ -32,10 +33,15 @@ class FluidDomain(struct.Struct):
     __struct__ = struct.Def(('_active', 'accessible'))
 
     def __init__(self, domain, validstate=(), active=None, accessible=None):
+        assert active is not None
+        assert accessible is not None
+        assert domain is not None
+        assert np.all(math.staticshape(active) == math.staticshape(accessible))
+        assert np.all(domain.resolution == math.staticshape(active)[1:-1])
         self._domain = domain
         self._validstate = validstate
-        self._active = active if active is not None else math.ones(domain.shape()).data
-        self._accessible = accessible if accessible is not None else math.ones(domain.shape()).data
+        self._active = active
+        self._accessible = accessible
 
     @property
     def domain(self):

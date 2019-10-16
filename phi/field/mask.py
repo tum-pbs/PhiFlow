@@ -17,11 +17,10 @@ class GeometryMask(Field):
     def sample_at(self, points):
         if len(self._geometries) == 0:
             return math.expand_dims(0, 0, len(math.staticshape(points)))
-        result = self._geometries[0].value_at(points)
-        for geometry in self._geometries[1:]:
-            result += geometry.value_at(points)
-        if len(self._geometries) > 1:
-            result = math.minimum(result, 1)
+        if len(self._geometries) == 1:
+            result = self._geometries[0].value_at(points)
+        else:
+            result = math.max([geometry.value_at(points) for geometry in self._geometries], axis=0)
         return result * self.data
 
     @property
@@ -49,3 +48,9 @@ class GeometryMask(Field):
 def mask(geometry):
     assert isinstance(geometry, Geometry)
     return GeometryMask('mask', [geometry])
+
+
+def union(geometries):
+    for geom in geometries:
+        assert isinstance(geom, Geometry)
+    return GeometryMask('union', geometries)

@@ -46,7 +46,7 @@ class CenteredGrid(Field):
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
         return math.resample(self.data, local_points, boundary=self._boundary, interpolation=self._interpolation)
 
-    def resample(self, other_field, force_optimization=False):
+    def at(self, other_field, force_optimization=False):
         if self.compatible(other_field):
             return self
 
@@ -58,7 +58,7 @@ class CenteredGrid(Field):
             data = math.interpolate_linear(data, origin_in_local % 1.0, dimensions)
             return CenteredGrid(self.name, other_field.box, data, batch_size=self._batch_size)
 
-        return Field.resample(self, other_field, force_optimization=force_optimization)
+        return Field.at(self, other_field, force_optimization=force_optimization)
 
     @property
     def component_count(self):
@@ -73,10 +73,7 @@ class CenteredGrid(Field):
         if SAMPLE_POINTS in self.flags:
             return self
         if self._sample_points is None:
-            idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in self.resolution], indexing="ij")
-            local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
-            points = self.box.local_to_global(local_coords)
-            self._sample_points = CenteredGrid('%s.points', self.box, points, flags=[SAMPLE_POINTS])
+            self._sample_points = CenteredGrid.getpoints(self.box, self.resolution)
         return self._sample_points
 
     def compatible(self, other_field):
@@ -93,3 +90,10 @@ class CenteredGrid(Field):
 
     def __repr__(self):
         return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
+
+    @staticmethod
+    def getpoints(box, resolution):
+        idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in resolution], indexing="ij")
+        local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
+        points = box.local_to_global(local_coords)
+        return CenteredGrid('%s.points', box, points, flags=[SAMPLE_POINTS])

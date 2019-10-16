@@ -136,13 +136,6 @@ def _friction_mask(masks_and_multipliers):
         return mask
 
 
-def geometry_mask(geometries, grid):
-    if len(geometries) == 0:
-        return math.zeros(grid.shape())
-    location = grid.center_points()
-    return math.max([geometry.value_at(location) for geometry in geometries], axis=0)
-
-
 def tensor_shape(batch_size, resolution, components):
     return np.concatenate([[batch_size], resolution, [components]])
 

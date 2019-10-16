@@ -9,8 +9,11 @@ class ConstantField(Field):
     def __init__(self, name, value=1.0, flags=(), batch_size=None):
         Field.__init__(self, name, None, _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
 
-    def sample_at(self, points):
-        return math.expand_dims(self.data, 1, math.spatial_rank(points))
+    def sample_at(self, points, collapse_dimensions=True):
+        collapsed = math.expand_dims(self.data, 1, math.spatial_rank(points))
+        if collapse_dimensions: return collapsed
+        else:
+            return math.tile
 
     @property
     def rank(self):
