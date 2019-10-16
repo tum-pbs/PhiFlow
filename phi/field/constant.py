@@ -10,10 +10,7 @@ class ConstantField(Field):
         Field.__init__(self, name, None, _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
 
     def sample_at(self, points, collapse_dimensions=True):
-        collapsed = math.expand_dims(self.data, 1, math.spatial_rank(points))
-        if collapse_dimensions: return collapsed
-        else:
-            return math.tile
+        return _expand_axes(self.data, points, collapse_dimensions=collapse_dimensions)
 
     @property
     def rank(self):
@@ -41,6 +38,23 @@ class ConstantField(Field):
 def _convert_constant_to_data(value):
     if isinstance(value, math.Number):
         value = math.expand_dims(value)
+    if isinstance(value, (list, tuple)):
+        value = np.array(value)
     if len(math.staticshape(value)) < 2:
         value = math.expand_dims(value)
     return value
+
+
+def _expand_axes(data, points, collapse_dimensions=True):
+    assert math.spatial_rank(data) >= 0
+    data = math.expand_dims(data, 1, math.spatial_rank(points) - math.spatial_rank(data))
+    if collapse_dimensions:
+        return data
+    else:
+        points_axes = math.staticshape(points)[1:-1]
+        data_axes = math.staticshape(data)[1:-1]
+        for d_points, d_data in zip(points_axes, data_axes):
+            assert d_points % d_data == 0
+        tilings = [1] + [d_points // d_data for d_points, d_data in zip(math.staticshape(points)[1:-1], math.staticshape(data)[1:-1])] + [1]
+        data = math.tile(data, tilings)
+        return data

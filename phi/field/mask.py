@@ -1,5 +1,5 @@
 from .field import *
-from .constant import _convert_constant_to_data
+from .constant import _convert_constant_to_data, _expand_axes
 
 
 class GeometryMask(Field):
@@ -14,9 +14,9 @@ class GeometryMask(Field):
     def geometries(self):
         return self._geometries
 
-    def sample_at(self, points):
+    def sample_at(self, points, collapse_dimensions=True):
         if len(self._geometries) == 0:
-            return math.expand_dims(0, 0, len(math.staticshape(points)))
+            return _expand_axes(math.zeros([1,1]), points, collapse_dimensions=collapse_dimensions)
         if len(self._geometries) == 1:
             result = self._geometries[0].value_at(points)
         else:
