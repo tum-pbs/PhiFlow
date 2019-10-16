@@ -111,8 +111,9 @@ class SmokePhysics(Physics):
         assert len(dependent_states) == 0
         velocity = smoke.velocity
         density = smoke.density
+        obstacle_mask = union([obstacle.geometry for obstacle in obstacles])
         if self.make_input_divfree:
-            velocity = divergence_free(velocity, self.pressure_solver)
+            velocity = divergence_free(velocity, smoke.domain, obstacle_mask, pressure_solver=self.pressure_solver)
         # --- Advection ---
         density = advect.look_back(density, velocity, dt=dt)
         velocity = advect.look_back(velocity, velocity, dt=dt)
@@ -124,7 +125,7 @@ class SmokePhysics(Physics):
             velocity = effect_applied(effect, velocity, dt)
         velocity += buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor) * dt
         if self.make_output_divfree:
-            velocity = divergence_free(velocity, domain=smoke.domain, pressure_solver=self.pressure_solver)
+            velocity = divergence_free(velocity, smoke.domain, obstacle_mask, pressure_solver=self.pressure_solver)
         return smoke.copied_with(density=density, velocity=velocity, age=smoke.age + dt)
 
 

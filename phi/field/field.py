@@ -73,37 +73,39 @@ Flags describe properties of a Field such as divergence-freeness.
         """
         return self._flags
 
-    def sample_at(self, points):
+    def sample_at(self, points, collapse_dimensions=True):
         """
 Resample this field at the given points.
 The value of points that lie outside the bounds of this Field is undefined.
         :param points: tensor or rank >= 2 containing world-space vectors
+        :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
         :return: tensor of shape location.shape[:-1]+[components]
         """
         raise NotImplementedError(self)
 
-    def resample(self, other_field, force_optimization=False):
+    def at(self, other_field, collapse_dimensions=True, force_optimization=False):
         """
 Resample this field at the same points as other_field.
 The returned Field is compatible with other_field.
 The value of points that lie outside the bounds of this Field is undefined.
         :param location: Field
+        :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
         :param force_optimization: If true, this algorithm either uses an optimized implementation
         :return: a new Field which samples all components of this field at the points of other_field
         """
         if force_optimization:
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
         try:
-            resampled = self.sample_at(other_field.points.data)
+            resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)
             resampled = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
             return resampled
         except StaggeredSamplePoints:  # other_field is staggered
             assert self.component_count == other_field.component_count or self.component_count == 1,\
                 'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
             if self.component_count == 1:
-                new_components = [self.resample(f2) for f2 in other_field.unstack()]
+                new_components = [self.at(f2) for f2 in other_field.unstack()]
             else:
-                new_components = [f1.resample(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
+                new_components = [f1.at(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
             return other_field.copied_with(data=tuple(new_components), flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
 
     @property
@@ -181,8 +183,8 @@ Even if this method returns False, the sample points may still be the same.
         if isinstance(other, Field):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
-            self_data = self.data if self.has_points else self.resample(other).data
-            other_data = other.data if other.has_points else other.resample(self).data
+            self_data = self.data if self.has_points else self.at(other).data
+            other_data = other.data if other.has_points else other.at(self).data
             data = data_operator(self_data, other_data)
         else:
             flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)

@@ -30,14 +30,14 @@ def create_tum_logo(x, y, world=world):
 class SmokeLogo(FieldSequenceModel):
 
     def __init__(self, size):
-        FieldSequenceModel.__init__(self, 'Smoke Demo','Run a smoke simulation using %s for processing.' % mode,
+        FieldSequenceModel.__init__(self, 'Smoke Logo','Run a smoke simulation using %s for processing.' % mode,
                          summary='smokedemo' + 'x'.join([str(d) for d in size]), stride=20)
         smoke = self.smoke = world.Smoke(Domain(size, SLIPPERY))
         build_inflow(*size)
         create_tum_logo(*size)
         self.add_field('Density', lambda: smoke.density)
         self.add_field('Velocity', lambda: smoke.velocity)
-        self.add_field('Domain', lambda: smoke.domaincache.active(extend=1))
+        self.add_field('Domain', lambda: obstacle_mask(smoke).at(smoke.density))
         self.add_field('Pressure', lambda: smoke.last_pressure)
         self.add_field('Remaining Divergence', lambda: smoke.velocity.divergence())
 
