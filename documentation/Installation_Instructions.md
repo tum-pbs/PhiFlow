@@ -14,11 +14,11 @@ For GPU acceleration, deep learning and optimization, [TensorFlow](https://www.t
 TensorFlow can be compiled from sources or installed using
 
 ```
-$ pip install tensorflow
+$ pip install tensorflow==1.14.0
 ```
 for the CPU-only version or
 ```
-$ pip install tensorflow_gpu
+$ pip install tensorflow_gpu==1.14.0
 ```
 for the GPU-enabled version.
 

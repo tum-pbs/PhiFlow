@@ -7,8 +7,10 @@ from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
 from phi.viz.plot import *
-import phi.tf.profiling
-
+try:
+    import phi.tf.profiling
+except:
+    pass
 
 class DashFieldSequenceGui:
 
