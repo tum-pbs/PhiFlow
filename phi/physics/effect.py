@@ -68,7 +68,7 @@ class Gravity(State):
 
     __struct__ = State.__struct__.extend([], ['_gravity'])
 
-    def __init__(self, gravity, batch_size=None):
+    def __init__(self, gravity=-9.81, batch_size=None):
         State.__init__(self, tags=['gravity'], batch_size=batch_size)
         self._gravity = gravity
 

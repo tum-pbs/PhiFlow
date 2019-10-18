@@ -1,3 +1,4 @@
+# coding=utf-8
 from phi.geom import Box
 from .grid import *
 from phi import math
@@ -165,11 +166,11 @@ class StaggeredGrid(Field):
     @staticmethod
     def from_scalar(scalar_field, axis_forces, padding_mode='constant', name=None):
         assert isinstance(scalar_field, CenteredGrid)
-        assert scalar_field.rank == len(axis_forces)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
         staggeredgrid = StaggeredGrid(name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
         tensors = []
-        for i, force in enumerate(axis_forces):
+        for i in range(scalar_field.rank):
+            force = axis_forces[i] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,i]
             if isinstance(force, Number) and force == 0:
                 dims = list(math.staticshape(scalar_field.data))
                 dims[i+1] += 1
@@ -177,7 +178,7 @@ class StaggeredGrid(Field):
             else:
                 upper = math.pad(scalar_field.data, [[0,1] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
                 lower = math.pad(scalar_field.data, [[1,0] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
-                tensors.append((upper + lower) / 2)
+                tensors.append((upper + lower) / 2 * force)
         components = [CenteredGrid(None, None, t, None, None) for t in tensors]
         data = complete_staggered_properties(components, staggeredgrid)
         return staggeredgrid.copied_with(data=data)
