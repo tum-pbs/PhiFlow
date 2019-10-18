@@ -23,17 +23,16 @@ def initialize_field(value, shape, dtype=np.float32):
 
 class Smoke(State):
     __struct__ = State.__struct__.extend(('_density', '_velocity'),
-                            ('_domain', '_gravity', '_buoyancy_factor', '_conserve_density'))
+                            ('_domain', '_buoyancy_factor', '_conserve_density'))
 
     def __init__(self, domain,
                  density=0.0, velocity=0,
-                 gravity=-9.81, buoyancy_factor=0.1, conserve_density=False,
+                 buoyancy_factor=0.1, conserve_density=False,
                  batch_size=None):
         State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
         self._density = initialize_field(density, self.domain.shape(1, self._batch_size, 'density'))
         self._velocity = initialize_field(velocity, self.domain.staggered_shape(self._batch_size, 'velocity'))
-        self._gravity = gravity
         self._buoyancy_factor = buoyancy_factor
         self._conserve_density = conserve_density
         self.domaincache = None
@@ -75,10 +74,6 @@ class Smoke(State):
         return self.domain.shape(1, self._batch_size)
 
     @property
-    def gravity(self):
-        return self._gravity
-
-    @property
     def buoyancy_factor(self):
         return self._buoyancy_factor
 
@@ -101,14 +96,15 @@ class Smoke(State):
 class SmokePhysics(Physics):
 
     def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True):
-        Physics.__init__(self, dependencies={'obstacles': ['obstacle']},
+        Physics.__init__(self, dependencies={'obstacles': ['obstacle'], 'gravity': 'gravity'},
                          blocking_dependencies={'density_effects': 'density_effect', 'velocity_effects': 'velocity_effect'})
         self.pressure_solver = pressure_solver
         self.make_input_divfree = make_input_divfree
         self.make_output_divfree = make_output_divfree
 
-    def step(self, smoke, dt=1.0, obstacles=(), density_effects=(), velocity_effects=(), **dependent_states):
+    def step(self, smoke, dt=1.0, obstacles=(), gravity=(), density_effects=(), velocity_effects=(), **dependent_states):
         assert len(dependent_states) == 0
+        gravity = sum(gravity).gravity_tensor(smoke.rank)
         velocity = smoke.velocity
         density = smoke.density
         obstacle_mask = union([obstacle.geometry for obstacle in obstacles])
@@ -123,7 +119,7 @@ class SmokePhysics(Physics):
         # --- velocity effects
         for effect in velocity_effects:
             velocity = effect_applied(effect, velocity, dt)
-        velocity += buoyancy(smoke.density, smoke.gravity, smoke.buoyancy_factor) * dt
+        velocity += buoyancy(smoke.density, gravity, smoke.buoyancy_factor) * dt
         if self.make_output_divfree:
             velocity = divergence_free(velocity, smoke.domain, obstacle_mask, pressure_solver=self.pressure_solver)
         return smoke.copied_with(density=density, velocity=velocity, age=smoke.age + dt)

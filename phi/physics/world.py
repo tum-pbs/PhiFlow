@@ -198,6 +198,7 @@ Invoking this method alters the world state. To to_field a copy of the state, us
 
 
 world = World()
+world.Gravity()
 
 
 def obstacle_mask(world_or_proxy):
