@@ -1,6 +1,6 @@
 from .collective import CollectiveState, CollectivePhysics
 from .smoke import *
-from .burger import *
+from .burgers import *
 from .heat import *
 from .obstacle import *
 from .effect import *

@@ -43,12 +43,8 @@ class BurgerPhysics(Physics):
 
     def step(self, state, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
-        v = advect(diffuse(state.velocity, dt * state.viscosity), dt)
+        v = state.velocity
+        v = advect.look_back(v, v, dt)
+        v = diffuse(v, dt * state.viscosity)
         return state.copied_with(velocity=v, age=state.age + dt)
 
-
-def advect(velocity, dt):
-    idx = math.indices_tensor(velocity)
-    sample_coords = idx - velocity * dt
-    result = math.resample(velocity, sample_coords, interpolation='linear', boundary='REPLICATE')
-    return result
