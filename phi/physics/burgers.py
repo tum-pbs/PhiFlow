@@ -1,4 +1,6 @@
-from .smoke import *
+from .smoke import initialize_field
+from phi.field import advect
+from .physics import *
 from .util import diffuse
 
 

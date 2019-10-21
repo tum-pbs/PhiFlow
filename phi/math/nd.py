@@ -304,15 +304,22 @@ def _sliced_laplace_nd(tensor):
 
 def fourier_laplace(tensor):
     frequencies = math.fft(math.to_complex(tensor))
-    k = fftfreq(math.staticshape(tensor)[1:-1])
-    fft_laplace = -(2*np.pi)**2 * math.sum(k ** 2, axis=-1, keepdims=True)
+    k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
+    fft_laplace = -(2*np.pi)**2 * k
     return math.ifft(frequencies * fft_laplace)
 
 
-def fftfreq(resolution):
+def fftfreq(resolution, mode='vector'):
+    assert mode in ('vector', 'absolute', 'square')
     k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution], indexing='ij')
     k = math.expand_dims(math.stack(k, -1), 0)
-    return k
+    if mode == 'vector':
+        return k
+    k = math.sum(k ** 2, axis=-1, keepdims=True)
+    if mode == 'square':
+        return k
+    else:
+        return math.sqrt(k)
 
 
 

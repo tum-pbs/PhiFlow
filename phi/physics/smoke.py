@@ -10,7 +10,10 @@ def initialize_field(value, shape, dtype=np.float32):
         const0 = zeros(shape, dtype=dtype)
         return const0 + value
     elif callable(value):
-        return value(shape, dtype=dtype)
+        try:
+            return value(shape, dtype=dtype)
+        except TypeError:
+            return value(shape)
     if isinstance(shape, struct.Struct):
         if type(shape) == type(value):
             zipped = struct.zip([value, shape], leaf_condition=_is_python_shape)
