@@ -19,7 +19,7 @@ class TestData(TestCase):
         build_test_database()
         reader = BatchReader(Dataset.load('data'), 'Density')
         batch = reader[0:6]
-        np.testing.assert_array_equal(batch.shape, [6,4,4,1])
+        np.testing.assert_array_equal(batch.shape, [6, 4, 4, 1])
 
     def test_struct_load(self):
         build_test_database()

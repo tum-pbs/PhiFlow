@@ -97,16 +97,9 @@ The value of points that lie outside the bounds of this Field is undefined.
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
         try:
             resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)
-            resampled = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
-            return resampled
+            return other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
         except StaggeredSamplePoints:  # other_field is staggered
-            assert self.component_count == other_field.component_count or self.component_count == 1,\
-                'Can only resample to staggered fields with same number of components.\n%s\n%s' % (self, other_field)
-            if self.component_count == 1:
-                new_components = [self.at(f2) for f2 in other_field.unstack()]
-            else:
-                new_components = [f1.at(f2) for f1, f2 in zip(self.unstack(), other_field.unstack())]
-            return other_field.copied_with(data=tuple(new_components), flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
+            return broadcast_at(self, other_field)
 
     @property
     def rank(self):
@@ -198,6 +191,11 @@ class StaggeredSamplePoints(Exception):
         Exception.__init__(self, *args)
 
 
+class IncompatibleFieldTypes(Exception):
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
+
+
 def propagate_flags_resample(data_field, structure_flags, resulting_rank):
     flags = []
     for flag in data_field.flags:
@@ -230,3 +228,13 @@ def propagate_flags_operation(flags, is_linear, result_rank, result_components):
                 flag.is_applicable(result_rank, result_components):
             result.append(flag)
     return result
+
+
+def broadcast_at(f1, f2):
+    if f1.component_count != f2.component_count and f1.component_count != 1:
+        raise IncompatibleFieldTypes('Can only resample to staggered fields with same number of components.\n%s\n%s' % (f1, f2))
+    if f1.component_count == 1:
+        new_components = [f1.at(f2) for f2 in f2.unstack()]
+    else:
+        new_components = [f1.at(f2) for f1, f2 in zip(f1.unstack(), f2.unstack())]
+    return f2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(f1, f2.flags, f2.rank))

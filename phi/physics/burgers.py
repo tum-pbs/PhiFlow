@@ -10,7 +10,7 @@ class Burger(State):
     def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
         State.__init__(self, tags=('burger', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
-        self._velocity = initialize_field(velocity, self.domain.shape(self.domain.rank, self._batch_size))
+        self._velocity = domain.centered_grid(velocity, 2, name='velocity', batch_size=self._batch_size)
         self._viscosity = viscosity
 
     def default_physics(self):
@@ -18,7 +18,7 @@ class Burger(State):
 
     def copied_with(self, **kwargs):
         if 'velocity' in kwargs:
-            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.domain.shape(self.domain.rank, self._batch_size))
+            kwargs['velocity'] = self.domain.centered_grid(kwargs['velocity'], 2, name='velocity', batch_size=self._batch_size)
         return State.copied_with(self, **kwargs)
 
     @property
@@ -32,10 +32,6 @@ class Burger(State):
     @property
     def viscosity(self):
         return self._viscosity
-
-    @property
-    def centered_shape(self):
-        return self.domain.shape(1, self._batch_size)
 
 
 class BurgerPhysics(Physics):

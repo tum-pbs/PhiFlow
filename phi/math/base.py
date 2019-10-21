@@ -133,7 +133,7 @@ Pad a tensor.
         raise NotImplementedError(self)
 
     def dimrange(self, tensor):
-        return range(1, len(tensor.shape)-1)
+        return range(1, len(tensor.shape) - 1)
 
     def gather(self, values, indices):
         raise NotImplementedError(self)

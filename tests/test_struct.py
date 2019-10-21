@@ -6,10 +6,10 @@ from phi.flow import *
 
 def generate_test_structs():
     return [
-            StaggeredGrid('Staggered Grid'),
-            [StaggeredGrid('Staggered Grid')],
+            CenteredGrid('g', None, 'Grid'),
+            [CenteredGrid(None, None, 'Grid')],
             [('Item',)],
-        {'A': 'Entry A', 'Vel': StaggeredGrid('v')},
+        {'A': 'Entry A', 'Vel': CenteredGrid(None, None, 'v')},
         CollectiveState((Smoke(Domain([4]), density='density', velocity='velocity'),))
         ]
 

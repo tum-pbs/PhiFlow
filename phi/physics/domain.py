@@ -80,7 +80,7 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         assert isinstance(grid2, Domain), 'Not a Domain: %s' % type(grid2)
         return np.all(grid1._resolution == grid2._resolution) and grid1._box == grid2._box
 
-    def shape(self, components=1, batch_size=1, name=None):
+    def centered_shape(self, components=1, batch_size=1, name=None):
         return CenteredGrid(name, self.box, tensor_shape(batch_size, self._resolution, components), batch_size=batch_size)
 
     def staggered_shape(self, batch_size=1, name=None):
@@ -89,6 +89,41 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
         data = complete_staggered_properties(grids, staggered)
         return staggered.copied_with(data=data)
+
+    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None):
+        shape = self.centered_shape(components, batch_size=batch_size, name=name)
+        if isinstance(data, Field):
+            data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
+            if name is not None: data = data.copied_with(name=name)
+            return data
+        if isinstance(data, (int, float)):
+            return math.zeros(shape, dtype=dtype) + data
+        if callable(data):
+            # data is an initializer
+            try:
+                return data(shape, dtype=dtype)
+            except TypeError:
+                return data(shape)
+        return CenteredGrid(name, self.box, data)
+
+    def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None):
+        shape = self.staggered_shape(batch_size=batch_size, name=name)
+        if isinstance(data, Field):
+            assert data.compatible(shape)
+            return data
+        if isinstance(data, (int, float)):
+            return (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
+        if callable(data):
+            # data is an initializer
+            try:
+                return data(shape, dtype=dtype)
+            except TypeError:
+                return data(shape)
+        try:
+            tensors = unstack_staggered_tensor(data)
+            return StaggeredGrid.from_tensors(name, self.box, tensors, batch_size=None)
+        except:
+            return StaggeredGrid(name, self.box, data, self.resolution)
 
     def default_physics(self):
         return STATIC

@@ -12,7 +12,7 @@ class TestPlaceholder(TestCase):
         numpy.testing.assert_equal(placeholder_like(p).shape.as_list(), p.shape.as_list())
         self.assertEqual(p.name, 'Placeholder:0')
         v = variable(zeros)([2,2])
-        numpy.testing.assert_equal(v.shape.as_list(), [2,2])
+        numpy.testing.assert_equal(v.shape.as_list(), [2, 2])
         self.assertIsInstance(v, tf.Variable)
         self.assertEqual(v.name, 'Variable:0')
 

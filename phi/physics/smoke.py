@@ -5,25 +5,6 @@ from phi.solver.base import *
 from phi.math.initializers import _is_python_shape, zeros, np
 
 
-def initialize_field(value, shape, dtype=np.float32):
-    if isinstance(value, (int, float)):
-        const0 = zeros(shape, dtype=dtype)
-        return const0 + value
-    elif callable(value):
-        try:
-            return value(shape, dtype=dtype)
-        except TypeError:
-            return value(shape)
-    if isinstance(shape, struct.Struct):
-        if type(shape) == type(value):
-            zipped = struct.zip([value, shape], leaf_condition=_is_python_shape)
-            return struct.map(lambda val, sh: initialize_field(val, sh), zipped)
-        else:
-            return type(shape)(value)
-    else:
-        return value
-
-
 class Smoke(State):
     __struct__ = State.__struct__.extend(('_density', '_velocity'),
                             ('_domain', '_buoyancy_factor', '_conserve_density'))
@@ -34,8 +15,8 @@ class Smoke(State):
                  batch_size=None):
         State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
         self._domain = domain
-        self._density = initialize_field(density, self.domain.shape(1, self._batch_size, 'density'))
-        self._velocity = initialize_field(velocity, self.domain.staggered_shape(self._batch_size, 'velocity'))
+        self._density = domain.centered_grid(density, name='density', batch_size=self._batch_size)
+        self._velocity = domain.staggered_grid(velocity, name='velocity', batch_size=self._batch_size)
         self._buoyancy_factor = buoyancy_factor
         self._conserve_density = conserve_density
         self.domaincache = None
@@ -47,9 +28,9 @@ class Smoke(State):
 
     def copied_with(self, **kwargs):
         if 'density' in kwargs:
-            kwargs['density'] = initialize_field(kwargs['density'], self.domain.shape(1, self._batch_size, 'density'))
+            kwargs['density'] = self.domain.centered_grid(kwargs['density'], name='density', batch_size=self._batch_size)
         if 'velocity' in kwargs:
-            kwargs['velocity'] = initialize_field(kwargs['velocity'], self.domain.staggered_shape(self._batch_size, 'velocity'))
+            kwargs['velocity'] = self.domain.staggered_grid(kwargs['velocity'], name='velocity', batch_size=self._batch_size)
         return State.copied_with(self, **kwargs)
 
     @property
@@ -67,14 +48,6 @@ class Smoke(State):
     @property
     def rank(self):
         return self.domain.rank
-
-    @property
-    def staggered_shape(self):
-        return self.domain.staggered_shape(self._batch_size)
-
-    @property
-    def centered_shape(self):
-        return self.domain.shape(1, self._batch_size)
 
     @property
     def buoyancy_factor(self):
