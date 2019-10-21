@@ -57,7 +57,7 @@ def divergence_free(velocity, domain=None, obstacle_mask=None, pressure_solver=N
         obstacle_grid = obstacle_mask.at(velocity.center_points, collapse_dimensions=False).data
         active_mask = 1 - obstacle_grid
     else:
-        active_mask = math.ones(domain.shape()).data
+        active_mask = math.ones(domain.centered_shape(name='active')).data
     fluiddomain = FluidDomain(domain, active=active_mask, accessible=active_mask)
 
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)

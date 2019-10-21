@@ -14,9 +14,5 @@ class BurgerDemo(FieldSequenceModel):
         self.burger.age = 0
         self.steps = 0
 
-    def step(self):
-        world.step(dt=0.2)
-        self.info('Simulation time: %1f' % self.burger.age)
-
 
 app = BurgerDemo().show(framerate=2, production=__name__ != '__main__')

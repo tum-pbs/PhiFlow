@@ -1,11 +1,11 @@
 from phi.flow import *
 
 
-def checkerboard(resolution, size=4):
+def checkerboard(resolution, size=8, offset=2):
     data = math.zeros([1]+list(resolution)+[1])
     for y in range(size):
         for x in range(size):
-            data[:, y+1::size*2, x+1::size*2, :] = 1
+            data[:, y+offset::size*2, x+offset::size*2, :] = 1
     return data
 
 
@@ -13,9 +13,9 @@ class MarkerDemo(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, 'Passive Marker', 'Simpleplume simulation + marker field', stride=5)
-        smoke = self.smoke = world.Smoke(Domain([80, 64], SLIPPERY))
+        smoke = self.smoke = world.Smoke(Domain([160, 126], SLIPPERY))
         self.marker = smoke.density.copied_with(data=checkerboard(smoke.domain.resolution))
-        world.Inflow(Sphere((10, 32), 5), rate=0.2)
+        world.Inflow(Sphere((18, 64), 10), rate=0.2)
         self.add_field('Density', lambda: smoke.density)
         self.add_field('Velocity', lambda: smoke.velocity)
         self.add_field('Marker', lambda: self.marker)

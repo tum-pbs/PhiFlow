@@ -164,10 +164,10 @@ class SciPyBackend(Backend):
         assert tensor.shape[-1] == kernel.shape[-2]
         # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
         if padding.lower() == "same":
-            result = np.zeros(tensor.shape[:-1]+(kernel.shape[-1],), np.float32)
+            result = np.zeros(tensor.shape[:-1] + (kernel.shape[-1],), np.float32)
         elif padding.lower() == "valid":
-            valid = [tensor.shape[i+1]-(kernel.shape[i]+1)//2 for i in range(tensor_spatial_rank(tensor))]
-            result = np.zeros([tensor.shape[0]]+valid+[kernel.shape[-1]], np.float32)
+            valid = [tensor.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(tensor))]
+            result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], np.float32)
         else:
             raise ValueError("Illegal padding: %s"%padding)
         for batch in range(tensor.shape[0]):

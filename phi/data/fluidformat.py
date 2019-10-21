@@ -304,7 +304,7 @@ class SceneBatch(Scene):
             assert array.shape[0] == self.batch_size or array.shape[0] == 1,\
                 'Wrong batch size: %d but %d scenes' % (array.shape[0], self.batch_size)
         for i,scene in enumerate(self.scenes):
-            array_slices = [(array[i,...] if array.shape[0] > 1 else array[0,...]) for array in arrays]
+            array_slices = [(array[i,...] if array.shape[0] > 1 else array[0, ...]) for array in arrays]
             scene.write_sim_frame(array_slices, fieldnames, frame=frame, check_same_dimensions=check_same_dimensions)
 
     def read_sim_frames(self, fieldnames=None, frames=None):

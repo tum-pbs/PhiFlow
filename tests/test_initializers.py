@@ -12,7 +12,7 @@ class TestInitializers(TestCase):
         self.assertEqual(zeros([1,16]).dtype, np.float32)
         numpy.testing.assert_equal(ones([1,16,1]), np.ones([1,16,1]))
         numpy.testing.assert_equal(zeros_like(ones([1,16,1])), np.zeros([1,16,1]))
-        numpy.testing.assert_equal(randn([1,4]).shape, [1,4])
+        numpy.testing.assert_equal(randn([1,4]).shape, [1, 4])
         self.assertEqual(randn([1,4]).dtype, np.float32)
 
     def test_struct_initializers(self):

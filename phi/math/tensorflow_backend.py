@@ -390,6 +390,9 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     out_spatial_rank = tensor_spatial_rank(sample_coords)
     out_spatial_size = sample_coords.get_shape().as_list()[1:-1]
 
+    if sample_coords.shape[0] != inputs.shape[0]:
+        sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
+
     if in_spatial_rank == 2 and boundary == 'ZERO':
         inputs = tf.transpose(inputs, [0, 2, 1, 3])
         return tf.contrib.resampler.resampler(inputs, sample_coords)

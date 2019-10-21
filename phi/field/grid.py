@@ -51,13 +51,18 @@ class CenteredGrid(Field):
         if self.compatible(other_field):
             return self
 
-        if isinstance(other_field, CenteredGrid) and np.all(self.dx == other_field.dx) and self.box.contains(other_field.box):
-            origin_in_local = self.box.global_to_local(other_field.box.origin) * self.resolution
-            data = _crop_for_interpolation(self.data, origin_in_local, other_field.resolution)
-            dimensions = self.resolution != other_field.resolution
-            dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d-1]]
-            data = math.interpolate_linear(data, origin_in_local % 1.0, dimensions)
-            return CenteredGrid(self.name, other_field.box, data, batch_size=self._batch_size)
+        if isinstance(other_field, CenteredGrid) and np.allclose(self.dx, other_field.dx):
+            paddings = _required_paddings_transposed(self.box, self.dx, other_field.box)
+            if math.sum(paddings) == 0:
+                origin_in_local = self.box.global_to_local(other_field.box.origin) * self.resolution
+                data = _crop_for_interpolation(self.data, origin_in_local, other_field.resolution)
+                dimensions = self.resolution != other_field.resolution
+                dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d-1]]
+                data = math.interpolate_linear(data, origin_in_local % 1.0, dimensions)
+                return CenteredGrid(self.name, other_field.box, data, batch_size=self._batch_size)
+            elif math.sum(paddings) < 16:
+                padded = self.padded(np.transpose(paddings).tolist())
+                return padded.at(other_field, collapse_dimensions, force_optimization)
 
         return Field.at(self, other_field, force_optimization=force_optimization)
 
@@ -92,9 +97,21 @@ class CenteredGrid(Field):
     def __repr__(self):
         return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
 
+    def padded(self, widths):
+        data = math.pad(self.data, [[0,0]]+widths+[[0,0]], 'symmetric' if self._boundary == 'replicate' else 'constant')
+        w_lower, w_upper = np.transpose(widths)
+        box = Box(self.box.origin - w_lower * self.dx, self.box.size + (w_lower+w_upper) * self.dx)
+        return CenteredGrid(self.name, box, data, batch_size=self._batch_size)
+
     @staticmethod
     def getpoints(box, resolution):
         idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in resolution], indexing="ij")
         local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0).astype(np.float32)
         points = box.local_to_global(local_coords)
         return CenteredGrid('%s.points', box, points, flags=[SAMPLE_POINTS])
+
+
+def _required_paddings_transposed(box, dx, target):
+    lower = math.to_int(math.ceil(math.maximum(0, box.origin - target.origin)))
+    upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper)))
+    return [lower, upper]

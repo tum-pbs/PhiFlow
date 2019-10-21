@@ -365,7 +365,7 @@ def upsample2x(tensor, interpolation='linear'):
         left = 0.75 * tensor[(slice(None),)+left_slices_2+(slice(None),)] + 0.25 * tensor[(slice(None),)+left_slices_1+(slice(None),)]
         right = 0.25 * tensor[(slice(None),)+right_slices_2+(slice(None),)] + 0.75 * tensor[(slice(None),)+right_slices_1+(slice(None),)]
         combined = math.stack([right, left], axis=2+dim)
-        tensor = math.reshape(combined, [-1] + [spatial_dims[dim] * 2 if i == dim else tensor.shape[i+1] for i in dims] + [vlen])
+        tensor = math.reshape(combined, [-1] + [spatial_dims[dim] * 2 if i == dim else tensor.shape[i + 1] for i in dims] + [vlen])
     return tensor
 
 
