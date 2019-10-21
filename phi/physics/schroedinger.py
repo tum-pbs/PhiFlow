@@ -75,8 +75,8 @@ class Schroedinger(Physics):
 
         # Move by rotating in Fourier space
         amplitude_fft = math.fft(amplitude)
-        laplace = math.sum(math.fftfreq(staticshape(amplitude)[1:-1]) ** 2, axis=-1, keepdims=True)
-        amplitude_fft *= math.exp(-1j * np.pi * math.to_complex(dt) * laplace / state.mass)  # TODO should be 2 pi^2
+        laplace = math.fftfreq(staticshape(amplitude)[1:-1], mode='square')
+        amplitude_fft *= math.exp(-1j * (2 * np.pi)**2 * math.to_complex(dt) * laplace / (2*state.mass))
         amplitude = math.ifft(amplitude_fft)
 
         for obstacle in obstacles:

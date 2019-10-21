@@ -4,13 +4,13 @@ from phi.flow import *
 class BurgerDemo(FieldSequenceModel):
 
     def __init__(self, size=(64, 64)):
-        FieldSequenceModel.__init__(self, "Burger's equation")
+        FieldSequenceModel.__init__(self, "Burger's equation", stride=5)
         self.value_velocity_scale = 2.0
-        self.burger = world.Burger(Domain(size), math.randn_generator(levels=[0, 0, self.value_velocity_scale]), viscosity=0.2)
+        self.burger = world.Burger(Domain(size), lambda s: math.randfreq(s) * self.value_velocity_scale, viscosity=0.1)
         self.add_field('Velocity', lambda: self.burger.velocity)
 
     def action_reset(self):
-        self.burger.velocity = math.randn_generator(levels=[0, 0, self.value_velocity_scale])
+        self.burger.velocity = lambda s: math.randfreq(s) * self.value_velocity_scale
         self.burger.age = 0
         self.steps = 0
 
@@ -19,4 +19,4 @@ class BurgerDemo(FieldSequenceModel):
         self.info('Simulation time: %1f' % self.burger.age)
 
 
-app = BurgerDemo().show(framerate=4, production=__name__ != '__main__')
+app = BurgerDemo().show(framerate=2, production=__name__ != '__main__')
