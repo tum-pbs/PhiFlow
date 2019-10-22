@@ -42,7 +42,7 @@ class Viewer(FieldSequenceModel):
         self.update()
 
 
-scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume/sim_000000'
+scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/smokedatagen/sim_000000'
 scene_path = os.path.expanduser(scene_path)
 if os.path.isdir(scene_path):
     app = Viewer(scene_path).show(framerate=3, production=__name__!='__main__')

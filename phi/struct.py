@@ -45,15 +45,29 @@ class Def(object):
 class Struct(object):
     __struct__ = Def(())
 
-    def copied_with(self, **kwargs):
+    def copied_with(self, validate_values=True, **kwargs):
         duplicate = copy(self)
+        duplicate._set(**kwargs)
+        if validate_values:
+            duplicate.__validate__(kwargs.keys())
+        return duplicate
+
+    def _set(self, **kwargs):
         for name, value in kwargs.items():
             attr = self.__class__.__struct__.find(name).ref_string
             try:
-                setattr(duplicate, attr, value)
+                setattr(self, attr, value)
             except AttributeError as e:
                 raise AttributeError("can't copy struct %s because attribute %s cannot be set." % (self, attr))
-        return duplicate
+        return self
+
+    def __validate__(self, attribute_names=None):
+        if attribute_names is None:
+            attribute_names = [a.name for a in self.__class__.__struct__.all]
+        for name in attribute_names:
+            validate_name = '__validate_%s__' % name
+            if hasattr(self, validate_name):
+                getattr(self, validate_name)()
 
     def __attributes__(self):
         return {a.name: getattr(self, a.name) for a in self.__class__.__struct__.attributes}
@@ -134,9 +148,9 @@ def properties_dict(struct):
         raise TypeError('Object "%s" of type %s is not JSON serializable' % (struct,type(struct)))
 
 
-def copy_with(struct, new_values_dict):
+def copy_with(struct, new_values_dict, validate_values=True):
     if isinstance(struct, Struct):
-        return struct.copied_with(**new_values_dict)
+        return struct.copied_with(validate_values=validate_values, **new_values_dict)
     if isinstance(struct, tuple):
         duplicate = list(struct)
         for key, value in new_values_dict.items(): duplicate[key] = value
@@ -182,7 +196,7 @@ class Trace(object):
         return "%s = %s" % (self.path(), self.value)
 
 
-def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):
+def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False, validate_values=True):
     if trace is True:
         trace = Trace(struct, None, None)
     if not isstruct(struct, leaf_condition):
@@ -203,9 +217,10 @@ def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_pro
             leaf_condition = lambda x: True
         for key, value in old_values.items():
             new_values[key] = map(f, value, leaf_condition, recursive,
-                                  Trace(value, key, trace) if trace is not False else False, include_properties)
+                                  Trace(value, key, trace) if trace is not False else False, include_properties,
+                                  validate_values=validate_values)
 
-        return copy_with(struct, new_values)
+        return copy_with(struct, new_values, validate_values=validate_values)
 
 
 def zip(structs, leaf_condition=None):
@@ -260,7 +275,7 @@ def flatten(struct, leaf_condition=None, trace=False, include_properties=False):
     def map_leaf(value):
         list.append(value)
         return value
-    map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, include_properties=include_properties)
+    map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, include_properties=include_properties, validate_values=False)
     return list
 
 
@@ -270,4 +285,4 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
             return attr.name if basename is None else basename + separator + attr.name
         else:
             return attr.path(separator) if basename is None else basename + separator + attr.path(separator)
-    return map(f, struct, leaf_condition, recursive=True, trace=True)
+    return map(f, struct, leaf_condition, recursive=True, trace=True, validate_values=False)

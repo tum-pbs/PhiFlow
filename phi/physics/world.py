@@ -102,8 +102,7 @@ class World(object):
         for proxy in ('Gravity',
                       'Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
                       'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect',
-                      'QuantumWave', 'StepPotential',
-                      'Buoyancy'):
+                      'QuantumWave', 'StepPotential'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
     Gravity = Gravity
@@ -120,7 +119,6 @@ class World(object):
     FieldEffect = FieldEffect
     QuantumWave = QuantumWave
     StepPotential = StepPotential
-    Buoyancy = Buoyancy
 
 
     @property

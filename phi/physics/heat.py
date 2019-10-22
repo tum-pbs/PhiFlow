@@ -2,20 +2,16 @@ from .smoke import *
 from .util import diffuse
 
 
-class Heat(State):
-
+class Heat(DomainState):
     __struct__ = State.__struct__.extend(('_temperature',), ('_domain', '_diffusivity'))
 
     def __init__(self, domain, temperature=0.0, diffusivity=0.1, batch_size=None):
-        State.__init__(self, tags=('heat', 'pde', 'temperaturefield'), batch_size=batch_size)
-        self._domain = domain
+        DomainState.__init__(self, domain, tags=('heat', 'pde', 'temperaturefield'), batch_size=batch_size)
         self._temperature = domain.centered_grid(temperature, name='temperature', batch_size=self._batch_size)
         self._diffusivity = diffusivity
 
-    def copied_with(self, **kwargs):
-        if 'temperature' in kwargs:
-            kwargs['temperature'] = self.domain.centered_grid(kwargs['temperature'], name='temperature', batch_size=self._batch_size)
-        return State.copied_with(self, **kwargs)
+    def __validate_temperature__(self):
+        self._temperature = self.centered_grid('temperature', self._temperature)
 
     def default_physics(self):
         return HeatPhysics()
@@ -31,7 +27,6 @@ class Heat(State):
     @property
     def diffusivity(self):
         return self._diffusivity
-
 
 
 class HeatPhysics(Physics):

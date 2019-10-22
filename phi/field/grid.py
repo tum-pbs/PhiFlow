@@ -42,6 +42,10 @@ class CenteredGrid(Field):
     def rank(self):
         return math.spatial_rank(self.data)
 
+    def __validate_data__(self):
+        if self._data is None: return
+        assert len(self._data.shape) == self.box.rank + 2
+
     def sample_at(self, points, collapse_dimensions=True):
         local_points = self.box.global_to_local(points)
         local_points = local_points * math.to_float(self.resolution) - 0.5

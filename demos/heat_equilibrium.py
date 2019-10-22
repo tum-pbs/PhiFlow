@@ -14,4 +14,4 @@ class HeatEquilibriumDemo(FieldSequenceModel):
         self.x, self.y = EditableInt('X', 32, (14,50)), EditableInt('Y', 20, (4,40))
 
 
-HeatEquilibriumDemo().play(framerate=2).show(framerate=2)
+HeatEquilibriumDemo().prepare().play(framerate=2).show(framerate=2)

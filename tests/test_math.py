@@ -49,3 +49,6 @@ class TestMath(TestCase):
         s = {'a': 0, 'b': 1}
         result = cos(s)
         self.assertEqual(result['a'], 1)
+
+        self.assertEqual(math.maximum(0.5, {'a': 0, 'b': 1}), {'a': 0.5, 'b': 1})
+        self.assertEqual(math.maximum({'a': 0, 'b': 1.5}, {'a': 0.5, 'b': 1}), {'a': 0.5, 'b': 1.5})
