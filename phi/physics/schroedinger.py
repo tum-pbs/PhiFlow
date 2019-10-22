@@ -65,7 +65,7 @@ class Schroedinger(Physics):
         amplitude_fft *= math.exp(-1j * (2 * np.pi)**2 * math.to_complex(dt) * laplace / (2*state.mass))
         amplitude = math.ifft(amplitude_fft)
 
-        obstacle_mask = union([obstacle.geometry for obstacle in obstacles]).at(state.amplitude).data
+        obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles]).at(state.amplitude).data
         amplitude *= 1 - obstacle_mask
 
         normalized = False

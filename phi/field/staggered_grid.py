@@ -77,9 +77,17 @@ class StaggeredGrid(Field):
         components = complete_staggered_properties(components, staggeredgrid)
         return staggeredgrid.copied_with(data=components, flags=flags)
 
+    def __validate_data__(self):
+        if self._data is None: return
+        assert len(self.data) == len(self.resolution) == self.box.rank
+        for field in self._data:
+            assert isinstance(field, CenteredGrid)
+            assert field.component_count == 1
+            assert field.rank == self.rank
+
     @property
     def rank(self):
-        return self.component_count
+        return len(self._resolution)
 
     @property
     def resolution(self):

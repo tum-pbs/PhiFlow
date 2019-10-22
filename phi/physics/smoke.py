@@ -61,10 +61,10 @@ class SmokePhysics(Physics):
 
     def step(self, smoke, dt=1.0, obstacles=(), gravity=(), density_effects=(), velocity_effects=(), **dependent_states):
         assert len(dependent_states) == 0
-        gravity = sum(gravity).gravity_tensor(smoke.rank)
+        gravity = gravity_tensor(sum(gravity), smoke.rank)
         velocity = smoke.velocity
         density = smoke.density
-        obstacle_mask = union([obstacle.geometry for obstacle in obstacles])
+        obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles])
         if self.make_input_divfree:
             velocity = divergence_free(velocity, smoke.domain, obstacle_mask, pressure_solver=self.pressure_solver)
         # --- Advection ---
