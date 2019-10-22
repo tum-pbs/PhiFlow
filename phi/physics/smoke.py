@@ -6,8 +6,8 @@ from phi.math.initializers import _is_python_shape, zeros, np
 
 
 class Smoke(DomainState):
-    __struct__ = State.__struct__.extend(('_density', '_velocity'),
-                            ('_domain', '_buoyancy_factor', '_conserve_density'))
+    __struct__ = DomainState.__struct__.extend(('_density', '_velocity'),
+                            ('_buoyancy_factor', '_conserve_density'))
 
     def __init__(self, domain,
                  density=0.0, velocity=0,

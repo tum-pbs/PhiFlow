@@ -5,7 +5,7 @@ from .domain import *
 
 
 class Burger(DomainState):
-    __struct__ = State.__struct__.extend(('_velocity',), ('_domain', '_viscosity',))
+    __struct__ = DomainState.__struct__.extend(['_velocity'], ['_viscosity'])
 
     def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
         DomainState.__init__(self, domain, tags=('burger', 'velocityfield'), batch_size=batch_size)
