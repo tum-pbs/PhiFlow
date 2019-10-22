@@ -3,7 +3,7 @@ from .util import diffuse
 
 
 class Heat(DomainState):
-    __struct__ = State.__struct__.extend(('_temperature',), ('_domain', '_diffusivity'))
+    __struct__ = DomainState.__struct__.extend(['_temperature'], ['_diffusivity'])
 
     def __init__(self, domain, temperature=0.0, diffusivity=0.1, batch_size=None):
         DomainState.__init__(self, domain, tags=('heat', 'pde', 'temperaturefield'), batch_size=batch_size)

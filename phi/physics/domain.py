@@ -183,6 +183,7 @@ def _extend1(shape, axis):
 
 
 class DomainState(State):
+    __struct__ = State.__struct__.extend([], ['_domain'])
 
     def __init__(self, domain, tags=(), batch_size=None):
         State.__init__(self, tags=tags, batch_size=batch_size)
@@ -193,11 +194,15 @@ class DomainState(State):
         return self._domain
 
     @property
+    def resolution(self):
+        return self._domain.resolution
+
+    @property
     def rank(self):
         return self.domain.rank
 
-    def centered_grid(self, name, value, components=1):
-        return self.domain.centered_grid(value, name=name, components=components, batch_size=self._batch_size)
+    def centered_grid(self, name, value, components=1, dtype=np.float32):
+        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size)
 
-    def staggered_grid(self, name, value):
-        return self.domain.staggered_grid(value, name=name, batch_size=self._batch_size)
+    def staggered_grid(self, name, value, dtype=np.float32):
+        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size)

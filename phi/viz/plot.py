@@ -174,7 +174,7 @@ class PlotlyFigureBuilder(object):
                 data = data[...,shape[-1]-1-component:shape[-1]-component]
 
         # Downsample
-        while numpy.prod(shape[:-1]) > self.max_resolution ** 2:
+        while numpy.prod(data.shape[:-1]) > self.max_resolution ** 2:
             data = data[::2, ::2, :]
         if same_scale_data is not None:
             return self.heatmap(data[..., 0], library, minmax=global_minmax(same_scale_data))
