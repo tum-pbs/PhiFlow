@@ -1,4 +1,4 @@
-
+from phi import math, struct
 from .physics.world import *
 from .physics.schroedinger import *
 from .model import *

@@ -1,5 +1,5 @@
 from phi.physics.physics import State
-from phi import math
+from phi import math, struct
 from .flag import Flag, _PROPAGATOR
 from phi.geom import Geometry
 import numpy as np
@@ -23,7 +23,6 @@ class Field(State):
         self._name = name
         self._bounds = bounds
         self._flags = flags
-        self.__validate_flags__()
 
     def __validate_flags__(self):
         if self._flags is None:
@@ -38,6 +37,7 @@ class Field(State):
         self._data = _to_valid_data(self._data)
 
     def __validate__(self, attribute_names=None):
+        if struct.skip_validate(): return
         if attribute_names is not None and 'data' in attribute_names and 'flags' not in attribute_names:
             self._flags = ()
         State.__validate__(self, attribute_names)
@@ -212,7 +212,7 @@ def propagate_flags_resample(data_field, structure_flags, resulting_rank):
                 flag.propagates(_PROPAGATOR.RESAMPLE) and \
                 flag.is_applicable(resulting_rank, data_field.component_count):
             flags.append(flag)
-    return flags
+    return tuple(flags)
 
 
 def propagate_flags_children(flags, child_rank, child_component_count):
@@ -220,7 +220,7 @@ def propagate_flags_children(flags, child_rank, child_component_count):
     for flag in flags:
         if flag.propagates(_PROPAGATOR.CHILDREN) and flag.is_applicable(child_rank, child_component_count):
             result.append(flag)
-    return result
+    return tuple(result)
 
 
 def propagate_flags_operation(flags, is_linear, result_rank, result_components):
@@ -231,7 +231,7 @@ def propagate_flags_operation(flags, is_linear, result_rank, result_components):
                 flag.propagates(propagator) and\
                 flag.is_applicable(result_rank, result_components):
             result.append(flag)
-    return result
+    return tuple(result)
 
 
 def broadcast_at(f1, f2):

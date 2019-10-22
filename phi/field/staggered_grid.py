@@ -60,21 +60,20 @@ class StaggeredGrid(Field):
 
     def __init__(self, name, box, data, resolution, flags=(), batch_size=None):
         Field.__init__(self, name, box, data, flags=flags, batch_size=batch_size)
-        if data is not None:
-            for f in data:
-                assert isinstance(f, CenteredGrid)
         assert isinstance(box, Box) or box is None
         self._box = box
         self._resolution = resolution
+        self.__validate__()
 
     @staticmethod
     def from_tensors(name, box, tensors, flags=(), batch_size=None):
         resolution = _res(tensors[0], 0)
         for i, tensor in enumerate(tensors):
             assert _res(tensor, i) == resolution
-        staggeredgrid = StaggeredGrid(name, box, None, resolution, flags, batch_size)
-        components = [CenteredGrid(None, None, tensor, None, None) for tensor in tensors]
-        components = complete_staggered_properties(components, staggeredgrid)
+        with struct.anytype():
+            staggeredgrid = StaggeredGrid(name, box, None, resolution, flags, batch_size)
+            components = [CenteredGrid(None, None, tensor, None, None) for tensor in tensors]
+            components = complete_staggered_properties(components, staggeredgrid)
         return staggeredgrid.copied_with(data=components, flags=flags)
 
     def __validate_data__(self):
@@ -84,6 +83,7 @@ class StaggeredGrid(Field):
             assert isinstance(field, CenteredGrid)
             assert field.component_count == 1
             assert field.rank == self.rank
+        Field.__validate_data__(self)
 
     @property
     def rank(self):
@@ -175,15 +175,16 @@ class StaggeredGrid(Field):
             upper = math.pad(data, [[0,1] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
             lower = math.pad(data, [[1,0] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
             tensors.append((upper - lower) / scalar_field.dx[dim - 1])
-        components = [CenteredGrid(None, None, t, None, None) for t in tensors]
-        data = complete_staggered_properties(components, staggeredgrid)
+        with struct.anytype():
+            components = [CenteredGrid(None, None, t, None, None) for t in tensors]
+            data = complete_staggered_properties(components, staggeredgrid)
         return staggeredgrid.copied_with(data=data)
 
     @staticmethod
     def from_scalar(scalar_field, axis_forces, padding_mode='constant', name=None):
         assert isinstance(scalar_field, CenteredGrid)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
-        staggeredgrid = StaggeredGrid(name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
+        with struct.anytype(): staggeredgrid = StaggeredGrid(name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
         tensors = []
         for i in range(scalar_field.rank):
             force = axis_forces[i] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,i]
@@ -195,6 +196,7 @@ class StaggeredGrid(Field):
                 upper = math.pad(scalar_field.data, [[0,1] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
                 lower = math.pad(scalar_field.data, [[1,0] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
                 tensors.append((upper + lower) / 2 * force)
-        components = [CenteredGrid(None, None, t, None, None) for t in tensors]
-        data = complete_staggered_properties(components, staggeredgrid)
+        with struct.anytype():
+            components = [CenteredGrid(None, None, t, None, None) for t in tensors]
+            data = complete_staggered_properties(components, staggeredgrid)
         return staggeredgrid.copied_with(data=data)

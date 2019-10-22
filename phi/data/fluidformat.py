@@ -2,7 +2,7 @@
 import numpy as np
 import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
-from phi import struct
+from phi import struct, field
 
 
 def read_zipped_array(filename):
@@ -154,6 +154,7 @@ class Scene(object):
 
     def write(self, obj, names=None, frame=0):
         if struct.isstruct(obj):
+            obj = _transform_for_writing(obj)
             if names is None:
                 names = struct.names(obj)
             values = struct.flatten(obj)
@@ -166,10 +167,12 @@ class Scene(object):
 
     def read(self, obj, frame=0):
         if struct.isstruct(obj):
+            obj = _transform_for_writing(obj)
             names = struct.flatten(obj)
             if not np.all([isinstance(n, six.string_types) for n in names]):
                 names = struct.names(obj)
-            return struct.map(lambda name: self.read_array(self._filename(name), frame), names)
+            data = struct.map(lambda name: self.read_array(self._filename(name), frame), names)
+            return data
         else:
             return self.read_array('unnamed', frame)
 
@@ -313,6 +316,19 @@ class SceneBatch(Scene):
     def read_array(self, fieldname, frame):
         return np.concatenate([scene.read_array(fieldname, frame) for scene in self.scenes])
 
+
+
+def _transform_for_writing(obj):
+    def f(value):
+        if isinstance(value, field.StaggeredGrid):
+            return value.staggered_tensor()
+        if isinstance(value, field.CenteredGrid):
+            return value.data
+        else:
+            return value
+    with struct.anytype():
+        data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)))
+    return data
 
 
 

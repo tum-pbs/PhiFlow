@@ -4,8 +4,7 @@ from phi import struct
 
 
 def shape(obj):
-    result = struct.map(lambda tensor: math.shape(tensor), obj, validate_values=False)
-    return result
+    with struct.anytype(): return struct.map(lambda tensor: math.shape(tensor), obj)
 
 
 def batch_gather(struct, batches):
@@ -23,19 +22,19 @@ The number of spatial dimensions is equal to the tensor rank minus two.
     :return: the number of spatial dimensions as an integer
     """
     if struct.isstruct(obj):
-        return struct.map(lambda o: spatial_rank(o), obj, recursive=False, validate_values=False)  # TODO this should be done by the Struct backend
+        with struct.anytype(): return struct.map(lambda o: spatial_rank(o), obj, recursive=False)  # TODO this should be done by the Struct backend
     return len(math.staticshape(obj)) - 2
 
 
 def spatial_dimensions(obj):
     if struct.isstruct(obj):
-        return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False, validate_values=False)
+        with struct.anytype(): return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(1, len(math.staticshape(obj)) - 1))
 
 
 def axes(obj):
     if struct.isstruct(obj):
-        return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False, validate_values=False)
+        with struct.anytype(): return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(len(math.staticshape(obj)) - 2))
 
 

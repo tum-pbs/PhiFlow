@@ -81,14 +81,16 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         return np.all(grid1._resolution == grid2._resolution) and grid1._box == grid2._box
 
     def centered_shape(self, components=1, batch_size=1, name=None):
-        return CenteredGrid(name, self.box, data=tensor_shape(batch_size, self._resolution, components), batch_size=batch_size)
+        with struct.anytype():
+            return CenteredGrid(name, self.box, data=tensor_shape(batch_size, self._resolution, components), batch_size=batch_size)
 
     def staggered_shape(self, batch_size=1, name=None):
-        shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
-        grids = [CenteredGrid(None, None, data=shapes[i], batch_size=batch_size) for i in range(self.rank)]
-        staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
-        data = complete_staggered_properties(grids, staggered)
-        return staggered.copied_with(data=data, validate_values=False)
+        with struct.anytype():
+            shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
+            grids = [CenteredGrid(None, None, data=shapes[i], batch_size=batch_size) for i in range(self.rank)]
+            staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
+            data = complete_staggered_properties(grids, staggered)
+            return staggered.copied_with(data=data)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None):
         shape = self.centered_shape(components, batch_size=batch_size, name=name)

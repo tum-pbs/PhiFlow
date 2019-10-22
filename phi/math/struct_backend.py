@@ -30,7 +30,7 @@ def broadcast_function(backend, func, args, kwargs):
         args, kwargs = build_arguments(values)
         result = backend_func(*args, **kwargs)
         return result
-    return struct.map(f, obj, validate_values=False)
+    with struct.anytype(): return struct.map(f, obj)
 
 
 def argument_assembler(args, kwargs):
