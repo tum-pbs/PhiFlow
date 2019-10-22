@@ -14,12 +14,13 @@ class TestScene(TestCase):
 
         scene.write(state, frame=0)
         self.assert_(isfile(scene.subpath('density_000000.npz')))
-        self.assert_(isfile(scene.subpath('velocity_staggered_000000.npz')))
+        self.assert_(isfile(scene.subpath('velocity_000000.npz')))
         loaded_state = scene.read(state, frame=0)
         self.assertIsInstance(loaded_state, Smoke)
         self.assertIsInstance(loaded_state.velocity, StaggeredGrid)
+        self.assertIsInstance(loaded_state.density, CenteredGrid)
         np.testing.assert_equal(loaded_state.density, state.density)
-        np.testing.assert_equal(loaded_state.velocity.staggered, state.velocity.staggered)
+        np.testing.assert_equal(loaded_state.velocity.data, state.velocity.data)
 
         scene.write(np.ones([1,4,4,1]) * 2, frame=1)
         self.assert_(isfile(scene.subpath('unnamed_000001.npz')))

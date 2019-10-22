@@ -1,6 +1,7 @@
 from unittest import TestCase
 from phi.flow import *
 from phi.math import *
+from phi import struct
 
 
 # placeholder, variable tested in test_tensorflow.py
@@ -16,8 +17,8 @@ class TestInitializers(TestCase):
         self.assertEqual(randn([1,4]).dtype, np.float32)
 
     def test_struct_initializers(self):
-        struct = ([4], CenteredGrid('', None, [4, 1]), ([9], [8,2]))
-        z = zeros(struct)
+        with struct.anytype(): obj = ([4], CenteredGrid('', box[0:1], [1, 4, 1]), ([9], [8,2]))
+        z = zeros(obj)
         self.assertIsInstance(z, tuple)
         numpy.testing.assert_equal(z[0], np.zeros([4]))
         z2 = zeros_like(z)

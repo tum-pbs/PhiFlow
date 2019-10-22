@@ -91,6 +91,7 @@ Scalar channel encoding cells that are accessible, i.e. not solid, as ones and o
             upper = math.pad(self._accessible, [[0, 1] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=upper_pad)
             lower = math.pad(self._accessible, [[1, 0] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=lower_pad)
             tensors.append(math.minimum(upper, lower))
-        components = [field.CenteredGrid(None, None, t, None, None) for t in tensors]
-        data = field.complete_staggered_properties(components, velocity)
+        with struct.anytype():
+            components = [field.CenteredGrid(None, None, t, None, None) for t in tensors]
+            data = field.complete_staggered_properties(components, velocity)
         return velocity.copied_with(data=data)

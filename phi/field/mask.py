@@ -10,6 +10,7 @@ class GeometryMask(Field):
     def __init__(self, name, geometries, value=1.0, flags=(), batch_size=None):
         Field.__init__(self, name, union(geometries), _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
         self._geometries = tuple(geometries)
+        self.__validate__()
 
     @property
     def geometries(self):

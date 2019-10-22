@@ -25,6 +25,7 @@ class CenteredGrid(Field):
         self._extrapolation = None  # TODO
         self._interpolation = 'linear'
         self._boundary = 'replicate'  # TODO this is a temporary replacement for extrapolation
+        self.__validate__()
 
     @property
     def resolution(self):
@@ -99,7 +100,10 @@ class CenteredGrid(Field):
             return False
 
     def __repr__(self):
-        return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
+        try:
+            return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
+        except:
+            return 'Grid[invalid]'
 
     def padded(self, widths):
         data = math.pad(self.data, [[0,0]]+widths+[[0,0]], 'symmetric' if self._boundary == 'replicate' else 'constant')

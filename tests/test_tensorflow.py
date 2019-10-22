@@ -11,15 +11,15 @@ class TestPlaceholder(TestCase):
         numpy.testing.assert_equal(p.shape.as_list(), [4])
         numpy.testing.assert_equal(placeholder_like(p).shape.as_list(), p.shape.as_list())
         self.assertEqual(p.name, 'Placeholder:0')
-        v = variable(zeros)([2,2])
+        v = variable(zeros([2,2]))
         numpy.testing.assert_equal(v.shape.as_list(), [2, 2])
         self.assertIsInstance(v, tf.Variable)
         self.assertEqual(v.name, 'Variable:0')
 
     def test_struct_placeholders(self):
-        struct = ([4], StaggeredGrid([4, 1]), ([9], [8,2]))
+        with struct.anytype(): obj = ([4], CenteredGrid('', None, [4, 1]), ([9], [8,2]))
         tf.reset_default_graph()
-        p = placeholder(struct)
+        p = placeholder(obj)
         self.assertEqual(p[0].name, '0:0')
         self.assertEqual(p[1].staggered.name, '1/staggered:0')
         self.assertIsInstance(p, tuple)

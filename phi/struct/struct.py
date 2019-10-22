@@ -1,6 +1,6 @@
 from copy import copy
 import numpy as np
-import six
+from .context import skip_validate
 
 
 class StructAttr(object):
@@ -45,10 +45,10 @@ class Def(object):
 class Struct(object):
     __struct__ = Def(())
 
-    def copied_with(self, validate_values=True, **kwargs):
+    def copied_with(self, **kwargs):
         duplicate = copy(self)
         duplicate._set(**kwargs)
-        if validate_values:
+        if not skip_validate():  # double-check since __validate__ could be overridden
             duplicate.__validate__(kwargs.keys())
         return duplicate
 
@@ -62,6 +62,7 @@ class Struct(object):
         return self
 
     def __validate__(self, attribute_names=None):
+        if skip_validate(): return
         if attribute_names is None:
             attribute_names = [a.name for a in self.__class__.__struct__.all]
         for name in attribute_names:
@@ -85,17 +86,25 @@ class Struct(object):
         return result
 
     def __eq__(self, other):
-        if type(self) != type(other): return False
+        if type(self) != type(other):
+            return False
         for attr in self.__class__.__struct__.all:
             v1 = getattr(self, attr.name)
             v2 = getattr(other, attr.name)
             if isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
-                if not np.allclose(v1, v2): return False
+                if v1.dtype != np.object and v2.dtype != np.object:
+                    if not np.allclose(v1, v2):
+                        return False
+                else:
+                    if not np.all(v1 == v2):
+                        return False
             else:
                 try:
-                    if v1 != v2: return False
+                    if v1 != v2:
+                        return False
                 except:
-                    if v1 is not v2: return False
+                    if v1 is not v2:
+                        return False
         return True
 
     def __ne__(self, other):
@@ -148,9 +157,9 @@ def properties_dict(struct):
         raise TypeError('Object "%s" of type %s is not JSON serializable' % (struct,type(struct)))
 
 
-def copy_with(struct, new_values_dict, validate_values=True):
+def copy_with(struct, new_values_dict):
     if isinstance(struct, Struct):
-        return struct.copied_with(validate_values=validate_values, **new_values_dict)
+        return struct.copied_with(**new_values_dict)
     if isinstance(struct, tuple):
         duplicate = list(struct)
         for key, value in new_values_dict.items(): duplicate[key] = value
@@ -170,95 +179,6 @@ def copy_with(struct, new_values_dict, validate_values=True):
     raise ValueError("Not a struct: %s" % struct)
 
 
-class Trace(object):
-
-    def __init__(self, value, key, parent):
-        self.value = value
-        self.key = key
-        self.parent = parent  # AttributeIdentifier or struct
-
-    @property
-    def name(self):
-        if self.key is None:
-            return None
-        if isinstance(self.key, six.string_types):
-            return self.key
-        else:
-            return str(self.key)
-
-    def path(self, separator='.'):
-        if isinstance(self.parent, Trace) and self.parent.key is not None:
-            return self.parent.path(separator) + separator + self.name
-        else:
-            return self.name
-
-    def __repr__(self):
-        return "%s = %s" % (self.path(), self.value)
-
-
-def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False, validate_values=True):
-    if trace is True:
-        trace = Trace(struct, None, None)
-    if not isstruct(struct, leaf_condition):
-        if trace is False:
-            if isinstance(struct, LeafZip):
-                return f(*struct.values)
-            else:
-                return f(struct)
-        else:
-            return f(trace)
-    else:
-        old_values = attributes(struct)
-        if include_properties:
-            for k, v in properties(struct).items():  # TODO properties can return lists
-                old_values[k] = v
-        new_values = {}
-        if not recursive:
-            leaf_condition = lambda x: True
-        for key, value in old_values.items():
-            new_values[key] = map(f, value, leaf_condition, recursive,
-                                  Trace(value, key, trace) if trace is not False else False, include_properties,
-                                  validate_values=validate_values)
-
-        return copy_with(struct, new_values, validate_values=validate_values)
-
-
-def zip(structs, leaf_condition=None):
-    assert len(structs) > 0
-    first = structs[0]
-    if isstruct(first, leaf_condition):
-        for s in structs[1:]:
-            assert type(s) == type(first)
-
-    if not isstruct(first, leaf_condition):
-        return LeafZip(structs)
-
-    dicts = [attributes(struct) for struct in structs]
-    keys = dicts[0].keys()
-    new_dict = {}
-    for key in keys:
-        values = [d[key] for d in dicts]
-        values = zip(values, leaf_condition)
-        new_dict[key] = values
-    return copy_with(first, new_dict)
-
-
-class LeafZip(object):
-
-    def __init__(self, values):
-        self.values = values
-
-    def __getitem__(self, item):
-        return self.values[item]
-
-    def __repr__(self):
-        return repr(self.values)
-
-    def __str__(self):
-        return str(self.values)
-
-
-
 def isstruct(object, leaf_condition=None):
     isstructclass =  isinstance(object, (Struct, list, tuple, dict, np.ndarray))
     if not isstructclass:
@@ -270,19 +190,3 @@ def isstruct(object, leaf_condition=None):
     return True
 
 
-def flatten(struct, leaf_condition=None, trace=False, include_properties=False):
-    list = []
-    def map_leaf(value):
-        list.append(value)
-        return value
-    map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, include_properties=include_properties, validate_values=False)
-    return list
-
-
-def names(struct, leaf_condition=None, full_path=True, basename=None, separator='.'):
-    def f(attr):
-        if not full_path:
-            return attr.name if basename is None else basename + separator + attr.name
-        else:
-            return attr.path(separator) if basename is None else basename + separator + attr.path(separator)
-    return map(f, struct, leaf_condition, recursive=True, trace=True, validate_values=False)
