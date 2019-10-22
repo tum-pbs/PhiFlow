@@ -15,9 +15,3 @@ def anytype():
 
 def skip_validate():
     return 'anytype' in _stack
-
-
-print(skip_validate())
-with anytype():
-    print(skip_validate())
-print(skip_validate())
