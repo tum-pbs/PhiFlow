@@ -85,14 +85,18 @@ class Gravity(State):
             return Gravity(self._gravity + other._gravity)
         else:
             rank = staticshape(other.gravity)[-1] if math.is_scalar(self._gravity) else staticshape(self.gravity)[-1]
-            sum_tensor = self.gravity_tensor(rank) + other.gravity_tensor(rank)
+            sum_tensor = gravity_tensor(self, rank) + gravity_tensor(other, rank)
             return Gravity(sum_tensor)
 
     __radd__ = __add__
 
-    def gravity_tensor(self, rank):
-        if math.is_scalar(self._gravity):
-            return math.expand_dims([self._gravity] + [0] * (rank-1), 0, rank+1)
-        else:
-            assert staticshape(self._gravity)[-1] == rank
-            return math.expand_dims(self._gravity, 0, rank+2-len(staticshape(self._gravity)))
+
+def gravity_tensor(gravity, rank):
+    if isinstance(gravity, Gravity):
+        gravity = gravity._gravity
+    if math.is_scalar(gravity):
+        return math.expand_dims([gravity] + [0] * (rank-1), 0, rank+1)
+    else:
+        assert staticshape(gravity)[-1] == rank
+        return math.expand_dims(gravity, 0, rank+2-len(staticshape(gravity)))
+

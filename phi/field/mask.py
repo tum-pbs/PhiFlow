@@ -1,13 +1,14 @@
 from .field import *
 from .constant import _convert_constant_to_data, _expand_axes
+from phi.geom import union
 
 
 class GeometryMask(Field):
 
     __struct__ = State.__struct__.extend([], ['_geometries', '_bounds', '_name', '_flags'])
 
-    def __init__(self, name, geometries, value=1.0, batch_size=None):
-        Field.__init__(self, name, None, _convert_constant_to_data(value), batch_size=batch_size)
+    def __init__(self, name, geometries, value=1.0, flags=(), batch_size=None):
+        Field.__init__(self, name, union(geometries), _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
         self._geometries = tuple(geometries)
 
     @property
@@ -29,10 +30,11 @@ class GeometryMask(Field):
 
     @property
     def component_count(self):
-        return 1
+        return self.data.shape[-1]
 
     def unstack(self):
-        return [self]
+        flags = propagate_flags_children(self.flags, self.rank, 1)
+        return [GeometryMask('%s[%d]' % (self.name, i), self.geometries, c, flags, self._batch_size) for i,c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):
@@ -50,7 +52,7 @@ def mask(geometry):
     return GeometryMask('mask', [geometry])
 
 
-def union(geometries):
+def union_mask(geometries):
     for geom in geometries:
         assert isinstance(geom, Geometry)
     return GeometryMask('union', geometries)

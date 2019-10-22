@@ -102,3 +102,51 @@ class Sphere(Geometry):
     @property
     def rank(self):
         return len(self._center)
+
+
+class _Union(Geometry):
+    __struct__ = Geometry.__struct__.extend([], ['_geometries'])
+
+    def __init__(self, geometries):
+        self._geometries = geometries
+
+    def __validate_geometries__(self):
+        assert len(self._geometries) > 0
+        rank = self._geometries[0].rank
+        for g in self._geometries[1:]:
+            assert g.rank == rank or g.rank is None or rank is None
+        self._geometries = tuple(self._geometries)
+
+    def value_at(self, points, collapse_dimensions=True):
+        if len(self._geometries) == 1:
+            result = self._geometries[0].value_at(points)
+        else:
+            result = math.max([geometry.value_at(points) for geometry in self._geometries], axis=0)
+        return result
+
+    @property
+    def rank(self):
+        if len(self._geometries) == 0: return None
+        else:
+            return self._geometries[0].rank
+
+    @property
+    def geometries(self):
+        return self._geometries
+
+
+def union(geometries):
+    if len(geometries) == 0:
+        return NO_GEOMETRY
+    else:
+        return _Union(geometries)
+
+
+class _NoGeometry(Geometry):
+
+    def rank(self): return None
+
+    def value_at(self, location): return 0
+
+
+NO_GEOMETRY = _NoGeometry()

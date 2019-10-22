@@ -21,7 +21,7 @@ class TestSmokeTF(TestCase):
         tf_bake_subgraph(smoke, Session(Scene.create('data')))
         world.step()
         self.assertIsInstance(smoke.state, Smoke)
-        self.assertIsInstance(smoke.state.density, np.ndarray)
+        self.assertIsInstance(smoke.state.density.data, np.ndarray)
 
     def test_tf_worldgraph(self):
         world = World()
@@ -29,4 +29,4 @@ class TestSmokeTF(TestCase):
         tf_bake_graph(world, Session(Scene.create('data')))
         world.step()
         self.assertIsInstance(smoke.state, Smoke)
-        self.assertIsInstance(smoke.state.density, np.ndarray)
+        self.assertIsInstance(smoke.state.density.data, np.ndarray)

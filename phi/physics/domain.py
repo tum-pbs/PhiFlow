@@ -88,7 +88,7 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         grids = [CenteredGrid(None, None, data=shapes[i], batch_size=batch_size) for i in range(self.rank)]
         staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
         data = complete_staggered_properties(grids, staggered)
-        return staggered.copied_with(data=data)
+        return staggered.copied_with(data=data, validate_values=False)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None):
         shape = self.centered_shape(components, batch_size=batch_size, name=name)

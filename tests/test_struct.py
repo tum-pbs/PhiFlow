@@ -10,18 +10,19 @@ def generate_test_structs():
             [CenteredGrid(None, None, 'Grid')],
             [('Item',)],
         {'A': 'Entry A', 'Vel': CenteredGrid(None, None, 'v')},
-        CollectiveState((Smoke(Domain([4]), density='density', velocity='velocity'),))
+        CollectiveState((Smoke(Domain([4])),))
         ]
 
 
 class TestStruct(TestCase):
     def test_identity(self):
         for struct in generate_test_structs():
-            struct2 = map(lambda s: s, struct, recursive=False)
+            struct2 = map(lambda s: s, struct, recursive=False, validate_values=False)
             self.assertEqual(struct, struct2)
-            struct3 = map(lambda t: t, struct, recursive=True)
+            struct3 = map(lambda t: t, struct, recursive=True, validate_values=False)
+            a = struct == struct3
             self.assertEqual(struct, struct3)
-            struct4 = map(lambda t: t, struct, include_properties=True)
+            struct4 = map(lambda t: t, struct, include_properties=True, validate_values=False)
             self.assertEqual(struct, struct4)
 
     def test_flatten(self):
