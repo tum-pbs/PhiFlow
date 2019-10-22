@@ -8,7 +8,7 @@ import numpy as np
 def _to_valid_data(data):
     if data is None: return None
     if isinstance(data, (tuple, list)):
-        return np.array(data)
+        return np.array(data)  # numbers or objects
     else:
         return data
 
@@ -22,21 +22,25 @@ class Field(State):
         self._data = _to_valid_data(data)
         self._name = name
         self._bounds = bounds
-        if flags is None:
+        self._flags = flags
+        self.__validate_flags__()
+
+    def __validate_flags__(self):
+        if self._flags is None:
             self._flags = None
         else:
-            self._flags = tuple(set(flags))  # remove duplicates
-            for flag in flags:
+            self._flags = tuple(set(self._flags))  # remove duplicates
+            for flag in self._flags:
                 if not flag.is_applicable(self.rank, self.component_count):
                     raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
 
-    def copied_with(self, **kwargs):
-        if 'flags' in kwargs:
-            kwargs['flags'] = tuple(kwargs['flags'])
-        if 'data' in kwargs and 'flags' not in kwargs:
-            kwargs['flags'] = ()
-            kwargs['data'] = _to_valid_data(kwargs['data'])
-        return State.copied_with(self, **kwargs)
+    def __validate_data__(self):
+        self._data = _to_valid_data(self._data)
+
+    def __validate__(self, attribute_names=None):
+        if attribute_names is not None and 'data' in attribute_names and 'flags' not in attribute_names:
+            self._flags = ()
+        State.__validate__(self, attribute_names)
 
     @property
     def dtype(self):

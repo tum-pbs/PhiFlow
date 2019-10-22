@@ -4,7 +4,7 @@ from phi import math
 
 class ConstantField(Field):
 
-    __struct__ = Field.__struct__
+    __struct__ = State.__struct__.extend([], ['_data', '_bounds', '_name', '_flags'])
 
     def __init__(self, name, value=1.0, flags=(), batch_size=None):
         Field.__init__(self, name, None, _convert_constant_to_data(value), flags=flags, batch_size=batch_size)

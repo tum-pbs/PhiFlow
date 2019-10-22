@@ -5,7 +5,7 @@ from phi.solver.base import *
 from phi.math.initializers import _is_python_shape, zeros, np
 
 
-class Smoke(State):
+class Smoke(DomainState):
     __struct__ = State.__struct__.extend(('_density', '_velocity'),
                             ('_domain', '_buoyancy_factor', '_conserve_density'))
 
@@ -13,25 +13,22 @@ class Smoke(State):
                  density=0.0, velocity=0,
                  buoyancy_factor=0.1, conserve_density=False,
                  batch_size=None):
-        State.__init__(self, tags=('smoke', 'velocityfield'), batch_size=batch_size)
-        self._domain = domain
-        self._density = domain.centered_grid(density, name='density', batch_size=self._batch_size)
-        self._velocity = domain.staggered_grid(velocity, name='velocity', batch_size=self._batch_size)
+        DomainState.__init__(self, domain, tags=('smoke', 'velocityfield'), batch_size=batch_size)
+        self._density = density
+        self._velocity = velocity
         self._buoyancy_factor = buoyancy_factor
         self._conserve_density = conserve_density
         self.domaincache = None
-        self._last_pressure = None
-        self._last_pressure_iterations = None
+        self.__validate__()
 
     def default_physics(self):
         return SMOKE
 
-    def copied_with(self, **kwargs):
-        if 'density' in kwargs:
-            kwargs['density'] = self.domain.centered_grid(kwargs['density'], name='density', batch_size=self._batch_size)
-        if 'velocity' in kwargs:
-            kwargs['velocity'] = self.domain.staggered_grid(kwargs['velocity'], name='velocity', batch_size=self._batch_size)
-        return State.copied_with(self, **kwargs)
+    def __validate_density__(self):
+        self._density = self.centered_grid('density', self._density)
+
+    def __validate_velocity__(self):
+        self._velocity = self.staggered_grid('velocity', self._velocity)
 
     @property
     def density(self):
@@ -42,28 +39,12 @@ class Smoke(State):
         return self._velocity
 
     @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def rank(self):
-        return self.domain.rank
-
-    @property
     def buoyancy_factor(self):
         return self._buoyancy_factor
 
     @property
     def conserve_density(self):
         return self._conserve_density
-
-    @property
-    def last_pressure(self):
-        return self._last_pressure
-
-    @property
-    def last_pressure_iterations(self):
-        return self._last_pressure_iterations
 
     def __repr__(self):
         return "Smoke[density: %s, velocity: %s]" % (self.density, self.velocity)

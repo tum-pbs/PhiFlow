@@ -4,7 +4,7 @@ from .constant import _convert_constant_to_data, _expand_axes
 
 class GeometryMask(Field):
 
-    __struct__ = Field.__struct__.extend([], ['_geometries'])
+    __struct__ = State.__struct__.extend([], ['_geometries', '_bounds', '_name', '_flags'])
 
     def __init__(self, name, geometries, value=1.0, batch_size=None):
         Field.__init__(self, name, None, _convert_constant_to_data(value), batch_size=batch_size)

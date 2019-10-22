@@ -1,25 +1,23 @@
-from .smoke import initialize_field
 from phi.field import advect
 from .physics import *
 from .util import diffuse
+from .domain import *
 
 
-class Burger(State):
+class Burger(DomainState):
     __struct__ = State.__struct__.extend(('_velocity',), ('_domain', '_viscosity',))
 
     def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
-        State.__init__(self, tags=('burger', 'velocityfield'), batch_size=batch_size)
-        self._domain = domain
-        self._velocity = domain.centered_grid(velocity, 2, name='velocity', batch_size=self._batch_size)
+        DomainState.__init__(self, domain, tags=('burger', 'velocityfield'), batch_size=batch_size)
+        self._velocity = velocity
         self._viscosity = viscosity
+        self.__validate__()
 
     def default_physics(self):
         return BurgerPhysics()
 
-    def copied_with(self, **kwargs):
-        if 'velocity' in kwargs:
-            kwargs['velocity'] = self.domain.centered_grid(kwargs['velocity'], 2, name='velocity', batch_size=self._batch_size)
-        return State.copied_with(self, **kwargs)
+    def __validate_velocity__(self):
+        self._velocity = self.centered_grid('velocity', self._velocity, components=self.rank)
 
     @property
     def velocity(self):

@@ -1,6 +1,5 @@
 from .domain import *
 from .effect import *
-from .smoke import initialize_field
 
 
 
@@ -11,9 +10,13 @@ class QuantumWave(State):
     def __init__(self, domain, amplitude=1, is_normalized=False, mass=0.1, batch_size=None):
         State.__init__(self, tags=('qwave',), batch_size=batch_size)
         self._domain = domain
-        self._amplitude = initialize_field(amplitude, self.domain.shape(1, self._batch_size), dtype=np.complex64)
-        self._is_normalized = is_normalized
+        self._amplitude = amplitude
         self._mass = mass
+        self.__validate__()
+
+    def __validate_amplitude__(self):
+        self._amplitude = initialize_field(self._amplitude, self.domain.shape(1, self._batch_size), dtype=np.complex64)
+        raise NotImplementedError()
 
     @property
     def domain(self):
@@ -26,17 +29,6 @@ class QuantumWave(State):
     @property
     def mass(self):
         return self._mass
-
-    @property
-    def is_normalized(self):
-        return self._is_normalized
-
-    def copied_with(self, **kwargs):
-        if ('amplitude' in kwargs) and 'is_normalized' not in kwargs:
-            kwargs['is_normalized'] = False
-        if 'amplitude' in kwargs:
-            kwargs['amplitude'] = initialize_field(kwargs['amplitude'], self.domain.shape(1, self._batch_size), dtype=np.complex64)
-        return State.copied_with(self, **kwargs)
 
     def default_physics(self):
         return SCHROEDINGER

@@ -13,7 +13,7 @@ class StructBroadcastBackend(Backend):
                 if callable(function):
                     def context(fname=fname):
                         def proxy(*args, **kwargs):
-                            return self.broadcast_function(args[0], fname, *args[1:], **kwargs)
+                            return broadcast_function(self.backend, fname, args, kwargs)
                         return proxy
                     setattr(self, fname, context())
 
@@ -22,8 +22,59 @@ class StructBroadcastBackend(Backend):
             if struct.isstruct(value): return True
         return False
 
-    def broadcast_function(self, obj, func, *args, **kwargs):
-        backend_func = getattr(self.backend, func)
-        f = lambda x: backend_func(x, *args, **kwargs)
-        return struct.map(f, obj)
 
+def broadcast_function(backend, func, args, kwargs):
+    backend_func = getattr(backend, func)
+    obj, build_arguments = argument_assembler(args, kwargs)
+    def f(*values):
+        args, kwargs = build_arguments(values)
+        result = backend_func(*args, **kwargs)
+        return result
+    return struct.map(f, obj)
+
+
+def argument_assembler(args, kwargs):
+    structs, keymap = build_keymap(args, kwargs)
+    assert len(structs) > 0
+    if len(structs) == 1:
+        obj = structs[0]
+    else:
+        obj = struct.zip(structs)
+
+    def assemble_arguments(items):
+        args = []
+        kwargs = {}
+        i = 0
+        while i in keymap:
+            is_struct, value = keymap[i]
+            if is_struct:
+                value = items[value]
+            args.append(value)
+            i += 1
+        for key, (is_struct, value) in keymap.items():
+            if not isinstance(key, int):
+                if is_struct:
+                    value = items[value]
+                kwargs[key] = value
+        return args, kwargs
+
+    return obj, assemble_arguments
+
+
+def build_keymap(args, kwargs):
+    " maps key to (False, value) or (True, key); keys are integers for args and strings for kwargs "
+    map = {}
+    structs = []
+    for i, value in enumerate(args):
+        if struct.isstruct(value):
+            map[i] = (True, len(structs))
+            structs.append(value)
+        else:
+            map[i] = (False, value)
+    for key, value in kwargs.items():
+        if struct.isstruct(value):
+            map[key] = (True, len(structs))
+            structs.append(value)
+        else:
+            map[key] = (False, value)
+    return structs, map
