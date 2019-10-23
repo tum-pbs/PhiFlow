@@ -21,7 +21,7 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
     with anytype(): return map(f, struct, leaf_condition, recursive=True, trace=True)
 
 
-def zip(structs, leaf_condition=None):
+def zip(structs, leaf_condition=None, include_properties=False):
     assert len(structs) > 0
     first = structs[0]
     if isstruct(first, leaf_condition):
@@ -31,12 +31,12 @@ def zip(structs, leaf_condition=None):
     if not isstruct(first, leaf_condition):
         return LeafZip(structs)
 
-    dicts = [attributes(struct) for struct in structs]
+    dicts = [attributes(struct, include_properties=include_properties) for struct in structs]
     keys = dicts[0].keys()
     new_dict = {}
     for key in keys:
         values = [d[key] for d in dicts]
-        values = zip(values, leaf_condition)
+        values = zip(values, leaf_condition, include_properties=include_properties)
         new_dict[key] = values
     with anytype(): return copy_with(first, new_dict)
 
@@ -68,10 +68,7 @@ def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_pro
         else:
             return f(trace)
     else:
-        old_values = attributes(struct)
-        if include_properties:
-            for k, v in properties(struct).items():  # TODO properties can return lists
-                old_values[k] = v
+        old_values = attributes(struct, include_properties=include_properties)
         new_values = {}
         if not recursive:
             leaf_condition = lambda x: True

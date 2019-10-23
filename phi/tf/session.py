@@ -33,11 +33,12 @@ class Session(object):
         if feed_dict is not None:
             tensor_feed_dict = {}
             for (key, value) in feed_dict.items():
-                key_tensors = struct.flatten(key, include_properties=True)
-                value_tensors = struct.flatten(value, include_properties=True)
-                for key_tensor, value_tensor in zip(key_tensors, value_tensors):
+                pairs = struct.zip([key, value], include_properties=True)
+                def add_to_dict(key_tensor, value_tensor):
                     if isplaceholder(key_tensor):
                         tensor_feed_dict[key_tensor] = value_tensor
+                    return None
+                with struct.anytype(): struct.map(add_to_dict, pairs, include_properties=True)
 
         tensor_fetches = struct.flatten(fetches)
 

@@ -45,7 +45,8 @@ class CenteredGrid(Field):
 
     def __validate_data__(self):
         if self._data is None: return
-        assert len(self._data.shape) == self.box.rank + 2
+        assert len(math.staticshape(self._data)) == self.box.rank + 2,\
+            'Data has hape %s but box has rank %d' % (math.staticshape(self._data), self.box.rank)
 
     def sample_at(self, points, collapse_dimensions=True):
         local_points = self.box.global_to_local(points)

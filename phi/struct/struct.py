@@ -70,8 +70,9 @@ class Struct(object):
             if hasattr(self, validate_name):
                 getattr(self, validate_name)()
 
-    def __attributes__(self):
-        return {a.name: getattr(self, a.name) for a in self.__class__.__struct__.attributes}
+    def __attributes__(self, include_properties=False):
+        attrs = self.__class__.__struct__.all if include_properties else self.__class__.__struct__.attributes
+        return {a.name: getattr(self, a.name) for a in attrs}
 
     def __properties__(self):
         return {p.name: getattr(self, p.name) for p in self.__class__.__struct__.properties}
@@ -120,9 +121,9 @@ class Struct(object):
         return h
 
 
-def attributes(struct):
+def attributes(struct, include_properties=False):
     if isinstance(struct, Struct):
-        return struct.__attributes__()
+        return struct.__attributes__(include_properties=include_properties)
     if isinstance(struct, (list, tuple, np.ndarray)):
         return {i: struct[i] for i in range(len(struct))}
     if isinstance(struct, dict):
@@ -136,6 +137,7 @@ def properties(struct):
     if isinstance(struct, (list, tuple, dict, np.ndarray)):
         return {}
     raise ValueError("Not a struct: %s" % struct)
+
 
 
 def properties_dict(struct):
