@@ -1,5 +1,5 @@
 import numpy, os
-import plotly.figure_factory as ff
+
 
 from phi.field import *
 
@@ -11,6 +11,7 @@ TOP = 'top'
 # Vector display
 LENGTH = 'length'
 VECTOR2 = 'vec2'
+
 
 class PlotlyFigureBuilder(object):
 
@@ -222,6 +223,7 @@ class PlotlyFigureBuilder(object):
             
 
     def draw_vector_field(self, vector_field, library):
+        import plotly.figure_factory as ff
         x, y = numpy.meshgrid(numpy.arange(0, vector_field.shape[1], 1), numpy.arange(0, vector_field.shape[0], 1))
         if library == 'dash':
             if self.draw_arrows_backward:
