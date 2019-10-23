@@ -26,7 +26,7 @@ def zip(structs, leaf_condition=None, include_properties=False):
     first = structs[0]
     if isstruct(first, leaf_condition):
         for s in structs[1:]:
-            assert type(s) == type(first)
+            assert attributes(s, include_properties=include_properties).keys() == attributes(first, include_properties=include_properties).keys(), 'Cannot zip %s and %s' % (s, first)
 
     if not isstruct(first, leaf_condition):
         return LeafZip(structs)
