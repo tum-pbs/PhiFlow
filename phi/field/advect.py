@@ -14,10 +14,10 @@ Semi-Lagrangian advection with simple backward lookup.
         v = velocity_field.at(x0)
         x = x0 - v * dt
         data = field.sample_at(x.data)
-        return field.copied_with(data=data)
+        return field.with_data(data)
     except StaggeredSamplePoints:
         advected = [look_back(component, velocity_field, dt) for component in field.unstack()]
-        return field.copied_with(data=advected)
+        return field.with_data(advected)
 
 
 # def points(point_cloud, velocity_field, dt):

@@ -33,7 +33,7 @@ class Session(object):
         if feed_dict is not None:
             tensor_feed_dict = {}
             for (key, value) in feed_dict.items():
-                pairs = struct.zip([key, value], include_properties=True)
+                pairs = struct.zip([key, value], include_properties=True, zip_parents_if_incompatible=True)
                 def add_to_dict(key_tensor, value_tensor):
                     if isplaceholder(key_tensor):
                         tensor_feed_dict[key_tensor] = value_tensor

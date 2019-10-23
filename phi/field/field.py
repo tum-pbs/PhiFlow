@@ -36,11 +36,8 @@ class Field(State):
     def __validate_data__(self):
         self._data = _to_valid_data(self._data)
 
-    def __validate__(self, attribute_names=None):
-        if struct.skip_validate(): return
-        if attribute_names is not None and 'data' in attribute_names and 'flags' not in attribute_names:
-            self._flags = ()
-        State.__validate__(self, attribute_names)
+    def with_data(self, data):
+        return self.copied_with(data=data, flags=())
 
     @property
     def dtype(self):

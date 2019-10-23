@@ -190,5 +190,3 @@ def isstruct(object, leaf_condition=None):
     if leaf_condition is not None and leaf_condition(object):
         return False
     return True
-
-

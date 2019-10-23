@@ -94,4 +94,4 @@ Scalar channel encoding cells that are accessible, i.e. not solid, as ones and o
         with struct.anytype():
             components = [field.CenteredGrid(None, None, t, None, None) for t in tensors]
             data = field.complete_staggered_properties(components, velocity)
-        return velocity.copied_with(data=data)
+        return velocity.with_data(data)

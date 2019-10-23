@@ -21,12 +21,16 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
     with anytype(): return map(f, struct, leaf_condition, recursive=True, trace=True)
 
 
-def zip(structs, leaf_condition=None, include_properties=False):
+def zip(structs, leaf_condition=None, include_properties=False, zip_parents_if_incompatible=False):
     assert len(structs) > 0
     first = structs[0]
     if isstruct(first, leaf_condition):
         for s in structs[1:]:
-            assert attributes(s, include_properties=include_properties).keys() == attributes(first, include_properties=include_properties).keys(), 'Cannot zip %s and %s' % (s, first)
+            if attributes(s, include_properties=include_properties).keys() != attributes(first, include_properties=include_properties).keys():
+                if zip_parents_if_incompatible:
+                    return LeafZip(structs)
+                else:
+                    raise IncompatibleStructs('Cannot zip %s and %s' % (s, first))
 
     if not isstruct(first, leaf_condition):
         return LeafZip(structs)
@@ -36,7 +40,7 @@ def zip(structs, leaf_condition=None, include_properties=False):
     new_dict = {}
     for key in keys:
         values = [d[key] for d in dicts]
-        values = zip(values, leaf_condition, include_properties=include_properties)
+        values = zip(values, leaf_condition, include_properties, zip_parents_if_incompatible)
         new_dict[key] = values
     with anytype(): return copy_with(first, new_dict)
 
@@ -54,6 +58,11 @@ class LeafZip(object):
 
     def __str__(self):
         return str(self.values)
+
+
+class IncompatibleStructs(Exception):
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
 
 
 def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):

@@ -9,4 +9,4 @@ def diffuse(field, amount):
     k = math.fftfreq(field.resolution, mode='square')
     fft_laplace = -(2 * pi) ** 2 * k
     diffuse_kernel = math.exp(fft_laplace * amount)
-    return field.copied_with(data=math.ifft(frequencies * diffuse_kernel))
+    return field.with_data(math.ifft(frequencies * diffuse_kernel))
