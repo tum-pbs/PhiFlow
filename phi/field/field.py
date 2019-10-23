@@ -234,11 +234,11 @@ def propagate_flags_operation(flags, is_linear, result_rank, result_components):
     return tuple(result)
 
 
-def broadcast_at(f1, f2):
-    if f1.component_count != f2.component_count and f1.component_count != 1:
-        raise IncompatibleFieldTypes('Can only resample to staggered fields with same number of components.\n%s\n%s' % (f1, f2))
-    if f1.component_count == 1:
-        new_components = [f1.at(f2) for f2 in f2.unstack()]
+def broadcast_at(field1, field2):
+    if field1.component_count != field2.component_count and field1.component_count != 1:
+        raise IncompatibleFieldTypes('Can only resample to staggered fields with same number of components.\n%s\n%s' % (field1, field2))
+    if field1.component_count == 1:
+        new_components = [field1.at(f2) for f2 in field2.unstack()]
     else:
-        new_components = [f1.at(f2) for f1, f2 in zip(f1.unstack(), f2.unstack())]
-    return f2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(f1, f2.flags, f2.rank))
+        new_components = [f1.at(f2) for f1, f2 in zip(field1.unstack(), field2.unstack())]
+    return field2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(field1, field2.flags, field2.rank))
