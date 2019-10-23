@@ -108,20 +108,22 @@ class TFModel(FieldSequenceModel):
 
         return self
 
-    def set_data(self, train, placeholders, channels=None, val=None):
+    def set_data(self, dict, train=None, val=None):
         if train is not None or val is not None:
-            assert placeholders is not None
-            if channels is None:
-                channels = struct.map(lambda s: s.replace('.', '_'), struct.names(placeholders))  # TODO this is already defined in fluidformat
-            if isinstance(placeholders, list):
-                placeholders = tuple(placeholders)  # make placeholders hashable
-            hash(placeholders)
+            assert dict is not None
         self._training_set = train
         self._validation_set = val
-        self._placeholders = placeholders
+        self._placeholder_struct = []
+        self._channel_struct = []
+        if dict is not None:
+            for key, value in dict.items():
+                self._placeholder_struct.append(key)
+                self._channel_struct.append(value)
+        self._channel_struct = tuple(self._channel_struct)
+        self._placeholder_struct = tuple(self._placeholder_struct)
         # Train
         if self._training_set is not None:
-            self._train_reader = BatchReader(self._training_set, channels)
+            self._train_reader = BatchReader(self._training_set, self._channel_struct)
             self._train_iterator = self._train_reader.all_batches(batch_size=self.training_batch_size, loop=True)
         else:
             self._train_reader = None
@@ -129,7 +131,7 @@ class TFModel(FieldSequenceModel):
         # Val
         if self._validation_set is not None:
             self.value_view_training_data = False
-            self._val_reader = BatchReader(self._validation_set, channels)
+            self._val_reader = BatchReader(self._validation_set, self._channel_struct)
         else:
             self._val_reader = None
 
@@ -190,7 +192,7 @@ class TFModel(FieldSequenceModel):
         feed_dict.update(self.editable_values_dict())
         feed_dict[self.training] = training
         if batch is not None:
-            feed_dict[self._placeholders] = batch
+            feed_dict[self._placeholder_struct] = batch
         return feed_dict
 
     # def val(self, fetches, subrange=None):

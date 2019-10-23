@@ -1,6 +1,5 @@
 # coding=utf-8
 import tensorflow as tf
-from phi.math.nd import *
 from tensorflow.python import pywrap_tensorflow
 from phi.math.initializers import _is_python_shape
 from phi.field import *

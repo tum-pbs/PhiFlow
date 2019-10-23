@@ -39,7 +39,8 @@ class State(struct.Struct):
             default_batched_shape = staticshape(tensor)
             if len(default_batched_shape) >= 2:
                 return (self._batch_size,) + default_batched_shape[1:]
-        return struct.map(tensorshape, self)
+        with struct.anytype():
+            return struct.map(tensorshape, self)
 
 
 class Physics(object):
