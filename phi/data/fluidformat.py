@@ -3,6 +3,7 @@ import numpy as np
 import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
 from phi import struct, field
+import logging
 
 
 def read_zipped_array(filename):
@@ -277,14 +278,19 @@ class Scene(object):
             indices = [i for i in indices if indexfilter(i)]
         if max_count and len(indices) >=  max_count:
             indices = indices[0:max_count]
+        indices = sorted(indices)
+        if len(indices)==0:
+            logging.warning("No simulations sim_XXXXXX found in '%s'" % root_path)
         return [Scene(directory, category, scene_index) for scene_index in indices]
 
     @staticmethod
     def at(sim_dir):
         sim_dir = os.path.expanduser(sim_dir)
+        if sim_dir[-1]=='/':  # remove trailing backslash
+            sim_dir = sim_dir[0:-1]
         dirname = os.path.basename(sim_dir)
         if not dirname.startswith("sim_"):
-            raise ValueError("%s is not a valid scene directory."%sim_dir)
+            raise ValueError("%s with dir %s is not a valid scene directory."%(sim_dir,dirname))
         category_directory = os.path.dirname(sim_dir)
         category = os.path.basename(category_directory)
         directory = os.path.dirname(category_directory)

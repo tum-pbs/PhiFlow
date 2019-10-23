@@ -18,7 +18,9 @@ This has a couple of benefits:
 
 ### Simple Example
 
-The following example trains a neural network, referenced as `network` to predict a force channel from two velocity fields.
+The following toy example trains a neural network, instanced via the `network()` function to predict 
+the velocity based on a density input (note that this is in general not possible, only for very simple
+data sets such as the ones used in this example).
 
 ```python
 from phi.tf.flow import *
@@ -30,34 +32,32 @@ class TrainingTest(TFModel):
         smoke = world.Smoke(Domain([64] * 2), density=placeholder, velocity=placeholder)
 
         with self.model_scope():
-            pred_force = network(smoke.density, smoke.devlocity)
-        loss = l2_loss(pred_force - true_force)
+            pred_vel = network(smoke.density)
+        loss = l2_loss(pred_vel - smoke.velocity)
         self.add_objective("Supervised_Loss", loss)
         
-        self.set_data(val=Dataset.load('~/phi/data/simpleplume', range(10)),
-                      train=Dataset.load('~/phi/data/simpleplume', range(10,100)),
-                      placeholders=smoke)
+        self.set_data(train=Dataset.load('~/phi/simpleplume', range(0,8)),
+                      val=Dataset.load('~/phi/simpleplume', range(8,10)),
+                      placeholders=smoke.state)
 
-        self.add_field("Force (Ground Truth)", "Force")
-        self.add_field("Force (Model)", pred_force)
+        self.add_field("Velocity (Ground Truth)", smoke.velocity)
+        self.add_field("Velocity (Model)", pred_vel)
 
 app = TrainingTest().show(production=__name__!="__main__")
 ```
 
 Let's go over what's happening here in detail.
-First, the app calls the super constructor, passing only the app's name.
-Next, a fluid simulation state is initialized with placeholders and added to the world.
+First, the app calls the super constructor, passing only the app's name. Additional parameters
+such as learning rate or batch size could be configured here.
+Next, a fluid simulation state for a 64x64 2D flow is initialized with placeholders and added to the world.
 
-The following three lines create input fields for TensorFlow's graph. We allow the true_force tensor to be scaled by a user-defined value which can be set in the GUI.
-
-Now that the network inputs are set up, the network can be built. The use of `with self.model_scope()` ensures that the network parameters can be saved and loaded automatically and from the GUI.
+Now the network can be built. The use of `with self.model_scope()` ensures that the network parameters can be saved and loaded automatically and from the GUI.
 The `l2_loss` is part of Φ<sub>*Flow*</sub>'s n-d math package but a regular TensorFlow loss can also be used.
-The inherited method `add_objective` sets up the optimizer. This optimizer will be used in the default `step` implementation.
+The inherited method `add_objective` sets up the optimizer (ADAM by default). This optimizer will be used in the default `step` implementation.
 
-The following block sets up the database by registering the required fields and adding all scenes from one category (see [the data documentation](Reading_and_Writing_Data.md) for more).
-The call to `finalize_setup` is mandatory in the constructor and sets up the TensorFlow summary as well as database iterators.
+The following block sets up the data by registering the required fields (the placeholders), and by adding several sims from a data directory as training and validation data (see [the data documentation](Reading_and_Writing_Data.md) for more details).
 
-Finally, the viewable fields are exposed to the GUI. The first line exposes the channel `Force` which was registered with the database while the second line exposes the graph output `pred_force` which will be recalculated each time the GUI is updated.
+Finally, the viewable fields are exposed to the GUI. The first line exposes the simulation velocities which was registered, while the second line exposes the graph output `pred_force` which will be recalculated each time the GUI is updated.
 
 Lastly, the app is instantiated and the GUI created in the same way as with a [FieldSequenceModel](../phi/model.py).
-
+You can find a full implementation of this example with a small test conv-net [as part of sources](../apps/simple_tfmodel.py).

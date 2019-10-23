@@ -5,7 +5,7 @@ If you are interested in how specific simulations work, check out their respecti
 [Smoke](documentation/smoke.md).
 
 
-### States and physics objects
+### States and Physics objects
 
 For each simulation type, there are two distinct entities:
 
@@ -91,8 +91,11 @@ While this extra code is unavoidable for machine learning applications, if you a
 can add the states to a world (e.g. using `world.Smoke` instead of `Smoke`) and call the function
 `tf_bake_graph(session, world)` to automatically convert all physics objects to TensorFlow graph executions.
 
+The similarities and differences of NumPy vs TensorFlow are illustrated in the example 
+[runsim_numpy_or_tf.py](../apps/runsim_numpy_or_tf.py) for a simple custom smoke simulatin.
 
-## Simlified API with world
+
+## Simplified API with world
 
 Worlds provide a simplified interface in which states seem mutable (though in reality they are not).
 This is achieved in the following way:

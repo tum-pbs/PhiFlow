@@ -22,7 +22,7 @@ class SmokeDataGen(FieldSequenceModel):
 
     def __init__(self):
         FieldSequenceModel.__init__(self, 'SmokeDataGen', howto, stride=16, base_dir='~/phi/data')
-        self.smoke = world.Smoke(Domain([100, 64]), density=random_density, velocity=random_velocity)
+        self.smoke = world.Smoke(Domain([64, 64]), density=random_density, velocity=random_velocity)
         self.add_field('Density', lambda: self.smoke.density)
         self.add_field('Velocity', lambda: self.smoke.velocity)
         self.add_field('Domain', lambda: self.smoke.domaincache.accessible(1))
