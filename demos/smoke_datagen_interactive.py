@@ -21,7 +21,7 @@ random_velocity = lambda shape: math.randfreq(shape, power=32) * 2
 class SmokeDataGen(FieldSequenceModel):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, 'SmokeDataGen', howto, stride=16, base_dir='~/phi/data')
+        FieldSequenceModel.__init__(self, 'SmokeDataGen', howto, stride=16, base_dir='~/phi/data', summary='smoke')
         self.smoke = world.Smoke(Domain([64, 64]), density=random_density, velocity=random_velocity)
         self.add_field('Density', lambda: self.smoke.density)
         self.add_field('Velocity', lambda: self.smoke.velocity)

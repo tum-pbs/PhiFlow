@@ -1,6 +1,7 @@
 from phi.tf.flow import *
 import os
 
+
 # this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
 # from the simulations sim_XXXXXX in the given directory
 scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume'
@@ -43,6 +44,7 @@ class DataLoader(TFModel):
         print("MantaScalar demo done, %d batches read " % i)
 
         exit(1)
+
 
 # note, no GUI , use viewer.py instead to display
 app = DataLoader()
