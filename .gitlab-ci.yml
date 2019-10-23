@@ -6,13 +6,12 @@ build:pip:
     stage: build
     image: python:2.7
     script:
-        - pip install tensorflow==1.10.0
-        - pip install .
+        - pip install tensorflow==1.10.0 --user
+        - pip install . --user
 
 test:pytest:
     stage: test
     image: python:2.7
     script:
         - pip install pytest==4.6.4 --quiet
-        - pytest --version
         - pytest
