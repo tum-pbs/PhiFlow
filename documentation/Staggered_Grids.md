@@ -6,7 +6,7 @@ The main advantage of Staggered grids is that it makes computing the divergence 
 
 ![image](./figures/Staggered.png)
 
-In Φ<sub>*Flow*</sub>, staggered grids are represented as instances of [StaggeredGrid](../phi/math/nd.py). They have one more entry in every spatial dimension than corresponding centered fields since the upper face of the upper most cell needs to be included as well.
+In Φ<sub>*Flow*</sub>, staggered grids are represented as instances of [StaggeredGrid](../phi/field/staggered_grid.py) and implement the [Field API](Fields.md). They have one more entry in every spatial dimension than corresponding centered fields since the upper face of the upper most cell needs to be included as well.
 
 Staggered grids can either be created directly from an array or tensor holding the staggered values or
 using an initializer,
