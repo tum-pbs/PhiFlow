@@ -18,22 +18,18 @@ else:
     from phi.tf.flow import *
 
 
-smoke = Smoke(Domain([res] * dim, boundaries=OPEN), batch_size=batch_size)  # by default, creates a numpy state, i.e. "smoke.density.data" is a numpy array
+# by default, creates a numpy state, i.e. "smoke.density.data" is a numpy array
+smoke = Smoke(Domain([res] * dim, boundaries=OPEN), batch_size=batch_size)
+
 if use_numpy:
     density = smoke.density
     velocity = smoke.velocity
 else:
     session = Session(Scene.create('data'))
-    smoke_in = smoke.copied_with(density=placeholder, velocity=placeholder)  # creates TF placeholder with the correct shapes
+    # create TF placeholders with the correct shapes
+    smoke_in = smoke.copied_with(density=placeholder, velocity=placeholder)
     density = smoke_in.density
     velocity = smoke_in.velocity
-
-
-obstacles = []  # optionally, obstacles can be added here
-# if dim==2:
-#    obstacles = [ Obstacle(box[ (res//4*3):(res//4*3+2), (res//4*1):(res//4*3) ]) ] 
-# if dim==3:
-#    obstacles = [ Obstacle(box[(res//4*3):(res//4*3+2), (res//4*1):(res//4*3), (res//4*1):(res//4*3)]) ]
 
 
 from PIL import Image  # this example does not use the dash GUI, instead it creates PNG images via PIL
@@ -41,7 +37,7 @@ import os
 os.path.exists('images') or os.mkdir('images')
 
 
-def saveImg(a, scale, name, idx=0):
+def save_img(a, scale, name, idx=0):
     if len(a.shape) <= 4:
         ima = np.reshape(a[idx], [a.shape[1], a.shape[2]])  # remove channel dimension , 2d
     else:
@@ -55,14 +51,15 @@ def saveImg(a, scale, name, idx=0):
 # main , step 1: run smoke sim (numpy), or only set up graph for TF
 
 for i in range(steps if use_numpy else graph_steps):
-    # simulation step; note that the core is only 4 lines for the actual simulation
+    # simulation step; note that the core is only 3 lines for the actual simulation
     # the rest is setting up the inflow, and debug info afterwards
 
     inflow_density = math.zeros_like(smoke.density)
     if dim == 2:
-        inflow_density.data[..., (res // 4):(res // 2), (res // 4):(res // 2), 0] = 1.
+        inflow_density.data[..., (res // 4):(res // 2), (res // 4):(res // 2), 0] = 1.  # (batch, y, x, components)
     else:
-        inflow_density.data[..., (res // 4):(res // 2), (res // 4 * 1):(res // 4 * 3), (res // 4):(res // 2),0] = 1.  # center along y
+        # (batch, z, y, x, components), center along y
+        inflow_density.data[..., (res // 4):(res // 2), (res // 4 * 1):(res // 4 * 3), (res // 4):(res // 2),0] = 1.
 
     density = advect.semi_lagrangian(density, velocity, dt) + dt * inflow_density
     velocity = advect.semi_lagrangian(velocity, velocity, dt) + buoyancy(density, 9.81, smoke.buoyancy_factor) * dt
@@ -73,7 +70,7 @@ for i in range(steps if use_numpy else graph_steps):
 
     if use_numpy:
         if (i % graph_steps == graph_steps - 1):
-            saveImg(density.data, 10000., "images/numpy_%04d.png" % i)
+            save_img(density.data, 10000., "images/numpy_%04d.png" % i)
         print("Numpy step %d done, means %s %s" % (i, np.mean(density.data), np.mean(velocity.staggered_tensor())))
     else:
         print("TF graph created for step %d " % i)
@@ -87,15 +84,10 @@ if not use_numpy:
 
     # run session
     for i in range(1 if use_numpy else (steps // graph_steps)):
-        # version 1: using phiflow states (i.e., smoke states in this case)
-        smoke = session.run(smoke_out, {smoke_in: smoke})
-        # out_vel = smoke.velocity.staggered_tensor()
+        smoke = session.run(smoke_out, feed_dict={smoke_in: smoke})  # Passes density and velocity tensors
 
-        # version 2 (alternative), using explicit lists
-        # (outDens, outVel) = session.run( (smoke_out.density,smoke_out.velocity), {smoke_in: smoke_in_data })
-
-        # for TF, we only have results now after each graph_steps iterations, write images
-        saveImg(smoke.density.data, 10000., "images/tf_%04d.png" % (graph_steps * (i + 1) - 1))
+        # for TF, we only have results now after each graph_steps iterations
+        save_img(smoke.density.data, 10000., "images/tf_%04d.png" % (graph_steps * (i + 1) - 1))
 
         print("Step session.run %04d done, density shape %s, means %s %s" %
               (i, smoke.density.data.shape, np.mean(smoke.density.data), np.mean(smoke.velocity.staggered_tensor())))
