@@ -22,7 +22,7 @@ class MarkerDemo(FieldSequenceModel):
 
     def step(self):
         world.step()
-        self.marker = advect.look_back(self.marker, self.smoke.velocity, 1)
+        self.marker = advect.semi_lagrangian(self.marker, self.smoke.velocity, 1)
 
 
 app = MarkerDemo().show(production=__name__ != '__main__')

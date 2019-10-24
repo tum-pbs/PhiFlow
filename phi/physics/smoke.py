@@ -68,8 +68,8 @@ class SmokePhysics(Physics):
         if self.make_input_divfree:
             velocity = divergence_free(velocity, smoke.domain, obstacle_mask, pressure_solver=self.pressure_solver)
         # --- Advection ---
-        density = advect.look_back(density, velocity, dt=dt)
-        velocity = advect.look_back(velocity, velocity, dt=dt)
+        density = advect.semi_lagrangian(density, velocity, dt=dt)
+        velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
         # --- Density effects ---
         for effect in density_effects:
             density = effect_applied(effect, density, dt)

@@ -40,7 +40,7 @@ class BurgerPhysics(Physics):
     def step(self, state, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
         v = state.velocity
-        v = advect.look_back(v, v, dt)
+        v = advect.semi_lagrangian(v, v, dt)
         v = diffuse(v, dt * state.viscosity)
         return state.copied_with(velocity=v, age=state.age + dt)
 

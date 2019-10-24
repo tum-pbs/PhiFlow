@@ -64,8 +64,8 @@ for i in range(steps if use_numpy else graph_steps):
     else:
         inflow_density.data[..., (res // 4):(res // 2), (res // 4 * 1):(res // 4 * 3), (res // 4):(res // 2),0] = 1.  # center along y
 
-    density = advect.look_back(density, velocity, dt) + dt * inflow_density
-    velocity = advect.look_back(velocity, velocity, dt) + buoyancy(density, 9.81, smoke.buoyancy_factor) * dt
+    density = advect.semi_lagrangian(density, velocity, dt) + dt * inflow_density
+    velocity = advect.semi_lagrangian(velocity, velocity, dt) + buoyancy(density, 9.81, smoke.buoyancy_factor) * dt
     velocity = divergence_free(velocity, smoke.domain, obstacle_mask=None)
 
     if i == 0:

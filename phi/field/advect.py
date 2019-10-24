@@ -1,7 +1,7 @@
 from .field import *
 
 
-def look_back(field, velocity_field, dt):
+def semi_lagrangian(field, velocity_field, dt):
     """
 Semi-Lagrangian advection with simple backward lookup.
     :param field: Field to be advected
@@ -16,7 +16,7 @@ Semi-Lagrangian advection with simple backward lookup.
         data = field.sample_at(x.data)
         return field.with_data(data)
     except StaggeredSamplePoints:
-        advected = [look_back(component, velocity_field, dt) for component in field.unstack()]
+        advected = [semi_lagrangian(component, velocity_field, dt) for component in field.unstack()]
         return field.with_data(advected)
 
 
