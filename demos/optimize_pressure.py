@@ -22,7 +22,7 @@ class PressureOptim(TFModel):
         target_velocity *= self.editable_int("Target_Direction", 1, [-1, 1])
 
         # Optimization
-        loss = l2_loss(velocity.staggered_tensor()[:, :, 31:, :] - target_velocity[:, :, 31:, :])
+        loss = math.l2_loss(velocity.staggered_tensor()[:, :, 31:, :] - target_velocity[:, :, 31:, :])
         self.add_objective(loss, "Loss")
 
         self.add_field("Var", optimizable_velocity)
