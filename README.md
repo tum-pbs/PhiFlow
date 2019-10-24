@@ -47,6 +47,7 @@ If you would like to get right into it and have a look at some example code, che
 
 The [simulation overview](documentation/Simulation_Overview.md) explains how to run predefined simulations using either the [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md) backend. It also introduces the GUI.
 The [simulation code design documentation](documentation/Simulation_Architecture.md) provides a deeper look into the object-oriented code design of simulations.
+The [software architecture documentation](documentation/Software_Architecture.md) shows the building blocks of Φ<sub>*Flow*</sub> and the module dependencies.
 
 All simulations of continuous systems are based on the [Field API](documentation/Fields.md).
 To learn how specific simulations are implemented, check out the documentation for [Smoke](documentation/Smoke_Simulation.md) or read about [staggered grids](documentation/Staggered_Grids.md) or [pressure solvers](documentation/Pressure_Solvers.md). 
