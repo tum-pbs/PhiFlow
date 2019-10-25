@@ -94,13 +94,13 @@ class World(object):
     """
 
     def __init__(self, batch_size=None, add_default_objects=True):
-        self.reset(batch_size, add_default_objects)
         # --- Insert object / create proxy shortcuts ---
         for proxy in ('Gravity',
                       'Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
                       'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect',
                       'QuantumWave', 'StepPotential'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
+        self.reset(batch_size, add_default_objects)
 
     Gravity = Gravity
     Smoke = Smoke
@@ -123,7 +123,7 @@ class World(object):
         self.observers = set()
         self.batch_size = batch_size
         if add_default_objects:
-            self.Gravity()
+            self.add(Gravity())
 
     @property
     def state(self):

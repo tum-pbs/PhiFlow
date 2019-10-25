@@ -30,4 +30,4 @@ class PressureOptim(TFModel):
         self.add_field("Target Velocity", target_velocity)
 
 
-app = PressureOptim().show(display=("Final Velocity", "Target Velocity"), production=__name__!="__main__")
+show(PressureOptim, display=("Final Velocity", "Target Velocity"))

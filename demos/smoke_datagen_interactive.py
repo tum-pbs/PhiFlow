@@ -39,4 +39,4 @@ class SmokeDataGen(FieldSequenceModel):
         self.scene.write(self.smoke.state, frame=self.steps)
 
 
-SmokeDataGen().show(display=('Density', 'Velocity'), sequence_count=4)
+show(SmokeDataGen(), display=('Density', 'Velocity'), sequence_count=4)

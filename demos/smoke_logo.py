@@ -39,5 +39,5 @@ class SmokeLogo(FieldSequenceModel):
         self.smoke.density = self.smoke.velocity = 0
 
 
-app = SmokeLogo([int(sys.argv[1])] * 2 if len(sys.argv) > 1 and __name__ == '__main__' else [128] * 2)\
-    .show(display=('Density', 'Velocity'), framerate=2, production=__name__ != '__main__')
+show(SmokeLogo([int(sys.argv[1])] * 2 if len(sys.argv) > 1 and __name__ == '__main__' else [128] * 2),
+     display=('Density', 'Velocity'), framerate=2)
