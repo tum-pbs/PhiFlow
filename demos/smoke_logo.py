@@ -32,7 +32,6 @@ class SmokeLogo(FieldSequenceModel):
         self.add_field('Density', lambda: smoke.density)
         self.add_field('Velocity', lambda: smoke.velocity)
         self.add_field('Domain', lambda: obstacle_mask(smoke).at(smoke.density))
-        self.add_field('Pressure', lambda: smoke.last_pressure)
         self.add_field('Remaining Divergence', lambda: smoke.velocity.divergence())
 
     def action_reset(self):
@@ -40,5 +39,5 @@ class SmokeLogo(FieldSequenceModel):
         self.smoke.density = self.smoke.velocity = 0
 
 
-app = SmokeLogo([int(sys.argv[1])] * 2 if len(sys.argv) > 1 else [128] * 2)\
+app = SmokeLogo([int(sys.argv[1])] * 2 if len(sys.argv) > 1 and __name__ == '__main__' else [128] * 2)\
     .show(display=('Density', 'Velocity'), framerate=2, production=__name__ != '__main__')

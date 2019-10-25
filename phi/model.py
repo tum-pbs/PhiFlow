@@ -1,6 +1,7 @@
 # coding=utf-8
 from __future__ import print_function
 import logging, os, numbers, six, numpy, threading, inspect, time, sys
+import warnings
 from os.path import isfile
 from phi.data.fluidformat import Scene
 import phi.math.nd
@@ -271,20 +272,9 @@ class FieldSequenceModel(object):
         return self.summary
 
     def show(self, *args, **kwargs):
-        headless = 'headless' in sys.argv
-        gui = None
-        if not headless:
-            from phi.viz.dash_gui import DashFieldSequenceGui
-            gui = DashFieldSequenceGui(self, *args, **kwargs)
-        # --- Autorun ---
-        if 'autorun' in sys.argv:
-            self.info('Starting execution because autorun is enabled.')
-            self.play()
-        # --- Show ---
-        if gui is None:
-            return self
-        else:
-            return gui.show()  # blocking call
+        warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
+        from .viz.display import show
+        show(self, *args, **kwargs)
 
     @property
     def status(self):

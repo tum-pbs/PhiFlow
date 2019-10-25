@@ -93,11 +93,8 @@ class World(object):
     The method world.step() evolves the whole state or optionally a specific state in time.
     """
 
-    def __init__(self, batch_size=None):
-        self._state = CollectiveState()
-        self.physics = self._state.default_physics()
-        self.observers = set()
-        self.batch_size = batch_size
+    def __init__(self, batch_size=None, add_default_objects=True):
+        self.reset(batch_size, add_default_objects)
         # --- Insert object / create proxy shortcuts ---
         for proxy in ('Gravity',
                       'Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
@@ -120,6 +117,13 @@ class World(object):
     QuantumWave = QuantumWave
     StepPotential = StepPotential
 
+    def reset(self, batch_size=None, add_default_objects=True):
+        self._state = CollectiveState()
+        self.physics = self._state.default_physics()
+        self.observers = set()
+        self.batch_size = batch_size
+        if add_default_objects:
+            self.Gravity()
 
     @property
     def state(self):
@@ -196,7 +200,6 @@ Invoking this method alters the world state. To to_field a copy of the state, us
 
 
 world = World()
-world.Gravity()
 
 
 def obstacle_mask(world_or_proxy):

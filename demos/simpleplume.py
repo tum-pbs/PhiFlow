@@ -11,4 +11,4 @@ class Simpleplume(FieldSequenceModel):
         self.add_field('Velocity', lambda: smoke.velocity)
 
 
-app = Simpleplume().show(production=__name__ != '__main__')
+show()

@@ -6,13 +6,14 @@ import dash, dash_core_components as dcc, dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from phi.viz.plot import *
+from .plot import *
+from .display import ModelDisplay
 try:
     import phi.tf.profiling
 except:
     pass
 
-class DashFieldSequenceGui:
+class DashFieldSequenceGui(ModelDisplay):
 
     def __init__(self, field_sequence_model,
                  display=None, depth=0, batch=0,
@@ -22,6 +23,7 @@ class DashFieldSequenceGui:
                  production=False,
                  port=None,
                  tb_port=6006):
+        ModelDisplay.__init__(self, field_sequence_model)
         self.model = field_sequence_model
         istf = 'tensorflow' in self.model.traits
         hasmodel = 'model' in self.model.traits
@@ -302,7 +304,7 @@ class DashFieldSequenceGui:
         @self.app.callback(Output('button-start', 'style'), [Input('button-start', 'n_clicks')])
         def start_simulation(n_clicks):
             if n_clicks and not self.model.running:
-                self.model.play(framerate=self.framerate)
+                self.play()
             return {}
 
         @self.app.callback(Output('button-pause', 'style'), [Input('button-pause', 'n_clicks')])
@@ -557,6 +559,9 @@ class DashFieldSequenceGui:
             if port is not None: logging.warning('Port request %d ignored because production server used.')
             return self.app.server
 
+    def play(self):
+        self.model.play(framerate=self.framerate)
+
     def create_figure(self, figindex, view, batch, depth, component):
         self.figures.view = view
         self.figures.select_batch(batch)
@@ -584,6 +589,8 @@ class DashFieldSequenceGui:
         figure = self.figures.empty_figure(library='dash')
         figure.update({'layout': {'height': 700}})
         return figure
+
+
 
 
 def create_sliders(controls):
