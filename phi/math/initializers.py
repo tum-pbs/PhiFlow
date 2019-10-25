@@ -1,12 +1,12 @@
 from phi import struct
-from .nd import upsample2x
+from .nd import fftfreq
 from .base import backend as math
 import numpy as np
 from numbers import Number
 
 
 def _is_python_shape(obj):
-    if not isinstance(obj, (tuple, list)): return False
+    if not isinstance(obj, (tuple, list, np.ndarray)): return False
     for element in obj:
         if not isinstance(element, Number) and element is not None: return False
     return True
@@ -18,7 +18,7 @@ def _none_to_one(shape):
 
 
 def zeros(shape, dtype=np.float32):
-    f = lambda s: np.zeros(_none_to_one(s), dtype)
+    f = lambda s: np.zeros(_none_to_one(s), dtype=dtype)
     return struct.map(f, shape, leaf_condition=_is_python_shape)
 
 
@@ -32,20 +32,19 @@ def ones(shape, dtype=np.float32):
     return struct.map(f, shape, leaf_condition=_is_python_shape)
 
 
-def randn(mean=0, sigma=1, levels=(1.0,)):  # TODO pass mean, sigma, doesn't correctly scale staggered grids
-    def randn_impl(shape, dtype=np.float32):
-        return struct.map(lambda s: _random_tensor(s, levels, dtype) * sigma + mean, shape, leaf_condition=_is_python_shape)
-    return randn_impl
+def randn(shape, dtype=np.float32):
+    f = lambda s: np.random.randn(*_none_to_one(s)).astype(dtype)
+    return struct.map(f, shape, leaf_condition=_is_python_shape)
 
 
-def _random_tensor(shape, levels, dtype):
-    shape = _none_to_one(shape)
-    result = 0
-    for i in range(len(levels)): # high-res first
-        lowres_shape = np.array(shape)
-        lowres_shape[1:-1] //= 2 ** i
-        rnd = np.random.randn(*lowres_shape) * levels[i]
-        for j in range(i):
-            rnd = upsample2x(rnd)
-        result = result + rnd
-    return result.astype(dtype)
+def randfreq(shape, dtype=np.float32, power=8):
+    def genarray(shape):
+        fft = randn(shape, dtype) + 1j * randn(shape, dtype)
+        k = fftfreq(shape[1:-1], mode='absolute')
+        shape_fac = math.sqrt(math.mean(shape[1:-1]))  # 16: 4, 64: 8, 256: 24,
+        print('Shape fac: %f' % shape_fac)
+        fft *= (1 / (k + 1)) ** power * power * shape_fac
+        array = math.ifft(fft)
+        array = array.astype(dtype)
+        return array
+    return struct.map(genarray, shape, leaf_condition=_is_python_shape)

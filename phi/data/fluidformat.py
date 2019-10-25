@@ -2,7 +2,7 @@
 import numpy as np
 import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
-from phi import struct
+from phi import struct, field
 import logging
 
 
@@ -155,6 +155,7 @@ class Scene(object):
 
     def write(self, obj, names=None, frame=0):
         if struct.isstruct(obj):
+            obj = _transform_for_writing(obj)
             if names is None:
                 names = struct.names(obj)
             values = struct.flatten(obj)
@@ -167,10 +168,12 @@ class Scene(object):
 
     def read(self, obj, frame=0):
         if struct.isstruct(obj):
+            obj = _transform_for_writing(obj)
             names = struct.flatten(obj)
             if not np.all([isinstance(n, six.string_types) for n in names]):
                 names = struct.names(obj)
-            return struct.map(lambda name: self.read_array(self._filename(name), frame), names)
+            data = struct.map(lambda name: self.read_array(self._filename(name), frame), names)
+            return data
         else:
             return self.read_array('unnamed', frame)
 
@@ -310,7 +313,7 @@ class SceneBatch(Scene):
             assert array.shape[0] == self.batch_size or array.shape[0] == 1,\
                 'Wrong batch size: %d but %d scenes' % (array.shape[0], self.batch_size)
         for i,scene in enumerate(self.scenes):
-            array_slices = [(array[i,...] if array.shape[0] > 1 else array[0,...]) for array in arrays]
+            array_slices = [(array[i,...] if array.shape[0] > 1 else array[0, ...]) for array in arrays]
             scene.write_sim_frame(array_slices, fieldnames, frame=frame, check_same_dimensions=check_same_dimensions)
 
     def read_sim_frames(self, fieldnames=None, frames=None):
@@ -319,6 +322,19 @@ class SceneBatch(Scene):
     def read_array(self, fieldname, frame):
         return np.concatenate([scene.read_array(fieldname, frame) for scene in self.scenes])
 
+
+
+def _transform_for_writing(obj):
+    def f(value):
+        if isinstance(value, field.StaggeredGrid):
+            return value.staggered_tensor()
+        if isinstance(value, field.CenteredGrid):
+            return value.data
+        else:
+            return value
+    with struct.anytype():
+        data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)))
+    return data
 
 
 

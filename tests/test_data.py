@@ -19,14 +19,15 @@ class TestData(TestCase):
         build_test_database()
         reader = BatchReader(Dataset.load('data'), 'Density')
         batch = reader[0:6]
-        np.testing.assert_array_equal(batch.shape, [6,4,4,1])
+        np.testing.assert_array_equal(batch.shape, [6, 4, 4, 1])
 
-    def test_struct_load(self):
+    def test_simple_load(self):
         build_test_database()
-        reader = BatchReader(Dataset.load('data'), ('Density', StaggeredGrid('Velocity')))
+        reader = BatchReader(Dataset.load('data'), ['Density', 'Velocity'])
         batch = reader[0]
         self.assertIsInstance(batch, (tuple, list))
-        self.assertIsInstance(batch[1], StaggeredGrid)
+        self.assertIsInstance(batch[0], np.ndarray)
+        self.assertIsInstance(batch[1], np.ndarray)
 
     def test_iterator(self):
         build_test_database()

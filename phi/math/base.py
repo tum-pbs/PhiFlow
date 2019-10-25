@@ -16,6 +16,9 @@ class Backend:
     def is_applicable(self, values):
         return False
 
+    def random_like(self, array):
+        raise NotImplementedError(self)
+
     def stack(self, values, axis=0):
         raise NotImplementedError(self)
 
@@ -39,6 +42,15 @@ Pad a tensor.
         raise NotImplementedError(self)
 
     def sum(self, value, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def prod(self, value, axis=None):
+        raise NotImplementedError(self)
+
+    def divide_no_nan(self, x, y):
+        raise NotImplementedError(self)
+
+    def where(self, condition, x=None, y=None):
         raise NotImplementedError(self)
 
     def mean(self, value, axis=None):
@@ -67,6 +79,12 @@ Pad a tensor.
         raise NotImplementedError(self)
 
     def abs(self, x):
+        raise NotImplementedError(self)
+
+    def sign(self, x):
+        raise NotImplementedError(self)
+
+    def round(self, x):
         raise NotImplementedError(self)
 
     def ceil(self, x):
@@ -115,7 +133,7 @@ Pad a tensor.
         raise NotImplementedError(self)
 
     def dimrange(self, tensor):
-        return range(1, len(tensor.shape)-1)
+        return range(1, len(tensor.shape) - 1)
 
     def gather(self, values, indices):
         raise NotImplementedError(self)
@@ -133,6 +151,19 @@ Pad a tensor.
         raise NotImplementedError(self)
 
     def isfinite(self, x):
+        raise NotImplementedError(self)
+
+    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
+        """
+This method expects the first dimension of indices and values to be the batch dimension.
+The batch dimension need not be specified in the indices array.
+
+All indices must be non-negative and are expected to be within bounds. Otherwise the behaviour is undefined.
+        :param indices:
+        :param values:
+        :param shape:
+        :param duplicates_handling: one of ('undefined', 'add', 'mean', 'any', 'last', 'no duplicates')
+        """
         raise NotImplementedError(self)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
@@ -173,6 +204,9 @@ Computes the n-dimensional inverse FFT along all but the first and last dimensio
     def dtype(self, array):
         raise NotImplementedError(self)
 
+    def tile(self, value, multiples):
+        raise NotImplementedError(self)
+
 
 
 class DynamicBackend(Backend):
@@ -197,11 +231,17 @@ class DynamicBackend(Backend):
                 return True
         return False
 
+    def random_like(self, tensor):
+        return self.choose_backend(tensor).random_like(shape(tensor))
+
     def stack(self, values, axis=0):
         return self.choose_backend(values).stack(values, axis)
 
     def concat(self, values, axis):
         return self.choose_backend(values).concat(values, axis)
+
+    def tile(self, value, multiples):
+        return self.choose_backend(value).tile(value, multiples)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         return self.choose_backend(value).pad(value, pad_width, mode, constant_values)
@@ -214,6 +254,16 @@ class DynamicBackend(Backend):
 
     def sum(self, value, axis=None, keepdims=False):
         return self.choose_backend(value).sum(value, axis=axis, keepdims=keepdims)
+
+    def prod(self, value, axis=None):
+        return self.choose_backend(value).prod(value, axis)
+
+    def divide_no_nan(self, x, y):
+        return self.choose_backend((x,y)).divide_no_nan(x, y)
+
+    def where(self, condition, x=None, y=None):
+        # For Tensorflow x,y the condition can be a Numpy array, but not the other way around. If possible, choose backend based on first input, otherwise based on condition.
+        return self.choose_backend((condition, x, y)).where(condition, x, y)
 
     def mean(self, value, axis=None):
         return self.choose_backend(value).mean(value, axis)
@@ -243,6 +293,12 @@ class DynamicBackend(Backend):
 
     def abs(self, x):
         return self.choose_backend(x).abs(x)
+
+    def sign(self, x):
+        return self.choose_backend(x).sign(x)
+
+    def round(self, x):
+        return self.choose_backend(x).round(x)
 
     def ceil(self, x):
         return self.choose_backend(x).ceil(x)
@@ -277,11 +333,11 @@ class DynamicBackend(Backend):
     def shape(self, tensor):
         return self.choose_backend(tensor).shape(tensor)
 
+    def to_float(self, x, float64=False):
+        return self.choose_backend(x).to_float(x, float64=float64)
+
     def staticshape(self, tensor):
         return self.choose_backend(tensor).staticshape(tensor)
-
-    def to_float(self, x):
-        return self.choose_backend(x).to_float(x)
 
     def to_int(self, x, int64=False):
         return self.choose_backend(x).to_int(x, int64=int64)
@@ -303,6 +359,9 @@ class DynamicBackend(Backend):
 
     def isfinite(self, x):
         return self.choose_backend(x).isfinite(x)
+
+    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
+        return self.choose_backend(points).scatter(points, indices, values, shape, duplicates_handling=duplicates_handling)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         return self.choose_backend(boolean_tensor).any(boolean_tensor, axis=axis, keepdims=keepdims)
@@ -343,8 +402,13 @@ class NoBackendFound(Exception):
 
 backend = DynamicBackend()
 
-from phi.math.scipy_backend import SciPyBackend, as_tensor
+from .scipy_backend import SciPyBackend, as_tensor
 backend.backends.append(SciPyBackend())
+
+
+from .struct_backend import StructBroadcastBackend
+backend.backends.append(StructBroadcastBackend(backend))
+
 
 abs = backend.abs
 add = backend.add
@@ -359,6 +423,7 @@ floor = backend.floor
 concat = backend.concat
 conv = backend.conv
 dimrange = backend.dimrange
+divide_no_nan = backend.divide_no_nan
 dot = backend.dot
 exp = backend.exp
 expand_dims = backend.expand_dims
@@ -377,9 +442,13 @@ name = backend.name
 ones_like = backend.ones_like
 pad = backend.pad
 py_func = backend.py_func
+random_like = backend.random_like
 real = backend.real
 resample = backend.resample
 reshape = backend.reshape
+round = backend.round
+sign = backend.sign
+scatter = backend.scatter
 shape = backend.shape
 sin = backend.sin
 sqrt = backend.sqrt
@@ -387,10 +456,13 @@ stack = backend.stack
 staticshape = backend.staticshape
 std = backend.std
 sum = backend.sum
+prod = backend.prod
+tile = backend.tile
 to_complex = backend.to_complex
 to_float = backend.to_float
 to_int = backend.to_int
 unstack = backend.unstack
+where = backend.where
 while_loop = backend.while_loop
 with_custom_gradient = backend.with_custom_gradient
 zeros_like = backend.zeros_like

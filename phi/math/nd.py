@@ -4,8 +4,7 @@ from phi import struct
 
 
 def shape(obj):
-    result = struct.map(lambda tensor: math.shape(tensor), obj)
-    return result
+    with struct.anytype(): return struct.map(lambda tensor: math.shape(tensor), obj)
 
 
 def batch_gather(struct, batches):
@@ -22,19 +21,29 @@ The number of spatial dimensions is equal to the tensor rank minus two.
     :param tensor_or_mac: a tensor or StaggeredGrid instance
     :return: the number of spatial dimensions as an integer
     """
-    if isinstance(obj, StaggeredGrid):
-        return obj.spatial_rank
     if struct.isstruct(obj):
-        return struct.map(lambda o: spatial_rank(o), obj, recursive=False)
-    return len(obj.shape) - 2
+        with struct.anytype(): return struct.map(lambda o: spatial_rank(o), obj, recursive=False)  # TODO this should be done by the Struct backend
+    return len(math.staticshape(obj)) - 2
 
 
 def spatial_dimensions(obj):
-    if isinstance(obj, StaggeredGrid):
-        return tuple(range(1, obj.spatial_rank - 1))
     if struct.isstruct(obj):
-        return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
-    return tuple(range(1, len(obj.shape) - 1))
+        with struct.anytype(): return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
+    return tuple(range(1, len(math.staticshape(obj)) - 1))
+
+
+def axes(obj):
+    if struct.isstruct(obj):
+        with struct.anytype(): return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
+    return tuple(range(len(math.staticshape(obj)) - 2))
+
+
+def all_dimensions(tensor):
+    return range(len(math.staticshape(tensor)))
+
+
+def is_scalar(obj):
+    return len(math.staticshape(obj)) == 0
 
 
 def indices_tensor(tensor, dtype=np.float32):
@@ -95,8 +104,6 @@ def l1_loss(tensor, batch_norm=True, reduce_batches=True):
 
 
 def l2_loss(tensor, batch_norm=True):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     total_loss = math.sum(tensor ** 2) / 2
     if batch_norm:
         batch_size = math.shape(tensor)[0]
@@ -106,21 +113,12 @@ def l2_loss(tensor, batch_norm=True):
 
 
 def l_n_loss(tensor, n, batch_norm=True):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     total_loss = math.sum(tensor ** n) / n
     if batch_norm:
         batch_size = math.shape(tensor)[0]
         return total_loss / math.to_float(batch_size)
     else:
         return total_loss
-
-
-def at_centers(field):
-    if isinstance(field, StaggeredGrid):
-        return field.at_centers()
-    else:
-        return field
 
 
 # Divergence
@@ -233,6 +231,14 @@ def _central_diff_nd(field, dims):
     return math.stack(df_dq, axis=-1)
 
 
+def axis_gradient(tensor, spatial_axis):
+    dims = range(spatial_rank(tensor))
+    upper_slices = tuple([(slice(1, None) if i == spatial_axis else slice(None)) for i in dims])
+    lower_slices = tuple([(slice(-1) if i == spatial_axis else slice(None)) for i in dims])
+    diff = tensor[(slice(None),) + upper_slices + (slice(None),)] - \
+           tensor[(slice(None),) + lower_slices + (slice(None),)]
+    return diff
+
 # Laplace
 
 def laplace(tensor, padding='symmetric'):
@@ -297,15 +303,22 @@ def _sliced_laplace_nd(tensor):
 
 def fourier_laplace(tensor):
     frequencies = math.fft(math.to_complex(tensor))
-    k = fftfreq(math.staticshape(tensor)[1:-1])
-    fft_laplace = -(2*np.pi)**2 * math.sum(k ** 2, axis=-1, keepdims=True)
+    k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
+    fft_laplace = -(2*np.pi)**2 * k
     return math.ifft(frequencies * fft_laplace)
 
 
-def fftfreq(resolution):
+def fftfreq(resolution, mode='vector'):
+    assert mode in ('vector', 'absolute', 'square')
     k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution], indexing='ij')
     k = math.expand_dims(math.stack(k, -1), 0)
-    return k
+    if mode == 'vector':
+        return k
+    k = math.sum(k ** 2, axis=-1, keepdims=True)
+    if mode == 'square':
+        return k
+    else:
+        return math.sqrt(k)
 
 
 
@@ -351,7 +364,7 @@ def upsample2x(tensor, interpolation='linear'):
         left = 0.75 * tensor[(slice(None),)+left_slices_2+(slice(None),)] + 0.25 * tensor[(slice(None),)+left_slices_1+(slice(None),)]
         right = 0.25 * tensor[(slice(None),)+right_slices_2+(slice(None),)] + 0.75 * tensor[(slice(None),)+right_slices_1+(slice(None),)]
         combined = math.stack([right, left], axis=2+dim)
-        tensor = math.reshape(combined, [-1] + [spatial_dims[dim] * 2 if i == dim else tensor.shape[i+1] for i in dims] + [vlen])
+        tensor = math.reshape(combined, [-1] + [spatial_dims[dim] * 2 if i == dim else tensor.shape[i + 1] for i in dims] + [vlen])
     return tensor
 
 
@@ -364,7 +377,24 @@ def spatial_sum(tensor):
     return summed
 
 
-class StaggeredGrid(struct.Struct):
+def interpolate_linear(tensor, upper_weight, dimensions):
+    """
+
+    :param tensor:
+    :param upper_weight: tensor of floats (leading dimensions must be 1) or nan to ignore interpolation along this axis
+    :param dimensions: list or tuple of dimensions (first spatial axis=1) to be interpolated. Other axes are ignored.
+    :return:
+    """
+    lower_weight = 1 - upper_weight
+    for dimension in spatial_dimensions(tensor):
+        if dimension in dimensions:
+            upper_slices = [(slice(1, None) if i == dimension else slice(None)) for i in all_dimensions(tensor)]
+            lower_slices = [(slice(-1) if i == dimension else slice(None)) for i in all_dimensions(tensor)]
+            tensor = tensor[upper_slices] * upper_weight[...,dimension-1] + tensor[lower_slices] * lower_weight[...,dimension-1]
+    return tensor
+
+
+class _StaggeredGrid(struct.Struct):
     """
         MACGrids represent a staggered vector channel in which each vector component is sampled at the
         face centers of centered hypercubes.
@@ -643,5 +673,6 @@ class StaggeredGrid(struct.Struct):
             lower_slices = [(slice(-1) if i == dimension else slice(None)) for i in dims]
             neighbour_sum = padded_field[(slice(None),) + tuple(upper_slices) + (slice(None),)] + \
                             padded_field[(slice(None),) + tuple(lower_slices) + (slice(None),)]
-            df_dq.append(axis_forces[dimension] * neighbour_sum * 0.5 / rank)
-        return StaggeredGrid(math.concat(df_dq, axis=-1))
+            df_dq.append(neighbour_sum * 0.5 / rank)
+        df_dq = math.concat(df_dq, axis=-1)
+        return StaggeredGrid(df_dq * axis_forces)

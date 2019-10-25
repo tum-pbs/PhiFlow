@@ -4,6 +4,7 @@ from phi import struct
 from bisect import bisect_left
 from sys import getsizeof
 from collections import Iterable
+import math
 
 
 SKIP = 'skip'
@@ -38,7 +39,7 @@ class BatchReader(object):
         data_list = self._cache.get(indices, self._load, add_to_cache=True)
         data = list_swap_axes(data_list)
         data_map = {self.channels[i]: data[i] for i in range(len(self._channels))}
-        return struct.map(lambda channel: data_map[channel], self._fields)
+        with struct.anytype(): return struct.map(lambda channel: data_map[channel], self._fields)
 
     def _load(self, indices):
         result = []

@@ -1,15 +1,17 @@
 from .smoke import *
+from .util import diffuse
 
 
-class Heat(State):
-
-    __struct__ = State.__struct__.extend(('_temperature',), ('_domain', '_diffusivity'))
+class Heat(DomainState):
+    __struct__ = DomainState.__struct__.extend(['_temperature'], ['_diffusivity'])
 
     def __init__(self, domain, temperature=0.0, diffusivity=0.1, batch_size=None):
-        State.__init__(self, tags=('heat', 'pde', 'temperaturefield'), batch_size=batch_size)
-        self._domain = domain
-        self._temperature = temperature
+        DomainState.__init__(self, domain, tags=('heat', 'pde', 'temperaturefield'), batch_size=batch_size)
+        self._temperature = domain.centered_grid(temperature, name='temperature', batch_size=self._batch_size)
         self._diffusivity = diffusivity
+
+    def __validate_temperature__(self):
+        self._temperature = self.centered_grid('temperature', self._temperature)
 
     def default_physics(self):
         return HeatPhysics()
@@ -17,14 +19,6 @@ class Heat(State):
     @property
     def temperature(self):
         return self._temperature
-
-    @property
-    def _temperature(self):
-        return self._temperature_field
-
-    @_temperature.setter
-    def _temperature(self, value):
-        self._temperature_field = initialize_field(value, self.domain.shape(1, self._batch_size))
 
     @property
     def domain(self):
@@ -35,14 +29,13 @@ class Heat(State):
         return self._diffusivity
 
 
-
 class HeatPhysics(Physics):
 
     def __init__(self):
         Physics.__init__(self, blocking_dependencies={'effects': 'temperature_effect'})
 
     def step(self, heat, dt=1.0, effects=()):
-        temperature = heat.temperature + heat.diffusivity * math.laplace(heat.temperature)
+        temperature = diffuse(heat.temperature, dt * heat.diffusivity)
         for effect in effects:
-            temperature = effect.apply_grid(temperature, heat.domain, staggered=False, dt=dt)
+            temperature = effect_applied(effect, temperature, dt)
         return heat.copied_with(temperature=temperature, age=heat.age+dt)

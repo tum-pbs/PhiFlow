@@ -1,10 +1,11 @@
 from .collective import CollectiveState, CollectivePhysics
 from .smoke import *
-from .burger import *
+from .burgers import *
 from .heat import *
 from .obstacle import *
 from .effect import *
 from .schroedinger import QuantumWave, StepPotential
+from .fluid import *
 import inspect
 
 
@@ -98,11 +99,13 @@ class World(object):
         self.observers = set()
         self.batch_size = batch_size
         # --- Insert object / create proxy shortcuts ---
-        for proxy in ('Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
+        for proxy in ('Gravity',
+                      'Smoke', 'Burger', 'Obstacle', 'Inflow', 'Fan', 'ConstantDensity',
                       'Heat', 'ConstantTemperature', 'HeatSource', 'ColdSource', 'FieldEffect',
                       'QuantumWave', 'StepPotential'):
             setattr(self, proxy, _proxy_wrap(self, getattr(self, proxy)))
 
+    Gravity = Gravity
     Smoke = Smoke
     Burger = Burger
     Obstacle = Obstacle
@@ -193,3 +196,11 @@ Invoking this method alters the world state. To to_field a copy of the state, us
 
 
 world = World()
+world.Gravity()
+
+
+def obstacle_mask(world_or_proxy):
+    world = world_or_proxy.world if isinstance(world_or_proxy, StateProxy) else world_or_proxy
+    assert isinstance(world, World)
+    geometries = [obstacle.geometry for obstacle in world.state.get_by_tag('obstacle')]
+    return union_mask(geometries)

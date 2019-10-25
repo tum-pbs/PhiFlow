@@ -5,7 +5,7 @@ from phi import struct
 class Material(struct.Struct):
     __struct__ = struct.Def((), ('solid', 'friction', 'extrapolate_fluid', 'global_velocity', 'local_velocity'))
 
-    def __init__(self, solid=True, friction=0.0, extrapolate_fluid=True, global_velocity=0.0, local_velocity=0.0):
+    def __init__(self, name, solid=True, friction=0.0, extrapolate_fluid=True, global_velocity=0.0, local_velocity=0.0):
         """
 Defines physical properties of a boundary or voxel.
 
@@ -18,6 +18,7 @@ If local_velocity is None, the latter term will be ignored.
         :param global_velocity: velocity offset in unmoving reference frame or 0 if unmoving.
         :param local_velocity: velocity offset in object reference frame. Set to 0 to add object's velocity, None to ignore completely.
         """
+        self.name = name
         self.solid = solid
         self.friction = friction
         self.extrapolate_fluid = extrapolate_fluid
@@ -31,7 +32,10 @@ If local_velocity is None, the latter term will be ignored.
             time_friction_exponent = math.log(1/(1-self.friction))
             return math.exp(- dt * time_friction_exponent)
 
+    def __repr__(self):
+        return self.name
 
-OPEN = Material(solid=False, extrapolate_fluid=False, local_velocity=None)
-NO_STICK = SLIPPERY = Material(solid=True, friction=0.0)
-NO_SLIP = STICKY = Material(solid=True, friction=1.0)
+
+OPEN = Material('open', solid=False, extrapolate_fluid=False, local_velocity=None)
+NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0.0)
+NO_SLIP = STICKY = Material('sticky', solid=True, friction=1.0)

@@ -7,39 +7,33 @@ else:
     mode = 'NumPy'
 
 
-def build_inflow(x, y, world=world):
-    dx, dy = x * 0.07, y * 0.07
-    offset_x = 0.5 * (x - dx * 10)
-    offset_y = y - y * 0.1 - dy * 7
-    world.Inflow(box[y/16, 2*dx:3*dx])
-    world.Inflow(box[y/16, x-3*dx:x-2*dx])
-    world.Inflow(box[offset_y+dy+1, offset_x+4*dx:offset_x+4.5*dx], 0.1)
+def build_inflows():
+    world.Inflow(box[6:10, 14:21], rate=1.0)
+    world.Inflow(box[6:10, 79:86], rate=0.8)
+    world.Inflow(box[49:50, 43:46], rate=0.1)
 
 
-def create_tum_logo(x, y, world=world):
-    dx, dy = x * 0.07, y * 0.07
-    offset_x = 0.5 * (x - dx * 10)
-    offset_y = y - y * 0.1 - dy * 7
+def create_tum_logo():
     for i in range(1, 10, 2):
-        world.Obstacle(box[offset_y:offset_y+6*dy, offset_x + i * dx:offset_x + (i+1) * dx])
-    world.Obstacle(box[offset_y:offset_y+dy, offset_x + 4 * dx:offset_x + 4 * dx+ dx])
-    world.Obstacle(box[offset_y + 6 * dy:offset_y + 7 * dy, offset_x:offset_x+dx * 4])
-    world.Obstacle(box[offset_y + 6 * dy:offset_y + 7 * dy, offset_x + 5 * dx:offset_x + 10 * dx])
+        world.Obstacle(box[41:83, 15 + i * 7:15 + (i+1) * 7])
+    world.Obstacle(box[41:48, 43:50])
+    world.Obstacle(box[83:90, 15:43])
+    world.Obstacle(box[83:90, 50:85])
 
 
 class SmokeLogo(FieldSequenceModel):
 
     def __init__(self, size):
-        FieldSequenceModel.__init__(self, 'Smoke Demo','Run a smoke simulation using %s for processing.' % mode,
+        FieldSequenceModel.__init__(self, 'Smoke Logo','Run a smoke simulation using %s for processing.' % mode,
                          summary='smokedemo' + 'x'.join([str(d) for d in size]), stride=20)
-        smoke = self.smoke = world.Smoke(Domain(size, SLIPPERY))
-        build_inflow(*size)
-        create_tum_logo(*size)
+        smoke = self.smoke = world.Smoke(Domain(size, box=box[0:100, 0:100], boundaries=SLIPPERY))
+        build_inflows()
+        create_tum_logo()
         self.add_field('Density', lambda: smoke.density)
         self.add_field('Velocity', lambda: smoke.velocity)
-        self.add_field('Domain', lambda: smoke.domaincache.active(extend=1))
+        self.add_field('Domain', lambda: obstacle_mask(smoke).at(smoke.density))
         self.add_field('Pressure', lambda: smoke.last_pressure)
-        self.add_field('Remaining Divergence', lambda: divergence(smoke.velocity))
+        self.add_field('Remaining Divergence', lambda: smoke.velocity.divergence())
 
     def action_reset(self):
         self.steps = 0

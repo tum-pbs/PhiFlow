@@ -7,8 +7,10 @@ from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
 from phi.viz.plot import *
-import phi.tf.profiling
-
+try:
+    import phi.tf.profiling
+except:
+    pass
 
 class DashFieldSequenceGui:
 
@@ -17,7 +19,6 @@ class DashFieldSequenceGui:
                  figure_builder=None,
                  framerate=1.0,
                  sequence_count=1,
-                 same_scale=False,
                  production=False,
                  port=None,
                  tb_port=6006):
@@ -34,7 +35,6 @@ class DashFieldSequenceGui:
         self.fieldshapes = [[self.max_batch + 1, self.max_depth + 1, 0, 0]] * 2
         self.benchmarking = False  # Disable speed control and graph updates if true
         self.sequence_count = sequence_count
-        self.same_scale = same_scale
         self.production_server = production
         self.target_port = port
         self.tensorboard_port = tb_port
@@ -577,14 +577,8 @@ class DashFieldSequenceGui:
         if data is None:
             self.fieldshapes[figindex] = [0, 0]
             return self.empty_figure()
-        self.fieldshapes[figindex] = data.shape
-
-        if self.same_scale:
-            selected_data = [self.model.get_field(fieldname) for fieldname in self.selected_fields]
-        else:
-            selected_data = None
-
-        return self.figures.create_figure(data, same_scale_data=selected_data, library='dash')
+        self.fieldshapes[figindex] = self.figures.slice_dims(data)
+        return self.figures.create_figure(data, library='dash')
 
     def empty_figure(self):
         figure = self.figures.empty_figure(library='dash')

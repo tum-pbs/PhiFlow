@@ -1,11 +1,12 @@
 from .obstacle import *
 from .material import *
-from phi import math
+from phi.field import *
 
-class Domain(Grid):
-    __struct__ = Grid.__struct__.extend([], ['_boundaries'])
 
-    def __init__(self, dimensions, boundaries=OPEN, box=None):
+class Domain(struct.Struct):
+    __struct__ = struct.Def([], ['_resolution', '_box', '_boundaries'])
+
+    def __init__(self, resolution, boundaries=OPEN, box=None):
         """
 Simulation domain that specifies size and boundary conditions.
 
@@ -24,11 +25,108 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
         """
-        Grid.__init__(self, dimensions, box=box)
+        self._resolution = np.array(resolution)
+        if box is not None:
+            self._box = box
+        else:
+            self._box = Box([0 for d in resolution], self._resolution)
         assert isinstance(boundaries, (Material, list, tuple))
         if isinstance(boundaries, (tuple, list)):
             assert len(boundaries) == self.rank
         self._boundaries = _collapse_equals(boundaries, leaf_type=Material)
+
+    @property
+    def resolution(self):
+        return self._resolution
+
+    @property
+    def box(self):
+        return self._box
+
+    @property
+    def rank(self):
+        return len(self._resolution)
+
+    def cell_index(self, global_position):
+        local_position = self._box.global_to_local(global_position) * self._resolution
+        position = math.to_int(local_position - 0.5)
+        position = math.maximum(0, position)
+        position = math.minimum(position, self._resolution-1)
+        return position
+
+    def center_points(self):
+        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+0.5,1) for dim in self._resolution], indexing="ij")
+        return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
+
+    def staggered_points(self, dimension):
+        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+1.5,1) if dim != dimension else np.arange(0,dim+1,1) for dim in self._resolution], indexing="ij")
+        return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
+
+
+    def indices(self):
+        """
+    Constructs a grid containing the index-location as components.
+    Each index denotes the location within the tensor starting from zero.
+    Indices are encoded as vectors in the index tensor.
+        :param dtype: a numpy data type (default float32)
+        :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
+        """
+        idx_zyx = np.meshgrid(*[range(dim) for dim in self._resolution], indexing="ij")
+        return math.expand_dims(np.stack(idx_zyx, axis=-1))
+
+    @staticmethod
+    def equal(grid1, grid2):
+        assert isinstance(grid1, Domain), 'Not a Domain: %s' % type(grid1)
+        assert isinstance(grid2, Domain), 'Not a Domain: %s' % type(grid2)
+        return np.all(grid1._resolution == grid2._resolution) and grid1._box == grid2._box
+
+    def centered_shape(self, components=1, batch_size=1, name=None):
+        with struct.anytype():
+            return CenteredGrid(name, self.box, data=tensor_shape(batch_size, self._resolution, components), batch_size=batch_size)
+
+    def staggered_shape(self, batch_size=1, name=None):
+        with struct.anytype():
+            shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
+            grids = [CenteredGrid(None, None, data=shapes[i], batch_size=batch_size) for i in range(self.rank)]
+            staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
+            data = complete_staggered_properties(grids, staggered)
+            return staggered.copied_with(data=data)
+
+    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None):
+        shape = self.centered_shape(components, batch_size=batch_size, name=name)
+        if isinstance(data, Field):
+            assert data.rank == self.rank
+            data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
+            if name is not None: data = data.copied_with(name=name)
+            return data
+        if isinstance(data, (int, float)):
+            return math.zeros(shape, dtype=dtype) + data
+        if callable(data):
+            # data is an initializer
+            try:
+                return data(shape, dtype=dtype)
+            except TypeError:
+                return data(shape)
+        return CenteredGrid(name, self.box, data)
+
+    def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None):
+        shape = self.staggered_shape(batch_size=batch_size, name=name)
+        if isinstance(data, Field):
+            assert data.compatible(shape)
+            return data
+        if isinstance(data, (int, float)):
+            return (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
+        if callable(data):
+            # data is an initializer
+            try:
+                return data(shape, dtype=dtype)
+            except TypeError:
+                return data(shape)
+        try:
+            tensors = unstack_staggered_tensor(data)
+            return StaggeredGrid.from_tensors(name, self.box, tensors, batch_size=None)
+        except:
+            return StaggeredGrid(name, self.box, data, self.resolution)
 
     def default_physics(self):
         return STATIC
@@ -48,28 +146,15 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
                     false_paddings[dim][upper] = margin
         return [[0, 0]] + true_paddings + [[0, 0]], [[0, 0]] + false_paddings + [[0, 0]]
 
-    def surface_material(self, dimension=0, upper_boundary=False):
+    def surface_material(self, axis=0, upper_boundary=False):
         if isinstance(self._boundaries, Material):
             return self._boundaries
         else:
-            dim_boundaries = self._boundaries[dimension]
+            dim_boundaries = self._boundaries[axis]
             if isinstance(dim_boundaries, Material):
                 return dim_boundaries
             else:
                 return dim_boundaries[upper_boundary]
-
-
-
-    # def _friction_mask(self, dt=1): TODO
-    #     material.friction_multiplier(dt=dt)
-
-
-"""
-        :param active_mask: (Optional) Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
-        :param fluid_mask: (Optional) Scalar channel encoding fluid cells as ones and obstacles as zero.
-         Has the same dimensions as the divergence channel. If no obstacles are present, None may be passed.
-        :param boundaries: DomainBoundary object defining open and closed boundaries
-"""
 
 
 def _collapse_equals(obj, leaf_type):
@@ -89,8 +174,37 @@ def _friction_mask(masks_and_multipliers):
         return mask
 
 
-def geometry_mask(geometries, grid):
-    if len(geometries) == 0:
-        return math.zeros(grid.shape())
-    location = grid.center_points()
-    return math.max([geometry.value_at(location) for geometry in geometries], axis=0)
+def tensor_shape(batch_size, resolution, components):
+    return np.concatenate([[batch_size], resolution, [components]])
+
+
+def _extend1(shape, axis):
+    shape = list(shape)
+    shape[axis+1] += 1
+    return shape
+
+
+class DomainState(State):
+    __struct__ = State.__struct__.extend([], ['_domain'])
+
+    def __init__(self, domain, tags=(), batch_size=None):
+        State.__init__(self, tags=tags, batch_size=batch_size)
+        self._domain = domain
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def resolution(self):
+        return self._domain.resolution
+
+    @property
+    def rank(self):
+        return self.domain.rank
+
+    def centered_grid(self, name, value, components=1, dtype=np.float32):
+        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size)
+
+    def staggered_grid(self, name, value, dtype=np.float32):
+        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size)

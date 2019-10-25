@@ -4,17 +4,15 @@ from phi.flow import *
 
 class TestSchroedinger(TestCase):
 
-    def test_normalization_flag(self):
-        q = QuantumWave(Domain([64, 64]))
-        self.assertEqual(q.is_normalized, False)
-        np.testing.assert_equal(q.amplitude.shape, [1, 64, 64, 1])
-        q = q.copied_with(amplitude=0, is_normalized=True)
-        self.assertEqual(q.is_normalized, True)
-        np.testing.assert_equal(q.amplitude.shape, [1, 64, 64, 1])
-        q = q.copied_with(amplitude=1)
-        self.assertEqual(q.is_normalized, False)
-        q = SCHROEDINGER.step(q, obstacles=[Obstacle(box[0:0, 0:0])])
-        self.assertEqual(q.is_normalized, True)
-        np.testing.assert_equal(q.amplitude.shape, [1, 64, 64, 1])
-        np.testing.assert_almost_equal(q.amplitude[0, 0, 0, 0], 0)
-        np.testing.assert_almost_equal(q.amplitude[0, 10, 10, 0], 1.0/(64-2*SCHROEDINGER.margin))
+    def test_simple_step(self):
+        q = QuantumWave(Domain([4, 5]))
+        q = q.copied_with(amplitude = WavePacket([2, 2], 1.0, [0.5, 0]))
+        q = SCHROEDINGER.step(q, 1.0)
+        np.testing.assert_equal(q.amplitude.data.shape, [1, 4, 5, 1])
+
+    def test_complex_step(self):
+        q = QuantumWave(Domain([4, 4]))
+        q = q.copied_with(amplitude = WavePacket([2, 2], 1.0, [0.5, 0]))
+        pot = StepPotential(box[0:1, 0:1], 1.0)
+        SCHROEDINGER.step(q, 1.0, potentials=[pot], obstacles=[Obstacle(box[3:4, 0:1])])
+        np.testing.assert_equal(q.amplitude.data.shape, [1, 4, 4, 1])

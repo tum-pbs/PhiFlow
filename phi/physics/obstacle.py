@@ -39,4 +39,7 @@ class GeometryMovement(Physics):
         if isinstance(obj, Obstacle):
             return obj.copied_with(geometry=next_geometry, velocity=velocity, age=obj.age + dt)
         if isinstance(obj, FieldEffect):
-            return obj.copied_with(field=obj.field.copied_with(bounds=next_geometry), age=obj.age + dt)
+            field = obj.field
+            assert isinstance(field, GeometryMask)
+            assert len(field.geometries) == 1
+            return obj.copied_with(field=obj.field.copied_with(geometries=(next_geometry,)), age=obj.age + dt)
