@@ -15,4 +15,4 @@ class HeatEquilibriumDemo(FieldSequenceModel):
 
 
 display.AUTORUN = True
-show(HeatEquilibriumDemo())
+show()

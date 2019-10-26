@@ -30,14 +30,11 @@ AUTORUN = 'autorun' in sys.argv
 def show(model=None, *args, **kwargs):
 
     if model is None:
-        all_models = FieldSequenceModel.__subclasses__()
         frame_records = inspect.stack()[1]
         calling_module = inspect.getmodulename(frame_records[1])
-        for m in all_models:
-            m_modname = os.path.basename(inspect.getfile(m))[:-3]
-            if m_modname == calling_module:
-                model = m
-        assert model is not None, 'No model found.'
+        fitting_models = _find_subclasses_in_module(FieldSequenceModel, calling_module, [])
+        assert len(fitting_models) == 1, 'show() called without model but detected %d possible classes: %s' % (len(fitting_models), fitting_models)
+        model = fitting_models[0]
 
     if inspect.isclass(model) and issubclass(model, FieldSequenceModel):
         model = model()
@@ -57,3 +54,13 @@ def show(model=None, *args, **kwargs):
     else:
         return display.show()  # blocking call
 
+
+def _find_subclasses_in_module(base_class, module_name, result_list):
+    subclasses = base_class.__subclasses__()
+    for subclass in subclasses:
+        if subclass not in result_list:
+            mod_name = os.path.basename(inspect.getfile(subclass))[:-3]
+            if mod_name == module_name:
+                result_list.append(subclass)
+            _find_subclasses_in_module(subclass, module_name, result_list)
+    return result_list

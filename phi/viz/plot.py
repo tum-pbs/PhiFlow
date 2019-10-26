@@ -25,7 +25,7 @@ class PlotlyFigureBuilder(object):
                  component=LENGTH,
                  draw_arrows_backward=True,
                  max_vector_resolution=18,
-                 max_resolution=512):
+                 max_resolution=128):
         self.batches = batches
         self.depths = depths
         self.staggered = staggered
