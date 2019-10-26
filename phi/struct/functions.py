@@ -61,8 +61,8 @@ class LeafZip(object):
 
 
 class IncompatibleStructs(Exception):
-    def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
 
 
 def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):
@@ -90,10 +90,10 @@ def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_pro
 
 class Trace(object):
 
-    def __init__(self, value, key, parent):
+    def __init__(self, value, key, parent_trace):
         self.value = value
         self.key = key
-        self.parent = parent  # AttributeIdentifier or struct
+        self.parent = parent_trace
 
     @property
     def name(self):
@@ -105,10 +105,16 @@ class Trace(object):
             return str(self.key)
 
     def path(self, separator='.'):
-        if isinstance(self.parent, Trace) and self.parent.key is not None:
+        if self.parent is not None and self.parent.key is not None:
             return self.parent.path(separator) + separator + self.name
         else:
             return self.name
 
     def __repr__(self):
         return "%s = %s" % (self.path(), self.value)
+
+    def find_in(self, base_struct):
+        if self.parent is not None and self.parent.key is not None:
+            base_struct = self.parent.find_in(base_struct)
+        attrs = attributes(base_struct, include_properties=True)
+        return attrs[self.key]
