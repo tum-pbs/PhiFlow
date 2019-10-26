@@ -30,4 +30,4 @@ class PressureOptim(TFModel):
         self.add_field("Target Velocity", target_velocity)
 
 
-show(PressureOptim, display=("Final Velocity", "Target Velocity"))
+show(display=("Final Velocity", "Target Velocity"), figure_builder=PlotlyFigureBuilder(batches=[0], depths=[0], component='vec2'))

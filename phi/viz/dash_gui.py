@@ -131,8 +131,8 @@ class DashFieldSequenceGui(ModelDisplay):
                                                html.Button('Refresh', id='button-refresh'),
                                                html.Div([
                                                    'Component',
-                                                   dcc.Slider(min=0, max=4, step=1, value=4,
-                                                              marks={0: '.', 4: '|.|', 1: 'x', 2: 'y', 3: 'z'},
+                                                   dcc.Slider(min=0, max=4, step=1, value={'vec2': 0, 'length': 4, 0:1, 1:2, 2:3}[self.figures.component],
+                                                              marks={0: 'v', 4: '|.|', 1: 'x', 2: 'y', 3: 'z'},
                                                               id='component-slider',
                                                               updatemode='drag'),
                                                ], style={'width': '29%', 'height': '50px', 'display': 'inline-block'})
