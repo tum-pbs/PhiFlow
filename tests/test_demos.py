@@ -34,7 +34,10 @@ class PerformModelTests(display.ModelDisplay):
 
 
 def demo_run(name):
-    demos_path = os.path.abspath('../demos')
+    phiflow_path = os.path.abspath('')
+    if phiflow_path.endswith('tests'):
+        phiflow_path = os.path.dirname(phiflow_path)
+    demos_path = os.path.join(phiflow_path, 'demos')
     if demos_path not in sys.path:
         sys.path.append(demos_path)
     display.DEFAULT_DISPLAY_CLASS = PerformModelTests
@@ -48,7 +51,7 @@ def demo_run(name):
     print('')
 
 
-class TestDomain(TestCase):
+class TestDemos(TestCase):
 
     def test_burgers_sim(self): demo_run('burgers_sim')
 
