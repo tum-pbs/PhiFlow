@@ -1,10 +1,11 @@
 # coding=utf-8
 from __future__ import print_function
 import logging, os, numbers, six, numpy, threading, inspect, time, sys
+import warnings
 from os.path import isfile
 from phi.data.fluidformat import Scene
-import phi.math.nd
 from phi import struct
+from phi.field import Field, StaggeredGrid, CenteredGrid
 from phi.viz.plot import PlotlyFigureBuilder
 from phi.physics.world import world
 
@@ -42,7 +43,7 @@ class TimeDependentField(object):
 class FieldSequenceModel(object):
 
     def __init__(self,
-                 name=u'*Φ-Flow* Application',
+                 name=None,
                  subtitle='',
                  fields=None,
                  stride=1,
@@ -53,7 +54,7 @@ class FieldSequenceModel(object):
                  custom_properties=None,
                  target_scene=None,
                  objects_to_save=None):
-        self.name = name
+        self.name = name if name is not None else self.__class__.__name__
         self.subtitle = subtitle
         self.summary = summary if summary else name
         if fields:
@@ -69,6 +70,7 @@ class FieldSequenceModel(object):
         self.prepared = False
         self.current_action = None
         self._pause = False
+        self.detect_fields = 'default'  # False, True, 'default'
         self.world = world
         # Setup directory & Logging
         self.objects_to_save = [ self.__class__ ] if objects_to_save is None else list(objects_to_save)
@@ -149,7 +151,7 @@ class FieldSequenceModel(object):
     def add_field(self, name, generator):
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if not callable(generator):
-            assert isinstance(generator, (numpy.ndarray, phi.math.nd.StaggeredGrid)), 'Unsupported type for field "%s": %s' % (name, type(generator))
+            assert isinstance(generator, (numpy.ndarray, Field)), 'Unsupported type for field "%s": %s' % (name, type(generator))
             array = generator
             generator = lambda: array
         self.fields[name] = TimeDependentField(name, generator)
@@ -188,7 +190,6 @@ class FieldSequenceModel(object):
         if self.prepared:
             return
         logging.info('Gathering model data...')
-        self.prepared = True
         # Controls
         for name in self.__dict__:
             val = getattr(self, name)
@@ -213,6 +214,9 @@ class FieldSequenceModel(object):
         for method_name in dir(self):
             if method_name.startswith('action_') and callable(getattr(self, method_name)):
                 self._actions.append(Action(display_name(method_name[7:]), getattr(self, method_name), method_name))
+        # Default fields
+        if len(self.fields) == 0:
+            self._add_default_fields()
         # Scene
         self._update_scene_properties()
         source_files_to_save = set()
@@ -220,7 +224,19 @@ class FieldSequenceModel(object):
             source_files_to_save.add(inspect.getabsfile(object))
         for source_file in source_files_to_save:
             self.scene.copy_src(source_file)
+        # End
+        self.prepared = True
         return self
+
+    def _add_default_fields(self):
+        def add_default_field(trace):
+            field = trace.value
+            if isinstance(field, (CenteredGrid, StaggeredGrid)):
+                self.add_field(field.name[0].upper() + field.name[1:], lambda: trace.find_in(self.world.state))
+            return None
+        with struct.anytype(): struct.map(add_default_field, world.state,
+                                          leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
+                                          trace=True)
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
@@ -271,20 +287,9 @@ class FieldSequenceModel(object):
         return self.summary
 
     def show(self, *args, **kwargs):
-        headless = 'headless' in sys.argv
-        gui = None
-        if not headless:
-            from phi.viz.dash_gui import DashFieldSequenceGui
-            gui = DashFieldSequenceGui(self, *args, **kwargs)
-        # --- Autorun ---
-        if 'autorun' in sys.argv:
-            self.info('Starting execution because autorun is enabled.')
-            self.play()
-        # --- Show ---
-        if gui is None:
-            return self
-        else:
-            return gui.show()  # blocking call
+        warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
+        from .viz.display import show
+        show(self, *args, **kwargs)
 
     @property
     def status(self):

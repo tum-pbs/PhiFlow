@@ -24,4 +24,4 @@ class MovingInflowDemo(FieldSequenceModel):
         self.add_field('Domain', lambda: obstacle_mask(smoke).at(smoke.density))
 
 
-app = MovingInflowDemo().show(display=('Density', 'Domain'), production=__name__ != '__main__')
+show(display=('Density', 'Domain'))

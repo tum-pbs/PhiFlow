@@ -34,4 +34,4 @@ class WavePacketDemo(FieldSequenceModel):
         self.q.amplitude = WavePacket([50, 50], self.value_size, [1*self.value_frequency, 0.6*self.value_frequency]) # normalize_probability(wave_packet(self.q.domain, ))
 
 
-WavePacketDemo().show(figure_builder=PlotlyFigureBuilder(batches=[0], depths=[0], max_resolution=128))
+show()

@@ -7,3 +7,5 @@ from .data.dataset import *
 from .data.channel import *
 from .data.reader import *
 from phi.geom import *
+from .viz import display
+from .viz.display import show

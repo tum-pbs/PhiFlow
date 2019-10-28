@@ -92,41 +92,48 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
             data = complete_staggered_properties(grids, staggered)
             return staggered.copied_with(data=data)
 
-    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None):
+    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, boundaries='repliate'):
         shape = self.centered_shape(components, batch_size=batch_size, name=name)
         if isinstance(data, Field):
             assert data.rank == self.rank
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
             if name is not None: data = data.copied_with(name=name)
-            return data
-        if isinstance(data, (int, float)):
-            return math.zeros(shape, dtype=dtype) + data
-        if callable(data):
+            grid = data
+        elif isinstance(data, (int, float)):
+            grid = math.zeros(shape, dtype=dtype) + data
+        elif callable(data):
             # data is an initializer
             try:
-                return data(shape, dtype=dtype)
+                grid = data(shape, dtype=dtype)
             except TypeError:
-                return data(shape)
-        return CenteredGrid(name, self.box, data)
+                grid = data(shape)
+        else:
+            grid = CenteredGrid(name, self.box, data)
+        grid._boundary = boundaries
+        return grid
 
-    def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None):
+    def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, boundaries='replicate'):
         shape = self.staggered_shape(batch_size=batch_size, name=name)
         if isinstance(data, Field):
             assert data.compatible(shape)
-            return data
-        if isinstance(data, (int, float)):
-            return (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
-        if callable(data):
+            grid = data
+        elif isinstance(data, (int, float)):
+            grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
+        elif callable(data):
             # data is an initializer
             try:
-                return data(shape, dtype=dtype)
+                grid = data(shape, dtype=dtype)
             except TypeError:
-                return data(shape)
-        try:
-            tensors = unstack_staggered_tensor(data)
-            return StaggeredGrid.from_tensors(name, self.box, tensors, batch_size=None)
-        except:
-            return StaggeredGrid(name, self.box, data, self.resolution)
+                grid = data(shape)
+        else:
+            try:
+                tensors = unstack_staggered_tensor(data)
+                grid = StaggeredGrid.from_tensors(name, self.box, tensors, batch_size=None)
+            except:
+                grid = StaggeredGrid(name, self.box, data, self.resolution)
+        for centeredgrid in grid.data:
+            centeredgrid._boundary = boundaries
+        return grid
 
     def default_physics(self):
         return STATIC
@@ -204,7 +211,7 @@ class DomainState(State):
         return self.domain.rank
 
     def centered_grid(self, name, value, components=1, dtype=np.float32):
-        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size)
+        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, boundaries='zero' if self.domain.boundaries == OPEN else 'replicate')
 
     def staggered_grid(self, name, value, dtype=np.float32):
-        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size)
+        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, boundaries='zero' if self.domain.boundaries == OPEN else 'replicate')

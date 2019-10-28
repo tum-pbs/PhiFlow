@@ -15,4 +15,4 @@ class BurgerDemo(FieldSequenceModel):
         self.steps = 0
 
 
-app = BurgerDemo().show(framerate=2, production=__name__ != '__main__')
+show(framerate=2)

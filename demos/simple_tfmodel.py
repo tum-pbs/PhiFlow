@@ -49,6 +49,6 @@ class TrainingTest(TFModel):
         self.add_field('Density (Input)', smoke_in.density)
 
 
-app = TrainingTest().show(production=__name__!='__main__')
+show()
 
 # hint, try showing x component only in UI - that one is more interesting than the magnitude

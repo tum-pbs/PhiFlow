@@ -25,4 +25,4 @@ class MarkerDemo(FieldSequenceModel):
         self.marker = advect.semi_lagrangian(self.marker, self.smoke.velocity, 1)
 
 
-app = MarkerDemo().show(production=__name__ != '__main__')
+show()
