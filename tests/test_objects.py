@@ -1,4 +1,5 @@
 from unittest import TestCase
+
 from phi.flow import *
 
 
@@ -7,6 +8,7 @@ def geometry_at(time):
 
 
 class TestObjects(TestCase):
+
     def test_geometry_movement(self):
         obstacle = Obstacle(geometry_at(0))
         phys = GeometryMovement(geometry_at)
@@ -25,11 +27,10 @@ class TestObjects(TestCase):
 
     def test_collective_step(self):
         world = World()
-        obstacle = world.Obstacle(geometry_at(0))
-        obstacle.physics = GeometryMovement(geometry_at)
-        inflow = world.Inflow(geometry_at(0))
-        inflow.physics = obstacle.physics
-        static_obstacle = world.Obstacle(box[0:1])
+        obstacle = world.add(Obstacle(geometry_at(0)), physics=GeometryMovement(geometry_at))
+        inflow = world.add(Inflow(geometry_at(0)))
+        inflow.physics = world.get_physics(obstacle)
+        static_obstacle = world.add(Obstacle(box[0:1]))
         world.step()
         self.assertAlmostEqual(obstacle.age, 1.0)
         self.assertAlmostEqual(obstacle.geometry.center[0], 1.0)

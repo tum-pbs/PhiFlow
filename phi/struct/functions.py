@@ -18,7 +18,8 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
             return attr.name if basename is None else basename + separator + attr.name
         else:
             return attr.path(separator) if basename is None else basename + separator + attr.path(separator)
-    with anytype(): return map(f, struct, leaf_condition, recursive=True, trace=True)
+    with anytype():
+        return map(f, struct, leaf_condition, recursive=True, trace=True)
 
 
 def zip(structs, leaf_condition=None, include_properties=False, zip_parents_if_incompatible=False):
@@ -42,7 +43,8 @@ def zip(structs, leaf_condition=None, include_properties=False, zip_parents_if_i
         values = [d[key] for d in dicts]
         values = zip(values, leaf_condition, include_properties, zip_parents_if_incompatible)
         new_dict[key] = values
-    with anytype(): return copy_with(first, new_dict)
+    with anytype():
+        return copy_with(first, new_dict)
 
 
 class LeafZip(object):

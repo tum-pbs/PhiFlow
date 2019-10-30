@@ -1,15 +1,20 @@
 from __future__ import print_function
-from phi.data.fluidformat import *
+
+import itertools
+import logging
+import math
+import six
+import threading
+import time
+
 from phi.math.nd import StaggeredGrid
-import six, logging, math, itertools, threading, time
+from phi.data.fluidformat import *
 
 
-
-
-class Interleave(DerivedChannel):
+class Interleave(Derivedstream):
 
     def __init__(self, fields):
-        DerivedChannel.__init__(self, fields)
+        Derivedstream.__init__(self, fields)
         self.field_count = len(fields)
 
     def shape(self, datasource):
@@ -23,10 +28,10 @@ class Interleave(DerivedChannel):
             yield self.input_fields[index % self.field_count].get(datasource, index // self.field_count)
 
 
-class Transform(DerivedChannel):
+class Transform(Derivedstream):
 
     def __init__(self, transformation, field):
-        DerivedChannel.__init__(self, [field])
+        Derivedstream.__init__(self, [field])
         self.field = self.input_fields[0]
         self.transformation = transformation
 
@@ -39,7 +44,6 @@ class Transform(DerivedChannel):
     def get(self, datasource, indices):
         for index in indices:
             yield self.transformation(self.field.get(datasource, index))
-
 
 
 class AsyncBatchIterator(BatchIterator):
@@ -55,7 +59,7 @@ class AsyncBatchIterator(BatchIterator):
         self.logf = logf
         threading.Thread(target=self.next_loop).start()
 
-    def get_batch(self, channels=None, subrange=None):
+    def get_batch(self, streams=None, subrange=None):
         self.batch_ready.wait()
         # print("Retrieving batch %d"  % self.index)
         if not self.batches:

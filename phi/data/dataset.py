@@ -18,11 +18,13 @@ class Dataset(object):
         else:
             for source in datasource:
                 self.add(source)
-        for o in self._observers: o(self)
+        for o in self._observers:
+            o(self)
 
     def remove(self, datasource):
         self.sources.remove(datasource)
-        for o in self._observers: o(self)
+        for o in self._observers:
+            o(self)
 
     def count(self, lookup_unknown=True):
         total = 0
@@ -43,7 +45,8 @@ class Dataset(object):
             self.add(other)
         if isinstance(other, Dataset):
             self.sources = self.sources + other.sources
-            for o in self._observers: o(self)
+            for o in self._observers:
+                o(self)
         return self
 
     def __add__(self, other):
@@ -79,16 +82,3 @@ class Dataset(object):
             raise ValueError("No data sets found in '%s' " % directory)
 
         return dataset
-
-
-# def split():
-#     def need_factor(self, total_size, add_count):
-#         if isinstance(self.target_size, float):
-#             if not self.sources:
-#                 return self.target_size
-#             else:
-#                 return self.target_size - (self.size+add_count) / float(total_size)
-#         else:
-#             raise NotImplementedError()
-
-

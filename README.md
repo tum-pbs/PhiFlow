@@ -2,7 +2,6 @@
 
 [![pipeline status](https://gitlab.lrz.de/ga67fet/phiflow/badges/master/pipeline.svg)](https://gitlab.lrz.de/ga67fet/phiflow/commits/master)
 
-
 ![Gui](documentation/figures/Gui.png)
 
 Φ<sub>*Flow*</sub> is a research-oriented, open-source fluid simulation toolkit.
@@ -10,8 +9,8 @@ It is written mostly in Python and can use both NumPy and TensorFlow for executi
 
 Having all functionality of a fluid simulation running in TensorFlow opens up the possibility of back-propagating gradients through the simulation as well as running the simulation on GPUs.
 
-
 ## Features
+
 - Tight integration with [TensorFlow](https://www.tensorflow.org/) making network training easy
 - All simulation steps are differentiable
 - Fluid simulations can be run completely on the GPU
@@ -21,12 +20,11 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 - Weak dependency on TensorFlow, allowing for execution of simulations with NumPy and SciPy
 - Option of application deployment as Flask web-service
 
-
 ## Installation
 
 The following commands will get you Φ<sub>*Flow*</sub> + browser-GUI + NumPy execution:
 
-```
+```bash
 $ git clone https://gitlab.lrz.de/ga67fet/phiflow.git
 $ pip install phiflow/[gui]
 ```
@@ -34,11 +32,10 @@ $ pip install phiflow/[gui]
 See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to install Φ<sub>*Flow*</sub>
 with TensorFlow support.
 
-
 ## Documentation and Guides
 
 | [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) |
-|-------|---------------|--------|
+|------------------------|---------------------------------|---------------|
 
 If you would like to get right into it and have a look at some example code, check out the following files in the `demos` directory:
 
@@ -52,9 +49,8 @@ The [software architecture documentation](documentation/Software_Architecture.md
 All simulations of continuous systems are based on the [Field API](documentation/Fields.md).
 To learn how specific simulations are implemented, check out the documentation for [Smoke](documentation/Smoke_Simulation.md) or read about [staggered grids](documentation/Staggered_Grids.md) or [pressure solvers](documentation/Pressure_Solvers.md). 
 
-[Writing a Φ<sub>*Flow*</sub> Application](documentation/Browser_GUI.md) introduces the high-level classes and expalins how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
+[Writing a Φ<sub>*Flow*</sub> Application](documentation/Browser_GUI.md) introduces the high-level classes and explains how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
 For training machine learning models, [this document](documentation/Interactive_Training_Apps.md) gives an introduction int o writing a GUI-enabled application.
-
 
 For I/O and data management, see the [data documentation](documentation/Reading_and_Writing_Data.md) or the [scene format specification](documentation/Scene_Format_Specification.md).
 

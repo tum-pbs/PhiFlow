@@ -1,7 +1,3 @@
-from numpy import inf
-from .fluidformat import Scene
-
-
 class UnknownShapeError(RuntimeError):
 
     def __init__(self, *args, **kwargs):
@@ -12,47 +8,48 @@ class DataSource(object):
 
     def get(self, fieldname, frames):
         """
-Returns a NumPy array (or list of arrays) holding the data for a given fieldname.
-The batch size of the array (or list length) is equal to len(frames).
-        :param fieldname: channel identifier string
+        Returns a NumPy array (or list of arrays) holding the data for a given fieldname.
+        The batch size of the array (or list length) is equal to len(frames).
+
+        :param fieldname: stream identifier string
         :param frames: list or tuple of frames
         """
         raise NotImplementedError(self)
 
     def list_fieldnames(self):
         """
-Returns a list of all fieldnames contained in this source.
+        Returns a list of all fieldnames contained in this source.
         """
         raise NotImplementedError(self)
 
     def size(self, lookup=False):
         """
-Returns the number of data points in this source.
+        Returns the number of data points in this source.
 
-If the source is infinite, returns numpy.inf.
-If the size is unknown at this point and lookup=False, returns None.
+        If the source is infinite, returns numpy.inf.
+        If the size is unknown at this point and lookup=False, returns None.
+
         :param lookup: If the size should be determined if unknown
         """
         raise NotImplementedError(self)
-    
+
     def frames(self):
         """
-Returns an iteratable object to read all frames of this DataSource.
-The iterator need not provide a length.
+        Returns an iterable object to read all frames of this DataSource.
+        The iterator need not provide a length.
         """
         raise NotImplementedError(self)
 
     def shape(self, fieldname):
         """
-Returns a 1D tensor holding the tensor shape of a single data point from the fieldname.
-The first entry, specifying the batch dimension, must be equal to 1.
+        Returns a 1D tensor holding the tensor shape of a single data point from the fieldname.
+        The first entry, specifying the batch dimension, must be equal to 1.
 
-If the shape cannot be determined, this method returns None.
-        :param fieldname: channel identifier string
+        If the shape cannot be determined, this method returns None.
+
+        :param fieldname: stream identifier string
         """
         raise NotImplementedError(self)
-
-
 
 
 class SceneSource(DataSource):

@@ -1,9 +1,11 @@
-from .field import *
-from .constant import *
-from .flag import SAMPLE_POINTS
-from phi import math
 import numpy as np
+
+from phi import math
 from phi.geom import Box
+
+from .constant import *
+from .field import *
+from .flag import SAMPLE_POINTS
 
 
 def _crop_for_interpolation(data, offset_float, window_resolution):
@@ -44,7 +46,8 @@ class CenteredGrid(Field):
         return math.spatial_rank(self.data)
 
     def __validate_data__(self):
-        if self._data is None: return
+        if self._data is None:
+            return
         assert len(math.staticshape(self._data)) == self.box.rank + 2,\
             'Data has hape %s but box has rank %d' % (math.staticshape(self._data), self.box.rank)
 
@@ -78,7 +81,7 @@ class CenteredGrid(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [CenteredGrid('%s[...,%d]' % (self.name, i), self.box, c, flags=flags, batch_size=self._batch_size) for i,c in enumerate(math.unstack(self._data, -1))]
+        return [CenteredGrid('%s[...,%d]' % (self.name, i), self.box, c, flags=flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self._data, -1))]
 
     @property
     def points(self):
@@ -89,10 +92,13 @@ class CenteredGrid(Field):
         return self._sample_points
 
     def compatible(self, other_field):
-        if not other_field.has_points: return True
+        if not other_field.has_points:
+            return True
         if isinstance(other_field, CenteredGrid):
-            if self.box != other_field.box: return False
-            if self.rank != other_field.rank: return False
+            if self.box != other_field.box:
+                return False
+            if self.rank != other_field.rank:
+                return False
             for r1, r2 in zip(self.resolution, other_field.resolution):
                 if r1 != r2 and r2 != 1 and r1 != 1:
                     return False
@@ -107,7 +113,7 @@ class CenteredGrid(Field):
             return 'Grid[invalid]'
 
     def padded(self, widths):
-        data = math.pad(self.data, [[0,0]]+widths+[[0,0]], 'symmetric' if self._boundary == 'replicate' else 'constant')
+        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], 'symmetric' if self._boundary == 'replicate' else 'constant')
         w_lower, w_upper = np.transpose(widths)
         box = Box(self.box.origin - w_lower * self.dx, self.box.size + (w_lower+w_upper) * self.dx)
         return CenteredGrid(self.name, box, data, batch_size=self._batch_size)

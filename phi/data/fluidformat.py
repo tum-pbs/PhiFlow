@@ -1,26 +1,33 @@
 # coding=utf-8
+import inspect
+import json
+import os
+import os.path
+import re
+import shutil
+import six
 import numpy as np
-import os, os.path, json, inspect, shutil, six, re
 from os.path import join, isfile, isdir
-from phi import struct, field
+from phi import struct
+from phi.physics import field
 import logging
 
 
 def read_zipped_array(filename):
     file = np.load(filename)
-    array = file[file.files[-1]] # last entry in npz file has to be data array
+    array = file[file.files[-1]]  # last entry in npz file has to be data array
     if array.shape[0] != 1:
         array = np.expand_dims(array, axis=0)
     if array.shape[-1] != 1:
-        array = array[...,::-1]
+        array = array[..., ::-1]
     return array
 
 
 def write_zipped_array(filename, array):
     if array.shape[0] == 1:
-        array = array[0,...]
+        array = array[0, ...]
     if array.shape[-1] != 1:
-        array = array[...,::-1]
+        array = array[..., ::-1]
     np.savez_compressed(filename, array)
 
 
@@ -31,7 +38,8 @@ def _check_same_dimensions(arrays):
 
 
 def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
-    if isinstance(fieldnames, six.string_types): fieldnames = [fieldnames]
+    if isinstance(fieldnames, six.string_types):
+        fieldnames = [fieldnames]
     for fieldname in fieldnames:
         filename = join(simpath, "%s_%06i.npz" % (fieldname, frame))
         if os.path.isfile(filename):
@@ -44,7 +52,8 @@ def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
 
 
 def write_sim_frame(simpath, arrays, fieldnames, frame, check_same_dimensions=False):
-    if check_same_dimensions: _check_same_dimensions(arrays)
+    if check_same_dimensions:
+        _check_same_dimensions(arrays)
     os.path.isdir(simpath) or os.mkdir(simpath)
     if not isinstance(fieldnames, (tuple, list)) and not isinstance(arrays, (tuple, list)):
         fieldnames = [fieldnames]
@@ -56,12 +65,17 @@ def write_sim_frame(simpath, arrays, fieldnames, frame, check_same_dimensions=Fa
 
 
 def read_sim_frames(simpath, fieldnames=None, frames=None):
-    if fieldnames is None: fieldnames = get_fieldnames(simpath)
-    if not fieldnames: return []
-    if frames is None: frames = get_frames(simpath, fieldnames[0])
-    if isinstance(frames, int): frames = [frames]
+    if fieldnames is None:
+        fieldnames = get_fieldnames(simpath)
+    if not fieldnames:
+        return []
+    if frames is None:
+        frames = get_frames(simpath, fieldnames[0])
+    if isinstance(frames, int):
+        frames = [frames]
     single_fieldname = isinstance(fieldnames, six.string_types)
-    if single_fieldname: fieldnames = [fieldnames]
+    if single_fieldname:
+        fieldnames = [fieldnames]
 
     field_lists = [[] for f in fieldnames]
     for i in frames:
@@ -107,7 +121,7 @@ class Scene(object):
 
     @property
     def path(self):
-        return join(self.dir, self.category, "sim_%06d"%self.index)
+        return join(self.dir, self.category, "sim_%06d" % self.index)
 
     def subpath(self, name, create=False):
         path = join(self.path, name)
@@ -116,7 +130,8 @@ class Scene(object):
         return path
 
     def _init_properties(self):
-        if self._properties is not None: return
+        if self._properties is not None:
+            return
         dfile = join(self.path, "description.json")
         if isfile(dfile):
             self._properties = json.load(dfile)
@@ -125,7 +140,6 @@ class Scene(object):
 
     def exists_config(self):
         return isfile(join(self.path, "description.json"))
-
 
     @property
     def properties(self):
@@ -179,7 +193,8 @@ class Scene(object):
 
     def _filename(self, structname):
         structname = structname.replace('._', '.').replace('.', '_')
-        if structname.startswith('_'): structname = structname[1:]
+        if structname.startswith('_'):
+            structname = structname[1:]
         return structname
 
     @property
@@ -209,7 +224,7 @@ class Scene(object):
         try:
             shutil.copystat(script_path, target)
         except:
-            pass # print("Could not copy file metadata to %s"%target)
+            pass  # print("Could not copy file metadata to %s"%target)
 
     def copy_src(self, path):
         file_name = os.path.basename(path)
@@ -257,7 +272,8 @@ class Scene(object):
             else:
                 next_index = max(indices) + 1
         scene = Scene(directory, category, next_index)
-        if mkdir: scene.mkdir()
+        if mkdir:
+            scene.mkdir()
         if copy_calling_script:
             assert mkdir
             scene.copy_calling_script()
@@ -272,11 +288,12 @@ class Scene(object):
             directory = os.path.dirname(directory)
         else:
             root_path = join(directory, category)
-        if not os.path.isdir(root_path): return []
+        if not os.path.isdir(root_path):
+            return []
         indices = [int(sim[4:]) for sim in os.listdir(root_path) if sim.startswith("sim_")]
         if indexfilter:
             indices = [i for i in indices if indexfilter(i)]
-        if max_count and len(indices) >=  max_count:
+        if max_count and len(indices) >= max_count:
             indices = indices[0:max_count]
         indices = sorted(indices)
         if len(indices)==0:
@@ -290,7 +307,7 @@ class Scene(object):
             sim_dir = sim_dir[0:-1]
         dirname = os.path.basename(sim_dir)
         if not dirname.startswith("sim_"):
-            raise ValueError("%s with dir %s is not a valid scene directory."%(sim_dir,dirname))
+            raise ValueError("%s with dir %s is not a valid scene directory." % (sim_dir,dirname))
         category_directory = os.path.dirname(sim_dir)
         category = os.path.basename(category_directory)
         directory = os.path.dirname(category_directory)
@@ -312,8 +329,8 @@ class SceneBatch(Scene):
         for array in arrays:
             assert array.shape[0] == self.batch_size or array.shape[0] == 1,\
                 'Wrong batch size: %d but %d scenes' % (array.shape[0], self.batch_size)
-        for i,scene in enumerate(self.scenes):
-            array_slices = [(array[i,...] if array.shape[0] > 1 else array[0, ...]) for array in arrays]
+        for i, scene in enumerate(self.scenes):
+            array_slices = [(array[i, ...] if array.shape[0] > 1 else array[0, ...]) for array in arrays]
             scene.write_sim_frame(array_slices, fieldnames, frame=frame, check_same_dimensions=check_same_dimensions)
 
     def read_sim_frames(self, fieldnames=None, frames=None):
@@ -321,7 +338,6 @@ class SceneBatch(Scene):
 
     def read_array(self, fieldname, frame):
         return np.concatenate([scene.read_array(fieldname, frame) for scene in self.scenes])
-
 
 
 def _transform_for_writing(obj):
@@ -335,7 +351,6 @@ def _transform_for_writing(obj):
     with struct.anytype():
         data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)))
     return data
-
 
 
 def slugify(value):

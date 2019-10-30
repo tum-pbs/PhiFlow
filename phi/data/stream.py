@@ -1,9 +1,10 @@
 import six
 import numpy as np
+
 from .source import DataSource
 
 
-class DataChannel(object):
+class DataStream(object):
 
     def shape(self, datasource):
         raise NotImplementedError(self)
@@ -18,31 +19,31 @@ class DataChannel(object):
         raise NotImplementedError(self)
 
     def __add__(self, other):
-        if isinstance(other, DataChannel):
-            return ElementwiseOperationChannel([self, other], lambda a, b: a + b)
+        if isinstance(other, DataStream):
+            return ElementwiseOperationStream([self, other], lambda a, b: a + b)
         else:
-            return ElementwiseOperationChannel([self], lambda a: a + other)
+            return ElementwiseOperationStream([self], lambda a: a + other)
 
     def __sub__(self, other):
-        if isinstance(other, DataChannel):
-            return ElementwiseOperationChannel([self, other], lambda a, b: a - b)
+        if isinstance(other, DataStream):
+            return ElementwiseOperationStream([self, other], lambda a, b: a - b)
         else:
-            return ElementwiseOperationChannel([self], lambda a: a - other)
+            return ElementwiseOperationStream([self], lambda a: a - other)
 
     def __mul__(self, other):
-        if isinstance(other, DataChannel):
-            return ElementwiseOperationChannel([self, other], lambda a, b: a * b)
+        if isinstance(other, DataStream):
+            return ElementwiseOperationStream([self, other], lambda a, b: a * b)
         else:
-            return ElementwiseOperationChannel([self], lambda a: a * other)
+            return ElementwiseOperationStream([self], lambda a: a * other)
 
     def __div__(self, other):
-        if isinstance(other, DataChannel):
-            return ElementwiseOperationChannel([self, other], lambda a, b: a / b)
+        if isinstance(other, DataStream):
+            return ElementwiseOperationStream([self, other], lambda a, b: a / b)
         else:
-            return ElementwiseOperationChannel([self], lambda a: a / other)
+            return ElementwiseOperationStream([self], lambda a: a / other)
 
 
-class SourceChannel(DataChannel):
+class SourceStream(DataStream):
 
     def __init__(self, name):
         assert isinstance(name, six.string_types)
@@ -66,7 +67,7 @@ class SourceChannel(DataChannel):
         return self._name
 
 
-class _SourceFrame(DataChannel):
+class _SourceFrame(DataStream):
 
     def shape(self, datasource):
         return (1, )
@@ -85,7 +86,7 @@ class _SourceFrame(DataChannel):
 FRAME = _SourceFrame()
 
 
-class _SourceScene(DataChannel):
+class _SourceScene(DataStream):
 
     def shape(self, datasource):
         return (1, )
@@ -103,7 +104,7 @@ class _SourceScene(DataChannel):
 SCENE = _SourceScene()
 
 
-class _Source(DataChannel):
+class _Source(DataStream):
 
     def shape(self, datasource):
         return (1, )
@@ -121,20 +122,19 @@ class _Source(DataChannel):
 SOURCE = _Source()
 
 
+class DerivedStream(DataStream):
 
-class DerivedChannel(DataChannel):
-
-    def __init__(self, input_channels):
-        self.inputs = [c if isinstance(c, DataChannel) else SourceChannel(c) for c in input_channels]
+    def __init__(self, input_streams):
+        self.inputs = [c if isinstance(c, DataStream) else SourceStream(c) for c in input_streams]
 
     def __repr__(self):
         return "%s(%s)" % (type(self), self.inputs)
 
 
-class ElementwiseOperationChannel(DerivedChannel):
+class ElementwiseOperationStream(DerivedStream):
 
-    def __init__(self, input_channels, function):
-        DerivedChannel.__init__(self, input_channels)
+    def __init__(self, input_streams, function):
+        DerivedStream.__init__(self, input_streams)
         self.function = function
 
     def shape(self, datasource):
@@ -153,16 +153,17 @@ class ElementwiseOperationChannel(DerivedChannel):
             yield result
 
 
-class FrameSelect(DerivedChannel):
+class FrameSelect(DerivedStream):
 
-    def __init__(self, selector, channel):
+    def __init__(self, selector, stream):
         """
-Selects specific frames from the input.
+        Selects specific frames from the input.
+
         :param selector: Either a frame index, list of frame frames or a selection function mapping a list of all frames to a list of selected frames
-        :param channel: input channel
+        :param stream: input stream
         """
-        DerivedChannel.__init__(self, [channel])
-        self.channel = self.inputs[0]
+        DerivedStream.__init__(self, [stream])
+        self.stream = self.inputs[0]
         if callable(selector):
             self.selection_function = selector
         else:
@@ -172,10 +173,10 @@ Selects specific frames from the input.
                 self.selection_function = lambda frames: selector
 
     def shape(self, datasource):
-        return self.channel.shape(datasource)
+        return self.stream.shape(datasource)
 
     def get(self, datasource, indices):
-        input_frames = self.channel.frames(datasource)
+        input_frames = self.stream.frames(datasource)
         frames = self.selection_function(input_frames)
         if isinstance(frames, int):
             frames = [frames]
@@ -183,50 +184,49 @@ Selects specific frames from the input.
             selected_frames = [frames[i] for i in indices]
         except:
             raise ValueError("BatchSelect: selection function must return a list of integers that is large enough, but got %s for frames %s" % (frames, datasource.frames()))
-        return self.channel.get(datasource, selected_frames)
+        return self.stream.get(datasource, selected_frames)
 
     def size(self, datasource, lookup=False):
         if not lookup:
             size = datasource.size()
             if size is None:
                 return None
-        input_frames = self.channel.frames(datasource)
+        input_frames = self.stream.frames(datasource)
         frames = self.selection_function(input_frames)
         return 1 if isinstance(frames, int) else len(frames)
 
     def frames(self, datasource):
-        input_frames = self.channel.frames(datasource)
+        input_frames = self.stream.frames(datasource)
         frames = self.selection_function(input_frames)
         return [frames] if isinstance(frames, int) else frames
 
 
-class MantaScalar(DerivedChannel):
+class MantaScalar(DerivedStream):
 
-    def __init__(self, channel):
+    def __init__(self, stream):
         """
-Removes one layer of cells on the positive sides for scalar channels.
-This can be used to load mantaflow fluid sim scenes, for which the staggered velocity
-will be loaded unmodified, while the scalar grids are cropped to match the size
-of the phiflow arrays.
+        Removes one layer of cells on the positive sides for scalar streams.
+        This can be used to load mantaflow fluid sim scenes, for which the staggered velocity
+        will be loaded unmodified, while the scalar grids are cropped to match the size
+        of the phiflow arrays.
         """
-        DerivedChannel.__init__(self, [channel]) 
-        self.channel = self.inputs[0]
+        DerivedStream.__init__(self, [stream])
+        self.stream = self.inputs[0]
 
     def shape(self, datasource):
-        return self.channel.shape(datasource)
+        return self.stream.shape(datasource)
 
     def get(self, datasource, indices):
-        a = self.channel.get(datasource, indices)
+        a = self.stream.get(datasource, indices)
         c = []
         for b in a:
-            b = b[...,0:b.shape[1]-1, 0:b.shape[2]-1,:] # crop 1 layer
-            c.append( b )
+            b = b[..., 0:b.shape[1]-1, 0:b.shape[2]-1, :]  # crop 1 layer
+            c.append(b)
         a = np.asarray(c)
         return a
 
     def size(self, datasource, lookup=False):
-        return self.channel.size(datasource, lookup)
+        return self.stream.size(datasource, lookup)
 
     def frames(self, datasource):
-        return self.channel.frames(datasource)
-
+        return self.stream.frames(datasource)

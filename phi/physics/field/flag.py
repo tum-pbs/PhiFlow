@@ -2,6 +2,7 @@ from phi import struct
 
 
 class _PROPAGATOR(object):
+
     ALL_OPERATIONS = 'transform'
     LINEAR_OPERATIONS = 'linear'  # scaling or +/- with other field of same flag
     RESAMPLE = 'resample'
@@ -9,6 +10,7 @@ class _PROPAGATOR(object):
 
 
 class _FIELD_TYPE(object):
+
     SCALAR = 'scalar'
     VECTOR = 'vector'
     ANY = 'any'
@@ -65,7 +67,8 @@ class Flag(struct.Struct):
         return self.name
 
 
-class _DivergenceFree(Flag): pass
+class _DivergenceFree(Flag):
+    pass
 
 
 DIVERGENCE_FREE = _DivergenceFree('divergence-free', True, False,
@@ -73,7 +76,8 @@ DIVERGENCE_FREE = _DivergenceFree('divergence-free', True, False,
                                   field_types=[_FIELD_TYPE.VECTOR])
 
 
-class _L2Norm(Flag): pass
+class _L2Norm(Flag):
+    pass
 
 
 L2_NORMALIZED = _L2Norm('L2-normalized', True, False,
@@ -81,7 +85,8 @@ L2_NORMALIZED = _L2Norm('L2-normalized', True, False,
                         field_types=[_FIELD_TYPE.ANY])
 
 
-class SamplePoints(Flag): pass
+class SamplePoints(Flag):
+    pass
 
 
 SAMPLE_POINTS = SamplePoints('sample-points', True, True,
@@ -89,9 +94,5 @@ SAMPLE_POINTS = SamplePoints('sample-points', True, True,
                              field_types=[_FIELD_TYPE.VECTOR])
 
 
-class Cubic(Flag): pass
-
-
-# CUBIC = Cubic('cubic', False, True,
-#               propagators=[_PROPAGATOR.ALL_OPERATIONS, _PROPAGATOR.CHILDREN, _PROPAGATOR.RESAMPLE],
-#               field_types=[_FIELD_TYPE.ANY])
+class Cubic(Flag):
+    pass

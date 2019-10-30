@@ -1,6 +1,7 @@
-from .field import *
-from phi import math
+import numpy as np
 
+from phi import math
+from .field import Field, State, propagate_flags_children
 
 class ConstantField(Field):
 
@@ -23,7 +24,7 @@ class ConstantField(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [ConstantField('%s[%d]' % (self.name, i), c, flags, self._batch_size) for i,c in enumerate(math.unstack(self.data, -1))]
+        return [ConstantField('%s[%d]' % (self.name, i), c, flags, self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):

@@ -52,6 +52,8 @@ pytest27:
     script:
         - python --version
         - pip install pytest==4.6.4 --quiet
+        - pip install nbformat --quiet --user
+        - pip install ipython --quiet --user
         - pytest --version
         - pytest
 
@@ -62,5 +64,7 @@ pytest35:
         - alias python=python3
         - alias pip="python3 -m pip"
         - pip install pytest==4.6.4 --quiet --user
+        - pip install nbformat --quiet --user
+        - pip install ipython --quiet --user
         - pytest --version
         - pytest

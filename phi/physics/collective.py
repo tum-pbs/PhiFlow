@@ -1,8 +1,9 @@
-from .physics import *
 import six
+from .physics import *
 
 
 class CollectiveState(State):
+    
     __struct__ = State.__struct__.extend(('_states',))
 
     def __init__(self, states=(), age=0.0):
@@ -39,8 +40,10 @@ class CollectiveState(State):
 
     def __getitem__(self, item):
         if isinstance(item, State):
-            if item in self._states: return item
-            else: return self[item.trajectorykey]
+            if item in self._states:
+                return item
+            else:
+                return self[item.trajectorykey]
         if isinstance(item, TrajectoryKey):
             states = list(filter(lambda s: s.trajectorykey==item, self._states))
             assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
@@ -72,7 +75,8 @@ class CollectiveState(State):
             return item in self._states
         if isinstance(item, TrajectoryKey):
             for state in self._states:
-                if state.trajectorykey == item: return True
+                if state.trajectorykey == item:
+                    return True
             return False
         raise ValueError('Illegal type: %s' % type(item))
 
@@ -85,7 +89,8 @@ class CollectivePhysics(Physics):
 
     def step(self, collectivestate, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
-        if len(collectivestate) == 0: return CollectiveState(age=collectivestate.age + dt)
+        if len(collectivestate) == 0:
+            return CollectiveState(age=collectivestate.age + dt)
         unhandled_states = list(collectivestate.states)
         next_states = []
         partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)

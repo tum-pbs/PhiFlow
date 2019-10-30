@@ -1,7 +1,10 @@
+import numpy as np
+import os
+import sys
 from unittest import TestCase
-import sys, os, numpy, tensorflow
+
 import phi.viz.display as display
-from phi.field import Field
+from phi.physics.field import Field
 
 
 class PerformModelTests(display.ModelDisplay):
@@ -13,7 +16,7 @@ class PerformModelTests(display.ModelDisplay):
         print('Model prepared.')
         self.validate_fields()
         superclasses = [b.__name__ for b in model.__class__.__bases__]
-        if 'FieldSequenceModel' in superclasses:
+        if 'App' in superclasses:
             model.progress()
             print('Step 1 succeeded.')
             model.progress()
@@ -26,7 +29,7 @@ class PerformModelTests(display.ModelDisplay):
     def validate_fields(self):
         for name in self.model.fieldnames:
             value = self.model.get_field(name)
-            assert isinstance(value, (numpy.ndarray, Field)), 'Not a valid field value: %s' % value
+            assert isinstance(value, (np.ndarray, Field)), 'Not a valid field value: %s' % value
         print('All fields are valid.')
 
     def play(self):
@@ -53,20 +56,29 @@ def demo_run(name):
 
 class TestDemos(TestCase):
 
-    def test_burgers_sim(self): demo_run('burgers_sim')
+    def test_burgers_sim(self):
+        demo_run('burgers_sim')
 
-    def test_heat_equilibrium(self): demo_run('heat_equilibrium')
+    def test_heat_equilibrium(self):
+        demo_run('heat_equilibrium')
 
-    def test_manual_smoke_numpy_or_tf(self): demo_run('manual_smoke_numpy_or_tf')
+    def test_manual_smoke_numpy_or_tf(self):
+        demo_run('manual_smoke_numpy_or_tf')
 
-    def test_marker(self): demo_run('marker')
+    def test_marker(self):
+        demo_run('marker')
 
-    def test_moving_inflow(self): demo_run('moving_inflow')
+    def test_moving_inflow(self):
+        demo_run('moving_inflow')
 
-    def test_simpleplume(self): demo_run('simpleplume')
+    def test_simpleplume(self):
+        demo_run('simpleplume')
 
-    def test_smoke_datagen_commandline(self): demo_run('smoke_datagen_commandline')
+    def test_smoke_datagen_commandline(self):
+        demo_run('smoke_datagen_commandline')
 
-    def test_smoke_logo(self): demo_run('smoke_logo')
+    def test_smoke_logo(self):
+        demo_run('smoke_logo')
 
-    def test_wavepacket(self): demo_run('wavepacket')
+    def test_wavepacket(self):
+        demo_run('wavepacket')

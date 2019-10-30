@@ -1,12 +1,15 @@
-from phi.physics.physics import State
-from phi import math, struct
-from .flag import Flag, _PROPAGATOR
-from phi.geom import Geometry
 import numpy as np
+
+from phi import math
+from phi import struct
+from phi.geom import Geometry
+from phi.physics.physics import State
+from phi.physics.field.flag import _PROPAGATOR
 
 
 def _to_valid_data(data):
-    if data is None: return None
+    if data is None:
+        return None
     if isinstance(data, (tuple, list)):
         return np.array(data)  # numbers or objects
     else:
@@ -14,6 +17,7 @@ def _to_valid_data(data):
 
 
 class Field(State):
+
     __struct__ = State.__struct__.extend(['_data'], ['_bounds', '_name', '_flags'])
 
     def __init__(self, name, bounds, data, flags=(), batch_size=None):
@@ -50,49 +54,49 @@ class Field(State):
     @property
     def data(self):
         """
-Data holds the values of this field according to the order specified by points.
-For composite fields, data holds a tuple of component fields.
-        :return: n-dimensional tensor
+        Data holds the values of this field according to the order specified by points.
+        For composite fields, data holds a tuple of component fields.
+            :return: n-dimensional tensor
         """
         return self._data
 
     @property
     def bounds(self):
         """
-The bounds describe the spatial region inside which this field is defined.
-Outside of bounds, the field is assumed to be zero / undefined.
-Fields with infinite range (such as extrapolated fields ) have bounds None.
-        :return:
+        The bounds describe the spatial region inside which this field is defined.
+        Outside of bounds, the field is assumed to be zero / undefined.
+        Fields with infinite range (such as extrapolated fields ) have bounds None.
+            :return:
         """
         return self._bounds
 
     @property
     def flags(self):
         """
-Flags describe properties of a Field such as divergence-freeness.
-        :return: tuple of flags
+        Flags describe properties of a Field such as divergence-freeness.
+            :return: tuple of flags
         """
         return self._flags
 
     def sample_at(self, points, collapse_dimensions=True):
         """
-Resample this field at the given points.
-The value of points that lie outside the bounds of this Field is undefined.
-        :param points: tensor or rank >= 2 containing world-space vectors
-        :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
-        :return: tensor of shape location.shape[:-1]+[components]
+        Resample this field at the given points.
+        The value of points that lie outside the bounds of this Field is undefined.
+            :param points: tensor or rank >= 2 containing world-space vectors
+            :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
+            :return: tensor of shape location.shape[:-1]+[components]
         """
         raise NotImplementedError(self)
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False):
         """
-Resample this field at the same points as other_field.
-The returned Field is compatible with other_field.
-The value of points that lie outside the bounds of this Field is undefined.
-        :param location: Field
-        :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
-        :param force_optimization: If true, this algorithm either uses an optimized implementation
-        :return: a new Field which samples all components of this field at the points of other_field
+        Resample this field at the same points as other_field.
+        The returned Field is compatible with other_field.
+        The value of points that lie outside the bounds of this Field is undefined.
+            :param location: Field
+            :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
+            :param force_optimization: If true, this algorithm either uses an optimized implementation
+            :return: a new Field which samples all components of this field at the points of other_field
         """
         if force_optimization:
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
@@ -108,35 +112,35 @@ The value of points that lie outside the bounds of this Field is undefined.
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         Note that this does not indicate the shape of the data array.
         If the field is independent of the dimensionality, the rank property is None.
-        :return: int
+            :return: int
         """
         raise NotImplementedError(self)
 
     @property
     def component_count(self):
         """
-Number of components of this Field.
-The components can be sampled at the same points or at different points (like with StaggeredGrids).
-        :return: int
+        Number of components of this Field.
+        The components can be sampled at the same points or at different points (like with StaggeredGrids).
+            :return: int
         """
         raise NotImplementedError(self)
 
     def unstack(self):
         """
-Split the Field by components.
-If the field only has one component, returns a list containing itself.
-        :return: tuple of Fields
+        Split the Field by components.
+        If the field only has one component, returns a list containing itself.
+            :return: tuple of Fields
         """
         raise NotImplementedError(self)
 
     @property
     def points(self):
         """
-Returns a Field containing all sample points of this field.
-The returned Field is compatible with this one.
-If the components of this field are sampled at different locations, this method raises StaggeredSamplePoints.
-If this field has no sample points, points is None.
-        :return: vector Field
+        Returns a Field containing all sample points of this field.
+        The returned Field is compatible with this one.
+        If the components of this field are sampled at different locations, this method raises StaggeredSamplePoints.
+        If this field has no sample points, points is None.
+            :return: vector Field
         """
         raise NotImplementedError(self)
 
@@ -149,11 +153,11 @@ If this field has no sample points, points is None.
 
     def compatible(self, other_field):
         """
-Checks if two Fields have the same sample points and values are stored in the same order.
-For performance reasons, this method does not actually check every single point.
-Even if this method returns False, the sample points may still be the same.
-        :param other_field:
-        :return: True if both Fields have the same sample points.
+        Checks if two Fields have the same sample points and values are stored in the same order.
+        For performance reasons, this method does not actually check every single point.
+        Even if this method returns False, the sample points may still be the same.
+            :param other_field:
+            :return: True if both Fields have the same sample points.
         """
         raise NotImplementedError(self)
 
@@ -186,8 +190,8 @@ Even if this method returns False, the sample points may still be the same.
         return self.copied_with(data=data, flags=flags)
 
 
-
 class StaggeredSamplePoints(Exception):
+
     def __init__(self, *args):
         Exception.__init__(self, *args)
 
@@ -239,3 +243,4 @@ def broadcast_at(field1, field2):
     else:
         new_components = [f1.at(f2) for f1, f2 in zip(field1.unstack(), field2.unstack())]
     return field2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(field1, field2.flags, field2.rank))
+    

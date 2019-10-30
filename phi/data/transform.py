@@ -2,10 +2,10 @@ from phi.data import *
 from phi.math.nd import *
 
 
-class Downsample(DerivedChannel):
+class Downsample(Derivedstream):
 
     def __init__(self, field):
-        DerivedChannel.__init__(self, [field])
+        Derivedstream.__init__(self, [field])
         self.field = self.input_fields[0]
 
     def size(self, datasource):

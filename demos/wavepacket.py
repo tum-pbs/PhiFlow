@@ -5,18 +5,18 @@ from phi.flow import *
 scale = 4
 
 
-class WavePacketDemo(FieldSequenceModel):
+class WavePacketDemo(App):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, u'Schrödinger Demo', stride=10)
-        q = self.q = world.QuantumWave(Domain([128*scale, 128*scale]))
+        App.__init__(self, u'Schrödinger Demo', stride=10)
+        q = self.q = world.add(QuantumWave(Domain([128*scale, 128*scale])))
         self.value_mass = 0.2
         self.value_frequency = 1.0
         self.value_size = 6.0
         self.action_reset()
         self.value_dt = 1.0
-        glassbar = world.StepPotential(box[30*scale:50*scale, 0:1024], height=1+0j)
-        topbar = world.Obstacle(box[80*scale:90*scale, 0:1024])
+        glassbar = world.add(StepPotential(box[30*scale:50*scale, 0:1024], height=1+0j))
+        topbar = world.add(Obstacle(box[80*scale:90*scale, 0:1024]))
         dom = GeometryMask('', glassbar.field.geometries + (topbar.geometry,)).at(q.amplitude)
 
         self.add_field('Real', lambda: math.real(q.amplitude))

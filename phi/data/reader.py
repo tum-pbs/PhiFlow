@@ -1,9 +1,10 @@
 from .dataset import *
-from .channel import *
+from .stream import *
 from phi import struct
 from bisect import bisect_left
 from sys import getsizeof
 from collections import Iterable
+import numpy as np
 import math
 
 
@@ -17,14 +18,14 @@ class BatchReader(object):
     def __init__(self, dataset, fields):
         self._dataset = dataset
         self._index = 0
-        self._channels = []
+        self._streams = []
         self._fields = fields
-        self.channels = struct.flatten(fields)
-        for channel in self.channels:
-            if isinstance(channel, DataChannel):
-                self._channels.append(channel)
+        self.streams = struct.flatten(fields)
+        for stream in self.streams:
+            if isinstance(stream, DataStream):
+                self._streams.append(stream)
             else:
-                self._channels.append(SourceChannel(channel))
+                self._streams.append(SourceStream(stream))
         self._cache = _BatchCache()
         self.indexcache = None
         self.callback = self._dataset_changed  # Permanent reference so it won't be garbage collected
@@ -38,16 +39,17 @@ class BatchReader(object):
     def _get_batch(self, indices):
         data_list = self._cache.get(indices, self._load, add_to_cache=True)
         data = list_swap_axes(data_list)
-        data_map = {self.channels[i]: data[i] for i in range(len(self._channels))}
-        with struct.anytype(): return struct.map(lambda channel: data_map[channel], self._fields)
+        data_map = {self.streams[i]: data[i] for i in range(len(self._streams))}
+        with struct.anytype():
+            return struct.map(lambda stream: data_map[stream], self._fields)
 
     def _load(self, indices):
         result = []
         for index in indices:
             arrays = []
-            for channel in self._channels:
+            for stream in self._streams:
                 source, local_index = self.indexcache.get_source_and_local_index(index)
-                data = channel.get(source, [local_index])
+                data = stream.get(source, [local_index])
                 array = next(iter(data))  # TODO group frames by source before calling get
                 arrays.append(array)
             result.append(arrays)
@@ -58,7 +60,8 @@ class BatchReader(object):
             return self._get_batch([item])
         elif isinstance(item, slice):
             stop = len(self) if item.stop is None else item.stop
-            if stop < 0: stop = len(self) + stop
+            if stop < 0:
+                stop = len(self) + stop
             start = 0 if item.start is None else item.start
             step = 1 if item.step is None else item.step
             return self._get_batch(list(range(start, stop, step)))
@@ -73,13 +76,13 @@ class BatchReader(object):
     def _dataset_changed(self, dataset):
         self._cache.clear()
         # Compute length
-        if len(self._channels) == 0:
+        if len(self._streams) == 0:
             self._len = 0
             self.indexcache = None
         else:
-            channel = self._channels[0]
-            self._len = np.sum([channel.size(source, lookup=True) for source in self._dataset.sources], dtype=np.int64)
-            self.indexcache = _IndexCache(self._dataset.sources, self._channels[0])
+            stream = self._streams[0]
+            self._len = np.sum([stream.size(source, lookup=True) for source in self._dataset.sources], dtype=np.int64)
+            self.indexcache = _IndexCache(self._dataset.sources, self._streams[0])
 
     def all_batches(self, batch_size=1, last=CLIP, loop=False):
         return _AdaptiveBatchIterator(self, batch_size, last, loop)
@@ -87,7 +90,7 @@ class BatchReader(object):
 
 class _IndexCache(object):
 
-    def __init__(self, sources, channel, randomize_scene_order=False, randomize_frame_order=False, randomize_indices=True):
+    def __init__(self, sources, stream, randomize_scene_order=False, randomize_frame_order=False, randomize_indices=True):
         if randomize_scene_order and not randomize_indices:
             # python2 doesnt yet support indexing via array, manually permutate
             self.sources = []
@@ -97,14 +100,14 @@ class _IndexCache(object):
             #replace sometime with original code: self.sources = sources[np.random.permutation(len(sources))]
         else:
             self.sources = sources
-        self.datachannel = channel
+        self.datastream = stream
         self.accumulated_sizes = []
 
     def get_source_and_local_index(self, index):
         max_size = 0 if len(self.accumulated_sizes) == 0 else self.accumulated_sizes[-1]
         while index >= max_size:
             source = self.sources[len(self.accumulated_sizes)]
-            source_size = self.datachannel.size(source, lookup=True)
+            source_size = self.datastream.size(source, lookup=True)
             max_size = max_size + source_size
             self.accumulated_sizes.append(max_size)
         pos = bisect_left(self.accumulated_sizes, index+1)
@@ -116,13 +119,13 @@ class _BatchCache(object):
 
     def __init__(self, capacity=512 * 1024 * 1024):
         self._access_order = []  # most recent ones last
-        self._data_by_channel_by_index = {}
+        self._data_by_stream_by_index = {}
         self._size = 0
         self.capacity = capacity
 
     def get(self, indices, lookup_function, add_to_cache=True):
         indices = np.array(indices)
-        are_cached = np.array([index in self._data_by_channel_by_index for index in indices])
+        are_cached = np.array([index in self._data_by_stream_by_index for index in indices])
         uncached_indices = indices[~are_cached]
         cached_indices = indices[are_cached]
 
@@ -141,29 +144,30 @@ class _BatchCache(object):
         result = []
         for index in indices:
             if index in cached_indices:
-                result.append(self._data_by_channel_by_index[index])
+                result.append(self._data_by_stream_by_index[index])
             else:
-                result.append(uncached_data[int(np.where(uncached_indices==index)[0])])
+                result.append(uncached_data[int(np.where(uncached_indices == index)[0])])
         return result
 
     def clear(self):
         self._access_order = []
-        self._data_by_channel_by_index = {}
+        self._data_by_stream_by_index = {}
         self._size = 0
 
     def add(self, index, data):
         data_size = np.sum([getsizeof(array) for array in data])
         self.remove_old(self.capacity - data_size)
         self._access_order.append(index)
-        assert index not in self._data_by_channel_by_index
-        self._data_by_channel_by_index[index] = data
+        assert index not in self._data_by_stream_by_index
+        self._data_by_stream_by_index[index] = data
         self._size += data_size
 
     def remove_old(self, target_capacity):
-        if target_capacity < 0: target_capacity = 0
+        if target_capacity < 0:
+            target_capacity = 0
         while self._size > target_capacity:
             index = self._access_order.pop(0)
-            data = self._data_by_channel_by_index.pop(index)
+            data = self._data_by_stream_by_index.pop(index)
             for array in data:
                 self._size -= getsizeof(array)
 
@@ -191,7 +195,8 @@ class _AdaptiveBatchIterator(object):
         if self.last == CLIP:
             stop = min(stop, len(self.reader))
             if start == stop:
-                if not self.loop: raise StopIteration()
+                if not self.loop:
+                    raise StopIteration()
                 else:
                     start = 0
                     stop = min(self.batch_size, len(self.reader))
@@ -201,8 +206,10 @@ class _AdaptiveBatchIterator(object):
                 start = 0
                 stop = self.batch_size
                 if stop > len(self.reader):
-                    if not self.loop: raise StopIteration()
-                    else: raise AssertionError("Looping iterator with 0 batches")
+                    if not self.loop:
+                        raise StopIteration()
+                    else:
+                        raise AssertionError("Looping iterator with 0 batches")
             indices = range(start, stop)
         elif self.last == WRAP:
             # Repeat first frames at the end
@@ -226,13 +233,15 @@ class _AdaptiveBatchIterator(object):
             return int(math.ceil(float(len(self.reader)) / self.batch_size))
 
 
-def list_swap_axes(list, concatenate=True):
-    if len(list) == 0: return list
+def list_swap_axes(list_in, concatenate=True):
+    if len(list_in) == 0:
+        return list_in
     result = []
-    for i in range(len(list[0])):
+    for i in range(len(list_in[0])):
         subresult = []
-        for sublist in list:
+        for sublist in list_in:
             subresult.append(sublist[i])
-        if concatenate: subresult = np.concatenate(subresult, axis=0)
+        if concatenate:
+            subresult = np.concatenate(subresult, axis=0)
         result.append(subresult)
     return result

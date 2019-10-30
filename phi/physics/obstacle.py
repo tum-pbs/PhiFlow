@@ -1,9 +1,10 @@
-from .physics import *
-from .material import *
 from .effect import *
+from .physics import State, Physics
+from .material import Material, SLIPPERY
 
 
 class Obstacle(State):
+
     __struct__ = State.__struct__.extend((), ('_geometry', '_material', '_velocity'))
 
     def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), age=0.0, batch_size=None):

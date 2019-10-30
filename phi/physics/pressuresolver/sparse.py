@@ -1,17 +1,20 @@
-from numbers import Number
-import scipy, scipy.sparse, scipy.sparse.linalg
-from phi.solver.base import *
-from phi.math.blas import conjugate_gradient
-import phi.math as math
 import numpy as np
+import scipy
+import scipy.sparse
+import scipy.sparse.linalg
+from numbers import Number
+
+from phi.physics.pressuresolver.base import *
+from phi.math.blas import conjugate_gradient
+from phi.physics.pressuresolver.base import *
 
 
 class SparseSciPy(PressureSolver):
 
     def __init__(self):
         """
-The SciPy solver uses the function scipy.sparse.linalg.spsolve to determine the pressure.
-It does not support initial guesses for the pressure and does not keep track of a loop counter.
+        The SciPy solver uses the function scipy.sparse.linalg.spsolve to determine the pressure.
+        It does not support initial guesses for the pressure and does not keep track of a loop counter.
         """
         PressureSolver.__init__(self, 'SciPy sparse solver',
                                 supported_devices=('CPU',),
@@ -35,8 +38,9 @@ It does not support initial guesses for the pressure and does not keep track of 
 
 def sparse_pressure_matrix(dimensions, extended_active_mask, extended_fluid_mask):
     """
-Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
-of that channel, taking into account obstacles and empty cells.
+    Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
+    of that channel, taking into account obstacles and empty cells.
+
     :param dimensions: valid simulation dimensions. Pressure channel should be of shape (batch size, dimensions..., 1)
     :param extended_active_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
     :param extended_fluid_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
@@ -68,7 +72,6 @@ of that channel, taking into account obstacles and empty cells.
             center_values = center_values + math.flatten(stencil_center)
 
         # Find entries in matrix
-
         dim_direction = np.zeros_like(gridpoints)
         dim_direction[dim] = 1
         # Upper frames
@@ -87,34 +90,31 @@ of that channel, taking into account obstacles and empty cells.
     return scipy.sparse.csc_matrix(A)
 
 
-
 class SparseCG(PressureSolver):
 
-    def __init__(self,
-                 accuracy=1e-5, gradient_accuracy='same',
+    def __init__(self, accuracy=1e-5, gradient_accuracy='same',
                  max_iterations=2000, max_gradient_iterations='same',
                  autodiff=False):
         """
-Conjugate gradient solver using sparse matrix multiplications.
+        Conjugate gradient solver using sparse matrix multiplications.
+
         :param accuracy: the maximally allowed error on the divergence channel for each cell
         :param gradient_accuracy: accuracy applied during backpropagation, number of 'same' to use forward accuracy
         :param max_iterations: integer specifying maximum conjugent gradient loop iterations or None for no limit
         :param max_gradient_iterations: maximum loop iterations during backpropagation,
-         'same' uses the number from max_iterations,
-          'mirror' sets the maximum to the number of iterations that were actually performed in the forward pass
+            'same' uses the number from max_iterations,
+            'mirror' sets the maximum to the number of iterations that were actually performed in the forward pass
         :param autodiff: If autodiff=True, use the built-in autodiff for backpropagation.
-         The intermediate results of each loop iteration will be permanently stored if backpropagation is used.
-          If False, replaces autodiff by a forward pressure solve in reverse accumulation backpropagation.
-           This requires less memory but is only accurate if the solution is fully converged.
+            The intermediate results of each loop iteration will be permanently stored if backpropagation is used.
+            If False, replaces autodiff by a forward pressure solve in reverse accumulation backpropagation.
+            This requires less memory but is only accurate if the solution is fully converged.
         """
         PressureSolver.__init__(self, 'Sparse Conjugate Gradient',
                                 supported_devices=('CPU', 'GPU'),
                                 supports_guess=True, supports_loop_counter=True, supports_continuous_masks=True)
         assert isinstance(accuracy, Number), 'invalid accuracy: %s' % accuracy
-        assert gradient_accuracy == 'same' or isinstance(gradient_accuracy,
-                                                         Number), 'invalid gradient_accuracy: %s' % gradient_accuracy
-        assert max_gradient_iterations == 'same' or max_gradient_iterations == 'mirror' or isinstance(
-            max_gradient_iterations, Number), 'invalid max_gradient_iterations: %s' % max_gradient_iterations
+        assert gradient_accuracy == 'same' or isinstance(gradient_accuracy, Number), 'invalid gradient_accuracy: %s' % gradient_accuracy
+        assert max_gradient_iterations in ['same', 'mirror'] or isinstance(max_gradient_iterations, Number), 'invalid max_gradient_iterations: %s' % max_gradient_iterations
         self.accuracy = accuracy
         self.gradient_accuracy = accuracy if gradient_accuracy == 'same' else gradient_accuracy
         self.max_iterations = max_iterations
@@ -147,13 +147,13 @@ Conjugate gradient solver using sparse matrix multiplications.
             def pressure_gradient(op, grad):
                 return sparse_cg(grad, A, max_gradient_iterations, None, self.gradient_accuracy)[0]
 
-            pressure, iter = math.with_custom_gradient(sparse_cg,
-                                                       [divergence, A, self.max_iterations, pressure_guess, self.accuracy],
-                                                       pressure_gradient, input_index=0, output_index=0,
-                                                       name_base='scg_pressure_solve')
+            pressure, iteration = math.with_custom_gradient(sparse_cg,
+                                                           [divergence, A, self.max_iterations, pressure_guess, self.accuracy],
+                                                           pressure_gradient, input_index=0, output_index=0,
+                                                           name_base='scg_pressure_solve')
 
-            max_gradient_iterations = iter if self.max_gradient_iterations == 'mirror' else self.max_gradient_iterations
-            return pressure, iter
+            max_gradient_iterations = iteration if self.max_gradient_iterations == 'mirror' else self.max_gradient_iterations
+            return pressure, iteration
 
 
 def sparse_cg(divergence, A, max_iterations, guess, accuracy, back_prop=False):
@@ -165,7 +165,6 @@ def sparse_cg(divergence, A, max_iterations, guess, accuracy, back_prop=False):
     return math.reshape(result_vec, math.shape(divergence)), iterations
 
 
-
 def sparse_indices(dimensions):
     N = int(np.prod(dimensions))
     d = len(dimensions)
@@ -174,7 +173,7 @@ def sparse_indices(dimensions):
     gridpoints_linear = np.arange(N)
     gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial frames
 
-    indices_list = [ np.stack([gridpoints_linear] * 2, axis=-1) ]
+    indices_list = [np.stack([gridpoints_linear] * 2, axis=-1)]
 
     for dim in dims:
         dim_direction = np.zeros_like(gridpoints)
@@ -182,17 +181,17 @@ def sparse_indices(dimensions):
         # Upper frames
         upper_indices = gridpoints + dim_direction
         upper_in_range_inx = np.nonzero(upper_indices[dim] < dimensions[dim])
-        upper_indices_linear = np.ravel_multi_index(upper_indices[:,upper_in_range_inx], dimensions)[0,:]
+        upper_indices_linear = np.ravel_multi_index(upper_indices[:, upper_in_range_inx], dimensions)[0, :]
         indices_list.append(np.stack([gridpoints_linear[upper_in_range_inx], upper_indices_linear], axis=-1))
         # Lower frames
         lower_indices = gridpoints - dim_direction
         lower_in_range_inx = np.nonzero(lower_indices[dim] >= 0)
-        lower_indices_linear = np.ravel_multi_index(lower_indices[:, lower_in_range_inx], dimensions)[0,:]
+        lower_indices_linear = np.ravel_multi_index(lower_indices[:, lower_in_range_inx], dimensions)[0, :]
         indices_list.append(np.stack([gridpoints_linear[lower_in_range_inx], lower_indices_linear], axis=-1))
 
     indices = np.concatenate(indices_list, axis=0)
 
-    sorting = np.lexsort(np.transpose(indices)[:,::-1])
+    sorting = np.lexsort(np.transpose(indices)[:, ::-1])
 
     sorted_indices = indices[sorting]
 
@@ -201,8 +200,9 @@ def sparse_indices(dimensions):
 
 def sparse_values(dimensions, extended_active_mask, extended_fluid_mask, sorting=None):
     """
-Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
-of that channel, taking into account obstacles and empty cells.
+    Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
+    of that channel, taking into account obstacles and empty cells.
+
     :param dimensions: valid simulation dimensions. Pressure channel should be of shape (batch size, dimensions..., 1)
     :param extended_active_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
     :param extended_fluid_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.

@@ -1,10 +1,10 @@
 from phi.data import *
 
 
-class AugmentChannel(DerivedChannel):
+class Augmentstream(Derivedstream):
 
     def __init__(self, aug_dimensions, field, affect_flags=(DATAFLAG_TRAIN,)):
-        DerivedChannel.__init__(self, [field])
+        Derivedstream.__init__(self, [field])
         self.field = self.input_fields[0]
         self.affect_flags = affect_flags
         self.aug_dimensions = range(aug_dimensions) if isinstance(aug_dimensions, int) else aug_dimensions
@@ -42,10 +42,10 @@ class AugmentChannel(DerivedChannel):
         raise NotImplementedError()
 
 
-class AxisFlip(AugmentChannel):
+class AxisFlip(Augmentstream):
 
     def __init__(self, flip_dimensions, field, flip_vectors=True, affect_flags=(DATAFLAG_TRAIN,)):
-        AugmentChannel.__init__(self, flip_dimensions, field, affect_flags)
+        Augmentstream.__init__(self, flip_dimensions, field, affect_flags)
         self.flip_vectors = flip_vectors
 
     def augment_single(self, array, perm):
@@ -55,25 +55,3 @@ class AxisFlip(AugmentChannel):
             flipped_components = [len(array.shape) - d - 3 for d in self.aug_dimensions if perm & 2 ** (d) != 0]
             array[..., flipped_components] *= -1
         return array
-
-
-# class SpatialShift(AugmentChannel):
-#
-#     def __init__(self, shift_dimensions, shift, channel, padding="symmetric", affect_flags=(DATAFLAG_TRAIN,)):
-#         AugmentChannel.__init__(self, shift_dimensions, channel, affect_flags)
-#         self.shift = shift
-#         self.padding = padding
-#
-#     def shape(self, datasource):
-#         input_shape = self.channel.shape(datasource)
-#         if self.padding is not None:
-#             return input_shape
-#         else:
-#             input_shape = np.array(input_shape)
-#             input_shape[1:-1] -= 2
-#             return input_shape
-#
-#     def augment_single(self, array, perm):
-#         slices = [slice(None, None, -1) if d >= 1 and perm & 2 ** (d - 1) != 0 else slice(None) for d in range(len(array.shape))]
-#
-#     def velocity_adjustment(self, channel):

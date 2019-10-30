@@ -4,8 +4,9 @@ from phi import math
 
 def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations=1024, back_prop=False):
     """
-Solve the linear system of equations Ax=k using the conjugate gradient (CG) algorithm.
-The implementation is based on https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+    Solve the linear system of equations Ax=k using the conjugate gradient (CG) algorithm.
+    The implementation is based on https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+
     :param k: Right-hand-side vector
     :param apply_A: function that takes x and calculates Ax
     :param initial_x: initial guess for the value of x
@@ -44,9 +45,9 @@ The implementation is based on https://nvlpubs.nist.gov/nistpubs/jres/049/jresv4
         return [pressure, momentum, A_times_momentum, residual, loop_index + 1]
 
     x, momentum, laplace_momentum, residual, loop_index = math.while_loop(loop_condition, loop_body, vars,
-                                                                              parallel_iterations=2, back_prop=back_prop,
-                                                                              swap_memory=False,
-                                                                              name="pressure_solve_loop",
-                                                                              maximum_iterations=max_iterations)
+                                                                          parallel_iterations=2, back_prop=back_prop,
+                                                                          swap_memory=False,
+                                                                          name="pressure_solve_loop",
+                                                                          maximum_iterations=max_iterations)
 
     return x, loop_index

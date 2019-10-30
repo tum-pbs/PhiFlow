@@ -1,15 +1,17 @@
 from unittest import TestCase
+
 from phi.flow import *
 from phi.math import *
 
 
 def build_test_database(path='data'):
-    for scene in Scene.list(path): scene.remove()
+    for scene in Scene.list(path):
+        scene.remove()
     val = 1.0
     for sceneindex in range(2):
         scene = Scene.create(path)
         for t in range(4):
-            scene.write_sim_frame([np.zeros([1,4,4,1])+val, np.zeros([1,5,5,2])], ['Density', 'Velocity'], t)
+            scene.write_sim_frame([np.zeros([1, 4, 4, 1]) + val, np.zeros([1, 5, 5, 2])], ['Density', 'Velocity'], t)
             val += 1
 
 
@@ -34,7 +36,7 @@ class TestData(TestCase):
         reader = BatchReader(Dataset.load('data'), 'Density')
         i = 1
         for batch in reader.all_batches(batch_size=2):
-            value1, value2 = batch[:,0,0,0]
+            value1, value2 = batch[:, 0, 0, 0]
             self.assertEqual(value1, i)
             self.assertEqual(value2, i+1)
             i += 2
@@ -52,7 +54,7 @@ class TestData(TestCase):
         build_test_database()
         reader = BatchReader(Dataset.load('data'), FRAME)
         frames = reader[0:6]
-        np.testing.assert_array_equal(frames, [0,1,2,3,0,1])
+        np.testing.assert_array_equal(frames, [0, 1, 2, 3, 0, 1])
 
     def test_get_sources(self):
         build_test_database()
@@ -72,7 +74,8 @@ class TestData(TestCase):
         batch = reader[0]
 
     def test_write_batch(self):
-        for scene in Scene.list('data'): scene.remove()
+        for scene in Scene.list('data'):
+            scene.remove()
         scene_batch = Scene.create('data', count=2)
         self.assertEqual(scene_batch.batch_size, 2)
         self.assertEqual(len(Scene.list('data')), 2)
@@ -87,8 +90,8 @@ class TestData(TestCase):
 
     def test_calc(self):
         build_test_database()
-        reader = BatchReader(Dataset.load('data'), ['Density', SourceChannel('Density') + 1, SourceChannel('Density') * SourceChannel('Density')])
+        reader = BatchReader(Dataset.load('data'), ['Density', SourceStream('Density') + 1, SourceStream('Density') * SourceStream('Density')])
         for i in range(len(reader)):
             d, d_1, d_2 = reader[i]
-            numpy.testing.assert_equal(d+1, d_1)
-            numpy.testing.assert_equal(d**2, d_2)
+            np.testing.assert_equal(d+1, d_1)
+            np.testing.assert_equal(d**2, d_2)

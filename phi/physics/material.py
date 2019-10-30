@@ -1,17 +1,19 @@
 import math
+
 from phi import struct
 
 
 class Material(struct.Struct):
+
     __struct__ = struct.Def((), ('solid', 'friction', 'extrapolate_fluid', 'global_velocity', 'local_velocity'))
 
     def __init__(self, name, solid=True, friction=0.0, extrapolate_fluid=True, global_velocity=0.0, local_velocity=0.0):
         """
-Defines physical properties of a boundary or voxel.
+        Defines physical properties of a boundary or voxel.
 
-Velocity:
-The total velocity at a surface point is global_velocity + local_to_global(local_velocity).
-If local_velocity is None, the latter term will be ignored.
+        Velocity:
+        The total velocity at a surface point is global_velocity + local_to_global(local_velocity).
+        If local_velocity is None, the latter term will be ignored.
         :param solid: Fluid can only enter non-solid cells or pass through non-solid boundaries
         :param friction: (only for solid materials) velocity decay rate in units of 1/time. 0: fluid can move parallell to the surface (no-stick), 1: fluid cannot move parallel (no-slip)
         :param extrapolate_fluid: Boundary condition when extrapolating the fluid channel into the object

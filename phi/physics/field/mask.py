@@ -1,6 +1,6 @@
+from phi.geom import union
 from .field import *
 from .constant import _convert_constant_to_data, _expand_axes
-from phi.geom import union
 
 
 class GeometryMask(Field):
@@ -35,7 +35,7 @@ class GeometryMask(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [GeometryMask('%s[%d]' % (self.name, i), self.geometries, c, flags, self._batch_size) for i,c in enumerate(math.unstack(self.data, -1))]
+        return [GeometryMask('%s[%d]' % (self.name, i), self.geometries, c, flags, self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):

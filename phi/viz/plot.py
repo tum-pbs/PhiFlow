@@ -1,7 +1,8 @@
-import numpy, os
+import os
+import numpy as np
 
+from phi.physics.field import *
 
-from phi.field import *
 
 # Views
 FRONT = 'front'
@@ -14,7 +15,6 @@ VECTOR2 = 'vec2'
 
 
 class PlotlyFigureBuilder(object):
-
 
     def __init__(self,
                  batches=slice(None),
@@ -72,7 +72,7 @@ class PlotlyFigureBuilder(object):
 
     def get_selected_slices(self, shape):
         try:
-            selected_depths = numpy.arange(self.slice_count(shape))[self.depths]
+            selected_depths = np.arange(self.slice_count(shape))[self.depths]
         except:
             selected_depths = [self.slice_count(shape) - 1]
         return selected_depths
@@ -93,7 +93,7 @@ class PlotlyFigureBuilder(object):
             batch = 0
         if batch is None:
             try:
-                selected_batches = numpy.arange(shape[0])[self.batches]
+                selected_batches = np.arange(shape[0])[self.batches]
                 if len(selected_batches) != 1:
                     raise ValueError('no batch specified and default batches contains more than one element')
             except:
@@ -119,11 +119,11 @@ class PlotlyFigureBuilder(object):
             staggered = self.staggered
         if self.antisymmetry:
             if staggered:
-                data = data[..., 1:,:]
+                data = data[..., 1:, :]
             if shape[-1] != 1:
                 datax = data[..., ::-1, 0:1] + data[..., 0:1]
                 datayz = data[..., ::-1, 1:] - data[..., 1:]
-                data = numpy.concatenate((datax, datayz), axis=-1)
+                data = np.concatenate((datax, datayz), axis=-1)
             else:
                 data = data - data[..., ::-1, :]
 
@@ -131,11 +131,11 @@ class PlotlyFigureBuilder(object):
         if batch < shape[0]:
             data = data[batch, ...]
         else:
-            return { 'data': [{'type': 'heatmap', 'z': [[0]]}] }
+            return {'data': [{'type': 'heatmap', 'z': [[0]]}]}
 
-        if numpy.issubdtype(data.dtype, numpy.complex):
-            data = numpy.real(data)
-        
+        if np.issubdtype(data.dtype, np.complex):
+            data = np.real(data)
+
         # 1D graph
         if len(shape) == 3:
             return self.graphs(data, library)
@@ -146,7 +146,7 @@ class PlotlyFigureBuilder(object):
                 data = data[:, min(depth, shape[2]), :, :]
             elif self.view == RIGHT:
                 data = data[:, :, min(depth, shape[3]), :]
-                data = numpy.transpose(data, axes=(1,0,2))
+                data = np.transpose(data, axes=(1, 0, 2))
             elif self.view == TOP:
                 data = data[min(depth, shape[1]), :, :, :]
             else:
@@ -157,25 +157,25 @@ class PlotlyFigureBuilder(object):
 
         if component == VECTOR2:
             # Downsample
-            while numpy.prod(data.shape[:-1]) > self.max_vector_resolution ** 2:
+            while np.prod(data.shape[:-1]) > self.max_vector_resolution ** 2:
                 data = data[::2, ::2, :] * 0.5
             data = data[..., ::-1]
             return self.draw_vector_field(data, library)
 
         elif component == LENGTH:
             if shape[-1] == 3:
-                data = numpy.sqrt( data[...,0:1]**2 + data[...,1:2]**2 + data[...,2:3]**2)
+                data = np.sqrt(data[..., 0:1]**2 + data[..., 1:2]**2 + data[..., 2:3]**2)
             else:
-                data = numpy.sqrt( data[...,0:1]**2 + data[...,1:2]**2)
+                data = np.sqrt(data[..., 0:1]**2 + data[..., 1:2]**2)
         else:
             # Single vector component
             if component >= shape[-1]:
-                data = numpy.zeros_like(data[...,0:1])
+                data = np.zeros_like(data[..., 0:1])
             else:
-                data = data[...,shape[-1]-1-component:shape[-1]-component]
+                data = data[..., shape[-1]-1-component:shape[-1]-component]
 
         # Downsample
-        while numpy.prod(data.shape[:-1]) > self.max_resolution ** 2:
+        while np.prod(data.shape[:-1]) > self.max_resolution ** 2:
             data = data[::2, ::2, :]
         if same_scale_data is not None:
             return self.heatmap(data[..., 0], library, minmax=global_minmax(same_scale_data))
@@ -192,7 +192,7 @@ class PlotlyFigureBuilder(object):
         elif self.view == RIGHT:
             return shape[3]
         else:
-            raise ValueError('Illegal view: %s'%self.view)
+            raise ValueError('Illegal view: %s' % self.view)
 
     def heatmap(self, z, library, minmax=None):
         if library == 'dash':
@@ -200,7 +200,7 @@ class PlotlyFigureBuilder(object):
             if minmax is not None:
                 args['zmin'] = minmax[0]
                 args['zmax'] = minmax[1]
-            return { 'data': [args] }
+            return {'data': [args]}
         elif library == 'matplotlib':
             import matplotlib.pyplot as plt
             fig = plt.figure()
@@ -208,23 +208,22 @@ class PlotlyFigureBuilder(object):
             return fig
         else:
             raise NotImplementedError()
-        
+
     def graphs(self, data, library):
-        x = numpy.arange(data.shape[0])
+        x = np.arange(data.shape[0])
         if library == 'dash':
-            graphs = [{ 'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data[:,i]} for i in range(data.shape[-1])]
-            return {'data': graphs }
+            graphs = [{ 'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data[:, i]} for i in range(data.shape[-1])]
+            return {'data': graphs}
         else:
             import matplotlib.pyplot as plt
             fig = plt.figure()
             for i in range(data.shape[-1]):
                 plt.plot(x, data[:,i])
             return fig
-            
 
     def draw_vector_field(self, vector_field, library):
         import plotly.figure_factory as ff
-        x, y = numpy.meshgrid(numpy.arange(0, vector_field.shape[1], 1), numpy.arange(0, vector_field.shape[0], 1))
+        x, y = np.meshgrid(np.arange(0, vector_field.shape[1], 1), np.arange(0, vector_field.shape[0], 1))
         if library == 'dash':
             if self.draw_arrows_backward:
                 return ff.create_quiver(x - vector_field[..., 0], y - vector_field[..., 1], vector_field[..., 0], vector_field[..., 1], scale=1.0)
@@ -245,6 +244,6 @@ class PlotlyFigureBuilder(object):
 
 
 def global_minmax(arrays):
-    global_min = numpy.minimum(*[numpy.min(data) for data in arrays])
-    global_max = numpy.maximum(*[numpy.max(data) for data in arrays])
+    global_min = np.minimum(*[np.min(data) for data in arrays])
+    global_max = np.maximum(*[np.max(data) for data in arrays])
     return global_min, global_max

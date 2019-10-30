@@ -1,12 +1,12 @@
 from phi.flow import *
 
 
-class Simpleplume(FieldSequenceModel):
+class Simpleplume(App):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, stride=5)
-        world.Smoke(Domain([80, 64], boundaries=SLIPPERY))
-        world.Inflow(Sphere(center=(10, 32), radius=5), rate=0.2)
+        App.__init__(self, stride=5)
+        world.add(Smoke(Domain([80, 64], boundaries=SLIPPERY)))
+        world.add(Inflow(Sphere(center=(10, 32), radius=5), rate=0.2))
 
 
 show()

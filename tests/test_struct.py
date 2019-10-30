@@ -1,21 +1,21 @@
 from unittest import TestCase
+
 from phi.math import *
-from phi.struct import *
 from phi.flow import *
+from phi.struct import *
 
 
 def generate_test_structs():
     with anytype():
-        return [
-                CenteredGrid('g', None, 'Grid'),
+        return [CenteredGrid('g', None, 'Grid'),
                 [CenteredGrid(None, None, 'Grid')],
                 [('Item',)],
-            {'A': 'Entry A', 'Vel': CenteredGrid(None, None, 'v')},
-            CollectiveState((Smoke(Domain([4])),))
-            ]
+                {'A': 'Entry A', 'Vel': CenteredGrid(None, None, 'v')},
+                CollectiveState((Smoke(Domain([4])),))]
 
 
 class TestStruct(TestCase):
+    
     def test_identity(self):
         for struct in generate_test_structs():
             with anytype():
@@ -44,8 +44,9 @@ class TestStruct(TestCase):
                     self.assertIsInstance(name, str)
 
     def test_paths(self):
-        struct = {'Vels': [CenteredGrid('v', box[0:1], np.zeros([1,4,1]))]}
-        with anytype(): names = flatten(map(lambda attr: attr.path(), struct, trace=True))
+        struct = {'Vels': [CenteredGrid('v', box[0:1], np.zeros([1, 4, 1]))]}
+        with anytype():
+            names = flatten(map(lambda attr: attr.path(), struct, trace=True))
         self.assertEqual(names[0], 'Vels.0.data')
 
     def test_copy(self):
@@ -66,4 +67,4 @@ class TestStruct(TestCase):
             a = CenteredGrid('a', None, 'a')
             b = CenteredGrid('b', None, 'b')
             stacked = map(lambda *x: x, zip([a, b]))
-            numpy.testing.assert_equal(stacked.data, ('a', 'b'))
+            np.testing.assert_equal(stacked.data, ('a', 'b'))

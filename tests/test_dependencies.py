@@ -1,4 +1,5 @@
 from unittest import TestCase
+
 from phi.flow import *
 
 
@@ -19,17 +20,17 @@ class TestDependencies(TestCase):
     def test_order(self):
         world = World()
         order = []
-        world.Inflow(box[0:0], physics=CustomPhysics('Inflow', order, {}, {'d': 'fan'}))
-        world.Fan(box[0:0], 0, physics=CustomPhysics('Fan', order, {}, {}))
+        world.add(Inflow(box[0:0]), physics=CustomPhysics('Inflow', order, {}, {'d': 'fan'}))
+        world.add(Fan(box[0:0], 0), physics=CustomPhysics('Fan', order, {}, {}))
         world.step()
         np.testing.assert_equal(order, ['Fan', 'Inflow'])
 
     def test_cyclic_dependency(self):
         world = World()
         order = []
-        inflow = world.Inflow(box[0:0])
+        inflow = world.add(Inflow(box[0:0]))
         inflow.physics = CustomPhysics('Inflow', order, {}, {'d': 'fan'})
-        fan = world.Fan(box[0:0], 0)
+        fan = world.add(Fan(box[0:0], 0))
         fan.physics = CustomPhysics('Fan', order, {}, {'d': 'inflow'})
         try:
             world.step()

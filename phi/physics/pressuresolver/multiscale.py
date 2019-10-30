@@ -1,18 +1,20 @@
-from phi.solver.base import *
 import numpy as np
+
 from phi import math
-import logging
+from phi.physics.pressuresolver.base import *
+from phi.physics.pressuresolver.base import *
 
 
 class Multiscale(PressureSolver):
 
     def __init__(self, solvers, autodiff=False):
         """
-A multigrid solver first solves the pressure on a lower-resolution grid and successively upsamples and refines it.
-On each grid, i, the pressure is calculated using the i-th provided PressureSolver.
-The resulting pressure is then upsampled and given as initial guess to the next level.
+        A multigrid solver first solves the pressure on a lower-resolution grid and successively upsamples and refines it.
+        On each grid, i, the pressure is calculated using the i-th provided PressureSolver.
+        The resulting pressure is then upsampled and given as initial guess to the next level.
 
-This approach reduces the number of high-resolution iterations required, especially if the previous solver had a higher accuracy.
+        This approach reduces the number of high-resolution iterations required, especially if the previous solver had a higher accuracy.
+
         :param solvers: tuple or list of PressureSolvers with length equal to number of grids
         :param autodiff: if True, use autodiff, else use multigrid forward solver for backprop
         """
@@ -61,8 +63,8 @@ def _mg_solve_forward(divergence, domain, pressure_guess, solvers):
 
     iter_list = []
     for i, div in enumerate(div_lvls):
-        pressure_guess, iter = solvers[i].solve(div, FluidDomain(act_lvls[i], fld_lvls[i], boundaries), pressure_guess)
-        iter_list.append(iter)
+        pressure_guess, iteration = solvers[i].solve(div, FluidDomain(act_lvls[i], fld_lvls[i], boundaries), pressure_guess)
+        iter_list.append(iteration)
         if pressure_guess.shape[1] < divergence.shape[1]:
             pressure_guess = math.upsample2x(pressure_guess) * 2 ** math.spatial_rank(divergence)
 
