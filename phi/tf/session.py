@@ -1,8 +1,9 @@
 import numpy as np
+import contextlib
+
 from phi import struct
 from .profiling import *
 from .util import isplaceholder
-import contextlib
 
 
 class Session(object):
@@ -13,8 +14,8 @@ class Session(object):
         assert self._session.graph == tf.get_default_graph()
         self.graph = tf.get_default_graph()
         self.summary_writers = {}
-        self.summary_directory = os.path.abspath(scene.subpath('summary'))
-        self.profiling_directory = scene.subpath("profile")
+        self.summary_directory = os.path.abspath(scene.subpath('summary')) if scene is not None else None
+        self.profiling_directory = scene.subpath("profile") if scene is not None else None
         self.trace_count = 0
         self.saver = None
 

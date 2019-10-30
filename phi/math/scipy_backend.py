@@ -1,8 +1,11 @@
-from phi.math.base import Backend
-import numpy as np
-import numbers
 import collections
-import scipy.sparse, scipy.signal
+import numbers
+import numpy as np
+import scipy.sparse
+import scipy.signal
+
+from phi.math.base import Backend
+
 
 class SciPyBackend(Backend):
 
@@ -238,7 +241,7 @@ class SciPyBackend(Backend):
             np.add.at(count, tuple(indices), 1)
             count = np.maximum(1, count)
             return array / count
-        else: # last, any, undefined
+        else:  # last, any, undefined
             array[indices] = values
         return array
 

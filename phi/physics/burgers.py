@@ -1,20 +1,21 @@
-from phi.field import advect
-from .physics import *
-from .util import diffuse
-from .domain import *
+from phi.physics.field import advect
+
+from .domain import DomainState
+from .physics import Physics
+from .field.util import diffuse
 
 
-class Burger(DomainState):
+class Burgers(DomainState):
     __struct__ = DomainState.__struct__.extend(['_velocity'], ['_viscosity'])
 
     def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
-        DomainState.__init__(self, domain, tags=('burger', 'velocityfield'), batch_size=batch_size)
+        DomainState.__init__(self, domain, tags=('burgers', 'velocityfield'), batch_size=batch_size)
         self._velocity = velocity
         self._viscosity = viscosity
         self.__validate__()
 
     def default_physics(self):
-        return BurgerPhysics()
+        return BurgersPhysics()
 
     def __validate_velocity__(self):
         self._velocity = self.centered_grid('velocity', self._velocity, components=self.rank)
@@ -32,7 +33,7 @@ class Burger(DomainState):
         return self._viscosity
 
 
-class BurgerPhysics(Physics):
+class BurgersPhysics(Physics):
 
     def __init__(self):
         Physics.__init__(self, {})
@@ -43,4 +44,3 @@ class BurgerPhysics(Physics):
         v = advect.semi_lagrangian(v, v, dt)
         v = diffuse(v, dt * state.viscosity)
         return state.copied_with(velocity=v, age=state.age + dt)
-

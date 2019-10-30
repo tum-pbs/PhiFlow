@@ -1,6 +1,9 @@
 # coding=utf-8
-from phi import struct, math, field
 import numpy as np
+
+from phi import math
+from phi import struct
+from phi.physics import field
 
 
 class PressureSolver(object):
@@ -14,8 +17,9 @@ class PressureSolver(object):
 
     def solve(self, divergence, domain, pressure_guess):
         """
-Solves the pressure equation Δp = ∇·v for all active fluid cells where active cells are given by the active_mask.
-The resulting pressure is expected to fulfill (Δp-∇·v) ≤ accuracy for every active cell.
+        Solves the pressure equation Δp = ∇·v for all active fluid cells where active cells are given by the active_mask.
+        The resulting pressure is expected to fulfill (Δp-∇·v) ≤ accuracy for every active cell.
+
         :param divergence: the scalar divergence of the velocity channel, ∇·v
         :param domain: DomainState object specifying boundary conditions and active/fluid masks. The domain must be equal for all examples (batch dimension equal to 1).
         :param pressure_guess: (Optional) Pressure channel which can be used as an initial state for the solver
@@ -27,9 +31,8 @@ The resulting pressure is expected to fulfill (Δp-∇·v) ≤ accuracy for ever
         return self.name
 
 
-
-
 class FluidDomain(struct.Struct):
+
     __struct__ = struct.Def(('_active', 'accessible'))
 
     def __init__(self, domain, validstate=(), active=None, accessible=None):
@@ -60,8 +63,9 @@ class FluidDomain(struct.Struct):
 
     def active(self, extend=0):
         """
-Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
-Active cells are those for which physical properties such as pressure or velocity are calculated.
+        Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
+        Active cells are those for which physical properties such as pressure or velocity are calculated.
+
         :param extend: Extend the grid in all directions beyond the grid size specified by the domain
         """
         if extend is None or extend == 0:
@@ -71,7 +75,8 @@ Active cells are those for which physical properties such as pressure or velocit
 
     def accessible(self, extend=0):
         """
-Scalar channel encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
+        Scalar channel encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
+
         :param extend: Extend the grid in all directions beyond the grid size specified by the domain
         """
         if extend is None or extend == 0:

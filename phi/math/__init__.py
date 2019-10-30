@@ -1,17 +1,19 @@
+from .base import *
+from .backend import *
 
-from phi.math.base import *
-
-
+# Tensorflow
 def load_tensorflow():
     """
-Internal function to register the TensorFlow backend.
-This function is called automatically once a TFSimulation is instantiated.
+    Internal function to register the TensorFlow backend.
+    This function is called automatically once a TFSimulation is instantiated.
+
     :return: True if TensorFlow could be imported, else False
     """
     try:
         from .tensorflow_backend import TFBackend
         for b in backend.backends:
-            if isinstance(b, TFBackend): return True
+            if isinstance(b, TFBackend): 
+                return True
         backend.backends.append(TFBackend())
         return True
     except BaseException as e:
@@ -23,5 +25,6 @@ This function is called automatically once a TFSimulation is instantiated.
 
 load_tensorflow()
 
-from phi.math.nd import *
+# overwrite with other functions
+from .nd import *
 from .initializers import *  # this replaces zeros_like (possibly more) and must be handled carefully

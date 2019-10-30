@@ -1,5 +1,6 @@
-from phi.geom import *
 import numpy as np
+
+from phi.geom import *
 
 
 def grid(griddef, points, property=None, default_value=0):
@@ -18,11 +19,10 @@ def active_centers(array):
     assert array.shape[-1] == 1
     index_array = []
     for batch in range(array.shape[0]):
-        indices = np.argwhere(array[batch,...,0] > 0)[:,::-1]
+        indices = np.argwhere(array[batch, ..., 0] > 0)[:, ::-1]
         index_array.append(indices)
     try:
         index_array = np.stack(index_array)
     except ValueError:
         raise ValueError("all arrays in the batch must have the same number of active cells.")
     return index_array + 0.5
-

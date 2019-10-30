@@ -1,8 +1,10 @@
 # coding=utf-8
+from numbers import Number
+import numpy as np
+
+from phi import math
 from phi.geom import Box
 from .grid import *
-from phi import math
-from numbers import Number
 
 
 _SUBSCRIPTS = ['x', 'y', 'z', 'w']
@@ -77,7 +79,8 @@ class StaggeredGrid(Field):
         return staggeredgrid.copied_with(data=components, flags=flags)
 
     def __validate_data__(self):
-        if self._data is None: return
+        if self._data is None:
+            return
         assert len(self.data) == len(self.resolution) == self.box.rank
         for field in self._data:
             assert isinstance(field, CenteredGrid)
@@ -131,7 +134,8 @@ class StaggeredGrid(Field):
         return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
 
     def compatible(self, other_field):
-        if not other_field.has_points: return True
+        if not other_field.has_points:
+            return True
         if isinstance(other_field, StaggeredGrid):
             return self.box == other_field.box and np.all(self.resolution == other_field.resolution)
         else:
@@ -155,7 +159,8 @@ class StaggeredGrid(Field):
         components = []
         for dim, field in enumerate(self.data):
             grad = math.axis_gradient(field.data, dim)
-            if physical_units: grad /= self.dx[dim]
+            if physical_units:
+                grad /= self.dx[dim]
             components.append(grad)
         data = math.add(components)
         return CenteredGrid(u'∇·%s' % self.name, self.box, data, batch_size=self._batch_size)
@@ -168,7 +173,8 @@ class StaggeredGrid(Field):
     def gradient(scalar_field, padding_mode='symmetric'):
         assert isinstance(scalar_field, CenteredGrid)
         data = scalar_field.data
-        if data.shape[-1] != 1: raise ValueError('input must be a scalar field')
+        if data.shape[-1] != 1:
+            raise ValueError('input must be a scalar field')
         staggeredgrid = StaggeredGrid(u'∇%s' % scalar_field.name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
         tensors = []
         for dim in math.spatial_dimensions(data):
@@ -184,7 +190,8 @@ class StaggeredGrid(Field):
     def from_scalar(scalar_field, axis_forces, padding_mode='constant', name=None):
         assert isinstance(scalar_field, CenteredGrid)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
-        with struct.anytype(): staggeredgrid = StaggeredGrid(name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
+        with struct.anytype():
+            staggeredgrid = StaggeredGrid(name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
         tensors = []
         for i in range(scalar_field.rank):
             force = axis_forces[i] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,i]

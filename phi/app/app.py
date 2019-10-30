@@ -1,13 +1,23 @@
 # coding=utf-8
 from __future__ import print_function
-import logging, os, numbers, six, numpy, threading, inspect, time, sys
+
+import inspect
+import logging
+import numbers
+import os
+import six
+import sys
+import threading
+import time
 import warnings
+import numpy as np
 from os.path import isfile
-from phi.data.fluidformat import Scene
+
+from phi.data.fluidformat import Scene, write_sim_frame
 from phi import struct
-from phi.field import Field, StaggeredGrid, CenteredGrid
-from phi.viz.plot import PlotlyFigureBuilder
+from phi.physics.field import Field, StaggeredGrid, CenteredGrid
 from phi.physics.world import world
+from phi.viz.plot import PlotlyFigureBuilder
 
 
 def synchronized_method(method):
@@ -16,7 +26,8 @@ def synchronized_method(method):
 
     def sync_method(self, *args, **kws):
         with outer_lock:
-            if not hasattr(self, lock_name): setattr(self, lock_name, threading.Lock())
+            if not hasattr(self, lock_name):
+                setattr(self, lock_name, threading.Lock())
             lock = getattr(self, lock_name)
             with lock:
                 return method(self, *args, **kws)
@@ -40,7 +51,7 @@ class TimeDependentField(object):
         return self.array
 
 
-class FieldSequenceModel(object):
+class App(object):
 
     def __init__(self,
                  name=None,
@@ -58,7 +69,7 @@ class FieldSequenceModel(object):
         self.subtitle = subtitle
         self.summary = summary if summary else name
         if fields:
-            self.fields = {name: TimeDependentField(name, generator) for (name,generator) in fields.items()}
+            self.fields = {name: TimeDependentField(name, generator) for (name, generator) in fields.items()}
         else:
             self.fields = {}
         self.message = None
@@ -73,7 +84,7 @@ class FieldSequenceModel(object):
         self.detect_fields = 'default'  # False, True, 'default'
         self.world = world
         # Setup directory & Logging
-        self.objects_to_save = [ self.__class__ ] if objects_to_save is None else list(objects_to_save)
+        self.objects_to_save = [self.__class__] if objects_to_save is None else list(objects_to_save)
         self.base_dir = os.path.expanduser(base_dir)
         if not target_scene:
             self.new_scene()
@@ -86,9 +97,11 @@ class FieldSequenceModel(object):
         else:
             index = 2
             while True:
-                logfile = self.scene.subpath('info_%d.log'%index)
-                if not isfile(logfile): break
-                else: index += 1
+                logfile = self.scene.subpath('info_%d.log' % index)
+                if not isfile(logfile):
+                    break
+                else:
+                    index += 1
         # Setup logging
         logFormatter = logging.Formatter('%(message)s (%(levelname)s), %(asctime)sn\n')
         rootLogger = logging.getLogger()
@@ -144,14 +157,14 @@ class FieldSequenceModel(object):
         return sorted(self.fields.keys())
 
     def get_field(self, fieldname):
-        if not fieldname in self.fields:
+        if fieldname not in self.fields:
             raise KeyError('Field %s not declared. Available fields are %s' % (fieldname, self.fields.keys()))
         return self.fields[fieldname].get(self._invalidation_counter)
 
     def add_field(self, name, generator):
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if not callable(generator):
-            assert isinstance(generator, (numpy.ndarray, Field)), 'Unsupported type for field "%s": %s' % (name, type(generator))
+            assert isinstance(generator, (np.ndarray, Field)), 'Unsupported type for field "%s": %s' % (name, type(generator))
             array = generator
             generator = lambda: array
         self.fields[name] = TimeDependentField(name, generator)
@@ -196,15 +209,15 @@ class FieldSequenceModel(object):
             editable_value = None
             if isinstance(val, EditableValue):
                 editable_value = val
-                setattr(self, name, val.initial_value) # Replace EditableValue with initial value
+                setattr(self, name, val.initial_value)  # Replace EditableValue with initial value
             elif name.startswith('value_'):
                 value_name = display_name(name[6:])
                 dtype = type(val)
                 if dtype == bool:
                     editable_value = EditableBool(value_name, val)
-                elif isinstance(val, numbers.Integral): # Int
+                elif isinstance(val, numbers.Integral):  # Int
                     editable_value = EditableInt(value_name, val)
-                elif isinstance(val, numbers.Number): # Float
+                elif isinstance(val, numbers.Number):  # Float
                     editable_value = EditableFloat(value_name, val)
                 elif isinstance(val, six.string_types):
                     editable_value = EditableString(value_name, val)
@@ -234,24 +247,28 @@ class FieldSequenceModel(object):
             if isinstance(field, (CenteredGrid, StaggeredGrid)):
                 self.add_field(field.name[0].upper() + field.name[1:], lambda: trace.find_in(self.world.state))
             return None
-        with struct.anytype(): struct.map(add_default_field, world.state,
-                                          leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
-                                          trace=True)
+        with struct.anytype():
+            struct.map(add_default_field, world.state,
+                       leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
+                       trace=True)
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
-        if self.prepared: self._update_scene_properties()
+        if self.prepared:
+            self._update_scene_properties()
 
     def add_custom_properties(self, dict):
         self._custom_properties.update(dict)
-        if self.prepared: self._update_scene_properties()
+        if self.prepared:
+            self._update_scene_properties()
 
     def _update_scene_properties(self):
-        if self.uses_existing_scene: return
+        if self.uses_existing_scene:
+            return
         app_name = os.path.basename(inspect.getfile(self.__class__))
         app_path = inspect.getabsfile(self.__class__)
         properties = {
-            'instigator': 'FieldSequenceModel',
+            'instigator': 'App',
             'traits': self.traits,
             'app': str(app_name),
             'app_path': str(app_path),
@@ -295,7 +312,7 @@ class FieldSequenceModel(object):
     def status(self):
         pausing = '/Pausing' if self._pause and self.current_action else ''
         action = self.current_action if self.current_action else 'Idle'
-        message = (' - %s'%self.message) if self.message else ''
+        message = (' - %s' % self.message) if self.message else ''
         return '{}{} ({}){}'.format(action, pausing, self.steps, message)
 
     def run_step(self, framerate=None, allow_recording=True):
@@ -353,9 +370,9 @@ class FieldSequenceModel(object):
 
         if self.record_data:
             arrays = [self.get_field(field) for field in self.recorded_fields]
-            arrays = [a.staggered if isinstance(a, phi.math.nd.StaggeredGrid) else a for a in arrays]
+            arrays = [a.staggered if isinstance(a, StaggeredGrid) else a for a in arrays]
             names = [n.lower() for n in self.recorded_fields]
-            files += phi.data.fluidformat.write_sim_frame(self.directory, arrays, names, self.steps)
+            files += write_sim_frame(self.directory, arrays, names, self.steps)
 
         if files:
             self.message = 'Frame written to %s' % files
@@ -368,7 +385,8 @@ class FieldSequenceModel(object):
         for i in range(sequence_count):
             self.run_step(framerate=None, allow_recording=False)
             step_count += 1
-            if self._pause: break
+            if self._pause:
+                break
         time_elapsed = time.time() - starttime
         return step_count, time_elapsed
 
@@ -376,7 +394,6 @@ class FieldSequenceModel(object):
         self.record_images = images
         self.record_data = data
         self.recorded_fields = fields
-
 
 
 class EditableValue(object):
@@ -412,7 +429,7 @@ class EditableFloat(EditableValue):
 
         if not minmax:
             if log_scale:
-                magn = numpy.log10(initial_value)
+                magn = np.log10(initial_value)
                 minmax = (10.0**(magn-3.2), 10.0**(magn+2.2))
             else:
                 if initial_value == 0.0:
@@ -469,9 +486,9 @@ class Control(object):
     @property
     def value(self):
         val = getattr(self.model, self.attribute_name)
-        if isinstance(val, numpy.float32):
+        if isinstance(val, np.float32):
             return float(val)
-        if isinstance(val, numpy.float64):
+        if isinstance(val, np.float64):
             return float(val)
         return val
 
@@ -515,7 +532,7 @@ class Action(object):
 def display_name(python_name):
     n = list(python_name)
     n[0] = n[0].upper()
-    for i in range(1,len(n)):
+    for i in range(1, len(n)):
         if n[i] == '_':
             n[i] = ' '
             if len(n) > i+1:

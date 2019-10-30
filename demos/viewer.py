@@ -1,11 +1,14 @@
 # coding=utf-8
-from phi.flow import *
 import sys
 
+from phi.flow import *
+from phi.model import App
 
-class Viewer(FieldSequenceModel):
+
+class Viewer(App):
+
     def __init__(self, simpath):
-        FieldSequenceModel.__init__(self, name=u'*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
+        App.__init__(self, name=u'*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
         self.value_directory = simpath
         self.action_rewind()
 

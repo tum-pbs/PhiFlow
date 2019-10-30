@@ -15,10 +15,10 @@ mantaflowRes = 64
 # 2D or 3D
 dims = 2
 
-class DataLoader(TFModel):
+class DataLoader(TFApp):
 
     def __init__(self):
-        TFModel.__init__(self, 'Data Demo')
+        TFApp.__init__(self, 'Data Demo')
 
         smoke = world.Smoke(Domain([mantaflowRes-1] * dims)) # 2D: YXc , 3D: ZYXc
         smoke.velocity = smoke.density = placeholder # switch to TF tensors

@@ -1,14 +1,17 @@
-from phi import struct
-from .nd import fftfreq
-from .base import backend as math
 import numpy as np
 from numbers import Number
 
+from phi import struct
+from .nd import fftfreq
+from .backend import backend as math
+
 
 def _is_python_shape(obj):
-    if not isinstance(obj, (tuple, list, np.ndarray)): return False
+    if not isinstance(obj, (tuple, list, np.ndarray)):
+        return False
     for element in obj:
-        if not isinstance(element, Number) and element is not None: return False
+        if not isinstance(element, Number) and element is not None:
+            return False
     return True
 
 

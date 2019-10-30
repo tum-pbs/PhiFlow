@@ -2,23 +2,21 @@
 
 This document discusses the code design of simulations and solvers within Φ<sub>*Flow*</sub>.
 If you are interested in how specific simulations work, check out their respective documentations, e.g.
-[Smoke](documentation/smoke.md).
-
+[Smoke](Smoke_Simulation.md).
 
 ### States and Physics objects
 
 For each simulation type, there are two distinct entities:
 
-- States store a snapshot of a physical system at one point in time.
-- Physics objects implement the actual solver functionality to progress a simulation forward.
+- `State` store a snapshot of a physical system at one point in time.
+- `Physics` objects implement the actual solver functionality to progress a simulation forward.
 
-State and physics objects can exist independently of each other.
-They only interact through the `step` method defined in [`phi.physics.Physics`](../phi/physics/physics.py).
+`State` and `Physics` objects can exist independently of each other.
+They only interact through the `step` method defined in [`phi.physics.physics.py`](../phi/physics/physics.py).
 
 ```python
 def step(self, state, dt=1.0, **dependent_states)
 ```
-
 
 The `step` method takes one state of a system as input and computes the state of that system at time `t + dt`.
 It does not alter the given state in any way, though. Instead it returns a new state.
@@ -28,7 +26,7 @@ Once created, a state can never be changed. Every function that changes the stat
 `Physics` objects themselves are stateless, except for algorithmic or hardware-specific details.
 All properties of the physical system are stored in the state.
 
-Let's look at an example of a smoke simulation that directly uses states and physics.
+Let's look at an example of a smoke simulation that directly uses `State`s and `Physics`.
 
 ```python
 from phi.flow import *
@@ -38,10 +36,14 @@ state0 = Smoke(Domain([64, 64]), density=0)
 state1 = SMOKE.step(state0, dt=1.0, inflows=[inflow])
 ```
 
-The constructor of [`Smoke`](../phi/physics/smoke.py) takes the same arguments as `world.Smoke` but unlike the return value of `world.Smoke`, `Smoke` is an immutable object.
+There are 3 different versions of Smoke available:
 
-`SMOKE` is a global instance of [`SmokePhysics`](../phi/physics/smoke.py), a subclass of [`Physics`](../phi/physics/physics.py).
+1. [`Smoke`](../phi/physics/smoke.py): immutable object
+2. `World.Smoke`: mutable instance of `Smoke` directly added to the `World` instance
+3. `SMOKE`: a global instance of [`SmokePhysics`](../phi/physics/smoke.py), a subclass of [`Physics`](../phi/physics/physics.py).
+
 We could also create our own physics object, e.g. to use a specific [pressure solver](Pressure_Solvers.md):
+
 ```python
 physics = SmokePhysics(custom_solver)
 physics.step(state0)
@@ -54,14 +56,13 @@ each `Physics` implementation can define which ones are appropriate for them.
 
 The following table outlines the most important properties of `States` and `Physics` objects.
 
-|                 | States                                                                                             | Physics                                                                                                |
-|-----------------|----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
-| Information     | States contain all information about a system at one point in time. The data can change over time. | Physics objects describe the laws required to evolve one state in time. |
-| Base class      | State(Struct) [(phi.physics.physics)](../phi/physics/physics.py)                                   | Physics [(phi.physics.physics)](../phi/physics/physics.py)        |
-| Mutability      | Immutable                                                                                          | Stateless                                                                                              |
-| Serialization   | NumPy arrays                                                                                       |                                                                                              |
-| Example classes | StaggeredGrid, SmokeState, Obstacle, Inflow,                                                       | SmokePhysics, BurgerPhysics, Static, GeometryMovement                                                            |t                                                     |
-
+|                 | States                                                                                                | Physics                                                                                  |
+|-----------------|-------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| Information     | States contain all information about a system at one point in time. The data can change over time.    | Physics objects describe the laws required to evolve one state in time.                  |
+| Base class      | [State](../phi/physics.physics.py)(extends [Struct](../phi/struct/stuct.py))                          | [Physics](../phi/physics/physics.py) [(phi.physics.physics)](../phi/physics/physics.py) |
+| Mutability      | Immutable                                                                                             | Stateless                                                                                |
+| Serialization   | NumPy arrays                                                                                          |                                                                                          |
+| Example classes | `StaggeredGrid`, `SmokeState`, `Obstacle`, `Inflow`,                                                  | `SmokePhysics`, `BurgersPhysics`, `Static`, `GeometryMovement`                            |
 
 ## NumPy vs TensorFlow
 
@@ -70,12 +71,13 @@ If the input state consists purely of NumPy arrays, `step` will directly compute
 The returned state will also only contain NumPy arrays.
 
 If any property of the input state is a TensorFlow tensor, all computations that depend on this property will be executed using TensorFlow instead. This typically does not execute the computation directly but instead produces a symbolic node.
-Consequently, the `step` method will build a TensorFlow graph and the returned state will contain nodes of that graph.
+Consequently, the `step()` method will build a TensorFlow graph and the returned state will contain nodes of that graph.
 
 To actually run the solver with TensorFlow, a `phi.tf.Session` object must be used. The example below shows, how this can be achieved.
 
 ```python
 from phi.tf.flow import *
+
 session = Session(Scene.create('test'))
 inflow = Inflow(box[10:20, 30:34], rate=0.1)
 state_in = Smoke(Domain([64, 64]), density=placeholder, velocity=placeholder)
@@ -92,8 +94,7 @@ can add the states to a world (e.g. using `world.Smoke` instead of `Smoke`) and 
 `tf_bake_graph(session, world)` to automatically convert all physics objects to TensorFlow graph executions.
 
 The similarities and differences of NumPy vs TensorFlow are illustrated in the example 
-[runsim_numpy_or_tf.py](../apps/runsim_numpy_or_tf.py) for a simple custom smoke simulatin.
-
+[manual_smoke_numpy_or_tf.py](../demos/manual_smoke_numpy_or_tf.py) for a simple custom smoke simulation.
 
 ## Simplified API with world
 
@@ -104,7 +105,7 @@ They do not return a state but rather a pointer to a state.
 When `world.step` is called or a property of a pointer is changed, a copy of the original states is created.
 The old states are then replaced by the new ones and all the pointers redirected to the new states.
 
-Internally `TrajectoryKey`s are used to track the evolution of states.
+Internally, `TrajectoryKey`s are used to track the evolution of states.
 The returned state of any `Physics.step` call must always have the same `trajectorykey` property.
 
 Additionally, the world manages dependencies between simulations.

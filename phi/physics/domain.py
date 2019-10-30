@@ -1,26 +1,27 @@
 from .obstacle import *
 from .material import *
-from phi.field import *
+from phi.physics.field import *
 
 
 class Domain(struct.Struct):
+
     __struct__ = struct.Def([], ['_resolution', '_box', '_boundaries'])
 
     def __init__(self, resolution, boundaries=OPEN, box=None):
         """
-Simulation domain that specifies size and boundary conditions.
+        Simulation domain that specifies size and boundary conditions.
 
-If all boundary surfaces should have the same behaviour, pass a single Material instance.
+        If all boundary surfaces should have the same behaviour, pass a single Material instance.
 
-To specify the boundary properties per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
-Each element can either be a Material, specifying the faces perpendicular to that axis, or a pair
-of Material holding (lower_face_material, upper_face_material).
+        To specify the boundary properties per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
+        Each element can either be a Material, specifying the faces perpendicular to that axis, or a pair
+        of Material holding (lower_face_material, upper_face_material).
 
-Examples:
+        Examples:
 
-Domain(grid, OPEN) - all surfaces are open
+        Domain(grid, OPEN) - all surfaces are open
 
-DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain with an open top and otherwise solid boundaries
+        DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain with an open top and otherwise solid boundaries
 
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
@@ -55,19 +56,22 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
         return position
 
     def center_points(self):
-        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+0.5,1) for dim in self._resolution], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+0.5, 1) for dim in self._resolution], indexing="ij")
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
     def staggered_points(self, dimension):
-        idx_zyx = np.meshgrid(*[np.arange(0.5,dim+1.5,1) if dim != dimension else np.arange(0,dim+1,1) for dim in self._resolution], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+1.5, 1)
+                                if dim != dimension else np.arange(0, dim+1, 1)
+                                for dim in self._resolution], indexing="ij")
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
 
     def indices(self):
         """
-    Constructs a grid containing the index-location as components.
-    Each index denotes the location within the tensor starting from zero.
-    Indices are encoded as vectors in the index tensor.
+        Constructs a grid containing the index-location as components.
+        Each index denotes the location within the tensor starting from zero.
+        Indices are encoded as vectors in the index tensor.
+        
         :param dtype: a numpy data type (default float32)
         :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
         """
@@ -92,12 +96,13 @@ DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain 
             data = complete_staggered_properties(grids, staggered)
             return staggered.copied_with(data=data)
 
-    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, boundaries='repliate'):
+    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, boundaries='replicate'):
         shape = self.centered_shape(components, batch_size=batch_size, name=name)
         if isinstance(data, Field):
             assert data.rank == self.rank
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
-            if name is not None: data = data.copied_with(name=name)
+            if name is not None:
+                data = data.copied_with(name=name)
             grid = data
         elif isinstance(data, (int, float)):
             grid = math.zeros(shape, dtype=dtype) + data

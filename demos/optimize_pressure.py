@@ -2,11 +2,12 @@ from phi.tf.flow import *
 from phi.math.initializers import randn
 
 
-class PressureOptim(TFModel):
+class PressureOptim(TFApp):
+
     def __init__(self):
-        TFModel.__init__(self, "Pressure Optimization",
-                         "Optimize velocity in left half of closed room to match target in right half",
-                         stride=100, learning_rate=0.1)
+        TFApp.__init__(self, "Pressure Optimization",
+                       "Optimize velocity in left half of closed room to match target in right half",
+                       stride=100, learning_rate=0.1)
         # Physics
         domain = Domain([62, 62], SLIPPERY)
         with self.model_scope():

@@ -1,5 +1,5 @@
-from phi.math.base import Backend
 from phi import struct
+from phi.math.base import Backend
 
 
 class StructBroadcastBackend(Backend):
@@ -19,7 +19,8 @@ class StructBroadcastBackend(Backend):
 
     def is_applicable(self, values):
         for value in values:
-            if struct.isstruct(value): return True
+            if struct.isstruct(value):
+                return True
         return False
 
 
@@ -30,7 +31,8 @@ def broadcast_function(backend, func, args, kwargs):
         args, kwargs = build_arguments(values)
         result = backend_func(*args, **kwargs)
         return result
-    with struct.anytype(): return struct.map(f, obj)
+    with struct.anytype():
+        return struct.map(f, obj)
 
 
 def argument_assembler(args, kwargs):

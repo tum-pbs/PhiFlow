@@ -2,7 +2,6 @@ from .domain import *
 from .effect import *
 
 
-
 class QuantumWave(DomainState):
     __struct__ = DomainState.__struct__.extend(['_amplitude'], ['_mass'])
 

@@ -1,5 +1,7 @@
-from phi import math, struct
 import numpy as np
+
+from phi import struct
+from phi import math
 
 
 class Geometry(struct.Struct):
@@ -13,6 +15,7 @@ class Geometry(struct.Struct):
 
 
 class Box(Geometry):
+
     __struct__ = struct.Def([], ['_origin', '_size'])
 
     def __init__(self, origin, size):
@@ -43,8 +46,6 @@ class Box(Geometry):
         return local_position * self.size + self.origin
 
     def value_at(self, global_position):
-        # local = self.global_to_local(global_position)
-        # bool_inside = (local >= 0) & (local <= 1)
         bool_inside = (global_position >= self.origin) & (global_position <= (self.upper))
         bool_inside = math.all(bool_inside, axis=-1, keepdims=True)
         return math.to_float(bool_inside)
@@ -81,6 +82,7 @@ box = BoxGenerator()
 
 
 class Sphere(Geometry):
+
     __struct__ = struct.Def((), ('_center', '_radius'))
 
     def __init__(self, center, radius):
@@ -96,7 +98,7 @@ class Sphere(Geometry):
         return self._center
 
     def value_at(self, location):
-        bool_inside = math.expand_dims(math.sum((location - self._center)**2, axis=-1) <= self._radius ** 2, -1)
+        bool_inside = math.expand_dims(math.sum((location - self._center)**2, axis=-1) <= self._radius**2, -1)
         return math.to_float(bool_inside)
 
     @property
@@ -105,6 +107,7 @@ class Sphere(Geometry):
 
 
 class _Union(Geometry):
+
     __struct__ = Geometry.__struct__.extend([], ['_geometries'])
 
     def __init__(self, geometries):
@@ -126,7 +129,8 @@ class _Union(Geometry):
 
     @property
     def rank(self):
-        if len(self._geometries) == 0: return None
+        if len(self._geometries) == 0:
+            return None
         else:
             return self._geometries[0].rank
 
@@ -144,9 +148,11 @@ def union(geometries):
 
 class _NoGeometry(Geometry):
 
-    def rank(self): return None
+    def rank(self):
+        return None
 
-    def value_at(self, location): return 0
+    def value_at(self, location):
+        return 0
 
 
 NO_GEOMETRY = _NoGeometry()

@@ -1,15 +1,19 @@
 from __future__ import print_function
-from phi.flow import *
+
+import six
+
 from .util import *
 from .session import Session
 from .world import tf_bake_graph
-import phi.model as nontf
+import phi.app.app as nontf
+from phi.app.app import EditableInt, EditableFloat, EditableValue
+from phi.data.reader import BatchReader
 
 
-class FieldSequenceModel(nontf.FieldSequenceModel):
+class App(nontf.App):
 
     def __init__(self, *args, **kwargs):
-        nontf.FieldSequenceModel.__init__(self, *args, **kwargs)
+        nontf.App.__init__(self, *args, **kwargs)
         self.session = Session(self.scene)
         self.scalars = []
         self.scalar_names = []
@@ -20,7 +24,7 @@ class FieldSequenceModel(nontf.FieldSequenceModel):
     def prepare(self):
         if self.prepared:
             return
-        nontf.FieldSequenceModel.prepare(self)
+        nontf.App.prepare(self)
         self.info('Initializing variables')
         self.session.initialize_variables()
         if self.auto_bake:
@@ -58,7 +62,7 @@ class FieldSequenceModel(nontf.FieldSequenceModel):
         return feed_dict
 
 
-class TFModel(FieldSequenceModel):
+class TFApp(App):
 
     def __init__(self, name='TensorFlow application', subtitle='',
                  learning_rate=1e-3,
@@ -68,7 +72,7 @@ class TFModel(FieldSequenceModel):
                  base_dir='~/phi/model/',
                  stride=None,
                  **kwargs):
-        FieldSequenceModel.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
+        App.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
         self.learning_rate = self.editable_float('Learning_Rate', learning_rate)
         self.training = tf.placeholder(tf.bool, (), 'training')
@@ -85,7 +89,7 @@ class TFModel(FieldSequenceModel):
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
         self.merged_scalars = tf.summary.merge(scalars)
 
-        FieldSequenceModel.prepare(self)  # initializes global variables
+        App.prepare(self)  # initializes global variables
 
         model_parameter_count = 0
         for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.model_scope_name):
@@ -163,9 +167,9 @@ class TFModel(FieldSequenceModel):
         return self
 
     def optimization_step(self, optim_nodes, log_loss=False):
-        if isinstance(optim_nodes, Iterable):
+        try:
             optim_nodes = list(optim_nodes)
-        else:
+        except:
             optim_nodes = [optim_nodes]
         batch = next(self._train_iterator) if self._train_iterator is not None else None
         feed_dict = self._feed_dict(batch, True)
@@ -241,8 +245,8 @@ class TFModel(FieldSequenceModel):
         :param field: Tensor, string (database fieldname) or function
         """
         if istensor(field):
-            FieldSequenceModel.add_field(self, name, lambda: self.view(field))
+            App.add_field(self, name, lambda: self.view(field))
         # elif isinstance(field, StructAttributeGetter):
-        #     FieldSequenceModel.add_field(self, name, lambda: self.view_batch(field))
+        #     App.add_field(self, name, lambda: self.view_batch(field))
         else:
-            FieldSequenceModel.add_field(self, name, field)
+            App.add_field(self, name, field)

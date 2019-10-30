@@ -1,10 +1,9 @@
 from .physics import *
-from phi.field import *
+from phi.physics.field import *
 
 
 GROW = 'grow'
 ADD = 'add'
-# DECAY = 'decay'
 FIX = 'fix'
 
 
@@ -32,7 +31,6 @@ class FieldEffect(State):
 
     def __repr__(self):
         return '%s(%s to %s)' % (self.mode, self. field, self.targets)
-
 
 
 def effect_applied(effect, field, dt):
@@ -77,9 +75,11 @@ class Gravity(State):
         return self._gravity
 
     def __add__(self, other):
-        if other is 0: return self
+        if other is 0:
+            return self
         assert isinstance(other, Gravity)
-        if self._batch_size is not None: assert self._batch_size == other._batch_size
+        if self._batch_size is not None:
+            assert self._batch_size == other._batch_size
         # Add gravity
         if math.is_scalar(self._gravity) and math.is_scalar(other._gravity):
             return Gravity(self._gravity + other._gravity)
@@ -99,4 +99,3 @@ def gravity_tensor(gravity, rank):
     else:
         assert staticshape(gravity)[-1] == rank
         return math.expand_dims(gravity, 0, rank+2-len(staticshape(gravity)))
-

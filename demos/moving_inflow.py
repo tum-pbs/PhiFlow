@@ -1,24 +1,19 @@
-from phi.flow import *
 import math
 
-
-def obstacle_at(time):
-    return Sphere([32, (time + 20) % 64], radius=5)
+from phi.flow import *
 
 
-def inflow_at(time):
-    return Sphere([10, 32 + 15*math.sin(time * 0.1)], radius=5)
+obstacle_at = lambda t: Sphere([32, (t + 20) % 64], radius=5)
+inflow_at   = lambda t: Sphere([10, 32 + 15*math.sin(t * 0.1)], radius=5)
 
 
-class MovingInflowDemo(FieldSequenceModel):
+class MovingInflowDemo(App):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, 'Moving Objects Demo', stride=5)
-        smoke = world.Smoke(Domain([64, 64], SLIPPERY))
-        inflow = world.Inflow(inflow_at(0), rate=0.2)
-        inflow.physics = GeometryMovement(inflow_at)
-        obstacle = world.Obstacle(obstacle_at(0), SLIPPERY)
-        obstacle.physics = GeometryMovement(obstacle_at)
+        App.__init__(self, 'Moving Objects Demo', stride=5)
+        smoke = world.add(Smoke(Domain([64, 64], SLIPPERY)))
+        world.add(Inflow(inflow_at(0), rate=0.2), physics=GeometryMovement(inflow_at))
+        world.add(Obstacle(obstacle_at(0), SLIPPERY), physics=GeometryMovement(obstacle_at))
         self.add_field('Density', lambda: smoke.density)
         self.add_field('Velocity', lambda: smoke.velocity)
         self.add_field('Domain', lambda: obstacle_mask(smoke).at(smoke.density))

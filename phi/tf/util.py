@@ -1,9 +1,10 @@
 # coding=utf-8
+import warnings
 import tensorflow as tf
 from tensorflow.python import pywrap_tensorflow
+
 from phi.math.initializers import _is_python_shape
-from phi.field import *
-import warnings
+from phi.physics.field import *
 
 
 def _tf_name(attr, basename):

@@ -1,15 +1,16 @@
 from unittest import TestCase
 from phi.flow import *
-from os.path import isfile
+from os.path import isfile  # needs to be after
 from phi.math import *
 
 
 class TestScene(TestCase):
 
     def test_read_write_struct(self):
-        for scene in Scene.list('data'): scene.remove()
+        for scene in Scene.list('data'):
+            scene.remove()
 
-        state = Smoke(Domain([4,4]))
+        state = Smoke(Domain([4, 4]))
         scene = Scene.create('data')
 
         scene.write(state, frame=0)
@@ -24,15 +25,15 @@ class TestScene(TestCase):
 
         scene.write(np.ones([1,4,4,1]) * 2, frame=1)
         self.assert_(isfile(scene.subpath('unnamed_000001.npz')))
-        self.assertEqual(scene.read(None, frame=1)[0,0,0,0], 2)
+        self.assertEqual(scene.read(None, frame=1)[0, 0, 0, 0], 2)
 
         scene.write([np.ones([1,4,4,1])], ['Ones'], frame=2)
         self.assert_(isfile(scene.subpath('Ones_000002.npz')))
 
-        struct = [{'Two': np.ones([1,4,4,1])*2, 'Three': np.ones([1,4,4,1])*3}]
+        struct = [{'Two': np.ones([1,4,4,1])*2, 'Three': np.ones([1, 4, 4, 1])*3}]
         scene.write(struct, frame=3)
         self.assert_(isfile(scene.subpath('0_Three_000003.npz')))
         self.assert_(isfile(scene.subpath('0_Two_000003.npz')))
         loaded_struct = scene.read(struct, frame=3)
         self.assertIsInstance(loaded_struct, list)
-        np.testing.assert_equal(struct[0]['Two'][0,0,0,0], loaded_struct[0]['Two'][0,0,0,0])
+        np.testing.assert_equal(struct[0]['Two'][0, 0, 0, 0], loaded_struct[0]['Two'][0, 0, 0, 0])

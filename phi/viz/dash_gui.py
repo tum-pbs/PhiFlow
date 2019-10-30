@@ -1,8 +1,13 @@
 # coding=utf-8
 from __future__ import print_function
-import os.path, logging, traceback
 
-import dash, dash_core_components as dcc, dash_html_components as html
+import os.path
+import logging
+import traceback
+
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
@@ -199,7 +204,7 @@ class DashFieldSequenceGui(ModelDisplay):
                                                value=['selected'], id='framerate-checkbox'),
                                            html.Div([
                                                dcc.Slider(min=0.5, max=15, step=0.5, value=self.framerate,
-                                                          marks={i: '%.1f' % i for i in numpy.linspace(0.5, 15, 30)},
+                                                          marks={i: '%.1f' % i for i in np.linspace(0.5, 15, 30)},
                                                           id='framerate-slider', updatemode='drag'),
 
                                            ], style={'height': '32px', 'width': '60%', 'display': 'inline-block'}),
@@ -315,7 +320,8 @@ class DashFieldSequenceGui(ModelDisplay):
 
         @self.app.callback(Output('step-complete', 'children'), [Input('button-step', 'n_clicks')])
         def simulation_step(n_clicks):
-            if n_clicks is None: return ['init']
+            if n_clicks is None:
+                return ['init']
             if not self.model.running:
                 self.model.run_step()
                 return [str(n_clicks)]
@@ -380,7 +386,8 @@ class DashFieldSequenceGui(ModelDisplay):
         @self.app.callback(Output('depth-slider', 'max'),
                            [Input('depth-slider', 'value'), Input('interval', 'n_intervals')])
         def update_depth_slider(depth, n_intervals):
-            if depth is None: return self.max_depth
+            if depth is None:
+                return self.max_depth
             # Update depth
             self.figures.select_depth(depth)
             # Return maximum
@@ -395,7 +402,8 @@ class DashFieldSequenceGui(ModelDisplay):
         @self.app.callback(Output('batch-slider', 'max'),
                            inputs=[Input('batch-slider', 'value'), Input('interval', 'n_intervals')])
         def update_batch_slider(batch, n_intervals):
-            if batch is None: return self.max_batch
+            if batch is None:
+                return self.max_batch
 
             # Task 1: Update depth
             self.figures.select_batch(batch)
@@ -468,8 +476,10 @@ class DashFieldSequenceGui(ModelDisplay):
         if not istf:
             @self.app.callback(Output('run-statistics', 'children'), [Input('button-benchmark', 'n_clicks')])
             def benchmark_sequence(n1):
-                if n1 is None: return [' ']
-                if self.model.running: return ['App is running.']
+                if n1 is None:
+                    return [' ']
+                if self.model.running:
+                    return ['App is running.']
                 target_count = self.sequence_count * self.model.sequence_stride
                 self.benchmarking = True
                 step_count, time_elapsed = self.model.benchmark(target_count)
@@ -487,7 +497,8 @@ class DashFieldSequenceGui(ModelDisplay):
         if hasmodel:
             @self.app.callback(Output('tensorboard-href', 'href'), [Input('launch-tensorboard', 'n_clicks')])
             def launch_tb(n1):
-                if not n1: return
+                if not n1:
+                    return
                 logging.info('Launching TensorBoard...')
                 logdir = field_sequence_model.session.summary_directory
                 url = phi.tf.profiling.launch_tensorboard(logdir, port=self.tensorboard_port)
@@ -499,8 +510,10 @@ class DashFieldSequenceGui(ModelDisplay):
                                [Input('button-benchmark', 'n_clicks_timestamp'),
                                 Input('button-profile', 'n_clicks_timestamp')])
             def benchmark_sequence(bench, prof):
-                if not bench and not prof: return [' ']
-                if self.model.running: return ['App is running.']
+                if not bench and not prof:
+                    return [' ']
+                if self.model.running:
+                    return ['App is running.']
                 target_count = self.sequence_count * self.model.sequence_stride
                 profile = True if not bench else (False if not prof else prof > bench)
                 self.benchmarking = True
@@ -531,7 +544,8 @@ class DashFieldSequenceGui(ModelDisplay):
                                 Input('button-load-model', 'n_clicks_timestamp'),
                                 Input('text-model-load-location', 'value')])
             def save_model(save, load, load_path):
-                if not save and not load: return ''
+                if not save and not load:
+                    return ''
                 save = True if not load else (False if not save else save > load)
                 if save:
                     try:
@@ -601,11 +615,11 @@ def create_sliders(controls):
         use_log = False if control.type == 'int' else control.editable_value.use_log_scale
 
         if use_log:
-            magn = numpy.log10(val)
-            slider_min = numpy.log10(lower)
-            slider_max = numpy.log10(upper)
+            magn = np.log10(val)
+            slider_min = np.log10(lower)
+            slider_max = np.log10(upper)
             stepsize_magn = 0.1
-            marks = {e: '{:.1e}'.format(numpy.power(10.0, e)) for e in range(-20, 20) if
+            marks = {e: '{:.1e}'.format(np.power(10.0, e)) for e in range(-20, 20) if
                      e >= slider_min and e <= slider_max}
             slider = dcc.Slider(min=slider_min, max=slider_max, value=magn, id=control.id, step=stepsize_magn,
                                 updatemode='drag', marks=marks)
@@ -614,7 +628,7 @@ def create_sliders(controls):
                 marks = {v: str(v) for v in range(lower, upper + 1)}
                 step = 1
             else:
-                marks = {float(v): str(round(v, 4)) for v in numpy.linspace(lower, upper, 21)}
+                marks = {float(v): str(round(v, 4)) for v in np.linspace(lower, upper, 21)}
                 step = (upper-lower) / (len(marks)-1)
             slider = dcc.Slider(min=lower, max=upper, value=val, id=control.id, step=step, marks=marks, updatemode='drag')
         slider_container = html.Div([control.name, slider],

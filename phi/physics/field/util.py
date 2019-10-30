@@ -1,6 +1,5 @@
-from phi import math
 from numpy import pi
-from phi.field import *
+from phi.physics.field import *
 
 
 def diffuse(field, amount):

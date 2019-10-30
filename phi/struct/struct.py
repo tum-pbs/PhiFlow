@@ -1,5 +1,6 @@
 from copy import copy
 import numpy as np
+import six
 from .context import skip_validate
 
 
@@ -43,6 +44,7 @@ class Def(object):
 
 
 class Struct(object):
+
     __struct__ = Def(())
 
     def copied_with(self, **kwargs):
@@ -62,7 +64,8 @@ class Struct(object):
         return self
 
     def __validate__(self, attribute_names=None):
-        if skip_validate(): return
+        if skip_validate():
+            return
         if attribute_names is None:
             attribute_names = [a.name for a in self.__class__.__struct__.all]
         for name in attribute_names:
@@ -156,7 +159,7 @@ def properties_dict(struct):
         json.dumps(struct)
         return struct
     except:
-        raise TypeError('Object "%s" of type %s is not JSON serializable' % (struct,type(struct)))
+        raise TypeError('Object "%s" of type %s is not JSON serializable' % (struct, type(struct)))
 
 
 def copy_with(struct, new_values_dict):
@@ -164,25 +167,29 @@ def copy_with(struct, new_values_dict):
         return struct.copied_with(**new_values_dict)
     if isinstance(struct, tuple):
         duplicate = list(struct)
-        for key, value in new_values_dict.items(): duplicate[key] = value
+        for key, value in new_values_dict.items():
+            duplicate[key] = value
         return tuple(duplicate)
     if isinstance(struct, list):
         duplicate = list(struct)
-        for key, value in new_values_dict.items(): duplicate[key] = value
+        for key, value in new_values_dict.items():
+            duplicate[key] = value
         return duplicate
     if isinstance(struct, np.ndarray) and struct.dtype == np.object:
         duplicate = struct.copy()
-        for key, value in new_values_dict.items(): duplicate[key] = value
+        for key, value in new_values_dict.items():
+            duplicate[key] = value
         return duplicate
     if isinstance(struct, dict):
         duplicate = dict(struct)
-        for key, value in new_values_dict.items(): duplicate[key] = value
+        for key, value in new_values_dict.items():
+            duplicate[key] = value
         return duplicate
     raise ValueError("Not a struct: %s" % struct)
 
 
 def isstruct(object, leaf_condition=None):
-    isstructclass =  isinstance(object, (Struct, list, tuple, dict, np.ndarray))
+    isstructclass = isinstance(object, (Struct, list, tuple, dict, np.ndarray))
     if not isstructclass:
         return False
     if isinstance(object, np.ndarray) and object.dtype != np.object:

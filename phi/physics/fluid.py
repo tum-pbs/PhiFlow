@@ -1,18 +1,27 @@
+import numpy as np
+
+from phi.physics.pressuresolver.base import *
+from phi.math.initializers import _is_python_shape, zeros
+from phi.physics.pressuresolver.base import *
+from phi.physics.field.staggered_grid import StaggeredGrid
+
 from .domain import *
 from .effect import *
-from phi.solver.base import *
 
 
 def _is_div_free(velocity, is_div_free):
     assert is_div_free in (True, False, None)
-    if isinstance(is_div_free, bool): return is_div_free
-    if isinstance(velocity, Number): return True
+    if isinstance(is_div_free, bool):
+        return is_div_free
+    if isinstance(velocity, Number):
+        return True
     return False
 
 
 def solve_pressure(divergence, fluiddomain, pressure_solver=None):
     """
-Calculates the pressure from the given velocity or velocity divergence using the specified solver.
+    Calculates the pressure from the given velocity or velocity divergence using the specified solver.
+    
     :param divergence: CenteredGrid
     :param fluiddomain: FluidDomain instance
     :param pressure_solver: PressureSolver to use, None for default
@@ -21,15 +30,15 @@ Calculates the pressure from the given velocity or velocity divergence using the
     assert isinstance(divergence, CenteredGrid)
 
     if pressure_solver is None:
-        from phi.solver.sparse import SparseCG
+        from phi.physics.pressuresolver.sparse import SparseCG
         pressure_solver = SparseCG()
 
-    pressure, iter = pressure_solver.solve(divergence.data, fluiddomain, pressure_guess=None)
+    pressure, iteration = pressure_solver.solve(divergence.data, fluiddomain, pressure_guess=None)
 
     if isinstance(divergence, CenteredGrid):
         pressure = CenteredGrid('pressure', divergence.bounds, pressure)
 
-    return pressure, iter
+    return pressure, iteration
 
 
 def divergence_free(velocity, domain=None, obstacle_mask=None, pressure_solver=None):
@@ -45,7 +54,7 @@ def divergence_free(velocity, domain=None, obstacle_mask=None, pressure_solver=N
 
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)
     divergence_field = velocity.divergence(physical_units=False)
-    pressure, iter = solve_pressure(divergence_field, fluiddomain, pressure_solver=pressure_solver)
+    pressure, iteration = solve_pressure(divergence_field, fluiddomain, pressure_solver=pressure_solver)
     pressure *= velocity.dx[0]
     gradp = StaggeredGrid.gradient(pressure)
     velocity -= fluiddomain.with_hard_boundary_conditions(gradp)

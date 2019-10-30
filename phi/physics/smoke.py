@@ -1,8 +1,5 @@
-from .domain import *
-from phi.field import *
+import numpy as np
 from .fluid import *
-from phi.solver.base import *
-from phi.math.initializers import _is_python_shape, zeros, np
 
 
 class Smoke(DomainState):
@@ -90,4 +87,3 @@ def buoyancy(density, gravity, buoyancy_factor):
         gravity = np.array([gravity] + ([0] * (density.rank - 1)))
     result = StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
     return result
-

@@ -1,5 +1,5 @@
 from .smoke import *
-from .util import diffuse
+from phi.physics.field.util import diffuse
 
 
 class Heat(DomainState):

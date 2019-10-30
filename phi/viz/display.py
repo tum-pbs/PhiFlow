@@ -1,5 +1,5 @@
 import sys, inspect, os
-from phi.model import FieldSequenceModel
+from phi.app.app import App
 
 
 class ModelDisplay(object):
@@ -32,11 +32,11 @@ def show(model=None, *args, **kwargs):
     if model is None:
         frame_records = inspect.stack()[1]
         calling_module = inspect.getmodulename(frame_records[1])
-        fitting_models = _find_subclasses_in_module(FieldSequenceModel, calling_module, [])
+        fitting_models = _find_subclasses_in_module(App, calling_module, [])
         assert len(fitting_models) == 1, 'show() called without model but detected %d possible classes: %s' % (len(fitting_models), fitting_models)
         model = fitting_models[0]
 
-    if inspect.isclass(model) and issubclass(model, FieldSequenceModel):
+    if inspect.isclass(model) and issubclass(model, App):
         model = model()
 
     called_from_main = inspect.getmodule(model.__class__).__name__ == '__main__'

@@ -9,13 +9,13 @@ def checkerboard(resolution, size=8, offset=2):
     return data
 
 
-class MarkerDemo(FieldSequenceModel):
+class MarkerDemo(App):
 
     def __init__(self):
-        FieldSequenceModel.__init__(self, 'Passive Marker', 'Simpleplume simulation + marker field', stride=5)
-        smoke = self.smoke = world.Smoke(Domain([160, 126], SLIPPERY))
+        App.__init__(self, 'Passive Marker', 'Simpleplume simulation + marker field', stride=5)
+        smoke = self.smoke = world.add(Smoke(Domain([160, 126], SLIPPERY)))
         self.marker = smoke.density.with_data(checkerboard(smoke.domain.resolution))
-        world.Inflow(Sphere((18, 64), 10), rate=0.2)
+        world.add(Inflow(Sphere((18, 64), 10), rate=0.2))
         self.add_field('Density', lambda: smoke.density)
         self.add_field('Velocity', lambda: smoke.velocity)
         self.add_field('Marker', lambda: self.marker)
