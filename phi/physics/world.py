@@ -1,9 +1,8 @@
-import inspect
 from typing import TypeVar
 
 from .physics import State, Physics
-from .collective import CollectiveState, CollectivePhysics
-from .effect import Gravity
+from .collective import CollectiveState
+from phi.physics.field.effect import Gravity
 
 
 class StateProxy(object):

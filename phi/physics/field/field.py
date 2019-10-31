@@ -1,9 +1,8 @@
 import numpy as np
 
 from phi import math
-from phi import struct
 from phi.geom import Geometry
-from phi.physics.physics import State
+from phi.physics import State
 from phi.physics.field.flag import _PROPAGATOR
 
 
@@ -189,6 +188,10 @@ class Field(State):
             data = data_operator(self.data, other)
         return self.copied_with(data=data, flags=flags)
 
+    def default_physics(self):
+        from .effect import FieldPhysics
+        return FieldPhysics(self.name)
+
 
 class StaggeredSamplePoints(Exception):
 
@@ -243,4 +246,3 @@ def broadcast_at(field1, field2):
     else:
         new_components = [f1.at(f2) for f1, f2 in zip(field1.unstack(), field2.unstack())]
     return field2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(field1, field2.flags, field2.rank))
-    

@@ -1,5 +1,5 @@
 from .domain import *
-from .effect import *
+from phi.physics.field.effect import *
 
 
 class QuantumWave(DomainState):
@@ -39,8 +39,8 @@ def psquare(complex):
 class Schroedinger(Physics):
 
     def __init__(self, margin=1):
-        Physics.__init__(self, dependencies={'obstacles': 'obstacle'},
-                         blocking_dependencies={'potentials': 'potential_effect'})
+        Physics.__init__(self, [StateDependency('obstacles', 'obstacle'),
+                                StateDependency('potentials', 'potential_effect', blocking=True)])
         self.margin = margin
 
     def step(self, state, dt=1.0, potentials=(), obstacles=()):

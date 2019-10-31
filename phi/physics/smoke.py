@@ -50,8 +50,10 @@ class Smoke(DomainState):
 class SmokePhysics(Physics):
 
     def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True):
-        Physics.__init__(self, dependencies={'obstacles': ['obstacle'], 'gravity': 'gravity'},
-                         blocking_dependencies={'density_effects': 'density_effect', 'velocity_effects': 'velocity_effect'})
+        Physics.__init__(self, [StateDependency('obstacles', 'obstacle'),
+                                StateDependency('gravity', 'gravity'),
+                                StateDependency('density_effects', 'density_effect', blocking=True),
+                                StateDependency('velocity_effects', 'velocity_effect', blocking=True)])
         self.pressure_solver = pressure_solver
         self.make_input_divfree = make_input_divfree
         self.make_output_divfree = make_output_divfree

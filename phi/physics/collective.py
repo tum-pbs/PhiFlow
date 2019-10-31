@@ -21,7 +21,7 @@ class CollectiveState(State):
 
     __radd__ = __add__
 
-    def get_by_tag(self, tag):
+    def all_with_tag(self, tag):
         return [o for o in self._states if tag in o.tags]
 
     @property
@@ -49,7 +49,7 @@ class CollectiveState(State):
             assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
             return states[0]
         if isinstance(item, six.string_types):
-            return self.get_by_tag(item)
+            return self.all_with_tag(item)
         if isinstance(item, (tuple, list)):
             return [self[i] for i in item]
         try:
@@ -127,14 +127,17 @@ class CollectivePhysics(Physics):
         return next_state
 
     def _gather_dependencies(self, dependencies, collectivestate, result_dict):
-        for name, deps in dependencies.items():
-            dep_states = []
-            if isinstance(deps, (tuple,list)):
-                for dep in deps:
-                    dep_states += list(collectivestate[dep])
+        for statedependency in dependencies:
+            if statedependency.trajectorykey is not None:
+                matching_states = collectivestate[statedependency.trajectorykey]
             else:
-                dep_states = collectivestate[deps]
-            result_dict[name] = dep_states
+                matching_states = collectivestate.all_with_tag(statedependency.tag)
+            if statedependency.single_state:
+                assert len(matching_states) == 1, 'Dependency %s requires 1 state but found %d' % (statedependency, len(matching_states))
+                value = matching_states[0]
+            else:
+                value = matching_states
+            result_dict[statedependency.parameter_name] = value
         return result_dict
 
     def _all_dependencies_fulfilled(self, dependencies, all_states, computed_states):

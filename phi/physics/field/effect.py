@@ -1,5 +1,6 @@
-from .physics import *
-from phi.physics.field import *
+from .mask import GeometryMask
+from phi import math
+from phi.physics import State, Physics, StateDependency
 
 
 GROW = 'grow'
@@ -84,7 +85,8 @@ class Gravity(State):
         if math.is_scalar(self._gravity) and math.is_scalar(other._gravity):
             return Gravity(self._gravity + other._gravity)
         else:
-            rank = staticshape(other.gravity)[-1] if math.is_scalar(self._gravity) else staticshape(self.gravity)[-1]
+            rank = math.staticshape(other.gravity)[-1] if math.is_scalar(self._gravity)\
+                else math.staticshape(self.gravity)[-1]
             sum_tensor = gravity_tensor(self, rank) + gravity_tensor(other, rank)
             return Gravity(sum_tensor)
 
@@ -97,5 +99,16 @@ def gravity_tensor(gravity, rank):
     if math.is_scalar(gravity):
         return math.expand_dims([gravity] + [0] * (rank-1), 0, rank+1)
     else:
-        assert staticshape(gravity)[-1] == rank
-        return math.expand_dims(gravity, 0, rank+2-len(staticshape(gravity)))
+        assert math.staticshape(gravity)[-1] == rank
+        return math.expand_dims(gravity, 0, rank+2-len(math.staticshape(gravity)))
+
+
+class FieldPhysics(Physics):
+
+    def __init__(self, fieldname):
+        Physics.__init__(self, [StateDependency('effects', fieldname+'_effect', blocking=True)])
+
+    def step(self, field, dt=1.0, effects=()):
+        for effect in effects:
+            field = effect_applied(effect, field, dt)
+        return field.copied_with(age = field.age + dt)

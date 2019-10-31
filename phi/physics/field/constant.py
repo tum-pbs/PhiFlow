@@ -1,7 +1,8 @@
-import numpy as np
+import numpy
 
 from phi import math
-from .field import Field, State, propagate_flags_children
+from .field import Field, propagate_flags_children
+
 
 class ConstantField(Field):
 
@@ -41,7 +42,7 @@ def _convert_constant_to_data(value):
     if isinstance(value, math.Number):
         value = math.to_float(math.expand_dims(value))
     if isinstance(value, (list, tuple)):
-        value = math.to_float(np.array(value))
+        value = math.to_float(numpy.array(value))
     if len(math.staticshape(value)) < 2:
         value = math.expand_dims(value)
     return value

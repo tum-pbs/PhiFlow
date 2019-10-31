@@ -1,12 +1,7 @@
-import numpy as np
-
 from phi.physics.pressuresolver.base import *
-from phi.math.initializers import _is_python_shape, zeros
-from phi.physics.pressuresolver.base import *
-from phi.physics.field.staggered_grid import StaggeredGrid
 
 from .domain import *
-from .effect import *
+from phi.physics.field.effect import *
 
 
 def _is_div_free(velocity, is_div_free):

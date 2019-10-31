@@ -2,7 +2,7 @@
 from numbers import Number
 import numpy as np
 
-from phi import math
+from phi import math, struct
 from phi.geom import Box
 from .grid import *
 

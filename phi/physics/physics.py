@@ -48,15 +48,31 @@ class State(struct.Struct):
         return self
 
 
+class StateDependency(object):
+
+    def __init__(self, parameter_name, tag, single_state=False, blocking=False, trajectorykey=None):
+        self.parameter_name = parameter_name
+        self.tag = tag
+        self.single_state = single_state
+        self.blocking = blocking
+        self.trajectorykey = trajectorykey
+        if trajectorykey is not None: assert single_state
+
+    def __repr__(self):
+        if self.trajectorykey is not None:
+            return '[key=%s, blocking=%s]' % (self.trajectorykey, self.blocking)
+        else:
+            return '[tag=%s, blocking=%s]' % (self.tag, self.blocking)
+
+
 class Physics(object):
     """
     A Physics object describes a set of physical laws that can be used to simulate a system by moving from state to state, tracing out a trajectory.
     Physics objects are stateless and always support an empty constructor.
     """
 
-    def __init__(self, dependencies=None, blocking_dependencies=None):
-        self.dependencies = dependencies if dependencies is not None else {}  # Map from String to List<tag or TrajectoryKey>
-        self.blocking_dependencies = blocking_dependencies if blocking_dependencies is not None else {}
+    def __init__(self, dependencies=()):
+        self.dependencies = tuple(dependencies)
 
     def step(self, state, dt=1.0, **dependent_states):
         """
@@ -69,6 +85,14 @@ class Physics(object):
         :return next state
         """
         raise NotImplementedError(self)
+
+    @property
+    def blocking_dependencies(self):
+        return filter(lambda d: d.blocking, self.dependencies)
+
+    @property
+    def non_blocking_dependencies(self):
+        return filter(lambda d: not d.blocking, self.dependencies)
 
 
 class Static(Physics):
