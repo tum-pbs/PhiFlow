@@ -122,7 +122,7 @@ extras = {
 
 setup(
     name='phiflow',
-    version='0.4.1',
+    version='0.4.2',
     packages=['phi',
               'phi.app',
               'phi.data',
