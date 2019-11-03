@@ -1,15 +1,13 @@
 import numpy as np
 
-from phi import math
+from phi import math, struct
 from .field import Field, State, propagate_flags_children
 
 class ConstantField(Field):
 
-    __struct__ = Field.__struct__
-
-    def __init__(self, name, value=1.0, flags=(), batch_size=None):
+    def __init__(self, name, value=1.0, flags=(), **kwargs):
+        Field.__init__(**struct.kwargs(locals()))
         Field.__init__(self, name, None, _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
-        self.__validate__()
 
     def sample_at(self, points, collapse_dimensions=True):
         return _expand_axes(self.data, points, collapse_dimensions=collapse_dimensions)

@@ -31,9 +31,7 @@ class PressureSolver(object):
         return self.name
 
 
-class FluidDomain(struct.Struct):
-
-    __struct__ = struct.Def(('_active', 'accessible'))
+class FluidDomain(object):
 
     def __init__(self, domain, validstate=(), active=None, accessible=None):
         assert active is not None
@@ -97,6 +95,6 @@ class FluidDomain(struct.Struct):
             lower = math.pad(self._accessible, [[1, 0] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=lower_pad)
             tensors.append(math.minimum(upper, lower))
         with struct.anytype():
-            components = [field.CenteredGrid(None, None, t, None, None) for t in tensors]
+            components = [field.CenteredGrid(None, None, t, None) for t in tensors]
             data = field.complete_staggered_properties(components, velocity)
         return velocity.with_data(data)

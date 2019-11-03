@@ -13,39 +13,33 @@ class TrajectoryKey(object):
 
 class State(struct.Struct):
 
-    __struct__ = struct.Def((), ('_age', '_tags'))
-
-    def __init__(self, tags=(), age=0.0, batch_size=None):
-        self._tags = tuple(tags)
+    def __init__(self, batch_size=None, **kwargs):
         self.trajectorykey = TrajectoryKey()
-        self._age = age
         self._batch_size = batch_size
+        struct.Struct.__init__(self, **kwargs)
 
-    @property
-    def tags(self):
-        return self._tags
+    @struct.prop(default=())
+    def tags(self, tags): return tuple(tags)
 
-    @property
-    def age(self):
-        return self._age
+    @struct.prop(default=0.0)
+    def age(self, age): return age
 
     def default_physics(self):
         return STATIC
 
-    @property
-    def shape(self):
-        def tensorshape(tensor):
-            if tensor is None:
-                return None
-            default_batched_shape = staticshape(tensor)
-            if len(default_batched_shape) >= 2:
-                return (self._batch_size,) + default_batched_shape[1:]
-        with struct.anytype():
-            return struct.map(tensorshape, self)
+    # @property
+    # def shape(self):
+    #     def tensorshape(tensor):
+    #         if tensor is None:
+    #             return None
+    #         default_batched_shape = staticshape(tensor)
+    #         if len(default_batched_shape) >= 2:
+    #             return (self._batch_size,) + default_batched_shape[1:]
+    #     with struct.anytype():
+    #         return struct.map(tensorshape, self)
 
     @property
-    def state(self):
-        return self
+    def state(self): return self
 
 
 class Physics(object):

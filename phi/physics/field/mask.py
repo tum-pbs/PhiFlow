@@ -5,29 +5,27 @@ from .constant import _convert_constant_to_data, _expand_axes
 
 class GeometryMask(Field):
 
-    __struct__ = Field.__struct__.extend([], ['_geometries'])
+    def __init__(self, name, geometries, value=1.0, flags=(), **kwargs):
+        bounds = union(geometries)
+        data = _convert_constant_to_data(value)
+        Field.__init__(**struct.kwargs(locals(), ignore='value'))
 
-    def __init__(self, name, geometries, value=1.0, flags=(), batch_size=None):
-        Field.__init__(self, name, union(geometries), _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
-        self._geometries = tuple(geometries)
-        self.__validate__()
-
-    @property
-    def geometries(self):
-        return self._geometries
+    @struct.prop()
+    def geometries(self, geometries):
+        return tuple(geometries)
 
     def sample_at(self, points, collapse_dimensions=True):
-        if len(self._geometries) == 0:
+        if len(self.geometries) == 0:
             return _expand_axes(math.zeros([1,1]), points, collapse_dimensions=collapse_dimensions)
-        if len(self._geometries) == 1:
-            result = self._geometries[0].value_at(points)
+        if len(self.geometries) == 1:
+            result = self.geometries[0].value_at(points)
         else:
-            result = math.max([geometry.value_at(points) for geometry in self._geometries], axis=0)
+            result = math.max([geometry.value_at(points) for geometry in self.geometries], axis=0)
         return result * self.data
 
     @property
     def rank(self):
-        return self._geometries[0].rank
+        return self.geometries[0].rank
 
     @property
     def component_count(self):
@@ -35,7 +33,7 @@ class GeometryMask(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [GeometryMask('%s[%d]' % (self.name, i), self.geometries, c, flags, self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
+        return [GeometryMask('%s[%d]' % (self.name, i), self.geometries, c, flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):
@@ -45,7 +43,7 @@ class GeometryMask(Field):
         return True
 
     def __repr__(self):
-        return 'Union{%s}' % ', '.join([repr(g) for g in self._geometries])
+        return 'Union{%s}' % ', '.join([repr(g) for g in self.geometries])
 
 
 def mask(geometry):

@@ -27,35 +27,38 @@ class _FIELD_TYPE(object):
 
 class Flag(struct.Struct):
 
-    __struct__ = struct.Def([], ['_name'])
+    def __init__(self, name, is_data_bound, is_structure_bound, propagators=(), field_types=(), **kwargs):
+        struct.Struct.__init__(**struct.kwargs(locals()))
 
-    def __init__(self, name, is_data_bound, is_structure_bound, propagators=(), field_types=()):
-        self._name = name
-        self._propagators = tuple(propagators)
-        self._field_types = tuple(field_types)
-        self._is_data_bound = is_data_bound
-        self._is_structure_bound = is_structure_bound
+    @struct.prop()
+    def name(self, name): return name
 
-    @property
-    def name(self):
-        return self._name
+    @struct.prop()
+    def is_data_bound(self, v):
+        assert isinstance(v, bool)
+        return v
 
-    @property
-    def is_data_bound(self):
-        return self._is_data_bound
+    @struct.prop()
+    def is_structure_bound(self, v):
+        assert isinstance(v, bool)
+        return v
 
-    @property
-    def is_structure_bound(self):
-        return self._is_structure_bound
+    @struct.prop()
+    def propagators(self, propagators):
+        return tuple(propagators)
+
+    @struct.prop()
+    def field_types(self, field_types):
+        return tuple(field_types)
 
     def is_applicable(self, spatial_rank, component_count):
         for type in _FIELD_TYPE.list(spatial_rank, component_count):
-            if type in self._field_types:
+            if type in self.field_types:
                 return True
         return False
 
     def propagates(self, propagator):
-        return propagator in self._propagators
+        return propagator in self.propagators
 
     def __eq__(self, other):
         return self.name == other.name
