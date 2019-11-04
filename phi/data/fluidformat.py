@@ -16,7 +16,7 @@ import logging
 def read_zipped_array(filename):
     file = np.load(filename)
     array = file[file.files[-1]]  # last entry in npz file has to be data array
-    if array.shape[0] != 1:
+    if array.shape[0] != 1 or len(array.shape) == 1:
         array = np.expand_dims(array, axis=0)
     if array.shape[-1] != 1:
         array = array[..., ::-1]
@@ -24,7 +24,7 @@ def read_zipped_array(filename):
 
 
 def write_zipped_array(filename, array):
-    if array.shape[0] == 1:
+    if array.shape[0] == 1 and len(array.shape) > 1:
         array = array[0, ...]
     if array.shape[-1] != 1:
         array = array[..., ::-1]
