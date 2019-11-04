@@ -22,7 +22,10 @@ class CollectiveState(State):
     __radd__ = __add__
 
     def all_with_tag(self, tag):
-        return [o for o in self._states if tag in o.tags]
+        return [s for s in self.states if tag in s.tags]
+
+    def all_instances(self, cls):
+        return [s for s in self.states if isinstance(s, cls)]
 
     @property
     def states(self):
@@ -155,4 +158,5 @@ class CollectivePhysics(Physics):
         self._physics[trajectorykey] = physics
 
     def remove(self, trajectorykey):
-        del self._physics[trajectorykey]
+        if trajectorykey in self._physics:
+            del self._physics[trajectorykey]
