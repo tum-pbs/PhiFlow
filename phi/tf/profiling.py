@@ -6,6 +6,12 @@ import tensorflow as tf
 from tensorflow.python.client import timeline
 
 
+if tf.__version__[0] == '2':
+    print('Adjusting for tensorflow 2.0')
+    tf = tf.compat.v1
+    tf.disable_eager_execution()
+
+
 class Timeliner:
 
     _timeline_dict = None
@@ -13,7 +19,7 @@ class Timeliner:
     run_metadata = tf.RunMetadata()
 
     def update_timeline(self, chrome_trace):
-        # convert crome trace to python dict
+        # convert chrome trace to python dict
         chrome_trace_dict = json.loads(chrome_trace)
         # for first run store full trace
         if self._timeline_dict is None:

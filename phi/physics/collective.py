@@ -1,12 +1,12 @@
 import six
-from .physics import *
+from .physics import State, struct, TrajectoryKey, Physics
 
 
 class CollectiveState(State):
 
     def __init__(self, states=(), **kwargs):
         State.__init__(**struct.kwargs(locals()))
-        
+
     @struct.attr()
     def states(self, states):
         if isinstance(states, tuple): return states
@@ -44,7 +44,7 @@ class CollectiveState(State):
             else:
                 return self[item.trajectorykey]
         if isinstance(item, TrajectoryKey):
-            states = list(filter(lambda s: s.trajectorykey==item, self.states))
+            states = list(filter(lambda s: s.trajectorykey == item, self.states))
             assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
             return states[0]
         if isinstance(item, six.string_types):
@@ -128,7 +128,7 @@ class CollectivePhysics(Physics):
     def _gather_dependencies(self, dependencies, collectivestate, result_dict):
         for name, deps in dependencies.items():
             dep_states = []
-            if isinstance(deps, (tuple,list)):
+            if isinstance(deps, (tuple, list)):
                 for dep in deps:
                     dep_states += list(collectivestate[dep])
             else:

@@ -7,8 +7,12 @@ from phi.physics import field
 
 
 class PressureSolver(object):
+    """
+    Base class for solvers
+    """
 
     def __init__(self, name, supported_devices, supports_guess, supports_loop_counter, supports_continuous_masks):
+        """Assign details such as name, supported device (CPU/GPU), etc."""
         self.name = name
         self.supported_devices = supported_devices
         self.supports_guess = supports_guess
@@ -28,6 +32,7 @@ class PressureSolver(object):
         raise NotImplementedError(self.__class__)
 
     def __repr__(self):
+        """representation = name"""
         return self.name
 
 
@@ -87,6 +92,8 @@ class FluidDomain(object):
             return mask
 
     def _frictionless_velocity_mask(self, velocity):
+        """
+        """
         tensors = []
         for dim in math.spatial_dimensions(self._accessible):
             upper_pad = 0 if self.domain.surface_material(dim-1, True).solid else 1

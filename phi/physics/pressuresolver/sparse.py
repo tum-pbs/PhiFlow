@@ -77,7 +77,7 @@ def sparse_pressure_matrix(dimensions, extended_active_mask, extended_fluid_mask
         # Upper frames
         upper_indices = gridpoints + dim_direction
         upper_in_range_inx = np.nonzero(upper_indices[dim] < dimensions[dim])
-        upper_indices_linear = np.ravel_multi_index(upper_indices[:,upper_in_range_inx], dimensions)
+        upper_indices_linear = np.ravel_multi_index(upper_indices[:, upper_in_range_inx], dimensions)
         A[gridpoints_linear[upper_in_range_inx], upper_indices_linear] = stencil_upper.flatten()[upper_in_range_inx]
         # Lower frames
         lower_indices = gridpoints - dim_direction
@@ -135,6 +135,10 @@ class SparseCG(PressureSolver):
 
         if math.backend.choose_backend(divergence).matches_name('TensorFlow'):
             import tensorflow as tf
+            if tf.__version__[0] == '2':
+                print('Adjusting for tensorflow 2.0')
+                tf = tf.compat.v1
+                tf.disable_eager_execution()
             sidx, sorting = sparse_indices(dimensions)
             sval_data = sparse_values(dimensions, active_mask, fluid_mask, sorting)
             A = tf.SparseTensor(indices=sidx, values=sval_data, dense_shape=[N, N])
@@ -148,9 +152,9 @@ class SparseCG(PressureSolver):
                 return sparse_cg(grad, A, max_gradient_iterations, None, self.gradient_accuracy)[0]
 
             pressure, iteration = math.with_custom_gradient(sparse_cg,
-                                                           [divergence, A, self.max_iterations, pressure_guess, self.accuracy],
-                                                           pressure_gradient, input_index=0, output_index=0,
-                                                           name_base='scg_pressure_solve')
+                                                            [divergence, A, self.max_iterations, pressure_guess, self.accuracy],
+                                                            pressure_gradient, input_index=0, output_index=0,
+                                                            name_base='scg_pressure_solve')
 
             max_gradient_iterations = iteration if self.max_gradient_iterations == 'mirror' else self.max_gradient_iterations
             return pressure, iteration

@@ -1,10 +1,17 @@
 import os
 import numpy as np
+import tensorflow as tf
 from numbers import Number
 
 from phi import math
 from phi.physics.pressuresolver.base import *
 from phi.physics.pressuresolver.base import PressureSolver
+
+
+if tf.__version__[0] == '2':
+    print('Adjusting for tensorflow 2.0')
+    tf = tf.compat.v1
+    tf.disable_eager_execution()
 
 
 # Load Custom Ops
@@ -40,7 +47,7 @@ class CUDA(PressureSolver):
         def pressure_gradient(op, grad):
             return cuda_solve_forward(grad, active, accessible, self.gradient_accuracy, max_gradient_iterations)[0]
 
-        pressure, iteration = phi.math.with_custom_gradient(
+        pressure, iteration = math.with_custom_gradient(
             cuda_solve_forward,
             [divergence, active, accessible, self.accuracy, self.max_iterations],
             pressure_gradient,

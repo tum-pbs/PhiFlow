@@ -1,10 +1,12 @@
 from phi.data import *
 
+from .stream import DerivedStream
 
-class Augmentstream(Derivedstream):
+
+class Augmentstream(DerivedStream):
 
     def __init__(self, aug_dimensions, field, affect_flags=(DATAFLAG_TRAIN,)):
-        Derivedstream.__init__(self, [field])
+        DerivedStream.__init__(self, [field])
         self.field = self.input_fields[0]
         self.affect_flags = affect_flags
         self.aug_dimensions = range(aug_dimensions) if isinstance(aug_dimensions, int) else aug_dimensions

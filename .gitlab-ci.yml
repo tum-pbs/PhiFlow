@@ -32,7 +32,7 @@ pip:27:
     stage: build
     script:
         - python --version
-        - pip install tensorflow==1.10.0 --quiet --user
+        - pip install tensorflow==1.14.0 --quiet --user
         - pip install . --user
 
 pip:35:

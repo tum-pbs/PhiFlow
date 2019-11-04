@@ -68,7 +68,8 @@ class SciPyBackend(Backend):
         return np.sum(value, axis=axis, keepdims=keepdims)
 
     def prod(self, value, axis=None):
-        if not isinstance(value, np.ndarray): value = np.array(value)
+        if not isinstance(value, np.ndarray):
+            value = np.array(value)
         if value.dtype == bool:
             return np.all(value, axis=axis)
         return np.prod(value, axis=axis)
@@ -81,8 +82,7 @@ class SciPyBackend(Backend):
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         result = func(*inputs)
         assert result.dtype == Tout, "returned value has wrong type: {}, expected {}".format(result.dtype, Tout)
-        assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape,
-                                                                                                   shape_out)
+        assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
         return result
 
     def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
@@ -181,7 +181,7 @@ class SciPyBackend(Backend):
         return result
 
     def expand_dims(self, a, axis=0, number=1):
-        for i in range(number):
+        for _i in range(number):
             a = np.expand_dims(a, axis)
         return a
 

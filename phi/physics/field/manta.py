@@ -1,6 +1,7 @@
 from .staggered_grid import StaggeredGrid, unstack_staggered_tensor
 from .grid import CenteredGrid
-from phi import math, geom
+from phi import math
+from phi import geom
 
 
 def staggered_grid(tensor, name=None):

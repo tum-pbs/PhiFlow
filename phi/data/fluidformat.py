@@ -1,6 +1,7 @@
 # coding=utf-8
 import inspect
 import json
+import logging
 import os
 import os.path
 import re
@@ -8,9 +9,9 @@ import shutil
 import six
 import numpy as np
 from os.path import join, isfile, isdir
+
 from phi import struct
 from phi.physics import field
-import logging
 
 
 def read_zipped_array(filename):

@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from phi.flow import *
+from phi.physics.physics import STATIC
 
 
 class CustomPhysics(Physics):

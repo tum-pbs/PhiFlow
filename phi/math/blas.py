@@ -14,37 +14,45 @@ def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations
     :param max_iterations: maximum number of CG iterations to perform
     :return: Pair containing the result for x and the number of iterations performed
     """
+    # Get momentum = k - Ax
     if initial_x is None:
         x = math.zeros_like(k)
         momentum = k
     else:
         x = initial_x
         momentum = k - apply_A(x)
-    residual = momentum
-
-    laplace_momentum = apply_A(momentum)
-    loop_index = 0
-
-    vars = [x, momentum, laplace_momentum, residual, loop_index]
-
+    # Further Variables
+    residual = momentum  # residual is previous momentum
+    laplace_momentum = apply_A(momentum)  # = A*momentum
+    loop_index = 0  # initial
+    # Pack Variables for loop
+    variables = [x, momentum, laplace_momentum, residual, loop_index]
+    # Ensure to run until desired accuracy is achieved
     if accuracy is not None:
-        def loop_condition(_1, _2, _3, residual, i):
+        def loop_condition(_1, _2, _3, residual, _i):
+            '''continue if the maximum deviation from zero is bigger than desired accuracy'''
             return math.max(math.abs(residual)) >= accuracy
     else:
-        def loop_condition(_1, _2, _3, residual, i):
+        def loop_condition(*_args):
             return True
 
     def loop_body(pressure, momentum, A_times_momentum, residual, loop_index):
-        tmp = math.sum(momentum * A_times_momentum)
-        a = math.sum(momentum * residual) / tmp
-        pressure += a * momentum
-        residual -= a * A_times_momentum
-        b = - math.sum(residual * A_times_momentum) / tmp
-        momentum = residual + b * momentum
-        A_times_momentum = apply_A(momentum)
+        """
+        iteratively solve for:
+        x : pressure
+        momentum : momentum
+        laplace_momentum : A_times_momentum
+        residual : residual
+        """
+        tmp = math.sum(momentum * A_times_momentum)  # t = sum(mAm)
+        a = math.sum(momentum * residual) / tmp  # a = sum(mr)/sum(mAm)
+        pressure += a * momentum  # p += am
+        residual -= a * A_times_momentum  # r -= aAm
+        momentum = residual - (math.sum(residual * A_times_momentum) * momentum / tmp)  # m = r-sum(rAm)*m/t = r-sum(rAm)*m/sum(mAm)
+        A_times_momentum = apply_A(momentum)  # Am = A*m
         return [pressure, momentum, A_times_momentum, residual, loop_index + 1]
 
-    x, momentum, laplace_momentum, residual, loop_index = math.while_loop(loop_condition, loop_body, vars,
+    x, momentum, laplace_momentum, residual, loop_index = math.while_loop(loop_condition, loop_body, variables,
                                                                           parallel_iterations=2, back_prop=back_prop,
                                                                           swap_memory=False,
                                                                           name="pressure_solve_loop",
