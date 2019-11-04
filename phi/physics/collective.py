@@ -41,12 +41,17 @@ class CollectiveState(State):
         new_states = tuple(map(lambda s: new_state if s == old_state else s, self._states))
         return self.copied_with(states=new_states)
 
+    def with_replacement(self, new_state):
+        new_states = tuple(map(lambda s: new_state if s.trajectorykey == new_state.trajectorykey else s, self._states))
+        return self.copied_with(states=new_states)
+
+    def trajectory_removed(self, trajectorykey):
+        filtered_states = tuple(filter(lambda s: s.trajectorykey != trajectorykey, self.states))
+        return self.copied_with(states=filtered_states)
+
     def __getitem__(self, item):
         if isinstance(item, State):
-            if item in self._states:
-                return item
-            else:
-                return self[item.trajectorykey]
+            return self[item.trajectorykey]
         if isinstance(item, TrajectoryKey):
             states = list(filter(lambda s: s.trajectorykey==item, self._states))
             assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
@@ -139,15 +144,19 @@ class CollectivePhysics(Physics):
                 assert len(matching_states) == 1, 'Dependency %s requires 1 state but found %d' % (statedependency, len(matching_states))
                 value = matching_states[0]
             else:
-                value = matching_states
+                value = tuple(matching_states)
             result_dict[statedependency.parameter_name] = value
         return result_dict
 
     def _all_dependencies_fulfilled(self, dependencies, all_states, computed_states):
         state_dict = self._gather_dependencies(dependencies, all_states, {})
         for name, states in state_dict.items():
-            for state in states:
-                if state.trajectorykey not in computed_states:
+            if isinstance(states, tuple):
+                for state in states:
+                    if state.trajectorykey not in computed_states:
+                        return False
+            else:  # single state
+                if states.trajectorykey not in computed_states:
                     return False
         return True
 
