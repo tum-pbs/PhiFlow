@@ -4,6 +4,7 @@ from phi import math, geom
 
 
 def staggered_grid(tensor, name=None):
+    tensor = tensor[...,::-1]  # manta: xyz, phiflow: zyx
     assert math.staticshape(tensor)[-1] == math.spatial_rank(tensor)
     resolution = [d-1 for d in math.staticshape(tensor)[1:-1]]
     tensors = unstack_staggered_tensor(tensor)
