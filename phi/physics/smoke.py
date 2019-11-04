@@ -3,45 +3,23 @@ from .fluid import *
 
 
 class Smoke(DomainState):
-    __struct__ = DomainState.__struct__.extend(('_density', '_velocity'),
-                            ('_buoyancy_factor', '_conserve_density'))
 
-    def __init__(self, domain,
-                 density=0.0, velocity=0,
-                 buoyancy_factor=0.1, conserve_density=False,
-                 batch_size=None):
-        DomainState.__init__(self, domain, tags=('smoke', 'velocityfield'), batch_size=batch_size)
-        self._density = density
-        self._velocity = velocity
-        self._buoyancy_factor = buoyancy_factor
-        self._conserve_density = conserve_density
-        self.domaincache = None
-        self.__validate__()
+    def __init__(self, domain, density=0.0, velocity=0, buoyancy_factor=0.1, tags=('smoke', 'velocityfield'), **kwargs):
+        DomainState.__init__(**struct.kwargs(locals()))
 
     def default_physics(self):
         return SMOKE
 
-    def __validate_density__(self):
-        self._density = self.centered_grid('density', self._density)
+    @struct.attr(default=0)
+    def density(self, density):
+        return self.centered_grid('density', density)
 
-    def __validate_velocity__(self):
-        self._velocity = self.staggered_grid('velocity', self._velocity)
+    @struct.attr(default=0)
+    def velocity(self, velocity):
+        return self.staggered_grid('velocity', velocity)
 
-    @property
-    def density(self):
-        return self._density
-
-    @property
-    def velocity(self):
-        return self._velocity
-
-    @property
-    def buoyancy_factor(self):
-        return self._buoyancy_factor
-
-    @property
-    def conserve_density(self):
-        return self._conserve_density
+    @struct.prop(default=0.1)
+    def buoyancy_factor(self, fac): return fac
 
     def __repr__(self):
         return "Smoke[density: %s, velocity: %s]" % (self.density, self.velocity)

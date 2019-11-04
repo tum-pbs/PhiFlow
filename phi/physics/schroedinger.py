@@ -3,27 +3,18 @@ from .effect import *
 
 
 class QuantumWave(DomainState):
-    __struct__ = DomainState.__struct__.extend(['_amplitude'], ['_mass'])
 
-    def __init__(self, domain, amplitude=1, mass=0.1, batch_size=None):
-        DomainState.__init__(self, domain, tags=('qwave',), batch_size=batch_size)
-        self._amplitude = amplitude
-        self._mass = mass
-        self.__validate__()
+    def __init__(self, domain, amplitude=1, mass=0.1, tags=('qwave',), **kwargs):
+        DomainState.__init__(**struct.kwargs(locals()))
 
-    @property
-    def amplitude(self):
-        return self._amplitude
+    @struct.attr(default=1)
+    def amplitude(self, amplitude):
+        return self.centered_grid('amplitude', amplitude, dtype=np.complex64)
 
-    def __validate_amplitude__(self):
-        self._amplitude = self.centered_grid('amplitude', self._amplitude, dtype=np.complex64)
+    @struct.prop(default=0.1)
+    def mass(self, mass): return mass
 
-    @property
-    def mass(self):
-        return self._mass
-
-    def default_physics(self):
-        return SCHROEDINGER
+    def default_physics(self): return SCHROEDINGER
 
 
 def normalize_probability(probability_amplitude):
@@ -88,30 +79,28 @@ StepPotential = lambda geometry, height: FieldEffect(GeometryMask('potential', [
 
 
 class WavePacket(Field):
-    __struct__ = State.__struct__.extend([], ['_center', '_size', '_wave_vector', '_bounds', '_name', '_flags'])
 
-    def __init__(self, center, size, wave_vector):
-        Field.__init__(self, 'wave-packet', None, None)
-        self._center = center
-        self._size = size
-        self._wave_vector = wave_vector
-        self.__validate__()
+    def __init__(self, center, size, wave_vector, name='wave_packet', **kwargs):
+        bounds = None
+        data = None
+        Field.__init__(**struct.kwargs(locals()))
 
-    def __validate_wave_vector__(self):
-        if len(math.shape(self._wave_vector)) == 0:
-            self._wave_vector = math.expand_dims(self._wave_vector, 0)
+    @struct.prop()
+    def center(self, center): return center
 
-    @property
-    def center(self):
-        return self._center
+    @struct.prop()
+    def size(self, size): return size
 
-    @property
-    def size(self):
-        return self._size
+    @struct.attr()
+    def data(self, data):
+        assert data is None
+        return None
 
-    @property
-    def wave_vector(self):
-        return self._wave_vector
+    @struct.prop()
+    def wave_vector(self, wave_vector):
+        if len(math.shape(wave_vector)) == 0:
+            wave_vector = math.expand_dims(wave_vector, 0)
+        return wave_vector
 
     def sample_at(self, points, collapse_dimensions=True):
         envelope = math.exp(-0.5 * math.sum((points - self.center) ** 2, axis=-1, keepdims=True) / self.size ** 2)
@@ -120,7 +109,7 @@ class WavePacket(Field):
 
     @property
     def rank(self):
-        return len(self._center)
+        return len(self.center)
 
     @property
     def component_count(self):
@@ -137,7 +126,7 @@ class WavePacket(Field):
         return True
 
     def __repr__(self):
-        return 'WavePacket(%s)' % self._center
+        return 'WavePacket(%s)' % self.center
 
 
 def harmonic_potential(grid, center, unit_distance, maximum_value=1.0, dtype=np.float32):

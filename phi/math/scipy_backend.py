@@ -68,6 +68,7 @@ class SciPyBackend(Backend):
         return np.sum(value, axis=axis, keepdims=keepdims)
 
     def prod(self, value, axis=None):
+        if not isinstance(value, np.ndarray): value = np.array(value)
         if value.dtype == bool:
             return np.all(value, axis=axis)
         return np.prod(value, axis=axis)

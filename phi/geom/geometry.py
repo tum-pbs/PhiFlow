@@ -16,24 +16,22 @@ class Geometry(struct.Struct):
 
 class Box(Geometry):
 
-    __struct__ = struct.Def([], ['_origin', '_size'])
+    def __init__(self, origin, size, **kwargs):
+        Geometry.__init__(**struct.kwargs(locals()))
 
-    def __init__(self, origin, size):
-        self._origin = math.to_float(math.as_tensor(origin))
-        self._size = math.to_float(math.as_tensor(size))
-        self._upper = self.origin + self.size
+    @struct.prop()
+    def origin(self, origin):
+        tensor = math.to_float(math.as_tensor(origin))
+        assert math.prod(math.shape(tensor)) > 0
+        return tensor
 
-    @property
-    def origin(self):
-        return self._origin
-
-    @property
-    def size(self):
-        return self._size
+    @struct.prop()
+    def size(self, size):
+        return math.to_float(math.as_tensor(size))
 
     @property
     def upper(self):
-        return self._upper
+        return self.origin + self.size
 
     @property
     def rank(self):
@@ -83,60 +81,55 @@ box = BoxGenerator()
 
 class Sphere(Geometry):
 
-    __struct__ = struct.Def((), ('_center', '_radius'))
+    def __init__(self, center, radius, **kwargs):
+        Geometry.__init__(**struct.kwargs(locals()))
 
-    def __init__(self, center, radius):
-        self._center = math.as_tensor(center)
-        self._radius = math.as_tensor(radius)
+    @struct.prop()
+    def radius(self, radius):
+        return math.as_tensor(radius)
 
-    @property
-    def radius(self):
-        return self._radius
-
-    @property
-    def center(self):
-        return self._center
+    @struct.prop()
+    def center(self, center):
+        return math.as_tensor(center)
 
     def value_at(self, location):
-        bool_inside = math.expand_dims(math.sum((location - self._center)**2, axis=-1) <= self._radius**2, -1)
+        bool_inside = math.expand_dims(math.sum((location - self.center)**2, axis=-1) <= self.radius**2, -1)
         return math.to_float(bool_inside)
 
     @property
     def rank(self):
-        return len(self._center)
+        return len(self.center)
 
 
 class _Union(Geometry):
 
-    __struct__ = Geometry.__struct__.extend([], ['_geometries'])
-
-    def __init__(self, geometries):
-        self._geometries = geometries
+    def __init__(self, geometries, **kwargs):
+        Geometry.__init__(**struct.kwargs(locals()))
 
     def __validate_geometries__(self):
-        assert len(self._geometries) > 0
-        rank = self._geometries[0].rank
-        for g in self._geometries[1:]:
+        assert len(self.geometries) > 0
+        rank = self.geometries[0].rank
+        for g in self.geometries[1:]:
             assert g.rank == rank or g.rank is None or rank is None
-        self._geometries = tuple(self._geometries)
+        self.geometries = tuple(self.geometries)
 
     def value_at(self, points, collapse_dimensions=True):
-        if len(self._geometries) == 1:
-            result = self._geometries[0].value_at(points)
+        if len(self.geometries) == 1:
+            result = self.geometries[0].value_at(points)
         else:
-            result = math.max([geometry.value_at(points) for geometry in self._geometries], axis=0)
+            result = math.max([geometry.value_at(points) for geometry in self.geometries], axis=0)
         return result
 
     @property
     def rank(self):
-        if len(self._geometries) == 0:
+        if len(self.geometries) == 0:
             return None
         else:
-            return self._geometries[0].rank
+            return self.geometries[0].rank
 
-    @property
-    def geometries(self):
-        return self._geometries
+    @struct.prop()
+    def geometries(self, geometries):
+        return tuple(geometries)
 
 
 def union(geometries):

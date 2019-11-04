@@ -5,3 +5,4 @@ from .grid import *
 from .staggered_grid import *
 from .mask import *
 from . import advect
+from . import manta

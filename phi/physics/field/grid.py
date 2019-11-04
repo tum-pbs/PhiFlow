@@ -17,25 +17,22 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
 
 class CenteredGrid(Field):
 
-    __struct__ = Field.__struct__.extend([], ['_box'])
-
-    def __init__(self, name, box, data, flags=(), batch_size=None):
-        Field.__init__(self, name=name, bounds=box, data=data, flags=flags, batch_size=batch_size)
-        assert isinstance(box, Box) or box is None
-        self._box = box
+    def __init__(self, name, box, data, flags=(), **kwargs):
+        bounds = box
+        Field.__init__(**struct.kwargs(locals()))
         self._sample_points = None
         self._extrapolation = None  # TODO
         self._interpolation = 'linear'
         self._boundary = 'replicate'  # TODO this is a temporary replacement for extrapolation
-        self.__validate__()
 
     @property
     def resolution(self):
         return math.as_tensor(math.staticshape(self._data)[1:-1])
 
-    @property
-    def box(self):
-        return self._box
+    @struct.prop()
+    def box(self, box):
+        assert isinstance(box, Box)
+        return box
 
     @property
     def dx(self):
@@ -45,11 +42,11 @@ class CenteredGrid(Field):
     def rank(self):
         return math.spatial_rank(self.data)
 
-    def __validate_data__(self):
-        if self._data is None:
-            return
-        assert len(math.staticshape(self._data)) == self.box.rank + 2,\
-            'Data has hape %s but box has rank %d' % (math.staticshape(self._data), self.box.rank)
+    @struct.attr()
+    def data(self, data):
+        assert len(math.staticshape(data)) == self.box.rank + 2,\
+            'Data has hape %s but box has rank %d' % (math.staticshape(data), self.box.rank)
+        return data
 
     def sample_at(self, points, collapse_dimensions=True):
         local_points = self.box.global_to_local(points)
@@ -77,11 +74,11 @@ class CenteredGrid(Field):
 
     @property
     def component_count(self):
-        return self._data.shape[-1]
+        return self.data.shape[-1]
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [CenteredGrid('%s[...,%d]' % (self.name, i), self.box, c, flags=flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self._data, -1))]
+        return [CenteredGrid('%s[...,%d]' % (self.name, i), self.box, c, flags=flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):

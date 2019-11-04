@@ -5,9 +5,7 @@ from phi import struct
 
 class Material(struct.Struct):
 
-    __struct__ = struct.Def((), ('solid', 'friction', 'extrapolate_fluid', 'global_velocity', 'local_velocity'))
-
-    def __init__(self, name, solid=True, friction=0.0, extrapolate_fluid=True, global_velocity=0.0, local_velocity=0.0):
+    def __init__(self, name, solid=True, friction=0.0, **kwargs):
         """
         Defines physical properties of a boundary or voxel.
 
@@ -16,16 +14,17 @@ class Material(struct.Struct):
         If local_velocity is None, the latter term will be ignored.
         :param solid: Fluid can only enter non-solid cells or pass through non-solid boundaries
         :param friction: (only for solid materials) velocity decay rate in units of 1/time. 0: fluid can move parallell to the surface (no-stick), 1: fluid cannot move parallel (no-slip)
-        :param extrapolate_fluid: Boundary condition when extrapolating the fluid channel into the object
-        :param global_velocity: velocity offset in unmoving reference frame or 0 if unmoving.
-        :param local_velocity: velocity offset in object reference frame. Set to 0 to add object's velocity, None to ignore completely.
         """
-        self.name = name
-        self.solid = solid
-        self.friction = friction
-        self.extrapolate_fluid = extrapolate_fluid
-        self.global_velocity = global_velocity
-        self.local_velocity = local_velocity
+        struct.Struct.__init__(**struct.kwargs(locals()))
+
+    @struct.prop()
+    def name(self, name): return name
+
+    @struct.prop(default=True)
+    def solid(self, solid): return solid
+
+    @struct.prop(default=0.0)
+    def friction(self, friction): return friction
 
     def friction_multiplier(self, dt=1):
         if dt == 1 or self.friction == 1 or self.friction == 0:
@@ -38,6 +37,6 @@ class Material(struct.Struct):
         return self.name
 
 
-OPEN = Material('open', solid=False, extrapolate_fluid=False, local_velocity=None)
+OPEN = Material('open', solid=False)
 NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0.0)
 NO_SLIP = STICKY = Material('sticky', solid=True, friction=1.0)
