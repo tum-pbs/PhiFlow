@@ -20,7 +20,7 @@ class DataLoader(TFApp):
     def __init__(self):
         TFApp.__init__(self, 'Data Demo')
 
-        smoke = world.Smoke(Domain([mantaflowRes-1] * dims)) # 2D: YXc , 3D: ZYXc
+        smoke = world.add(Smoke(Domain([mantaflowRes-1] * dims))) # 2D: YXc , 3D: ZYXc
         smoke.velocity = smoke.density = placeholder # switch to TF tensors
         state_in = smoke.state
         state_out = world.step(smoke) # generates tensors now

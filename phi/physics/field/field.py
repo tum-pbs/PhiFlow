@@ -99,6 +99,8 @@ class Field(State):
         """
         if force_optimization:
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
+        if self.compatible(other_field):
+            return self
         try:
             resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)
             return other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
