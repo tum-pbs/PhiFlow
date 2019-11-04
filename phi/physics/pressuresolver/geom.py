@@ -2,7 +2,7 @@ from numbers import Number
 
 from phi import math
 from phi.math.blas import conjugate_gradient
-from phi.physics.pressuresolver.base import *
+from phi.physics.pressuresolver.base import PressureSolver, FluidDomain
 
 
 class GeometricCG(PressureSolver):

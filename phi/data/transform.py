@@ -1,11 +1,12 @@
 from phi.data import *
 from phi.math.nd import *
 
+from .stream import DerivedStream
 
-class Downsample(Derivedstream):
+class Downsample(DerivedStream):
 
     def __init__(self, field):
-        Derivedstream.__init__(self, [field])
+        DerivedStream.__init__(self, [field])
         self.field = self.input_fields[0]
 
     def size(self, datasource):

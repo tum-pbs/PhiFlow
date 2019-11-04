@@ -3,6 +3,11 @@ from unittest import TestCase
 
 from phi.math import *
 
+if tf.__version__[0] == '2':
+    print('Adjusting for tensorflow 2.0')
+    tf = tf.compat.v1
+    tf.disable_eager_execution()
+
 
 # placeholder, variable tested in test_tensorflow.py
 
@@ -12,7 +17,7 @@ class TestMath(TestCase):
     def test_fft(self):
         tf.InteractiveSession()
         for dims in range(1, 4):
-            shape = [2]+[4]*dims+[3]
+            shape = [2] + [4]*dims + [3]
             x_np = np.random.randn(*shape) + 1j * np.random.randn(*shape)
             x_np = x_np.astype(np.complex64)
             x_tf = tf.constant(x_np, tf.complex64)
@@ -29,9 +34,8 @@ class TestMath(TestCase):
 
     def test_laplace(self):
         tf.InteractiveSession()
-
         for dims in range(1, 4):
-            shape = [2]+[4]*dims+[3]
+            shape = [2] + [4]*dims + [3]
             a = zeros(shape)
             l = laplace(a, padding='symmetric')
             np.testing.assert_equal(l, 0)
@@ -44,7 +48,7 @@ class TestMath(TestCase):
             np.testing.assert_equal(l.shape, a.shape)
             l = laplace(a, padding='valid')
             np.testing.assert_equal(l, 0)
-            np.testing.assert_equal(l.shape, [2] + [2] * dims + [3])
+            np.testing.assert_equal(l.shape, [2] + [2]*dims + [3])
 
     def test_struct_broadcast(self):
         s = {'a': 0, 'b': 1}

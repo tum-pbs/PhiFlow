@@ -4,3 +4,6 @@
 phi/local/hostname.py
 .vscode
 .mypy_cache
+*.npz
+images/*
+data/*

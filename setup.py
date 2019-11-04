@@ -21,6 +21,10 @@ class CudaCommand(distutils.cmd.Command):
 
         # Get TF Compile/Link Flags and write to env
         import tensorflow as tf
+        if tf.__version__[0] == '2':
+            print('Adjusting for tensorflow 2.0')
+            tf = tf.compat.v1
+            tf.disable_eager_execution()
         TF_CFLAGS = tf.sysconfig.get_compile_flags()
         TF_LFLAGS = tf.sysconfig.get_link_flags()
 

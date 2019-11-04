@@ -1,4 +1,4 @@
-from .field import *
+from .field import StaggeredSamplePoints
 
 
 def semi_lagrangian(field, velocity_field, dt):

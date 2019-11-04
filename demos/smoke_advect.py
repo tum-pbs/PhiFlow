@@ -7,12 +7,12 @@ class Simpleplume(App):
         App.__init__(self, 'Smoke-Advect', stride=5)
         self.smoke = world.Smoke(Domain([80, 64], SLIPPERY))
         self.dt = 1.0
-        
+
         world.Inflow(Sphere((10, 32), 5), rate=0.2)
 
         # create a new centered grid like the density with a simple shape to add every time step
         self.myInflow = math.zeros(self.smoke.domain.shape())
-        self.myInflow[..., 5:20, 20:40, 0] = 1. 
+        self.myInflow[..., 5:20, 20:40, 0] = 1.
 
         # create a second centered grid that will be advected
         self.myField = math.zeros(self.smoke.domain.shape()) + self.myInflow
@@ -27,7 +27,7 @@ class Simpleplume(App):
     def step(self):
         world.step(dt=self.dt)
         tmp = self.myField + self.myInflow
-        self.myField = self.smoke.velocity.advect( tmp, dt=self.dt)
+        self.myField = self.smoke.velocity.advect(tmp, dt=self.dt)
         self.info('Running smoke advect, step %d' % self.steps)
 
 

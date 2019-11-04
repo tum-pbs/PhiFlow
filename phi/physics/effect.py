@@ -1,5 +1,5 @@
-from .physics import *
-from phi.physics.field import *
+from phi.physics.field import Field, math, GeometryMask
+from .physics import State, struct, staticshape
 
 
 GROW = 'grow'
