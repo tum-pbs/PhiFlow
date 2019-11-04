@@ -164,7 +164,7 @@ class App(object):
     def add_field(self, name, generator):
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if not callable(generator):
-            assert isinstance(generator, (np.ndarray, Field)), 'Unsupported type for field "%s": %s' % (name, type(generator))
+            assert isinstance(generator, (np.ndarray, Field, float, int)), 'Unsupported type for field "%s": %s' % (name, type(generator))
             array = generator
             generator = lambda: array
         self.fields[name] = TimeDependentField(name, generator)
