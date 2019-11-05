@@ -1,5 +1,9 @@
-from .domain import *
-from phi.physics.field.effect import *
+import numpy as np
+from .domain import DomainState
+from .field.effect import effect_applied, FieldEffect, ADD
+from .field import Field, union_mask, GeometryMask
+from . import StateDependency, Physics
+from phi import math, struct
 
 
 class QuantumWave(DomainState):

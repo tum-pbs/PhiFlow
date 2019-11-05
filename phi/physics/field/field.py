@@ -1,6 +1,6 @@
 import numpy as np
 
-from phi import math
+from phi import math, struct
 from phi.geom import Geometry
 from phi.physics import State
 from phi.physics.field.flag import _PROPAGATOR
@@ -76,7 +76,7 @@ class Field(State):
         """
         raise NotImplementedError(self)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False):
+    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
         """
         Resample this field at the same points as other_field.
         The returned Field is compatible with other_field.
@@ -88,7 +88,7 @@ class Field(State):
         """
         if force_optimization:
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
-        if self.compatible(other_field):
+        if self.compatible(other_field) and return_self_if_compatible:
             return self
         try:
             resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)

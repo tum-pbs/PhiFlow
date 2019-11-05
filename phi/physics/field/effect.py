@@ -1,5 +1,6 @@
-from phi.physics.field import Field, math, GeometryMask
-from .physics import State, struct, staticshape
+from phi.physics.field import Field, GeometryMask
+from phi import math, struct
+from phi.physics import State, Physics
 
 
 GROW = 'grow'
@@ -81,8 +82,8 @@ class Gravity(State):
         if math.is_scalar(self.gravity) and math.is_scalar(other.gravity):
             return Gravity(self.gravity + other.gravity)
         else:
-            rank = staticshape(other.gravity)[-1] if math.is_scalar(self.gravity)\
-                else staticshape(self.gravity)[-1]
+            rank = math.staticshape(other.gravity)[-1] if math.is_scalar(self.gravity)\
+                else math.staticshape(self.gravity)[-1]
             sum_tensor = gravity_tensor(self, rank) + gravity_tensor(other, rank)
             return Gravity(sum_tensor)
 

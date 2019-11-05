@@ -1,4 +1,6 @@
 import numpy as np
+
+from phi.physics import StateDependency
 from .fluid import *
 
 

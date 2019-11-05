@@ -1,6 +1,6 @@
 from phi import struct
 from phi.geom.geometry import Geometry
-from .effect import FieldEffect, GeometryMask
+from .field.effect import FieldEffect, GeometryMask
 from .physics import State, Physics
 from .material import Material, SLIPPERY
 

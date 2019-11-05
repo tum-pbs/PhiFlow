@@ -27,16 +27,16 @@ class State(struct.Struct):
     def default_physics(self):
         return STATIC
 
-    # @property
-    # def shape(self):
-    #     def tensorshape(tensor):
-    #         if tensor is None:
-    #             return None
-    #         default_batched_shape = staticshape(tensor)
-    #         if len(default_batched_shape) >= 2:
-    #             return (self._batch_size,) + default_batched_shape[1:]
-    #     with struct.anytype():
-    #         return struct.map(tensorshape, self)
+    @property
+    def shape(self):
+        def tensorshape(tensor):
+            if tensor is None:
+                return None
+            default_batched_shape = staticshape(tensor)
+            if len(default_batched_shape) >= 2:
+                return (self._batch_size,) + default_batched_shape[1:]
+        with struct.anytype():
+            return struct.map(tensorshape, self)
 
     @property
     def state(self): return self
