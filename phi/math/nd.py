@@ -351,8 +351,6 @@ def downsample2x(tensor, interpolation='linear'):
 
 
 def upsample2x(tensor, interpolation='linear'):
-    if isinstance(tensor, StaggeredGrid):
-        return tensor.upsample2x(interpolation=interpolation)
     if struct.isstruct(tensor):
         return struct.map(lambda s: upsample2x(s, interpolation), tensor, recursive=False)
 
