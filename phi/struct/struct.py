@@ -139,7 +139,7 @@ def properties_dict(struct):
         json.dumps(struct)
         return struct
     except:
-        raise TypeError('Object "%s" of type %s is not JSON serializable' % (struct, type(struct)))
+        return {'type': str(struct.__class__.__name__), 'module': str(struct.__class__.__module__)}
 
 
 def copy_with(struct, new_values_dict):
