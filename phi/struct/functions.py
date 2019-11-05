@@ -120,3 +120,20 @@ class Trace(object):
             base_struct = self.parent.find_in(base_struct)
         attrs = attributes(base_struct, include_properties=True)
         return attrs[self.key]
+
+
+def compare(structs, leaf_condition=None, recursive=True, include_properties=True):
+    if len(structs) <= 1: return []
+    result = set()
+    def check(trace):
+        value = trace.value
+        for other in structs[1:]:
+            try:
+                other_value = trace.find_in(other)
+                if not equal(value, other_value):
+                    result.add(trace)
+            except:
+                result.add(trace)
+    with anytype(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive,
+                        trace=True, include_properties=include_properties)
+    return result

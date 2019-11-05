@@ -1,20 +1,16 @@
 from __future__ import print_function
 
-import itertools
-import logging
-import math
-import six
 import threading
 import time
 
-from phi.math.nd import StaggeredGrid
-from phi.data.fluidformat import *
+from phi.physics.field.staggered_grid import StaggeredGrid
+from .stream import DerivedStream
 
 
-class Interleave(Derivedstream):
+class Interleave(DerivedStream):
 
     def __init__(self, fields):
-        Derivedstream.__init__(self, fields)
+        DerivedStream.__init__(self, fields)
         self.field_count = len(fields)
 
     def shape(self, datasource):
@@ -28,10 +24,10 @@ class Interleave(Derivedstream):
             yield self.input_fields[index % self.field_count].get(datasource, index // self.field_count)
 
 
-class Transform(Derivedstream):
+class Transform(DerivedStream):
 
     def __init__(self, transformation, field):
-        Derivedstream.__init__(self, [field])
+        DerivedStream.__init__(self, [field])
         self.field = self.input_fields[0]
         self.transformation = transformation
 

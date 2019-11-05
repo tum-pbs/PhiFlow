@@ -17,65 +17,54 @@ def _to_valid_data(data):
 
 class Field(State):
 
-    __struct__ = State.__struct__.extend(['_data'], ['_bounds', '_name', '_flags'])
-
-    def __init__(self, name, bounds, data, flags=(), batch_size=None):
-        State.__init__(self, tags=[name, 'field'], batch_size=batch_size)
-        assert bounds is None or isinstance(bounds, Geometry), 'bounds must be of type Geometry but got "%s"' % bounds
-        self._data = _to_valid_data(data)
-        self._name = name
-        self._bounds = bounds
-        self._flags = flags
-
-    def __validate_flags__(self):
-        if self._flags is None:
-            self._flags = None
-        else:
-            self._flags = tuple(set(self._flags))  # remove duplicates
-            for flag in self._flags:
-                if not flag.is_applicable(self.rank, self.component_count):
-                    raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
-
-    def __validate_data__(self):
-        self._data = _to_valid_data(self._data)
+    def __init__(self, name, bounds, data, flags=(), **kwargs):
+        tags = [name, 'field']
+        State.__init__(**struct.kwargs(locals()))
 
     def with_data(self, data):
         return self.copied_with(data=data, flags=())
 
     @property
     def dtype(self):
-        return math.dtype(self._data)
+        return math.dtype(self.data)
 
-    @property
-    def name(self):
-        return self._name
+    @struct.prop()
+    def name(self, name): return name
 
-    @property
-    def data(self):
+    @struct.attr()
+    def data(self, data):
         """
         Data holds the values of this field according to the order specified by points.
         For composite fields, data holds a tuple of component fields.
             :return: n-dimensional tensor
         """
-        return self._data
+        return _to_valid_data(data)
 
-    @property
-    def bounds(self):
+    @struct.prop()
+    def bounds(self, bounds):
         """
         The bounds describe the spatial region inside which this field is defined.
         Outside of bounds, the field is assumed to be zero / undefined.
         Fields with infinite range (such as extrapolated fields ) have bounds None.
             :return:
         """
-        return self._bounds
+        assert bounds is None or isinstance(bounds, Geometry), 'bounds must be of type Geometry but got "%s"' % bounds
+        return bounds
 
-    @property
-    def flags(self):
+    @struct.prop()
+    def flags(self, flags):
         """
         Flags describe properties of a Field such as divergence-freeness.
             :return: tuple of flags
         """
-        return self._flags
+        if flags is None:
+            return ()
+        else:
+            flags = tuple(set(flags))  # remove duplicates
+            for flag in flags:
+                if not flag.is_applicable(self.rank, self.component_count):
+                    raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
+            return flags
 
     def sample_at(self, points, collapse_dimensions=True):
         """

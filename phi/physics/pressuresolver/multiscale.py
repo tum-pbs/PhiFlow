@@ -1,8 +1,8 @@
+import logging
 import numpy as np
 
 from phi import math
-from phi.physics.pressuresolver.base import *
-from phi.physics.pressuresolver.base import *
+from phi.physics.pressuresolver.base import PressureSolver, FluidDomain
 
 
 class Multiscale(PressureSolver):
@@ -37,10 +37,10 @@ class Multiscale(PressureSolver):
             return  _mg_solve_forward(grad, domain, None, self.solvers)[0]
 
         return math.with_custom_gradient(_mg_solve_forward,
-                                  [divergence, domain, pressure_guess, self.solvers],
-                                  pressure_gradient,
-                                  input_index=0, output_index=0,
-                                  name_base='multigrid_solve')
+                                         [divergence, domain, pressure_guess, self.solvers],
+                                         pressure_gradient,
+                                         input_index=0, output_index=0,
+                                         name_base='multigrid_solve')
 
 
 def _mg_solve_forward(divergence, domain, pressure_guess, solvers):

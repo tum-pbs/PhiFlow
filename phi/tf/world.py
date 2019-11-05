@@ -45,7 +45,7 @@ class BakedWorldPhysics(CollectivePhysics):
 
     def __init__(self, physics, session, state_in, state_out, dt):
         CollectivePhysics.__init__(self)
-        self._physics = physics._physics
+        self._physics = physics.physics
         self.state_in = state_in
         self.state_out = state_out
         self.session = session

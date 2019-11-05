@@ -1,29 +1,27 @@
-from phi.physics.field.effect import *
+from phi import struct
+from phi.geom.geometry import Geometry
+from .effect import FieldEffect, GeometryMask
 from .physics import State, Physics
-from .material import SLIPPERY
+from .material import Material, SLIPPERY
 
 
 class Obstacle(State):
 
-    __struct__ = State.__struct__.extend((), ('_geometry', '_material', '_velocity'))
+    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), **kwargs):
+        State.__init__(**struct.kwargs(locals()))
 
-    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), age=0.0, batch_size=None):
-        State.__init__(self, tags=tags, age=age, batch_size=batch_size)
-        self._material = material
-        self._geometry = geometry
-        self._velocity = velocity
+    @struct.prop()
+    def geometry(self, geometry):
+        assert isinstance(geometry, Geometry)
+        return geometry
 
-    @property
-    def geometry(self):
-        return self._geometry
+    @struct.prop(default=SLIPPERY)
+    def material(self, material):
+        assert isinstance(material, Material)
+        return material
 
-    @property
-    def material(self):
-        return self._material
-
-    @property
-    def velocity(self):
-        return self._velocity
+    @struct.prop(default=0)
+    def velocity(self, velocity): return velocity
 
 
 class GeometryMovement(Physics):

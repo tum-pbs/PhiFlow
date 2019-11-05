@@ -1,90 +1,85 @@
 from copy import copy
 import numpy as np
-import six
+import six, inspect
 from .context import skip_validate
+from . import collection, typedef
 
 
-class StructAttr(object):
-
-    def __init__(self, ref_string, name=None, is_property=False):
-        self.ref_string = ref_string
-        self.name = name if name is not None else (ref_string[1:] if ref_string.startswith('_') else ref_string)
-        self.is_property = is_property
-
-    def matches(self, string):
-        return self.name == string or self.ref_string == string
-
-    def __repr__(self):
-        return self.ref_string
+def attr(default=None, dims=None):  # , stack_behavior=collection.object
+    def decorator(validate):
+        item = typedef.Item(validate.__name__, validate, True, default, dims)
+        typedef.register_item_by_function(validate, item)
+        return item.property()
+    return decorator
 
 
-class Def(object):
+def prop(default=None, dims=None):  # , stack_behavior=collection.first
+    def decorator(validate):
+        item = typedef.Item(validate.__name__, validate, False, default, dims)
+        typedef.register_item_by_function(validate, item)
+        return item.property()
+    return decorator
 
-    def __init__(self, attributes, properties=()):
-        assert isinstance(attributes, (list, tuple))
-        assert isinstance(properties, (list, tuple))
-        self.attributes = [a if isinstance(a, StructAttr) else StructAttr(a, is_property=False) for a in attributes]
-        self.properties = [p if isinstance(p, StructAttr) else StructAttr(p, is_property=True) for p in properties]
-        self.all = self.attributes + self.properties
 
-    def find_attribute(self, name):
-        for structattribute in self.attributes:
-            if structattribute.matches(name):
-                return structattribute
-        raise KeyError('No attribute %s' % name)
-
-    def find(self, name):
-        for structattribute in self.all:
-            if structattribute.matches(name):
-                return structattribute
-        raise KeyError('No attribute or property: %s' % name)
-
-    def extend(self, attributes, properties=()):
-        return Def(self.attributes + list(attributes), self.properties + list(properties))
+def kwargs(locals, include_self=True, ignore=()):
+    assert 'kwargs' in locals
+    locals = locals.copy()
+    kwargs = locals['kwargs']
+    del locals['kwargs']
+    locals.update(kwargs)
+    if not include_self and 'self' in locals:
+        del locals['self']
+    if isinstance(ignore, six.string_types):
+        ignore = [ignore]
+    for ig in ignore:
+        if ig in locals:
+            del locals[ig]
+    return locals
 
 
 class Struct(object):
 
-    __struct__ = Def(())
+    def __init__(self, **kwargs):
+        assert isinstance(self, Struct), 'Struct.__init__() called on %s' % type(self)
+        self.__struct__ = typedef.get_type(self.__class__)
+        for item in self.__struct__.items:
+            if item.name not in kwargs:
+                kwargs[item.name] = item.default_value
+        self.__set__(**kwargs)
+        self.__validate__()
 
     def copied_with(self, **kwargs):
         duplicate = copy(self)
-        duplicate._set(**kwargs)
+        duplicate.__set__(**kwargs)
         if not skip_validate():  # double-check since __validate__ could be overridden
-            duplicate.__validate__(kwargs.keys())
+            duplicate.__validate__()
         return duplicate
 
-    def _set(self, **kwargs):
+    def __set__(self, **kwargs):
         for name, value in kwargs.items():
-            attr = self.__class__.__struct__.find(name).ref_string
-            try:
-                setattr(self, attr, value)
-            except AttributeError as e:
-                raise AttributeError("can't copy struct %s because attribute %s cannot be set." % (self, attr))
+            item = self.__struct__.find(name)
+            item.set(self, value)
         return self
 
-    def __validate__(self, attribute_names=None):
-        if skip_validate():
-            return
-        if attribute_names is None:
-            attribute_names = [a.name for a in self.__class__.__struct__.all]
-        for name in attribute_names:
-            validate_name = '__validate_%s__' % name
-            if hasattr(self, validate_name):
-                getattr(self, validate_name)()
+    def __validate__(self):
+        if not skip_validate():
+            self.__struct__.validate(self)
 
     def __attributes__(self, include_properties=False):
-        attrs = self.__class__.__struct__.all if include_properties else self.__class__.__struct__.attributes
-        return {a.name: getattr(self, a.name) for a in attrs}
+        if include_properties:
+            return {item.name: item.get(self) for item in self.__struct__.items}
+        else:
+            return {item.name: item.get(self) for item in self.__struct__.items if item.is_attribute}
 
     def __properties__(self):
-        return {p.name: getattr(self, p.name) for p in self.__class__.__struct__.properties}
+        return {item.name: item.get(self) for item in self.__struct__.items if not item.is_attribute}
 
     def __properties_dict__(self):
-        result = {p.name: properties_dict(getattr(self, p.name)) for p in self.__class__.__struct__.properties if p.is_property}
-        for a in self.__class__.__struct__.attributes:
-            if isstruct(getattr(self, a.name)):
-                result[a.name] = properties_dict(getattr(self, a.name))
+        result = {item.name: properties_dict(getattr(self, item.name))
+                  for item in self.__struct__.items if not item.is_attribute}
+        for a in self.__struct__.attributes:
+            if isstruct(a.get(self)):
+                result[a.name] = properties_dict(a.get(self))
         result['type'] = str(self.__class__.__name__)
         result['module'] = str(self.__class__.__module__)
         return result
@@ -92,23 +87,8 @@ class Struct(object):
     def __eq__(self, other):
         if type(self) != type(other):
             return False
-        for attr in self.__class__.__struct__.all:
-            v1 = getattr(self, attr.name)
-            v2 = getattr(other, attr.name)
-            if isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
-                if v1.dtype != np.object and v2.dtype != np.object:
-                    if not np.allclose(v1, v2):
-                        return False
-                else:
-                    if not np.all(v1 == v2):
-                        return False
-            else:
-                try:
-                    if v1 != v2:
-                        return False
-                except:
-                    if v1 is not v2:
-                        return False
+        for item in self.__struct__.items:
+            if not equal(item.get(self), item.get(other)): return False
         return True
 
     def __ne__(self, other):
@@ -196,4 +176,22 @@ def isstruct(object, leaf_condition=None):
         return False
     if leaf_condition is not None and leaf_condition(object):
         return False
+    return True
+
+
+def equal(v1, v2):
+    if isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
+        if v1.dtype != np.object and v2.dtype != np.object:
+            if not np.allclose(v1, v2):
+                return False
+        else:
+            if not np.all(v1 == v2):
+                return False
+    else:
+        try:
+            if v1 != v2:
+                return False
+        except:
+            if v1 is not v2:
+                return False
     return True

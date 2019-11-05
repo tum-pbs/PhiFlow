@@ -1,8 +1,14 @@
+import uuid
 import numpy as np
 import tensorflow as tf
-import uuid
 
 from phi.math.base import Backend
+
+
+if tf.__version__[0] == '2':
+    print('Adjusting for tensorflow 2.0')
+    tf = tf.compat.v1
+    tf.disable_eager_execution()
 
 
 class TFBackend(Backend):
@@ -132,7 +138,6 @@ class TFBackend(Backend):
         return tf.reduce_max(x, axis=axis)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
-        import uuid
         # Setup custom gradient
         gradient_name = name_base + "_" + str(uuid.uuid4())
         tf.RegisterGradient(gradient_name)(gradient)
@@ -177,7 +182,7 @@ class TFBackend(Backend):
         return result
 
     def expand_dims(self, a, axis=0, number=1):
-        for i in range(number):
+        for _i in range(number):
             a = tf.expand_dims(a, axis)
         return a
 
@@ -203,7 +208,7 @@ class TFBackend(Backend):
         return tf.unstack(tensor, axis=axis)
 
     def std(self, x, axis=None):
-        mean, var = tf.nn.moments(x, axis)
+        _mean, var = tf.nn.moments(x, axis)
         return tf.sqrt(var)
 
     def boolean_mask(self, x, mask):
@@ -240,7 +245,6 @@ class TFBackend(Backend):
             # Won't entirely work with out of bounds particles (still counted in mean)
             count = tf.tensor_scatter_add(z, indices, tf.ones_like(values))
             total = tf.tensor_scatter_add(z, indices, values)
-
             return (total / tf.maximum(1.0, count))
         elif duplicates_handling == 'no duplicates':
             st = tf.SparseTensor(indices, values, shape)
@@ -309,7 +313,7 @@ def tensor_spatial_rank(tensor):
 
 def unit_direction(dim, spatial_rank):  # ordered like z,y,x
     direction = [1 if i == dim else 0 for i in range(spatial_rank)]
-    for i in range(spatial_rank):
+    for _i in range(spatial_rank):
         direction = tf.expand_dims(direction, axis=0)
     return direction
 
@@ -382,7 +386,7 @@ Resamples an N-dimensional tensor at the locations provided by sample_coords
 
 def _boundary_snap(sample_coords, spatial_shape):
     max_indices = [l-1 for l in spatial_shape]
-    for i in range(len(spatial_shape)):
+    for _i in range(len(spatial_shape)):
         max_indices = tf.expand_dims(max_indices, 0)
     sample_coords = tf.minimum(sample_coords, max_indices)
     sample_coords = tf.maximum(sample_coords, 0)

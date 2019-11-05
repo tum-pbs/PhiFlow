@@ -7,8 +7,12 @@ from phi.physics import field
 
 
 class PressureSolver(object):
+    """
+    Base class for solvers
+    """
 
     def __init__(self, name, supported_devices, supports_guess, supports_loop_counter, supports_continuous_masks):
+        """Assign details such as name, supported device (CPU/GPU), etc."""
         self.name = name
         self.supported_devices = supported_devices
         self.supports_guess = supports_guess
@@ -28,12 +32,11 @@ class PressureSolver(object):
         raise NotImplementedError(self.__class__)
 
     def __repr__(self):
+        """representation = name"""
         return self.name
 
 
-class FluidDomain(struct.Struct):
-
-    __struct__ = struct.Def(('_active', 'accessible'))
+class FluidDomain(object):
 
     def __init__(self, domain, validstate=(), active=None, accessible=None):
         assert active is not None
@@ -89,6 +92,8 @@ class FluidDomain(struct.Struct):
             return mask
 
     def _frictionless_velocity_mask(self, velocity):
+        """
+        """
         tensors = []
         for dim in math.spatial_dimensions(self._accessible):
             upper_pad = 0 if self.domain.surface_material(dim-1, True).solid else 1
@@ -97,6 +102,6 @@ class FluidDomain(struct.Struct):
             lower = math.pad(self._accessible, [[1, 0] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=lower_pad)
             tensors.append(math.minimum(upper, lower))
         with struct.anytype():
-            components = [field.CenteredGrid(None, None, t, None, None) for t in tensors]
+            components = [field.CenteredGrid(None, None, t, None) for t in tensors]
             data = field.complete_staggered_properties(components, velocity)
         return velocity.with_data(data)

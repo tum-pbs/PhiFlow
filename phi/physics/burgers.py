@@ -1,36 +1,24 @@
-from phi.physics.field import advect
-
+from .field import advect
 from .domain import DomainState
 from .physics import Physics
 from .field.util import diffuse
+from phi import struct
 
 
 class Burgers(DomainState):
-    __struct__ = DomainState.__struct__.extend(['_velocity'], ['_viscosity'])
 
-    def __init__(self, domain, velocity, viscosity=0.1, batch_size=None):
-        DomainState.__init__(self, domain, tags=('burgers', 'velocityfield'), batch_size=batch_size)
-        self._velocity = velocity
-        self._viscosity = viscosity
-        self.__validate__()
+    def __init__(self, domain, velocity, viscosity=0.1, tags=('burgers', 'velocityfield'), **kwargs):
+        DomainState.__init__(**struct.kwargs(locals()))
 
     def default_physics(self):
         return BurgersPhysics()
 
-    def __validate_velocity__(self):
-        self._velocity = self.centered_grid('velocity', self._velocity, components=self.rank)
+    @struct.attr(default=0.0)
+    def velocity(self, velocity):
+        return self.centered_grid('velocity', velocity, components=self.rank)
 
-    @property
-    def velocity(self):
-        return self._velocity
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def viscosity(self):
-        return self._viscosity
+    @struct.prop(default=0.1)
+    def viscosity(self, viscosity): return viscosity
 
 
 class BurgersPhysics(Physics):

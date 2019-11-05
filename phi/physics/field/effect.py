@@ -1,6 +1,5 @@
-from .mask import GeometryMask
-from phi import math
-from phi.physics import State, Physics, StateDependency
+from phi.physics.field import Field, math, GeometryMask
+from .physics import State, struct, staticshape
 
 
 GROW = 'grow'
@@ -10,25 +9,23 @@ FIX = 'fix'
 
 class FieldEffect(State):
 
-    __struct__ = State.__struct__.extend(('_field', ), ('_mode', '_targets'))
+    def __init__(self, field, targets, mode=GROW, tags=('effect',), **kwargs):
+        tags = tuple(tags) + tuple('%s_effect' % target for target in targets)
+        State.__init__(**struct.kwargs(locals()))
 
-    def __init__(self, field, targets, mode=GROW, tags=('effect',), age=0.0, batch_size=None):
-        State.__init__(self, tags=tuple(tags) + tuple('%s_effect' % target for target in targets), age=age, batch_size=batch_size)
-        self._field = field
-        self._mode = mode
-        self._targets = tuple(targets)
+    @struct.attr()
+    def field(self, field):
+        assert isinstance(field, Field)
+        return field
 
-    @property
-    def field(self):
-        return self._field
+    @struct.prop()
+    def mode(self, mode):
+        assert mode in (GROW, ADD, FIX)
+        return mode
 
-    @property
-    def mode(self):
-        return self._mode
-
-    @property
-    def targets(self):
-        return self._targets
+    @struct.prop()
+    def targets(self, targets):
+        return tuple(targets)
 
     def __repr__(self):
         return '%s(%s to %s)' % (self.mode, self. field, self.targets)
@@ -65,15 +62,14 @@ ColdSource = lambda geometry, rate:\
 
 class Gravity(State):
 
-    __struct__ = State.__struct__.extend([], ['_gravity'])
+    def __init__(self, gravity=-9.81, **kwargs):
+        tags = ['gravity']
+        State.__init__(**struct.kwargs(locals()))
 
-    def __init__(self, gravity=-9.81, batch_size=None):
-        State.__init__(self, tags=['gravity'], batch_size=batch_size)
-        self._gravity = gravity
-
-    @property
-    def gravity(self):
-        return self._gravity
+    @struct.prop()
+    def gravity(self, gravity):
+        assert gravity is not None
+        return gravity
 
     def __add__(self, other):
         if other is 0:
@@ -82,11 +78,11 @@ class Gravity(State):
         if self._batch_size is not None:
             assert self._batch_size == other._batch_size
         # Add gravity
-        if math.is_scalar(self._gravity) and math.is_scalar(other._gravity):
-            return Gravity(self._gravity + other._gravity)
+        if math.is_scalar(self.gravity) and math.is_scalar(other.gravity):
+            return Gravity(self.gravity + other.gravity)
         else:
-            rank = math.staticshape(other.gravity)[-1] if math.is_scalar(self._gravity)\
-                else math.staticshape(self.gravity)[-1]
+            rank = staticshape(other.gravity)[-1] if math.is_scalar(self.gravity)\
+                else staticshape(self.gravity)[-1]
             sum_tensor = gravity_tensor(self, rank) + gravity_tensor(other, rank)
             return Gravity(sum_tensor)
 
@@ -95,7 +91,7 @@ class Gravity(State):
 
 def gravity_tensor(gravity, rank):
     if isinstance(gravity, Gravity):
-        gravity = gravity._gravity
+        gravity = gravity.gravity
     if math.is_scalar(gravity):
         return math.expand_dims([gravity] + [0] * (rank-1), 0, rank+1)
     else:

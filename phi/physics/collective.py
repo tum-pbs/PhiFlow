@@ -1,22 +1,25 @@
 import six
-from .physics import *
+from .physics import State, struct, TrajectoryKey, Physics
 
 
 class CollectiveState(State):
-    
-    __struct__ = State.__struct__.extend(('_states',))
 
-    def __init__(self, states=(), age=0.0):
-        State.__init__(self, tags=(), age=age)
-        self._states = states if isinstance(states, tuple) else tuple(states)
+    def __init__(self, states=(), **kwargs):
+        State.__init__(**struct.kwargs(locals()))
+
+    @struct.attr()
+    def states(self, states):
+        if isinstance(states, tuple): return states
+        if states is None: return ()
+        return tuple(states)
 
     def __add__(self, other):
         if isinstance(other, CollectiveState):
-            return CollectiveState(self._states + other._states)
+            return CollectiveState(self.states + other.states)
         if isinstance(other, State):
-            return CollectiveState(self._states + (other,))
+            return CollectiveState(self.states + (other,))
         if isinstance(other, (tuple, list)):
-            return CollectiveState(self._states + tuple(other))
+            return CollectiveState(self.states + tuple(other))
         raise ValueError("Illegal operation: CollectiveState + %s" % type(other))
 
     __radd__ = __add__
@@ -27,18 +30,8 @@ class CollectiveState(State):
     def all_instances(self, cls):
         return [s for s in self.states if isinstance(s, cls)]
 
-    @property
-    def states(self):
-        return self._states
-
-    def __names__(self):
-        return [None for state in self._states]
-
-    def __values__(self):
-        return self.states
-
     def state_replaced(self, old_state, new_state):
-        new_states = tuple(map(lambda s: new_state if s == old_state else s, self._states))
+        new_states = tuple(map(lambda s: new_state if s == old_state else s, self.states))
         return self.copied_with(states=new_states)
 
     def with_replacement(self, new_state):
@@ -53,7 +46,7 @@ class CollectiveState(State):
         if isinstance(item, State):
             return self[item.trajectorykey]
         if isinstance(item, TrajectoryKey):
-            states = list(filter(lambda s: s.trajectorykey==item, self._states))
+            states = list(filter(lambda s: s.trajectorykey == item, self.states))
             assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
             return states[0]
         if isinstance(item, six.string_types):
@@ -68,21 +61,21 @@ class CollectiveState(State):
 
     def default_physics(self):
         phys = CollectivePhysics()
-        for state in self._states:
+        for state in self.states:
             phys.add(state.trajectorykey, state.default_physics())
         return phys
 
     def __repr__(self):
-        return '[' + ', '.join((str(s) for s in self._states)) + ']'
+        return '[' + ', '.join((str(s) for s in self.states)) + ']'
 
     def __len__(self):
         return len(self.states)
 
     def __contains__(self, item):
         if isinstance(item, State):
-            return item in self._states
+            return item in self.states
         if isinstance(item, TrajectoryKey):
-            for state in self._states:
+            for state in self.states:
                 if state.trajectorykey == item:
                     return True
             return False
@@ -93,7 +86,7 @@ class CollectivePhysics(Physics):
 
     def __init__(self):
         Physics.__init__(self, {})
-        self._physics = {}  # map from TrajectoryKey to Physics
+        self.physics = {}  # map from TrajectoryKey to Physics
 
     def step(self, collectivestate, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
@@ -161,10 +154,10 @@ class CollectivePhysics(Physics):
         return True
 
     def for_(self, state):
-        return self._physics[state.trajectorykey] if state.trajectorykey in self._physics else state.default_physics()
+        return self.physics[state.trajectorykey] if state.trajectorykey in self.physics else state.default_physics()
 
     def add(self, trajectorykey, physics):
-        self._physics[trajectorykey] = physics
+        self.physics[trajectorykey] = physics
 
     def remove(self, trajectorykey):
         if trajectorykey in self._physics:

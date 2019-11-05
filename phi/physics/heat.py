@@ -3,30 +3,19 @@ from phi.physics.field.util import diffuse
 
 
 class Heat(DomainState):
-    __struct__ = DomainState.__struct__.extend(['_temperature'], ['_diffusivity'])
 
-    def __init__(self, domain, temperature=0.0, diffusivity=0.1, batch_size=None):
-        DomainState.__init__(self, domain, tags=('heat', 'pde', 'temperaturefield'), batch_size=batch_size)
-        self._temperature = domain.centered_grid(temperature, name='temperature', batch_size=self._batch_size)
-        self._diffusivity = diffusivity
-
-    def __validate_temperature__(self):
-        self._temperature = self.centered_grid('temperature', self._temperature)
+    def __init__(self, domain, temperature=0.0, diffusivity=0.1, tags=('heat', 'pde', 'temperaturefield'), **kwargs):
+        DomainState.__init__(**struct.kwargs(locals()))
 
     def default_physics(self):
         return HeatPhysics()
 
-    @property
-    def temperature(self):
-        return self._temperature
+    @struct.attr(default=0.0)
+    def temperature(self, t):
+        return self.centered_grid('temperature', t)
 
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def diffusivity(self):
-        return self._diffusivity
+    @struct.prop(default=0.1)
+    def diffusivity(self, d): return d
 
 
 class HeatPhysics(Physics):
