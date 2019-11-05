@@ -97,8 +97,6 @@ def blur(field, radius, cutoff=None, kernel="1/1+x"):
 
 
 def l1_loss(tensor, batch_norm=True, reduce_batches=True):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     if reduce_batches:
         total_loss = math.sum(math.abs(tensor))
     else:
