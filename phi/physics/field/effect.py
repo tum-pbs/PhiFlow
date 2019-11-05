@@ -1,7 +1,6 @@
 from phi.physics.field import Field, GeometryMask
 from phi import math, struct
-from phi.physics import State, Physics
-
+from phi.physics import State, Physics, StateDependency
 
 GROW = 'grow'
 ADD = 'add'

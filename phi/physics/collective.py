@@ -160,5 +160,5 @@ class CollectivePhysics(Physics):
         self.physics[trajectorykey] = physics
 
     def remove(self, trajectorykey):
-        if trajectorykey in self._physics:
-            del self._physics[trajectorykey]
+        if trajectorykey in self.physics:
+            del self.physics[trajectorykey]
