@@ -1,9 +1,9 @@
-import inspect
 from typing import TypeVar
+import inspect
 
-from .physics import State, Physics
-from .collective import CollectiveState, CollectivePhysics
-from .effect import Gravity
+from .physics import State, Physics, TrajectoryKey
+from .collective import CollectiveState
+from phi.physics.field.effect import Gravity
 
 
 class StateProxy(object):
@@ -147,9 +147,17 @@ class World(object):
     def add_all(self, *states):
         self.state += states
 
-    def remove(self, state):
-        self.state -= state
-        self.physics.remove(state.trajectorykey)
+    def remove(self, obj):
+        if inspect.isclass(obj):
+            states = self.state.all_instances(obj)
+            return self.remove(states)
+        elif isinstance(obj, (tuple,list)):
+            for state in obj:
+                self.remove(state)
+        else:
+            key = obj if isinstance(obj, TrajectoryKey) else obj.trajectorykey
+            self.state = self.state.trajectory_removed(key)
+            self.physics.remove(key)
 
     def clear(self):
         self._state = CollectiveState()

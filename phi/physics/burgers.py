@@ -24,7 +24,7 @@ class Burgers(DomainState):
 class BurgersPhysics(Physics):
 
     def __init__(self):
-        Physics.__init__(self, {})
+        Physics.__init__(self)
 
     def step(self, state, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0

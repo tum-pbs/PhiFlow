@@ -1,6 +1,5 @@
 import inspect, six
 from .collection import Batch
-from . import struct
 
 
 _struct_register = {}  # map from (module, name) to StructType
@@ -27,7 +26,8 @@ def get_type(struct_class):
     classname = struct_class.__name__
     key = (module, classname)
     if key not in _struct_register:
-        assert issubclass(struct_class, struct.Struct), 'Not a Struct: %s' % struct_class.__name__
+        from .struct import Struct
+        assert issubclass(struct_class, Struct), 'Not a Struct: %s' % struct_class.__name__
         structtype = StructType(module, classname)
         _struct_register[key] = structtype
     else:
@@ -64,8 +64,9 @@ class StructType(object):
             item.validate(struct)
 
     def add_bases(self, bases):
+        from .struct import Struct
         for base in bases:
-            if issubclass(base, struct.Struct) and base != struct.Struct:
+            if issubclass(base, Struct) and base != Struct:
                 t = get_type(base)
                 for item in t.items:
                     if item.name not in self.item_names:

@@ -1,13 +1,15 @@
-import numpy as np
+import numpy
 
 from phi import math, struct
 from .field import Field, State, propagate_flags_children
 
+
 class ConstantField(Field):
 
     def __init__(self, name, value=1.0, flags=(), **kwargs):
-        Field.__init__(**struct.kwargs(locals()))
-        Field.__init__(self, name, None, _convert_constant_to_data(value), flags=flags, batch_size=batch_size)
+        bounds = None
+        data = _convert_constant_to_data(value)
+        Field.__init__(**struct.kwargs(locals(), ignore='value'))
 
     def sample_at(self, points, collapse_dimensions=True):
         return _expand_axes(self.data, points, collapse_dimensions=collapse_dimensions)
@@ -39,7 +41,7 @@ def _convert_constant_to_data(value):
     if isinstance(value, math.Number):
         value = math.to_float(math.expand_dims(value))
     if isinstance(value, (list, tuple)):
-        value = math.to_float(np.array(value))
+        value = math.to_float(numpy.array(value))
     if len(math.staticshape(value)) < 2:
         value = math.expand_dims(value)
     return value

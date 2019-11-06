@@ -1,6 +1,6 @@
 from phi import struct
 from phi.geom.geometry import Geometry
-from .effect import FieldEffect, GeometryMask
+from .field.effect import FieldEffect, GeometryMask
 from .physics import State, Physics
 from .material import Material, SLIPPERY
 
@@ -27,7 +27,7 @@ class Obstacle(State):
 class GeometryMovement(Physics):
 
     def __init__(self, geometry_function):
-        Physics.__init__(self, {})
+        Physics.__init__(self)
         self.geometry_at = geometry_function
 
     def step(self, obj, dt=1.0, **dependent_states):

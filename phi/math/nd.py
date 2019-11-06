@@ -97,8 +97,6 @@ def blur(field, radius, cutoff=None, kernel="1/1+x"):
 
 
 def l1_loss(tensor, batch_norm=True, reduce_batches=True):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     if reduce_batches:
         total_loss = math.sum(math.abs(tensor))
     else:
@@ -353,8 +351,6 @@ def downsample2x(tensor, interpolation='linear'):
 
 
 def upsample2x(tensor, interpolation='linear'):
-    if isinstance(tensor, StaggeredGrid):
-        return tensor.upsample2x(interpolation=interpolation)
     if struct.isstruct(tensor):
         return struct.map(lambda s: upsample2x(s, interpolation), tensor, recursive=False)
 

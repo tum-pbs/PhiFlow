@@ -1,5 +1,9 @@
-from .domain import *
-from .effect import *
+import numpy as np
+from .domain import DomainState
+from .field.effect import effect_applied, FieldEffect, ADD
+from .field import Field, union_mask, GeometryMask
+from . import StateDependency, Physics
+from phi import math, struct
 
 
 class QuantumWave(DomainState):
@@ -30,8 +34,8 @@ def psquare(complex):
 class Schroedinger(Physics):
 
     def __init__(self, margin=1):
-        Physics.__init__(self, dependencies={'obstacles': 'obstacle'},
-                         blocking_dependencies={'potentials': 'potential_effect'})
+        Physics.__init__(self, [StateDependency('obstacles', 'obstacle'),
+                                StateDependency('potentials', 'potential_effect', blocking=True)])
         self.margin = margin
 
     def step(self, state, dt=1.0, potentials=(), obstacles=()):
@@ -78,12 +82,42 @@ SCHROEDINGER = Schroedinger()
 StepPotential = lambda geometry, height: FieldEffect(GeometryMask('potential', [geometry], height), ['potential'], mode=ADD)
 
 
-class WavePacket(Field):
+class AnalyticSingleComponentField(Field):
 
-    def __init__(self, center, size, wave_vector, name='wave_packet', **kwargs):
+    def __init__(self, **kwargs):
         bounds = None
         data = None
         Field.__init__(**struct.kwargs(locals()))
+
+    def sample_at(self, points, collapse_dimensions=True):
+        raise NotImplementedError()
+
+    @property
+    def rank(self):
+        raise NotImplementedError()
+
+    @property
+    def component_count(self):
+        return 1
+
+    def unstack(self):
+        return [self]
+
+    @property
+    def points(self):
+        return None
+
+    def compatible(self, other_field):
+        return True
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+
+class WavePacket(AnalyticSingleComponentField):
+
+    def __init__(self, center, size, wave_vector, name='wave_packet', **kwargs):
+        AnalyticSingleComponentField.__init__(**struct.kwargs(locals()))
 
     @struct.prop()
     def center(self, center): return center
@@ -111,35 +145,56 @@ class WavePacket(Field):
     def rank(self):
         return len(self.center)
 
-    @property
-    def component_count(self):
-        return 1
-
-    def unstack(self):
-        return [self]
-
-    @property
-    def points(self):
-        return None
-
-    def compatible(self, other_field):
-        return True
-
     def __repr__(self):
         return 'WavePacket(%s)' % self.center
 
 
-def harmonic_potential(grid, center, unit_distance, maximum_value=1.0, dtype=np.float32):
-    x = (grid.center_points() - center) / unit_distance
-    pot = math.sum(x ** 2, -1, keepdims=True)
-    if maximum_value is not None:
-        pot = math.minimum(pot, maximum_value)
-    return math.cast(pot, dtype)
+class HarmonicPotential(AnalyticSingleComponentField):
+
+    def __init__(self, center, unit_distance, maximum_value=1.0, data=1, name='harmonic', **kwargs):
+        AnalyticSingleComponentField.__init__(**struct.kwargs(locals()))
+
+    @struct.prop()
+    def center(self, center): return center
+
+    @struct.prop()
+    def unit_distance(self, distance): return distance
+
+    @struct.prop()
+    def maximum_value(self, maximum_value): return maximum_value
+
+    def sample_at(self, points, collapse_dimensions=True):
+        x = (points - self.center) / self.unit_distance
+        pot = math.sum(x ** 2, -1, keepdims=True) * self.data
+        if self.maximum_value is not None:
+            pot = math.minimum(pot, self.maximum_value)
+        return math.cast(pot, np.float32)
+
+    @property
+    def rank(self):
+        return len(self.center)
 
 
-def sin_potential(grid, k, phase_offset=0, dtype=np.float32):
-    x = grid.center_points()
-    phase_offset = math.expand_dims(phase_offset, -1, grid.rank+1)
-    x_k = math.expand_dims(np.dot(x, k), -1)
-    wave = math.sin(x_k + phase_offset)
-    return math.cast(wave, dtype)
+class SinPotential(AnalyticSingleComponentField):
+
+    def __init__(self, k, phase_offset=0, data=1, name='harmonic', **kwargs):
+        AnalyticSingleComponentField.__init__(**struct.kwargs(locals()))
+
+    @struct.prop()
+    def k(self, k): return k
+
+    @struct.prop()
+    def phase_offset(self, phase_offset): return phase_offset
+
+    def sample_at(self, x, collapse_dimensions=True):
+        phase_offset = math.expand_dims(self.phase_offset, -1, self.rank + 1)
+        x_k = math.expand_dims(np.dot(x, self.k), -1)
+        wave = math.sin(x_k + phase_offset)
+        return math.cast(wave, np.float32)
+
+    @property
+    def rank(self):
+        return len(self.k)
+
+    def __repr__(self):
+        return 'Sin(x*%s)' % self.k

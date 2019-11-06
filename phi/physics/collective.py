@@ -24,31 +24,33 @@ class CollectiveState(State):
 
     __radd__ = __add__
 
-    def get_by_tag(self, tag):
-        return [o for o in self.states if tag in o.tags]
+    def all_with_tag(self, tag):
+        return [s for s in self.states if tag in s.tags]
 
-    def __names__(self):
-        return [None for state in self.states]
-
-    def __values__(self):
-        return self.states
+    def all_instances(self, cls):
+        return [s for s in self.states if isinstance(s, cls)]
 
     def state_replaced(self, old_state, new_state):
         new_states = tuple(map(lambda s: new_state if s == old_state else s, self.states))
         return self.copied_with(states=new_states)
 
+    def with_replacement(self, new_state):
+        new_states = tuple(map(lambda s: new_state if s.trajectorykey == new_state.trajectorykey else s, self._states))
+        return self.copied_with(states=new_states)
+
+    def trajectory_removed(self, trajectorykey):
+        filtered_states = tuple(filter(lambda s: s.trajectorykey != trajectorykey, self.states))
+        return self.copied_with(states=filtered_states)
+
     def __getitem__(self, item):
         if isinstance(item, State):
-            if item in self.states:
-                return item
-            else:
-                return self[item.trajectorykey]
+            return self[item.trajectorykey]
         if isinstance(item, TrajectoryKey):
             states = list(filter(lambda s: s.trajectorykey == item, self.states))
             assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
             return states[0]
         if isinstance(item, six.string_types):
-            return self.get_by_tag(item)
+            return self.all_with_tag(item)
         if isinstance(item, (tuple, list)):
             return [self[i] for i in item]
         try:
@@ -126,21 +128,28 @@ class CollectivePhysics(Physics):
         return next_state
 
     def _gather_dependencies(self, dependencies, collectivestate, result_dict):
-        for name, deps in dependencies.items():
-            dep_states = []
-            if isinstance(deps, (tuple, list)):
-                for dep in deps:
-                    dep_states += list(collectivestate[dep])
+        for statedependency in dependencies:
+            if statedependency.trajectorykey is not None:
+                matching_states = collectivestate[statedependency.trajectorykey]
             else:
-                dep_states = collectivestate[deps]
-            result_dict[name] = dep_states
+                matching_states = collectivestate.all_with_tag(statedependency.tag)
+            if statedependency.single_state:
+                assert len(matching_states) == 1, 'Dependency %s requires 1 state but found %d' % (statedependency, len(matching_states))
+                value = matching_states[0]
+            else:
+                value = tuple(matching_states)
+            result_dict[statedependency.parameter_name] = value
         return result_dict
 
     def _all_dependencies_fulfilled(self, dependencies, all_states, computed_states):
         state_dict = self._gather_dependencies(dependencies, all_states, {})
         for name, states in state_dict.items():
-            for state in states:
-                if state.trajectorykey not in computed_states:
+            if isinstance(states, tuple):
+                for state in states:
+                    if state.trajectorykey not in computed_states:
+                        return False
+            else:  # single state
+                if states.trajectorykey not in computed_states:
                     return False
         return True
 
@@ -151,4 +160,5 @@ class CollectivePhysics(Physics):
         self.physics[trajectorykey] = physics
 
     def remove(self, trajectorykey):
-        del self.physics[trajectorykey]
+        if trajectorykey in self.physics:
+            del self.physics[trajectorykey]

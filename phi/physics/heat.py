@@ -21,7 +21,7 @@ class Heat(DomainState):
 class HeatPhysics(Physics):
 
     def __init__(self):
-        Physics.__init__(self, blocking_dependencies={'effects': 'temperature_effect'})
+        Physics.__init__(self, [StateDependency('effects', 'temperature_effect', blocking=True)])
 
     def step(self, heat, dt=1.0, effects=()):
         temperature = diffuse(heat.temperature, dt * heat.diffusivity)

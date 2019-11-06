@@ -1,9 +1,8 @@
 import numpy as np
 
-from phi import math
-from phi import struct
+from phi import math, struct
 from phi.geom import Geometry
-from phi.physics.physics import State
+from phi.physics import State
 from phi.physics.field.flag import _PROPAGATOR
 
 
@@ -77,7 +76,7 @@ class Field(State):
         """
         raise NotImplementedError(self)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False):
+    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
         """
         Resample this field at the same points as other_field.
         The returned Field is compatible with other_field.
@@ -89,6 +88,8 @@ class Field(State):
         """
         if force_optimization:
             raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
+        if self.compatible(other_field) and (return_self_if_compatible or not other_field.has_points):
+            return self
         try:
             resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)
             return other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
@@ -184,6 +185,10 @@ class Field(State):
             data = data_operator(self.data, other)
         return self.copied_with(data=data, flags=flags)
 
+    def default_physics(self):
+        from .effect import FieldPhysics
+        return FieldPhysics(self.name)
+
 
 class StaggeredSamplePoints(Exception):
 
@@ -238,4 +243,3 @@ def broadcast_at(field1, field2):
     else:
         new_components = [f1.at(f2) for f1, f2 in zip(field1.unstack(), field2.unstack())]
     return field2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(field1, field2.flags, field2.rank))
-    
