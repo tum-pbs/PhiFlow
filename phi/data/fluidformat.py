@@ -80,7 +80,7 @@ def read_sim_frames(simpath, fieldnames=None, frames=None):
 
     field_lists = [[] for f in fieldnames]
     for i in frames:
-        fields = read_sim_frame(simpath, fieldnames, i, set_missing_to_none=False)
+        fields = list(read_sim_frame(simpath, fieldnames, i, set_missing_to_none=False))
         for j in range(len(fieldnames)):
             field_lists[j].append(fields[j])
     result = [np.concatenate(list, 0) for list in field_lists]
