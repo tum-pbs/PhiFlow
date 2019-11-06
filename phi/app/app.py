@@ -305,7 +305,7 @@ class App(object):
 
     def show(self, *args, **kwargs):
         warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
-        from .viz.display import show
+        from phi.viz.display import show
         show(self, *args, **kwargs)
 
     @property
