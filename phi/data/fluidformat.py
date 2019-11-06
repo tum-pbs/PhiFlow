@@ -215,8 +215,8 @@ class Scene(object):
     def __repr__(self):
         return self.path
 
-    def copy_calling_script(self):
-        script_path = inspect.stack()[1][1]
+    def copy_calling_script(self, stack_level=1):
+        script_path = inspect.stack()[stack_level][1]
         script_name = os.path.basename(script_path)
         src_path = os.path.join(self.path, "src")
         os.path.isdir(src_path) or os.mkdir(src_path)
@@ -277,7 +277,7 @@ class Scene(object):
             scene.mkdir()
         if copy_calling_script:
             assert mkdir
-            scene.copy_calling_script()
+            scene.copy_calling_script(2)
         return scene
 
     @staticmethod
