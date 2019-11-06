@@ -78,7 +78,7 @@ class StaggeredGrid(Field):
         assert data is not None
         assert len(self.data) == len(self.resolution) == self.box.rank
         for field in data:
-            assert isinstance(field, CenteredGrid)
+            assert isinstance(field, CenteredGrid), field
             assert field.component_count == 1
             assert field.rank == self.rank
         return data
@@ -105,11 +105,16 @@ class StaggeredGrid(Field):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False):
+        if isinstance(other_field, StaggeredGrid) and other_field.box == self.box:
+            return self
         try:
+            points = other_field.points
             resampled = [centeredgrid.at(other_field) for centeredgrid in self.data]
             data = math.concat([field.data for field in resampled], -1)
             return other_field.copied_with(data=data, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
         except IncompatibleFieldTypes:
+            return broadcast_at(self, other_field)
+        except StaggeredSamplePoints:
             return broadcast_at(self, other_field)
 
     @property

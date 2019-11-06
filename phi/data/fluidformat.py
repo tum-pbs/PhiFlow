@@ -80,7 +80,7 @@ def read_sim_frames(simpath, fieldnames=None, frames=None):
 
     field_lists = [[] for f in fieldnames]
     for i in frames:
-        fields = read_sim_frame(simpath, fieldnames, i, set_missing_to_none=False)
+        fields = list(read_sim_frame(simpath, fieldnames, i, set_missing_to_none=False))
         for j in range(len(fieldnames)):
             field_lists[j].append(fields[j])
     result = [np.concatenate(list, 0) for list in field_lists]
@@ -215,8 +215,8 @@ class Scene(object):
     def __repr__(self):
         return self.path
 
-    def copy_calling_script(self):
-        script_path = inspect.stack()[1][1]
+    def copy_calling_script(self, stack_level=1):
+        script_path = inspect.stack()[stack_level][1]
         script_name = os.path.basename(script_path)
         src_path = os.path.join(self.path, "src")
         os.path.isdir(src_path) or os.mkdir(src_path)
@@ -277,7 +277,7 @@ class Scene(object):
             scene.mkdir()
         if copy_calling_script:
             assert mkdir
-            scene.copy_calling_script()
+            scene.copy_calling_script(2)
         return scene
 
     @staticmethod
