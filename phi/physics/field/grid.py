@@ -17,7 +17,6 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
 class CenteredGrid(Field):
 
     def __init__(self, name, box, data, extrapolation='boundary', **kwargs):
-        bounds = box
         Field.__init__(**struct.kwargs(locals()))
         self._sample_points = None
 
@@ -40,7 +39,7 @@ class CenteredGrid(Field):
 
     @struct.prop(default='boundary')
     def extrapolation(self, extrapolation):
-        assert extrapolation in ('periodic', 'constant', 'boundary')
+        assert extrapolation in ('periodic', 'constant', 'boundary'), extrapolation
         return extrapolation
 
     @struct.prop(default='linear')
@@ -62,12 +61,12 @@ class CenteredGrid(Field):
             local_points = local_points % self.data.shape[1:-1]
             resampled = math.resample(data, local_points, interpolation=self.interpolation)
         else:
-            boundary = 'replicate' if self.extrapolation == 'boundary' else 'constant'
+            boundary = 'replicate' if self.extrapolation == 'boundary' else 'zero'
             resampled = math.resample(self.data, local_points, boundary=boundary, interpolation=self.interpolation)
         return resampled
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
-        if self.compatible(other_field) and return_self_if_compatible:
+        if self.compatible(other_field):  # and return_self_if_compatible: not applicable for fields with Points
             return self
         if isinstance(other_field, CenteredGrid) and np.allclose(self.dx, other_field.dx):
             paddings = _required_paddings_transposed(self.box, self.dx, other_field.box)

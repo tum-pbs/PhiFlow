@@ -85,7 +85,6 @@ StepPotential = lambda geometry, height: FieldEffect(GeometryMask('potential', [
 class AnalyticSingleComponentField(Field):
 
     def __init__(self, **kwargs):
-        bounds = None
         data = None
         Field.__init__(**struct.kwargs(locals()))
 

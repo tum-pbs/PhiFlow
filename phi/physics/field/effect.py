@@ -39,9 +39,10 @@ def effect_applied(effect, field, dt):
     elif effect._mode == ADD:
         return field + resampled
     elif effect._mode == FIX:
-        assert effect.field.bounds is not None
-        mask = effect.field.bounds.value_at(field.points.data)
-        return field * (1 - mask) + resampled * mask
+        raise NotImplementedError()
+        # assert effect.field.bounds is not None
+        # mask = effect.field.bounds.value_at(field.points.data)
+        # return field * (1 - mask) + resampled * mask
     else:
         raise ValueError('Invalid mode: %s' % effect.mode)
 
@@ -50,10 +51,10 @@ Inflow = lambda geometry, rate=1.0:\
     FieldEffect(GeometryMask('inflow', [geometry], rate), ('density',), GROW, tags=('inflow', 'effect'))
 Fan = lambda geometry, acceleration:\
     FieldEffect(GeometryMask('fan', [geometry], acceleration), ('velocity',), GROW, tags=('fan', 'effect'))
-ConstantDensity = lambda geometry, density:\
-    FieldEffect(GeometryMask('constant-density', [geometry], density), ('density',), FIX)
-ConstantTemperature = lambda geometry, temperature:\
-    FieldEffect(GeometryMask('constant-temperature', [geometry], temperature), ('temperature',), FIX)
+# ConstantDensity = lambda geometry, density:\
+#     FieldEffect(GeometryMask('constant-density', [geometry], density), ('density',), FIX)
+# ConstantTemperature = lambda geometry, temperature:\
+#     FieldEffect(GeometryMask('constant-temperature', [geometry], temperature), ('temperature',), FIX)
 HeatSource = lambda geometry, rate:\
     FieldEffect(GeometryMask('heat-source', [geometry], rate), ('temperature',), GROW)
 ColdSource = lambda geometry, rate:\

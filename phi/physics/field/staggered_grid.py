@@ -4,7 +4,9 @@ import numpy as np
 
 from phi import math, struct
 from phi.geom import Box
-from .grid import *
+from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, \
+    propagate_flags_resample, propagate_flags_operation
+from .grid import CenteredGrid
 
 
 _SUBSCRIPTS = ['x', 'y', 'z', 'w']
@@ -59,7 +61,6 @@ def stack_staggered_components(tensors):
 class StaggeredGrid(Field):
 
     def __init__(self, name, box, data, resolution, flags=(), **kwargs):
-        bounds = box
         Field.__init__(**struct.kwargs(locals()))
 
     @staticmethod
@@ -104,7 +105,7 @@ class StaggeredGrid(Field):
     def sample_at(self, points, collapse_dimensions=True):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False):
+    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
         if isinstance(other_field, StaggeredGrid) and other_field.box == self.box:
             return self
         try:

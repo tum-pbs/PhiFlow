@@ -1,5 +1,5 @@
-from .obstacle import *
-from .material import *
+from .obstacle import Obstacle
+from .material import Material, OPEN
 from phi.physics.field import *
 
 
@@ -98,7 +98,7 @@ class Domain(struct.Struct):
             data = complete_staggered_properties(grids, staggered)
             return staggered.copied_with(data=data)
 
-    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, boundaries='replicate'):
+    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         shape = self.centered_shape(components, batch_size=batch_size, name=name)
         if isinstance(data, Field):
             assert data.rank == self.rank
@@ -116,10 +116,11 @@ class Domain(struct.Struct):
                 grid = data(shape)
         else:
             grid = CenteredGrid(name, self.box, data)
-        grid._boundary = boundaries
+        if extrapolation is not None:
+            grid = grid.copied_with(extrapolation=extrapolation)
         return grid
 
-    def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, boundaries='replicate'):
+    def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         shape = self.staggered_shape(batch_size=batch_size, name=name)
         if isinstance(data, Field):
             assert data.compatible(shape)
@@ -139,11 +140,8 @@ class Domain(struct.Struct):
             except:
                 grid = StaggeredGrid(name, self.box, data, self.resolution)
         for centeredgrid in grid.data:
-            centeredgrid._boundary = boundaries
+            centeredgrid._extrapolation = extrapolation
         return grid
-
-    def default_physics(self):
-        return STATIC
 
     def _get_paddings(self, material_condition, margin=1):
         true_paddings = [[0, 0] for i in range(self.rank)]
@@ -210,7 +208,11 @@ class DomainState(State):
         return self.domain.rank
 
     def centered_grid(self, name, value, components=1, dtype=np.float32):
-        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, boundaries='zero' if self.domain.boundaries == OPEN else 'replicate')
+        extrapolation = self.domain.boundaries.extrapolation_mode
+        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components,
+                                         batch_size=self._batch_size, extrapolation=extrapolation)
 
     def staggered_grid(self, name, value, dtype=np.float32):
-        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, boundaries='zero' if self.domain.boundaries == OPEN else 'replicate')
+        extrapolation = self.domain.boundaries.extrapolation_mode
+        return self.domain.staggered_grid(value, dtype=dtype, name=name,
+                                          batch_size=self._batch_size, extrapolation=extrapolation)
