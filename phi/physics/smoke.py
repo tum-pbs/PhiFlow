@@ -1,6 +1,7 @@
 import numpy as np
 
 from phi.physics import StateDependency
+from phi.physics.field import union_mask, advect
 from .fluid import *
 
 

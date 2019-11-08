@@ -1,7 +1,7 @@
 import numpy as np
 
 from phi import math, struct
-from phi.geom import Box
+from phi.geom import AABox
 
 from .field import Field, propagate_flags_children
 from .flag import SAMPLE_POINTS
@@ -26,7 +26,7 @@ class CenteredGrid(Field):
 
     @struct.prop()
     def box(self, box):
-        assert isinstance(box, Box)
+        assert isinstance(box, AABox)
         return box
 
     @property
@@ -71,7 +71,7 @@ class CenteredGrid(Field):
         if isinstance(other_field, CenteredGrid) and np.allclose(self.dx, other_field.dx):
             paddings = _required_paddings_transposed(self.box, self.dx, other_field.box)
             if math.sum(paddings) == 0:
-                origin_in_local = self.box.global_to_local(other_field.box.origin) * self.resolution
+                origin_in_local = self.box.global_to_local(other_field.box.lower) * self.resolution
                 data = _crop_for_interpolation(self.data, origin_in_local, other_field.resolution)
                 dimensions = self.resolution != other_field.resolution
                 dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d-1]]
@@ -122,7 +122,7 @@ class CenteredGrid(Field):
     def padded(self, widths):
         data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(self.extrapolation))
         w_lower, w_upper = np.transpose(widths)
-        box = Box(self.box.origin - w_lower * self.dx, self.box.size + (w_lower+w_upper) * self.dx)
+        box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
         return CenteredGrid(self.name, box, data, batch_size=self._batch_size)
 
     @staticmethod
@@ -143,7 +143,7 @@ class CenteredGrid(Field):
 
 
 def _required_paddings_transposed(box, dx, target):
-    lower = math.to_int(math.ceil(math.maximum(0, box.origin - target.origin) / dx))
+    lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx))
     upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper) / dx))
     return [lower, upper]
 

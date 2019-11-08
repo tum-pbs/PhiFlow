@@ -1,6 +1,10 @@
-from .obstacle import Obstacle
+import numpy as np
+from phi import struct, math
+from phi.geom import AABox
+from . import State
 from .material import Material, OPEN
-from phi.physics.field import *
+from .field import CenteredGrid, StaggeredGrid, complete_staggered_properties, Field, DIVERGENCE_FREE, \
+    unstack_staggered_tensor
 
 
 class Domain(struct.Struct):
@@ -34,9 +38,9 @@ class Domain(struct.Struct):
     @struct.prop()
     def box(self, box):
         if box is None:
-            return Box(self.resolution * 0, self.resolution)
+            return AABox(0, self.resolution)
         else:
-            assert isinstance(box, Box)
+            assert isinstance(box, AABox)
             return box
 
     @struct.prop(default=OPEN)

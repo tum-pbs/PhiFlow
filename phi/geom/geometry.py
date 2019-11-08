@@ -14,69 +14,67 @@ class Geometry(struct.Struct):
         raise NotImplementedError()
 
 
-class Box(Geometry):
+class AABox(Geometry):
 
-    def __init__(self, origin, size, **kwargs):
+    def __init__(self, lower, upper, **kwargs):
         Geometry.__init__(**struct.kwargs(locals()))
 
     @struct.prop()
-    def origin(self, origin):
-        tensor = math.to_float(math.as_tensor(origin))
-        assert math.prod(math.shape(tensor)) > 0
-        return tensor
+    def lower(self, lower):
+        return math.to_float(math.as_tensor(lower))
 
     @struct.prop()
-    def size(self, size):
-        return math.to_float(math.as_tensor(size))
+    def upper(self, upper):
+        return math.to_float(math.as_tensor(upper))
 
     @property
-    def upper(self):
-        return self.origin + self.size
+    def size(self):
+        return self.upper - self.lower
 
     @property
     def rank(self):
-        return len(self.size)
+        if len(self.size.shape) > 0:
+            return self.size.shape[-1]
+        else:
+            return 0
 
     def global_to_local(self, global_position):
-        return (global_position - self.origin) / self.size
+        return (global_position - self.lower) / self.size
 
     def local_to_global(self, local_position):
-        return local_position * self.size + self.origin
+        return local_position * self.size + self.lower
 
     def value_at(self, global_position):
-        bool_inside = (global_position >= self.origin) & (global_position <= (self.upper))
+        bool_inside = (global_position >= self.lower) & (global_position <= self.upper)
         bool_inside = math.all(bool_inside, axis=-1, keepdims=True)
         return math.to_float(bool_inside)
 
     def contains(self, other):
-        if isinstance(other, Box):
-            return np.all(other.origin >= self.origin) and np.all(other.upper <= self.upper)
+        if isinstance(other, AABox):
+            return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
         else:
             raise NotImplementedError()
 
     def __repr__(self):
-        return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.origin]))
+        return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
 
 
-class BoxGenerator(object):
+class AABoxGenerator(object):
 
     def __getitem__(self, item):
         if not isinstance(item, (tuple, list)):
             item = [item]
-        origin = []
-        size = []
+        lower = []
+        upper = []
         for dim in item:
-            if isinstance(dim, (int, float)):
-                origin.append(dim)
-                size.append(1)
-            elif isinstance(dim, slice):
-                assert dim.step is None or dim.step == 1, "Box: step must be 1 but is %s" % dim.step
-                origin.append(dim.start)
-                size.append(dim.stop - dim.start)
-        return Box(origin, size)
+            assert isinstance(dim, slice)
+            assert dim.step is None or dim.step == 1, "Box: step must be 1 but is %s" % dim.step
+            lower.append(dim.start if dim.start is not None else -np.inf)
+            upper.append(dim.stop if dim.stop is not None else np.inf)
+        return AABox(lower, upper)
 
 
-box = BoxGenerator()
+box = AABoxGenerator()
 
 
 class Sphere(Geometry):
