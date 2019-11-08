@@ -11,8 +11,8 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from .plot import *
-from .display import ModelDisplay
+from ..plot import *
+from ..display import ModelDisplay
 try:
     import phi.tf.profiling
 except:

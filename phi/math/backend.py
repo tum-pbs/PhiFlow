@@ -37,6 +37,7 @@ matmul = backend.matmul
 max = backend.max
 maximum = backend.maximum
 mean = backend.mean
+min = backend.min
 minimum = backend.minimum
 name = backend.name
 ones_like = backend.ones_like

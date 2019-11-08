@@ -1,7 +1,6 @@
 import numpy as np
 
 from phi import math, struct
-from phi.geom import Geometry
 from phi.physics import State
 from phi.physics.field.flag import _PROPAGATOR
 
@@ -17,7 +16,7 @@ def _to_valid_data(data):
 
 class Field(State):
 
-    def __init__(self, name, bounds, data, flags=(), **kwargs):
+    def __init__(self, name, data, flags=(), **kwargs):
         tags = [name, 'field']
         State.__init__(**struct.kwargs(locals()))
 
@@ -41,17 +40,6 @@ class Field(State):
         return _to_valid_data(data)
 
     @struct.prop()
-    def bounds(self, bounds):
-        """
-        The bounds describe the spatial region inside which this field is defined.
-        Outside of bounds, the field is assumed to be zero / undefined.
-        Fields with infinite range (such as extrapolated fields ) have bounds None.
-            :return:
-        """
-        assert bounds is None or isinstance(bounds, Geometry), 'bounds must be of type Geometry but got "%s"' % bounds
-        return bounds
-
-    @struct.prop()
     def flags(self, flags):
         """
         Flags describe properties of a Field such as divergence-freeness.
@@ -69,7 +57,6 @@ class Field(State):
     def sample_at(self, points, collapse_dimensions=True):
         """
         Resample this field at the given points.
-        The value of points that lie outside the bounds of this Field is undefined.
             :param points: tensor or rank >= 2 containing world-space vectors
             :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
             :return: tensor of shape location.shape[:-1]+[components]
@@ -80,7 +67,6 @@ class Field(State):
         """
         Resample this field at the same points as other_field.
         The returned Field is compatible with other_field.
-        The value of points that lie outside the bounds of this Field is undefined.
             :param location: Field
             :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
             :param force_optimization: If true, this algorithm either uses an optimized implementation

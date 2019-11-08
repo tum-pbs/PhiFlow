@@ -7,7 +7,7 @@ from .physics.burgers import *
 from .physics.heat import *
 from .physics.worldutil import *
 from .physics.field import *
-from .app.app import *
+from .physics.obstacle import *
 from .data.fluidformat import *
 from .data.dataset import *
 from .data.stream import *
@@ -15,3 +15,4 @@ from .data.reader import *
 from phi.geom import *
 from .viz import display
 from .viz.display import show
+from .app import *

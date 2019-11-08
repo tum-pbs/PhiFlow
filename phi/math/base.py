@@ -30,8 +30,8 @@ class Backend:
 
         :param value:
         :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[before axis 0, after axis 0], ...].
-        :param mode: 'constant', 'symmetric', 'reflect'
-        :param constant_values:
+        :param mode: 'constant', 'symmetric', 'reflect', 'wrap'
+        :param constant_values: used for out-of-bounds points if mode='constant'
         """
         raise NotImplementedError(self)
 
@@ -94,6 +94,9 @@ class Backend:
         raise NotImplementedError(self)
 
     def max(self, x, axis=None):
+        raise NotImplementedError(self)
+
+    def min(self, x, axis=None):
         raise NotImplementedError(self)
 
     def maximum(self, a, b):
@@ -310,6 +313,9 @@ class DynamicBackend(Backend):
 
     def max(self, x, axis=None):
         return self.choose_backend(x).max(x, axis)
+
+    def min(self, x, axis=None):
+        return self.choose_backend(x).min(x, axis)
 
     def maximum(self, a, b):
         return self.choose_backend([a,b]).maximum(a, b)

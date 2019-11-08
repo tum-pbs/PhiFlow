@@ -1,12 +1,12 @@
-from phi.geom import union
-from .field import *
+from phi import struct, math
+from phi.geom import Geometry
+from .field import Field, propagate_flags_children
 from .constant import _convert_constant_to_data, _expand_axes
 
 
 class GeometryMask(Field):
 
     def __init__(self, name, geometries, value=1.0, flags=(), **kwargs):
-        bounds = union(geometries)
         data = _convert_constant_to_data(value)
         Field.__init__(**struct.kwargs(locals(), ignore='value'))
 

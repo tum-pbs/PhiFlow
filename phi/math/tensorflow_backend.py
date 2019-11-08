@@ -41,10 +41,24 @@ class TFBackend(Backend):
     def concat(self, values, axis):
         return tf.concat(values, axis)
 
-    def pad(self, value, pad_width, mode="constant", constant_values=0):
+    def pad(self, value, pad_width, mode='constant', constant_values=0):
+        assert mode in ('constant', 'symmetric', 'wrap', 'reflect')
         if np.sum(np.array(pad_width)) == 0:
             return value
-        return tf.pad(value, pad_width, mode, constant_values=constant_values)
+        if mode == 'wrap':
+            dims = range(len(value.shape))
+            for dim in dims:
+                s = value.shape[dim]
+                pad_lower, pad_upper = pad_width[dim]
+                lower_slices = [slice(s-pad_lower, None) if d == dim else slice(None) for d in dims]
+                upper_slices = [slice(None, pad_upper) if d == dim else slice(None) for d in dims]
+                lower = value[lower_slices]
+                upper = value[upper_slices]
+                value = tf.concat([lower, value, upper], axis=dim)
+            return value
+        else:
+            mode = mode.upper()
+            return tf.pad(value, pad_width, mode, constant_values=constant_values)
 
     def add(self, values):
         return tf.add_n(values)
@@ -136,6 +150,9 @@ class TFBackend(Backend):
 
     def max(self, x, axis=None):
         return tf.reduce_max(x, axis=axis)
+
+    def min(self, x, axis=None):
+        return tf.reduce_min(x, axis=axis)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
         # Setup custom gradient

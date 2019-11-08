@@ -149,6 +149,9 @@ class SciPyBackend(Backend):
     def max(self, x, axis=None):
         return np.max(x, axis)
 
+    def min(self, x, axis=None):
+        return np.min(x, axis)
+
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
         return function(*inputs)
 

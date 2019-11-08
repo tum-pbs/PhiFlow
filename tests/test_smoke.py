@@ -51,6 +51,6 @@ class TestSmoke(TestCase):
         world = World()
         world.add(Smoke(Domain([16, 16])))
         world.add(Inflow(Sphere((8, 8), radius=4)))
-        world.add(ConstantDensity(box[0:2, 6:10], 1.0))
+        # world.add(ConstantDensity(box[0:2, 6:10], 1.0))
         world.add(Fan(Sphere((10, 8), 5), [-1, 0]))
         struct.properties_dict(world.state)

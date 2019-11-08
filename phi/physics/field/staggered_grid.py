@@ -3,8 +3,10 @@ from numbers import Number
 import numpy as np
 
 from phi import math, struct
-from phi.geom import Box
-from .grid import *
+from phi.geom import AABox
+from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, \
+    propagate_flags_resample, propagate_flags_operation
+from .grid import CenteredGrid
 
 
 _SUBSCRIPTS = ['x', 'y', 'z', 'w']
@@ -32,7 +34,7 @@ def complete_staggered_properties(components, staggeredgrid):
             resolution_i = staggeredgrid.resolution[i]
             unit = np.array([1 if i == d else 0 for d in range(len(components))])
             unit = unit * staggeredgrid.box.size / resolution_i
-            box = Box(staggeredgrid.box.origin - unit / 2, size=staggeredgrid.box.size + unit)
+            box = AABox(staggeredgrid.box.lower - unit / 2, staggeredgrid.box.upper + unit / 2)
         flags = component.flags
         if flags is None:
             flags = propagate_flags_children(staggeredgrid.flags, math.spatial_rank(component), 1)
@@ -59,7 +61,6 @@ def stack_staggered_components(tensors):
 class StaggeredGrid(Field):
 
     def __init__(self, name, box, data, resolution, flags=(), **kwargs):
-        bounds = box
         Field.__init__(**struct.kwargs(locals()))
 
     @staticmethod
@@ -67,6 +68,8 @@ class StaggeredGrid(Field):
         resolution = _res(tensors[0], 0)
         for i, tensor in enumerate(tensors):
             assert _res(tensor, i) == resolution
+        if box is None:
+            box = AABox(0, resolution)
         with struct.anytype():
             staggeredgrid = StaggeredGrid(name, box, None, resolution, flags=flags, batch_size=batch_size)
             components = [CenteredGrid(None, None, tensor, None) for tensor in tensors]
@@ -94,7 +97,7 @@ class StaggeredGrid(Field):
 
     @struct.prop()
     def box(self, box):
-        assert isinstance(box, Box)
+        assert isinstance(box, AABox)
         return box
 
     @property
@@ -104,7 +107,7 @@ class StaggeredGrid(Field):
     def sample_at(self, points, collapse_dimensions=True):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False):
+    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
         if isinstance(other_field, StaggeredGrid) and other_field.box == self.box:
             return self
         try:

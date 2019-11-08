@@ -2,7 +2,7 @@ import io
 import os
 # from nbformat import read
 from unittest import TestCase
-from IPython.core.interactiveshell import InteractiveShell
+# from IPython.core.interactiveshell import InteractiveShell
 
 
 def run_notebook(path_from_root):

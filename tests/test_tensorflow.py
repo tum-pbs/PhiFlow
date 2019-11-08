@@ -19,8 +19,9 @@ class TestPlaceholder(TestCase):
         self.assertEqual(v.name, 'Variable:0')
 
     def test_struct_placeholders(self):
+        bounds = box[0:1]
         with struct.anytype():
-            obj = ([4], CenteredGrid('', box[0:1], [1, 4, 1]), ([9], [8, 2]))
+            obj = ([4], CenteredGrid('', bounds, [1, 4, 1]), ([9], [8, 2]))
         tf.reset_default_graph()
         p = placeholder(obj)
         self.assertEqual(p[0].name, '0:0')

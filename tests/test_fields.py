@@ -33,10 +33,11 @@ class TestMath(TestCase):
         data_x[0, :, :, 0] = [[1, 2, 3], [4, 5, 6]]
         data_y = math.zeros([1, 3, 2, 1])
         data_y[0, :, :, 0] = [[-1, -2], [-3, -4], [-5, -6]]
+        bounds =  box[0:2, 0:3]
         with struct.anytype():
             x = CenteredGrid('f', None, data_x)
             y = CenteredGrid('f', None, data_y)
-            v = StaggeredGrid('v', box[0:2, 0:3], None, [2, 2])
+            v = StaggeredGrid('v', bounds, None, [2, 2])
         x, y = complete_staggered_properties([x, y], v)
         v = v.with_data([x, y])
 
@@ -56,3 +57,11 @@ class TestMath(TestCase):
         p = f.points
         assert SAMPLE_POINTS in p.flags
         assert p.points is p
+
+    def test_bounds(self):
+        tensor = math.zeros([1, 5, 5, 2])
+        f = StaggeredGrid.from_tensors('f', None, unstack_staggered_tensor(tensor))
+        bounds = data_bounds(f)
+        self.assertIsInstance(bounds, AABox)
+        numpy.testing.assert_equal(bounds.lower, 0)
+        numpy.testing.assert_equal(bounds.upper, [4, 4])
