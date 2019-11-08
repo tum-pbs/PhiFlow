@@ -151,6 +151,9 @@ class TFBackend(Backend):
     def max(self, x, axis=None):
         return tf.reduce_max(x, axis=axis)
 
+    def min(self, x, axis=None):
+        return tf.reduce_min(x, axis=axis)
+
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
         # Setup custom gradient
         gradient_name = name_base + "_" + str(uuid.uuid4())

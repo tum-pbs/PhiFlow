@@ -96,6 +96,9 @@ class Backend:
     def max(self, x, axis=None):
         raise NotImplementedError(self)
 
+    def min(self, x, axis=None):
+        raise NotImplementedError(self)
+
     def maximum(self, a, b):
         raise NotImplementedError(self)
 
@@ -310,6 +313,9 @@ class DynamicBackend(Backend):
 
     def max(self, x, axis=None):
         return self.choose_backend(x).max(x, axis)
+
+    def min(self, x, axis=None):
+        return self.choose_backend(x).min(x, axis)
 
     def maximum(self, a, b):
         return self.choose_backend([a,b]).maximum(a, b)
