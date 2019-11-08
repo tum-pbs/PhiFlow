@@ -30,8 +30,8 @@ class Backend:
 
         :param value:
         :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[before axis 0, after axis 0], ...].
-        :param mode: 'constant', 'symmetric', 'reflect'
-        :param constant_values:
+        :param mode: 'constant', 'symmetric', 'reflect', 'wrap'
+        :param constant_values: used for out-of-bounds points if mode='constant'
         """
         raise NotImplementedError(self)
 
