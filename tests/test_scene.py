@@ -40,3 +40,5 @@ class TestScene(TestCase):
         loaded_struct = scene.read(mystruct, frame=3)
         self.assertIsInstance(loaded_struct, list)
         np.testing.assert_equal(mystruct[0]['Two'][0, 0, 0, 0], loaded_struct[0]['Two'][0, 0, 0, 0])
+
+        scene.remove()
