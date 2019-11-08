@@ -138,7 +138,7 @@ setup(
               'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
-              'phi.viz'],
+              'phi.viz', 'phi.viz.dash'],
     cmdclass={
         "cuda": CudaCommand,
     },

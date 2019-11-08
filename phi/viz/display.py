@@ -18,7 +18,7 @@ DEFAULT_DISPLAY_CLASS = None
 
 if 'headless' not in sys.argv:
     try:
-        from phi.viz.dash_gui import DashFieldSequenceGui
+        from .dash.dash_gui import DashFieldSequenceGui
         DEFAULT_DISPLAY_CLASS = DashFieldSequenceGui
     except:
         print('Failed to load dash GUI')
