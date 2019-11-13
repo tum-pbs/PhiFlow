@@ -27,9 +27,6 @@ class Field(State):
     def dtype(self):
         return math.dtype(self.data)
 
-    @struct.prop()
-    def name(self, name): return name
-
     @struct.attr()
     def data(self, data):
         """
