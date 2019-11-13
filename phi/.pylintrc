@@ -1,0 +1,11 @@
+[MESSAGES CONTROL]
+
+disable = line-too-long,
+          multiple-statements,
+          no-self-use,
+          no-else-return,
+          useless-object-inheritance,
+          too-many-arguments,
+          unused-argument  # PyLint does not understand locals()
+
+good-names = dt, tf, np, x, y, z

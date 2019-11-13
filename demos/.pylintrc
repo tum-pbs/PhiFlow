@@ -1,0 +1,14 @@
+[MESSAGES CONTROL]
+
+disable = line-too-long,
+          import-error,
+          missing-class-docstring,
+          missing-module-docstring,
+          missing-function-docstring,
+          unnecessary-lambda,
+          no-member,
+          undefined-variable,
+          wildcard-import,
+          unused-wildcard-import
+
+good-names = dt, tf, np, x, y, z

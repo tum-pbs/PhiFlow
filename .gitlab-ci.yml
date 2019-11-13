@@ -23,9 +23,9 @@ pylint:
     allow_failure: true
     script:
         - pip install pylint --quiet --user
-        - pylint phi
-        - pylint -d import-error -d missing-class-docstring -d missing-module-docstring -d missing-function-docstring -d unnecessary-lambda -d no-member -d undefined-variable -d wildcard-import demos
-        - pylint -d import-error -d missing-class-docstring -d missing-module-docstring -d missing-function-docstring -d unnecessary-lambda -d no-member -d undefined-variable -d bad-whitespace -d invalid-name tests
+        - pylint --rcfile=./phi/.pylintrc phi
+        - pylint --rcfile=./demos/.pylintrc demos
+        - pylint --rcfile=./tests/.pylintrc tests
 
 # build
 
