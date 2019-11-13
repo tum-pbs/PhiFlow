@@ -1,8 +1,11 @@
 import numpy as np
 
-from phi.physics import StateDependency
-from phi.physics.field import union_mask, advect
-from .fluid import *
+from phi import struct
+from .physics import StateDependency, Physics
+from .field import union_mask, advect, StaggeredGrid
+from .field.effect import Gravity, gravity_tensor, effect_applied
+from .domain import DomainState
+from .fluid import divergence_free
 
 
 class Smoke(DomainState):
@@ -41,6 +44,7 @@ class SmokePhysics(Physics):
         self.make_output_divfree = make_output_divfree
 
     def step(self, smoke, dt=1.0, obstacles=(), gravity=Gravity(), density_effects=(), velocity_effects=()):
+        # pylint: disable-msg = arguments-differ
         gravity = gravity_tensor(gravity, smoke.rank)
         velocity = smoke.velocity
         density = smoke.density

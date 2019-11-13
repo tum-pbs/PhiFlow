@@ -1,3 +1,7 @@
+"""
+Defines base classes for all simulations such as State and Physics.
+"""
+
 from phi import struct
 from phi.math import staticshape
 
@@ -29,6 +33,8 @@ class State(struct.Struct):
             default_batched_shape = staticshape(tensor)
             if len(default_batched_shape) >= 2:
                 return (self._batch_size,) + default_batched_shape[1:]
+            else:
+                return default_batched_shape
         with struct.anytype():
             return struct.map(tensorshape, self)
 
@@ -37,6 +43,7 @@ class State(struct.Struct):
 
 
 class StateDependency(object):
+    # pylint: disable-msg = too-few-public-methods
 
     def __init__(self, parameter_name, tag, single_state=False, blocking=False, state_name=None):
         self.parameter_name = parameter_name
