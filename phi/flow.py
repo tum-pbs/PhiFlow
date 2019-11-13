@@ -9,6 +9,8 @@ from .physics.worldutil import *
 from .physics.field import *
 from .physics.obstacle import *
 from .physics.material import *
+from .physics.domain import *
+from .physics.field.effect import *
 from .data.fluidformat import *
 from .data.dataset import *
 from .data.stream import *
