@@ -2,7 +2,7 @@
 import sys
 
 from phi.flow import *
-from phi.model import App
+from phi.app import App
 
 
 class Viewer(App):
@@ -10,6 +10,9 @@ class Viewer(App):
     def __init__(self, simpath):
         App.__init__(self, name=u'*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
         self.value_directory = simpath
+        self.view_scene = None
+        self.indices = None
+        self.fieldvalues = None
         self.action_rewind()
 
     def update(self):
@@ -44,9 +47,9 @@ class Viewer(App):
         self.update()
 
 
-scene_path = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/smokedatagen/sim_000000'
-scene_path = os.path.expanduser(scene_path)
-if os.path.isdir(scene_path):
-    show(Viewer(scene_path), framerate=3)
+SCENE_PATH = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/smoke/sim_000000'
+SCENE_PATH = os.path.expanduser(SCENE_PATH)
+if os.path.isdir(SCENE_PATH):
+    show(Viewer(SCENE_PATH), framerate=3)
 else:
-    print('Scene path %s does not exist.' % scene_path)
+    print('Scene path %s does not exist.' % SCENE_PATH)

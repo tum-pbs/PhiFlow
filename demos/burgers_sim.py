@@ -18,7 +18,8 @@ class BurgersDemo(App):
         self.burgers2.velocity = self.burgers1.velocity
         self.burgers2.age = 0
 
-    def initial_velocity(self, s): return math.randfreq(s) * self.value_velocity_scale
+    def initial_velocity(self, shape):
+        return math.randfreq(shape) * self.value_velocity_scale
 
 
 show(framerate=2)

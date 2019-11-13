@@ -1,10 +1,7 @@
-import math
-
 from phi.flow import *
 
-
 obstacle_at = lambda t: Sphere([32, (t + 20) % 64], radius=5)
-inflow_at   = lambda t: Sphere([10, 32 + 15*math.sin(t * 0.1)], radius=5)
+inflow_at = lambda t: Sphere([10, 32 + 15 * math.sin(t * 0.1)], radius=5)
 
 
 class MovingInflowDemo(App):

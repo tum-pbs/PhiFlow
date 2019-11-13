@@ -1,10 +1,10 @@
 import sys
 if 'tf' in sys.argv:
     from phi.tf.flow import *  # Use TensorFlow
-    mode = 'TensorFlow'
+    MODE = 'TensorFlow'
 else:
     from phi.flow import *  # Use NumPy
-    mode = 'NumPy'
+    MODE = 'NumPy'
 
 
 def create_tum_logo():
@@ -16,7 +16,7 @@ def create_tum_logo():
 class SmokeLogo(App):
 
     def __init__(self, size):
-        App.__init__(self, 'Smoke Logo', 'Run a smoke simulation using %s for processing.' % mode,
+        App.__init__(self, 'Smoke Logo', 'Run a smoke simulation using %s for processing.' % MODE,
                      summary='smokedemo' + 'x'.join([str(d) for d in size]), stride=20)
         smoke = self.smoke = world.add(Smoke(Domain(size, box=box[0:100, 0:100], boundaries=SLIPPERY)))
         world.add_all(Inflow(box[6:10, 14:21], rate=1.0), Inflow(box[6:10, 79:86], 0.8), Inflow(box[49:50, 43:46], 0.1))
