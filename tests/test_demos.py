@@ -29,7 +29,7 @@ class PerformModelTests(display.ModelDisplay):
     def validate_fields(self):
         for name in self.model.fieldnames:
             value = self.model.get_field(name)
-            assert isinstance(value, (np.ndarray, Field)), 'Not a valid field value: %s' % value
+            assert isinstance(value, (np.ndarray, Field)), 'Field "%s" has an invalid value: %s' % (name, value)
         print('All fields are valid.')
 
     def play(self):

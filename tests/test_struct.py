@@ -6,11 +6,9 @@ from phi.struct import *
 
 
 def generate_test_structs():
-    with anytype():
-        return [CenteredGrid('g', None, 'Grid'),
-                [CenteredGrid(None, None, 'Grid')],
+        return [manta.centered_grid(np.zeros([1,4,1])),
                 [('Item',)],
-                {'A': 'Entry A', 'Vel': CenteredGrid(None, None, 'v')},
+                {'A': 'Entry A', 'Vel': manta.staggered_grid(np.zeros([1,5,5,2]))},
                 CollectiveState((Smoke(Domain([4])),))]
 
 
@@ -36,8 +34,8 @@ class TestStruct(TestCase):
                 self.assert_(not isstruct(item), 'The result of flatten(%s) is not flat.' % struct)
 
     def test_names(self):
-        with anytype():
-            for struct in generate_test_structs():
+        for struct in generate_test_structs():
+            with anytype():
                 names = flatten(map(lambda attr: attr.name, struct, trace=True))
                 self.assertGreater(len(names), 0)
                 for name in names:

@@ -7,7 +7,8 @@ from .fluid import *
 
 class Smoke(DomainState):
 
-    def __init__(self, domain, density=0.0, velocity=0, buoyancy_factor=0.1, tags=('smoke', 'velocityfield'), **kwargs):
+    def __init__(self, domain, density=0.0, velocity=0, buoyancy_factor=0.1,
+                 tags=('smoke', 'velocityfield'), name='smoke', **kwargs):
         DomainState.__init__(**struct.kwargs(locals()))
 
     def default_physics(self):

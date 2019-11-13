@@ -1,7 +1,9 @@
 from typing import TypeVar
 import inspect
 
-from .physics import State, Physics, TrajectoryKey
+import six
+
+from .physics import State, Physics
 from .collective import CollectiveState
 from phi.physics.field.effect import Gravity
 
@@ -18,19 +20,20 @@ class StateProxy(object):
     To reference the current immutable state of
     """
 
-    def __init__(self, world, trajectorykey):
+    def __init__(self, world, state_name):
         self.world = world
-        self.trajectorykey = trajectorykey
+        self.state_name = state_name
 
     @property
     def state(self):
-        state = self.world.state[self.trajectorykey]
+        state = self.world.state[self.state_name]
         assert state is not None
         return state
 
     @state.setter
     def state(self, state):
-        self.world.state = self.world.state.state_replaced(self.state, state)
+        assert state.name == self.state_name
+        self.world.state = self.world.state.state_replaced(state)
 
     @property
     def physics(self):
@@ -40,17 +43,17 @@ class StateProxy(object):
 
     @physics.setter
     def physics(self, phys):
-        self.world.physics.add(self.trajectorykey, phys)
+        self.world.physics.add(self.state_name, phys)
 
     def step(self, dt=1.0, physics=None):
         self.world.step(self, dt=dt, physics=physics)
 
     def __getattr__(self, item):
-        assert item not in ('world', 'trajectorykey', 'physics', 'state')
+        assert item not in ('world', 'state_name', 'physics', 'state')
         return getattr(self.state, item)
 
     def __setattr__(self, key, value):
-        if key in ('world', 'trajectorykey', 'physics', 'state'):
+        if key in ('world', 'state_name', 'physics', 'state'):
             object.__setattr__(self, key, value)
         else:
             self.state = self.state.copied_with(**{key:value})
@@ -116,7 +119,7 @@ class World(object):
             if isinstance(state, StateProxy):
                 state = state.state
             s = self.physics.substep(state, self._state, dt, override_physics=physics)
-            self.state = self._state.state_replaced(state, s).copied_with(age=self._state.age + dt)
+            self.state = self._state.state_replaced(s)
             return s
 
     def stepped(self, state=None, dt=1.0, physics=None):
@@ -137,15 +140,14 @@ class World(object):
         :param physics: Physics to use for stepping or None for state.default_physics()
         :return: a StateProxy representing the added state. If world.state is updated (e.g. because world.step() was called), the StateProxy will refer to the updated values.
         """
-        self.state += state
-        if state._batch_size is None:
-            state._batch_size = self.batch_size
+        self.state = self.state.state_added(state)
         if physics is not None:
-            self.physics.add(state.trajectorykey, physics)
-        return StateProxy(self, state.trajectorykey)
+            self.physics.add(state.name, physics)
+        return StateProxy(self, state.name)
 
     def add_all(self, *states):
-        self.state += states
+        for state in states:
+            self.add(state)
 
     def remove(self, obj):
         if inspect.isclass(obj):
@@ -155,8 +157,8 @@ class World(object):
             for state in obj:
                 self.remove(state)
         else:
-            key = obj if isinstance(obj, TrajectoryKey) else obj.trajectorykey
-            self.state = self.state.trajectory_removed(key)
+            key = obj if isinstance(obj, six.string_types) else obj.name
+            self.state = self.state.state_removed(key)
             self.physics.remove(key)
 
     def clear(self):
@@ -175,6 +177,12 @@ class World(object):
         if isinstance(state, StateProxy):
             state = state.state
         return self.physics.for_(state)
+
+    def __getattr__(self, item):
+        if item in self.state:
+            return StateProxy(self, item)
+        else:
+            return object.__getattribute__(self, item)
 
 
 world = World()

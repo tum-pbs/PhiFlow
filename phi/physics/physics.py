@@ -2,19 +2,9 @@ from phi import struct
 from phi.math import staticshape
 
 
-class TrajectoryKey(object):
-    """
-    Used to identify State objects that are part of one trajectory.
-    States from the same trajectory reference the same TrajectoryKey object.
-    TrajectoryKey objects use their object identity with the default equals and hash implementation.
-    """
-    pass
-
-
 class State(struct.Struct):
 
     def __init__(self, batch_size=None, **kwargs):
-        self.trajectorykey = TrajectoryKey()
         self._batch_size = batch_size
         struct.Struct.__init__(self, **kwargs)
 
@@ -24,14 +14,18 @@ class State(struct.Struct):
     @struct.prop(default=0.0)
     def age(self, age): return age
 
+    @struct.prop()
+    def name(self, name):
+        if name is None: return '%s_%d' % (self.__class__.__name__.lower(), id(self))
+        else: return str(name)
+
     def default_physics(self):
         return STATIC
 
     @property
     def shape(self):
         def tensorshape(tensor):
-            if tensor is None:
-                return None
+            if tensor is None: return None
             default_batched_shape = staticshape(tensor)
             if len(default_batched_shape) >= 2:
                 return (self._batch_size,) + default_batched_shape[1:]
@@ -44,17 +38,17 @@ class State(struct.Struct):
 
 class StateDependency(object):
 
-    def __init__(self, parameter_name, tag, single_state=False, blocking=False, trajectorykey=None):
+    def __init__(self, parameter_name, tag, single_state=False, blocking=False, state_name=None):
         self.parameter_name = parameter_name
         self.tag = tag
         self.single_state = single_state
         self.blocking = blocking
-        self.trajectorykey = trajectorykey
-        if trajectorykey is not None: assert single_state
+        self.state_name = state_name
+        if state_name is not None: assert single_state
 
     def __repr__(self):
-        if self.trajectorykey is not None:
-            return '[key=%s, blocking=%s]' % (self.trajectorykey, self.blocking)
+        if self.state_name is not None:
+            return '[key=%s, blocking=%s]' % (self.state_name, self.blocking)
         else:
             return '[tag=%s, blocking=%s]' % (self.tag, self.blocking)
 

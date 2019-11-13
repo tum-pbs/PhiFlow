@@ -9,11 +9,11 @@ def tf_bake_graph(world, session):
     dt = placeholder(())
     state_out = world.physics.step(state_in, dt=dt)
     world.physics = BakedWorldPhysics(world.physics, session, state_in, state_out, dt)
-    for sysstate in world.state.states:
-        sysstate_in = state_in[sysstate.trajectorykey]
-        sysstate_out = state_out[sysstate.trajectorykey]
+    for name, sysstate in world.state.states.items():
+        sysstate_in = state_in[name]
+        sysstate_out = state_out[name]
         baked_physics = BakedPhysics(session, sysstate_in, sysstate_out, dt)
-        world.physics.add(sysstate.trajectorykey, baked_physics)
+        world.physics.add(name, baked_physics)
 
 
 def tf_bake_subgraph(tracker, session):

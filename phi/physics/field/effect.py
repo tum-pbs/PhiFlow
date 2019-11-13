@@ -63,7 +63,7 @@ ColdSource = lambda geometry, rate:\
 
 class Gravity(State):
 
-    def __init__(self, gravity=-9.81, **kwargs):
+    def __init__(self, gravity=-9.81, name='gravity', **kwargs):
         tags = ['gravity']
         State.__init__(**struct.kwargs(locals()))
 
@@ -75,7 +75,7 @@ class Gravity(State):
     def __add__(self, other):
         if other is 0:
             return self
-        assert isinstance(other, Gravity)
+        assert isinstance(other, Gravity), type(other)
         if self._batch_size is not None:
             assert self._batch_size == other._batch_size
         # Add gravity

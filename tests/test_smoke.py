@@ -11,7 +11,7 @@ class TestSmoke(TestCase):
         smoke2 = SMOKE.step(smoke)
         assert(smoke2.age == 1.0)
         assert(smoke.age == 0.0)
-        assert(smoke2.trajectorykey == smoke.trajectorykey)
+        assert(smoke2.name == smoke.name)
 
     def test_simpleplume(self):
         world = World()
@@ -20,10 +20,9 @@ class TestSmoke(TestCase):
         inflow = world.add(Inflow(Sphere((8, 8), radius=4)))
         world.step()
         world.step(smoke)
-        self.assertAlmostEqual(world.state.age, 2.0)
         self.assertAlmostEqual(smoke.age, 2.0)
         self.assertAlmostEqual(inflow.age, 1.0)
-        self.assertEqual(smoke._batch_size, 3)
+        # self.assertEqual(smoke._batch_size, 3)
 
     def test_smoke_initializers(self):
         def typetest(smoke):
