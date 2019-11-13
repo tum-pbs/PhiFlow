@@ -55,6 +55,6 @@ Fluid can only enter non-solid cells or pass through non-solid boundaries.
 
 
 OPEN = Material('open', solid=False)
-NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0.0)
+CLOSED = NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0.0)
 NO_SLIP = STICKY = Material('sticky', solid=True, friction=1.0)
 PERIODIC = Material('periodic', solid=False, periodic=True)

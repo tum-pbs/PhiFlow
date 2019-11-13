@@ -6,8 +6,8 @@ class BurgersDemo(App):
     def __init__(self, size=(64, 64)):
         App.__init__(self, "Burgers' equation", stride=5)
         self.value_velocity_scale = 2.0
-        self.burgers1 = world.add(Burgers(Domain(size), self.initial_velocity, viscosity=0.1, periodic=True))
-        self.burgers2 = world.add(Burgers(Domain(size), self.burgers1.velocity, viscosity=0.1, periodic=False))
+        self.burgers1 = world.add(Burgers(Domain(size, boundaries=PERIODIC), self.initial_velocity, viscosity=0.1))
+        self.burgers2 = world.add(Burgers(Domain(size, boundaries=OPEN), self.burgers1.velocity, viscosity=0.1))
         self.add_field('Periodic', lambda: self.burgers1.velocity)
         self.add_field('Boundaries', lambda: self.burgers2.velocity)
 
@@ -22,4 +22,3 @@ class BurgersDemo(App):
 
 
 show(framerate=2)
-# Equivalent to: app = BurgersDemo().show(framerate=2, production=__name__ != '__main__')

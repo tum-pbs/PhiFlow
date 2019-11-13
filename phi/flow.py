@@ -8,6 +8,7 @@ from .physics.heat import *
 from .physics.worldutil import *
 from .physics.field import *
 from .physics.obstacle import *
+from .physics.material import *
 from .data.fluidformat import *
 from .data.dataset import *
 from .data.stream import *

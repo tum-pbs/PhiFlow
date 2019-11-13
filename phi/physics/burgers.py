@@ -7,7 +7,7 @@ from phi import struct
 
 class Burgers(DomainState):
 
-    def __init__(self, domain, velocity, viscosity=0.1, periodic=True, tags=('burgers', 'velocityfield'), **kwargs):
+    def __init__(self, domain, velocity, viscosity=0.1, tags=('burgers', 'velocityfield'), **kwargs):
         DomainState.__init__(**struct.kwargs(locals()))
 
     def default_physics(self):
@@ -15,18 +15,10 @@ class Burgers(DomainState):
 
     @struct.attr(default=0.0)
     def velocity(self, velocity):
-        velocity = self.centered_grid('velocity', velocity, components=self.rank)
-        if self.periodic:
-            velocity = velocity.copied_with(extrapolation='periodic')
-        return velocity
+        return self.centered_grid('velocity', velocity, components=self.rank)
 
     @struct.prop(default=0.1)
     def viscosity(self, viscosity): return viscosity
-
-    @struct.prop(default=True)
-    def periodic(self, periodic):
-        assert isinstance(periodic, bool)
-        return periodic
 
 
 class BurgersPhysics(Physics):
