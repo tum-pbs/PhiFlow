@@ -11,14 +11,14 @@ from phi.physics.smoke import Smoke
 
 
 def generate_test_structs():
-        return [manta.centered_grid(numpy.zeros([1,4,1])),
-                [('Item',)],
-                {'A': 'Entry A', 'Vel': manta.staggered_grid(numpy.zeros([1,5,5,2]))},
-                CollectiveState((Smoke(Domain([4])),))]
+    return [manta.centered_grid(numpy.zeros([1,4,1])),
+            [('Item',)],
+            {'A': 'Entry A', 'Vel': manta.staggered_grid(numpy.zeros([1,5,5,2]))},
+            CollectiveState((Smoke(Domain([4])),))]
 
 
 class TestStruct(TestCase):
-    
+
     def test_identity(self):
         for obj in generate_test_structs():
             with struct.anytype():
@@ -35,7 +35,7 @@ class TestStruct(TestCase):
             self.assertIsInstance(flat, list)
             self.assertGreater(len(flat), 0)
             for item in flat:
-                self.assert_(not struct.isstruct(item), 'The result of flatten(%s) is not flat.' % obj)
+                self.assertTrue(not struct.isstruct(item), 'The result of flatten(%s) is not flat.' % obj)
 
     def test_names(self):
         for obj in generate_test_structs():
@@ -59,9 +59,9 @@ class TestStruct(TestCase):
             self.assertEqual(v.density, 'Density')
 
             try:
-                d = smoke.copied_with(velocity='D2')
+                smoke.copied_with(velocity='D2')
                 self.fail()
-            except:
+            except AssertionError:
                 pass
 
     def test_zip(self):

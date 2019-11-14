@@ -29,7 +29,6 @@ class Domain(struct.Struct):
         :param boundaries: Material or list of Material/Pair of Material
         """
         struct.Struct.__init__(**locals())
-        # self.resolution = np.array(resolution)
 
     @struct.prop(dims=1)
     def resolution(self, res):

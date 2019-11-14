@@ -1,7 +1,8 @@
-import numpy as np
-import os
-import sys
 from unittest import TestCase
+
+import sys
+import os
+import numpy as np
 
 import phi.viz.display as display
 from phi.physics.field import Field
@@ -46,11 +47,8 @@ def demo_run(name):
     display.DEFAULT_DISPLAY_CLASS = PerformModelTests
     display.AUTORUN = False
     module = __import__(name)
-    try:
-        module_world = getattr(module, 'world')
-        module_world.reset()
-    except:
-        print('Could not reset world after demo %s' % name)
+    module_world = getattr(module, 'world')
+    module_world.reset()
     print('')
 
 

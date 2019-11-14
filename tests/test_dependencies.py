@@ -10,9 +10,9 @@ from phi.physics.world import World
 
 class CustomPhys(Physics):
 
-    def __init__(self, name, list, deps):
+    def __init__(self, name, order_list, deps):
         Physics.__init__(self, deps)
-        self.list = list
+        self.list = order_list
         self.name = name
 
     def step(self, state, dt=1.0, **dependent_states):

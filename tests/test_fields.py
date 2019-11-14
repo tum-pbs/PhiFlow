@@ -14,7 +14,7 @@ class TestMath(TestCase):
         f = CenteredGrid('f', box[0:3, 0:4], math.zeros([1, 3, 4, 1]))
         g = CenteredGrid('g', box[0:3, 0:4], math.zeros([1, 3, 3, 1]))
         np.testing.assert_equal(f.dx, [1, 1])
-        self.assert_(f.points.compatible(f))
+        self.assertTrue(f.points.compatible(f))
         self.assertFalse(f.compatible(g))
 
     def test_inner_interpolation(self):
@@ -24,11 +24,11 @@ class TestMath(TestCase):
         g = CenteredGrid('g', box[0:2, 0.5:2.5], math.zeros([1, 2, 2, 1]))
         # Resample optimized
         resampled = f.at(g, force_optimization=True)
-        self.assert_(resampled.compatible(g))
+        self.assertTrue(resampled.compatible(g))
         np.testing.assert_equal(resampled.data[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
         # Resample unoptimized
         resampled2 = Field.at(f, g)
-        self.assert_(resampled2.compatible(g))
+        self.assertTrue(resampled2.compatible(g))
         np.testing.assert_equal(resampled2.data[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
 
     def test_staggered_interpolation(self):
@@ -42,7 +42,7 @@ class TestMath(TestCase):
             x = CenteredGrid('f', None, data_x)
             y = CenteredGrid('f', None, data_y)
             v = StaggeredGrid('v', bounds, None, [2, 2])
-        x, y = complete_staggered_properties([x, y], v)
+        x, y = complete_staggered_properties([x, y], v)  # pylint: disable-msg = unbalanced-tuple-unpacking
         v = v.with_data([x, y])
 
     def test_staggered_format_conversion(self):

@@ -8,6 +8,8 @@ disable = import-error,
           no-member,
           undefined-variable,
           bad-whitespace,
-          invalid-name
+          invalid-name,
+          line-too-long,
+          no-self-use
 
 good-names = dt, tf, np, x, y, z

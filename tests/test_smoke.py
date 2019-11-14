@@ -12,14 +12,14 @@ from phi.physics.world import World
 
 
 class TestSmoke(TestCase):
-    
+
     def test_direct_smoke(self):
         smoke = Smoke(Domain([16, 16]))
         assert smoke.default_physics() == SMOKE
         smoke2 = SMOKE.step(smoke)
-        assert(smoke2.age == 1.0)
-        assert(smoke.age == 0.0)
-        assert(smoke2.name == smoke.name)
+        assert smoke2.age == 1.0
+        assert smoke.age == 0.0
+        assert smoke2.name == smoke.name
 
     def test_simpleplume(self):
         world = World()

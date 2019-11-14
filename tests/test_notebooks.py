@@ -18,7 +18,7 @@ def run_notebook(path_from_root):
         if cell.cell_type == 'code':
             code = shell.input_transformer_manager.transform_cell(cell.source)
             print(code)
-            exec(code)
+            exec(code)  # pylint: disable-msg = exec-used
             print('Executed OK.\n\n')
 
 

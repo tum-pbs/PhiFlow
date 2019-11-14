@@ -11,7 +11,7 @@ def build_test_database(path='data'):
     for scene in Scene.list(path):
         scene.remove()
     val = 1.0
-    for sceneindex in range(2):
+    for _scene_index in range(2):
         scene = Scene.create(path)
         for t in range(4):
             scene.write_sim_frame([np.zeros([1, 4, 4, 1]) + val, np.zeros([1, 5, 5, 2])], ['Density', 'Velocity'], t)
@@ -51,7 +51,7 @@ class TestData(TestCase):
         self.assertEqual(len(reader), 0)
         dataset += Dataset.load('data')
         self.assertEqual(len(reader), 8)
-        a = reader[0]
+        _a = reader[0]
 
     def test_get_frames(self):
         build_test_database()
@@ -74,7 +74,7 @@ class TestData(TestCase):
         reader = BatchReader(Dataset.load('data', name='empty'), ())
         self.assertEqual(reader.dataset.name, 'empty')
         self.assertEqual(len(reader), 0)
-        batch = reader[0]
+        _batch = reader[0]
 
     def test_write_batch(self):
         for scene in Scene.list('data'):
@@ -86,15 +86,15 @@ class TestData(TestCase):
         unbatched_data = np.ones([1, 4, 4, 1])
         scene_batch.write(batched_data, frame=0)
         scene_batch.write(unbatched_data, frame=1)
-        self.assert_(os.path.exists('data/sim_000000/unnamed_000000.npz'))
-        self.assert_(os.path.exists('data/sim_000000/unnamed_000001.npz'))
-        self.assert_(os.path.exists('data/sim_000001/unnamed_000000.npz'))
-        self.assert_(os.path.exists('data/sim_000001/unnamed_000001.npz'))
+        self.assertTrue(os.path.exists('data/sim_000000/unnamed_000000.npz'))
+        self.assertTrue(os.path.exists('data/sim_000000/unnamed_000001.npz'))
+        self.assertTrue(os.path.exists('data/sim_000001/unnamed_000000.npz'))
+        self.assertTrue(os.path.exists('data/sim_000001/unnamed_000001.npz'))
 
     def test_calc(self):
         build_test_database()
         reader = BatchReader(Dataset.load('data'), ['Density', SourceStream('Density') + 1, SourceStream('Density') * SourceStream('Density')])
-        for i in range(len(reader)):
-            d, d_1, d_2 = reader[i]
+        for batch in reader:
+            d, d_1, d_2 = batch
             np.testing.assert_equal(d+1, d_1)
             np.testing.assert_equal(d**2, d_2)
