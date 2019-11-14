@@ -1,7 +1,9 @@
 # example that runs a "manual" simple SMOKE sim either in numpy or TF
 
+import os  # has to be after phi.flow import for some damn reason
+from PIL import Image  # this example does not use the dash GUI, instead it creates PNG images via PIL
 
-USE_NUMPY = True  # main switch, TF (False) or numpy (True)?
+USE_NUMPY = False  # main switch, TF (False) or numpy (True)?
 
 DIM = 2  # 2d / 3d
 BATCH_SIZE = 1  # process multiple independent simulations at once
@@ -16,8 +18,6 @@ if USE_NUMPY:
     from phi.flow import *
 else:
     from phi.tf.flow import *
-import os  # has to be after phi.flow import for some damn reason
-from PIL import Image  # this example does not use the dash GUI, instead it creates PNG images via PIL
 
 
 # by default, creates a numpy state, i.e. "SMOKE.density.data" is a numpy array
@@ -27,7 +27,7 @@ if USE_NUMPY:
     DENSITY = SMOKE.density
     VELOCITY = SMOKE.velocity
 else:
-    SESSION = Session(Scene.create('data'))
+    SESSION = Session(None)
     # create TF placeholders with the correct shapes
     SMOKE_IN = SMOKE.copied_with(density=placeholder, velocity=placeholder)
     DENSITY = SMOKE_IN.density
@@ -91,6 +91,3 @@ if not USE_NUMPY:
 
         print("Step SESSION.run %04d done, DENSITY shape %s, means %s %s" %
               (i, SMOKE.density.data.shape, np.mean(SMOKE.density.data), np.mean(SMOKE.velocity.staggered_tensor())))
-
-    SESSION._scene.remove()
-    os.rmdir('data')
