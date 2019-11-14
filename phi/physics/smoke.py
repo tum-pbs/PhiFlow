@@ -7,7 +7,7 @@ import numpy as np
 
 from phi import struct
 from .physics import StateDependency, Physics
-from .field import union_mask, advect, StaggeredGrid
+from .field import advect, StaggeredGrid
 from .field.effect import Gravity, gravity_tensor, effect_applied
 from .domain import DomainState
 from .fluid import divergence_free

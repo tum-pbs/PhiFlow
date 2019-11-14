@@ -34,34 +34,63 @@ class StateProxy(object):
 
     @property
     def state(self):
+        """
+Finds and returns the state in the referenced world that matches the StateProxy's state_name.
+        :return: State
+        """
         state = self.world.state[self.state_name]
         assert state is not None
         return state
 
     @state.setter
     def state(self, state):
+        """
+Replaces the State in the referenced world.
+        """
         assert state.name == self.state_name
         self.world.state = self.world.state.state_replaced(state)
 
     @property
     def physics(self):
+        """
+Returns the Physics object used by the referenced world for the system.
+If not specified manually, the default physics is returned.
+        """
         physics = self.world.physics.for_(self.state)
         assert physics is not None
         return physics
 
     @physics.setter
-    def physics(self, phys):
-        assert isinstance(phys, Physics)
-        self.world.physics.add(self.state_name, phys)
+    def physics(self, physics):
+        """
+Sets a specific Physics object for the system in the referenced world.
+        :param physics: Physics
+        """
+        assert isinstance(physics, Physics)
+        self.world.physics.add(self.state_name, physics)
 
     def step(self, dt=1.0, physics=None):
+        """
+Steps this system in the referenced world. Other states are not affected.
+        :param dt: time increment
+        :param physics: specific Physics object to use, defaults to self.physics
+        """
         self.world.step(self, dt=dt, physics=physics)
 
     def __getattr__(self, item):
+        """
+Returns an attribute from the referenced State.
+        :param item: attribute name
+        """
         assert item not in ('world', 'state_name', 'physics', 'state')
         return getattr(self.state, item)
 
     def __setattr__(self, key, value):
+        """
+Changes the referenced state by replacing it in the referenced world.
+        :param key: State attribute name
+        :param value: new value
+        """
         if key in ('world', 'state_name', 'physics', 'state'):
             object.__setattr__(self, key, value)
         else:
@@ -83,9 +112,16 @@ class World(object):
 
     def __init__(self, batch_size=None, add_default_objects=True):
         # --- Insert object / create proxy shortcuts ---
+        self._state = self.physics = self.observers = self.batch_size = None
         self.reset(batch_size, add_default_objects)
 
     def reset(self, batch_size=None, add_default_objects=True):
+        """
+Resets the world to the default configuration.
+This removes all States and observers.
+        :param batch_size: int or None
+        :param add_default_objects: if True, adds defaults like Gravity
+        """
         self._state = CollectiveState()
         self.physics = self._state.default_physics()
         self.observers = set()
@@ -95,15 +131,27 @@ class World(object):
 
     @property
     def state(self):
+        """
+Returns the current state of the world.
+        :return: CollectiveState
+        """
         return self._state
 
     @property
     def age(self):
+        """
+Alias for world.state.age
+        """
         return self._state.age
 
     @state.setter
     def state(self, state):
+        """
+Sets the current state of the world and informs all observers.
+        :param state: CollectiveState
+        """
         assert state is not None
+        assert isinstance(state, CollectiveState)
         self._state = state
         for observer in self.observers: observer(self)
 
@@ -118,7 +166,7 @@ class World(object):
 
         Invoking this method alters the world state. To to_field a copy of the state, use :func:`World.stepped <~world.World.stepped>` instead.
             :param state: State, StateProxy or None
-            :param dt: time increment, default 1.0
+            :param dt: time increment
             :param physics: Physics object for the state or None for default
             :return: evolved state if a specific state was provided
         """
@@ -134,6 +182,9 @@ class World(object):
             return s
 
     def stepped(self, state=None, dt=1.0, physics=None):
+        """
+Similar to step() but does not change the state of the world. Instead, the new state is returned.
+        """
         if state is None:
             if physics is None: physics = self.physics
             return physics.step(self._state, None, dt)
@@ -145,11 +196,10 @@ class World(object):
     def add(self, state, physics=None):
         # type: (S, Physics) -> S
         """
-        Adds a State to world.state and creates a StateProxy for that state.
-
-        :param state: State object to add
-        :param physics: Physics to use for stepping or None for state.default_physics()
-        :return: a StateProxy representing the added state. If world.state is updated (e.g. because world.step() was called), the StateProxy will refer to the updated values.
+Adds a State to the world that will be stepped forward in time each time world.step() is invoked.
+        :param state: State
+        :param physics: optional Physics to use during world.step(). Defaults to state.default_physics()
+        :return: StateProxy referencing the current state of the added system. If world.state is updated (e.g. because world.step() was called), the StateProxy will refer to the updated values.
         """
         if physics is not None:
             assert isinstance(physics, Physics)
@@ -158,10 +208,17 @@ class World(object):
         return StateProxy(self, state.name)
 
     def add_all(self, *states):
+        """
+Add a collection of states to the system using world.add(state).
+        """
         for state in states:
             self.add(state)
 
     def remove(self, obj):
+        """
+Remove a system or collection of systems from the world.
+        :param obj: one of the following: State, state name, subclass of State, tuple or list thereof
+        """
         if inspect.isclass(obj):
             states = self.state.all_instances(obj)
             self.remove(states)

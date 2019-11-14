@@ -1,5 +1,8 @@
-from .smoke import *
-from phi.physics.field.util import diffuse
+from phi import struct
+from .physics import Physics, StateDependency
+from .field.util import diffuse
+from .field.effect import effect_applied
+from .domain import DomainState
 
 
 class Heat(DomainState):
@@ -11,11 +14,12 @@ class Heat(DomainState):
         return HeatPhysics()
 
     @struct.attr(default=0.0)
-    def temperature(self, t):
-        return self.centered_grid('temperature', t)
+    def temperature(self, temperature):
+        return self.centered_grid('temperature', temperature)
 
     @struct.prop(default=0.1)
-    def diffusivity(self, d): return d
+    def diffusivity(self, diffusivity):
+        return diffusivity
 
 
 class HeatPhysics(Physics):
@@ -24,6 +28,7 @@ class HeatPhysics(Physics):
         Physics.__init__(self, [StateDependency('effects', 'temperature_effect', blocking=True)])
 
     def step(self, heat, dt=1.0, effects=()):
+        # pylint: disable-msg = arguments-differ
         temperature = diffuse(heat.temperature, dt * heat.diffusivity)
         for effect in effects:
             temperature = effect_applied(effect, temperature, dt)

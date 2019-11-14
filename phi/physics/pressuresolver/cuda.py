@@ -4,7 +4,6 @@ import tensorflow as tf
 from numbers import Number
 
 from phi import math
-from phi.physics.pressuresolver.base import *
 from phi.physics.pressuresolver.base import PressureSolver
 
 
