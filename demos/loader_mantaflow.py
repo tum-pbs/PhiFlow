@@ -1,7 +1,7 @@
-from phi.tf.flow import *
-import os  # Has to be imported after flow. Why? No damn clue.
+import os
 import sys
 import numpy as np
+from phi.tf.flow import *
 
 
 # this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
