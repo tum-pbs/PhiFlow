@@ -1,9 +1,7 @@
 # example that runs a "manual" simple SMOKE sim either in numpy or TF
-import os
-from PIL import Image  # this example does not use the dash GUI, instead it creates PNG images via PIL
-from phi.flow import *
-# from phi.tf.flow import *  # uncomment for using TensorFlow
 
+
+USE_NUMPY = True  # main switch, TF (False) or numpy (True)?
 
 DIM = 2  # 2d / 3d
 BATCH_SIZE = 1  # process multiple independent simulations at once
@@ -12,6 +10,14 @@ GRAPH_STEPS = 3  # how many STEPS to unroll in TF graph
 
 RES = 32
 DT = 1.0
+
+
+if USE_NUMPY:
+    from phi.flow import *
+else:
+    from phi.tf.flow import *
+import os  # has to be after phi.flow import for some damn reason
+from PIL import Image  # this example does not use the dash GUI, instead it creates PNG images via PIL
 
 
 # by default, creates a numpy state, i.e. "SMOKE.density.data" is a numpy array
