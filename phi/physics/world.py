@@ -1,3 +1,11 @@
+"""
+Worlds are used to manage simulations consisting of multiple states.
+A world uses a CollectiveState with CollectivePhysics to resolve state dependencies.
+Worlds also facilitate referencing states when performing a forward simulation.
+
+A default World, called `world` is provided for convenience.
+"""
+
 from typing import TypeVar
 import inspect
 
@@ -5,7 +13,7 @@ import six
 
 from .physics import State, Physics
 from .collective import CollectiveState
-from phi.physics.field.effect import Gravity
+from .field.effect import Gravity
 
 
 class StateProxy(object):
@@ -20,8 +28,8 @@ class StateProxy(object):
     To reference the current immutable state of
     """
 
-    def __init__(self, world, state_name):
-        self.world = world
+    def __init__(self, enclosing_world, state_name):
+        self.world = enclosing_world
         self.state_name = state_name
 
     @property
@@ -43,6 +51,7 @@ class StateProxy(object):
 
     @physics.setter
     def physics(self, phys):
+        assert isinstance(phys, Physics)
         self.world.physics.add(self.state_name, phys)
 
     def step(self, dt=1.0, physics=None):
@@ -59,6 +68,7 @@ class StateProxy(object):
             self.state = self.state.copied_with(**{key:value})
 
 
+# pylint: disable-msg = invalid-name
 S = TypeVar('S', bound=State)
 
 
@@ -115,6 +125,7 @@ class World(object):
         if state is None:
             if physics is None: physics = self.physics
             self.state = physics.step(self._state, dt)
+            return self.state
         else:
             if isinstance(state, StateProxy):
                 state = state.state
@@ -140,9 +151,10 @@ class World(object):
         :param physics: Physics to use for stepping or None for state.default_physics()
         :return: a StateProxy representing the added state. If world.state is updated (e.g. because world.step() was called), the StateProxy will refer to the updated values.
         """
-        self.state = self.state.state_added(state)
         if physics is not None:
+            assert isinstance(physics, Physics)
             self.physics.add(state.name, physics)
+        self.state = self.state.state_added(state)
         return StateProxy(self, state.name)
 
     def add_all(self, *states):
@@ -152,19 +164,14 @@ class World(object):
     def remove(self, obj):
         if inspect.isclass(obj):
             states = self.state.all_instances(obj)
-            return self.remove(states)
-        elif isinstance(obj, (tuple,list)):
+            self.remove(states)
+        elif isinstance(obj, (tuple, list)):
             for state in obj:
                 self.remove(state)
         else:
             key = obj if isinstance(obj, six.string_types) else obj.name
             self.state = self.state.state_removed(key)
             self.physics.remove(key)
-
-    def clear(self):
-        self._state = CollectiveState()
-        self.physics = self._state.default_physics()
-        self.state = self._state
 
     def get_physics(self, state):
         """

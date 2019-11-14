@@ -1,7 +1,11 @@
 from unittest import TestCase
 
-from phi.flow import *
-from phi.physics.physics import STATIC
+import numpy
+
+from phi.geom import box
+from phi.physics.field.effect import Inflow, Fan
+from phi.physics.physics import STATIC, Physics, StateDependency
+from phi.physics.world import World
 
 
 class CustomPhys(Physics):
@@ -24,7 +28,7 @@ class TestDependencies(TestCase):
         world.add(Inflow(box[0:0]), physics=CustomPhys('Inflow', order, [StateDependency('d', 'fan', blocking=True)]))
         world.add(Fan(box[0:0], 0), physics=CustomPhys('Fan', order, []))
         world.step()
-        np.testing.assert_equal(order, ['Fan', 'Inflow'])
+        numpy.testing.assert_equal(order, ['Fan', 'Inflow'])
 
     def test_cyclic_dependency(self):
         world = World()
@@ -36,5 +40,5 @@ class TestDependencies(TestCase):
         try:
             world.step()
             self.fail('Cycle not recognized.')
-        except:
+        except AssertionError:
             pass

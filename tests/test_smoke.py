@@ -1,6 +1,14 @@
 from unittest import TestCase
 
-from phi.flow import *
+import numpy
+
+from phi import struct, math
+from phi.geom import Sphere
+from phi.physics.domain import Domain
+from phi.physics.field import StaggeredGrid
+from phi.physics.field.effect import Fan, Inflow
+from phi.physics.smoke import Smoke, SMOKE
+from phi.physics.world import World
 
 
 class TestSmoke(TestCase):
@@ -28,15 +36,15 @@ class TestSmoke(TestCase):
         def typetest(smoke):
             self.assertIsInstance(smoke, Smoke)
             self.assertIsInstance(smoke.velocity, StaggeredGrid)
-            np.testing.assert_equal(smoke.density.data.shape, [1, 4, 4, 1])
-            np.testing.assert_equal(smoke.velocity.resolution, [4, 4])
-            np.testing.assert_equal(smoke.velocity.data[0].resolution, [5, 4])
+            numpy.testing.assert_equal(smoke.density.data.shape, [1, 4, 4, 1])
+            numpy.testing.assert_equal(smoke.velocity.resolution, [4, 4])
+            numpy.testing.assert_equal(smoke.velocity.data[0].resolution, [5, 4])
         typetest(Smoke(Domain([4, 4]), density=0.0, velocity=0.0))
         typetest(Smoke(Domain([4, 4]), density=1.0, velocity=1.0))
         typetest(Smoke(Domain([4, 4]), density=0, velocity=math.zeros))
         typetest(Smoke(Domain([4, 4]), density=lambda s: math.randn(s), velocity=lambda s: math.randn(s)))
-        typetest(Smoke(Domain([4, 4]), density=np.zeros([1, 4, 4, 1]), velocity=np.zeros([1, 5, 5, 2])))
-        typetest(Smoke(Domain([4, 4]), density=np.zeros([1, 4, 4, 1]), velocity=np.zeros([1, 5, 5, 2])))
+        typetest(Smoke(Domain([4, 4]), density=numpy.zeros([1, 4, 4, 1]), velocity=numpy.zeros([1, 5, 5, 2])))
+        typetest(Smoke(Domain([4, 4]), density=numpy.zeros([1, 4, 4, 1]), velocity=numpy.zeros([1, 5, 5, 2])))
         typetest(Smoke(Domain([4, 4])))
 
     def test_effects(self):

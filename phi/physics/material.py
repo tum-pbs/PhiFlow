@@ -1,15 +1,25 @@
+"""
+Surface material definitions including constants.
+"""
+
 import math
 
 from phi import struct
 
 
 class Material(struct.Struct):
+    """
+    Defines a surface material including the boundary conditions.
+    """
 
     def __init__(self, name, **kwargs):
         struct.Struct.__init__(**struct.kwargs(locals()))
 
     @struct.prop()
     def name(self, name):
+        """
+Material name.
+        """
         return str(name)
 
     @struct.prop(default=True)
@@ -30,6 +40,11 @@ Fluid can only enter non-solid cells or pass through non-solid boundaries.
         return friction
 
     def friction_multiplier(self, dt=1):
+        """
+Computes the velocity multiplication factor for fluid that moves along the surface for time dt.
+        :param dt: time spent near surface (float)
+        :return: factor (float)
+        """
         if dt == 1 or self.friction == 1 or self.friction == 0:
             return 1 - self.friction
         else:
@@ -38,6 +53,9 @@ Fluid can only enter non-solid cells or pass through non-solid boundaries.
 
     @struct.prop(default=False)
     def periodic(self, periodic):
+        """
+Whether the boundary is periodic, i.e. seamlessly merges with the opposite end of the domain.
+        """
         assert isinstance(periodic, bool)
         return periodic
 
@@ -46,6 +64,9 @@ Fluid can only enter non-solid cells or pass through non-solid boundaries.
 
     @property
     def extrapolation_mode(self):
+        """
+Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').
+        """
         if self.periodic:
             return 'periodic'
         if self.solid:

@@ -1,3 +1,5 @@
+# pylint: disable-msg = unused-wildcard-import
+
 import tensorflow as tf
 from unittest import TestCase
 

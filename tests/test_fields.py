@@ -1,7 +1,11 @@
 from unittest import TestCase
 
-from phi.geom import *
-from phi.physics.field import *
+import numpy as np
+
+from phi import struct, math
+from phi.geom import box, AABox
+from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, stack_staggered_components, StaggeredGrid, \
+    complete_staggered_properties, data_bounds, SAMPLE_POINTS
 
 
 class TestMath(TestCase):
@@ -63,5 +67,5 @@ class TestMath(TestCase):
         f = StaggeredGrid.from_tensors('f', None, unstack_staggered_tensor(tensor))
         bounds = data_bounds(f)
         self.assertIsInstance(bounds, AABox)
-        numpy.testing.assert_equal(bounds.lower, 0)
-        numpy.testing.assert_equal(bounds.upper, [4, 4])
+        np.testing.assert_equal(bounds.lower, 0)
+        np.testing.assert_equal(bounds.upper, [4, 4])

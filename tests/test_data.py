@@ -1,7 +1,10 @@
 from unittest import TestCase
 
-from phi.flow import *
-from phi.math import *
+import os
+import numpy as np
+
+from phi.data.fluidformat import Scene
+from phi.data.reader import BatchReader, Dataset, SOURCE, SCENE, FRAME, SourceStream
 
 
 def build_test_database(path='data'):

@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi.physics.domain import *
+from phi.physics.domain import Domain, OPEN
 
 
 class TestDomain(TestCase):

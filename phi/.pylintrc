@@ -7,6 +7,9 @@ disable = line-too-long,
           useless-object-inheritance,
           too-many-arguments,
           unused-argument,  # PyLint does not understand locals()
-          import-error
+          import-error,
+          comparison-with-callable,  # PyLint does not understand @struct.prop()
+          using-constant-test,  # PyLint does not understand @struct.prop()
+          trailing-whitespace,
 
 good-names = dt, tf, np, x, y, z
