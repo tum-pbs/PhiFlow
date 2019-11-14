@@ -89,6 +89,7 @@ To use these, you must have a TensorFlow compatible CUDA SDK installed.
 To install Φ<sub>*Flow*</sub> with CUDA operators, run:
 
 ```bash
-$ python phiflow/setup.py cuda
-$ pip install phiflow/
+$ cd phiflow/
+$ python setup.py cuda
+$ pip install .
 ```
