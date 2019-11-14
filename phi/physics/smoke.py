@@ -1,3 +1,8 @@
+"""
+This file defines Smoke states and SmokePhysics.
+More general fluid functions are located in fluid.py
+"""
+
 import numpy as np
 
 from phi import struct
@@ -9,30 +14,52 @@ from .fluid import divergence_free
 
 
 class Smoke(DomainState):
+    """
+    A Smoke state consists of a density field (centered grid) and a velocity field (staggered grid).
+    """
 
     def __init__(self, domain, density=0.0, velocity=0, buoyancy_factor=0.1,
                  tags=('smoke', 'velocityfield'), name='smoke', **kwargs):
         DomainState.__init__(**struct.kwargs(locals()))
 
     def default_physics(self):
+        """
+        :return: SMOKE
+        """
         return SMOKE
 
     @struct.attr(default=0)
     def density(self, density):
+        """
+The smoke density is stored in a CenteredGrid with dimensions matching the domain.
+It describes the number of smoke particles per volume.
+        """
         return self.centered_grid('density', density)
 
     @struct.attr(default=0)
     def velocity(self, velocity):
+        """
+The velocity is stored in a StaggeredGrid with dimensions matching the domain.
+        """
         return self.staggered_grid('velocity', velocity)
 
     @struct.prop(default=0.1)
-    def buoyancy_factor(self, fac): return fac
+    def buoyancy_factor(self, fac):
+        """
+The default smoke physics applies buoyancy as an upward force.
+This force is scaled with the buoyancy_factor (float).
+        """
+        return fac
 
     def __repr__(self):
         return "Smoke[density: %s, velocity: %s]" % (self.density, self.velocity)
 
 
 class SmokePhysics(Physics):
+    """
+Default smoke physics modelling incompressible air flow with buoyancy proportional to the smoke density.
+Supports obstacles, density effects, velocity effects, global gravity.
+    """
 
     def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True):
         Physics.__init__(self, [StateDependency('obstacles', 'obstacle'),
@@ -48,9 +75,8 @@ class SmokePhysics(Physics):
         gravity = gravity_tensor(gravity, smoke.rank)
         velocity = smoke.velocity
         density = smoke.density
-        obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles])
         if self.make_input_divfree:
-            velocity = divergence_free(velocity, smoke.domain, obstacle_mask, pressure_solver=self.pressure_solver)
+            velocity = divergence_free(velocity, smoke.domain, obstacles, pressure_solver=self.pressure_solver)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
@@ -62,7 +88,7 @@ class SmokePhysics(Physics):
         velocity += buoyancy(smoke.density, gravity, smoke.buoyancy_factor) * dt
         # --- Pressure solve ---
         if self.make_output_divfree:
-            velocity = divergence_free(velocity, smoke.domain, obstacle_mask, pressure_solver=self.pressure_solver)
+            velocity = divergence_free(velocity, smoke.domain, obstacles, pressure_solver=self.pressure_solver)
         return smoke.copied_with(density=density, velocity=velocity, age=smoke.age + dt)
 
 
@@ -70,6 +96,13 @@ SMOKE = SmokePhysics()
 
 
 def buoyancy(density, gravity, buoyancy_factor):
+    """
+Computes the buoyancy force proportional to the density.
+    :param density: CenteredGrid
+    :param gravity: vector or float
+    :param buoyancy_factor: float
+    :return: StaggeredGrid for the domain of the density
+    """
     if isinstance(gravity, (int, float)):
         gravity = np.array([gravity] + ([0] * (density.rank - 1)))
     result = StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)

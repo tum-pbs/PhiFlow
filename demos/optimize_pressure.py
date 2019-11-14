@@ -1,3 +1,4 @@
+# pylint: disable-msg = not-an-iterable
 from phi.tf.flow import *
 from phi.math.initializers import randn
 

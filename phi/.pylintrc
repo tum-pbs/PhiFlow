@@ -6,6 +6,7 @@ disable = line-too-long,
           no-else-return,
           useless-object-inheritance,
           too-many-arguments,
-          unused-argument  # PyLint does not understand locals()
+          unused-argument,  # PyLint does not understand locals()
+          import-error
 
 good-names = dt, tf, np, x, y, z
