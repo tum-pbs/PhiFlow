@@ -16,10 +16,8 @@ if USE_NUMPY:
     from phi.flow import *
 else:
     from phi.tf.flow import *
-
-import os
+import os  # has to be after phi.flow import for some damn reason
 from PIL import Image  # this example does not use the dash GUI, instead it creates PNG images via PIL
-
 
 
 # by default, creates a numpy state, i.e. "SMOKE.density.data" is a numpy array
@@ -71,7 +69,7 @@ for i in range(STEPS if USE_NUMPY else GRAPH_STEPS):
         print("Density type: %s" % type(DENSITY.data))  # here we either have np array of tf tensor
 
     if USE_NUMPY:
-        if (i % GRAPH_STEPS == GRAPH_STEPS - 1):
+        if i % GRAPH_STEPS == GRAPH_STEPS - 1:
             save_img(DENSITY.data, 10000., "images/numpy_%04d.png" % i)
         print("Numpy step %d done, means %s %s" % (i, np.mean(DENSITY.data), np.mean(VELOCITY.staggered_tensor())))
     else:

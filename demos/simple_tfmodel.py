@@ -17,11 +17,11 @@ def network(density):
     w_3 = tf.get_variable('w_3', [3, 3, n_feat, n_feat], initializer=tf.random_normal_initializer(stddev=0.01, mean=0.))
     f_3 = tf.nn.relu(tf.nn.conv2d(f_2, w_3, strides=[1, 1, 1, 1], padding='SAME'))
 
-    Wo = tf.get_variable('Wo', [3, 3, n_feat, 2], initializer=tf.random_normal_initializer(stddev=0.01, mean=0.))
-    fo = tf.nn.conv2d(f_3, Wo, strides=[1, 1, 1, 1], padding='SAME')  # no activation! we have negative values in the GT fields
+    w_o = tf.get_variable('w_o', [3, 3, n_feat, 2], initializer=tf.random_normal_initializer(stddev=0.01, mean=0.))
+    f_o = tf.nn.conv2d(f_3, w_o, strides=[1, 1, 1, 1], padding='SAME')  # no activation! we have negative values in the GT fields
 
-    print(format(fo.shape))
-    return fo
+    print(format(f_o.shape))
+    return f_o
 
 
 class TrainingTest(TFApp):
