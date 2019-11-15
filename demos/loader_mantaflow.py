@@ -1,18 +1,27 @@
-from phi.tf.flow import *
-import os  # Has to be imported after flow. Why? No damn clue.
-import sys
-import numpy as np
-
-
 # this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
 # from all simulations sim_XXXXXX in the given directory
+
+import os  # Has to be imported after flow. Why? No damn clue.
+import sys
+
+import numpy as np
+
+from phi.data.dataset import Dataset
+from phi.data.reader import BatchReader
+from phi.data.stream import MantaScalar
+from phi.physics import world
+from phi.physics.domain import Domain
+from phi.physics.smoke import Smoke
+from phi.tf.app import TFApp
+from phi.tf.util import placeholder
+
 SCENE_PATH = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume'
 SCENE_PATH = os.path.expanduser(SCENE_PATH)
 
 # this is the original resolution of the mantaflow sim
 # allocate one size smaller so that velocity matches, and crop
-# scalar fields to (mantaflowRes-1) via MantaScalar() channels
-MANTAFLOWRES = 64
+# scalar fields to (MANTAFLOW_RESOLUTION-1) via MantaScalar() channels
+MANTAFLOW_RESOLUTION = 64
 
 # 2D or 3D
 DIMS = 2
@@ -40,13 +49,11 @@ class DataLoader(TFApp):
             # collect some statistics
             m_list.append([np.mean(np.abs(state.density.data)), np.mean(np.abs(state.velocity.staggered_tensor()))])
             self.session.run(state_out, {state_in: state})  # pass to TF
-            #self.session.run(state_out, {state_in: (batch[0], batch[1])}) # alternative, without state copy
+            # self.session.run(state_out, {state_in: (batch[0], batch[1])}) # alternative, without state copy
             # now we have the tensor version in state_out
 
         print("MantaScalar demo done, %d batches read, abs-mean %f " % (idx, np.mean(np.asarray(m_list))))
 
-        exit(1)
-
 
 # note, no GUI, use viewer.py instead to display
-APP = DataLoader(scene_path=SCENE_PATH, dims=DIMS, mantaflowRes=MANTAFLOWRES)
+APP = DataLoader(scene_path=SCENE_PATH, dims=DIMS, mantaflowRes=MANTAFLOW_RESOLUTION)
