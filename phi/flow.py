@@ -1,4 +1,5 @@
-from phi import math, struct
+# pylint: disable-msg = wildcard-import, unused-wildcard-import
+
 from .physics.physics import *
 from .physics.world import *
 from .physics.schroedinger import *
@@ -19,3 +20,4 @@ from phi.geom import *
 from .viz import display
 from .viz.display import show
 from .app import *
+from phi import math, struct

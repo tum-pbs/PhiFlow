@@ -4,7 +4,9 @@ import os
 import numpy as np
 
 from phi.data.fluidformat import Scene
-from phi.data.reader import BatchReader, Dataset, SOURCE, SCENE, FRAME, SourceStream
+from phi.data.dataset import Dataset
+from phi.data.stream import SOURCE, FRAME, SCENE
+from phi.data.reader import BatchReader, SourceStream
 
 
 def build_test_database(path='data'):

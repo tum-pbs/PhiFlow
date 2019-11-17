@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from phi.physics.field import *
+from phi.physics.field import CenteredGrid, StaggeredGrid
 
 
 # Views

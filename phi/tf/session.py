@@ -1,8 +1,12 @@
-import numpy as np
+import os
 import contextlib
+import threading
+
+import numpy as np
+import tensorflow as tf
 
 from phi import struct
-from .profiling import *
+from .profiling import Timeliner
 from .util import isplaceholder
 
 

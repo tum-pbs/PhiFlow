@@ -1,5 +1,4 @@
-from .dataset import *
-from .stream import *
+from .stream import DataStream, SourceStream
 from phi import struct
 from bisect import bisect_left
 from sys import getsizeof

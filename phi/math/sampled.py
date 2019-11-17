@@ -1,7 +1,5 @@
 import numpy as np
 
-from phi.geom import *
-
 
 def grid(griddef, points, property=None, default_value=0):
     indices = (points - 0.5).astype(np.int)[..., ::-1]

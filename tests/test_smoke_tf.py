@@ -9,7 +9,7 @@ from phi.physics.field.effect import Inflow
 from phi.physics.obstacle import Obstacle
 from phi.physics.smoke import Smoke
 from phi.physics.world import World
-from phi.tf import Session
+from phi.tf.session import Session
 from phi.tf.util import placeholder
 from phi.tf.world import tf_bake_subgraph, tf_bake_graph
 

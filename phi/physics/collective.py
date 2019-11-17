@@ -1,5 +1,6 @@
 import six
 from .physics import State, struct, Physics
+from phi.struct.context import skip_validate
 
 
 class CollectiveState(struct.Struct):
@@ -87,7 +88,7 @@ class CollectiveState(struct.Struct):
                 item.set(self, value)
             else:
                 self._states = self.states.copy()
-                if not struct.skip_validate():
+                if not skip_validate():
                     assert isinstance(value, State)
                     assert value.name == name, 'Inconsisten names: trying to assign state "%s" to name "%s"' % (value.name, name)
                     assert 'states' not in kwargs

@@ -3,6 +3,8 @@ from phi.math.base import Backend
 
 
 class StructBroadcastBackend(Backend):
+    # Abstract mehtods are overridden generically.
+    # pylint: disable-msg = abstract-method
 
     def __init__(self, backend):
         Backend.__init__(self, 'StructBroadcast')

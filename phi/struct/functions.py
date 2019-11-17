@@ -1,4 +1,4 @@
-from .struct import *
+from .struct import attributes, isstruct, copy_with, equal
 from .context import anytype
 import six
 

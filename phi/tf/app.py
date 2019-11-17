@@ -2,7 +2,10 @@ from __future__ import print_function
 
 import six
 
-from .util import *
+import numpy as np
+import tensorflow as tf
+
+from .util import istensor
 from .session import Session
 from .world import tf_bake_graph
 import phi.app.app as nontf

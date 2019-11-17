@@ -5,13 +5,15 @@ import os.path
 import logging
 import traceback
 
+import numpy as np
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from ..plot import *
+from ..plot import FRONT, RIGHT, TOP, VECTOR2, LENGTH, PlotlyFigureBuilder
 from ..display import ModelDisplay
 try:
     import phi.tf.profiling

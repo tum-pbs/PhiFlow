@@ -4,9 +4,9 @@ import numpy as np
 
 from phi import struct, math
 from phi.geom import box, AABox
-from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, stack_staggered_components, StaggeredGrid, \
-    complete_staggered_properties, data_bounds, SAMPLE_POINTS
-
+from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, complete_staggered_properties, data_bounds
+from phi.physics.field.flag import SAMPLE_POINTS
+from phi.physics.field.staggered_grid import stack_staggered_components
 
 class TestMath(TestCase):
 
