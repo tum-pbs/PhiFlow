@@ -315,10 +315,11 @@ def fourier_laplace(tensor):
     return math.ifft(frequencies * fft_laplace)
 
 
-def fftfreq(resolution, mode='vector'):
+def fftfreq(resolution, mode='vector', dtype=np.float32):
     assert mode in ('vector', 'absolute', 'square')
     k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution], indexing='ij')
     k = math.expand_dims(math.stack(k, -1), 0)
+    k = k.astype(dtype)
     if mode == 'vector':
         return k
     k = math.sum(k ** 2, axis=-1, keepdims=True)

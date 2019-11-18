@@ -58,7 +58,7 @@ class CenteredGrid(Field):
         local_points = local_points * math.to_float(self.resolution) - 0.5
         if self.extrapolation == 'periodic':
             data = math.pad(self.data, [[0,0]]+[[0,1]]*self.rank+[[0,0]], mode='wrap')
-            local_points = local_points % self.data.shape[1:-1]
+            local_points = local_points % math.to_float(math.staticshape(self.data)[1:-1])
             resampled = math.resample(data, local_points, interpolation=self.interpolation)
         else:
             boundary = 'replicate' if self.extrapolation == 'boundary' else 'zero'

@@ -50,6 +50,8 @@ class TFBackend(Backend):
             for dim in dims:
                 s = value.shape[dim]
                 pad_lower, pad_upper = pad_width[dim]
+                if pad_lower is 0 and pad_upper is 0:
+                    continue  # Nothing to pad
                 lower_slices = [slice(s-pad_lower, None) if d == dim else slice(None) for d in dims]
                 upper_slices = [slice(None, pad_upper) if d == dim else slice(None) for d in dims]
                 lower = value[lower_slices]
@@ -349,7 +351,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     if sample_coords.shape[0] != inputs.shape[0]:
         sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
 
-    if in_spatial_rank == 2 and boundary == 'ZERO':
+    if in_spatial_rank == 2 and boundary.upper() == 'ZERO':
         inputs = tf.transpose(inputs, [0, 2, 1, 3])
         return tf.contrib.resampler.resampler(inputs, sample_coords)
 
@@ -358,7 +360,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     floor_coords = [tf.cast(boundary_func(x, in_spatial_size[idx]), COORDINATES_TYPE) for (idx, x) in enumerate(base_coords)]
     ceil_coords = [tf.cast(boundary_func(x + 1.0, in_spatial_size[idx]), COORDINATES_TYPE) for (idx, x) in enumerate(base_coords)]
 
-    if boundary == 'ZERO':
+    if boundary.upper() == 'ZERO':
         weight_0 = [tf.expand_dims(x - tf.cast(i, tf.float32), -1) for (x, i) in zip(xy, floor_coords)]
         weight_1 = [tf.expand_dims(tf.cast(i, tf.float32) - x, -1) for (x, i) in zip(xy, ceil_coords)]
     else:
@@ -396,7 +398,7 @@ Resamples an N-dimensional tensor at the locations provided by sample_coords
     :param boundary: ZERO, REPLICATE, CIRCULAR, SYMMETRIC (default is ZERO)
     :return:
     """
-    boundary_func = SUPPORTED_BOUNDARY[boundary]
+    boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
     assert interpolation.upper() == "LINEAR"
     return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 
