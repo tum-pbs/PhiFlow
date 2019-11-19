@@ -189,7 +189,7 @@ class SinPotential(AnalyticSingleComponentField):
         phase_offset = math.expand_dims(self.phase_offset, -1, self.rank + 1)
         x_k = math.expand_dims(np.dot(x, self.k), -1)
         wave = math.sin(x_k + phase_offset)
-        return math.cast(wave, np.float32)
+        return math.cast(wave, np.float32) * self.data
 
     @property
     def rank(self):
