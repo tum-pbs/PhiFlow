@@ -45,7 +45,6 @@ def randfreq(shape, dtype=np.float32, power=8):
         fft = randn(shape, dtype) + 1j * randn(shape, dtype)
         k = fftfreq(shape[1:-1], mode='absolute')
         shape_fac = math.sqrt(math.mean(shape[1:-1]))  # 16: 4, 64: 8, 256: 24,
-        print('Shape fac: %f' % shape_fac)
         fft *= (1 / (k + 1)) ** power * power * shape_fac
         array = math.ifft(fft)
         array = array.astype(dtype)
