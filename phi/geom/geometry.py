@@ -7,6 +7,11 @@ from phi import math
 class Geometry(struct.Struct):
 
     def value_at(self, location):
+        """
+Samples the geometry at the given locations and returns a binary mask, labelling the points as inside=1, outside=0.
+        :param location: tensor of the shape (batch_size, ..., rank)
+        :return: float tensor of same shape as location but with shape[-1]=1
+        """
         raise NotImplementedError(self.__class__)
 
     @property
@@ -39,13 +44,16 @@ class AABox(Geometry):
             return 0
 
     def global_to_local(self, global_position):
-        return (global_position - self.lower) / self.size
+        size, lower = math.batch_align([self.size, self.lower], 1, global_position)
+        return (global_position - lower) / size
 
     def local_to_global(self, local_position):
-        return local_position * self.size + self.lower
+        size, lower = math.batch_align([self.size, self.lower], 1, local_position)
+        return local_position * size + lower
 
     def value_at(self, global_position):
-        bool_inside = (global_position >= self.lower) & (global_position <= self.upper)
+        lower, upper = math.batch_align([self.lower, self.upper], 1, global_position)
+        bool_inside = (global_position >= lower) & (global_position <= upper)
         bool_inside = math.all(bool_inside, axis=-1, keepdims=True)
         return math.to_float(bool_inside)
 
@@ -91,7 +99,10 @@ class Sphere(Geometry):
         return math.as_tensor(center)
 
     def value_at(self, location):
-        bool_inside = math.expand_dims(math.sum((location - self.center)**2, axis=-1) <= self.radius**2, -1)
+        center = math.batch_align(self.center, 1, location)
+        radius = math.batch_align(self.radius, 0, location)
+        distance_squared = math.sum((location - center)**2, axis=-1, keepdims=True)
+        bool_inside = distance_squared <= radius**2
         return math.to_float(bool_inside)
 
     @property

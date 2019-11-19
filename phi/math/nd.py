@@ -79,6 +79,19 @@ def normalize_to(target, source=1):
     return target * (math.sum(source) / math.sum(target))
 
 
+def batch_align(tensor, innate_dims, target):
+    if isinstance(tensor, (tuple, list)):
+        return [batch_align(t, innate_dims, target) for t in tensor]
+    ndims = len(math.staticshape(tensor))
+    if ndims <= innate_dims:
+        return tensor  # There is no batch dimension
+    target_ndims = len(math.staticshape(target))
+    assert target_ndims >= ndims
+    if target_ndims == ndims:
+        return tensor
+    return math.expand_dims(tensor, axis=-innate_dims-1, number=target_ndims - ndims)
+
+
 def blur(field, radius, cutoff=None, kernel="1/1+x"):
     if cutoff is None:
         cutoff = min(int(round(radius * 3)), *field.shape[1:-1])
