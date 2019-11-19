@@ -103,6 +103,11 @@ class Domain(struct.Struct):
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         shape = self.centered_shape(components, batch_size=batch_size, name=name)
+        if callable(data):  # data is an initializer
+            try:
+                data = data(shape, dtype=dtype)
+            except TypeError:
+                data = data(shape)
         if isinstance(data, Field):
             assert data.rank == self.rank
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
@@ -111,12 +116,6 @@ class Domain(struct.Struct):
             grid = data
         elif isinstance(data, (int, float)):
             grid = math.zeros(shape, dtype=dtype) + data
-        elif callable(data):
-            # data is an initializer
-            try:
-                grid = data(shape, dtype=dtype)
-            except TypeError:
-                grid = data(shape)
         else:
             grid = CenteredGrid(name, self.box, data)
         if extrapolation is not None:
@@ -125,17 +124,16 @@ class Domain(struct.Struct):
 
     def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         shape = self.staggered_shape(batch_size=batch_size, name=name)
+        if callable(data):  # data is an initializer
+            try:
+                data = data(shape, dtype=dtype)
+            except TypeError:
+                data = data(shape)
         if isinstance(data, Field):
             assert data.compatible(shape)
             grid = data
         elif isinstance(data, (int, float)):
             grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
-        elif callable(data):
-            # data is an initializer
-            try:
-                grid = data(shape, dtype=dtype)
-            except TypeError:
-                grid = data(shape)
         else:
             try:
                 tensors = unstack_staggered_tensor(data)
