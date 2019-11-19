@@ -22,13 +22,14 @@ def _tf_name(trace, basename):
         return basename + '/' + trace.path('/')
 
 
-def placeholder(shape, dtype=np.float32, basename=None):
+def placeholder(shape, dtype=np.float32, basename=None, include_properties=False):
     if struct.isstruct(dtype):
         f = lambda trace: tf.placeholder(trace.value[1], trace.value[0], _tf_name(trace, basename))
-        return struct.map(f, struct.zip([shape, dtype], leaf_condition=_is_python_shape), leaf_condition=_is_python_shape, trace=True)
+        zipped = struct.zip([shape, dtype], leaf_condition=_is_python_shape, include_properties=include_properties)
+        return struct.map(f, zipped, leaf_condition=_is_python_shape, trace=True, include_properties=include_properties)
     else:
         f = lambda trace: tf.placeholder(dtype, trace.value, _tf_name(trace, basename))
-        return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True)
+        return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True, include_properties=include_properties)
 
 
 def placeholder_like(obj, basename=None):
