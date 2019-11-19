@@ -15,16 +15,20 @@ if tf.__version__[0] == '2':
     tf = tf.compat.v1
     tf.disable_eager_execution()
 
-def _tf_name(attr, basename):
+def _tf_name(trace, basename):
     if basename is None:
-        return attr.path('/')
+        return trace.path('/')
     else:
-        return basename + '/' + attr.path('/')
+        return basename + '/' + trace.path('/')
 
 
 def placeholder(shape, dtype=np.float32, basename=None):
-    f = lambda attr: tf.placeholder(dtype, attr.value, _tf_name(attr, basename))
-    return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True)
+    if struct.isstruct(dtype):
+        f = lambda trace: tf.placeholder(trace.value[1], trace.value[0], _tf_name(trace, basename))
+        return struct.map(f, struct.zip([shape, dtype], leaf_condition=_is_python_shape), leaf_condition=_is_python_shape, trace=True)
+    else:
+        f = lambda trace: tf.placeholder(dtype, trace.value, _tf_name(trace, basename))
+        return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True)
 
 
 def placeholder_like(obj, basename=None):

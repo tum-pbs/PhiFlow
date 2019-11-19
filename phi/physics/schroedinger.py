@@ -137,7 +137,8 @@ class WavePacket(AnalyticSingleComponentField):
 
     def sample_at(self, points, collapse_dimensions=True):
         envelope = math.exp(-0.5 * math.sum((points - self.center) ** 2, axis=-1, keepdims=True) / self.size ** 2)
-        wave = math.exp(1j * math.expand_dims(np.dot(points, self.wave_vector), -1)) * envelope
+        envelope = math.to_float(envelope)
+        wave = math.exp(1j * math.to_float(math.expand_dims(np.dot(points, self.wave_vector), -1))) * envelope
         return wave
 
     @property
