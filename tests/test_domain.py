@@ -2,7 +2,6 @@ from unittest import TestCase
 
 import numpy
 
-from phi.geom import box
 from phi.physics.domain import Domain, OPEN
 
 

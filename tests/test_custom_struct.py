@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from phi import struct
+from phi.struct.structdef import _unused_items, get_type
 
 
 @struct.definition()
@@ -33,7 +34,6 @@ class MyStruct(Parent):
 class TestStruct(TestCase):
 
     def test_custom_struct_typedef(self):
-        from phi.struct.structdef import _unused_items, get_type, StructType
         self.assertEqual(len(_unused_items), 0)
         structtype = get_type(MyStruct)
         self.assertIsNotNone(structtype)

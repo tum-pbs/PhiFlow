@@ -10,6 +10,7 @@ disable = import-error,
           bad-whitespace,
           invalid-name,
           line-too-long,
-          no-self-use
+          no-self-use,
+          multiple-statements
 
 good-names = dt, tf, np, x, y, z

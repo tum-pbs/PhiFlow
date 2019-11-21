@@ -13,13 +13,13 @@ def points():
 class TestGeometry(TestCase):
 
     def test_batched_box(self):
-        box = AABox(0, np.stack([np.ones(10), np.linspace(0, 10, 10)], axis=-1))
+        mybox = AABox(0, np.stack([np.ones(10), np.linspace(0, 10, 10)], axis=-1))
         # 0D indexing
-        values = box.value_at(np.zeros([10, 2]) + [0, 4])
+        values = mybox.value_at(np.zeros([10, 2]) + [0, 4])
         np.testing.assert_equal(values.shape, [10, 1])
         np.testing.assert_equal(values[:, 0], [0,0,0,0,1,1,1,1,1,1])
         # 1D indexing
-        values = box.value_at(np.zeros([10, 3, 2]) + [0, 4])
+        values = mybox.value_at(np.zeros([10, 3, 2]) + [0, 4])
         np.testing.assert_equal(values.shape, [10, 3, 1])
         np.testing.assert_equal(values[:, 0, 0], [0,0,0,0,1,1,1,1,1,1])
 
