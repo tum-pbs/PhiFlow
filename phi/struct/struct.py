@@ -1,24 +1,11 @@
+import six
 from copy import copy
+
 import numpy as np
-import six, inspect
+
 from .context import skip_validate
-from . import collection, typedef
+from . import structdef
 
-
-def attr(default=None, dependencies=None, dims=None):  # , stack_behavior=collection.object
-    def decorator(validate):
-        item = typedef.Item(validate.__name__, validate, True, default, dims)
-        typedef.register_item_by_function(validate, item)
-        return item.property()
-    return decorator
-
-
-def prop(default=None, dims=None):  # , stack_behavior=collection.first
-    def decorator(validate):
-        item = typedef.Item(validate.__name__, validate, False, default, dims)
-        typedef.register_item_by_function(validate, item)
-        return item.property()
-    return decorator
 
 
 def kwargs(locals, include_self=True, ignore=()):
@@ -40,9 +27,8 @@ def kwargs(locals, include_self=True, ignore=()):
 class Struct(object):
 
     def __init__(self, **kwargs):
-        assert isinstance(self, Struct), 'Struct.__init__() called on %s' % type(self)
-        self.__struct__ = typedef.get_type(self.__class__)
-        for item in self.__struct__.items:
+        assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
+        for item in self.__class__.__struct__.items:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
         self.__set__(**kwargs)
@@ -102,6 +88,9 @@ class Struct(object):
             except:
                 pass
         return h
+
+
+structdef.STRUCT_CLASSES = [Struct]
 
 
 def attributes(struct, include_properties=False):
