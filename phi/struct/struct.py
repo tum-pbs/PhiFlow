@@ -5,7 +5,7 @@ from .context import skip_validate
 from . import collection, typedef
 
 
-def attr(default=None, dims=None):  # , stack_behavior=collection.object
+def attr(default=None, dependencies=None, dims=None):  # , stack_behavior=collection.object
     def decorator(validate):
         item = typedef.Item(validate.__name__, validate, True, default, dims)
         typedef.register_item_by_function(validate, item)
