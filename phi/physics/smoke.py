@@ -13,6 +13,7 @@ from .domain import DomainState
 from .fluid import divergence_free
 
 
+@struct.definition()
 class Smoke(DomainState):
     """
     A Smoke state consists of a density field (centered grid) and a velocity field (staggered grid).
@@ -20,7 +21,7 @@ class Smoke(DomainState):
 
     def __init__(self, domain, density=0.0, velocity=0, buoyancy_factor=0.1,
                  tags=('smoke', 'velocityfield'), name='smoke', **kwargs):
-        DomainState.__init__(**struct.kwargs(locals()))
+        DomainState.__init__(self, **struct.kwargs(locals()))
 
     def default_physics(self):
         """

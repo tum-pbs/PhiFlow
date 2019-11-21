@@ -8,7 +8,7 @@ from . import structdef
 
 
 
-def kwargs(locals, include_self=True, ignore=()):
+def kwargs(locals, include_self=False, ignore=()):
     assert 'kwargs' in locals
     locals = locals.copy()
     kwargs = locals['kwargs']
@@ -43,7 +43,10 @@ class Struct(object):
 
     def __set__(self, **kwargs):
         for name, value in kwargs.items():
-            item = self.__struct__.find(name)
+            try:
+                item = self.__struct__.find(name)
+            except KeyError:
+                raise TypeError('Struct %s has no property %s' % (self, name))
             item.set(self, value)
         return self
 

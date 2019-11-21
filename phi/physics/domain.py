@@ -7,9 +7,10 @@ from .field import CenteredGrid, StaggeredGrid, complete_staggered_properties, F
     unstack_staggered_tensor
 
 
+@struct.definition()
 class Domain(struct.Struct):
 
-    def __init__(self, resolution, boundaries=OPEN, box=None, size=None, **kwargs):
+    def __init__(self, resolution, boundaries=OPEN, box=None, **kwargs):
         """
         Simulation domain that specifies size and boundary conditions.
 
@@ -28,27 +29,25 @@ class Domain(struct.Struct):
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
         """
-        if box is not None and size is not None:
-            raise ValueError('use box or size parameter, not both')
-        if box is None and size is not None:
-            if isinstance(size, (int, float)):
-                size = [size] * 1 if len(math.staticshape(resolution)) == 0 else len(resolution)
-            box = AABox(0, size)
-        struct.Struct.__init__(**struct.kwargs(locals(), ignore=['size']))
+        struct.Struct.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop(dims=1)
+    @struct.prop()
     def resolution(self, resolution):
         if len(math.staticshape(resolution)) == 0:
             resolution = [resolution]
         return np.array(resolution)
 
-    @struct.prop()
+    @struct.prop(dependencies='resolution')
     def box(self, box):
         if box is None:
             return AABox(0, self.resolution)
-        else:
-            assert isinstance(box, AABox)
+        elif isinstance(box, int):
+            size = [box] * (1 if len(math.staticshape(self.resolution)) == 0 else len(self.resolution))
+            return AABox(0, size)
+        elif isinstance(box, AABox):
             return box
+        else:
+            return AABox(box)
 
     @struct.prop(default=OPEN)
     def boundaries(self, boundaries):
@@ -201,12 +200,16 @@ def _extend1(shape, axis):
     return shape
 
 
+@struct.definition()
 class DomainState(State):
 
     @struct.prop()
     def domain(self, domain):
         assert domain is not None
-        return domain
+        if isinstance(domain, Domain): return domain
+        if isinstance(domain, int): return Domain([domain])
+        if isinstance(domain, (tuple, list)): return Domain(domain)
+        raise ValueError('Not a valid domain: %s' % domain)
 
     @property
     def resolution(self):

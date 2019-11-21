@@ -6,10 +6,11 @@ from . import StateDependency, Physics
 from phi import math, struct
 
 
+@struct.definition()
 class QuantumWave(DomainState):
 
     def __init__(self, domain, amplitude=1, mass=0.1, tags=('qwave',), **kwargs):
-        DomainState.__init__(**struct.kwargs(locals()))
+        DomainState.__init__(self, **struct.kwargs(locals()))
 
     @struct.attr(default=1)
     def amplitude(self, amplitude):
@@ -82,11 +83,12 @@ SCHROEDINGER = Schroedinger()
 StepPotential = lambda geometry, height: FieldEffect(GeometryMask('potential', [geometry], height), ['potential'], mode=ADD)
 
 
+@struct.definition()
 class AnalyticSingleComponentField(Field):
 
     def __init__(self, **kwargs):
         data = None
-        Field.__init__(**struct.kwargs(locals()))
+        Field.__init__(self, **struct.kwargs(locals()))
 
     def sample_at(self, points, collapse_dimensions=True):
         raise NotImplementedError()
@@ -113,10 +115,11 @@ class AnalyticSingleComponentField(Field):
         return self.__class__.__name__
 
 
+@struct.definition()
 class WavePacket(AnalyticSingleComponentField):
 
     def __init__(self, center, size, wave_vector, name='wave_packet', **kwargs):
-        AnalyticSingleComponentField.__init__(**struct.kwargs(locals()))
+        AnalyticSingleComponentField.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def center(self, center): return center
@@ -149,10 +152,11 @@ class WavePacket(AnalyticSingleComponentField):
         return 'WavePacket(%s)' % self.center
 
 
+@struct.definition()
 class HarmonicPotential(AnalyticSingleComponentField):
 
     def __init__(self, center, unit_distance, maximum_value=1.0, data=1, name='harmonic', **kwargs):
-        AnalyticSingleComponentField.__init__(**struct.kwargs(locals()))
+        AnalyticSingleComponentField.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def center(self, center): return center
@@ -175,10 +179,11 @@ class HarmonicPotential(AnalyticSingleComponentField):
         return len(self.center)
 
 
+@struct.definition()
 class SinPotential(AnalyticSingleComponentField):
 
     def __init__(self, k, phase_offset=0, data=1, name='harmonic', **kwargs):
-        AnalyticSingleComponentField.__init__(**struct.kwargs(locals()))
+        AnalyticSingleComponentField.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def k(self, k): return k

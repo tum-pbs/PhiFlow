@@ -7,13 +7,14 @@ import math
 from phi import struct
 
 
+@struct.definition()
 class Material(struct.Struct):
     """
     Defines a surface material including the boundary conditions.
     """
 
     def __init__(self, name, **kwargs):
-        struct.Struct.__init__(**struct.kwargs(locals()))
+        struct.Struct.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def name(self, name):

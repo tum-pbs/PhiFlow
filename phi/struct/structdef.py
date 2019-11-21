@@ -137,7 +137,6 @@ def _order_by_dependencies(item_dict):
     result = []
     for item in item_dict.values():
         _recursive_deps_add(item, item_dict, result)
-    print(result)
     return result
 
 

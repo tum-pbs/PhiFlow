@@ -3,10 +3,11 @@ from .physics import State, struct, Physics
 from phi.struct.context import skip_validate
 
 
+@struct.definition()
 class CollectiveState(struct.Struct):
 
     def __init__(self, states=None, **kwargs):
-        struct.Struct.__init__(**struct.kwargs(locals()))
+        struct.Struct.__init__(self, **struct.kwargs(locals()))
 
     @struct.attr()
     def states(self, states):

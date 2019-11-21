@@ -5,10 +5,11 @@ from .field.effect import effect_applied
 from .domain import DomainState
 
 
+@struct.definition()
 class Heat(DomainState):
 
     def __init__(self, domain, temperature=0.0, diffusivity=0.1, tags=('heat', 'pde', 'temperaturefield'), **kwargs):
-        DomainState.__init__(**struct.kwargs(locals()))
+        DomainState.__init__(self, **struct.kwargs(locals()))
 
     def default_physics(self):
         return HeatPhysics()

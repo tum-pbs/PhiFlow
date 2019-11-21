@@ -4,11 +4,12 @@ from phi import math, struct
 from .field import Field, State, propagate_flags_children
 
 
+@struct.definition()
 class ConstantField(Field):
 
     def __init__(self, name, value=1.0, flags=(), **kwargs):
         data = _convert_constant_to_data(value)
-        Field.__init__(**struct.kwargs(locals(), ignore='value'))
+        Field.__init__(self, **struct.kwargs(locals(), ignore='value'))
 
     def sample_at(self, points, collapse_dimensions=True):
         return _expand_axes(self.data, points, collapse_dimensions=collapse_dimensions)

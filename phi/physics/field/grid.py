@@ -14,10 +14,11 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
     return data
 
 
+@struct.definition()
 class CenteredGrid(Field):
 
     def __init__(self, name, box, data, extrapolation='boundary', **kwargs):
-        Field.__init__(**struct.kwargs(locals()))
+        Field.__init__(self, **struct.kwargs(locals()))
         self._sample_points = None
 
     @property

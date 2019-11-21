@@ -58,10 +58,11 @@ def stack_staggered_components(tensors):
     return math.concat(tensors, -1)
 
 
+@struct.definition()
 class StaggeredGrid(Field):
 
     def __init__(self, name, box, data, resolution, flags=(), **kwargs):
-        Field.__init__(**struct.kwargs(locals()))
+        Field.__init__(self, **struct.kwargs(locals()))
 
     @staticmethod
     def from_tensors(name, box, tensors, flags=(), batch_size=None):
@@ -168,7 +169,7 @@ class StaggeredGrid(Field):
                 grad /= self.dx[dim]
             components.append(grad)
         data = math.add(components)
-        return CenteredGrid(u'∇·%s' % self.name, self.box, data, batch_size=self._batch_size)
+        return CenteredGrid(u'div %s' % self.name, self.box, data, batch_size=self._batch_size)
 
     @property
     def dtype(self):
@@ -181,7 +182,7 @@ class StaggeredGrid(Field):
         if data.shape[-1] != 1:
             raise ValueError('input must be a scalar field')
         with struct.anytype():
-            staggeredgrid = StaggeredGrid(u'∇%s' % scalar_field.name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
+            staggeredgrid = StaggeredGrid(u'grad %s' % scalar_field.name, scalar_field.box, None, scalar_field.resolution, batch_size=scalar_field._batch_size)
             tensors = []
             for dim in math.spatial_dimensions(data):
                 upper = math.pad(data, [[0,1] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)

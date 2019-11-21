@@ -26,12 +26,6 @@ class TestDomain(TestCase):
         numpy.testing.assert_equal(domain.resolution, [64])
         numpy.testing.assert_equal(domain.box.size, [64])
 
-        domain = Domain(64, size=10)
+        domain = Domain(64, box=10)
         numpy.testing.assert_equal(domain.resolution, [64])
         numpy.testing.assert_equal(domain.box.size, [10])
-
-        try:
-            Domain(64, box=box[0:10], size=10)
-            self.fail()
-        except ValueError:
-            pass

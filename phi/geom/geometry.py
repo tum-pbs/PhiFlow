@@ -4,6 +4,7 @@ from phi import struct
 from phi import math
 
 
+@struct.definition()
 class Geometry(struct.Struct):
 
     def value_at(self, location):
@@ -19,10 +20,11 @@ Samples the geometry at the given locations and returns a binary mask, labelling
         raise NotImplementedError()
 
 
+@struct.definition()
 class AABox(Geometry):
 
     def __init__(self, lower, upper, **kwargs):
-        Geometry.__init__(**struct.kwargs(locals()))
+        Geometry.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def lower(self, lower):
@@ -85,10 +87,11 @@ class AABoxGenerator(object):
 box = AABoxGenerator()
 
 
+@struct.definition()
 class Sphere(Geometry):
 
     def __init__(self, center, radius, **kwargs):
-        Geometry.__init__(**struct.kwargs(locals()))
+        Geometry.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def radius(self, radius):
@@ -110,10 +113,11 @@ class Sphere(Geometry):
         return len(self.center)
 
 
+@struct.definition()
 class _Union(Geometry):
 
     def __init__(self, geometries, **kwargs):
-        Geometry.__init__(**struct.kwargs(locals()))
+        Geometry.__init__(self, **struct.kwargs(locals()))
 
     def __validate_geometries__(self):
         assert len(self.geometries) > 0
@@ -148,6 +152,7 @@ def union(geometries):
         return _Union(geometries)
 
 
+@struct.definition()
 class _NoGeometry(Geometry):
 
     def rank(self):

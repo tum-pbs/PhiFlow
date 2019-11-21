@@ -6,11 +6,12 @@ from .field.effect import effect_applied
 from phi import struct
 
 
+@struct.definition()
 class Burgers(DomainState):
 
     def __init__(self, domain, velocity=0, viscosity=0.1, tags=('burgers', 'velocityfield'),
                  name='burgers', **kwargs):
-        DomainState.__init__(**struct.kwargs(locals()))
+        DomainState.__init__(self, **struct.kwargs(locals()))
 
     def default_physics(self):
         return BurgersPhysics()

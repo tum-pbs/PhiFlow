@@ -103,7 +103,7 @@ S = TypeVar('S', bound=State)
 
 class World(object):
     """
-    A world object defines a global state as well as a set of rules (Physics objects) that define how the state evolves.
+    A world object defines a global state as well as a set of rules (Physics objects) that definition how the state evolves.
 
     The world manages dependencies among the contained simulations and provides convenience methods for creating proxies for specific simulations.
 

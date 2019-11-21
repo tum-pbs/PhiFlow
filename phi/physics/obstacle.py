@@ -5,10 +5,11 @@ from .physics import State, Physics
 from .material import Material, SLIPPERY
 
 
+@struct.definition()
 class Obstacle(State):
 
     def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), **kwargs):
-        State.__init__(**struct.kwargs(locals()))
+        State.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def geometry(self, geometry):

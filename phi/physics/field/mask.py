@@ -4,11 +4,12 @@ from .field import Field, propagate_flags_children
 from .constant import _convert_constant_to_data, _expand_axes
 
 
+@struct.definition()
 class GeometryMask(Field):
 
     def __init__(self, name, geometries, value=1.0, flags=(), **kwargs):
         data = _convert_constant_to_data(value)
-        Field.__init__(**struct.kwargs(locals(), ignore='value'))
+        Field.__init__(self, **struct.kwargs(locals(), ignore='value'))
 
     @struct.prop()
     def geometries(self, geometries):

@@ -6,6 +6,7 @@ from phi import struct
 from phi.math import staticshape
 
 
+@struct.definition()
 class State(struct.Struct):
     """
     States describe one configuration of a physical system.
@@ -27,7 +28,7 @@ class State(struct.Struct):
 Tags are used to resolve dependencies.
 They represent traits or classes of the state.
 
-Physics objects typically define their dependencies in terms of tags.
+Physics objects typically definition their dependencies in terms of tags.
         """
         return tuple(tags)
 

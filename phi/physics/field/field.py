@@ -14,11 +14,12 @@ def _to_valid_data(data):
         return data
 
 
+@struct.definition()
 class Field(State):
 
     def __init__(self, name, data, flags=(), **kwargs):
         tags = [name, 'field']
-        State.__init__(**struct.kwargs(locals()))
+        State.__init__(self, **struct.kwargs(locals()))
 
     def with_data(self, data):
         return self.copied_with(data=data, flags=())
