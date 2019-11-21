@@ -9,7 +9,7 @@ from .field import CenteredGrid, StaggeredGrid, complete_staggered_properties, F
 
 class Domain(struct.Struct):
 
-    def __init__(self, resolution, boundaries=OPEN, box=None):
+    def __init__(self, resolution, boundaries=OPEN, box=None, size=None, **kwargs):
         """
         Simulation domain that specifies size and boundary conditions.
 
@@ -28,11 +28,19 @@ class Domain(struct.Struct):
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
         """
-        struct.Struct.__init__(**locals())
+        if box is not None and size is not None:
+            raise ValueError('use box or size parameter, not both')
+        if box is None and size is not None:
+            if isinstance(size, (int, float)):
+                size = [size] * 1 if len(math.staticshape(resolution)) == 0 else len(resolution)
+            box = AABox(0, size)
+        struct.Struct.__init__(**struct.kwargs(locals(), ignore=['size']))
 
     @struct.prop(dims=1)
-    def resolution(self, res):
-        return np.array(res)
+    def resolution(self, resolution):
+        if len(math.staticshape(resolution)) == 0:
+            resolution = [resolution]
+        return np.array(resolution)
 
     @struct.prop()
     def box(self, box):
