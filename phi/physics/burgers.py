@@ -8,13 +8,14 @@ from phi import struct
 
 class Burgers(DomainState):
 
-    def __init__(self, domain, velocity, viscosity=0.1, tags=('burgers', 'velocityfield'), **kwargs):
+    def __init__(self, domain, velocity=0, viscosity=0.1, tags=('burgers', 'velocityfield'),
+                 name='burgers', **kwargs):
         DomainState.__init__(**struct.kwargs(locals()))
 
     def default_physics(self):
         return BurgersPhysics()
 
-    @struct.attr(default=0.0)
+    @struct.attr(default=0.0, dependencies=[DomainState.domain])
     def velocity(self, velocity):
         return self.centered_grid('velocity', velocity, components=self.rank)
 
