@@ -1,17 +1,17 @@
 from contextlib import contextmanager
 
 
-_stack = []
+_STRUCT_CONTEXT_STACK = []
 
 
 @contextmanager
 def anytype():
-    _stack.append('anytype')
+    _STRUCT_CONTEXT_STACK.append('anytype')
     try:
         yield None
     finally:
-        _stack.pop(-1)
+        _STRUCT_CONTEXT_STACK.pop(-1)
 
 
 def skip_validate():
-    return 'anytype' in _stack
+    return 'anytype' in _STRUCT_CONTEXT_STACK

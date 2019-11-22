@@ -1,6 +1,6 @@
-import typing
-import six
+import typing  # pylint: disable-msg = unused-import  # this is used in # type
 from typing import Dict
+import six
 
 
 STRUCT_CLASSES = None  # type: tuple
@@ -58,9 +58,9 @@ def _register_item(_function, item):
 def _build_type(cls):
     assert cls not in _STRUCT_REGISTER
     items = {}
-    for property in dir(cls):
-        if property in _UNUSED_ITEMS:
-            items[property] = _UNUSED_ITEMS.pop(property)
+    for attribute in dir(cls):
+        if attribute in _UNUSED_ITEMS:
+            items[attribute] = _UNUSED_ITEMS.pop(attribute)
     for base in cls.__bases__:
         if base not in STRUCT_CLASSES and base in _STRUCT_REGISTER:
             basetype = _STRUCT_REGISTER[base]
@@ -121,7 +121,7 @@ Represents an item type of a struct, an attribute or property.
     def set(self, struct, value):
         try:
             setattr(struct, '_' + self.name, value)
-        except AttributeError as e:
+        except AttributeError:
             raise AttributeError("can't modify struct %s because attribute %s cannot be set." % (struct, self))
 
     def get(self, struct):

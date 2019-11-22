@@ -82,7 +82,7 @@ class CollectiveState(struct.Struct):
             return item in self.states
         raise ValueError('Illegal type: %s' % type(item))
 
-    def __set__(self, **kwargs):
+    def _set_items(self, **kwargs):
         for name, value in kwargs.items():
             if name == 'states':
                 item = self.__struct__.find(name)
