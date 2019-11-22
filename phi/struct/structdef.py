@@ -6,8 +6,8 @@ from typing import Dict
 STRUCT_CLASSES = None  # type: tuple
 
 
-_struct_register = {}  # type: Dict[typing.Type, StructType]
-_unused_items = {}  # type: Dict[str, Item] # only temporary, before class decorator called
+_STRUCT_REGISTER = {}  # type: Dict[typing.Type, StructType]
+_UNUSED_ITEMS = {}  # type: Dict[str, Item] # only temporary, before class decorator called
 
 
 def definition():
@@ -32,7 +32,7 @@ The enclosing class must be decorated with struct.definition().
     def decorator(validate):
         item = Item(validate.__name__, validate, True, default, dependencies)
         _register_item(validate, item)
-        return item.property()
+        return item.get_property()
     return decorator
 
 
@@ -47,28 +47,28 @@ The enclosing class must be decorated with struct.definition().
     def decorator(validate):
         item = Item(validate.__name__, validate, False, default, dependencies)
         _register_item(validate, item)
-        return item.property()
+        return item.get_property()
     return decorator
 
 
 def _register_item(_function, item):
-    _unused_items[item.name] = item
+    _UNUSED_ITEMS[item.name] = item
 
 
 def _build_type(cls):
-    assert cls not in _struct_register
+    assert cls not in _STRUCT_REGISTER
     items = {}
     for property in dir(cls):
-        if property in _unused_items:
-            items[property] = _unused_items.pop(property)
+        if property in _UNUSED_ITEMS:
+            items[property] = _UNUSED_ITEMS.pop(property)
     for base in cls.__bases__:
-        if base not in STRUCT_CLASSES and base in _struct_register:
-            basetype = _struct_register[base]
+        if base not in STRUCT_CLASSES and base in _STRUCT_REGISTER:
+            basetype = _STRUCT_REGISTER[base]
             for item in basetype.items:
                 if item.name not in items:
                     items[item.name] = item
     structtype = StructType(cls, items)
-    _struct_register[cls] = structtype
+    _STRUCT_REGISTER[cls] = structtype
     return structtype
 
 
@@ -76,10 +76,13 @@ def get_type(struct_class):
     """
     :rtype: StructType
     """
-    return _struct_register[struct_class]
+    return _STRUCT_REGISTER[struct_class]
 
 
 class StructType(object):
+    """
+One StructType is associated with each defined struct (subclass of Struct) and stored in the _STRUCT_REGISTER.
+    """
 
     def __init__(self, struct_class, item_dict):
         self.struct_class = struct_class
@@ -101,6 +104,9 @@ class StructType(object):
 
 
 class Item(object):
+    """
+Represents an item type of a struct, an attribute or property.
+    """
 
     def __init__(self, name, validation_function, is_attribute, default_value, dependencies):
         assert isinstance(name, six.string_types)
@@ -121,7 +127,7 @@ class Item(object):
     def get(self, struct):
         return getattr(struct, '_' + self.name)
 
-    def property(self):
+    def get_property(self):
         return self.unique_property
 
     def validate(self, struct):

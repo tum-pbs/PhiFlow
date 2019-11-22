@@ -26,9 +26,11 @@ def kwargs(locals, include_self=False, ignore=()):
 
 class Struct(object):
 
+    __struct__ = None
+
     def __init__(self, **kwargs):
         assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
-        for item in self.__class__.__struct__.items:
+        for item in self.__struct__.items:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
         self.__set__(**kwargs)
