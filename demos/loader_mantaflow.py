@@ -1,7 +1,7 @@
 # this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
 # from all simulations sim_XXXXXX in the given scene path
 
-import os  
+import os
 import sys
 
 import numpy as np
