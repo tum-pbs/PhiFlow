@@ -2,6 +2,8 @@
 
 disable = line-too-long,
           multiple-statements,
+          missing-final-newline,
+          trailing-whitespace,
           no-self-use,
           no-else-return,
           useless-object-inheritance,
@@ -10,6 +12,7 @@ disable = line-too-long,
           import-error,
           comparison-with-callable,  # PyLint does not understand @struct.prop()
           using-constant-test,  # PyLint does not understand @struct.prop()
-          trailing-whitespace,
+          missing-function-docstring,  # This is too much
+          missing-module-docstring,  # Only useful for generated documentation
 
 good-names = dt, tf, np, x, y, z
