@@ -1,7 +1,5 @@
 # example that runs a "manual" simple SMOKE sim either in numpy or TF
-
-import os  # has to be after phi.flow import for some damn reason
-from PIL import Image  # this example does not use the dash GUI, instead it creates PNG images via PIL
+# note, this example does not use the dash GUI, instead it creates PNG images via PIL
 
 USE_NUMPY = False  # main switch, TF (False) or numpy (True)?
 
@@ -16,6 +14,7 @@ DT = 1.0
 
 if USE_NUMPY:
     from phi.flow import *
+    import os
 else:
     from phi.tf.flow import *
 
@@ -26,26 +25,36 @@ SMOKE = Smoke(Domain([RES] * DIM, boundaries=OPEN), batch_size=BATCH_SIZE)
 if USE_NUMPY:
     DENSITY = SMOKE.density
     VELOCITY = SMOKE.velocity
+    # no phiflow session for pure numpy, write to specific directory instead
+    IMG_PATH = os.path.expanduser("~/phi/data/manual/numpy")
+    os.path.exists(IMG_PATH) or os.mkdir(IMG_PATH) # NT_DEBUG
 else:
-    SESSION = Session(None)
+    SESSION = Session( Scene.create("~/phi/data/manual") )
+    IMG_PATH = SESSION._scene.path
     # create TF placeholders with the correct shapes
     SMOKE_IN = SMOKE.copied_with(density=placeholder, velocity=placeholder)
     DENSITY = SMOKE_IN.density
     VELOCITY = SMOKE_IN.velocity
 
 
-_ = os.path.exists('images') or os.mkdir('images')
+# optional , write images
+try:
+    from PIL import Image  # for writing PNGs
+    
+    def save_img(a, scale, name, idx=0):
+        if len(a.shape) <= 4:
+            ima = np.reshape(a[idx], [a.shape[1], a.shape[2]])  # remove channel dimension , 2d
+        else:
+            ima = a[idx, :, a.shape[1] // 2, :, 0]  # 3d , middle z slice
+        ima = np.reshape(ima, [a.shape[1], a.shape[2]])  # remove channel dimension
+        ima = ima[::-1, :]  # flip along y
+        im = Image.fromarray(np.asarray(ima * scale, dtype='i'))
+        print("    Writing image '"+name+"'")
+        im.save(name)
 
-
-def save_img(arr, scale, name, idx=0):
-    if len(arr.shape) <= 4:
-        ima = np.reshape(arr[idx], [arr.shape[1], arr.shape[2]])  # remove channel DIMension , 2d
-    else:
-        ima = arr[idx, :, arr.shape[1] // 2, :, 0]  # 3d , middle z slice
-        ima = np.reshape(ima, [arr.shape[1], arr.shape[2]])  # remove channel DIMension
-    ima = ima[::-1, :]  # flip along y
-    img = Image.fromarray(np.asarray(ima * scale, dtype='i'))
-    img.save(name)
+except ImportError:
+	def save_img(a, scale, name, idx=0):
+		print("    (Skipped writing '"+name+"')")
 
 
 # main , step 1: run SMOKE sim (numpy), or only set up graph for TF
@@ -70,7 +79,7 @@ for i in range(STEPS if USE_NUMPY else GRAPH_STEPS):
 
     if USE_NUMPY:
         if i % GRAPH_STEPS == GRAPH_STEPS - 1:
-            save_img(DENSITY.data, 10000., "images/numpy_%04d.png" % i)
+            save_img(DENSITY.data, 10000., IMG_PATH+"/numpy_%04d.png" % i)
         print("Numpy step %d done, means %s %s" % (i, np.mean(DENSITY.data), np.mean(VELOCITY.staggered_tensor())))
     else:
         print("TF graph created for step %d " % i)
@@ -87,7 +96,7 @@ if not USE_NUMPY:
         SMOKE = SESSION.run(SMOKE_OUT, feed_dict={SMOKE_IN: SMOKE})  # Passes DENSITY and VELOCITY tensors
 
         # for TF, we only have RESults now after each GRAPH_STEPS iterations
-        save_img(SMOKE.density.data, 10000., "images/tf_%04d.png" % (GRAPH_STEPS * (i + 1) - 1))
+        save_img(SMOKE.density.data, 10000., IMG_PATH+"/tf_%04d.png" % (GRAPH_STEPS * (i + 1) - 1))
 
         print("Step SESSION.run %04d done, DENSITY shape %s, means %s %s" %
               (i, SMOKE.density.data.shape, np.mean(SMOKE.density.data), np.mean(SMOKE.velocity.staggered_tensor())))

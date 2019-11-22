@@ -1,11 +1,12 @@
 # this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
-# from all simulations sim_XXXXXX in the given directory
+# from all simulations sim_XXXXXX in the given scene path
 
-import os  # Has to be imported after flow. Why? No damn clue.
+import os  
 import sys
 
 import numpy as np
 
+# instead of full phi.flow or phi.tf.flow, import specific modules only
 from phi.data.dataset import Dataset
 from phi.data.reader import BatchReader
 from phi.data.stream import MantaScalar
