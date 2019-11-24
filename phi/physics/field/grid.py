@@ -51,7 +51,7 @@ class CenteredGrid(Field):
     @struct.attr()
     def data(self, data):
         assert len(math.staticshape(data)) == self.box.rank + 2,\
-            'Data has hape %s but box has rank %d' % (math.staticshape(data), self.box.rank)
+            'Data has shape %s but box has rank %d' % (math.staticshape(data), self.box.rank)
         return data
 
     def sample_at(self, points, collapse_dimensions=True):

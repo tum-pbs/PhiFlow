@@ -1,7 +1,7 @@
 # Staggered grids
 
 Staggered grids are a key component of the marker-and-cell (MAC) method. They sample the velocity components at the centers of the corresponding lower faces of grid cells. This makes them fundamentally different from regular arrays or tensors which are sampled at the cell centers.
-The main advantage of Staggered grids is that it makes computing the divergence straightforward and exact.
+A central advantage of Staggered grids is that it makes operations such as computing the divergence of a flow field straightforward and exact.
 
 ![image](./figures/Staggered.png)
 
@@ -26,15 +26,19 @@ from phi.tf.flow import *
 smoke = Smoke(Domain([64, 64]), velocity=placeholder)
 ```
 
-Staggered grids can also be created from centered fields:
+Staggered grids can also be created from centered fields. The first example below stores the spatial
+derivatives for each axis in the staggered grid, while the second call initializes a staggered grid with
+the size of the centered one, and multiples it with (2,1) for x and y components, respectively, to obtain
+a 2D vector quantity. Note that because the centered grid is interpolated at the faces of the staggered one,
+by default the values at the boundary will drop off:
 
 ```python
 from phi.flow import *
 
-centered_field = zeros([1, 64, 64, 1])
+centered_field = CenteredGrid("cent" , AABox([0,0],[1,1]), np.ones([1, 64, 64, 1]) )
 
 staggered_gradient = StaggeredGrid.gradient(centered_field)
-staggered_field_x = StaggeredGrid.from_scalar(centered_field, [1, 0])
+staggered_field_x = StaggeredGrid.from_scalar(centered_field, [1, 2])
 ```
 
 `StaggeredGrid`s can hold both TensorFlow `Tensor`'s and NumPy `ndarray`s.
@@ -66,7 +70,7 @@ from phi.physics.flow import *
 smoke = Smoke([64, 64])
 velocity = smoke.velocity
 
-staggered_values = velocity.staggered
+staggered_values = velocity.staggered_tensor()
 interpolated_at_centers = velocity.at_centers()
 interpolated_at_face_centers = velocity.at_faces(axis=0)
 ```
