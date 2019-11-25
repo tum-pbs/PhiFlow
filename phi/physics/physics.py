@@ -78,6 +78,9 @@ Similar to phi.math.shape(self) but respects unknown dimensions.
         """
         return self
 
+    def __repr__(self):
+        return '%s[name="%s"]' % (self.__class__.__name__, self.name)
+
 
 class StateDependency(object):
     # pylint: disable-msg = too-few-public-methods
