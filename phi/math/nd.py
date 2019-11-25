@@ -28,7 +28,7 @@ def spatial_rank(obj):
     Arrays are expected to be of the shape (batch size, spatial dimensions..., component size)
     The number of spatial dimensions is equal to the tensor rank minus two.
 
-    :param tensor_or_mac: a tensor or StaggeredGrid instance
+    :param obj: tensor or struct
     :return: the number of spatial dimensions as an integer
     """
     if struct.isstruct(obj):
@@ -152,14 +152,11 @@ def divergence(vel, dx=1, difference='central'):
     """
     Computes the spatial divergence of a vector channel from finite differences.
 
-    :param vel: tensor of shape (batch size, spatial dimensions..., spatial rank) or StaggeredGrid
+    :param vel: tensor of shape (batch size, spatial dimensions..., spatial rank)
     :param dx: distance between adjacent grid points (default 1)
     :param difference: type of difference, one of ('forward', 'central') (default 'forward')
     :return: tensor of shape (batch size, spatial dimensions..., 1)
     """
-    if isinstance(vel, StaggeredGrid):
-        return vel.divergence()
-
     assert difference in ('central', 'forward')
     rank = spatial_rank(vel)
     if difference == 'forward':
@@ -352,8 +349,6 @@ def fftfreq(resolution, mode='vector', dtype=np.float32):
 # Downsample / Upsample
 
 def downsample2x(tensor, interpolation='linear'):
-    if isinstance(tensor, StaggeredGrid):
-        return tensor.downsample2x(interpolation=interpolation)
     if struct.isstruct(tensor):
         return struct.map(lambda s: downsample2x(s, interpolation), tensor, recursive=False)
 
@@ -394,8 +389,6 @@ def upsample2x(tensor, interpolation='linear'):
 
 
 def spatial_sum(tensor):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     summed = math.sum(tensor, axis=math.dimrange(tensor))
     for i in math.dimrange(tensor):
         summed = math.expand_dims(summed, i)
