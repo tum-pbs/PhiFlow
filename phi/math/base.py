@@ -213,6 +213,19 @@ class Backend:
     def tile(self, value, multiples):
         raise NotImplementedError(self)
 
+    # With default implementation
+
+    def ndims(self, tensor):
+        return len(self.staticshape(tensor))
+
+    def size(self, array):
+        return self.prod(self.shape(array))
+
+    def batch_gather(self, tensor, batches):
+        if isinstance(batches, int):
+            batches = [batches]
+        return tensor[batches, ...]
+
 
 class DynamicBackend(Backend):
 

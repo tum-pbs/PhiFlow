@@ -4,56 +4,16 @@ from phi import struct
 from . import backend as math
 
 
-def shape(obj):
-    with struct.anytype():
-        return struct.map(lambda tensor: math.shape(tensor), obj)
-
-
-def batch_gather(struct, batches):
-    if isinstance(batches, int):
-        batches = [batches]
-    return struct.map(lambda tensor: tensor[batches, ...], struct)
-
-
-def ndims(obj):
-    if struct.isstruct(obj):
-        with struct.anytype(): return struct.map(ndims, obj, recursive=False)  # TODO this should be done by the Struct backend
-    return len(math.staticshape(obj))
-
-
-def size(obj):
-    if struct.isstruct(obj):
-        with struct.anytype(): return struct.map(size, obj, recursive=False)
-    return math.prod(math.shape(obj))
-
-
-
-def spatial_rank(obj):
-    """
-    Returns the number of spatial dimensions.
-    Arrays are expected to be of the shape (batch size, spatial dimensions..., component size)
-    The number of spatial dimensions is equal to the tensor rank minus two.
-
-    :param obj: tensor or struct
-    :return: the number of spatial dimensions as an integer
-    """
-    if struct.isstruct(obj):
-        with struct.anytype():
-            return struct.map(lambda o: spatial_rank(o), obj, recursive=False)  # TODO this should be done by the Struct backend
-    return len(math.staticshape(obj)) - 2
+def spatial_rank(tensor):
+    """ The spatial rank of a tensor is ndims - 2. """
+    return math.ndims(tensor) - 2
 
 
 def spatial_dimensions(obj):
-    if struct.isstruct(obj):
-        with struct.anytype():
-            return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(1, len(math.staticshape(obj)) - 1))
 
 
 def axes(obj):
-    if struct.isstruct(obj):
-        with struct.anytype():
-            return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(len(math.staticshape(obj)) - 2))
 
 
