@@ -39,15 +39,7 @@ class Domain(struct.Struct):
 
     @struct.prop(dependencies='resolution')
     def box(self, box):
-        if box is None:
-            return AABox(0, self.resolution)
-        elif isinstance(box, int):
-            size = [box] * (1 if len(math.staticshape(self.resolution)) == 0 else len(self.resolution))
-            return AABox(0, size)
-        elif isinstance(box, AABox):
-            return box
-        else:
-            return AABox(box)
+        return AABox.to_box(box, resolution_hint=self.resolution)
 
     @struct.prop(default=OPEN)
     def boundaries(self, boundaries):
@@ -98,13 +90,13 @@ class Domain(struct.Struct):
 
     def centered_shape(self, components=1, batch_size=1, name=None):
         with struct.anytype():
-            return CenteredGrid(name, self.box, data=tensor_shape(batch_size, self.resolution, components), batch_size=batch_size)
+            return CenteredGrid(name, tensor_shape(batch_size, self.resolution, components), box=self.box, batch_size=batch_size)
 
     def staggered_shape(self, batch_size=1, name=None):
         with struct.anytype():
             shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
-            grids = [CenteredGrid(None, None, data=shapes[i], batch_size=batch_size) for i in range(self.rank)]
-            staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
+            grids = [CenteredGrid(None, shapes[i], batch_size=batch_size) for i in range(self.rank)]
+            staggered = StaggeredGrid(name, None, self.resolution, self.box, batch_size=batch_size)
             data = complete_staggered_properties(grids, staggered)
             return staggered.copied_with(data=data)
 
@@ -124,7 +116,7 @@ class Domain(struct.Struct):
         elif isinstance(data, (int, float)):
             grid = math.zeros(shape, dtype=dtype) + data
         else:
-            grid = CenteredGrid(name, self.box, data)
+            grid = CenteredGrid(name, data, box=self.box)
         if extrapolation is not None:
             grid = grid.copied_with(extrapolation=extrapolation)
         return grid
@@ -144,9 +136,9 @@ class Domain(struct.Struct):
         else:
             try:
                 tensors = unstack_staggered_tensor(data)
-                grid = StaggeredGrid.from_tensors(name, self.box, tensors, batch_size=None)
+                grid = StaggeredGrid.from_tensors(name, tensors, self.box, batch_size=None)
             except:
-                grid = StaggeredGrid(name, self.box, data, self.resolution)
+                grid = StaggeredGrid(name, data, self.resolution, self.box)
         for centeredgrid in grid.data:
             centeredgrid._extrapolation = extrapolation
         return grid

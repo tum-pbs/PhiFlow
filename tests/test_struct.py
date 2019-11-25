@@ -46,7 +46,7 @@ class TestStruct(TestCase):
                     self.assertIsInstance(name, str)
 
     def test_paths(self):
-        obj = {'Vels': [CenteredGrid('v', box[0:1], numpy.zeros([1, 4, 1]))]}
+        obj = {'Vels': [CenteredGrid('v', numpy.zeros([1, 4, 1]), box[0:1])]}
         with struct.anytype():
             names = struct.flatten(struct.map(lambda attr: attr.path(), obj, trace=True))
         self.assertEqual(names[0], 'Vels.0.data')
@@ -66,7 +66,7 @@ class TestStruct(TestCase):
 
     def test_zip(self):
         with struct.anytype():
-            a = CenteredGrid('a', None, 'a')
-            b = CenteredGrid('b', None, 'b')
+            a = CenteredGrid('a', 'a')
+            b = CenteredGrid('b', 'b')
             stacked = struct.map(lambda *x: x, struct.zip([a, b]))
             numpy.testing.assert_equal(stacked.data, ('a', 'b'))

@@ -18,9 +18,9 @@ class TestInitializers(TestCase):
         self.assertEqual(math.randn([1, 4]).dtype, np.float32)
 
     def test_struct_initializers(self):
-        bounds = box[0:1]
+        bounds = box[0:1]  # outside anytype
         with struct.anytype():
-            obj = ([4], CenteredGrid('', bounds, [1, 4, 1]), ([9], [8, 2]))
+            obj = ([4], CenteredGrid('', [1, 4, 1], bounds), ([9], [8, 2]))
         z = math.zeros(obj)
         self.assertIsInstance(z, tuple)
         np.testing.assert_equal(z[0], np.zeros([4]))

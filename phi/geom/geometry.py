@@ -40,10 +40,10 @@ class AABox(Geometry):
 
     @property
     def rank(self):
-        if len(self.size.shape) > 0:
+        if math.ndims(self.size) > 0:
             return self.size.shape[-1]
         else:
-            return 0
+            return None
 
     def global_to_local(self, global_position):
         size, lower = math.batch_align([self.size, self.lower], 1, global_position)
@@ -67,6 +67,24 @@ class AABox(Geometry):
 
     def __repr__(self):
         return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
+
+    @staticmethod
+    def to_box(value, resolution_hint=None):
+        if value is None:
+            result = AABox(0, resolution_hint)
+        elif isinstance(value, AABox):
+            result = value
+        elif isinstance(value, int):
+            if resolution_hint is None:
+                result = AABox(0, value)
+            else:
+                size = [value] * (1 if math.ndims(resolution_hint) == 0 else len(resolution_hint))
+                result = AABox(0, size)
+        else:
+            result = AABox(box)
+        if resolution_hint is not None:
+            assert_same_rank(len(resolution_hint), result, 'AABox rank does not match resolution.')
+        return result
 
 
 class AABoxGenerator(object):
@@ -163,3 +181,20 @@ class _NoGeometry(Geometry):
 
 
 NO_GEOMETRY = _NoGeometry()
+
+
+def assert_same_rank(rank1, rank2, error_message):
+    rank1, rank2 = _rank(rank1), _rank(rank2)
+    if rank1 is not None and rank2 is not None:
+        assert rank1 == rank2, 'Ranks do not match: %d and %d. %s' % (rank1, rank2, error_message)
+
+
+def _rank(rank):
+    if rank is None:
+        return None
+    if isinstance(rank, int):
+        return rank
+    if isinstance(rank, Geometry):
+        return rank.rank
+    else:
+        return math.spatial_rank(rank)

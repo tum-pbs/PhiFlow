@@ -61,3 +61,10 @@ class TestSmoke(TestCase):
         # world.add(ConstantDensity(box[0:2, 6:10], 1.0))
         world.add(Fan(Sphere((10, 8), 5), [-1, 0]))
         struct.properties_dict(world.state)
+
+    def test_new_grids(self):
+        smoke = Smoke(Domain([16, 16]), batch_size=3)
+        centered_ones = smoke.centered_grid('f', 1)
+        numpy.testing.assert_equal(centered_ones.data, 1)
+        staggered_ones = smoke.staggered_grid('v', 1)
+        numpy.testing.assert_equal(staggered_ones.data[0].data, 1)
