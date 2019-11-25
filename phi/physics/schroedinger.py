@@ -152,14 +152,11 @@ class SinPotential(AnalyticField):
         return dtype
 
     def sample_at(self, x, collapse_dimensions=True):
-        phase_offset = self.phase_offset  # math.expand_dims(self.phase_offset, -1, self.rank + 1)
-        if math.staticshape(phase_offset)[-1] != 1:
-            phase_offset = math.expand_dims(phase_offset, -1)
-        phase_offset = math.batch_align(phase_offset, 1, x)
-        k = self.k
+        phase_offset = math.batch_align_scalar(self.phase_offset, 0, x)
+        k = math.batch_align(self.k, 1, x)
+        data = math.batch_align_scalar(self.data, 0, x)
         spatial_phase = math.sum(k * x, -1, keepdims=True)
-        wave = math.sin(spatial_phase + phase_offset)
-        wave *= self.data
+        wave = math.sin(spatial_phase + phase_offset) * data
         return math.cast(wave, self.dtype)
 
     def __repr__(self):

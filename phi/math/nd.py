@@ -65,6 +65,13 @@ def batch_align(tensor, innate_dims, target):
     return math.expand_dims(tensor, axis=-innate_dims-1, number=target_ndims - ndims)
 
 
+def batch_align_scalar(tensor, innate_spatial_dims, target):
+    if math.staticshape(tensor)[-1] != 1:
+        tensor = math.expand_dims(tensor, -1)
+    result = batch_align(tensor, innate_spatial_dims+1, target)
+    return result
+
+
 def blur(field, radius, cutoff=None, kernel="1/1+x"):
     if cutoff is None:
         cutoff = min(int(round(radius * 3)), *field.shape[1:-1])
