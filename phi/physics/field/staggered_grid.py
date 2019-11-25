@@ -37,7 +37,7 @@ def complete_staggered_properties(components, staggeredgrid):
             box = AABox(staggeredgrid.box.lower - unit / 2, staggeredgrid.box.upper + unit / 2)
         flags = component.flags
         if flags is None:
-            flags = propagate_flags_children(staggeredgrid.flags, math.spatial_rank(component), 1)
+            flags = propagate_flags_children(staggeredgrid.flags, component.rank, 1)
         batch_size = component._batch_size if component._batch_size is not None else staggeredgrid._batch_size
         data.append(CenteredGrid(name, component.data, box, flags=flags, batch_size=batch_size))
     return data

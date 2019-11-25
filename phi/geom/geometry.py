@@ -184,9 +184,9 @@ NO_GEOMETRY = _NoGeometry()
 
 
 def assert_same_rank(rank1, rank2, error_message):
-    rank1, rank2 = _rank(rank1), _rank(rank2)
     if rank1 is not None and rank2 is not None:
-        assert rank1 == rank2, 'Ranks do not match: %d and %d. %s' % (rank1, rank2, error_message)
+        rank1_, rank2_ = _rank(rank1), _rank(rank2)
+        assert rank1_ == rank2_, 'Ranks do not match: %d and %d. %s' % (rank1_, rank2_, error_message)
 
 
 def _rank(rank):

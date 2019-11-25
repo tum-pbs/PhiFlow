@@ -1,6 +1,7 @@
 import numpy as np
 from phi import struct, math
 from phi.geom import AABox
+from phi.geom.geometry import assert_same_rank
 from . import State
 from .material import Material, OPEN
 from .field import CenteredGrid, StaggeredGrid, complete_staggered_properties, Field, DIVERGENCE_FREE, \
@@ -108,7 +109,7 @@ class Domain(struct.Struct):
             except TypeError:
                 data = data(shape)
         if isinstance(data, Field):
-            assert data.rank == self.rank
+            assert_same_rank(data.rank, self.rank, 'data does not match Domain')
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
             if name is not None:
                 data = data.copied_with(name=name)

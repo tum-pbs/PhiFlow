@@ -87,8 +87,8 @@ StepPotential = lambda geometry, height: FieldEffect(GeometryMask('potential', [
 @struct.definition()
 class WavePacket(AnalyticField):
 
-    def __init__(self, center, size, wave_vector, name='wave_packet', **kwargs):
-        rank = math.shape(center)[-1]
+    def __init__(self, center, size, wave_vector, name='wave_packet', data=1.0, **kwargs):
+        rank = math.staticshape(center)[-1]
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
@@ -96,11 +96,6 @@ class WavePacket(AnalyticField):
 
     @struct.prop()
     def size(self, size): return size
-
-    @struct.attr()
-    def data(self, data):
-        assert data is None
-        return None
 
     @struct.prop()
     def wave_vector(self, wave_vector):
@@ -112,13 +107,13 @@ class WavePacket(AnalyticField):
         envelope = math.exp(-0.5 * math.sum((points - self.center) ** 2, axis=-1, keepdims=True) / self.size ** 2)
         envelope = math.to_float(envelope)
         wave = math.exp(1j * math.to_float(math.expand_dims(np.dot(points, self.wave_vector), -1))) * envelope
-        return wave
+        return wave * self.data
 
 
 @struct.definition()
 class HarmonicPotential(AnalyticField):
 
-    def __init__(self, center, unit_distance, maximum_value=1.0, data=1, name='harmonic', **kwargs):
+    def __init__(self, center, unit_distance, maximum_value=1.0, data=1.0, name='harmonic', **kwargs):
         rank = math.shape(center)[-1]
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
@@ -142,7 +137,7 @@ class HarmonicPotential(AnalyticField):
 @struct.definition()
 class SinPotential(AnalyticField):
 
-    def __init__(self, k, phase_offset=0, data=1, name='harmonic', dtype=np.float32, **kwargs):
+    def __init__(self, k, phase_offset=0, data=1.0, name='harmonic', dtype=np.float32, **kwargs):
         rank = math.size(k)
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
@@ -164,7 +159,8 @@ class SinPotential(AnalyticField):
         k = self.k
         spatial_phase = math.sum(k * x, -1, keepdims=True)
         wave = math.sin(spatial_phase + phase_offset)
-        return math.cast(wave, self.dtype) * self.data
+        wave *= self.data
+        return math.cast(wave, self.dtype)
 
     def __repr__(self):
         return 'Sin(x*%s)' % self.k
