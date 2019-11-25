@@ -17,9 +17,15 @@ def batch_gather(struct, batches):
 
 def ndims(obj):
     if struct.isstruct(obj):
-        with struct.anytype():
-            return struct.map(lambda o: spatial_rank(o), obj, recursive=False)  # TODO this should be done by the Struct backend
+        with struct.anytype(): return struct.map(ndims, obj, recursive=False)  # TODO this should be done by the Struct backend
     return len(math.staticshape(obj))
+
+
+def size(obj):
+    if struct.isstruct(obj):
+        with struct.anytype(): return struct.map(size, obj, recursive=False)
+    return math.prod(math.shape(obj))
+
 
 
 def spatial_rank(obj):

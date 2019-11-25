@@ -42,7 +42,8 @@ class TFBackend(Backend):
         return tf.concat(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        assert mode in ('constant', 'symmetric', 'wrap', 'reflect')
+        mode = mode.lower()
+        assert mode in ('constant', 'symmetric', 'wrap', 'reflect'), mode
         if np.sum(np.array(pad_width)) == 0:
             return value
         if mode == 'wrap':
