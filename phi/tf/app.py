@@ -74,6 +74,7 @@ class TFApp(App):
                  model_scope_name='model',
                  base_dir='~/phi/model/',
                  stride=None,
+                 force_custom_stride=False,
                  **kwargs):
         App.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
@@ -87,6 +88,7 @@ class TFApp(App):
         self.scalar_values = {}
         self.set_data(None, None)
         self.custom_stride = stride
+        self.force_custom_stride = force_custom_stride
 
     def prepare(self):
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
@@ -112,6 +114,8 @@ class TFApp(App):
             self.validation_step()
         if self.custom_stride is not None:
             self.sequence_stride = min(self.custom_stride, self.sequence_stride)
+            if self.force_custom_stride:
+                self.sequence_stride = self.custom_stride
 
         return self
 
