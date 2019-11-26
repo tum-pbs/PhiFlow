@@ -13,7 +13,7 @@ class QuantumWave(DomainState):
     def __init__(self, domain, amplitude=1, mass=0.1, tags=('qwave',), **kwargs):
         DomainState.__init__(self, **struct.kwargs(locals()))
 
-    @struct.attr(default=1)
+    @struct.attr(default=1, dependencies=DomainState.domain)
     def amplitude(self, amplitude):
         return self.centered_grid('amplitude', amplitude, dtype=np.complex64)
 

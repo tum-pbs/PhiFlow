@@ -14,7 +14,7 @@ class Heat(DomainState):
     def default_physics(self):
         return HeatPhysics()
 
-    @struct.attr(default=0.0)
+    @struct.attr(default=0.0, dependencies=DomainState.domain)
     def temperature(self, temperature):
         return self.centered_grid('temperature', temperature)
 
