@@ -1,7 +1,14 @@
 # example that runs a "manual" simple SMOKE sim either in numpy or TF
 # note, this example does not use the dash GUI, instead it creates PNG images via PIL
 
-USE_NUMPY = False  # main switch, TF (False) or numpy (True)?
+import sys
+if 'tf' in sys.argv:
+    from phi.tf.flow import *  # Use TensorFlow
+    MODE = 'TensorFlow'
+else:
+    from phi.flow import *  # Use NumPy
+    import os
+    MODE = 'NumPy'
 
 DIM = 2  # 2d / 3d
 BATCH_SIZE = 1  # process multiple independent simulations at once
@@ -11,16 +18,10 @@ GRAPH_STEPS = 3  # how many STEPS to unroll in TF graph
 RES = 32
 DT = 0.6
 
-if USE_NUMPY:
-    from phi.flow import *
-    import os
-else:
-    from phi.tf.flow import *
-
 # by default, creates a numpy state, i.e. "SMOKE.density.data" is a numpy array
 SMOKE = Smoke(Domain([RES] * DIM, boundaries=OPEN), batch_size=BATCH_SIZE)
 
-if USE_NUMPY:
+if MODE=='NumPy':
     DENSITY = SMOKE.density
     VELOCITY = SMOKE.velocity
     # no phiflow session for pure numpy, write to specific directory instead
@@ -61,7 +62,7 @@ except ImportError:
 
 # main , step 1: run SMOKE sim (numpy), or only set up graph for TF
 
-for i in range(STEPS if USE_NUMPY else GRAPH_STEPS):
+for i in range(STEPS if (MODE=='NumPy') else GRAPH_STEPS):
     # simulation step; note that the core is only 3 lines for the actual simulation
     # the RESt is setting up the inflow, and debug info afterwards
 
@@ -80,7 +81,7 @@ for i in range(STEPS if USE_NUMPY else GRAPH_STEPS):
     if i == 0:
         print("Density type: %s" % type(DENSITY.data))  # here we either have np array of tf tensor
 
-    if USE_NUMPY:
+    if MODE=='NumPy':
         if i % GRAPH_STEPS == GRAPH_STEPS - 1 and SAVE_IMAGES:
             save_img(DENSITY.data, 10000., IMG_PATH + "/numpy_%04d.png" % i)
         print("Numpy step %d done, means %s %s" % (i, np.mean(DENSITY.data), np.mean(VELOCITY.staggered_tensor())))
@@ -89,12 +90,12 @@ for i in range(STEPS if USE_NUMPY else GRAPH_STEPS):
 
 # main , step 2: do actual sim run (TF only)
 
-if not USE_NUMPY:
+if MODE=='TensorFlow':
     # for TF, all the work still needs to be done, feed empty state and start simulation
     SMOKE_OUT = SMOKE.copied_with(density=DENSITY, velocity=VELOCITY, age=SMOKE.age + DT)
 
     # run session
-    for i in range(1 if USE_NUMPY else (STEPS // GRAPH_STEPS)):
+    for i in range(STEPS // GRAPH_STEPS):
         SMOKE = SESSION.run(SMOKE_OUT, feed_dict={SMOKE_IN: SMOKE})  # Passes DENSITY and VELOCITY tensors
 
         # for TF, we only have RESults now after each GRAPH_STEPS iterations
