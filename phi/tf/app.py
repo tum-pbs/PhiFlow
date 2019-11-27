@@ -193,7 +193,7 @@ class TFApp(App):
         self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
         if create_checkpoint:
             self.save_model()
-        self.info('Validation Done (%d).' % self.steps)
+        self.info('Parameters: %d. Validation Done (%d).' % (self.custom_properties()['parameter_count'], self.steps) )
 
     def base_feed_dict(self):
         return {}
