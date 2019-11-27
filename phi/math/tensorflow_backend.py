@@ -23,6 +23,9 @@ class TFBackend(Backend):
             if isinstance(value, tf.SparseTensor): return True
         return False
 
+    def as_tensor(self, x):
+        return tf.convert_to_tensor(x)
+
     def divide_no_nan(self, x, y):
         return tf.div_no_nan(x, y)
 
