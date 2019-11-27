@@ -1,6 +1,9 @@
 from unittest import TestCase
 
-from phi.flow import *
+from phi.geom import Sphere, box
+from phi.physics.field.effect import Inflow
+from phi.physics.obstacle import Obstacle, GeometryMovement
+from phi.physics.world import World
 
 
 def geometry_at(time):

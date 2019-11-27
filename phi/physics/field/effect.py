@@ -7,11 +7,12 @@ ADD = 'add'
 FIX = 'fix'
 
 
+@struct.definition()
 class FieldEffect(State):
 
     def __init__(self, field, targets, mode=GROW, tags=('effect',), **kwargs):
         tags = tuple(tags) + tuple('%s_effect' % target for target in targets)
-        State.__init__(**struct.kwargs(locals()))
+        State.__init__(self, **struct.kwargs(locals()))
 
     @struct.attr()
     def field(self, field):
@@ -61,11 +62,12 @@ ColdSource = lambda geometry, rate:\
     FieldEffect(GeometryMask('heat-source', [geometry], -rate), ('temperature',), GROW)
 
 
+@struct.definition()
 class Gravity(State):
 
-    def __init__(self, gravity=-9.81, **kwargs):
+    def __init__(self, gravity=-9.81, name='gravity', **kwargs):
         tags = ['gravity']
-        State.__init__(**struct.kwargs(locals()))
+        State.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def gravity(self, gravity):
@@ -75,7 +77,7 @@ class Gravity(State):
     def __add__(self, other):
         if other is 0:
             return self
-        assert isinstance(other, Gravity)
+        assert isinstance(other, Gravity), type(other)
         if self._batch_size is not None:
             assert self._batch_size == other._batch_size
         # Add gravity

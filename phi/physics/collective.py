@@ -1,69 +1,73 @@
 import six
-from .physics import State, struct, TrajectoryKey, Physics
+from .physics import State, struct, Physics
+from phi.struct.context import skip_validate
 
 
-class CollectiveState(State):
+@struct.definition()
+class CollectiveState(struct.Struct):
 
-    def __init__(self, states=(), **kwargs):
-        State.__init__(**struct.kwargs(locals()))
+    def __init__(self, states=None, **kwargs):
+        struct.Struct.__init__(self, **struct.kwargs(locals()))
 
     @struct.attr()
     def states(self, states):
-        if isinstance(states, tuple): return states
-        if states is None: return ()
-        return tuple(states)
-
-    def __add__(self, other):
-        if isinstance(other, CollectiveState):
-            return CollectiveState(self.states + other.states)
-        if isinstance(other, State):
-            return CollectiveState(self.states + (other,))
-        if isinstance(other, (tuple, list)):
-            return CollectiveState(self.states + tuple(other))
-        raise ValueError("Illegal operation: CollectiveState + %s" % type(other))
-
-    __radd__ = __add__
+        if states is None:
+            return {}
+        if isinstance(states, (tuple, list)):
+            return {state.name: state for state in states}
+        assert isinstance(states, dict)
+        return states.copy()
 
     def all_with_tag(self, tag):
-        return [s for s in self.states if tag in s.tags]
+        return [s for s in self.states.values() if tag in s.tags]
 
     def all_instances(self, cls):
-        return [s for s in self.states if isinstance(s, cls)]
+        return [s for s in self.states.values() if isinstance(s, cls)]
 
-    def state_replaced(self, old_state, new_state):
-        new_states = tuple(map(lambda s: new_state if s == old_state else s, self.states))
+    def state_added(self, state):
+        assert state.name not in self.states,\
+            'A state with name "%s" is already present. Use state_replaced() to replace it.' % state.name
+        new_states = self.states.copy()
+        new_states[state.name] = state
         return self.copied_with(states=new_states)
 
-    def with_replacement(self, new_state):
-        new_states = tuple(map(lambda s: new_state if s.trajectorykey == new_state.trajectorykey else s, self._states))
+    def state_replaced(self, new_state):
+        assert new_state.name in self.states, 'No state found with name "%s"' % new_state.name
+        new_states = {state.name: (state if state.name != new_state.name else new_state) for state in self.states.values()}
         return self.copied_with(states=new_states)
 
-    def trajectory_removed(self, trajectorykey):
-        filtered_states = tuple(filter(lambda s: s.trajectorykey != trajectorykey, self.states))
-        return self.copied_with(states=filtered_states)
+    def state_removed(self, state):
+        name = state if isinstance(state, six.string_types) else state.name
+        new_states = self.states.copy()
+        del new_states[name]
+        return self.copied_with(states=new_states)
+
+    def find(self, name):
+        return self.states[name]
 
     def __getitem__(self, item):
         if isinstance(item, State):
-            return self[item.trajectorykey]
-        if isinstance(item, TrajectoryKey):
-            states = list(filter(lambda s: s.trajectorykey == item, self.states))
-            assert len(states) == 1, 'CollectiveState[%s] returned %d states. All contents: %s' % (item, len(states), self.states)
-            return states[0]
+            return self[item.name]
         if isinstance(item, six.string_types):
-            return self.all_with_tag(item)
-        if isinstance(item, (tuple, list)):
-            return [self[i] for i in item]
+            return self.find(item)
+        if struct.isstruct(item):
+            with struct.anytype():
+                return struct.map(lambda x: self[x], item)
         try:
-            return self[item.trajectorykey]
+            return self[item.name]
         except AttributeError as e:
             pass
         raise ValueError('Illegal argument: %s' % item)
 
+    def __getattr__(self, item):
+        if item.startswith('_'):
+            return struct.Struct.__getattribute__(self, item)
+        if item in self.states:
+            return self.states[item]
+        return struct.Struct.__getattribute__(self, item)
+
     def default_physics(self):
-        phys = CollectivePhysics()
-        for state in self.states:
-            phys.add(state.trajectorykey, state.default_physics())
-        return phys
+        return CollectivePhysics()
 
     def __repr__(self):
         return '[' + ', '.join((str(s) for s in self.states)) + ']'
@@ -73,37 +77,66 @@ class CollectiveState(State):
 
     def __contains__(self, item):
         if isinstance(item, State):
+            return item.name in self.states
+        if isinstance(item, six.string_types):
             return item in self.states
-        if isinstance(item, TrajectoryKey):
-            for state in self.states:
-                if state.trajectorykey == item:
-                    return True
-            return False
         raise ValueError('Illegal type: %s' % type(item))
+
+    def _set_items(self, **kwargs):
+        for name, value in kwargs.items():
+            if name == 'states':
+                item = self.__struct__.find(name)
+                item.set(self, value)
+            else:
+                self._states = self.states.copy()
+                if not skip_validate():
+                    assert isinstance(value, State)
+                    assert value.name == name, 'Inconsisten names: trying to assign state "%s" to name "%s"' % (value.name, name)
+                    assert 'states' not in kwargs
+                self.states[name] = value
+        return self
+
+    def __attributes__(self, include_properties=False):
+        return self.states.copy()
+
+    def __properties__(self):
+        return {}
+
+    def __properties_dict__(self):
+        result = {}
+        for state in self.states.values():
+            result[state.name] = struct.properties_dict(state)
+        result['type'] = str(self.__class__.__name__)
+        result['module'] = str(self.__class__.__module__)
+        return result
+
+    @property
+    def shape(self):
+        return struct.map(lambda state: state.shape, self, recursive=False)
 
 
 class CollectivePhysics(Physics):
 
     def __init__(self):
         Physics.__init__(self, {})
-        self.physics = {}  # map from TrajectoryKey to Physics
+        self.physics = {}  # map from name to Physics
 
     def step(self, collectivestate, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
         if len(collectivestate) == 0:
-            return CollectiveState(age=collectivestate.age + dt)
-        unhandled_states = list(collectivestate.states)
-        next_states = []
-        partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
+            return collectivestate
+        unhandled_states = list(collectivestate.states.values())
+        next_states = {}
+        partial_next_collectivestate = CollectiveState(next_states)
 
         for sweep in range(len(collectivestate)):
             for state in tuple(unhandled_states):
                 physics = self.for_(state)
                 if self._all_dependencies_fulfilled(physics.blocking_dependencies, collectivestate, partial_next_collectivestate):
                     next_state = self.substep(state, collectivestate, dt, partial_next_collectivestate=partial_next_collectivestate)
-                    next_states.append(next_state)
+                    next_states[next_state.name] = next_state
                     unhandled_states.remove(state)
-            partial_next_collectivestate = CollectiveState(next_states, age=collectivestate.age + dt)
+            partial_next_collectivestate = CollectiveState(next_states)
             if len(unhandled_states) == 0:
                 ordered_states = [partial_next_collectivestate[state] for state in collectivestate.states]
                 return partial_next_collectivestate.copied_with(states=ordered_states)
@@ -129,8 +162,8 @@ class CollectivePhysics(Physics):
 
     def _gather_dependencies(self, dependencies, collectivestate, result_dict):
         for statedependency in dependencies:
-            if statedependency.trajectorykey is not None:
-                matching_states = collectivestate[statedependency.trajectorykey]
+            if statedependency.state_name is not None:
+                matching_states = collectivestate.find(statedependency.state_name)
             else:
                 matching_states = collectivestate.all_with_tag(statedependency.tag)
             if statedependency.single_state:
@@ -146,19 +179,19 @@ class CollectivePhysics(Physics):
         for name, states in state_dict.items():
             if isinstance(states, tuple):
                 for state in states:
-                    if state.trajectorykey not in computed_states:
+                    if state.name not in computed_states:
                         return False
             else:  # single state
-                if states.trajectorykey not in computed_states:
+                if states.name not in computed_states:
                     return False
         return True
 
     def for_(self, state):
-        return self.physics[state.trajectorykey] if state.trajectorykey in self.physics else state.default_physics()
+        return self.physics[state.name] if state.name in self.physics else state.default_physics()
 
-    def add(self, trajectorykey, physics):
-        self.physics[trajectorykey] = physics
+    def add(self, name, physics):
+        self.physics[name] = physics
 
-    def remove(self, trajectorykey):
-        if trajectorykey in self.physics:
-            del self.physics[trajectorykey]
+    def remove(self, name):
+        if name in self.physics:
+            del self.physics[name]

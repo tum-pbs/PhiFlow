@@ -2,7 +2,10 @@ from __future__ import print_function
 
 import six
 
-from .util import *
+import numpy as np
+import tensorflow as tf
+
+from .util import istensor
 from .session import Session
 from .world import tf_bake_graph
 import phi.app.app as nontf
@@ -71,6 +74,7 @@ class TFApp(App):
                  model_scope_name='model',
                  base_dir='~/phi/model/',
                  stride=None,
+                 force_custom_stride=False,
                  **kwargs):
         App.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
@@ -84,6 +88,7 @@ class TFApp(App):
         self.scalar_values = {}
         self.set_data(None, None)
         self.custom_stride = stride
+        self.force_custom_stride = force_custom_stride
 
     def prepare(self):
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
@@ -109,6 +114,8 @@ class TFApp(App):
             self.validation_step()
         if self.custom_stride is not None:
             self.sequence_stride = min(self.custom_stride, self.sequence_stride)
+            if self.force_custom_stride:
+                self.sequence_stride = self.custom_stride
 
         return self
 
@@ -186,7 +193,7 @@ class TFApp(App):
         self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
         if create_checkpoint:
             self.save_model()
-        self.info('Validation Done (%d).' % self.steps)
+        self.info('Parameters: %d. Validation Done (%d).' % (self.custom_properties()['parameter_count'], self.steps) )
 
     def base_feed_dict(self):
         return {}

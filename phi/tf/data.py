@@ -1,12 +1,14 @@
 from phi.data.fluidformat import _transform_for_writing
-from .util import *
+from .util import placeholder
 from phi.physics.physics import State
 from phi.physics.world import StateProxy
+from phi import struct
 
 
 def load_state(state):
     if isinstance(state, StateProxy):
         state = state.state
+    assert isinstance(state, State)
     state = _transform_for_writing(state)
     names = struct.names(state)
     with struct.anytype():

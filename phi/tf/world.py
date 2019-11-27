@@ -1,25 +1,26 @@
 from phi.physics.world import World
 from phi.physics import Physics
 from phi.physics.collective import CollectivePhysics
+from phi import math
 from .util import placeholder
 
 
 def tf_bake_graph(world, session):
-    state_in = placeholder(world.state.shape)
+    state_in = placeholder(world.state.shape, dtype=math.dtype(world.state))
     dt = placeholder(())
     state_out = world.physics.step(state_in, dt=dt)
     world.physics = BakedWorldPhysics(world.physics, session, state_in, state_out, dt)
-    for sysstate in world.state.states:
-        sysstate_in = state_in[sysstate.trajectorykey]
-        sysstate_out = state_out[sysstate.trajectorykey]
+    for name, sysstate in world.state.states.items():
+        sysstate_in = state_in[name]
+        sysstate_out = state_out[name]
         baked_physics = BakedPhysics(session, sysstate_in, sysstate_out, dt)
-        world.physics.add(sysstate.trajectorykey, baked_physics)
+        world.physics.add(name, baked_physics)
 
 
 def tf_bake_subgraph(tracker, session):
     tfworld = World()
     tfworld.add(tracker.state)
-    state_in = placeholder(tracker.state.shape)
+    state_in = placeholder(tracker.state.shape, dtype=math.dtype(tracker.state))
     dt = placeholder(())
     state_out = tracker.world.physics.substep(state_in, tracker.world.state, dt)
     tracker.physics = BakedPhysics(session, state_in, state_out, dt)

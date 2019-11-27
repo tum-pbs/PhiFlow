@@ -1,63 +1,62 @@
+# pylint: disable-msg = redefined-outer-name  # kwargs should be accessed as struct.kwargs
 from copy import copy
+import json
+import six
+
 import numpy as np
-import six, inspect
+
 from .context import skip_validate
-from . import collection, typedef
+from . import structdef
 
 
-def attr(default=None, dims=None):  # , stack_behavior=collection.object
-    def decorator(validate):
-        item = typedef.Item(validate.__name__, validate, True, default, dims)
-        typedef.register_item_by_function(validate, item)
-        return item.property()
-    return decorator
-
-
-def prop(default=None, dims=None):  # , stack_behavior=collection.first
-    def decorator(validate):
-        item = typedef.Item(validate.__name__, validate, False, default, dims)
-        typedef.register_item_by_function(validate, item)
-        return item.property()
-    return decorator
-
-
-def kwargs(locals, include_self=True, ignore=()):
+def kwargs(locals, include_self=False, ignore=()):
+    # pylint: disable-msg = redefined-builtin
     assert 'kwargs' in locals
     locals = locals.copy()
-    kwargs = locals['kwargs']
+    kwargs_in_locals = locals['kwargs']
     del locals['kwargs']
-    locals.update(kwargs)
+    locals.update(kwargs_in_locals)
     if not include_self and 'self' in locals:
         del locals['self']
     if isinstance(ignore, six.string_types):
         ignore = [ignore]
-    for ig in ignore:
-        if ig in locals:
-            del locals[ig]
+    for ignored_name in ignore:
+        if ignored_name in locals:
+            del locals[ignored_name]
     return locals
 
 
 class Struct(object):
+    """
+Base class for all custom structs.
+To implement a custom struct, extend this class and add the decorator @struct.definition().
+
+See the struct documentation at documentation/Structs.ipynb
+    """
+
+    __struct__ = None
 
     def __init__(self, **kwargs):
-        assert isinstance(self, Struct), 'Struct.__init__() called on %s' % type(self)
-        self.__struct__ = typedef.get_type(self.__class__)
+        assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
         for item in self.__struct__.items:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
-        self.__set__(**kwargs)
+        self._set_items(**kwargs)
         self.__validate__()
 
     def copied_with(self, **kwargs):
         duplicate = copy(self)
-        duplicate.__set__(**kwargs)
+        duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
         if not skip_validate():  # double-check since __validate__ could be overridden
             duplicate.__validate__()
         return duplicate
 
-    def __set__(self, **kwargs):
+    def _set_items(self, **kwargs):
         for name, value in kwargs.items():
-            item = self.__struct__.find(name)
+            try:
+                item = self.__struct__.find(name)
+            except (KeyError, TypeError):
+                raise TypeError('Struct %s has no property %s' % (self, name))
             item.set(self, value)
         return self
 
@@ -77,15 +76,15 @@ class Struct(object):
     def __properties_dict__(self):
         result = {item.name: properties_dict(getattr(self, item.name))
                   for item in self.__struct__.items if not item.is_attribute}
-        for a in self.__struct__.attributes:
-            if isstruct(a.get(self)):
-                result[a.name] = properties_dict(a.get(self))
+        for item in self.__struct__.attributes:
+            if isstruct(item.get(self)):
+                result[item.name] = properties_dict(item.get(self))
         result['type'] = str(self.__class__.__name__)
         result['module'] = str(self.__class__.__module__)
         return result
 
     def __eq__(self, other):
-        if type(self) != type(other):
+        if type(self) != type(other):  # pylint: disable-msg = unidiomatic-typecheck
             return False
         for item in self.__struct__.items:
             if not equal(item.get(self), item.get(other)): return False
@@ -95,13 +94,16 @@ class Struct(object):
         return not self == other
 
     def __hash__(self):
-        h = 0
+        hash_value = 0
         for attr in self.__attributes__().values():
             try:
-                h += hash(attr)
-            except:
+                hash_value += hash(attr)
+            except TypeError:  # unhashable type
                 pass
-        return h
+        return hash_value
+
+
+structdef.STRUCT_CLASSES = [Struct]
 
 
 def attributes(struct, include_properties=False):
@@ -134,11 +136,10 @@ def properties_dict(struct):
         return {key: properties_dict(value) for key,value in struct.items()}
     if isinstance(struct, np.ndarray):
         struct = struct.tolist()
-    import json
     try:
         json.dumps(struct)
         return struct
-    except:
+    except TypeError:  # not serializable
         return {'type': str(struct.__class__.__name__), 'module': str(struct.__class__.__module__)}
 
 
@@ -168,30 +169,30 @@ def copy_with(struct, new_values_dict):
     raise ValueError("Not a struct: %s" % struct)
 
 
-def isstruct(object, leaf_condition=None):
-    isstructclass = isinstance(object, (Struct, list, tuple, dict, np.ndarray))
-    if not isstructclass:
+def isstruct(obj, leaf_condition=None):
+    if not isinstance(obj, (Struct, list, tuple, dict, np.ndarray)):
         return False
-    if isinstance(object, np.ndarray) and object.dtype != np.object:
+    if isinstance(obj, np.ndarray) and obj.dtype != np.object:
         return False
-    if leaf_condition is not None and leaf_condition(object):
+    if leaf_condition is not None and leaf_condition(obj):
         return False
     return True
 
 
-def equal(v1, v2):
-    if isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
-        if v1.dtype != np.object and v2.dtype != np.object:
-            if not np.allclose(v1, v2):
+def equal(obj1, obj2):
+    if isinstance(obj1, np.ndarray) or isinstance(obj2, np.ndarray):
+        if obj1.dtype != np.object and obj2.dtype != np.object:
+            if not np.allclose(obj1, obj2):
                 return False
         else:
-            if not np.all(v1 == v2):
+            if not np.all(obj1 == obj2):
                 return False
     else:
         try:
-            if v1 != v2:
+            if obj1 != obj2:
                 return False
-        except:
-            if v1 is not v2:
+            # pylint: disable-msg = broad-except  # the exception type can depend on the values
+        except (ValueError, BaseException):  # not a boolean result
+            if obj1 is not obj2:
                 return False
     return True

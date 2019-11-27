@@ -1,0 +1,19 @@
+[MESSAGES CONTROL]
+
+disable = line-too-long,
+          multiple-statements,
+          missing-final-newline,
+          trailing-whitespace,
+          bad-whitespace,
+          no-self-use,
+          no-else-return,
+          useless-object-inheritance,
+          too-many-arguments,
+          unused-argument,  # PyLint does not understand locals()
+          import-error,
+          comparison-with-callable,  # PyLint does not understand @struct.prop()
+          using-constant-test,  # PyLint does not understand @struct.prop()
+          missing-function-docstring,  # This is too much
+          missing-module-docstring,  # Only useful for generated documentation
+
+good-names = dt, tf, np, x, y, z

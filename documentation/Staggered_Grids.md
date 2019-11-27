@@ -1,21 +1,31 @@
 # Staggered grids
 
 Staggered grids are a key component of the marker-and-cell (MAC) method. They sample the velocity components at the centers of the corresponding lower faces of grid cells. This makes them fundamentally different from regular arrays or tensors which are sampled at the cell centers.
-The main advantage of Staggered grids is that it makes computing the divergence straightforward and exact.
+A central advantage of Staggered grids is that it makes operations such as computing the divergence of a flow field straightforward and exact.
 
 ![image](./figures/Staggered.png)
 
-In Φ<sub>*Flow*</sub>, staggered grids are represented as instances of [StaggeredGrid](../phi/physics/field/staggered_grid.py) and implement the [Field API](Fields.md). They have one more entry in every spatial dimension than corresponding centered fields since the upper face of the upper most cell needs to be included as well.
+In Φ<sub>*Flow*</sub>, staggered grids are represented as instances of [StaggeredGrid](../phi/physics/field/staggered_grid.py) and implement the [Field API](Fields.md).
+Since each voxel has two faces per dimension, staggered grids contain more values than the corresponding centered grids.
+In memory, each component of a staggered grid is held in a different array while on disk, a single array, called `staggered_tensor`, is stored.
 
-Staggered grids can either be created directly from an array or tensor holding the staggered values or
-using an initializer,
+When using a built-in simulation such as Smoke, staggered grids are generated automatically from the provided values.
+New grids can also be created from the simulation object.
+```python
+from phi.tf.flow import *
+
+centered_zeros = smoke.centered_grid('f0', 0)
+staggered_zeros = smoke.staggered_grid('v', 0)
+```
+
+
+Staggered grids can be created manually from an array or tensor holding the staggered values or using an initializer,
 
 ```python
 from phi.tf.flow import *
 
-grid = Grid([64, 64])
-staggered_zeros = zeros(grid.staggered_shape())
-staggered_placeholder = placeholder(grid.staggered_shape(batch_size=16))
+velocity_tensor = np.zeros([1, 65, 65, 2])
+staggered_field = StaggeredGrid.from_tensors('v', unstack_staggered_tensor(velocity_tensor))
 ```
 
 States such as [Smoke](../phi/physics/smoke.py) ([documentation](Smoke_Simulation.md)) that use staggered grids will automatically create one if not provided.
@@ -26,15 +36,19 @@ from phi.tf.flow import *
 smoke = Smoke(Domain([64, 64]), velocity=placeholder)
 ```
 
-Staggered grids can also be created from centered fields:
+Staggered grids can also be created from centered fields. The first example below stores the spatial
+derivatives for each axis in the staggered grid, while the second call initializes a staggered grid with
+the size of the centered one, and multiples it with (2,1) for x and y components, respectively, to obtain
+a 2D vector quantity. Note that because the centered grid is interpolated at the faces of the staggered one,
+by default the values at the boundary will drop off:
 
 ```python
 from phi.flow import *
 
-centered_field = zeros([1, 64, 64, 1])
+centered_field = CenteredGrid('f', np.ones([1, 64, 64, 1]), 1)
 
 staggered_gradient = StaggeredGrid.gradient(centered_field)
-staggered_field_x = StaggeredGrid.from_scalar(centered_field, [1, 0])
+staggered_field_x = StaggeredGrid.from_scalar(centered_field, [1, 2])
 ```
 
 `StaggeredGrid`s can hold both TensorFlow `Tensor`'s and NumPy `ndarray`s.
@@ -42,31 +56,10 @@ They support basic backend operations and can be passed to `phi.tf.session.Sessi
 
 Some useful operations include:
 
-```python
-from phi.physics.flow import *
-
-smoke = Smoke([64, 64])
-velocity = smoke.velocity
-
-# Advect a centered field
-advected_density = velocity.advect(smoke.density)
-# Advect a staggered field
-advected_velocity = velocity.advect(smoke.velocity)
-# Compute the curl of a vector potential
-curl = velocity.curl()
-# Compute the centered divergence field
-divergence = velocity.divergence()
-```
-
 To get a `Tensor` or `ndarray` object from a staggered grid, one of the following sampling methods can be used.
 
 ```python
-from phi.physics.flow import *
-
-smoke = Smoke([64, 64])
-velocity = smoke.velocity
-
-staggered_values = velocity.staggered
-interpolated_at_centers = velocity.at_centers()
-interpolated_at_face_centers = velocity.at_faces(axis=0)
+staggered_values = velocity.staggered_tensor()
+interpolated_at_centers = velocity.at_centers()  # or velocity.at(velocity.center_points)
+interpolated_at_x_face_centers = velocity.at(velocity.data[-1])
 ```

@@ -1,5 +1,3 @@
-from phi.data import *
-
 from .stream import DerivedStream
 
 
@@ -7,7 +5,7 @@ class Augmentstream(DerivedStream):
 
     def __init__(self, aug_dimensions, field, affect_flags=(DATAFLAG_TRAIN,)):
         DerivedStream.__init__(self, [field])
-        self.field = self.input_fields[0]
+        self.field = self.inputs[0]
         self.affect_flags = affect_flags
         self.aug_dimensions = range(aug_dimensions) if isinstance(aug_dimensions, int) else aug_dimensions
         self.augmentation_factor = 2 ** len(self.aug_dimensions)
@@ -20,8 +18,8 @@ class Augmentstream(DerivedStream):
                 return True
         return False
 
-    def size(self, datasource):
-        return self.field.size(datasource) * (self.augmentation_factor if self.affects(datasource) else 1)
+    def size(self, datasource, lookup=False):
+        return self.field.size(datasource, lookup=lookup) * (self.augmentation_factor if self.affects(datasource) else 1)
 
     def shape(self, datasource):
         return self.field.shape(datasource)

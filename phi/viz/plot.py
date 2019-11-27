@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from phi.physics.field import *
+from phi.physics.field import CenteredGrid, StaggeredGrid
 
 
 # Views
@@ -111,7 +111,6 @@ class PlotlyFigureBuilder(object):
 
         # Antisymmetry
         if isinstance(data, StaggeredGrid):
-            # centered = CenteredGrid(None, data.box, np.zeros([0]+list(data.resolution)+[1]))
             data = data.staggered_tensor()
             shape = data.shape
             staggered = True

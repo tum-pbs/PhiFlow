@@ -1,12 +1,12 @@
+from numbers import Number
 import numpy as np
 import scipy
 import scipy.sparse
 import scipy.sparse.linalg
-from numbers import Number
 
-from phi.physics.pressuresolver.base import *
+from phi import math
+from phi.physics.pressuresolver.base import PressureSolver
 from phi.math.blas import conjugate_gradient
-from phi.physics.pressuresolver.base import *
 
 
 class SparseSciPy(PressureSolver):

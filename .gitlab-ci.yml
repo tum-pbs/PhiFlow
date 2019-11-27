@@ -1,7 +1,36 @@
 stages:
+    - dependencies
     - analyze
     - build
     - test
+
+# dependencies
+
+dependencies-2.7:
+    image: python:2.7
+    stage: dependencies
+    script:
+        - python --version
+        - pip install pytest==4.6.4 --quiet
+        - pip install nbformat --quiet --user
+        - pip install ipython --quiet --user
+        - pip install tensorflow==1.14.0 --quiet --user
+
+dependencies-3.5:
+    image: python:2.7
+    stage: dependencies
+    script:
+        - alias python=python3
+        - alias pip="python3 -m pip"
+        - curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+        - python3 get-pip.py --user
+        - python3 -m pip install tensorflow==1.14.0 --quiet --user
+        - pip install pytest==4.6.4 --quiet --user
+        - pip install nbformat --quiet --user
+        - pip install ipython --quiet --user
+        - python -m pip install flake8 --quiet --user
+        - pip install pylint --quiet --user
+
 
 # analyze
 
@@ -15,56 +44,52 @@ flake8:
     stage: analyze
     allow_failure: true
     script:
-        - python -m pip install flake8 --quiet --user
         - python -m flake8 --ignore=F401,F403,F405,E231,E501 **/*.py
 
-pylint:
+pylint-phi:
     stage: analyze
     allow_failure: true
     script:
-        - pip install pylint --quiet --user
-        - pylint -d C0301,W0614  **/*.py
+        - pylint --rcfile=./phi/.pylintrc phi
+
+pylint-demos:
+    stage: analyze
+    allow_failure: true
+    script:
+        - pylint --rcfile=./demos/.pylintrc demos
+
+pylint-tests:
+    stage: analyze
+    allow_failure: true
+    script:
+        - pylint --rcfile=./tests/.pylintrc tests
+
 
 # build
 
-pip:27:
+pip-2.7:
     image: python:2.7
     stage: build
     script:
-        - python --version
-        - pip install tensorflow==1.14.0 --quiet --user
         - pip install . --user
 
-pip:35:
+pip-3.5:
     image: python:3.5
     stage: build
     script:
-        - curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-        - python3 get-pip.py --user
-        - python3 -m pip install tensorflow==1.14.0 --quiet --user
         - python3 -m pip install . --user
+
 
 # unit test
 
-pytest27:
+pytest-2.7:
     image: python:2.7
     stage: test
     script:
-        - python --version
-        - pip install pytest==4.6.4 --quiet
-        - pip install nbformat --quiet --user
-        - pip install ipython --quiet --user
-        - pytest --version
         - pytest
 
-pytest35:
+pytest-3.5:
     image: python:3.5
     stage: test
     script:
-        - alias python=python3
-        - alias pip="python3 -m pip"
-        - pip install pytest==4.6.4 --quiet --user
-        - pip install nbformat --quiet --user
-        - pip install ipython --quiet --user
-        - pytest --version
         - pytest

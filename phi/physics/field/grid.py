@@ -2,6 +2,7 @@ import numpy as np
 
 from phi import math, struct
 from phi.geom import AABox
+from phi.geom.geometry import assert_same_rank
 
 from .field import Field, propagate_flags_children
 from .flag import SAMPLE_POINTS
@@ -14,20 +15,20 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
     return data
 
 
+@struct.definition()
 class CenteredGrid(Field):
 
-    def __init__(self, name, box, data, extrapolation='boundary', **kwargs):
-        Field.__init__(**struct.kwargs(locals()))
+    def __init__(self, name, data, box=None, extrapolation='boundary', **kwargs):
+        Field.__init__(self, **struct.kwargs(locals()))
         self._sample_points = None
 
     @property
     def resolution(self):
         return math.as_tensor(math.staticshape(self.data)[1:-1])
 
-    @struct.prop()
+    @struct.prop(dependencies=Field.data)
     def box(self, box):
-        assert isinstance(box, AABox)
-        return box
+        return AABox.to_box(box, resolution_hint=self.resolution)
 
     @property
     def dx(self):
@@ -47,18 +48,12 @@ class CenteredGrid(Field):
         assert interpolation == 'linear'
         return interpolation
 
-    @struct.attr()
-    def data(self, data):
-        assert len(math.staticshape(data)) == self.box.rank + 2,\
-            'Data has hape %s but box has rank %d' % (math.staticshape(data), self.box.rank)
-        return data
-
     def sample_at(self, points, collapse_dimensions=True):
         local_points = self.box.global_to_local(points)
         local_points = local_points * math.to_float(self.resolution) - 0.5
         if self.extrapolation == 'periodic':
             data = math.pad(self.data, [[0,0]]+[[0,1]]*self.rank+[[0,0]], mode='wrap')
-            local_points = local_points % self.data.shape[1:-1]
+            local_points = local_points % math.to_float(math.staticshape(self.data)[1:-1])
             resampled = math.resample(data, local_points, interpolation=self.interpolation)
         else:
             boundary = 'replicate' if self.extrapolation == 'boundary' else 'zero'
@@ -76,7 +71,7 @@ class CenteredGrid(Field):
                 dimensions = self.resolution != other_field.resolution
                 dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d-1]]
                 data = math.interpolate_linear(data, origin_in_local % 1.0, dimensions)
-                return CenteredGrid(self.name, other_field.box, data, batch_size=self._batch_size)
+                return CenteredGrid(self.name, data, other_field.box, batch_size=self._batch_size)
             elif math.sum(paddings) < 16:
                 padded = self.padded(np.transpose(paddings).tolist())
                 return padded.at(other_field, collapse_dimensions, force_optimization)
@@ -88,7 +83,7 @@ class CenteredGrid(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [CenteredGrid('%s[...,%d]' % (self.name, i), self.box, c, flags=flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
+        return [CenteredGrid('%s[...,%d]' % (self.name, i), component, self.box, flags=flags, batch_size=self._batch_size) for i, component in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):
@@ -123,14 +118,14 @@ class CenteredGrid(Field):
         data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(self.extrapolation))
         w_lower, w_upper = np.transpose(widths)
         box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
-        return CenteredGrid(self.name, box, data, batch_size=self._batch_size)
+        return CenteredGrid(self.name, data, box, batch_size=self._batch_size)
 
     @staticmethod
     def getpoints(box, resolution):
         idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in resolution], indexing="ij")
         local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0).astype(np.float32)
         points = box.local_to_global(local_coords)
-        return CenteredGrid('%s.points', box, points, flags=[SAMPLE_POINTS])
+        return CenteredGrid('%s.points', points, box, flags=[SAMPLE_POINTS])
 
     def laplace(self, physical_units=True):
         if not physical_units:

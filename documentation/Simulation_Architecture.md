@@ -105,10 +105,10 @@ They do not return a state but rather a pointer to a state.
 When `world.step` is called or a property of a pointer is changed, a copy of the original states is created.
 The old states are then replaced by the new ones and all the pointers redirected to the new states.
 
-Internally, `TrajectoryKey`s are used to track the evolution of states.
-The returned state of any `Physics.step` call must always have the same `trajectorykey` property.
+Internally, unique names (strings) are used to track the evolution of states.
+The returned state of any `Physics.step` call must always have the same `name` property.
 
 Additionally, the world manages dependencies between simulations.
-The dependencies are stored in the `Physics` objects as either tags or `TrajectoryKey`s.
+The dependencies are stored in the `Physics` objects as either tags or names.
 Tags are unique identifier strings that allow simulations to find other simulations.
 The world (or more precisely the [CollectivePhysics](../phi/physics/collective.py)) then finds all states that match the dependencies and passes them to the `step` method.

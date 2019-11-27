@@ -1,15 +1,17 @@
 import numpy as np
 from phi import struct, math
 from phi.geom import AABox
+from phi.geom.geometry import assert_same_rank
 from . import State
 from .material import Material, OPEN
 from .field import CenteredGrid, StaggeredGrid, complete_staggered_properties, Field, DIVERGENCE_FREE, \
     unstack_staggered_tensor
 
 
+@struct.definition()
 class Domain(struct.Struct):
 
-    def __init__(self, resolution, boundaries=OPEN, box=None):
+    def __init__(self, resolution, boundaries=OPEN, box=None, **kwargs):
         """
         Simulation domain that specifies size and boundary conditions.
 
@@ -28,20 +30,17 @@ class Domain(struct.Struct):
         :param grid: Grid object or 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
         """
-        struct.Struct.__init__(**locals())
-        # self.resolution = np.array(resolution)
-
-    @struct.prop(dims=1)
-    def resolution(self, res):
-        return np.array(res)
+        struct.Struct.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
+    def resolution(self, resolution):
+        if len(math.staticshape(resolution)) == 0:
+            resolution = [resolution]
+        return np.array(resolution)
+
+    @struct.prop(dependencies='resolution')
     def box(self, box):
-        if box is None:
-            return AABox(0, self.resolution)
-        else:
-            assert isinstance(box, AABox)
-            return box
+        return AABox.to_box(box, resolution_hint=self.resolution)
 
     @struct.prop(default=OPEN)
     def boundaries(self, boundaries):
@@ -92,57 +91,55 @@ class Domain(struct.Struct):
 
     def centered_shape(self, components=1, batch_size=1, name=None):
         with struct.anytype():
-            return CenteredGrid(name, self.box, data=tensor_shape(batch_size, self.resolution, components), batch_size=batch_size)
+            return CenteredGrid(name, tensor_shape(batch_size, self.resolution, components), box=self.box, batch_size=batch_size)
 
     def staggered_shape(self, batch_size=1, name=None):
         with struct.anytype():
             shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
-            grids = [CenteredGrid(None, None, data=shapes[i], batch_size=batch_size) for i in range(self.rank)]
-            staggered = StaggeredGrid(name, self.box, None, self.resolution, batch_size=batch_size)
+            grids = [CenteredGrid(None, shapes[i], batch_size=batch_size) for i in range(self.rank)]
+            staggered = StaggeredGrid(name, None, self.resolution, self.box, batch_size=batch_size)
             data = complete_staggered_properties(grids, staggered)
             return staggered.copied_with(data=data)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         shape = self.centered_shape(components, batch_size=batch_size, name=name)
+        if callable(data):  # data is an initializer
+            try:
+                data = data(shape, dtype=dtype)
+            except TypeError:
+                data = data(shape)
         if isinstance(data, Field):
-            assert data.rank == self.rank
+            assert_same_rank(data.rank, self.rank, 'data does not match Domain')
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
             if name is not None:
                 data = data.copied_with(name=name)
             grid = data
         elif isinstance(data, (int, float)):
             grid = math.zeros(shape, dtype=dtype) + data
-        elif callable(data):
-            # data is an initializer
-            try:
-                grid = data(shape, dtype=dtype)
-            except TypeError:
-                grid = data(shape)
         else:
-            grid = CenteredGrid(name, self.box, data)
+            grid = CenteredGrid(name, data, box=self.box)
         if extrapolation is not None:
             grid = grid.copied_with(extrapolation=extrapolation)
         return grid
 
     def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         shape = self.staggered_shape(batch_size=batch_size, name=name)
+        if callable(data):  # data is an initializer
+            try:
+                data = data(shape, dtype=dtype)
+            except TypeError:
+                data = data(shape)
         if isinstance(data, Field):
             assert data.compatible(shape)
             grid = data
         elif isinstance(data, (int, float)):
             grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
-        elif callable(data):
-            # data is an initializer
-            try:
-                grid = data(shape, dtype=dtype)
-            except TypeError:
-                grid = data(shape)
         else:
             try:
                 tensors = unstack_staggered_tensor(data)
-                grid = StaggeredGrid.from_tensors(name, self.box, tensors, batch_size=None)
+                grid = StaggeredGrid.from_tensors(name, tensors, self.box, batch_size=None)
             except:
-                grid = StaggeredGrid(name, self.box, data, self.resolution)
+                grid = StaggeredGrid(name, data, self.resolution, self.box)
         for centeredgrid in grid.data:
             centeredgrid._extrapolation = extrapolation
         return grid
@@ -196,12 +193,16 @@ def _extend1(shape, axis):
     return shape
 
 
+@struct.definition()
 class DomainState(State):
 
     @struct.prop()
     def domain(self, domain):
         assert domain is not None
-        return domain
+        if isinstance(domain, Domain): return domain
+        if isinstance(domain, int): return Domain([domain])
+        if isinstance(domain, (tuple, list)): return Domain(domain)
+        raise ValueError('Not a valid domain: %s' % domain)
 
     @property
     def resolution(self):

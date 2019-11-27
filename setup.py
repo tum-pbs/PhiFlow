@@ -6,7 +6,6 @@ from setuptools import setup
 
 
 class CudaCommand(distutils.cmd.Command):
-
     description = "Compile CUDA sources"
     user_options = [
         ("gcc=", None, "Path to the gcc compiler."),
@@ -14,10 +13,10 @@ class CudaCommand(distutils.cmd.Command):
     ]
 
     def run(self):
-        srcPath = os.path.abspath("./phi/physics/pressuresolver/cuda/src")
-        buildPath = os.path.abspath("./phi/physics/pressuresolver/cuda/build")
-        print("Source Path:\t" + srcPath)
-        print("Build Path:\t" + buildPath)
+        src_path = os.path.abspath("./phi/physics/pressuresolver/cuda/src")
+        build_path = os.path.abspath("./phi/physics/pressuresolver/cuda/build")
+        print("Source Path:\t" + src_path)
+        print("Build Path:\t" + build_path)
 
         # Get TF Compile/Link Flags and write to env
         import tensorflow as tf
@@ -25,17 +24,17 @@ class CudaCommand(distutils.cmd.Command):
             print('Adjusting for tensorflow 2.0')
             tf = tf.compat.v1
             tf.disable_eager_execution()
-        TF_CFLAGS = tf.sysconfig.get_compile_flags()
-        TF_LFLAGS = tf.sysconfig.get_link_flags()
+        tf_cflags = tf.sysconfig.get_compile_flags()
+        tf_lflags = tf.sysconfig.get_link_flags()
 
         # Remove old build files
-        if os.path.isdir(buildPath):
-            print("Removing old build files from %s" % buildPath)
-            for f in os.listdir(buildPath):
-                os.remove(os.path.join(buildPath, f))
+        if os.path.isdir(build_path):
+            print("Removing old build files from %s" % build_path)
+            for file in os.listdir(build_path):
+                os.remove(os.path.join(build_path, file))
         else:
-            print("Creating build directory at %s" % buildPath)
-            os.mkdir(buildPath)
+            print("Creating build directory at %s" % build_path)
+            os.mkdir(build_path)
 
         print("Compiling CUDA code...")
         # Build the Laplace Matrix Generation CUDA Kernels
@@ -45,14 +44,14 @@ class CudaCommand(distutils.cmd.Command):
                 "-std=c++11",
                 "-c",
                 "-o",
-                os.path.join(buildPath, "laplace_op.cu.o"),
-                os.path.join(srcPath, "laplace_op.cu.cc"),
+                os.path.join(build_path, "laplace_op.cu.o"),
+                os.path.join(src_path, "laplace_op.cu.cc"),
                 "-x",
                 "cu",
                 "-Xcompiler",
                 "-fPIC"
             ]
-            + TF_CFLAGS
+            + tf_cflags
         )
 
         # Build the Laplace Matrix Generation Custom Op
@@ -63,13 +62,13 @@ class CudaCommand(distutils.cmd.Command):
                 "-std=c++11",
                 "-shared",
                 "-o",
-                os.path.join(buildPath, "laplace_op.so"),
-                os.path.join(srcPath, "laplace_op.cc"),
-                os.path.join(buildPath, "laplace_op.cu.o"),
+                os.path.join(build_path, "laplace_op.so"),
+                os.path.join(src_path, "laplace_op.cc"),
+                os.path.join(build_path, "laplace_op.cu.o"),
                 "-fPIC"
             ]
-            + TF_CFLAGS
-            + TF_LFLAGS
+            + tf_cflags
+            + tf_lflags
         )
 
         # Build the Pressure Solver CUDA Kernels
@@ -80,13 +79,13 @@ class CudaCommand(distutils.cmd.Command):
                 "-c",
                 "-lcublas",
                 "-o",
-                os.path.join(buildPath, "pressure_solve_op.cu.o"),
-                os.path.join(srcPath, "pressure_solve_op.cu.cc"),
+                os.path.join(build_path, "pressure_solve_op.cu.o"),
+                os.path.join(src_path, "pressure_solve_op.cu.cc"),
                 "-x", "cu",
                 "-Xcompiler",
                 "-fPIC"
             ]
-            + TF_CFLAGS
+            + tf_cflags
         )
 
         # Build the Pressure Solver Custom Op
@@ -96,14 +95,14 @@ class CudaCommand(distutils.cmd.Command):
                 "-std=c++11",
                 "-shared",
                 "-o",
-                os.path.join(buildPath, "pressure_solve_op.so"),
-                os.path.join(srcPath, "pressure_solve_op.cc"),
-                os.path.join(buildPath, "pressure_solve_op.cu.o"),
-                os.path.join(buildPath, "laplace_op.cu.o"),
+                os.path.join(build_path, "pressure_solve_op.so"),
+                os.path.join(src_path, "pressure_solve_op.cc"),
+                os.path.join(build_path, "pressure_solve_op.cu.o"),
+                os.path.join(build_path, "laplace_op.cu.o"),
                 "-fPIC"
             ]
-            + TF_CFLAGS
-            + TF_LFLAGS
+            + tf_cflags
+            + tf_lflags
         )
 
     def initialize_options(self):
@@ -115,26 +114,17 @@ class CudaCommand(distutils.cmd.Command):
         assert os.path.isfile(self.nvcc) or self.nvcc == "nvcc"
 
 
-extras = {
-    'gui': ["dash",
-            "dash-renderer",
-            "dash-html-components",
-            "dash-core-components",
-            "plotly"],
-}
-
-
 setup(
     name='phiflow',
-    version='0.4.3',
+    version='0.4.4',
     packages=['phi',
               'phi.app',
               'phi.data',
               'phi.geom',
               'phi.local',
               'phi.math',
-              'phi.physics', 
-              'phi.physics.field', 
+              'phi.physics',
+              'phi.physics.field',
               'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
@@ -149,5 +139,11 @@ setup(
     author_email='philipp.holl@tum.de',
     description='Fully Differentiable Grid-based Fluid Simulations on the GPU',
     install_requires=['six'],
-    extras_require=extras
+    extras_require={
+        'gui': ["dash",
+                "dash-renderer",
+                "dash-html-components",
+                "dash-core-components",
+                "plotly"],
+    }
 )

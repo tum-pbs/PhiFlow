@@ -1,37 +1,39 @@
-from .struct import *
-from .context import anytype
 import six
+
+from .struct import attributes, isstruct, copy_with, equal
+from .context import anytype
 
 
 def flatten(struct, leaf_condition=None, trace=False, include_properties=False):
-    list = []
+    result = []
     def map_leaf(value):
-        list.append(value)
+        result.append(value)
         return value
     with anytype(): map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, include_properties=include_properties)
-    return list
+    return result
 
 
 def names(struct, leaf_condition=None, full_path=True, basename=None, separator='.'):
-    def f(attr):
+    def to_name(trace):
         if not full_path:
-            return attr.name if basename is None else basename + separator + attr.name
+            return trace.name if basename is None else basename + separator + trace.name
         else:
-            return attr.path(separator) if basename is None else basename + separator + attr.path(separator)
+            return trace.path(separator) if basename is None else basename + separator + trace.path(separator)
     with anytype():
-        return map(f, struct, leaf_condition, recursive=True, trace=True)
+        return map(to_name, struct, leaf_condition, recursive=True, trace=True)
 
 
 def zip(structs, leaf_condition=None, include_properties=False, zip_parents_if_incompatible=False):
+    # pylint: disable-msg = redefined-builtin
     assert len(structs) > 0
     first = structs[0]
     if isstruct(first, leaf_condition):
-        for s in structs[1:]:
-            if attributes(s, include_properties=include_properties).keys() != attributes(first, include_properties=include_properties).keys():
+        for struct in structs[1:]:
+            if attributes(struct, include_properties=include_properties).keys() != attributes(first, include_properties=include_properties).keys():
                 if zip_parents_if_incompatible:
                     return LeafZip(structs)
                 else:
-                    raise IncompatibleStructs('Cannot zip %s and %s' % (s, first))
+                    raise IncompatibleStructs('Cannot zip %s and %s' % (struct, first))
 
     if not isstruct(first, leaf_condition):
         return LeafZip(structs)
@@ -48,6 +50,9 @@ def zip(structs, leaf_condition=None, include_properties=False, zip_parents_if_i
 
 
 class LeafZip(object):
+    """
+Created by struct.zip to replace data.
+    """
 
     def __init__(self, values):
         self.values = values
@@ -63,34 +68,42 @@ class LeafZip(object):
 
 
 class IncompatibleStructs(Exception):
+    """
+Thrown when two or more structs are required to have the same structure but do not.
+    """
     def __init__(self, *args):
         Exception.__init__(self, *args)
 
 
-def map(f, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):
+def map(function, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):
+    # pylint: disable-msg = redefined-builtin
     if trace is True:
         trace = Trace(struct, None, None)
     if not isstruct(struct, leaf_condition):
         if trace is False:
             if isinstance(struct, LeafZip):
-                return f(*struct.values)
+                return function(*struct.values)
             else:
-                return f(struct)
+                return function(struct)
         else:
-            return f(trace)
+            return function(trace)
     else:
         old_values = attributes(struct, include_properties=include_properties)
         new_values = {}
         if not recursive:
             leaf_condition = lambda x: True
         for key, value in old_values.items():
-            new_values[key] = map(f, value, leaf_condition, recursive,
+            new_values[key] = map(function, value, leaf_condition, recursive,
                                   Trace(value, key, trace) if trace is not False else False, include_properties)
 
         return copy_with(struct, new_values)
 
 
 class Trace(object):
+    """
+Used in struct.map if trace=True.
+Trace objects can be used to reference a specific item of a struct or sub-struct as well as gather information about it.
+    """
 
     def __init__(self, value, key, parent_trace):
         self.value = value
@@ -132,8 +145,7 @@ def compare(structs, leaf_condition=None, recursive=True, include_properties=Tru
                 other_value = trace.find_in(other)
                 if not equal(value, other_value):
                     result.add(trace)
-            except:
+            except (ValueError, KeyError, TypeError):
                 result.add(trace)
-    with anytype(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive,
-                        trace=True, include_properties=include_properties)
+    with anytype(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, include_properties=include_properties)
     return result

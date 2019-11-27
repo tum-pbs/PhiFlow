@@ -1,5 +1,7 @@
+# pylint: disable-msg = not-an-iterable
 from phi.tf.flow import *
 from phi.math.initializers import randn
+from phi.viz.plot import PlotlyFigureBuilder
 
 
 class PressureOptim(TFApp):
@@ -7,7 +9,7 @@ class PressureOptim(TFApp):
     def __init__(self):
         TFApp.__init__(self, "Pressure Optimization",
                        "Optimize velocity in left half of closed room to match target in right half",
-                       stride=100, learning_rate=0.1)
+                       stride=100, force_custom_stride=True, learning_rate=0.1)
         # Physics
         domain = Domain([62, 62], SLIPPERY)
         with self.model_scope():
@@ -29,6 +31,8 @@ class PressureOptim(TFApp):
         self.add_field("Var", optimizable_velocity)
         self.add_field("Final Velocity", velocity)
         self.add_field("Target Velocity", target_velocity)
+
+        self.custom_stride = 100
 
 
 show(display=("Final Velocity", "Target Velocity"),

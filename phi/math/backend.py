@@ -8,12 +8,13 @@ backend = DynamicBackend()
 backend.backends.append(SciPyBackend())
 backend.backends.append(StructBroadcastBackend(backend))
 
-#locals().update(backend)
+# locals().update(backend)
 # Excplicitly unpack namespace from backend
 abs = backend.abs
 add = backend.add
 all = backend.all
 any = backend.any
+batch_gather = backend.batch_gather
 boolean_mask = backend.boolean_mask
 cast = backend.cast
 ceil = backend.ceil
@@ -40,6 +41,7 @@ mean = backend.mean
 min = backend.min
 minimum = backend.minimum
 name = backend.name
+ndims = backend.ndims
 ones_like = backend.ones_like
 pad = backend.pad
 py_func = backend.py_func
@@ -49,6 +51,7 @@ resample = backend.resample
 reshape = backend.reshape
 round = backend.round
 sign = backend.sign
+size = backend.size
 scatter = backend.scatter
 shape = backend.shape
 sin = backend.sin

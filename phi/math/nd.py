@@ -4,43 +4,16 @@ from phi import struct
 from . import backend as math
 
 
-def shape(obj):
-    with struct.anytype():
-        return struct.map(lambda tensor: math.shape(tensor), obj)
-
-
-def batch_gather(struct, batches):
-    if isinstance(batches, int):
-        batches = [batches]
-    return struct.map(lambda tensor: tensor[batches, ...], struct)
-
-
-def spatial_rank(obj):
-    """
-    Returns the number of spatial dimensions.
-    Arrays are expected to be of the shape (batch size, spatial dimensions..., component size)
-    The number of spatial dimensions is equal to the tensor rank minus two.
-
-    :param tensor_or_mac: a tensor or StaggeredGrid instance
-    :return: the number of spatial dimensions as an integer
-    """
-    if struct.isstruct(obj):
-        with struct.anytype():
-            return struct.map(lambda o: spatial_rank(o), obj, recursive=False)  # TODO this should be done by the Struct backend
-    return len(math.staticshape(obj)) - 2
+def spatial_rank(tensor):
+    """ The spatial rank of a tensor is ndims - 2. """
+    return math.ndims(tensor) - 2
 
 
 def spatial_dimensions(obj):
-    if struct.isstruct(obj):
-        with struct.anytype():
-            return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(1, len(math.staticshape(obj)) - 1))
 
 
 def axes(obj):
-    if struct.isstruct(obj):
-        with struct.anytype():
-            return struct.map(lambda o: spatial_dimensions(o), obj, recursive=False)
     return tuple(range(len(math.staticshape(obj)) - 2))
 
 
@@ -77,6 +50,26 @@ def normalize_to(target, source=1):
     :return: normalized tensor of the same shape as target
     """
     return target * (math.sum(source) / math.sum(target))
+
+
+def batch_align(tensor, innate_dims, target):
+    if isinstance(tensor, (tuple, list)):
+        return [batch_align(t, innate_dims, target) for t in tensor]
+    ndims = len(math.staticshape(tensor))
+    if ndims <= innate_dims:
+        return tensor  # There is no batch dimension
+    target_ndims = len(math.staticshape(target))
+    assert target_ndims >= ndims
+    if target_ndims == ndims:
+        return tensor
+    return math.expand_dims(tensor, axis=-innate_dims-1, number=target_ndims - ndims)
+
+
+def batch_align_scalar(tensor, innate_spatial_dims, target):
+    if math.staticshape(tensor)[-1] != 1:
+        tensor = math.expand_dims(tensor, -1)
+    result = batch_align(tensor, innate_spatial_dims+1, target)
+    return result
 
 
 def blur(field, radius, cutoff=None, kernel="1/1+x"):
@@ -132,14 +125,11 @@ def divergence(vel, dx=1, difference='central'):
     """
     Computes the spatial divergence of a vector channel from finite differences.
 
-    :param vel: tensor of shape (batch size, spatial dimensions..., spatial rank) or StaggeredGrid
+    :param vel: tensor of shape (batch size, spatial dimensions..., spatial rank)
     :param dx: distance between adjacent grid points (default 1)
     :param difference: type of difference, one of ('forward', 'central') (default 'forward')
     :return: tensor of shape (batch size, spatial dimensions..., 1)
     """
-    if isinstance(vel, StaggeredGrid):
-        return vel.divergence()
-
     assert difference in ('central', 'forward')
     rank = spatial_rank(vel)
     if difference == 'forward':
@@ -315,10 +305,11 @@ def fourier_laplace(tensor):
     return math.ifft(frequencies * fft_laplace)
 
 
-def fftfreq(resolution, mode='vector'):
+def fftfreq(resolution, mode='vector', dtype=np.float32):
     assert mode in ('vector', 'absolute', 'square')
     k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution], indexing='ij')
     k = math.expand_dims(math.stack(k, -1), 0)
+    k = k.astype(dtype)
     if mode == 'vector':
         return k
     k = math.sum(k ** 2, axis=-1, keepdims=True)
@@ -331,8 +322,6 @@ def fftfreq(resolution, mode='vector'):
 # Downsample / Upsample
 
 def downsample2x(tensor, interpolation='linear'):
-    if isinstance(tensor, StaggeredGrid):
-        return tensor.downsample2x(interpolation=interpolation)
     if struct.isstruct(tensor):
         return struct.map(lambda s: downsample2x(s, interpolation), tensor, recursive=False)
 
@@ -373,8 +362,6 @@ def upsample2x(tensor, interpolation='linear'):
 
 
 def spatial_sum(tensor):
-    if isinstance(tensor, StaggeredGrid):
-        tensor = tensor.staggered
     summed = math.sum(tensor, axis=math.dimrange(tensor))
     for i in math.dimrange(tensor):
         summed = math.expand_dims(summed, i)

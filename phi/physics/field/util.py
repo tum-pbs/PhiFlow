@@ -9,9 +9,10 @@ def diffuse(field, amount, substeps=1):
     assert isinstance(field, CenteredGrid)
     if field.extrapolation == 'periodic':
         frequencies = math.fft(math.to_complex(field.data))
-        k = math.fftfreq(field.resolution, mode='square')
+        k = math.fftfreq(field.resolution) / field.dx
+        k = math.sum(k ** 2, axis=-1, keepdims=True)
         fft_laplace = -(2 * pi) ** 2 * k
-        diffuse_kernel = math.exp(fft_laplace * amount)
+        diffuse_kernel = math.to_complex(math.exp(fft_laplace * amount))
         data = math.ifft(frequencies * diffuse_kernel)
         data = math.real(data)
     else:

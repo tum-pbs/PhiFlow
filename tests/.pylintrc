@@ -1,0 +1,17 @@
+[MESSAGES CONTROL]
+
+disable = import-error,
+          missing-class-docstring,
+          missing-module-docstring,
+          missing-function-docstring,
+          unnecessary-lambda,
+          no-member,
+          undefined-variable,
+          bad-whitespace,
+          missing-final-newline,
+          invalid-name,
+          line-too-long,
+          no-self-use,
+          multiple-statements
+
+good-names = dt, tf, np, x, y, z

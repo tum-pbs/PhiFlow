@@ -4,9 +4,15 @@ from phi import struct
 from phi import math
 
 
+@struct.definition()
 class Geometry(struct.Struct):
 
     def value_at(self, location):
+        """
+Samples the geometry at the given locations and returns a binary mask, labelling the points as inside=1, outside=0.
+        :param location: tensor of the shape (batch_size, ..., rank)
+        :return: float tensor of same shape as location but with shape[-1]=1
+        """
         raise NotImplementedError(self.__class__)
 
     @property
@@ -14,10 +20,11 @@ class Geometry(struct.Struct):
         raise NotImplementedError()
 
 
+@struct.definition()
 class AABox(Geometry):
 
     def __init__(self, lower, upper, **kwargs):
-        Geometry.__init__(**struct.kwargs(locals()))
+        Geometry.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def lower(self, lower):
@@ -33,19 +40,22 @@ class AABox(Geometry):
 
     @property
     def rank(self):
-        if len(self.size.shape) > 0:
+        if math.ndims(self.size) > 0:
             return self.size.shape[-1]
         else:
-            return 0
+            return None
 
     def global_to_local(self, global_position):
-        return (global_position - self.lower) / self.size
+        size, lower = math.batch_align([self.size, self.lower], 1, global_position)
+        return (global_position - lower) / size
 
     def local_to_global(self, local_position):
-        return local_position * self.size + self.lower
+        size, lower = math.batch_align([self.size, self.lower], 1, local_position)
+        return local_position * size + lower
 
     def value_at(self, global_position):
-        bool_inside = (global_position >= self.lower) & (global_position <= self.upper)
+        lower, upper = math.batch_align([self.lower, self.upper], 1, global_position)
+        bool_inside = (global_position >= lower) & (global_position <= upper)
         bool_inside = math.all(bool_inside, axis=-1, keepdims=True)
         return math.to_float(bool_inside)
 
@@ -57,6 +67,24 @@ class AABox(Geometry):
 
     def __repr__(self):
         return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
+
+    @staticmethod
+    def to_box(value, resolution_hint=None):
+        if value is None:
+            result = AABox(0, resolution_hint)
+        elif isinstance(value, AABox):
+            result = value
+        elif isinstance(value, int):
+            if resolution_hint is None:
+                result = AABox(0, value)
+            else:
+                size = [value] * (1 if math.ndims(resolution_hint) == 0 else len(resolution_hint))
+                result = AABox(0, size)
+        else:
+            result = AABox(box)
+        if resolution_hint is not None:
+            assert_same_rank(len(resolution_hint), result, 'AABox rank does not match resolution.')
+        return result
 
 
 class AABoxGenerator(object):
@@ -77,10 +105,11 @@ class AABoxGenerator(object):
 box = AABoxGenerator()
 
 
+@struct.definition()
 class Sphere(Geometry):
 
     def __init__(self, center, radius, **kwargs):
-        Geometry.__init__(**struct.kwargs(locals()))
+        Geometry.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def radius(self, radius):
@@ -91,7 +120,10 @@ class Sphere(Geometry):
         return math.as_tensor(center)
 
     def value_at(self, location):
-        bool_inside = math.expand_dims(math.sum((location - self.center)**2, axis=-1) <= self.radius**2, -1)
+        center = math.batch_align(self.center, 1, location)
+        radius = math.batch_align(self.radius, 0, location)
+        distance_squared = math.sum((location - center)**2, axis=-1, keepdims=True)
+        bool_inside = distance_squared <= radius**2
         return math.to_float(bool_inside)
 
     @property
@@ -99,10 +131,11 @@ class Sphere(Geometry):
         return len(self.center)
 
 
+@struct.definition()
 class _Union(Geometry):
 
     def __init__(self, geometries, **kwargs):
-        Geometry.__init__(**struct.kwargs(locals()))
+        Geometry.__init__(self, **struct.kwargs(locals()))
 
     def __validate_geometries__(self):
         assert len(self.geometries) > 0
@@ -137,6 +170,7 @@ def union(geometries):
         return _Union(geometries)
 
 
+@struct.definition()
 class _NoGeometry(Geometry):
 
     def rank(self):
@@ -147,3 +181,20 @@ class _NoGeometry(Geometry):
 
 
 NO_GEOMETRY = _NoGeometry()
+
+
+def assert_same_rank(rank1, rank2, error_message):
+    if rank1 is not None and rank2 is not None:
+        rank1_, rank2_ = _rank(rank1), _rank(rank2)
+        assert rank1_ == rank2_, 'Ranks do not match: %d and %d. %s' % (rank1_, rank2_, error_message)
+
+
+def _rank(rank):
+    if rank is None:
+        return None
+    if isinstance(rank, int):
+        return rank
+    if isinstance(rank, Geometry):
+        return rank.rank
+    else:
+        return math.spatial_rank(rank)

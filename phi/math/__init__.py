@@ -1,4 +1,6 @@
-from .base import *
+# pylint: disable-msg = disable-msg = wildcard-import, unused-wildcard-import
+
+from .base import Backend
 from .backend import *
 
 # Tensorflow

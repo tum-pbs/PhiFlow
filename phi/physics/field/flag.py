@@ -25,10 +25,11 @@ class _FIELD_TYPE(object):
         return result
 
 
+@struct.definition()
 class Flag(struct.Struct):
 
     def __init__(self, name, is_data_bound, is_structure_bound, propagators=(), field_types=(), **kwargs):
-        struct.Struct.__init__(**struct.kwargs(locals()))
+        struct.Struct.__init__(self, **struct.kwargs(locals()))
 
     @struct.prop()
     def name(self, name): return name

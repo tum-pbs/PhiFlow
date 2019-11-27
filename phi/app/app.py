@@ -248,12 +248,18 @@ class App(object):
         def add_default_field(trace):
             field = trace.value
             if isinstance(field, (CenteredGrid, StaggeredGrid)):
-                self.add_field(field.name[0].upper() + field.name[1:], lambda: trace.find_in(self.world.state))
+                def field_generator():
+                    world_state = self.world.state
+                    return trace.find_in(world_state)
+                self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
+        old_worldstate = world.state
         with struct.anytype():
             struct.map(add_default_field, world.state,
                        leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
                        trace=True)
+        is_same = old_worldstate is world.state
+        print()
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value

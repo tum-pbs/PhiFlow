@@ -1,6 +1,17 @@
 from unittest import TestCase
 
-from phi.tf.flow import *
+import numpy
+
+from phi.data.fluidformat import Scene
+from phi.geom import Sphere, box
+from phi.physics.domain import Domain
+from phi.physics.field.effect import Inflow
+from phi.physics.obstacle import Obstacle
+from phi.physics.smoke import Smoke
+from phi.physics.world import World
+from phi.tf.session import Session
+from phi.tf.util import placeholder
+from phi.tf.world import tf_bake_subgraph, tf_bake_graph
 
 
 class TestSmokeTF(TestCase):
@@ -24,7 +35,7 @@ class TestSmokeTF(TestCase):
         tf_bake_subgraph(smoke, Session(Scene.create('data', copy_calling_script=False)))
         world.step()
         self.assertIsInstance(smoke.state, Smoke)
-        self.assertIsInstance(smoke.state.density.data, np.ndarray)
+        self.assertIsInstance(smoke.state.density.data, numpy.ndarray)
 
     def test_tf_worldgraph(self):
         world = World()
@@ -32,4 +43,4 @@ class TestSmokeTF(TestCase):
         tf_bake_graph(world, Session(Scene.create('data', copy_calling_script=False)))
         world.step()
         self.assertIsInstance(smoke.state, Smoke)
-        self.assertIsInstance(smoke.state.density.data, np.ndarray)
+        self.assertIsInstance(smoke.state.density.data, numpy.ndarray)
