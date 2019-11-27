@@ -2,10 +2,9 @@
 This file defines Smoke states and SmokePhysics.
 More general fluid functions are located in fluid.py
 """
-
 import numpy as np
 
-from phi import struct
+from phi import struct, math
 from .physics import StateDependency, Physics
 from .field import advect, StaggeredGrid
 from .field.effect import Gravity, gravity_tensor, effect_applied
@@ -105,6 +104,6 @@ Computes the buoyancy force proportional to the density.
     :return: StaggeredGrid for the domain of the density
     """
     if isinstance(gravity, (int, float)):
-        gravity = np.array([gravity] + ([0] * (density.rank - 1)))
+        gravity = math.to_float(math.as_tensor([gravity] + ([0] * (density.rank - 1))))
     result = StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
     return result

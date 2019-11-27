@@ -96,10 +96,10 @@ def gravity_tensor(gravity, rank):
     if isinstance(gravity, Gravity):
         gravity = gravity.gravity
     if math.is_scalar(gravity):
-        return math.expand_dims([gravity] + [0] * (rank-1), 0, rank+1)
+        return math.to_float(math.expand_dims([gravity] + [0] * (rank-1), 0, rank+1))
     else:
         assert math.staticshape(gravity)[-1] == rank
-        return math.expand_dims(gravity, 0, rank+2-len(math.staticshape(gravity)))
+        return math.to_float(math.expand_dims(gravity, 0, rank+2-len(math.staticshape(gravity))))
 
 
 class FieldPhysics(Physics):
