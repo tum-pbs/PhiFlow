@@ -90,6 +90,9 @@ def blur(field, radius, cutoff=None, kernel="1/1+x"):
 
 
 def l1_loss(tensor, batch_norm=True, reduce_batches=True):
+    if struct.isstruct(tensor):
+        all_tensors = struct.flatten(tensor)
+        return sum(l1_loss(tensor, batch_norm, reduce_batches) for tensor in all_tensors)
     if reduce_batches:
         total_loss = math.sum(math.abs(tensor))
     else:
@@ -102,15 +105,13 @@ def l1_loss(tensor, batch_norm=True, reduce_batches=True):
 
 
 def l2_loss(tensor, batch_norm=True):
-    total_loss = math.sum(tensor ** 2) / 2
-    if batch_norm:
-        batch_size = math.shape(tensor)[0]
-        return total_loss / math.to_float(batch_size)
-    else:
-        return total_loss
+    return l_n_loss(tensor, 2, batch_norm=batch_norm)
 
 
 def l_n_loss(tensor, n, batch_norm=True):
+    if struct.isstruct(tensor):
+        all_tensors = struct.flatten(tensor)
+        return sum(l_n_loss(tensor, n , batch_norm) for tensor in all_tensors)
     total_loss = math.sum(tensor ** n) / n
     if batch_norm:
         batch_size = math.shape(tensor)[0]
