@@ -213,11 +213,11 @@ class DomainState(State):
         return self.domain.rank
 
     def centered_grid(self, name, value, components=1, dtype=np.float32):
-        extrapolation = self.domain.boundaries.extrapolation_mode
+        extrapolation = Material.extrapolation_mode(self.domain.boundaries)
         return self.domain.centered_grid(value, dtype=dtype, name=name, components=components,
                                          batch_size=self._batch_size, extrapolation=extrapolation)
 
     def staggered_grid(self, name, value, dtype=np.float32):
-        extrapolation = self.domain.boundaries.extrapolation_mode
+        extrapolation = Material.extrapolation_mode(self.domain.boundaries)
         return self.domain.staggered_grid(value, dtype=dtype, name=name,
                                           batch_size=self._batch_size, extrapolation=extrapolation)

@@ -63,7 +63,7 @@ Whether the boundary is periodic, i.e. seamlessly merges with the opposite end o
     def __repr__(self):
         return self.name
 
-    @property
+    @struct.derived()
     def extrapolation_mode(self):
         """
 Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').

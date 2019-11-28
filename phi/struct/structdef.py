@@ -51,6 +51,12 @@ The enclosing class must be decorated with struct.definition().
     return decorator
 
 
+def derived():
+    def decorator(getter):
+        return DerivedProperty(getter.__name__, getter)
+    return decorator
+
+
 def _register_item(_function, item):
     _UNUSED_ITEMS[item.name] = item
 
@@ -116,7 +122,7 @@ Represents an item type of a struct, an attribute or property.
         self.is_attribute = is_attribute
         self.default_value = default_value
         self.dependencies = dependencies
-        self.unique_property = property(lambda struct: getattr(struct, '_'+self.name))
+        self.unique_property = StructProperty(self.name)
 
     def set(self, struct, value):
         try:
@@ -134,6 +140,62 @@ Represents an item type of a struct, an attribute or property.
         old_val = self.get(struct)
         new_val = self.validation_function(struct, old_val)
         self.set(struct, new_val)
+
+    def __repr__(self):
+        return self.name
+
+
+class StructProperty(object):
+
+    def __init__(self, name):
+        self.name = name
+        self.owner = None
+
+    def __get__(self, instance, owner):
+        if instance is not None:
+            return getattr(instance, '_'+self.name)
+        else:
+            self.owner = owner
+            return self
+
+    def __call__(self, obj):
+        assert self.owner is not None
+        from .functions import map
+        return map(lambda x: getattr(x, '_'+self.name), obj, leaf_condition=lambda x: isinstance(x, self.owner))
+
+    def __set__(self, instance, value):
+        raise AttributeError('Struct attributes and properties are read-only.')
+
+    def __delete__(self, instance):
+        raise AttributeError('Struct attributes and properties are read-only.')
+
+    def __repr__(self):
+        return self.name
+
+
+class DerivedProperty(object):
+
+    def __init__(self, name, getter):
+        self.name = name
+        self.getter = getter
+
+    def __get__(self, instance, owner):
+        if instance is not None:
+            return self.getter(instance)
+        else:
+            self.owner = owner
+            return self
+
+    def __call__(self, obj):
+        assert self.owner is not None
+        from .functions import map
+        return map(lambda x: self.getter(x), obj, leaf_condition=lambda x: isinstance(x, self.owner))
+
+    def __set__(self, instance, value):
+        raise AttributeError('Derived properties cannot be set.')
+
+    def __delete__(self, instance):
+        raise AttributeError('Derived properties cannot be deleted.')
 
     def __repr__(self):
         return self.name
@@ -164,10 +226,10 @@ def _get_dependencies(item, item_dict):
 def _resolve_dependencies(dependency, item_dict):
     if dependency is None: return []
     if isinstance(dependency, six.string_types): return [item_dict[dependency]]
-    if isinstance(dependency, property):
+    if isinstance(dependency, StructProperty):
         for item in item_dict.values():
             if item.unique_property == dependency:
                 return [item]
     if isinstance(dependency, (tuple, list)):
         return sum([_resolve_dependencies(dep, item_dict) for dep in dependency], [])
-    raise ValueError('Cannot resolve dependency %s. Available items: %s' % (dependency, item_dict.keys()))
+    raise ValueError('Cannot resolve dependency "%s". Available items: %s' % (dependency, item_dict.keys()))
