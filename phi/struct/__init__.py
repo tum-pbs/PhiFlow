@@ -1,5 +1,5 @@
 from .context import anytype
-from .structdef import definition, attr, prop
+from .structdef import definition, attr, prop, derived
 from .struct import Struct, kwargs, attributes, properties, properties_dict, copy_with, isstruct, equal
 
 # pylint: disable-msg = redefined-builtin

@@ -149,3 +149,11 @@ def compare(structs, leaf_condition=None, recursive=True, include_properties=Tru
                 result.add(trace)
     with anytype(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, include_properties=include_properties)
     return result
+
+
+def mappable(function, leaf_condition=None, recursive=True, include_properties=False):
+    def broadcast_function(obj, *args, **kwargs):
+        def function_with_args(x): function(x, *args, **kwargs)
+        result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, include_properties=include_properties)
+        return result
+    return broadcast_function

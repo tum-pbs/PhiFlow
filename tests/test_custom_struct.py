@@ -30,6 +30,10 @@ class MyStruct(Parent):
     @struct.prop(dependencies='age')
     def age2(self, age2): return age2
 
+    @struct.derived()
+    def is_adult(self):
+        return self.age >= 18
+
 
 class TestStruct(TestCase):
 
@@ -46,3 +50,10 @@ class TestStruct(TestCase):
             'age2': None,
             'parent': 'parent'
         }, struct.properties(m))
+
+    def test_batch_get(self):
+        obj = {'a': [MyStruct()]}
+        age = MyStruct.age(obj)
+        self.assertEqual(age, {'a': [26]})
+        adult = MyStruct.is_adult(obj)
+        self.assertEqual(adult, {'a': [True]})
