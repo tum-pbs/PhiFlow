@@ -40,6 +40,7 @@ class CenteredGrid(Field):
 
     @struct.constant(default='boundary')
     def extrapolation(self, extrapolation):
+        if extrapolation is None: return 'boundary'
         assert extrapolation in ('periodic', 'constant', 'boundary'), extrapolation
         return extrapolation
 

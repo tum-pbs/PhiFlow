@@ -8,6 +8,7 @@ from phi import struct
 from phi.physics.domain import Domain
 from phi.physics.field import StaggeredGrid, CenteredGrid
 from phi.physics.smoke import Smoke
+from phi.struct.functions import print_differences
 
 
 class TestScene(TestCase):
@@ -28,8 +29,8 @@ class TestScene(TestCase):
         self.assertIsInstance(loaded_state.density, CenteredGrid)
         _differences = struct.compare([loaded_state.density, state.density])
         self.assertEqual(loaded_state.density, state.density)
-        _differences = struct.compare([loaded_state.velocity.data, state.velocity.data])
-        np.testing.assert_equal(loaded_state.velocity.data, state.velocity.data)
+        print_differences(loaded_state.velocity.data, state.velocity.data)
+        np.testing.assert_equal(loaded_state.velocity.data[0].data, state.velocity.data[0].data)
 
         scene.write(np.ones([1, 4, 4, 1]) * 2, frame=1)
         self.assertTrue(isfile(scene.subpath('unnamed_000001.npz')))

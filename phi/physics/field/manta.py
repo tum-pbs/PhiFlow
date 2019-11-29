@@ -7,7 +7,7 @@ from phi import geom
 def staggered_grid(tensor, name='manta_staggered'):
     tensor = tensor[...,::-1]  # manta: xyz, phiflow: zyx
     assert math.staticshape(tensor)[-1] == math.spatial_rank(tensor)
-    return StaggeredGrid.from_tensors(name, unstack_staggered_tensor(tensor))
+    return StaggeredGrid(name, tensor)
 
 
 def centered_grid(tensor, name='manta_centered', crop_valid=False):

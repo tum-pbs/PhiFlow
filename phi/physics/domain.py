@@ -2,10 +2,10 @@ import numpy as np
 from phi import struct, math
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
+from phi.physics.field.staggered_grid import staggered_component_box
 from . import State
 from .material import Material, OPEN
-from .field import CenteredGrid, StaggeredGrid, complete_staggered_properties, Field, DIVERGENCE_FREE, \
-    unstack_staggered_tensor
+from .field import CenteredGrid, StaggeredGrid, Field, DIVERGENCE_FREE
 
 
 @struct.definition()
@@ -89,20 +89,22 @@ class Domain(struct.Struct):
         assert isinstance(grid2, Domain), 'Not a Domain: %s' % type(grid2)
         return np.all(grid1.resolution == grid2.resolution) and grid1.box == grid2.box
 
-    def centered_shape(self, components=1, batch_size=1, name=None):
+    def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None):
         with struct.anytype():
-            return CenteredGrid(name, tensor_shape(batch_size, self.resolution, components), box=self.box, batch_size=batch_size)
+            return CenteredGrid(name, tensor_shape(batch_size, self.resolution, components), box=self.box, batch_size=batch_size, extrapolation=extrapolation)
 
-    def staggered_shape(self, batch_size=1, name=None):
+    def staggered_shape(self, batch_size=1, name=None, extrapolation=None):
         with struct.anytype():
-            shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
-            grids = [CenteredGrid(None, shapes[i], batch_size=batch_size) for i in range(self.rank)]
-            staggered = StaggeredGrid(name, None, self.resolution, self.box, batch_size=batch_size)
-            data = complete_staggered_properties(grids, staggered)
-            return staggered.copied_with(data=data)
+            grids = []
+            for axis in range(self.rank):
+                shape = _extend1(tensor_shape(batch_size, self.resolution, 1), axis)
+                box = staggered_component_box(self.resolution, axis, self.box)
+                grid = CenteredGrid(None, shape, box, batch_size=batch_size, extrapolation=extrapolation)
+                grids.append(grid)
+            return StaggeredGrid(name, grids, box=self.box, batch_size=batch_size, extrapolation=extrapolation)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
-        shape = self.centered_shape(components, batch_size=batch_size, name=name)
+        shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation)
         if callable(data):  # data is an initializer
             try:
                 data = data(shape, dtype=dtype)
@@ -117,31 +119,25 @@ class Domain(struct.Struct):
         elif isinstance(data, (int, float)):
             grid = math.zeros(shape, dtype=dtype) + data
         else:
-            grid = CenteredGrid(name, data, box=self.box)
-        if extrapolation is not None:
-            grid = grid.copied_with(extrapolation=extrapolation)
+            grid = CenteredGrid(name, data, box=self.box, extrapolation=extrapolation)
         return grid
 
     def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
-        shape = self.staggered_shape(batch_size=batch_size, name=name)
+        shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation)
         if callable(data):  # data is an initializer
             try:
                 data = data(shape, dtype=dtype)
             except TypeError:
                 data = data(shape)
         if isinstance(data, Field):
-            assert data.compatible(shape)
+            assert isinstance(data, StaggeredGrid)
+            assert np.all(data.resolution == self.resolution)
+            assert data.box == self.box
             grid = data
         elif isinstance(data, (int, float)):
             grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
         else:
-            try:
-                tensors = unstack_staggered_tensor(data)
-                grid = StaggeredGrid.from_tensors(name, tensors, self.box, batch_size=None)
-            except:
-                grid = StaggeredGrid(name, data, self.resolution, self.box)
-        for centeredgrid in grid.data:
-            centeredgrid._extrapolation = extrapolation
+            grid = StaggeredGrid(name, data, self.box, batch_size=None, extrapolation=extrapolation)
         return grid
 
     def _get_paddings(self, material_condition, margin=1):

@@ -153,6 +153,26 @@ def compare(structs, leaf_condition=None, recursive=True, item_condition=ALL_ITE
     return result
 
 
+def print_differences(struct1, struct2):
+    if not isstruct(struct1) or not isstruct(struct2):
+        if not equal(struct1, struct2):
+            print('Values not equal: "%s" and "%s".' % (struct1, struct2))
+        return
+    items1 = to_dict(struct1)
+    items2 = to_dict(struct2)
+    tested_keys = []
+    for key1 in items1.keys():
+        if key1 not in items2:
+            print('Item "%s" is missing from %s.' % (key1, struct2))
+        elif not equal(items1[key1], items2[key1]):
+            print('Item "%s" differs between %s and %s.' % (key1, struct1, struct2))
+        print_differences(items1[key1], items2[key1])
+        tested_keys.append(key1)
+    for key2 in items2.keys():
+        if key2 not in tested_keys:
+            print('Item "%s" is missing from %s.' % (key2, struct1))
+
+
 def mappable(function, leaf_condition=None, recursive=True, item_condition=DATA):
     def broadcast_function(obj, *args, **kwargs):
         def function_with_args(x): function(x, *args, **kwargs)

@@ -101,7 +101,4 @@ class FluidDomain(object):
             upper = math.pad(self._accessible, [[0, 1] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=upper_pad)
             lower = math.pad(self._accessible, [[1, 0] if d == dim else [0, 0] for d in math.all_dimensions(self._accessible)], constant_values=lower_pad)
             tensors.append(math.minimum(upper, lower))
-        with struct.anytype():
-            components = [field.CenteredGrid(None, tensor) for tensor in tensors]
-            data = field.complete_staggered_properties(components, velocity)
-        return velocity.with_data(data)
+        return velocity.with_data(tensors)

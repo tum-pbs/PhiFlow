@@ -2,7 +2,7 @@ from .field import Field, StaggeredSamplePoints, IncompatibleFieldTypes
 from .flag import Flag, DIVERGENCE_FREE, L2_NORMALIZED
 from .constant import ConstantField
 from .grid import CenteredGrid
-from .staggered_grid import StaggeredGrid, unstack_staggered_tensor, complete_staggered_properties
+from .staggered_grid import StaggeredGrid, unstack_staggered_tensor
 from .mask import GeometryMask, mask, union_mask
 from .sampled import SampledField
 from .analytic import AnalyticField

@@ -54,6 +54,10 @@ The enclosing class must be decorated with struct.definition().
 
 
 def derived():
+    """
+Derived properties work similar to @property but can be easily broadcast across many instances.
+    :return: read-only property
+    """
     def decorator(getter):
         return DerivedProperty(getter.__name__, getter)
     return decorator
@@ -95,7 +99,7 @@ One StructType is associated with each defined struct (subclass of Struct) and s
     def __init__(self, struct_class, item_dict):
         self.struct_class = struct_class
         self.item_dict = item_dict
-        self.items = _order_by_dependencies(item_dict)
+        self.items = _order_by_dependencies(item_dict, self)
         self.variables = tuple(filter(lambda item: item.is_variable, self.items))
         self.constants = tuple(filter(lambda item: not item.is_variable, self.items))
 
@@ -109,6 +113,9 @@ One StructType is associated with each defined struct (subclass of Struct) and s
     @property
     def item_names(self):
         return [item.name for item in self.items]
+
+    def __repr__(self):
+        return self.struct_class.__name__
 
 
 class Item(object):
@@ -197,32 +204,42 @@ class DerivedProperty(object):
         return self.name
 
 
-def _order_by_dependencies(item_dict):
+def _order_by_dependencies(item_dict, owner):
     result = []
     for item in item_dict.values():
-        _recursive_deps_add(item, item_dict, result)
+        _recursive_deps_add(item, item_dict, result, owner)
     return result
 
 
-def _recursive_deps_add(item, item_dict, result_list):
+def _recursive_deps_add(item, item_dict, result_list, owner):
     if item in result_list: return
-    dependencies = _get_dependencies(item, item_dict)
+    dependencies = _get_dependencies(item, item_dict, owner)
     for dependency in dependencies:
-        _recursive_deps_add(dependency, item_dict, result_list)
+        _recursive_deps_add(dependency, item_dict, result_list, owner)
     result_list.append(item)
 
 
-def _get_dependencies(item, item_dict):
-    dependencies = _resolve_dependencies(item.dependencies, item_dict)
+def _get_dependencies(item, item_dict, owner):
+    dependencies = _resolve_dependencies(item.dependencies, item_dict, owner)
     unique_dependencies = set(dependencies)
     assert len(unique_dependencies) == len(dependencies), 'Duplicate dependencies in item %s' % item
     return unique_dependencies
 
 
-def _resolve_dependencies(dependency, item_dict):
+def _resolve_dependencies(dependency, item_dict, owner):
     if dependency is None: return []
-    if isinstance(dependency, six.string_types): return [item_dict[dependency]]
-    if isinstance(dependency, Item): return [dependency]
+    if isinstance(dependency, six.string_types):
+        try:
+            return [item_dict[dependency]]
+        except KeyError:
+            raise DependencyError('Declared dependency "%s" does not exist on struct %s. Properties: %s' % (dependency, owner, tuple(item_dict.keys())))
+    if isinstance(dependency, Item): return [item_dict[dependency.name]]
     if isinstance(dependency, (tuple, list)):
-        return sum([_resolve_dependencies(dep, item_dict) for dep in dependency], [])
+        return sum([_resolve_dependencies(dep, item_dict, owner) for dep in dependency], [])
     raise ValueError('Cannot resolve dependency "%s". Available items: %s' % (dependency, item_dict.keys()))
+
+
+class DependencyError(Exception):
+
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
