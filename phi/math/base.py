@@ -17,6 +17,9 @@ class Backend:
 
     # --- Abstract math functions ---
 
+    def is_tensor(self, x):
+        raise NotImplementedError()
+
     def as_tensor(self, x):
         raise NotImplementedError()
 
@@ -253,6 +256,12 @@ class DynamicBackend(Backend):
             if backend.is_applicable(values):
                 return True
         return False
+
+    def is_tensor(self, x):
+        try:
+            return self.choose_backend(x).is_tensor(x)
+        except NoBackendFound:
+            return False
 
     def as_tensor(self, x):
         return self.choose_backend(x).as_tensor(x)

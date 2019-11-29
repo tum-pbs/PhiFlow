@@ -18,10 +18,11 @@ class TFBackend(Backend):
 
     def is_applicable(self, values):
         for value in values:
-            if isinstance(value, tf.Tensor): return True
-            if isinstance(value, tf.Variable): return True
-            if isinstance(value, tf.SparseTensor): return True
+            if self.is_tensor(value): return True
         return False
+
+    def is_tensor(self, x):
+        return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor))
 
     def as_tensor(self, x):
         return tf.convert_to_tensor(x)

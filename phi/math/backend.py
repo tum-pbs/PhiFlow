@@ -35,6 +35,7 @@ gather = backend.gather
 ifft = backend.ifft
 imag = backend.imag
 isfinite = backend.isfinite
+is_tensor = backend.is_tensor
 matmul = backend.matmul
 max = backend.max
 maximum = backend.maximum
