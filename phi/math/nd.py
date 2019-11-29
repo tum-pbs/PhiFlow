@@ -73,6 +73,16 @@ def batch_align_scalar(tensor, innate_spatial_dims, target):
 
 
 def blur(field, radius, cutoff=None, kernel="1/1+x"):
+    """
+Warning: This function can cause NaN in the gradients, reason unknown.
+
+Runs a blur kernel over the given tensor.
+    :param field: tensor
+    :param radius: weight function curve scale
+    :param cutoff: kernel size
+    :param kernel: Type of blur kernel (str). Must be in ('1/1+x', 'gauss')
+    :return:
+    """
     if cutoff is None:
         cutoff = min(int(round(radius * 3)), *field.shape[1:-1])
 
