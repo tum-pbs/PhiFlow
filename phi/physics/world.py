@@ -18,7 +18,7 @@ from .field.effect import Gravity
 
 class StateProxy(object):
     """
-    StateProxy mirrors all attributes of a state in an associated world.
+    StateProxy mirrors all data_dict of a state in an associated world.
     While State objects are generally immutable, StateProxy also implements setting any attribute of the state.
     When an attribute is set, a copy of the state with the new value replaces the old state in the world.
     This object then mirrors the values of the new state.

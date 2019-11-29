@@ -11,8 +11,8 @@ disable = line-too-long,
           too-many-arguments,
           unused-argument,  # PyLint does not understand locals()
           import-error,
-          comparison-with-callable,  # PyLint does not understand @struct.prop()
-          using-constant-test,  # PyLint does not understand @struct.prop()
+          comparison-with-callable,  # PyLint does not understand @struct.constant()
+          using-constant-test,  # PyLint does not understand @struct.constant()
           missing-function-docstring,  # This is too much
           missing-module-docstring,  # Only useful for generated documentation
 

@@ -22,7 +22,7 @@ class State(struct.Struct):
         self._batch_size = batch_size
         struct.Struct.__init__(self, **kwargs)
 
-    @struct.prop(default=())
+    @struct.constant(default=())
     def tags(self, tags):
         """
 Tags are used to resolve dependencies.
@@ -32,14 +32,14 @@ Physics objects typically definition their dependencies in terms of tags.
         """
         return tuple(tags)
 
-    @struct.prop(default=0.0)
+    @struct.constant(default=0.0)
     def age(self, age):
         """
 Cumulative dt of all step() invocations. States usually start out at age=0.
         """
         return age
 
-    @struct.prop()
+    @struct.constant()
     def name(self, name):
         """
 Names uniquely identify the system represented by this state.

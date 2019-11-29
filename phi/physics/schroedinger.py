@@ -13,11 +13,11 @@ class QuantumWave(DomainState):
     def __init__(self, domain, amplitude=1, mass=0.1, tags=('qwave',), **kwargs):
         DomainState.__init__(self, **struct.kwargs(locals()))
 
-    @struct.attr(default=1, dependencies=DomainState.domain)
+    @struct.variable(default=1, dependencies=DomainState.domain)
     def amplitude(self, amplitude):
         return self.centered_grid('amplitude', amplitude, dtype=np.complex64)
 
-    @struct.prop(default=0.1)
+    @struct.constant(default=0.1)
     def mass(self, mass): return mass
 
     def default_physics(self): return SCHROEDINGER
@@ -91,13 +91,13 @@ class WavePacket(AnalyticField):
         rank = math.staticshape(center)[-1]
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def center(self, center): return center
 
-    @struct.prop()
+    @struct.constant()
     def size(self, size): return size
 
-    @struct.prop()
+    @struct.constant()
     def wave_vector(self, wave_vector):
         if len(math.shape(wave_vector)) == 0:
             wave_vector = math.expand_dims(wave_vector, 0)
@@ -117,13 +117,13 @@ class HarmonicPotential(AnalyticField):
         rank = math.shape(center)[-1]
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def center(self, center): return center
 
-    @struct.prop()
+    @struct.constant()
     def unit_distance(self, distance): return distance
 
-    @struct.prop()
+    @struct.constant()
     def maximum_value(self, maximum_value): return maximum_value
 
     def sample_at(self, points, collapse_dimensions=True):
@@ -141,13 +141,13 @@ class SinPotential(AnalyticField):
         rank = math.size(k)
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def k(self, k): return k
 
-    @struct.prop()
+    @struct.constant()
     def phase_offset(self, phase_offset): return phase_offset
 
-    @struct.prop()
+    @struct.constant()
     def dtype(self, dtype):
         return dtype
 

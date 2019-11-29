@@ -26,7 +26,7 @@ class CenteredGrid(Field):
     def resolution(self):
         return math.as_tensor(math.staticshape(self.data)[1:-1])
 
-    @struct.prop(dependencies=Field.data)
+    @struct.constant(dependencies=Field.data)
     def box(self, box):
         return AABox.to_box(box, resolution_hint=self.resolution)
 
@@ -38,12 +38,12 @@ class CenteredGrid(Field):
     def rank(self):
         return math.spatial_rank(self.data)
 
-    @struct.prop(default='boundary')
+    @struct.constant(default='boundary')
     def extrapolation(self, extrapolation):
         assert extrapolation in ('periodic', 'constant', 'boundary'), extrapolation
         return extrapolation
 
-    @struct.prop(default='linear')
+    @struct.constant(default='linear')
     def interpolation(self, interpolation):
         assert interpolation == 'linear'
         return interpolation

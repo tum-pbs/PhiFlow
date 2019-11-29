@@ -26,11 +26,11 @@ class AABox(Geometry):
     def __init__(self, lower, upper, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def lower(self, lower):
         return math.to_float(math.as_tensor(lower))
 
-    @struct.prop()
+    @struct.constant()
     def upper(self, upper):
         return math.to_float(math.as_tensor(upper))
 
@@ -111,11 +111,11 @@ class Sphere(Geometry):
     def __init__(self, center, radius, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def radius(self, radius):
         return math.as_tensor(radius)
 
-    @struct.prop()
+    @struct.constant()
     def center(self, center):
         return math.as_tensor(center)
 
@@ -158,7 +158,7 @@ class _Union(Geometry):
         else:
             return self.geometries[0].rank
 
-    @struct.prop()
+    @struct.constant()
     def geometries(self, geometries):
         return tuple(geometries)
 

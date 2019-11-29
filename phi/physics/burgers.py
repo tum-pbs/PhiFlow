@@ -16,11 +16,11 @@ class Burgers(DomainState):
     def default_physics(self):
         return BurgersPhysics()
 
-    @struct.attr(default=0.0, dependencies=DomainState.domain)
+    @struct.variable(default=0.0, dependencies=DomainState.domain)
     def velocity(self, velocity):
         return self.centered_grid('velocity', velocity, components=self.rank)
 
-    @struct.prop(default=0.1)
+    @struct.constant(default=0.1)
     def viscosity(self, viscosity): return viscosity
 
 

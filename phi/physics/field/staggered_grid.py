@@ -77,7 +77,7 @@ class StaggeredGrid(Field):
         components = complete_staggered_properties(components, staggeredgrid)
         return staggeredgrid.copied_with(data=components, flags=flags)
 
-    @struct.attr()
+    @struct.variable()
     def data(self, data):
         assert data is not None
         assert len(self.data) == len(self.resolution) == self.box.rank
@@ -92,11 +92,11 @@ class StaggeredGrid(Field):
     def rank(self):
         return len(self.resolution)
 
-    @struct.prop()
+    @struct.constant()
     def resolution(self, resolution):
         return math.as_tensor(resolution)
 
-    @struct.prop(dependencies='resolution')
+    @struct.constant(dependencies='resolution')
     def box(self, box):
         return AABox.to_box(box, resolution_hint=self.resolution)
 

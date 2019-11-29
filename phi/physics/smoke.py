@@ -28,7 +28,7 @@ class Smoke(DomainState):
         """
         return SMOKE
 
-    @struct.attr(default=0, dependencies=DomainState.domain)
+    @struct.variable(default=0, dependencies=DomainState.domain)
     def density(self, density):
         """
 The smoke density is stored in a CenteredGrid with dimensions matching the domain.
@@ -36,14 +36,14 @@ It describes the number of smoke particles per volume.
         """
         return self.centered_grid('density', density)
 
-    @struct.attr(default=0, dependencies=DomainState.domain)
+    @struct.variable(default=0, dependencies=DomainState.domain)
     def velocity(self, velocity):
         """
 The velocity is stored in a StaggeredGrid with dimensions matching the domain.
         """
         return self.staggered_grid('velocity', velocity)
 
-    @struct.prop(default=0.1)
+    @struct.constant(default=0.1)
     def buoyancy_factor(self, fac):
         """
 The default smoke physics applies buoyancy as an upward force.

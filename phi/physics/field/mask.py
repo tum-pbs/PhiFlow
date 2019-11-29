@@ -11,7 +11,7 @@ class GeometryMask(Field):
         data = _convert_constant_to_data(value)
         Field.__init__(self, **struct.kwargs(locals(), ignore='value'))
 
-    @struct.prop()
+    @struct.constant()
     def geometries(self, geometries):
         return tuple(geometries)
 

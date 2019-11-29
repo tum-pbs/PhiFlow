@@ -26,7 +26,7 @@ class TestStruct(TestCase):
                 self.assertEqual(obj, obj2)
                 obj3 = struct.map(lambda t: t, obj, recursive=True)
                 self.assertEqual(obj, obj3)
-                obj4 = struct.map(lambda t: t, obj, include_properties=True)
+                obj4 = struct.map(lambda t: t, obj, item_condition=struct.ALL_ITEMS)
                 self.assertEqual(obj, obj4)
 
     def test_flatten(self):

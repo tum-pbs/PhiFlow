@@ -14,17 +14,17 @@ class FieldEffect(State):
         tags = tuple(tags) + tuple('%s_effect' % target for target in targets)
         State.__init__(self, **struct.kwargs(locals()))
 
-    @struct.attr()
+    @struct.variable()
     def field(self, field):
         assert isinstance(field, Field)
         return field
 
-    @struct.prop()
+    @struct.constant()
     def mode(self, mode):
         assert mode in (GROW, ADD, FIX)
         return mode
 
-    @struct.prop()
+    @struct.constant()
     def targets(self, targets):
         return tuple(targets)
 
@@ -69,7 +69,7 @@ class Gravity(State):
         tags = ['gravity']
         State.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def gravity(self, gravity):
         assert gravity is not None
         return gravity

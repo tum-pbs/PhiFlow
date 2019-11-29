@@ -21,33 +21,35 @@ Required decorator for custom struct classes.
     return decorator
 
 
-def attr(default=None, dependencies=()):
+def variable(default=None, dependencies=(), holds_data=True):
     """
-Required decorator for attributes of custom structs.
+Required decorator for data_dict of custom structs.
 The enclosing class must be decorated with struct.definition().
     :param default: default value passed to validation if no other value is specified
-    :param dependencies: other items (string or reference for inherited properties)
-    :return: read-only attribute
-    """
-    def decorator(validate):
-        item = Item(validate.__name__, validate, True, default, dependencies)
-        _register_item(validate, item)
-        return item.get_property()
-    return decorator
-
-
-def prop(default=None, dependencies=()):
-    """
-Required decorator for properties of custom structs.
-The enclosing class must be decorated with struct.definition().
-    :param default: default value passed to validation if no other value is specified
-    :param dependencies: other items (string or reference for inherited properties)
+    :param dependencies: other items (string or reference for inherited constants_dict)
+    :param holds_data: determines whether the variable is considered by data-related functions
     :return: read-only property
     """
     def decorator(validate):
-        item = Item(validate.__name__, validate, False, default, dependencies)
+        item = Item(validate.__name__, validate, True, default, dependencies, holds_data)
         _register_item(validate, item)
-        return item.get_property()
+        return item
+    return decorator
+
+
+def constant(default=None, dependencies=(), holds_data=False):
+    """
+Required decorator for constants_dict of custom structs.
+The enclosing class must be decorated with struct.definition().
+    :param default: default value passed to validation if no other value is specified
+    :param dependencies: other items (string or reference for inherited constants_dict)
+    :param holds_data: determines whether the constant is considered by data-related functions
+    :return: read-only property
+    """
+    def decorator(validate):
+        item = Item(validate.__name__, validate, False, default, dependencies, holds_data)
+        _register_item(validate, item)
+        return item
     return decorator
 
 
@@ -94,8 +96,8 @@ One StructType is associated with each defined struct (subclass of Struct) and s
         self.struct_class = struct_class
         self.item_dict = item_dict
         self.items = _order_by_dependencies(item_dict)
-        self.attributes = tuple(filter(lambda item: item.is_attribute, self.items))
-        self.properties = tuple(filter(lambda item: not item.is_attribute, self.items))
+        self.variables = tuple(filter(lambda item: item.is_variable, self.items))
+        self.constants = tuple(filter(lambda item: not item.is_variable, self.items))
 
     def find(self, name):
         return self.item_dict[name]
@@ -111,45 +113,33 @@ One StructType is associated with each defined struct (subclass of Struct) and s
 
 class Item(object):
     """
-Represents an item type of a struct, an attribute or property.
+Represents an item type of a struct, a variable or a constant.
     """
 
-    def __init__(self, name, validation_function, is_attribute, default_value, dependencies):
-        assert isinstance(name, six.string_types)
-        assert callable(validation_function)
+    def __init__(self, name, validation_function, is_variable, default_value, dependencies, holds_data):
+        assert callable(validation_function) or validation_function is None
         self.name = name
         self.validation_function = validation_function
-        self.is_attribute = is_attribute
+        self.is_variable = is_variable
         self.default_value = default_value
         self.dependencies = dependencies
-        self.unique_property = StructProperty(self.name)
+        self.holds_data = holds_data
+        self.owner = None
 
     def set(self, struct, value):
         try:
             setattr(struct, '_' + self.name, value)
         except AttributeError:
-            raise AttributeError("can't modify struct %s because attribute %s cannot be set." % (struct, self))
+            raise AttributeError("can't modify struct %s because item %s cannot be set." % (struct, self))
 
     def get(self, struct):
         return getattr(struct, '_' + self.name)
 
-    def get_property(self):
-        return self.unique_property
-
     def validate(self, struct):
-        old_val = self.get(struct)
-        new_val = self.validation_function(struct, old_val)
-        self.set(struct, new_val)
-
-    def __repr__(self):
-        return self.name
-
-
-class StructProperty(object):
-
-    def __init__(self, name):
-        self.name = name
-        self.owner = None
+        if self.validation_function is not None:
+            old_val = self.get(struct)
+            new_val = self.validation_function(struct, old_val)
+            self.set(struct, new_val)
 
     def __get__(self, instance, owner):
         if instance is not None:
@@ -164,13 +154,19 @@ class StructProperty(object):
         return map(lambda x: getattr(x, '_'+self.name), obj, leaf_condition=lambda x: isinstance(x, self.owner))
 
     def __set__(self, instance, value):
-        raise AttributeError('Struct attributes and properties are read-only.')
+        raise AttributeError('Struct variables and constants are read-only.')
 
     def __delete__(self, instance):
-        raise AttributeError('Struct attributes and properties are read-only.')
+        raise AttributeError('Struct variables and constants are read-only.')
 
     def __repr__(self):
         return self.name
+
+
+CONSTANTS = lambda item: not item.is_variable
+VARIABLES = lambda item: item.is_variable
+DATA = lambda item: item.holds_data
+ALL_ITEMS = None  # lambda item: True
 
 
 class DerivedProperty(object):
@@ -192,10 +188,10 @@ class DerivedProperty(object):
         return map(lambda x: self.getter(x), obj, leaf_condition=lambda x: isinstance(x, self.owner))
 
     def __set__(self, instance, value):
-        raise AttributeError('Derived properties cannot be set.')
+        raise AttributeError('Derived constants_dict cannot be set.')
 
     def __delete__(self, instance):
-        raise AttributeError('Derived properties cannot be deleted.')
+        raise AttributeError('Derived constants_dict cannot be deleted.')
 
     def __repr__(self):
         return self.name
@@ -226,10 +222,7 @@ def _get_dependencies(item, item_dict):
 def _resolve_dependencies(dependency, item_dict):
     if dependency is None: return []
     if isinstance(dependency, six.string_types): return [item_dict[dependency]]
-    if isinstance(dependency, StructProperty):
-        for item in item_dict.values():
-            if item.unique_property == dependency:
-                return [item]
+    if isinstance(dependency, Item): return [dependency]
     if isinstance(dependency, (tuple, list)):
         return sum([_resolve_dependencies(dep, item_dict) for dep in dependency], [])
     raise ValueError('Cannot resolve dependency "%s". Available items: %s' % (dependency, item_dict.keys()))

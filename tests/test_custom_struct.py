@@ -7,10 +7,10 @@ from phi.struct.structdef import _UNUSED_ITEMS, get_type
 @struct.definition()
 class Parent(struct.Struct):
 
-    @struct.prop(default='parent')
+    @struct.constant(default='parent')
     def parent(self, parent): return parent
 
-    @struct.attr(default=0, dependencies='parent')
+    @struct.variable(default=0, dependencies='parent')
     def density(self, density): return density
 
 
@@ -21,13 +21,13 @@ class MyStruct(Parent):
         Parent.__init__(self, **struct.kwargs(locals(), include_self=False))
         print(self.__class__.__struct__)
 
-    @struct.prop(dependencies=['age', 'age2', 'parent'])
+    @struct.constant(dependencies=['age', 'age2', 'parent'])
     def a_super_dependent(self, super_dependent): return super_dependent
 
-    @struct.prop(default=26, dependencies=Parent.parent)
+    @struct.constant(default=26, dependencies=Parent.parent)
     def age(self, age): return age
 
-    @struct.prop(dependencies='age')
+    @struct.constant(dependencies='age')
     def age2(self, age2): return age2
 
     @struct.derived()
@@ -49,7 +49,7 @@ class TestStruct(TestCase):
             'age': 26,
             'age2': None,
             'parent': 'parent'
-        }, struct.properties(m))
+        }, struct.constants(m))
 
     def test_batch_get(self):
         obj = {'a': [MyStruct()]}

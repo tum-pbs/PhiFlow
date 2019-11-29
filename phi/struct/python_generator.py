@@ -7,14 +7,14 @@ def generate(struct_name, attributes=(), properties=(), other=()):
     other_init = ''
     for attr_name in attributes:
         items += """
-    @struct.attr()
+    @struct.variable()
     def {name}(self, {name}):
         return {name}
 """.replace('{name}', attr_name)
         parameters += '%s, ' % (attr_name, )
     for prop_name in properties:
         items += """
-    @struct.prop()
+    @struct.constant()
     def {name}(self, {name}):
         return {name}
         """.replace('{name}', prop_name)

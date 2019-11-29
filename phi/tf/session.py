@@ -42,12 +42,12 @@ class Session(object):
         if feed_dict is not None:
             tensor_feed_dict = {}
             for (key, value) in feed_dict.items():
-                pairs = struct.zip([key, value], include_properties=True, zip_parents_if_incompatible=True)
+                pairs = struct.zip([key, value], item_condition=struct.ALL_ITEMS, zip_parents_if_incompatible=True)
                 def add_to_dict(key_tensor, value_tensor):
                     if isplaceholder(key_tensor):
                         tensor_feed_dict[key_tensor] = value_tensor
                     return None
-                with struct.anytype(): struct.map(add_to_dict, pairs, include_properties=True)
+                with struct.anytype(): struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS)
 
         tensor_fetches = struct.flatten(fetches)
 

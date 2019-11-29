@@ -11,17 +11,17 @@ class Obstacle(State):
     def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), **kwargs):
         State.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def geometry(self, geometry):
         assert isinstance(geometry, Geometry)
         return geometry
 
-    @struct.prop(default=SLIPPERY)
+    @struct.constant(default=SLIPPERY)
     def material(self, material):
         assert isinstance(material, Material)
         return material
 
-    @struct.prop(default=0)
+    @struct.constant(default=0)
     def velocity(self, velocity): return velocity
 
 

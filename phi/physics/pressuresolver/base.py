@@ -67,7 +67,7 @@ class FluidDomain(object):
     def active(self, extend=0):
         """
         Scalar channel encoding active cells as ones and inactive (open/obstacle) as zero.
-        Active cells are those for which physical properties such as pressure or velocity are calculated.
+        Active cells are those for which physical constants_dict such as pressure or velocity are calculated.
 
         :param extend: Extend the grid in all directions beyond the grid size specified by the domain
         """

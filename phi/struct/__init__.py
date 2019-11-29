@@ -1,6 +1,6 @@
 from .context import anytype
-from .structdef import definition, attr, prop, derived
-from .struct import Struct, kwargs, attributes, properties, properties_dict, copy_with, isstruct, equal
+from .structdef import definition, variable, constant, derived, DATA, VARIABLES, CONSTANTS, ALL_ITEMS
+from .struct import Struct, kwargs, to_dict, variables, constants, properties_dict, copy_with, isstruct, equal
 
 # pylint: disable-msg = redefined-builtin
 from .functions import flatten, names, map, zip, Trace, compare

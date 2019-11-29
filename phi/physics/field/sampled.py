@@ -26,12 +26,12 @@ class SampledField(Field):
         else:
             raise NotImplementedError('SampledField interpolation is only implemented for CenteredGrids.')
 
-    @struct.prop(default='add')
+    @struct.constant(default='add')
     def mode(self, mode):
         assert mode in ('add', 'mean', 'any')
         return mode
 
-    @struct.attr()
+    @struct.variable()
     def sample_points(self, sample_points):
         assert math.ndims(sample_points) == 3
         return sample_points

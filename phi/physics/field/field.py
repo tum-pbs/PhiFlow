@@ -28,7 +28,7 @@ class Field(State):
     def dtype(self):
         return math.dtype(self.data)
 
-    @struct.attr()
+    @struct.variable()
     def data(self, data):
         """
         Data holds the values of this field according to the order specified by points.
@@ -37,10 +37,10 @@ class Field(State):
         """
         return _to_valid_data(data)
 
-    @struct.prop()
+    @struct.constant()
     def flags(self, flags):
         """
-        Flags describe properties of a Field such as divergence-freeness.
+        Flags describe constants_dict of a Field such as divergence-freeness.
             :return: tuple of flags
         """
         if flags is None:

@@ -9,7 +9,7 @@ class CollectiveState(struct.Struct):
     def __init__(self, states=None, **kwargs):
         struct.Struct.__init__(self, **struct.kwargs(locals()))
 
-    @struct.attr()
+    @struct.variable()
     def states(self, states):
         if states is None:
             return {}
@@ -96,7 +96,7 @@ class CollectiveState(struct.Struct):
                 self.states[name] = value
         return self
 
-    def __attributes__(self, include_properties=False):
+    def __to_dict__(self, item_condition=None):
         return self.states.copy()
 
     def __properties__(self):

@@ -17,7 +17,7 @@ class Domain(struct.Struct):
 
         If all boundary surfaces should have the same behaviour, pass a single Material instance.
 
-        To specify the boundary properties per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
+        To specify the boundary constants_dict per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
         Each element can either be a Material, specifying the faces perpendicular to that axis, or a pair
         of Material holding (lower_face_material, upper_face_material).
 
@@ -32,17 +32,17 @@ class Domain(struct.Struct):
         """
         struct.Struct.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def resolution(self, resolution):
         if len(math.staticshape(resolution)) == 0:
             resolution = [resolution]
         return np.array(resolution)
 
-    @struct.prop(dependencies='resolution')
+    @struct.constant(dependencies='resolution')
     def box(self, box):
         return AABox.to_box(box, resolution_hint=self.resolution)
 
-    @struct.prop(default=OPEN)
+    @struct.constant(default=OPEN)
     def boundaries(self, boundaries):
         assert isinstance(boundaries, (Material, list, tuple))
         if isinstance(boundaries, (tuple, list)):
@@ -196,7 +196,7 @@ def _extend1(shape, axis):
 @struct.definition()
 class DomainState(State):
 
-    @struct.prop()
+    @struct.constant()
     def domain(self, domain):
         assert domain is not None
         if isinstance(domain, Domain): return domain

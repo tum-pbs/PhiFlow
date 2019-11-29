@@ -24,10 +24,11 @@ class TestSmokeTF(TestCase):
         world.add(Obstacle(box[4:16, 0:8]))
         smoke_in = smoke.copied_with(density=placeholder, velocity=placeholder)
         smoke_out = world.step(smoke_in)
+        self.assertIsInstance(smoke_out, Smoke)
         session = Session(Scene.create('data', copy_calling_script=False))
         smoke = session.run(smoke_out, {smoke_in: smoke})
         smoke = session.run(smoke_out, {smoke_in: smoke})
-        self.assertIsInstance(smoke_out, Smoke)
+        self.assertIsInstance(smoke, Smoke)
 
     def test_tf_subgraph(self):
         world = World()
