@@ -5,6 +5,7 @@ More general fluid functions are located in fluid.py
 import numpy as np
 
 from phi import struct, math
+from phi.physics.material import Material
 from .physics import StateDependency, Physics
 from .field import advect, StaggeredGrid
 from .field.effect import Gravity, gravity_tensor, effect_applied
@@ -61,7 +62,7 @@ Default smoke physics modelling incompressible air flow with buoyancy proportion
 Supports obstacles, density effects, velocity effects, global gravity.
     """
 
-    def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True):
+    def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True, conserve_density=True):
         Physics.__init__(self, [StateDependency('obstacles', 'obstacle'),
                                 StateDependency('gravity', 'gravity', single_state=True),
                                 StateDependency('density_effects', 'density_effect', blocking=True),
@@ -69,6 +70,7 @@ Supports obstacles, density effects, velocity effects, global gravity.
         self.pressure_solver = pressure_solver
         self.make_input_divfree = make_input_divfree
         self.make_output_divfree = make_output_divfree
+        self.conserve_density = conserve_density
 
     def step(self, smoke, dt=1.0, obstacles=(), gravity=Gravity(), density_effects=(), velocity_effects=()):
         # pylint: disable-msg = arguments-differ
@@ -80,6 +82,8 @@ Supports obstacles, density effects, velocity effects, global gravity.
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
+        if self.conserve_density and np.all(Material.solid(smoke.domain.boundaries)):
+            density = density.normalized(smoke.density)
         # --- Effects ---
         for effect in density_effects:
             density = effect_applied(effect, density, dt)

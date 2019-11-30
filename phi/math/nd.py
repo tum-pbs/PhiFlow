@@ -41,15 +41,17 @@ def indices_tensor(tensor, dtype=np.float32):
     return idx.astype(dtype)
 
 
-def normalize_to(target, source=1):
+def normalize_to(target, source=1, epsilon=1e-5):
     """
     Multiplies the target so that its total content matches the source.
 
     :param target: a tensor
     :param source: a tensor or number
+    :param epsilon: small number to prevent division by zero or None.
     :return: normalized tensor of the same shape as target
     """
-    return target * (math.sum(source) / math.sum(target))
+    denominator = math.maximum(math.sum(target), epsilon) if epsilon is not None else math.sum(target)
+    return target * (math.sum(source) / denominator)
 
 
 def batch_align(tensor, innate_dims, target):

@@ -137,6 +137,12 @@ class CenteredGrid(Field):
             laplace = math.laplace(self.data, padding=_pad_mode(self.extrapolation))
             return laplace / self.dx[0] ** 2
 
+    def normalized(self, total, epsilon=1e-5):
+        if isinstance(total, CenteredGrid):
+            total = total.data
+        normalize_data = math.normalize_to(self.data, total, epsilon)
+        return self.with_data(normalize_data)
+
 
 def _required_paddings_transposed(box, dx, target):
     lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx))
