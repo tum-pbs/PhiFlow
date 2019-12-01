@@ -120,8 +120,7 @@ class SciPyBackend(Backend):
         for batch in range(sample_coords.shape[0]):
             components = []
             for dim in range(inputs.shape[-1]):
-                resampled = scipy.interpolate.interpn(points, inputs[batch, ..., dim], sample_coords[batch, ...],
-                                         method=interpolation.lower(), bounds_error=False, fill_value=0)
+                resampled = scipy.interpolate.interpn(points, inputs[batch, ..., dim], sample_coords[batch, ...], method=interpolation.lower(), bounds_error=False, fill_value=0)
                 components.append(resampled)
             result.append(np.stack(components, -1))
 
