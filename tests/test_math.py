@@ -78,3 +78,14 @@ class TestMath(TestCase):
         a_ = pad(a, [[0,0], [0,1], [1,1], [0,0]], mode='wrap').eval()
         np.testing.assert_equal(a_.shape, [1,3,5,1])
         np.testing.assert_equal(a_.reshape([3,5]), t)
+
+    def test_multimode_pad(self):
+        a = np.array([[1,2], [3,4]])
+        print(a)
+        p = pad(a, [[1,1], [1,1]], mode=['symmetric', ['wrap', 'constant']], constant_values=[0, [0, 10]])
+        np.testing.assert_equal(p[0,1:-1], [1,2])
+        np.testing.assert_equal(p[3,1:-1], [3,4])
+        np.testing.assert_equal(p[1:-1,0], [2,4])
+        np.testing.assert_equal(p[1:-1,3], [10, 10])
+        print(p)
+        # TODO add TensorFlow test (no implemented yet)
