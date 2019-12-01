@@ -75,6 +75,15 @@ Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').
         else:
             return 'constant'
 
+    @struct.derived()
+    def accessible_extrapolation_mode(self):
+        if self.periodic:
+            return 'periodic'
+        if self.solid:
+            return 'constant'
+        else:
+            return 'boundary'
+
 
 OPEN = Material('open', solid=False)
 CLOSED = NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0.0)

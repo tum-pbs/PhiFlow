@@ -3,6 +3,7 @@ from phi import struct, math
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
 from phi.physics.field.staggered_grid import staggered_component_box
+from phi.struct.tensorop import collapse, collapsed_gather_nd
 from . import State
 from .material import Material, OPEN
 from .field import CenteredGrid, StaggeredGrid, Field, DIVERGENCE_FREE
@@ -47,7 +48,7 @@ class Domain(struct.Struct):
         assert isinstance(boundaries, (Material, list, tuple))
         if isinstance(boundaries, (tuple, list)):
             assert len(boundaries) == self.rank
-        return _collapse_equals(boundaries, leaf_type=Material)
+        return collapse(boundaries)
 
     @property
     def rank(self):
@@ -65,11 +66,8 @@ class Domain(struct.Struct):
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
     def staggered_points(self, dimension):
-        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+1.5, 1)
-                                if dim != dimension else np.arange(0, dim+1, 1)
-                                for dim in self.resolution], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+1.5, 1)  if dim != dimension else np.arange(0, dim+1, 1) for dim in self.resolution], indexing="ij")
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
-
 
     def indices(self):
         """
@@ -140,38 +138,19 @@ class Domain(struct.Struct):
             grid = StaggeredGrid(name, data, self.box, batch_size=None, extrapolation=extrapolation)
         return grid
 
-    def _get_paddings(self, material_condition, margin=1):
-        true_paddings = [[0, 0] for i in range(self.rank)]
-        false_paddings = [[0, 0] for i in range(self.rank)]
-        for dim in range(self.rank):
-            for upper in (False, True):
-                if material_condition(self.surface_material(dim, upper)):
-                    true_paddings[dim][upper] = margin
-                else:
-                    false_paddings[dim][upper] = margin
-        return [[0, 0]] + true_paddings + [[0, 0]], [[0, 0]] + false_paddings + [[0, 0]]
+    # def _get_paddings(self, material_condition, margin=1):
+    #     true_paddings = [[0, 0] for i in range(self.rank)]
+    #     false_paddings = [[0, 0] for i in range(self.rank)]
+    #     for dim in range(self.rank):
+    #         for upper in (False, True):
+    #             if material_condition(self.surface_material(dim, upper)):
+    #                 true_paddings[dim][upper] = margin
+    #             else:
+    #                 false_paddings[dim][upper] = margin
+    #     return [[0, 0]] + true_paddings + [[0, 0]], [[0, 0]] + false_paddings + [[0, 0]]
 
     def surface_material(self, axis=0, upper_boundary=False):
-        if isinstance(self.boundaries, Material):
-            return self.boundaries
-        else:
-            dim_boundaries = self.boundaries[axis]
-            if isinstance(dim_boundaries, Material):
-                return dim_boundaries
-            else:
-                return dim_boundaries[upper_boundary]
-
-
-def _collapse_equals(obj, leaf_type):
-    if isinstance(obj, leaf_type):
-        return obj
-    else:
-        list = tuple([_collapse_equals(element, leaf_type) for element in obj])
-        first = list[0]
-        for element in list[1:]:
-            if element != first:
-                return list
-        return first
+        return collapsed_gather_nd(self.boundaries, axis, upper_boundary)
 
 
 def _friction_mask(masks_and_multipliers):

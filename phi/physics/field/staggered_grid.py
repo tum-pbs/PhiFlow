@@ -5,6 +5,7 @@ import numpy as np
 from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
+from phi.struct.tensorop import collapse
 from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, \
     propagate_flags_resample, propagate_flags_operation
 from .grid import CenteredGrid
@@ -101,9 +102,10 @@ class StaggeredGrid(Field):
 
     @struct.constant(default='boundary')
     def extrapolation(self, extrapolation):
-        if extrapolation is None: return 'boundary'
-        assert extrapolation in ('periodic', 'constant', 'boundary'), extrapolation
-        return extrapolation
+        if extrapolation is None:
+            return 'boundary'
+        assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
+        return collapse(extrapolation)
 
     def sample_at(self, points, collapse_dimensions=True):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)

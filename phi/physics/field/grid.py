@@ -1,8 +1,11 @@
 import numpy as np
+import six
 
 from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
+from phi.struct.functions import mappable
+from phi.struct.tensorop import collapse
 
 from .field import Field, propagate_flags_children
 from .flag import SAMPLE_POINTS
@@ -40,9 +43,10 @@ class CenteredGrid(Field):
 
     @struct.constant(default='boundary')
     def extrapolation(self, extrapolation):
-        if extrapolation is None: return 'boundary'
-        assert extrapolation in ('periodic', 'constant', 'boundary'), extrapolation
-        return extrapolation
+        if extrapolation is None:
+            return 'boundary'
+        assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
+        return collapse(extrapolation)
 
     @struct.constant(default='linear')
     def interpolation(self, interpolation):
@@ -116,10 +120,11 @@ class CenteredGrid(Field):
             return 'Grid[invalid]'
 
     def padded(self, widths):
-        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(self.extrapolation))
+        extrapolation = self.extrapolation if isinstance(self.extrapolation, six.string_types) else ['constant'] + list(self.extrapolation) + ['constant']
+        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(extrapolation))
         w_lower, w_upper = np.transpose(widths)
         box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
-        return CenteredGrid(self.name, data, box, batch_size=self._batch_size)
+        return CenteredGrid(self.name, data, box, batch_size=self._batch_size, extrapolation=self.extrapolation)
 
     @staticmethod
     def getpoints(box, resolution):
@@ -150,6 +155,7 @@ def _required_paddings_transposed(box, dx, target):
     return [lower, upper]
 
 
+@mappable()
 def _pad_mode(extrapolation):
     if extrapolation == 'periodic':
         return 'wrap'

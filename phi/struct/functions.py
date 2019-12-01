@@ -176,7 +176,7 @@ def print_differences(struct1, struct2):
 def mappable(leaf_condition=None, recursive=True, item_condition=DATA):
     def decorator(function):
         def broadcast_function(obj, *args, **kwargs):
-            def function_with_args(x): function(x, *args, **kwargs)
+            def function_with_args(x): return function(x, *args, **kwargs)
             result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
             return result
         return broadcast_function

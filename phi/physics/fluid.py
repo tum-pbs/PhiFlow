@@ -7,7 +7,7 @@ from phi import math
 from .pressuresolver.base import FluidDomain
 from .pressuresolver.sparse import SparseCG
 from .field import CenteredGrid, StaggeredGrid, union_mask
-from .material import OPEN
+from .material import OPEN, Material
 from .domain import Domain
 
 
@@ -55,11 +55,12 @@ Projects the given velocity field by solving for and subtracting the pressure.
         domain = Domain(velocity.resolution, OPEN)
     obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles])
     if obstacle_mask is not None:
-        obstacle_grid = obstacle_mask.at(velocity.center_points, collapse_dimensions=False).data
+        obstacle_grid = obstacle_mask.at(velocity.center_points, collapse_dimensions=False)
         active_mask = 1 - obstacle_grid
     else:
-        active_mask = math.ones(domain.centered_shape(name='active')).data
-    fluiddomain = FluidDomain(domain, active=active_mask, accessible=active_mask)
+        active_mask = math.ones(domain.centered_shape(name='active'))
+    accessible_mask = active_mask.copied_with(extrapolation=Material.accessible_extrapolation_mode(domain.boundaries))
+    fluiddomain = FluidDomain(domain, active=active_mask, accessible=accessible_mask)
 
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)
     divergence_field = velocity.divergence(physical_units=False)

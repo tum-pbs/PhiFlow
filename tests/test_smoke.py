@@ -7,6 +7,7 @@ from phi.geom import Sphere
 from phi.physics.domain import Domain
 from phi.physics.field import StaggeredGrid
 from phi.physics.field.effect import Fan, Inflow
+from phi.physics.material import CLOSED, OPEN
 from phi.physics.smoke import Smoke, SMOKE
 from phi.physics.world import World
 
@@ -31,6 +32,10 @@ class TestSmoke(TestCase):
         self.assertAlmostEqual(smoke.age, 2.0)
         self.assertAlmostEqual(inflow.age, 1.0)
         # self.assertEqual(smoke._batch_size, 3)
+
+    def test_varying_boundaries(self):
+        smoke = Smoke(Domain([16, 16], boundaries=[(CLOSED, OPEN), CLOSED]))
+        SMOKE.step(smoke)
 
     def test_smoke_initializers(self):
         def typetest(smoke):
