@@ -45,7 +45,7 @@ class GeometricCG(PressureSolver):
         self.autodiff = autodiff
 
     def solve(self, divergence, domain, pressure_guess):
-        fluid_mask = domain.accessible(extend=1)
+        fluid_mask = domain.accessible_tensor(extend=1)
 
         if self.autodiff:
             return solve_pressure_forward(divergence, fluid_mask, self.max_iterations, pressure_guess, self.accuracy, boundaries, back_prop=True)

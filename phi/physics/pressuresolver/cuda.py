@@ -41,7 +41,7 @@ class CUDA(PressureSolver):
 
     def solve(self, divergence, domain, pressure_guess):
         # pressure_guess: not used in this implementation, Kernel takes the last pressure value for initial_guess
-        active, accessible = domain.active(extend=1), domain.accessible(extend=1)
+        active, accessible = domain.active_tensor(extend=1), domain.accessible_tensor(extend=1)
 
         def pressure_gradient(op, grad):
             return cuda_solve_forward(grad, active, accessible, self.gradient_accuracy, max_gradient_iterations)[0]
