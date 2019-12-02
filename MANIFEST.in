@@ -1,2 +1,2 @@
 include README
-recursive-include phi/solver/cuda/build *
+recursive-include phi/physics/pressuresolver/cuda/build *
