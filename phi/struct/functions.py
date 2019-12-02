@@ -30,11 +30,11 @@ def zip(structs, leaf_condition=None, item_condition=DATA, zip_parents_if_incomp
     first = structs[0]
     if isstruct(first, leaf_condition):
         for struct in structs[1:]:
-            if to_dict(struct, item_condition=item_condition).keys() != to_dict(first, item_condition=item_condition).keys():
+            if set(to_dict(struct, item_condition=item_condition).keys()) != set(to_dict(first, item_condition=item_condition).keys()):
                 if zip_parents_if_incompatible:
                     return LeafZip(structs)
                 else:
-                    raise IncompatibleStructs('Cannot zip %s and %s' % (struct, first))
+                    raise IncompatibleStructs('Cannot zip %s and %s because keys vary:\n%s\n%s' % (struct, first, to_dict(struct, item_condition=item_condition).keys(), to_dict(first, item_condition=item_condition).keys()))
 
     if not isstruct(first, leaf_condition):
         return LeafZip(structs)
