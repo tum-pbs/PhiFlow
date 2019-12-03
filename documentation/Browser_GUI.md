@@ -51,12 +51,20 @@ On startup, the GUI will automatically display the fields.
 
 ## The `step()` Method
 
-The `step()` method is the core part of the model. It defines how the next step is calculated. This could mean running one simulation step, loading data from disc or running a training pass for a neural network.
+The `step()` method is the core part of the model. It defines how the next update is calculated. This could mean running one simulation step to advance the state of the physical system in time, loading data from disc or running a training pass for a neural network.
 If not overridden, `step()` calls `world.step()` on the global `world` object.
 
 Your subclass of [App](../phi/app/app.py) automatically inherits the variable `time` which holds the current frame as an integer (`time=0` for the first call). It is automatically incremented after step is called and is displayed in the GUI, below the diagrams.
 
 After `step()` finishes, the GUI is updated to reflect the change in the data. Consequently, the channel generators (`numpy,ndarray`'s and `lambda` expressions in the above example) can be called after each step. In practice, however, steps can often be performed at a higher framerate than the GUI update rate.
+
+## Framerate, Sequences and Recording
+
+The default app provides control for the display framerate and for running sequences. If `framerate control` is enabled, the corresponding slides control the number of targeted updates per second. I.e., for a setting of 2, the field displays will be updated twice per second. If the computations take more time, or the bandwidth is limited, the update frequency is reduced. The `substeps` field controls how many updates, i.e., `step()` calls should be performed at least before an UI update is triggered.
+
+In the UI section below the framerate, the run `Run sequence` button performs a chosen number of updates (each with `substeps` iterations), while `Benchmark sequence` additionally measures execution time.
+
+The Record section controls with registered UI fields are written to disk. The data can either be saved visually as an `Image` and/or as a numpy array with `Data`. The `substeps` setting controls the interval for writing data.
 
 ## Custom Controls
 
