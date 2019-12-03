@@ -138,7 +138,7 @@ setup(
     author='Philipp Holl',
     author_email='philipp.holl@tum.de',
     description='Fully Differentiable Grid-based Fluid Simulations on the GPU',
-    install_requires=['six'],
+    install_requires=['six', 'packaging', 'scipy'],
     extras_require={
         'gui': ["dash",
                 "dash-renderer",
