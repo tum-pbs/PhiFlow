@@ -87,23 +87,23 @@ class Domain(struct.Struct):
         assert isinstance(grid2, Domain), 'Not a Domain: %s' % type(grid2)
         return np.all(grid1.resolution == grid2.resolution) and grid1.box == grid2.box
 
-    def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None):
+    def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None, age=0.0):
         with struct.anytype():
-            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size)
+            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size)
 
-    def staggered_shape(self, batch_size=1, name=None, extrapolation=None):
+    def staggered_shape(self, batch_size=1, name=None, extrapolation=None, age=0.0):
         with struct.anytype():
             grids = []
             for axis in range(self.rank):
                 shape = _extend1(tensor_shape(batch_size, self.resolution, 1), axis)
                 box = staggered_component_box(self.resolution, axis, self.box)
-                grid = CenteredGrid(shape, box, extrapolation=extrapolation, name=None, batch_size=batch_size)
+                grid = CenteredGrid(shape, box, age=age, extrapolation=extrapolation, name=None, batch_size=batch_size)
                 grids.append(grid)
-            return StaggeredGrid(grids, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation)
+            return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
-        shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation)
         if callable(data):  # data is an initializer
+            shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
             try:
                 data = data(shape, dtype=dtype)
             except TypeError:
@@ -115,14 +115,15 @@ class Domain(struct.Struct):
                 data = data.copied_with(name=name)
             grid = data
         elif isinstance(data, (int, float)):
+            shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=0.0)
             grid = math.zeros(shape, dtype=dtype) + data
         else:
             grid = CenteredGrid(data, box=self.box, extrapolation=extrapolation, name=name)
         return grid
 
     def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
-        shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation)
         if callable(data):  # data is an initializer
+            shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
             try:
                 data = data(shape, dtype=dtype)
             except TypeError:
@@ -133,6 +134,7 @@ class Domain(struct.Struct):
             assert data.box == self.box
             grid = data
         elif isinstance(data, (int, float)):
+            shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation)
             grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
         else:
             grid = StaggeredGrid(data, self.box, name, batch_size=None, extrapolation=extrapolation)

@@ -5,10 +5,10 @@ import tensorflow as tf
 from tensorflow.python import pywrap_tensorflow
 
 from phi import struct
-from phi.math.initializers import _is_python_shape
+from phi.math.math_util import is_static_shape
 from phi.physics.field.staggered_grid import StaggeredGrid
 from phi.physics.field.grid import CenteredGrid
-
+from phi.struct.functions import mappable
 
 if tf.__version__[0] == '2':
     print('Adjusting for tensorflow 2.0')
@@ -22,26 +22,28 @@ def _tf_name(trace, basename):
         return basename + '/' + trace.path('/')
 
 
-def placeholder(shape, dtype=np.float32, basename=None, item_condition=struct.DATA):
+def placeholder(shape, dtype=np.float32, basename=None, item_condition=struct.VARIABLES):
     if struct.isstruct(dtype):
-        f = lambda trace: tf.placeholder(trace.value[1], trace.value[0], _tf_name(trace, basename))
-        zipped = struct.zip([shape, dtype], leaf_condition=_is_python_shape, item_condition=item_condition)
-        return struct.map(f, zipped, leaf_condition=_is_python_shape, trace=True, item_condition=item_condition)
+        def placeholder_map(trace):
+            shape, dtype = trace.value
+            return tf.placeholder(dtype, shape, _tf_name(trace, basename))
+        zipped = struct.zip([shape, dtype], leaf_condition=is_static_shape, item_condition=item_condition)
+        return struct.map(placeholder_map, zipped, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
     else:
         f = lambda trace: tf.placeholder(dtype, trace.value, _tf_name(trace, basename))
-        return struct.map(f, shape, leaf_condition=_is_python_shape, trace=True, item_condition=item_condition)
+        return struct.map(f, shape, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
 
 
 def placeholder_like(obj, basename=None):
     warnings.warn("placeholder_like may not respect the batch dimension. "
                   "For State objects, use placeholder(state.shape) instead.", DeprecationWarning, stacklevel=2)
     f = lambda attr: tf.placeholder(attr.value.dtype, attr.value.shape, _tf_name(attr, basename))
-    return struct.map(f, obj, leaf_condition=_is_python_shape, trace=True)
+    return struct.map(f, obj, leaf_condition=is_static_shape, trace=True)
 
 
 def variable(initial_value, dtype=np.float32, basename=None, trainable=True):
     f = lambda attr: tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
-    return struct.map(f, initial_value, leaf_condition=_is_python_shape, trace=True)
+    return struct.map(f, initial_value, leaf_condition=is_static_shape, trace=True)
 
 
 def variable_generator(initializer, dtype=np.float32, basename=None, trainable=True):

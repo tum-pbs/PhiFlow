@@ -4,4 +4,4 @@ from .base import Backend
 from .backend import *
 
 from .nd import *
-from .initializers import *  # this replaces zeros_like (possibly more) and must be handled carefully
+from .math_util import *  # this replaces zeros_like (possibly more) and must be handled carefully

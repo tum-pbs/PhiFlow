@@ -1,6 +1,6 @@
 # pylint: disable-msg = not-an-iterable
 from phi.tf.flow import *
-from phi.math.initializers import randn
+from phi.math.math_util import randn
 from phi.viz.plot import PlotlyFigureBuilder
 
 

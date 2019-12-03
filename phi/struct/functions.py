@@ -174,11 +174,15 @@ def print_differences(struct1, struct2):
             print('Item "%s" is missing from %s.' % (key2, struct1))
 
 
-def mappable(leaf_condition=None, recursive=True, item_condition=DATA):
+def mappable(leaf_condition=None, recursive=True, item_condition=DATA, anytype_context=False):
     def decorator(function):
         def broadcast_function(obj, *args, **kwargs):
             def function_with_args(x): return function(x, *args, **kwargs)
-            result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
+            if anytype_context:
+                with anytype():
+                    result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
+            else:
+                result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
             return result
         return broadcast_function
     return decorator
