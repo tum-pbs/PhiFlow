@@ -11,7 +11,7 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 
 ## Features
 
-- Built-in Burgers and smoke simulation.
+- Support for a variety of differentiable simulation types, from Burgers over Navier-Stokes to the Schrödinger equation.
 - Tight integration with [TensorFlow](https://www.tensorflow.org/) allowing for straightforward network training with fully differentiable simulations that run on the GPU.
 - Object-oriented architecture enabling concise and expressive code, designed for ease of use and extensibility.
 - Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D smoke sim using NumPy and a 3D smoke sim on the GPU using TensorFlow.
@@ -75,6 +75,5 @@ Resampling / Advection: NumPy interpolation handles the boundaries slightly diff
 
 ## Acknowledgements
 
-This work is supported by the ERC Starting Grant realFlow (StG-2015-637014) 
-and the Intel Intelligent Systems Lab.
+This work is supported by the ERC Starting Grant realFlow (StG-2015-637014) and the Intel Intelligent Systems Lab.
 
