@@ -66,7 +66,10 @@ class AABox(Geometry):
             raise NotImplementedError()
 
     def __repr__(self):
-        return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
+        try:
+            return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
+        except TypeError:
+            return '%s at %s' % (self.size, self.lower)
 
     @staticmethod
     def to_box(value, resolution_hint=None):

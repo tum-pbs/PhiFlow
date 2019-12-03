@@ -1,6 +1,7 @@
 # coding=utf-8
 from numbers import Number
 import numpy as np
+import six
 
 from phi import math, struct
 from phi.geom import AABox
@@ -54,7 +55,7 @@ def staggered_component_box(resolution, axis, box_like=None):
 @struct.definition()
 class StaggeredGrid(Field):
 
-    def __init__(self, name, data, box=None, flags=(), **kwargs):
+    def __init__(self, data, box=None, name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals()))
 
     @struct.variable(dependencies=[Field.name, Field.flags])
@@ -79,7 +80,8 @@ class StaggeredGrid(Field):
             assert grid.box == box
             assert grid.extrapolation == self.extrapolation
         else:
-            grid = CenteredGrid(name=_subname(self.name, axis), data=grid, box=box, extrapolation=self.extrapolation, batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
+            grid = CenteredGrid(data=grid, box=box, extrapolation=self.extrapolation, name=_subname(self.name, axis),
+                                batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
         return grid
 
     @property
@@ -174,7 +176,7 @@ class StaggeredGrid(Field):
                 grad /= self.dx[dim]
             components.append(grad)
         data = math.add(components)
-        return CenteredGrid(u'div %s' % self.name, data, self.box, batch_size=self._batch_size)
+        return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
 
     @property
     def dtype(self):
@@ -191,7 +193,8 @@ class StaggeredGrid(Field):
             upper = math.pad(data, [[0,1] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
             lower = math.pad(data, [[1,0] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
             tensors.append((upper - lower) / scalar_field.dx[dim - 1])
-        return StaggeredGrid(u'grad %s' % scalar_field.name, tensors, scalar_field.box, batch_size=scalar_field._batch_size)
+        return StaggeredGrid(tensors, scalar_field.box, name='grad(%s)' % scalar_field.name,
+                             batch_size=scalar_field._batch_size)
 
     @staticmethod
     def from_scalar(scalar_field, axis_forces, padding_mode='constant', name=None):
@@ -205,7 +208,9 @@ class StaggeredGrid(Field):
                 dims[i+1] += 1
                 tensors.append(math.zeros(dims, math.dtype(scalar_field.data)))
             else:
+                # upper = scalar_field.axis_padded(i, 0, 1).data  TODO use this instead
+                # lower = scalar_field.axis_padded(i, 1, 0).data
                 upper = math.pad(scalar_field.data, [[0,1] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
                 lower = math.pad(scalar_field.data, [[1,0] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
                 tensors.append((upper + lower) / 2 * force)
-        return StaggeredGrid(name, tensors, scalar_field.box, batch_size=scalar_field._batch_size)
+        return StaggeredGrid(tensors, scalar_field.box, name=name, batch_size=scalar_field._batch_size)

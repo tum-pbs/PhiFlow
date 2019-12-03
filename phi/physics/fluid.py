@@ -36,7 +36,7 @@ def solve_pressure(divergence, fluiddomain, pressure_solver=None):
     pressure, iteration = pressure_solver.solve(divergence.data, fluiddomain, pressure_guess=None)
 
     if isinstance(divergence, CenteredGrid):
-        pressure = CenteredGrid('pressure', pressure, divergence.box)
+        pressure = CenteredGrid(pressure, divergence.box, name='pressure')
 
     return pressure, iteration
 

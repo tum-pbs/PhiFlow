@@ -17,8 +17,9 @@ def _to_valid_data(data):
 @struct.definition()
 class Field(State):
 
-    def __init__(self, name, data, flags=(), **kwargs):
-        tags = [name, 'field']
+    def __init__(self, data, name=None, **kwargs):
+        if 'tags' not in kwargs:
+            tags = [name, 'field'] if name is not None else ['field']
         State.__init__(self, **struct.kwargs(locals()))
 
     def with_data(self, data):

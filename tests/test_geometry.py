@@ -7,7 +7,7 @@ from phi.physics.field import CenteredGrid
 
 
 def points():
-    return CenteredGrid('', np.zeros([1,10,10,1]), box[0:10, 0:10]).points
+    return CenteredGrid(np.zeros([1, 10, 10, 1]), box[0:10, 0:10]).points
 
 
 class TestGeometry(TestCase):

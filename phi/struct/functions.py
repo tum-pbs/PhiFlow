@@ -164,9 +164,10 @@ def print_differences(struct1, struct2):
     for key1 in items1.keys():
         if key1 not in items2:
             print('Item "%s" is missing from %s.' % (key1, struct2))
-        elif not equal(items1[key1], items2[key1]):
-            print('Item "%s" differs between %s and %s.' % (key1, struct1, struct2))
-        print_differences(items1[key1], items2[key1])
+        else:
+            if not equal(items1[key1], items2[key1]):
+                print('Item "%s" differs between %s and %s.' % (key1, struct1, struct2))
+            print_differences(items1[key1], items2[key1])
         tested_keys.append(key1)
     for key2 in items2.keys():
         if key2 not in tested_keys:

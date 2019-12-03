@@ -89,7 +89,7 @@ class Domain(struct.Struct):
 
     def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None):
         with struct.anytype():
-            return CenteredGrid(name, tensor_shape(batch_size, self.resolution, components), box=self.box, batch_size=batch_size, extrapolation=extrapolation)
+            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size)
 
     def staggered_shape(self, batch_size=1, name=None, extrapolation=None):
         with struct.anytype():
@@ -97,9 +97,9 @@ class Domain(struct.Struct):
             for axis in range(self.rank):
                 shape = _extend1(tensor_shape(batch_size, self.resolution, 1), axis)
                 box = staggered_component_box(self.resolution, axis, self.box)
-                grid = CenteredGrid(None, shape, box, batch_size=batch_size, extrapolation=extrapolation)
+                grid = CenteredGrid(shape, box, extrapolation=extrapolation, name=None, batch_size=batch_size)
                 grids.append(grid)
-            return StaggeredGrid(name, grids, box=self.box, batch_size=batch_size, extrapolation=extrapolation)
+            return StaggeredGrid(grids, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation)
@@ -117,7 +117,7 @@ class Domain(struct.Struct):
         elif isinstance(data, (int, float)):
             grid = math.zeros(shape, dtype=dtype) + data
         else:
-            grid = CenteredGrid(name, data, box=self.box, extrapolation=extrapolation)
+            grid = CenteredGrid(data, box=self.box, extrapolation=extrapolation, name=name)
         return grid
 
     def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
@@ -135,7 +135,7 @@ class Domain(struct.Struct):
         elif isinstance(data, (int, float)):
             grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
         else:
-            grid = StaggeredGrid(name, data, self.box, batch_size=None, extrapolation=extrapolation)
+            grid = StaggeredGrid(data, self.box, name, batch_size=None, extrapolation=extrapolation)
         return grid
 
     # def _get_paddings(self, material_condition, margin=1):

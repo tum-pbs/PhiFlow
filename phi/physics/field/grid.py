@@ -5,7 +5,7 @@ from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
 from phi.struct.functions import mappable
-from phi.struct.tensorop import collapse
+from phi.struct.tensorop import collapse, collapsed_gather_nd
 
 from .field import Field, propagate_flags_children
 from .flag import SAMPLE_POINTS
@@ -21,7 +21,7 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
 @struct.definition()
 class CenteredGrid(Field):
 
-    def __init__(self, name, data, box=None, extrapolation='boundary', **kwargs):
+    def __init__(self, data, box=None, extrapolation='boundary', name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals()))
         self._sample_points = None
 
@@ -78,7 +78,7 @@ class CenteredGrid(Field):
                 dimensions = self.resolution != other_field.resolution
                 dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d-1]]
                 data = math.interpolate_linear(data, origin_in_local % 1.0, dimensions)
-                return CenteredGrid(self.name, data, other_field.box, batch_size=self._batch_size)
+                return CenteredGrid(data, other_field.box, name=self.name, batch_size=self._batch_size)
             elif math.sum(paddings) < 16:
                 padded = self.padded(np.transpose(paddings).tolist())
                 return padded.at(other_field, collapse_dimensions, force_optimization)
@@ -90,7 +90,9 @@ class CenteredGrid(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [CenteredGrid('%s[...,%d]' % (self.name, i), component, self.box, flags=flags, batch_size=self._batch_size) for i, component in enumerate(math.unstack(self.data, -1))]
+        return [
+            CenteredGrid(component, self.box, '%s[...,%d]' % (self.name, i), flags=flags, batch_size=self._batch_size)
+            for i, component in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):
@@ -126,14 +128,18 @@ class CenteredGrid(Field):
         data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(extrapolation))
         w_lower, w_upper = np.transpose(widths)
         box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
-        return CenteredGrid(self.name, data, box, batch_size=self._batch_size, extrapolation=self.extrapolation)
+        return CenteredGrid(data, box, extrapolation=self.extrapolation, name=self.name, batch_size=self._batch_size)
+
+    def axis_padded(self, axis, lower, upper):
+        widths = [[lower, upper] if d == axis+1 else [0,0] for d in range(self.rank)]
+        return self.padded(widths)
 
     @staticmethod
     def getpoints(box, resolution):
         idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in resolution], indexing="ij")
         local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0).astype(np.float32)
         points = box.local_to_global(local_coords)
-        return CenteredGrid('%s.points', points, box, flags=[SAMPLE_POINTS])
+        return CenteredGrid(points, box, name='grid_centers(%s, %s)' % (box, resolution), flags=[SAMPLE_POINTS])
 
     def laplace(self, physical_units=True):
         if not physical_units:
