@@ -34,7 +34,7 @@ def unstack_staggered_tensor(tensor):
     tensors = math.unstack(tensor, -1)
     for i, dim in enumerate(math.spatial_dimensions(tensor)):
         slices = [slice(None, -1) if d != dim else slice(None) for d in math.spatial_dimensions(tensor)]
-        tensors[i] = math.expand_dims(tensors[i][[slice(None)]+slices], -1)
+        tensors[i] = math.expand_dims(tensors[i][tuple([slice(None)]+slices)], -1)
     return tensors
 
 
