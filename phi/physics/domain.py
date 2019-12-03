@@ -112,7 +112,8 @@ class Domain(struct.Struct):
             assert_same_rank(data.rank, self.rank, 'data does not match Domain')
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
             if name is not None:
-                data = data.copied_with(name=name)
+                data = data.copied_with(name=name, extrapolation=extrapolation)
+                data._batch_size = batch_size
             grid = data
         elif isinstance(data, (int, float)):
             shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=0.0)
