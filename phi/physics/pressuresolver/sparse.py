@@ -22,7 +22,7 @@ class SparseSciPy(PressureSolver):
 
     def solve(self, divergence, domain, pressure_guess):
         dimensions = list(divergence.shape[1:-1])
-        A = sparse_pressure_matrix(dimensions, domain.active(extend=1), domain.accessible(extend=1))
+        A = sparse_pressure_matrix(dimensions, domain.active_tensor(extend=1), domain.accessible_tensor(extend=1))
 
         def np_solve_p(div):
             div_vec = div.reshape([-1, A.shape[0]])
@@ -128,8 +128,8 @@ class SparseCG(PressureSolver):
         self.autodiff = autodiff
 
     def solve(self, divergence, domain, pressure_guess):
-        active_mask = domain.active(extend=1)
-        fluid_mask = domain.accessible(extend=1)
+        active_mask = domain.active_tensor(extend=1)
+        fluid_mask = domain.accessible_tensor(extend=1)
         dimensions = list(divergence.shape[1:-1])
         N = int(np.prod(dimensions))
 

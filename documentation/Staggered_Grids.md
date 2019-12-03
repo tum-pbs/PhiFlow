@@ -25,7 +25,7 @@ Staggered grids can be created manually from an array or tensor holding the stag
 from phi.tf.flow import *
 
 velocity_tensor = np.zeros([1, 65, 65, 2])
-staggered_field = StaggeredGrid.from_tensors('v', unstack_staggered_tensor(velocity_tensor))
+staggered_field = StaggeredGrid(velocity_tensor)
 ```
 
 States such as [Smoke](../phi/physics/smoke.py) ([documentation](Smoke_Simulation.md)) that use staggered grids will automatically create one if not provided.
@@ -45,7 +45,7 @@ by default the values at the boundary will drop off:
 ```python
 from phi.flow import *
 
-centered_field = CenteredGrid('f', np.ones([1, 64, 64, 1]), 1)
+centered_field = CenteredGrid(np.ones([1, 64, 64, 1]), 1)
 
 staggered_gradient = StaggeredGrid.gradient(centered_field)
 staggered_field_x = StaggeredGrid.from_scalar(centered_field, [1, 2])

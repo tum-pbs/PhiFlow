@@ -1,20 +1,10 @@
 # this example tries to load "pressure_XXXXXX.npz" and "vel_XXXXXX.npz" files
 # from all simulations sim_XXXXXX in the given scene path
 
-import os
 import sys
 
-import numpy as np
-
 # instead of full phi.flow or phi.tf.flow, import specific modules only
-from phi.data.dataset import Dataset
-from phi.data.reader import BatchReader
-from phi.data.stream import MantaScalar
-from phi.physics import world
-from phi.physics.domain import Domain
-from phi.physics.smoke import Smoke
-from phi.tf.app import TFApp
-from phi.tf.util import placeholder
+from phi.tf.flow import *
 
 SCENE_PATH = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/simpleplume'
 SCENE_PATH = os.path.expanduser(SCENE_PATH)

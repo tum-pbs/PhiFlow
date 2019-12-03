@@ -1,9 +1,11 @@
 import uuid
 import numpy as np
+import six
 import tensorflow as tf
+from packaging import version
 
 from phi.math.base import Backend
-
+from phi.struct.tensorop import expand, collapsed_gather_nd
 
 if tf.__version__[0] == '2':
     print('Adjusting for tensorflow 2.0')
@@ -18,10 +20,14 @@ class TFBackend(Backend):
 
     def is_applicable(self, values):
         for value in values:
-            if isinstance(value, tf.Tensor): return True
-            if isinstance(value, tf.Variable): return True
-            if isinstance(value, tf.SparseTensor): return True
+            if self.is_tensor(value): return True
         return False
+
+    def is_tensor(self, x):
+        return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor))
+
+    def as_tensor(self, x):
+        return tf.convert_to_tensor(x)
 
     def divide_no_nan(self, x, y):
         return tf.div_no_nan(x, y)
@@ -42,11 +48,30 @@ class TFBackend(Backend):
         return tf.concat(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        mode = mode.lower()
-        assert mode in ('constant', 'symmetric', 'wrap', 'reflect'), mode
+        dims = range(len(self.staticshape(value)))
+        if isinstance(mode, six.string_types) and len(self.staticshape(constant_values)) == 0:
+            return self._single_mode_single_constant_pad(value, pad_width, mode, constant_values)
+        else:
+            mode = expand(mode, shape=(len(dims), 2))
+            passes = [('wrap', 0), ('symmetric', 0), ('reflect', 0)]
+            constant_values = expand(constant_values, shape=(len(dims), 2))
+            constant_value_set = set()
+            for d in dims:
+                for upper in (False, True):
+                    constant_value_set.add(constant_values[d][upper])
+            for const in constant_value_set:
+                passes.append(('constant', const))
+            for single_mode, constant_value in passes:  # order matters! wrap first
+                widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode and constant_values[d][upper] == constant_value else 0 for upper in (False, True)] for d in dims]
+                value = self._single_mode_single_constant_pad(value, widths, single_mode, constant_value)
+            return value
+
+    def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
+        single_mode = single_mode.lower()
+        assert single_mode in ('constant', 'symmetric', 'wrap', 'reflect'), single_mode
         if np.sum(np.array(pad_width)) == 0:
             return value
-        if mode == 'wrap':
+        if single_mode == 'wrap':
             dims = range(len(value.shape))
             for dim in dims:
                 s = value.shape[dim]
@@ -60,8 +85,8 @@ class TFBackend(Backend):
                 value = tf.concat([lower, value, upper], axis=dim)
             return value
         else:
-            mode = mode.upper()
-            return tf.pad(value, pad_width, mode, constant_values=constant_values)
+            single_mode = single_mode.upper()
+            return tf.pad(value, pad_width, single_mode, constant_values=constant_value)
 
     def add(self, values):
         return tf.add_n(values)
@@ -213,7 +238,10 @@ class TFBackend(Backend):
         return tf.cast(x, tf.float64) if float64 else tf.cast(x, tf.float32)
 
     def staticshape(self, tensor):
-        return tuple(tensor.shape.as_list())
+        if self.is_tensor(tensor):
+            return tuple(tensor.shape.as_list())
+        else:
+            return np.shape(tensor)
 
     def to_int(self, x, int64=False):
         return tf.cast(x, tf.int64) if int64 else tf.cast(x, tf.int32)
@@ -375,8 +403,14 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
 
     def get_knot(bc):
         coord = [sc[c][i] for i, c in enumerate(bc)]
-        coord = tf.stack([batch_ids] + coord, -1)
-        return tf.gather_nd(inputs, coord)
+        if version.parse(tf.__version__) >= version.parse('1.14.0'):
+            coord = tf.stack(coord, -1)
+            return tf.gather_nd(inputs, coord, batch_dims=1)
+        else:
+            coord = tf.stack([batch_ids] + coord, -1)
+            return tf.gather_nd(inputs, coord)
+
+
 
     samples = [get_knot(bc) for bc in binary_neighbour_ids]
 

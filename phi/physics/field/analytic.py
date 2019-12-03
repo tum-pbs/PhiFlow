@@ -5,7 +5,7 @@ from phi import struct, math
 @struct.definition()
 class AnalyticField(Field):
 
-    def __init__(self, name, rank, data=1.0, **kwargs):
+    def __init__(self, rank, data=1.0, name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals(), ignore='rank'))
         self._rank = rank
 

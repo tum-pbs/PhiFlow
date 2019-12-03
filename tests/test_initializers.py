@@ -20,7 +20,7 @@ class TestInitializers(TestCase):
     def test_struct_initializers(self):
         bounds = box[0:1]  # outside anytype
         with struct.anytype():
-            obj = ([4], CenteredGrid('', [1, 4, 1], bounds), ([9], [8, 2]))
+            obj = ([4], CenteredGrid([1, 4, 1], bounds), ([9], [8, 2]))
         z = math.zeros(obj)
         self.assertIsInstance(z, tuple)
         np.testing.assert_equal(z[0], np.zeros([4]))

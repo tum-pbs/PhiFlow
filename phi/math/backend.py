@@ -1,5 +1,5 @@
 from .base import DynamicBackend
-from .scipy_backend import SciPyBackend, as_tensor
+from .scipy_backend import SciPyBackend
 from .struct_backend import StructBroadcastBackend
 
 
@@ -14,6 +14,7 @@ abs = backend.abs
 add = backend.add
 all = backend.all
 any = backend.any
+as_tensor = backend.as_tensor
 batch_gather = backend.batch_gather
 boolean_mask = backend.boolean_mask
 cast = backend.cast
@@ -34,6 +35,7 @@ gather = backend.gather
 ifft = backend.ifft
 imag = backend.imag
 isfinite = backend.isfinite
+is_tensor = backend.is_tensor
 matmul = backend.matmul
 max = backend.max
 maximum = backend.maximum

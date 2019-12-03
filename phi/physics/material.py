@@ -16,14 +16,14 @@ class Material(struct.Struct):
     def __init__(self, name, **kwargs):
         struct.Struct.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def name(self, name):
         """
 Material name.
         """
         return str(name)
 
-    @struct.prop(default=True)
+    @struct.constant(default=True)
     def solid(self, solid):
         """
 Fluid can only enter non-solid cells or pass through non-solid boundaries.
@@ -31,7 +31,7 @@ Fluid can only enter non-solid cells or pass through non-solid boundaries.
         assert isinstance(solid, bool)
         return solid
 
-    @struct.prop(default=0.0)
+    @struct.constant(default=0.0)
     def friction(self, friction):
         """
 (only for solid materials) velocity decay rate in units of 1/time.
@@ -52,7 +52,7 @@ Computes the velocity multiplication factor for fluid that moves along the surfa
             time_friction_exponent = math.log(1/(1-self.friction))
             return math.exp(- dt * time_friction_exponent)
 
-    @struct.prop(default=False)
+    @struct.constant(default=False)
     def periodic(self, periodic):
         """
 Whether the boundary is periodic, i.e. seamlessly merges with the opposite end of the domain.
@@ -63,7 +63,7 @@ Whether the boundary is periodic, i.e. seamlessly merges with the opposite end o
     def __repr__(self):
         return self.name
 
-    @property
+    @struct.derived()
     def extrapolation_mode(self):
         """
 Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').
@@ -74,6 +74,15 @@ Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').
             return 'boundary'
         else:
             return 'constant'
+
+    @struct.derived()
+    def accessible_extrapolation_mode(self):
+        if self.periodic:
+            return 'periodic'
+        if self.solid:
+            return 'constant'
+        else:
+            return 'boundary'
 
 
 OPEN = Material('open', solid=False)

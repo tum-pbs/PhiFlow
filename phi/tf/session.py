@@ -7,7 +7,7 @@ import tensorflow as tf
 
 from phi import struct
 from .profiling import Timeliner
-from .util import isplaceholder
+from .util import isplaceholder, istensor
 
 
 class Session(object):
@@ -42,14 +42,15 @@ class Session(object):
         if feed_dict is not None:
             tensor_feed_dict = {}
             for (key, value) in feed_dict.items():
-                pairs = struct.zip([key, value], include_properties=True, zip_parents_if_incompatible=True)
+                pairs = struct.zip([key, value], item_condition=struct.ALL_ITEMS, zip_parents_if_incompatible=True)
                 def add_to_dict(key_tensor, value_tensor):
                     if isplaceholder(key_tensor):
                         tensor_feed_dict[key_tensor] = value_tensor
                     return None
-                with struct.anytype(): struct.map(add_to_dict, pairs, include_properties=True)
+                with struct.anytype(): struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS)
 
-        tensor_fetches = struct.flatten(fetches)
+        tensor_fetches = struct.flatten(fetches, item_condition=struct.ALL_ITEMS)
+        tensor_fetches = tuple(filter(istensor, tensor_fetches))
 
         # Handle tracing
         trace = _trace_stack.get_default(raise_error=False)
@@ -81,7 +82,16 @@ class Session(object):
         if trace:
             trace.timeliner.add_run()
 
-        return struct.map(lambda fetch: result_dict[fetch], fetches)
+        def replace_tensor_with_value(fetch):
+            try:
+                if fetch in result_dict:
+                    return result_dict[fetch]
+                else:
+                    return fetch
+            except TypeError:  # not hashable
+                return fetch
+        result = struct.map(replace_tensor_with_value, fetches, item_condition=struct.ALL_ITEMS)
+        return result
 
     def profiler(self):
         os.path.isdir(self.profiling_directory) or os.makedirs(self.profiling_directory)

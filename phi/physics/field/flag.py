@@ -31,24 +31,24 @@ class Flag(struct.Struct):
     def __init__(self, name, is_data_bound, is_structure_bound, propagators=(), field_types=(), **kwargs):
         struct.Struct.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def name(self, name): return name
 
-    @struct.prop()
+    @struct.constant()
     def is_data_bound(self, v):
         assert isinstance(v, bool)
         return v
 
-    @struct.prop()
+    @struct.constant()
     def is_structure_bound(self, v):
         assert isinstance(v, bool)
         return v
 
-    @struct.prop()
+    @struct.constant()
     def propagators(self, propagators):
         return tuple(propagators)
 
-    @struct.prop()
+    @struct.constant()
     def field_types(self, field_types):
         return tuple(field_types)
 

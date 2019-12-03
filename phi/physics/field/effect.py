@@ -14,17 +14,17 @@ class FieldEffect(State):
         tags = tuple(tags) + tuple('%s_effect' % target for target in targets)
         State.__init__(self, **struct.kwargs(locals()))
 
-    @struct.attr()
+    @struct.variable()
     def field(self, field):
         assert isinstance(field, Field)
         return field
 
-    @struct.prop()
+    @struct.constant()
     def mode(self, mode):
         assert mode in (GROW, ADD, FIX)
         return mode
 
-    @struct.prop()
+    @struct.constant()
     def targets(self, targets):
         return tuple(targets)
 
@@ -69,7 +69,7 @@ class Gravity(State):
         tags = ['gravity']
         State.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def gravity(self, gravity):
         assert gravity is not None
         return gravity
@@ -96,10 +96,10 @@ def gravity_tensor(gravity, rank):
     if isinstance(gravity, Gravity):
         gravity = gravity.gravity
     if math.is_scalar(gravity):
-        return math.expand_dims([gravity] + [0] * (rank-1), 0, rank+1)
+        return math.to_float(math.expand_dims([gravity] + [0] * (rank-1), 0, rank+1))
     else:
         assert math.staticshape(gravity)[-1] == rank
-        return math.expand_dims(gravity, 0, rank+2-len(math.staticshape(gravity)))
+        return math.to_float(math.expand_dims(gravity, 0, rank+2-len(math.staticshape(gravity))))
 
 
 class FieldPhysics(Physics):

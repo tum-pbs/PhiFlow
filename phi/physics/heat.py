@@ -14,11 +14,11 @@ class Heat(DomainState):
     def default_physics(self):
         return HeatPhysics()
 
-    @struct.attr(default=0.0, dependencies=DomainState.domain)
+    @struct.variable(default=0.0, dependencies=DomainState.domain)
     def temperature(self, temperature):
         return self.centered_grid('temperature', temperature)
 
-    @struct.prop(default=0.1)
+    @struct.constant(default=0.1)
     def diffusivity(self, diffusivity):
         return diffusivity
 

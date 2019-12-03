@@ -6,6 +6,7 @@ import six
 import numpy as np
 
 from .context import skip_validate
+from .structdef import Item, VARIABLES, CONSTANTS, DATA
 from . import structdef
 
 
@@ -64,19 +65,15 @@ See the struct documentation at documentation/Structs.ipynb
         if not skip_validate():
             self.__struct__.validate(self)
 
-    def __attributes__(self, include_properties=False):
-        if include_properties:
-            return {item.name: item.get(self) for item in self.__struct__.items}
+    def __to_dict__(self, item_condition):
+        if item_condition is not None:
+            return {item.name: item.get(self) for item in self.__struct__.items if item_condition(item)}
         else:
-            return {item.name: item.get(self) for item in self.__struct__.items if item.is_attribute}
-
-    def __properties__(self):
-        return {item.name: item.get(self) for item in self.__struct__.items if not item.is_attribute}
+            return {item.name: item.get(self) for item in self.__struct__.items}
 
     def __properties_dict__(self):
-        result = {item.name: properties_dict(getattr(self, item.name))
-                  for item in self.__struct__.items if not item.is_attribute}
-        for item in self.__struct__.attributes:
+        result = {item.name: properties_dict(getattr(self, item.name)) for item in self.__struct__.items if not item.holds_data}
+        for item in self.__struct__.items:
             if isstruct(item.get(self)):
                 result[item.name] = properties_dict(item.get(self))
         result['type'] = str(self.__class__.__name__)
@@ -95,7 +92,7 @@ See the struct documentation at documentation/Structs.ipynb
 
     def __hash__(self):
         hash_value = 0
-        for attr in self.__attributes__().values():
+        for attr in self.__to_dict__(None).values():
             try:
                 hash_value += hash(attr)
             except TypeError:  # unhashable type
@@ -106,23 +103,28 @@ See the struct documentation at documentation/Structs.ipynb
 structdef.STRUCT_CLASSES = [Struct]
 
 
-def attributes(struct, include_properties=False):
+def to_dict(struct, item_condition=None):
     if isinstance(struct, Struct):
-        return struct.__attributes__(include_properties=include_properties)
+        return struct.__to_dict__(item_condition)
     if isinstance(struct, (list, tuple, np.ndarray)):
-        return {i: struct[i] for i in range(len(struct))}
+        if item_condition is None:
+            return {i: struct[i] for i in range(len(struct))}
+        else:
+            return {i: struct[i] for i in range(len(struct)) if item_condition(Item(name=i, validation_function=None, is_variable=True, default_value=None, dependencies=(), holds_data=True))}
     if isinstance(struct, dict):
         return struct
     raise ValueError("Not a struct: %s" % struct)
 
 
-def properties(struct):
-    if isinstance(struct, Struct):
-        return struct.__properties__()
+def variables(struct):
+    return to_dict(struct, VARIABLES)
+
+
+def constants(struct):
     if isinstance(struct, (list, tuple, dict, np.ndarray)):
         return {}
-    raise ValueError("Not a struct: %s" % struct)
-
+    else:
+        return to_dict(struct, CONSTANTS)
 
 
 def properties_dict(struct):

@@ -51,6 +51,6 @@ class TrainingTest(TFApp):
         self.add_field('Density (Input)', smoke_in.density)
 
 
-show( display=('Velocity (Ground Truth)', 'Velocity (Model)') )
+show(display=('Velocity (Ground Truth)', 'Velocity (Model)'))
 
 # hint, try showing x component only in UI - that one is more interesting than the magnitude

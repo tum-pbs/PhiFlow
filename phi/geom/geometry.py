@@ -26,11 +26,11 @@ class AABox(Geometry):
     def __init__(self, lower, upper, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def lower(self, lower):
         return math.to_float(math.as_tensor(lower))
 
-    @struct.prop()
+    @struct.constant()
     def upper(self, upper):
         return math.to_float(math.as_tensor(upper))
 
@@ -66,7 +66,10 @@ class AABox(Geometry):
             raise NotImplementedError()
 
     def __repr__(self):
-        return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
+        try:
+            return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
+        except TypeError:
+            return '%s at %s' % (self.size, self.lower)
 
     @staticmethod
     def to_box(value, resolution_hint=None):
@@ -111,11 +114,11 @@ class Sphere(Geometry):
     def __init__(self, center, radius, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def radius(self, radius):
         return math.as_tensor(radius)
 
-    @struct.prop()
+    @struct.constant()
     def center(self, center):
         return math.as_tensor(center)
 
@@ -158,7 +161,7 @@ class _Union(Geometry):
         else:
             return self.geometries[0].rank
 
-    @struct.prop()
+    @struct.constant()
     def geometries(self, geometries):
         return tuple(geometries)
 
@@ -184,9 +187,9 @@ NO_GEOMETRY = _NoGeometry()
 
 
 def assert_same_rank(rank1, rank2, error_message):
-    if rank1 is not None and rank2 is not None:
-        rank1_, rank2_ = _rank(rank1), _rank(rank2)
-        assert rank1_ == rank2_, 'Ranks do not match: %d and %d. %s' % (rank1_, rank2_, error_message)
+    rank1_, rank2_ = _rank(rank1), _rank(rank2)
+    if rank1_ is not None and rank2_ is not None:
+        assert rank1_ == rank2_, 'Ranks do not match: %s and %s. %s' % (rank1_, rank2_, error_message)
 
 
 def _rank(rank):

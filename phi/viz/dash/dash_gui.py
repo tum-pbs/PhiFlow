@@ -15,10 +15,6 @@ from dash.exceptions import PreventUpdate
 
 from ..plot import FRONT, RIGHT, TOP, VECTOR2, LENGTH, PlotlyFigureBuilder
 from ..display import ModelDisplay
-try:
-    import phi.tf.profiling
-except:
-    pass
 
 class DashFieldSequenceGui(ModelDisplay):
 
@@ -503,7 +499,8 @@ class DashFieldSequenceGui(ModelDisplay):
                     return
                 logging.info('Launching TensorBoard...')
                 logdir = field_sequence_model.session.summary_directory
-                url = phi.tf.profiling.launch_tensorboard(logdir, port=self.tensorboard_port)
+                import phi.tf.profiling as profiling
+                url = profiling.launch_tensorboard(logdir, port=self.tensorboard_port)
                 logging.info('TensorBoard launched, URL: %s' % url)
                 return url
 

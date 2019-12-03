@@ -1,9 +1,12 @@
 # coding=utf-8
 from numbers import Number
 import numpy as np
+import six
 
 from phi import math, struct
 from phi.geom import AABox
+from phi.geom.geometry import assert_same_rank
+from phi.struct.tensorop import collapse
 from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, \
     propagate_flags_resample, propagate_flags_operation
 from .grid import CenteredGrid
@@ -19,35 +22,19 @@ def _subname(name, i):
         return '%s.%d' % (name, i)
 
 
-def _res(tensor, dim):
+def _res(tensor, axis):
+    if isinstance(tensor, CenteredGrid):
+        tensor = tensor.data
     res = list(math.staticshape(tensor)[1:-1])
-    res[dim] -= 1
+    res[axis] -= 1
     return tuple(res)
-
-
-def complete_staggered_properties(components, staggeredgrid):
-    data = []
-    for i, component in enumerate(components):
-        name = component.name if component.name is not None else _subname(staggeredgrid.name, i)
-        box = component.box
-        if box is None:
-            resolution_i = staggeredgrid.resolution[i]
-            unit = np.array([1 if i == d else 0 for d in range(len(components))])
-            unit = unit * staggeredgrid.box.size / resolution_i
-            box = AABox(staggeredgrid.box.lower - unit / 2, staggeredgrid.box.upper + unit / 2)
-        flags = component.flags
-        if flags is None:
-            flags = propagate_flags_children(staggeredgrid.flags, component.rank, 1)
-        batch_size = component._batch_size if component._batch_size is not None else staggeredgrid._batch_size
-        data.append(CenteredGrid(name, component.data, box, flags=flags, batch_size=batch_size))
-    return data
 
 
 def unstack_staggered_tensor(tensor):
     tensors = math.unstack(tensor, -1)
     for i, dim in enumerate(math.spatial_dimensions(tensor)):
         slices = [slice(None, -1) if d != dim else slice(None) for d in math.spatial_dimensions(tensor)]
-        tensors[i] = math.expand_dims(tensors[i][[slice(None)]+slices], -1)
+        tensors[i] = math.expand_dims(tensors[i][tuple([slice(None)]+slices)], -1)
     return tensors
 
 
@@ -58,51 +45,69 @@ def stack_staggered_components(tensors):
     return math.concat(tensors, -1)
 
 
+def staggered_component_box(resolution, axis, box_like=None):
+    staggered_box = AABox(0, resolution) if box_like is None else AABox.to_box(box_like, resolution_hint=resolution)
+    unit = np.array([(staggered_box.size[axis] / resolution[axis]) if d == axis else 0 for d in range(len(resolution))])
+    box = AABox(staggered_box.lower - unit / 2, staggered_box.upper + unit / 2)
+    return box
+
+
 @struct.definition()
 class StaggeredGrid(Field):
 
-    def __init__(self, name, data, resolution, box=None, flags=(), **kwargs):
+    def __init__(self, data, box=None, name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals()))
 
-    @staticmethod
-    def from_tensors(name, tensors, box=None, flags=(), batch_size=None):
-        resolution = _res(tensors[0], 0)
-        for i, tensor in enumerate(tensors):
-            assert _res(tensor, i) == resolution
-        if box is None:
-            box = AABox(0, resolution)
-        with struct.anytype():
-            staggeredgrid = StaggeredGrid(name, None, resolution, box, flags=flags, batch_size=batch_size)
-            components = [CenteredGrid(None, tensor) for tensor in tensors]
-        components = complete_staggered_properties(components, staggeredgrid)
-        return staggeredgrid.copied_with(data=components, flags=flags)
-
-    @struct.attr()
+    @struct.variable(dependencies=[Field.name, Field.flags])
     def data(self, data):
         assert data is not None
-        assert len(self.data) == len(self.resolution) == self.box.rank
-        for field in data:
-            assert isinstance(field, CenteredGrid), field
-            assert field.component_count == 1
-            assert field.rank == self.rank
-        return data
-        # Field.__validate_data__(self)
+        if math.is_tensor(data) is True:
+            components = unstack_staggered_tensor(data)
+        else:
+            components = data
+        data = []
+        for cmp_idx, grid in enumerate(components):
+            data.append(self._component_grid(grid, cmp_idx))
+        return tuple(data)
+
+    def _component_grid(self, grid, axis):
+        resolution = list(grid.resolution if isinstance(grid, CenteredGrid) else math.staticshape(grid)[1:-1])
+        resolution[axis] -= 1
+        box = staggered_component_box(resolution, axis, self.box)
+        if isinstance(grid, CenteredGrid):
+            assert grid.component_count == 1
+            assert grid.rank == self.rank
+            assert grid.box == box
+            assert grid.extrapolation == self.extrapolation
+        else:
+            grid = CenteredGrid(data=grid, box=box, extrapolation=self.extrapolation, name=_subname(self.name, axis),
+                                batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
+        return grid
 
     @property
     def rank(self):
         return len(self.resolution)
 
-    @struct.prop()
-    def resolution(self, resolution):
-        return math.as_tensor(resolution)
+    @struct.derived()
+    def resolution(self):
+        return _res(self.data[0], 0)
 
-    @struct.prop(dependencies='resolution')
+    @struct.constant(dependencies=Field.data)
     def box(self, box):
-        return AABox.to_box(box, resolution_hint=self.resolution)
+        box = AABox.to_box(box, resolution_hint=self.resolution)
+        assert_same_rank(len(self.data), self.box, 'StaggeredGrid.data does not match box.')
+        return box
 
     @property
     def dx(self):
         return self.box.size / self.resolution
+
+    @struct.constant(default='boundary')
+    def extrapolation(self, extrapolation):
+        if extrapolation is None:
+            return 'boundary'
+        assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
+        return collapse(extrapolation)
 
     def sample_at(self, points, collapse_dimensions=True):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
@@ -171,7 +176,7 @@ class StaggeredGrid(Field):
                 grad /= self.dx[dim]
             components.append(grad)
         data = math.add(components)
-        return CenteredGrid(u'div %s' % self.name, data, self.box, batch_size=self._batch_size)
+        return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
 
     @property
     def dtype(self):
@@ -183,37 +188,27 @@ class StaggeredGrid(Field):
         data = scalar_field.data
         if data.shape[-1] != 1:
             raise ValueError('input must be a scalar field')
-        with struct.anytype():
-            staggeredgrid = StaggeredGrid(u'grad %s' % scalar_field.name, None, scalar_field.resolution,
-                                          scalar_field.box, batch_size=scalar_field._batch_size)
-            tensors = []
-            for dim in math.spatial_dimensions(data):
-                upper = math.pad(data, [[0,1] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
-                lower = math.pad(data, [[1,0] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
-                tensors.append((upper - lower) / scalar_field.dx[dim - 1])
-            components = [CenteredGrid(None, t, flags=None) for t in tensors]
-            data = complete_staggered_properties(components, staggeredgrid)
-        return staggeredgrid.copied_with(data=data)
+        tensors = []
+        for dim in math.spatial_dimensions(data):
+            upper = math.pad(data, [[0,1] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
+            lower = math.pad(data, [[1,0] if d == dim else [0,0] for d in math.all_dimensions(data)], padding_mode)
+            tensors.append((upper - lower) / scalar_field.dx[dim - 1])
+        return StaggeredGrid(tensors, scalar_field.box, name='grad(%s)' % scalar_field.name,
+                             batch_size=scalar_field._batch_size)
 
     @staticmethod
-    def from_scalar(scalar_field, axis_forces, padding_mode='constant', name=None):
+    def from_scalar(scalar_field, axis_forces, name=None):
         assert isinstance(scalar_field, CenteredGrid)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
-        with struct.anytype():
-            staggeredgrid = StaggeredGrid(name, None, scalar_field.resolution, scalar_field.box,
-                                          batch_size=scalar_field._batch_size)
         tensors = []
-        for i in range(scalar_field.rank):
-            force = axis_forces[i] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,i]
+        for axis in range(scalar_field.rank):
+            force = axis_forces[axis] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,axis]
             if isinstance(force, Number) and force == 0:
                 dims = list(math.staticshape(scalar_field.data))
-                dims[i+1] += 1
+                dims[axis+1] += 1
                 tensors.append(math.zeros(dims, math.dtype(scalar_field.data)))
             else:
-                upper = math.pad(scalar_field.data, [[0,1] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
-                lower = math.pad(scalar_field.data, [[1,0] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
+                upper = scalar_field.axis_padded(axis, 0, 1).data
+                lower = scalar_field.axis_padded(axis, 1, 0).data
                 tensors.append((upper + lower) / 2 * force)
-        with struct.anytype():
-            components = [CenteredGrid(None, t, flags=None) for t in tensors]
-            data = complete_staggered_properties(components, staggeredgrid)
-        return staggeredgrid.copied_with(data=data)
+        return StaggeredGrid(tensors, scalar_field.box, name=name, batch_size=scalar_field._batch_size)

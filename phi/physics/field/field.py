@@ -17,8 +17,9 @@ def _to_valid_data(data):
 @struct.definition()
 class Field(State):
 
-    def __init__(self, name, data, flags=(), **kwargs):
-        tags = [name, 'field']
+    def __init__(self, data, name=None, **kwargs):
+        if 'tags' not in kwargs:
+            tags = [name, 'field'] if name is not None else ['field']
         State.__init__(self, **struct.kwargs(locals()))
 
     def with_data(self, data):
@@ -28,7 +29,7 @@ class Field(State):
     def dtype(self):
         return math.dtype(self.data)
 
-    @struct.attr()
+    @struct.variable()
     def data(self, data):
         """
         Data holds the values of this field according to the order specified by points.
@@ -37,10 +38,10 @@ class Field(State):
         """
         return _to_valid_data(data)
 
-    @struct.prop()
+    @struct.constant()
     def flags(self, flags):
         """
-        Flags describe properties of a Field such as divergence-freeness.
+        Flags describe constants_dict of a Field such as divergence-freeness.
             :return: tuple of flags
         """
         if flags is None:

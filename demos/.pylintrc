@@ -9,6 +9,7 @@ disable = line-too-long,
           no-member,
           undefined-variable,
           wildcard-import,
-          unused-wildcard-import
+          unused-wildcard-import,
+          duplicate-code,
 
 good-names = dt, tf, np, x, y, z

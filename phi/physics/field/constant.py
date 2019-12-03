@@ -1,13 +1,14 @@
 import numpy
 
 from phi import math, struct
-from .field import Field, State, propagate_flags_children
+from .flag import DIVERGENCE_FREE
+from .field import Field, propagate_flags_children
 
 
 @struct.definition()
 class ConstantField(Field):
 
-    def __init__(self, name, value=1.0, flags=(), **kwargs):
+    def __init__(self, value=1.0, name=None, flags=(DIVERGENCE_FREE,), **kwargs):
         data = _convert_constant_to_data(value)
         Field.__init__(self, **struct.kwargs(locals(), ignore='value'))
 
@@ -24,7 +25,7 @@ class ConstantField(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [ConstantField('%s[%d]' % (self.name, i), c, flags=flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
+        return [ConstantField(c, '%s[%d]' % (self.name, i), flags=flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
 
     @property
     def points(self):

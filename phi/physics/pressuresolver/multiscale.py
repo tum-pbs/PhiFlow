@@ -44,8 +44,8 @@ class Multiscale(PressureSolver):
 
 
 def _mg_solve_forward(divergence, domain, pressure_guess, solvers):
-    fluid_mask = domain.accessible(extend=1)
-    active_mask = domain.active(extend=1)
+    fluid_mask = domain.accessible_tensor(extend=1)
+    active_mask = domain.active_tensor(extend=1)
     if active_mask is not None or fluid_mask is not None:
         if not np.all([s.supports_continuous_masks for s in solvers[:-1]]):
             logging.warning(

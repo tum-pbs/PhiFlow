@@ -3,8 +3,10 @@ import numbers
 import numpy as np
 import scipy.sparse
 import scipy.signal
+import six
 
 from phi.math.base import Backend
+from phi.struct.tensorop import collapsed_gather_nd, expand
 
 
 class SciPyBackend(Backend):
@@ -27,6 +29,13 @@ class SciPyBackend(Backend):
                 return False
         return False
 
+    # --- Abstract math functions ---
+
+    def as_tensor(self, x):
+        return np.array(x)
+
+    def is_tensor(self, x):
+        return isinstance(x, np.ndarray)
 
     def divide_no_nan(self, x, y):
         # Only for scalars, not arrays yet.
@@ -50,13 +59,25 @@ class SciPyBackend(Backend):
     def concat(self, values, axis):
         return np.concatenate(values, axis)
 
-    def pad(self, value, pad_width, mode="constant", constant_values=0):
+    def pad(self, value, pad_width, mode='constant', constant_values=0):
+        dims = range(len(self.shape(value)))
+        constant_values = expand(constant_values, shape=(len(dims), 2))
+        if isinstance(mode, six.string_types):
+            return self._single_mode_pad(value, pad_width, mode, constant_values)
+        else:
+            mode = expand(mode, shape=(len(dims), 2))
+            for single_mode in ('wrap', 'symmetric', 'reflect', 'constant'):  # order matters! wrap first
+                widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode else 0 for upper in (False, True)] for d in dims]
+                value = self._single_mode_pad(value, widths, single_mode, constant_values)
+            return value
+
+    def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
         if np.sum(np.array(pad_width)) == 0:
             return value
-        if mode.lower() == "constant":
-            return np.pad(value, pad_width, "constant", constant_values=constant_values)
+        if single_mode.lower() == 'constant':
+            return np.pad(value, pad_width, 'constant', constant_values=constant_values)
         else:
-            return np.pad(value, pad_width, mode.lower())
+            return np.pad(value, pad_width, single_mode.lower())
 
     def add(self, values):
         return np.sum(values, axis=0)
@@ -99,8 +120,7 @@ class SciPyBackend(Backend):
         for batch in range(sample_coords.shape[0]):
             components = []
             for dim in range(inputs.shape[-1]):
-                resampled = scipy.interpolate.interpn(points, inputs[batch, ..., dim], sample_coords[batch, ...],
-                                         method=interpolation.lower(), bounds_error=False, fill_value=0)
+                resampled = scipy.interpolate.interpn(points, inputs[batch, ..., dim], sample_coords[batch, ...], method=interpolation.lower(), bounds_error=False, fill_value=0)
                 components.append(resampled)
             result.append(np.stack(components, -1))
 
@@ -298,10 +318,3 @@ def tensor_spatial_rank(field):
     dims = len(field.shape) - 2
     assert dims > 0, "channel has no spatial dimensions"
     return dims
-
-
-def as_tensor(x):
-    if isinstance(x, (list, tuple)):
-        return np.array(x)
-    else:
-        return x

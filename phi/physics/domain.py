@@ -2,10 +2,11 @@ import numpy as np
 from phi import struct, math
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
+from phi.physics.field.staggered_grid import staggered_component_box
+from phi.struct.tensorop import collapse, collapsed_gather_nd
 from . import State
 from .material import Material, OPEN
-from .field import CenteredGrid, StaggeredGrid, complete_staggered_properties, Field, DIVERGENCE_FREE, \
-    unstack_staggered_tensor
+from .field import CenteredGrid, StaggeredGrid, Field, DIVERGENCE_FREE
 
 
 @struct.definition()
@@ -17,7 +18,7 @@ class Domain(struct.Struct):
 
         If all boundary surfaces should have the same behaviour, pass a single Material instance.
 
-        To specify the boundary properties per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
+        To specify the boundary constants_dict per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
         Each element can either be a Material, specifying the faces perpendicular to that axis, or a pair
         of Material holding (lower_face_material, upper_face_material).
 
@@ -32,22 +33,22 @@ class Domain(struct.Struct):
         """
         struct.Struct.__init__(self, **struct.kwargs(locals()))
 
-    @struct.prop()
+    @struct.constant()
     def resolution(self, resolution):
         if len(math.staticshape(resolution)) == 0:
             resolution = [resolution]
         return np.array(resolution)
 
-    @struct.prop(dependencies='resolution')
+    @struct.constant(dependencies='resolution')
     def box(self, box):
         return AABox.to_box(box, resolution_hint=self.resolution)
 
-    @struct.prop(default=OPEN)
+    @struct.constant(default=OPEN)
     def boundaries(self, boundaries):
         assert isinstance(boundaries, (Material, list, tuple))
         if isinstance(boundaries, (tuple, list)):
             assert len(boundaries) == self.rank
-        return _collapse_equals(boundaries, leaf_type=Material)
+        return collapse(boundaries)
 
     @property
     def rank(self):
@@ -65,11 +66,8 @@ class Domain(struct.Struct):
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
     def staggered_points(self, dimension):
-        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+1.5, 1)
-                                if dim != dimension else np.arange(0, dim+1, 1)
-                                for dim in self.resolution], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+1.5, 1)  if dim != dimension else np.arange(0, dim+1, 1) for dim in self.resolution], indexing="ij")
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
-
 
     def indices(self):
         """
@@ -89,21 +87,23 @@ class Domain(struct.Struct):
         assert isinstance(grid2, Domain), 'Not a Domain: %s' % type(grid2)
         return np.all(grid1.resolution == grid2.resolution) and grid1.box == grid2.box
 
-    def centered_shape(self, components=1, batch_size=1, name=None):
+    def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None, age=0.0):
         with struct.anytype():
-            return CenteredGrid(name, tensor_shape(batch_size, self.resolution, components), box=self.box, batch_size=batch_size)
+            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size)
 
-    def staggered_shape(self, batch_size=1, name=None):
+    def staggered_shape(self, batch_size=1, name=None, extrapolation=None, age=0.0):
         with struct.anytype():
-            shapes = [_extend1(tensor_shape(batch_size, self.resolution, 1), i) for i in range(self.rank)]
-            grids = [CenteredGrid(None, shapes[i], batch_size=batch_size) for i in range(self.rank)]
-            staggered = StaggeredGrid(name, None, self.resolution, self.box, batch_size=batch_size)
-            data = complete_staggered_properties(grids, staggered)
-            return staggered.copied_with(data=data)
+            grids = []
+            for axis in range(self.rank):
+                shape = _extend1(tensor_shape(batch_size, self.resolution, 1), axis)
+                box = staggered_component_box(self.resolution, axis, self.box)
+                grid = CenteredGrid(shape, box, age=age, extrapolation=extrapolation, name=None, batch_size=batch_size)
+                grids.append(grid)
+            return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
-        shape = self.centered_shape(components, batch_size=batch_size, name=name)
         if callable(data):  # data is an initializer
+            shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
             try:
                 data = data(shape, dtype=dtype)
             except TypeError:
@@ -112,70 +112,37 @@ class Domain(struct.Struct):
             assert_same_rank(data.rank, self.rank, 'data does not match Domain')
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
             if name is not None:
-                data = data.copied_with(name=name)
+                data = data.copied_with(name=name, extrapolation=extrapolation)
+                data._batch_size = batch_size
             grid = data
         elif isinstance(data, (int, float)):
+            shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=0.0)
             grid = math.zeros(shape, dtype=dtype) + data
         else:
-            grid = CenteredGrid(name, data, box=self.box)
-        if extrapolation is not None:
-            grid = grid.copied_with(extrapolation=extrapolation)
+            grid = CenteredGrid(data, box=self.box, extrapolation=extrapolation, name=name)
         return grid
 
     def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
-        shape = self.staggered_shape(batch_size=batch_size, name=name)
         if callable(data):  # data is an initializer
+            shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
             try:
                 data = data(shape, dtype=dtype)
             except TypeError:
                 data = data(shape)
         if isinstance(data, Field):
-            assert data.compatible(shape)
+            assert isinstance(data, StaggeredGrid)
+            assert np.all(data.resolution == self.resolution)
+            assert data.box == self.box
             grid = data
         elif isinstance(data, (int, float)):
+            shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation)
             grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
         else:
-            try:
-                tensors = unstack_staggered_tensor(data)
-                grid = StaggeredGrid.from_tensors(name, tensors, self.box, batch_size=None)
-            except:
-                grid = StaggeredGrid(name, data, self.resolution, self.box)
-        for centeredgrid in grid.data:
-            centeredgrid._extrapolation = extrapolation
+            grid = StaggeredGrid(data, self.box, name, batch_size=None, extrapolation=extrapolation)
         return grid
 
-    def _get_paddings(self, material_condition, margin=1):
-        true_paddings = [[0, 0] for i in range(self.rank)]
-        false_paddings = [[0, 0] for i in range(self.rank)]
-        for dim in range(self.rank):
-            for upper in (False, True):
-                if material_condition(self.surface_material(dim, upper)):
-                    true_paddings[dim][upper] = margin
-                else:
-                    false_paddings[dim][upper] = margin
-        return [[0, 0]] + true_paddings + [[0, 0]], [[0, 0]] + false_paddings + [[0, 0]]
-
     def surface_material(self, axis=0, upper_boundary=False):
-        if isinstance(self.boundaries, Material):
-            return self.boundaries
-        else:
-            dim_boundaries = self.boundaries[axis]
-            if isinstance(dim_boundaries, Material):
-                return dim_boundaries
-            else:
-                return dim_boundaries[upper_boundary]
-
-
-def _collapse_equals(obj, leaf_type):
-    if isinstance(obj, leaf_type):
-        return obj
-    else:
-        list = tuple([_collapse_equals(element, leaf_type) for element in obj])
-        first = list[0]
-        for element in list[1:]:
-            if element != first:
-                return list
-        return first
+        return collapsed_gather_nd(self.boundaries, axis, upper_boundary)
 
 
 def _friction_mask(masks_and_multipliers):
@@ -196,7 +163,7 @@ def _extend1(shape, axis):
 @struct.definition()
 class DomainState(State):
 
-    @struct.prop()
+    @struct.constant()
     def domain(self, domain):
         assert domain is not None
         if isinstance(domain, Domain): return domain
@@ -213,11 +180,9 @@ class DomainState(State):
         return self.domain.rank
 
     def centered_grid(self, name, value, components=1, dtype=np.float32):
-        extrapolation = self.domain.boundaries.extrapolation_mode
-        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components,
-                                         batch_size=self._batch_size, extrapolation=extrapolation)
+        extrapolation = Material.extrapolation_mode(self.domain.boundaries)
+        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, extrapolation=extrapolation)
 
     def staggered_grid(self, name, value, dtype=np.float32):
-        extrapolation = self.domain.boundaries.extrapolation_mode
-        return self.domain.staggered_grid(value, dtype=dtype, name=name,
-                                          batch_size=self._batch_size, extrapolation=extrapolation)
+        extrapolation = Material.extrapolation_mode(self.domain.boundaries)
+        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, extrapolation=extrapolation)

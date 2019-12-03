@@ -1,15 +1,16 @@
 import six
 
-from .struct import attributes, isstruct, copy_with, equal
+from .structdef import DATA, ALL_ITEMS
+from .struct import isstruct, copy_with, equal, to_dict
 from .context import anytype
 
 
-def flatten(struct, leaf_condition=None, trace=False, include_properties=False):
+def flatten(struct, leaf_condition=None, trace=False, item_condition=DATA):
     result = []
     def map_leaf(value):
         result.append(value)
         return value
-    with anytype(): map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, include_properties=include_properties)
+    with anytype(): map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition)
     return result
 
 
@@ -23,27 +24,27 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
         return map(to_name, struct, leaf_condition, recursive=True, trace=True)
 
 
-def zip(structs, leaf_condition=None, include_properties=False, zip_parents_if_incompatible=False):
+def zip(structs, leaf_condition=None, item_condition=DATA, zip_parents_if_incompatible=False):
     # pylint: disable-msg = redefined-builtin
     assert len(structs) > 0
     first = structs[0]
     if isstruct(first, leaf_condition):
         for struct in structs[1:]:
-            if attributes(struct, include_properties=include_properties).keys() != attributes(first, include_properties=include_properties).keys():
+            if set(to_dict(struct, item_condition=item_condition).keys()) != set(to_dict(first, item_condition=item_condition).keys()):
                 if zip_parents_if_incompatible:
                     return LeafZip(structs)
                 else:
-                    raise IncompatibleStructs('Cannot zip %s and %s' % (struct, first))
+                    raise IncompatibleStructs('Cannot zip %s and %s because keys vary:\n%s\n%s' % (struct, first, to_dict(struct, item_condition=item_condition).keys(), to_dict(first, item_condition=item_condition).keys()))
 
     if not isstruct(first, leaf_condition):
         return LeafZip(structs)
 
-    dicts = [attributes(struct, include_properties=include_properties) for struct in structs]
+    dicts = [to_dict(struct, item_condition=item_condition) for struct in structs]
     keys = dicts[0].keys()
     new_dict = {}
     for key in keys:
         values = [d[key] for d in dicts]
-        values = zip(values, leaf_condition, include_properties, zip_parents_if_incompatible)
+        values = zip(values, leaf_condition, item_condition=item_condition, zip_parents_if_incompatible=zip_parents_if_incompatible)
         new_dict[key] = values
     with anytype():
         return copy_with(first, new_dict)
@@ -75,7 +76,7 @@ Thrown when two or more structs are required to have the same structure but do n
         Exception.__init__(self, *args)
 
 
-def map(function, struct, leaf_condition=None, recursive=True, trace=False, include_properties=False):
+def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=DATA):
     # pylint: disable-msg = redefined-builtin
     if trace is True:
         trace = Trace(struct, None, None)
@@ -88,13 +89,14 @@ def map(function, struct, leaf_condition=None, recursive=True, trace=False, incl
         else:
             return function(trace)
     else:
-        old_values = attributes(struct, include_properties=include_properties)
+        old_values = to_dict(struct, item_condition=item_condition)
         new_values = {}
         if not recursive:
             leaf_condition = lambda x: True
         for key, value in old_values.items():
             new_values[key] = map(function, value, leaf_condition, recursive,
-                                  Trace(value, key, trace) if trace is not False else False, include_properties)
+                                  Trace(value, key, trace) if trace is not False else False,
+                                  item_condition=item_condition)
 
         return copy_with(struct, new_values)
 
@@ -131,11 +133,11 @@ Trace objects can be used to reference a specific item of a struct or sub-struct
     def find_in(self, base_struct):
         if self.parent is not None and self.parent.key is not None:
             base_struct = self.parent.find_in(base_struct)
-        attrs = attributes(base_struct, include_properties=True)
+        attrs = to_dict(base_struct, item_condition=ALL_ITEMS)
         return attrs[self.key]
 
 
-def compare(structs, leaf_condition=None, recursive=True, include_properties=True):
+def compare(structs, leaf_condition=None, recursive=True, item_condition=ALL_ITEMS):
     if len(structs) <= 1: return []
     result = set()
     def check(trace):
@@ -147,5 +149,40 @@ def compare(structs, leaf_condition=None, recursive=True, include_properties=Tru
                     result.add(trace)
             except (ValueError, KeyError, TypeError):
                 result.add(trace)
-    with anytype(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, include_properties=include_properties)
+    with anytype(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, item_condition=item_condition)
     return result
+
+
+def print_differences(struct1, struct2):
+    if not isstruct(struct1) or not isstruct(struct2):
+        if not equal(struct1, struct2):
+            print('Values not equal: "%s" and "%s".' % (struct1, struct2))
+        return
+    items1 = to_dict(struct1)
+    items2 = to_dict(struct2)
+    tested_keys = []
+    for key1 in items1.keys():
+        if key1 not in items2:
+            print('Item "%s" is missing from %s.' % (key1, struct2))
+        else:
+            if not equal(items1[key1], items2[key1]):
+                print('Item "%s" differs between %s and %s.' % (key1, struct1, struct2))
+            print_differences(items1[key1], items2[key1])
+        tested_keys.append(key1)
+    for key2 in items2.keys():
+        if key2 not in tested_keys:
+            print('Item "%s" is missing from %s.' % (key2, struct1))
+
+
+def mappable(leaf_condition=None, recursive=True, item_condition=DATA, anytype_context=False):
+    def decorator(function):
+        def broadcast_function(obj, *args, **kwargs):
+            def function_with_args(x): return function(x, *args, **kwargs)
+            if anytype_context:
+                with anytype():
+                    result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
+            else:
+                result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
+            return result
+        return broadcast_function
+    return decorator
