@@ -1,0 +1,20 @@
+language: python
+
+python:
+  - "2.7"
+  - "3.6"
+
+before_install:
+  - pip install -U pip
+
+install:
+  - pip install --quiet tensorflow==1.14.0 nbformat ipython pylint
+  - pip install .
+
+script:
+  - pytest
+
+after_success:
+  - pylint --rcfile=./demos/.pylintrc demos
+  - pylint --rcfile=./tests/.pylintrc tests
+  - pylint --rcfile=./phi/.pylintrc phi
