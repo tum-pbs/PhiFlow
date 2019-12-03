@@ -32,7 +32,7 @@ Physics objects typically definition their dependencies in terms of tags.
         """
         return tuple(tags)
 
-    @struct.constant(default=0.0)
+    @struct.variable(default=0.0, holds_data=False)
     def age(self, age):
         """
 Cumulative dt of all step() invocations. States usually start out at age=0.
@@ -69,7 +69,7 @@ Similar to phi.math.shape(self) but respects unknown dimensions.
             else:
                 return default_batched_shape
         with struct.anytype():
-            return struct.map(tensorshape, self)
+            return struct.map(tensorshape, self, item_condition=struct.VARIABLES)
 
     @property
     def state(self):
