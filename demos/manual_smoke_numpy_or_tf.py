@@ -21,7 +21,7 @@ DT = 0.6
 # by default, creates a numpy state, i.e. "SMOKE.density.data" is a numpy array
 SMOKE = Smoke(Domain([RES] * DIM, boundaries=OPEN), batch_size=BATCH_SIZE)
 
-if MODE=='NumPy':
+if MODE == 'NumPy':
     DENSITY = SMOKE.density
     VELOCITY = SMOKE.velocity
     # no phiflow session for pure numpy, write to specific directory instead
@@ -62,7 +62,7 @@ except ImportError:
 
 # main , step 1: run SMOKE sim (numpy), or only set up graph for TF
 
-for i in range(STEPS if (MODE=='NumPy') else GRAPH_STEPS):
+for i in range(STEPS if (MODE == 'NumPy') else GRAPH_STEPS):
     # simulation step; note that the core is only 3 lines for the actual simulation
     # the RESt is setting up the inflow, and debug info afterwards
 
@@ -81,7 +81,7 @@ for i in range(STEPS if (MODE=='NumPy') else GRAPH_STEPS):
     if i == 0:
         print("Density type: %s" % type(DENSITY.data))  # here we either have np array of tf tensor
 
-    if MODE=='NumPy':
+    if MODE == 'NumPy':
         if i % GRAPH_STEPS == GRAPH_STEPS - 1 and SAVE_IMAGES:
             save_img(DENSITY.data, 10000., IMG_PATH + "/numpy_%04d.png" % i)
         print("Numpy step %d done, means %s %s" % (i, np.mean(DENSITY.data), np.mean(VELOCITY.staggered_tensor())))
@@ -90,7 +90,7 @@ for i in range(STEPS if (MODE=='NumPy') else GRAPH_STEPS):
 
 # main , step 2: do actual sim run (TF only)
 
-if MODE=='TensorFlow':
+if MODE == 'TensorFlow':
     # for TF, all the work still needs to be done, feed empty state and start simulation
     SMOKE_OUT = SMOKE.copied_with(density=DENSITY, velocity=VELOCITY, age=SMOKE.age + DT)
 

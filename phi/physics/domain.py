@@ -141,17 +141,6 @@ class Domain(struct.Struct):
             grid = StaggeredGrid(data, self.box, name, batch_size=None, extrapolation=extrapolation)
         return grid
 
-    # def _get_paddings(self, material_condition, margin=1):
-    #     true_paddings = [[0, 0] for i in range(self.rank)]
-    #     false_paddings = [[0, 0] for i in range(self.rank)]
-    #     for dim in range(self.rank):
-    #         for upper in (False, True):
-    #             if material_condition(self.surface_material(dim, upper)):
-    #                 true_paddings[dim][upper] = margin
-    #             else:
-    #                 false_paddings[dim][upper] = margin
-    #     return [[0, 0]] + true_paddings + [[0, 0]], [[0, 0]] + false_paddings + [[0, 0]]
-
     def surface_material(self, axis=0, upper_boundary=False):
         return collapsed_gather_nd(self.boundaries, axis, upper_boundary)
 
@@ -192,10 +181,8 @@ class DomainState(State):
 
     def centered_grid(self, name, value, components=1, dtype=np.float32):
         extrapolation = Material.extrapolation_mode(self.domain.boundaries)
-        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components,
-                                         batch_size=self._batch_size, extrapolation=extrapolation)
+        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, extrapolation=extrapolation)
 
     def staggered_grid(self, name, value, dtype=np.float32):
         extrapolation = Material.extrapolation_mode(self.domain.boundaries)
-        return self.domain.staggered_grid(value, dtype=dtype, name=name,
-                                          batch_size=self._batch_size, extrapolation=extrapolation)
+        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, extrapolation=extrapolation)

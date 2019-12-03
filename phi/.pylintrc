@@ -13,6 +13,7 @@ disable = line-too-long,
           import-error,
           comparison-with-callable,  # PyLint does not understand @struct.constant()
           using-constant-test,  # PyLint does not understand @struct.constant()
+          no-value-for-parameter,  # PyLint does not understand struct items
           missing-function-docstring,  # This is too much
           missing-module-docstring,  # Only useful for generated documentation
 

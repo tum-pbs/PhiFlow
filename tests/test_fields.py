@@ -74,6 +74,7 @@ class TestFields(TestCase):
         np.testing.assert_equal(a.box.size, 1)
 
     def test_staggered_construction(self):
+        # pylint: disable-msg = unsubscriptable-object
         tensor = math.zeros([1, 5, 5, 2])
         staggered = StaggeredGrid(tensor, name='')
         assert len(staggered.data) == 2

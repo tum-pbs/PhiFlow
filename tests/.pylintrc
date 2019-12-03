@@ -12,6 +12,9 @@ disable = import-error,
           invalid-name,
           line-too-long,
           no-self-use,
-          multiple-statements
+          multiple-statements,
+          comparison-with-callable,  # PyLint does not understand @struct.constant()
+          using-constant-test,  # PyLint does not understand @struct.constant()
+          no-value-for-parameter,  # PyLint does not understand struct items
 
 good-names = dt, tf, np, x, y, z

@@ -2,15 +2,12 @@ from unittest import TestCase
 
 import numpy
 
-from phi import struct, math
-from phi.geom import Sphere
+from phi import math
 from phi.physics import Physics
 from phi.physics.burgers import Burgers
 from phi.physics.domain import Domain
-from phi.physics.field import StaggeredGrid
-from phi.physics.field.effect import Fan, Inflow, FieldEffect
+from phi.physics.field.effect import FieldEffect
 from phi.physics.schroedinger import SinPotential
-from phi.physics.smoke import Smoke, SMOKE
 from phi.physics.world import World
 
 
@@ -21,6 +18,7 @@ class ForcingPhysics(Physics):
         self.omega = omega
 
     def step(self, fieldeffect, dt=1.0, **dependent_states):
+        # pylint: disable-msg = arguments-differ
         field = fieldeffect.field
         field = field.copied_with(phase_offset=field.phase_offset + dt * self.omega)
         return fieldeffect.copied_with(field=field)
