@@ -197,20 +197,18 @@ class StaggeredGrid(Field):
                              batch_size=scalar_field._batch_size)
 
     @staticmethod
-    def from_scalar(scalar_field, axis_forces, padding_mode='constant', name=None):
+    def from_scalar(scalar_field, axis_forces, name=None):
         assert isinstance(scalar_field, CenteredGrid)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
         tensors = []
-        for i in range(scalar_field.rank):
-            force = axis_forces[i] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,i]
+        for axis in range(scalar_field.rank):
+            force = axis_forces[axis] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,axis]
             if isinstance(force, Number) and force == 0:
                 dims = list(math.staticshape(scalar_field.data))
-                dims[i+1] += 1
+                dims[axis+1] += 1
                 tensors.append(math.zeros(dims, math.dtype(scalar_field.data)))
             else:
-                # upper = scalar_field.axis_padded(i, 0, 1).data  TODO use this instead
-                # lower = scalar_field.axis_padded(i, 1, 0).data
-                upper = math.pad(scalar_field.data, [[0,1] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
-                lower = math.pad(scalar_field.data, [[1,0] if d == i+1 else [0,0] for d in math.all_dimensions(scalar_field.data)], padding_mode)
+                upper = scalar_field.axis_padded(axis, 0, 1).data
+                lower = scalar_field.axis_padded(axis, 1, 0).data
                 tensors.append((upper + lower) / 2 * force)
         return StaggeredGrid(tensors, scalar_field.box, name=name, batch_size=scalar_field._batch_size)

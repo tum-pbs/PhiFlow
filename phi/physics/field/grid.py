@@ -131,7 +131,7 @@ class CenteredGrid(Field):
         return CenteredGrid(data, box, extrapolation=self.extrapolation, name=self.name, batch_size=self._batch_size)
 
     def axis_padded(self, axis, lower, upper):
-        widths = [[lower, upper] if d == axis+1 else [0,0] for d in range(self.rank)]
+        widths = [[lower, upper] if ax == axis else [0,0] for ax in range(self.rank)]
         return self.padded(widths)
 
     @staticmethod
