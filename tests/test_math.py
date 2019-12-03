@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-import tensorflow as tf
+from phi.tf import tf
 
 # pylint: disable-msg = redefined-builtin, redefined-outer-name, unused-wildcard-import, wildcard-import
 from phi.math import *
