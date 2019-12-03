@@ -27,7 +27,7 @@ if MODE=='NumPy':
     # no phiflow session for pure numpy, write to specific directory instead
     IMG_PATH = os.path.expanduser("~/phi/data/manual/numpy")
     if not os.path.exists(IMG_PATH):
-        os.mkdir(IMG_PATH)
+        os.makedirs(IMG_PATH)
 else:
     SCENE = Scene.create("~/phi/data/manual")
     SESSION = Session(SCENE)
