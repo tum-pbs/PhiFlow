@@ -32,7 +32,7 @@ These packages can be installed together with Φ<sub>*Flow*</sub> (see next sect
 Clone the git repository by running
 
 ```bash
-$ git clone https://gitlab.lrz.de/ga67fet/phiflow.git
+$ git clone https://github.com/tum-pbs/PhiFlow.git
 ```
 
 See the section *Optional features* below on how to configure the installation to add CUDA operators.
