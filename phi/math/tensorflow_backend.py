@@ -2,6 +2,7 @@ import uuid
 import numpy as np
 import six
 import tensorflow as tf
+from packaging import version
 
 from phi.math.base import Backend
 from phi.struct.tensorop import expand, collapsed_gather_nd
@@ -402,8 +403,14 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
 
     def get_knot(bc):
         coord = [sc[c][i] for i, c in enumerate(bc)]
-        coord = tf.stack([batch_ids] + coord, -1)
-        return tf.gather_nd(inputs, coord)
+        if version.parse(tf.__version__) >= version.parse('1.14.0'):
+            coord = tf.stack(coord, -1)
+            return tf.gather_nd(inputs, coord, batch_dims=1)
+        else:
+            coord = tf.stack([batch_ids] + coord, -1)
+            return tf.gather_nd(inputs, coord)
+
+
 
     samples = [get_knot(bc) for bc in binary_neighbour_ids]
 
