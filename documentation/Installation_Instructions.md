@@ -90,6 +90,6 @@ To install Φ<sub>*Flow*</sub> with CUDA operators, run:
 
 ```bash
 $ cd phiflow/
-$ python setup.py tensorflow-cuda
+$ python setup.py tf_cuda
 $ pip install .
 ```

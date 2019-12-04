@@ -6,4 +6,5 @@ from .session import *
 from .world import *
 from .data import *
 from .util import *
+from .tf_cuda_pressuresolver import CUDASolver
 import tensorflow as tf

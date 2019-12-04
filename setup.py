@@ -130,7 +130,7 @@ setup(
               'phi.tf',
               'phi.viz', 'phi.viz.dash'],
     cmdclass={
-        'tensorflow-cuda': CudaCommand,
+        'tf_cuda': CudaCommand,
     },
     include_package_data=True,
     url='https://bitbucket.org/thunil/mantaflowgit/src/PhiFlow/',
