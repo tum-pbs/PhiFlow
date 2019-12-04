@@ -1,25 +1,25 @@
 
 
-def generate(struct_name, attributes=(), properties=(), other=()):
+def generate(struct_name, variables=(), constants=(), others=()):
     items = ''
     parameters = ''
     ignore = []
     other_init = ''
-    for attr_name in attributes:
+    for attr_name in variables:
         items += """
     @struct.variable()
     def {name}(self, {name}):
         return {name}
 """.replace('{name}', attr_name)
         parameters += '%s, ' % (attr_name, )
-    for prop_name in properties:
+    for prop_name in constants:
         items += """
     @struct.constant()
     def {name}(self, {name}):
         return {name}
         """.replace('{name}', prop_name)
         parameters += '%s, ' % (prop_name,)
-    for other_name in other:
+    for other_name in others:
         items += """
     @property
     def {name}(self):

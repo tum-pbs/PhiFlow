@@ -51,7 +51,7 @@ class CollectiveState(struct.Struct):
         if isinstance(item, six.string_types):
             return self.find(item)
         if struct.isstruct(item):
-            with struct.anytype():
+            with struct.unsafe():
                 return struct.map(lambda x: self[x], item)
         try:
             return self[item.name]

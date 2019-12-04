@@ -11,7 +11,7 @@ def load_state(state):
     assert isinstance(state, State)
     state = _transform_for_writing(state)
     names = struct.names(state)
-    with struct.anytype():
+    with struct.unsafe():
         placeholders = placeholder(state.shape)
     state_in = struct.map(lambda x: x, placeholders)  # validates fields, splits staggered tensors
     return state_in, {placeholders: names}

@@ -68,7 +68,7 @@ class BakedWorldPhysics(CollectivePhysics):
         return result
 
 
-@mappable(item_condition=None, anytype_context=True)
+@mappable(item_condition=None, unsafe_context=True)
 def _32_bit(dtype):
     if dtype == np.float64:
         return np.float32

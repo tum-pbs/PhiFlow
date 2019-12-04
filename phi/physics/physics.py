@@ -68,7 +68,7 @@ Similar to phi.math.shape(self) but respects unknown dimensions.
                 return (self._batch_size,) + default_batched_shape[1:]
             else:
                 return default_batched_shape
-        with struct.anytype():
+        with struct.unsafe():
             return struct.map(tensorshape, self, item_condition=struct.VARIABLES)
 
     @property

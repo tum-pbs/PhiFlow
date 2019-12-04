@@ -5,8 +5,8 @@ _STRUCT_CONTEXT_STACK = []
 
 
 @contextmanager
-def anytype():
-    _STRUCT_CONTEXT_STACK.append('anytype')
+def unsafe():
+    _STRUCT_CONTEXT_STACK.append('unsafe')
     try:
         yield None
     finally:
@@ -14,4 +14,4 @@ def anytype():
 
 
 def skip_validate():
-    return 'anytype' in _STRUCT_CONTEXT_STACK
+    return 'unsafe' in _STRUCT_CONTEXT_STACK

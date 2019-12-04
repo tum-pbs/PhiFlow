@@ -26,8 +26,8 @@ class TestPlaceholder(TestCase):
         self.assertEqual(v.name, 'Variable:0')
 
     def test_struct_placeholders(self):
-        bounds = box[0:1]  # outside anytype
-        with struct.anytype():
+        bounds = box[0:1]  # outside unsafe
+        with struct.unsafe():
             obj = ([4], CenteredGrid([1, 4, 1], bounds), ([9], [8, 2]))
         tensorflow.reset_default_graph()
         p = placeholder(obj)

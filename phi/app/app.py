@@ -254,7 +254,7 @@ class App(object):
                 self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
         old_worldstate = world.state
-        with struct.anytype():
+        with struct.unsafe():
             struct.map(add_default_field, world.state,
                        leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
                        trace=True)

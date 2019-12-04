@@ -88,11 +88,11 @@ class Domain(struct.Struct):
         return np.all(grid1.resolution == grid2.resolution) and grid1.box == grid2.box
 
     def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None, age=0.0):
-        with struct.anytype():
+        with struct.unsafe():
             return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size)
 
     def staggered_shape(self, batch_size=1, name=None, extrapolation=None, age=0.0):
-        with struct.anytype():
+        with struct.unsafe():
             grids = []
             for axis in range(self.rank):
                 shape = _extend1(tensor_shape(batch_size, self.resolution, 1), axis)

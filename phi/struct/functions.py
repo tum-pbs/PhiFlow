@@ -2,7 +2,7 @@ import six
 
 from .structdef import DATA, ALL_ITEMS
 from .struct import isstruct, copy_with, equal, to_dict
-from .context import anytype
+from .context import unsafe
 
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=DATA):
@@ -10,7 +10,7 @@ def flatten(struct, leaf_condition=None, trace=False, item_condition=DATA):
     def map_leaf(value):
         result.append(value)
         return value
-    with anytype(): map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition)
+    with unsafe(): map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition)
     return result
 
 
@@ -20,7 +20,7 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
             return trace.name if basename is None else basename + separator + trace.name
         else:
             return trace.path(separator) if basename is None else basename + separator + trace.path(separator)
-    with anytype():
+    with unsafe():
         return map(to_name, struct, leaf_condition, recursive=True, trace=True)
 
 
@@ -46,7 +46,7 @@ def zip(structs, leaf_condition=None, item_condition=DATA, zip_parents_if_incomp
         values = [d[key] for d in dicts]
         values = zip(values, leaf_condition, item_condition=item_condition, zip_parents_if_incompatible=zip_parents_if_incompatible)
         new_dict[key] = values
-    with anytype():
+    with unsafe():
         return copy_with(first, new_dict)
 
 
@@ -149,7 +149,7 @@ def compare(structs, leaf_condition=None, recursive=True, item_condition=ALL_ITE
                     result.add(trace)
             except (ValueError, KeyError, TypeError):
                 result.add(trace)
-    with anytype(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, item_condition=item_condition)
+    with unsafe(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, item_condition=item_condition)
     return result
 
 
@@ -174,12 +174,12 @@ def print_differences(struct1, struct2):
             print('Item "%s" is missing from %s.' % (key2, struct1))
 
 
-def mappable(leaf_condition=None, recursive=True, item_condition=DATA, anytype_context=False):
+def mappable(leaf_condition=None, recursive=True, item_condition=DATA, unsafe_context=False):
     def decorator(function):
         def broadcast_function(obj, *args, **kwargs):
             def function_with_args(x): return function(x, *args, **kwargs)
-            if anytype_context:
-                with anytype():
+            if unsafe_context:
+                with unsafe():
                     result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
             else:
                 result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)

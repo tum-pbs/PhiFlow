@@ -349,7 +349,7 @@ def _transform_for_writing(obj):
             return value.data
         else:
             return value
-    with struct.anytype():
+    with struct.unsafe():
         data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)))
     return data
 

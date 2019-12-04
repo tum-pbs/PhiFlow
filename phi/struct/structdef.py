@@ -170,10 +170,10 @@ Represents an item type of a struct, a variable or a constant.
         return self.name
 
 
-CONSTANTS = lambda item: not item.is_variable
-VARIABLES = lambda item: item.is_variable
-DATA = lambda item: item.holds_data
-ALL_ITEMS = None  # lambda item: True
+def CONSTANTS(item): return not item.is_variable
+def VARIABLES(item): return item.is_variable
+def DATA(item): return item.holds_data
+ALL_ITEMS = None
 
 
 class DerivedProperty(object):

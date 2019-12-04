@@ -24,7 +24,7 @@ class TestStruct(TestCase):
 
     def test_identity(self):
         for obj in generate_test_structs():
-            with struct.anytype():
+            with struct.unsafe():
                 obj2 = struct.map(lambda s: s, obj, recursive=False)
                 self.assertEqual(obj, obj2)
                 obj3 = struct.map(lambda t: t, obj, recursive=True)
@@ -42,7 +42,7 @@ class TestStruct(TestCase):
 
     def test_names(self):
         for obj in generate_test_structs():
-            with struct.anytype():
+            with struct.unsafe():
                 names = struct.flatten(struct.map(lambda attr: attr.name, obj, trace=True))
                 self.assertGreater(len(names), 0)
                 for name in names:
@@ -50,12 +50,12 @@ class TestStruct(TestCase):
 
     def test_paths(self):
         obj = {'Vels': [CenteredGrid(numpy.zeros([1, 4, 1]), box[0:1], name='v')]}
-        with struct.anytype():
+        with struct.unsafe():
             names = struct.flatten(struct.map(lambda attr: attr.path(), obj, trace=True))
         self.assertEqual(names[0], 'Vels.0.data')
 
     def test_copy(self):
-        with struct.anytype():
+        with struct.unsafe():
             fluid = Fluid(Domain([4]), density='Density', velocity='Velocity')
             v = fluid.copied_with(velocity='V2')
             self.assertEqual(v.velocity, 'V2')
@@ -68,7 +68,7 @@ class TestStruct(TestCase):
                 pass
 
     def test_zip(self):
-        with struct.anytype():
+        with struct.unsafe():
             a = CenteredGrid('a')
             b = CenteredGrid('b')
             stacked = struct.map(lambda *x: x, struct.zip([a, b]))
