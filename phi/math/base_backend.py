@@ -249,6 +249,13 @@ class DynamicBackend(Backend):
                 return backend
         raise NoBackendFound('No backend found for values %s; registered backends are %s' % (values, self.backends))
 
+    def add_backend(self, backend):
+        for existing in self.backends:
+            if existing.name == backend.name:
+                return False
+        self.backends.append(backend)
+        return True
+
     def is_applicable(self, values):
         if not isinstance(values, tuple) and not isinstance(values, list):
             values = [values]
@@ -434,3 +441,6 @@ class NoBackendFound(Exception):
 
     def __init__(self, msg):
         Exception.__init__(self, msg)
+
+
+DYNAMIC_BACKEND = DynamicBackend()

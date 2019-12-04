@@ -1,3 +1,5 @@
+import numbers
+
 import numpy
 
 from phi import math, struct
@@ -39,7 +41,7 @@ class ConstantField(Field):
 
 
 def _convert_constant_to_data(value):
-    if isinstance(value, math.Number):
+    if isinstance(value, numbers.Number):
         value = math.to_float(math.expand_dims(value))
     if isinstance(value, (list, tuple)):
         value = math.to_float(numpy.array(value))

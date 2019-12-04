@@ -3,9 +3,10 @@ from numbers import Number
 
 from phi import struct
 from phi.struct.functions import mappable
+
+from .base_backend import DYNAMIC_BACKEND as math
 from .base_backend import NoBackendFound
 from .nd import fftfreq
-from .backend import backend as math
 
 
 @mappable(item_condition=struct.VARIABLES, anytype_context=True)
@@ -33,11 +34,6 @@ def _none_to_one(shape):
 @mappable(leaf_condition=is_static_shape)
 def zeros(shape, dtype=np.float32):
     return np.zeros(_none_to_one(shape), dtype=dtype)
-
-
-def zeros_like(object):
-    f = lambda tensor: math.zeros_like(tensor)
-    return struct.map(f, object, leaf_condition=is_static_shape)
 
 
 @mappable(leaf_condition=is_static_shape)

@@ -1,7 +1,7 @@
 import numpy as np
 
 from phi import struct
-from . import backend as math
+from .base_backend import DYNAMIC_BACKEND as math
 
 
 def spatial_rank(tensor):

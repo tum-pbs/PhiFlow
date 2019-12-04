@@ -135,7 +135,7 @@ class SparseCG(PressureSolver):
         dimensions = list(divergence.shape[1:-1])
         N = int(np.prod(dimensions))
 
-        if math.backend.choose_backend(divergence).matches_name('TensorFlow'):
+        if math.choose_backend(divergence).matches_name('TensorFlow'):
             import tensorflow as tf
             if tf.__version__[0] == '2':
                 print('Adjusting for tensorflow 2.0')

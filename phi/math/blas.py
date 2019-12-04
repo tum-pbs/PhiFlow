@@ -1,5 +1,5 @@
 # coding=utf-8
-from phi import math
+from .base_backend import DYNAMIC_BACKEND as math
 
 
 def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations=1024, back_prop=False):
