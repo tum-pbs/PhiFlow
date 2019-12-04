@@ -60,8 +60,8 @@ class TestDemos(TestCase):
     def test_heat_equilibrium(self):
         demo_run('heat_equilibrium')
 
-    def test_manual_smoke_numpy_or_tf(self):
-        demo_run('manual_smoke_numpy_or_tf')
+    def test_manual_fluid_numpy_or_tf(self):
+        demo_run('manual_fluid_numpy_or_tf')
 
     def test_marker(self):
         demo_run('marker')
