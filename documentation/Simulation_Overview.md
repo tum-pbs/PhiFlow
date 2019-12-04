@@ -3,7 +3,7 @@
 This document gives an overview of how to run simulations using Φ<sub>*Flow*</sub>.
 For a deeper look into how the code is structured, check out [the simulation architecture documentaiton](Simulation_Architecture.md).
 If you are interested in how specific simulations work, check out their respective documentations, e.g.
-[Smoke](Smoke_Simulation.md).
+[Fluid](Fluid_Simulation.md).
 A paragraph below also summarizes differences to mantaflow simulations.
 
 ## Running simulations

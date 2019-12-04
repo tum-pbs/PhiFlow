@@ -28,7 +28,7 @@ velocity_tensor = np.zeros([1, 65, 65, 2])
 staggered_field = StaggeredGrid(velocity_tensor)
 ```
 
-States such as [fluid](../phi/physics/fluid.py) ([documentation](Smoke_Simulation.md)) that use staggered grids will automatically create one if not provided.
+States such as [fluid](../phi/physics/fluid.py) ([documentation](Fluid_Simulation.md)) that use staggered grids will automatically create one if not provided.
 
 ```python
 from phi.tf.flow import *

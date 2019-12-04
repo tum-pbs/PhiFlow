@@ -3,13 +3,6 @@
 ## Dependencies
 
 You need to have Python 3.5.X, 3.6.X or 2.7.X with pip (or an alternative package manager) installed.
-NumPy and SciPy are required in order to run Φ<sub>*Flow*</sub>. These are likely included in your Python distribution.
-
-If not, you can install them by running:
-
-```bash
-$ pip install scipy
-```
 
 For GPU acceleration, deep learning and optimization, [TensorFlow](https://www.tensorflow.org/install/) must be registered with your Python installation.
 TensorFlow can be compiled from sources or installed as the CPU-enabled version using:
@@ -54,10 +47,10 @@ Installing Φ<sub>*Flow*</sub> as a package is not required if your Python PATH 
 
 ### Testing with GUI
 
-To verify your Φ<sub>*Flow*</sub> installation (including TensorFlow), run `smokedemo_tf.py` using the following command:
+To verify your Φ<sub>*Flow*</sub> installation (including TensorFlow), run `fluid_logo.py` using the following command:
 
 ```bash
-$ python phiflow/demos/smokedemo.py tf
+$ python phiflow/demos/fluid_logo.py 64 tf
 ```
 
 To test Φ<sub>*Flow*</sub> without TensorFlow, leave out the `tf` at the end.

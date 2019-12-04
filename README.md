@@ -14,7 +14,7 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 - Support for a variety of differentiable simulation types, from Burgers over Navier-Stokes to the Schrödinger equation.
 - Tight integration with [TensorFlow](https://www.tensorflow.org/) allowing for straightforward network training with fully differentiable simulations that run on the GPU.
 - Object-oriented architecture enabling concise and expressive code, designed for ease of use and extensibility.
-- Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D smoke sim using NumPy and a 3D smoke sim on the GPU using TensorFlow.
+- Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow.
 - Flexible, easy-to-use web interface featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 
 ## Installation
@@ -36,7 +36,7 @@ with TensorFlow support.
 
 If you would like to get right into it and have a look at some example code, check out the following demos:
 
-- [simpleplume.py](./demos/simpleplume.py): Runs a smoke simulation and displays it in the browser
+- [simpleplume.py](./demos/simpleplume.py): Runs a fluid simulation and displays it in the browser
 - [optimize_pressure.py](./demos/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
 
@@ -44,7 +44,7 @@ If you would like to get right into it and have a look at some example code, che
 
 The [simulation overview](documentation/Simulation_Overview.md) explains how to run predefined simulations using either the [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md) backend. It also introduces the GUI.
 
-To learn how specific simulations are implemented, check out the documentation for [Smoke](documentation/Smoke_Simulation.md) or read about [staggered grids](documentation/Staggered_Grids.md) or [pressure solvers](documentation/Pressure_Solvers.md).
+To learn how specific simulations are implemented, check out the documentation for [Fluids](documentation/Fluid_Simulation.md) or read about [staggered grids](documentation/Staggered_Grids.md) or [pressure solvers](documentation/Pressure_Solvers.md).
 
 [Writing a Φ<sub>*Flow*</sub> Application](documentation/Browser_GUI.md) introduces the high-level classes and explains how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
 

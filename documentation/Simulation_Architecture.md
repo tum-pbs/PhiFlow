@@ -2,7 +2,7 @@
 
 This document discusses the code design of simulations and solvers within Φ<sub>*Flow*</sub>.
 If you are interested in how specific simulations work, check out their respective documentations, e.g.
-[Smoke](Smoke_Simulation.md).
+[Fluid](Fluid_Simulation.md).
 
 ### States and Physics objects
 
@@ -36,11 +36,7 @@ state0 = Fluid(Domain([64, 64]), density=0, velocity=0)
 state1 = INCOMPRESSIBLE_FLOW.step(state0, dt=1.0, inflows=[inflow])
 ```
 
-There are 3 different versions of Fluid available:
-
-1. [`Fluid`](../phi/physics/smoke.py): immutable object
-2. `World.Fluid`: mutable instance of `Fluid` directly added to the `World` instance
-3. `INCOMPRESSIBLE_FLOW`: a global instance of [`IncompressibleFlow`](../phi/physics/smoke.py), a subclass of [`Physics`](../phi/physics/physics.py).
+The first two lines after the import create immutable state objects. The last line executes a simulation step using the global [`Physics`](../phi/physics/physics.py) object INCOMPRESSIBLE_FLOW.
 
 We could also create our own physics object, e.g. to use a specific [pressure solver](Pressure_Solvers.md), or modify the default physics object:
 
@@ -96,7 +92,7 @@ can add the states to a world (e.g. using `world.Fluid` instead of `Fluid`) and 
 `tf_bake_graph(session, world)` to automatically convert all physics objects to TensorFlow graph executions.
 
 The similarities and differences of NumPy vs TensorFlow are illustrated in the example 
-[manual_smoke_numpy_or_tf.py](../demos/manual_smoke_numpy_or_tf.py) for a simple custom smoke simulation.
+[manual_smoke_numpy_or_tf.py](../demos/manual_smoke_numpy_or_tf.py) for a simple custom fluid simulation.
 
 ## Simplified API with world
 

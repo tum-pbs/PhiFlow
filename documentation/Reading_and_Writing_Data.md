@@ -54,7 +54,7 @@ density = scene.read_array(fieldname='density', frame=0)
 densities, velocities = scene.read_sim_frames(fieldnames=['density', 'velocity'], frames=range(16))
 
 # Read a state or struct
-smoke = scene.read(Smoke(), frame=0)
+fluid = scene.read(Fluid(...), frame=0)
 ```
 
 The last call makes use of Φ<sub>*Flow*</sub>'s [`struct` system](Structs.ipynb).
@@ -73,7 +73,7 @@ scene = Scene.create('~/phi/data/simpleplume')
 scene.write_sim_frame([density, velocity], ['density', 'velocity'], frame=0)
 
 # Write a state
-scene.write(Smoke(), frame=0)
+scene.write(Fluid(...), frame=0)
 ```
 
 Subdirectories in the scene can be created using the method `subpath(name, create)`.
