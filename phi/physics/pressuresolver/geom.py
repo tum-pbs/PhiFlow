@@ -1,8 +1,7 @@
 from numbers import Number
 
 from phi import math
-from phi.math.blas import conjugate_gradient
-from phi.physics.pressuresolver.base import PressureSolver, FluidDomain
+from .solver_api import PressureSolver, FluidDomain
 
 
 class GeometricCG(PressureSolver):
@@ -45,6 +44,7 @@ class GeometricCG(PressureSolver):
         self.autodiff = autodiff
 
     def solve(self, divergence, domain, pressure_guess):
+        assert isinstance(domain, FluidDomain)
         fluid_mask = domain.accessible_tensor(extend=1)
 
         if self.autodiff:

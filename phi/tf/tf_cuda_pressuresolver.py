@@ -4,7 +4,7 @@ import tensorflow as tf
 from numbers import Number
 
 from phi import math
-from phi.physics.pressuresolver.base import PressureSolver
+from phi.physics.pressuresolver.solver_api import PressureSolver
 
 
 if tf.__version__[0] == '2':
@@ -20,7 +20,7 @@ assert os.path.isfile(kernel_path), 'CUDA binaries not found at %s. Run "python 
 pressure_op = tf.load_op_library(kernel_path)
 
 
-class CUDA(PressureSolver):
+class CUDASolver(PressureSolver):
 
     def __init__(self, accuracy=1e-5, gradient_accuracy='same',
                  max_iterations=2000, max_gradient_iterations='same'):

@@ -5,8 +5,8 @@ import scipy.sparse
 import scipy.sparse.linalg
 
 from phi import math
-from phi.physics.pressuresolver.base import PressureSolver
 from phi.math.blas import conjugate_gradient
+from .solver_api import PressureSolver, FluidDomain
 
 
 class SparseSciPy(PressureSolver):
@@ -21,6 +21,7 @@ class SparseSciPy(PressureSolver):
                                 supports_guess=False, supports_loop_counter=False, supports_continuous_masks=True)
 
     def solve(self, divergence, domain, pressure_guess):
+        assert isinstance(domain, FluidDomain)
         dimensions = list(divergence.shape[1:-1])
         A = sparse_pressure_matrix(dimensions, domain.active_tensor(extend=1), domain.accessible_tensor(extend=1))
 
@@ -128,6 +129,7 @@ class SparseCG(PressureSolver):
         self.autodiff = autodiff
 
     def solve(self, divergence, domain, pressure_guess):
+        assert isinstance(domain, FluidDomain)
         active_mask = domain.active_tensor(extend=1)
         fluid_mask = domain.accessible_tensor(extend=1)
         dimensions = list(divergence.shape[1:-1])

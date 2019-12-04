@@ -6,17 +6,17 @@ from setuptools import setup
 
 
 class CudaCommand(distutils.cmd.Command):
-    description = "Compile CUDA sources"
+    description = 'Compile CUDA sources'
     user_options = [
-        ("gcc=", None, "Path to the gcc compiler."),
-        ("nvcc=", None, "Path to the Nvidia nvcc compiler."),
+        ('gcc=', None, 'Path to the gcc compiler.'),
+        ('nvcc=', None, 'Path to the Nvidia nvcc compiler.'),
     ]
 
     def run(self):
-        src_path = os.path.abspath("./phi/physics/pressuresolver/cuda/src")
-        build_path = os.path.abspath("./phi/physics/pressuresolver/cuda/build")
-        print("Source Path:\t" + src_path)
-        print("Build Path:\t" + build_path)
+        src_path = os.path.abspath('./phi/tf/cuda/src')
+        build_path = os.path.abspath('./phi/tf/cuda/build')
+        print('Source Path:\t' + src_path)
+        print('Build Path:\t' + build_path)
 
         # Get TF Compile/Link Flags and write to env
         import tensorflow as tf
@@ -29,27 +29,27 @@ class CudaCommand(distutils.cmd.Command):
 
         # Remove old build files
         if os.path.isdir(build_path):
-            print("Removing old build files from %s" % build_path)
+            print('Removing old build files from %s' % build_path)
             for file in os.listdir(build_path):
                 os.remove(os.path.join(build_path, file))
         else:
-            print("Creating build directory at %s" % build_path)
+            print('Creating build directory at %s' % build_path)
             os.mkdir(build_path)
 
-        print("Compiling CUDA code...")
+        print('Compiling CUDA code...')
         # Build the Laplace Matrix Generation CUDA Kernels
         subprocess.check_call(
             [
                 self.nvcc,
-                "-std=c++11",
-                "-c",
-                "-o",
-                os.path.join(build_path, "laplace_op.cu.o"),
-                os.path.join(src_path, "laplace_op.cu.cc"),
-                "-x",
-                "cu",
-                "-Xcompiler",
-                "-fPIC"
+                '-std=c++11',
+                '-c',
+                '-o',
+                os.path.join(build_path, 'laplace_op.cu.o'),
+                os.path.join(src_path, 'laplace_op.cu.cc'),
+                '-x',
+                'cu',
+                '-Xcompiler',
+                '-fPIC'
             ]
             + tf_cflags
         )
@@ -59,13 +59,13 @@ class CudaCommand(distutils.cmd.Command):
         subprocess.check_call(
             [
                 self.gcc,
-                "-std=c++11",
-                "-shared",
-                "-o",
-                os.path.join(build_path, "laplace_op.so"),
-                os.path.join(src_path, "laplace_op.cc"),
-                os.path.join(build_path, "laplace_op.cu.o"),
-                "-fPIC"
+                '-std=c++11',
+                '-shared',
+                '-o',
+                os.path.join(build_path, 'laplace_op.so'),
+                os.path.join(src_path, 'laplace_op.cc'),
+                os.path.join(build_path, 'laplace_op.cu.o'),
+                '-fPIC'
             ]
             + tf_cflags
             + tf_lflags
@@ -75,15 +75,15 @@ class CudaCommand(distutils.cmd.Command):
         subprocess.check_call(
             [
                 self.nvcc,
-                "-std=c++11",
-                "-c",
-                "-lcublas",
-                "-o",
-                os.path.join(build_path, "pressure_solve_op.cu.o"),
-                os.path.join(src_path, "pressure_solve_op.cu.cc"),
-                "-x", "cu",
-                "-Xcompiler",
-                "-fPIC"
+                '-std=c++11',
+                '-c',
+                '-lcublas',
+                '-o',
+                os.path.join(build_path, 'pressure_solve_op.cu.o'),
+                os.path.join(src_path, 'pressure_solve_op.cu.cc'),
+                '-x', 'cu',
+                '-Xcompiler',
+                '-fPIC'
             ]
             + tf_cflags
         )
@@ -92,26 +92,26 @@ class CudaCommand(distutils.cmd.Command):
         subprocess.check_call(
             [
                 self.gcc,
-                "-std=c++11",
-                "-shared",
-                "-o",
-                os.path.join(build_path, "pressure_solve_op.so"),
-                os.path.join(src_path, "pressure_solve_op.cc"),
-                os.path.join(build_path, "pressure_solve_op.cu.o"),
-                os.path.join(build_path, "laplace_op.cu.o"),
-                "-fPIC"
+                '-std=c++11',
+                '-shared',
+                '-o',
+                os.path.join(build_path, 'pressure_solve_op.so'),
+                os.path.join(src_path, 'pressure_solve_op.cc'),
+                os.path.join(build_path, 'pressure_solve_op.cu.o'),
+                os.path.join(build_path, 'laplace_op.cu.o'),
+                '-fPIC'
             ]
             + tf_cflags
             + tf_lflags
         )
 
     def initialize_options(self):
-        self.gcc = "gcc"
-        self.nvcc = "nvcc"
+        self.gcc = 'gcc'
+        self.nvcc = 'nvcc'
 
     def finalize_options(self):
-        assert os.path.isfile(self.gcc) or self.gcc == "gcc"
-        assert os.path.isfile(self.nvcc) or self.nvcc == "nvcc"
+        assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
+        assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
 setup(
@@ -130,7 +130,7 @@ setup(
               'phi.tf',
               'phi.viz', 'phi.viz.dash'],
     cmdclass={
-        "cuda": CudaCommand,
+        'tensorflow-cuda': CudaCommand,
     },
     include_package_data=True,
     url='https://bitbucket.org/thunil/mantaflowgit/src/PhiFlow/',
@@ -140,10 +140,10 @@ setup(
     description='Fully Differentiable Grid-based Fluid Simulations on the GPU',
     install_requires=['six', 'packaging', 'scipy'],
     extras_require={
-        'gui': ["dash",
-                "dash-renderer",
-                "dash-html-components",
-                "dash-core-components",
-                "plotly"],
+        'gui': ['dash',
+                'dash-renderer',
+                'dash-html-components',
+                'dash-core-components',
+                'plotly'],
     }
 )

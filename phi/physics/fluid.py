@@ -4,7 +4,7 @@ Fluid utility functions.
 from numbers import Number
 
 from phi import math
-from .pressuresolver.base import FluidDomain
+from .pressuresolver.solver_api import FluidDomain
 from .pressuresolver.sparse import SparseCG
 from .field import CenteredGrid, StaggeredGrid, union_mask
 from .material import OPEN, Material

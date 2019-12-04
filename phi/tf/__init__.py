@@ -15,7 +15,7 @@ def _load_tensorflow():
     :return: True if TensorFlow could be imported, else False
     """
     try:
-        from phi.math.tensorflow_backend import TFBackend
+        from phi.tf.tf_backend import TFBackend
         for b in math.backend.backends:
             if isinstance(b, TFBackend):
                 return True

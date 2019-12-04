@@ -3,7 +3,7 @@ from numbers import Number
 
 from phi import struct
 from phi.struct.functions import mappable
-from .base import NoBackendFound
+from .base_backend import NoBackendFound
 from .nd import fftfreq
 from .backend import backend as math
 

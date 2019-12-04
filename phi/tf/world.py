@@ -1,7 +1,7 @@
 from numbers import Number
 import numpy as np
 
-from phi.math.base import NoBackendFound
+from phi.math.base_backend import NoBackendFound
 from phi.physics.world import World
 from phi.physics import Physics
 from phi.physics.collective import CollectivePhysics

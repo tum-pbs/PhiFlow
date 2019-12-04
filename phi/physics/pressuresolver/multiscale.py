@@ -2,7 +2,7 @@ import logging
 import numpy as np
 
 from phi import math
-from phi.physics.pressuresolver.base import PressureSolver, FluidDomain
+from .solver_api import PressureSolver, FluidDomain
 
 
 class Multiscale(PressureSolver):
@@ -30,6 +30,8 @@ class Multiscale(PressureSolver):
         self.autodiff = autodiff
 
     def solve(self, divergence, domain, pressure_guess):
+        assert isinstance(domain, FluidDomain)
+
         if self.autodiff:
             return _mg_solve_forward(divergence, domain, pressure_guess, self.solvers)
 

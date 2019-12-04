@@ -1,4 +1,4 @@
-from .base import DynamicBackend
+from .base_backend import DynamicBackend
 from .scipy_backend import SciPyBackend
 from .struct_backend import StructBroadcastBackend
 

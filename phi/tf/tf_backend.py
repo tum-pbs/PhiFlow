@@ -4,7 +4,7 @@ import six
 import tensorflow as tf
 from packaging import version
 
-from phi.math.base import Backend
+from phi.math.base_backend import Backend
 from phi.struct.tensorop import expand, collapsed_gather_nd
 
 if tf.__version__[0] == '2':

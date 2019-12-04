@@ -5,8 +5,8 @@ import scipy.sparse
 import scipy.signal
 import six
 
-from phi.math.base import Backend
 from phi.struct.tensorop import collapsed_gather_nd, expand
+from .base_backend import Backend
 
 
 class SciPyBackend(Backend):

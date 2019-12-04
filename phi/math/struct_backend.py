@@ -1,5 +1,5 @@
 from phi import struct
-from phi.math.base import Backend
+from .base_backend import Backend
 
 
 class StructBroadcastBackend(Backend):
