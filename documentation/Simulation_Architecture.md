@@ -92,7 +92,7 @@ can add the states to a world (e.g. using `world.Fluid` instead of `Fluid`) and 
 `tf_bake_graph(session, world)` to automatically convert all physics objects to TensorFlow graph executions.
 
 The similarities and differences of NumPy vs TensorFlow are illustrated in the example 
-[manual_smoke_numpy_or_tf.py](../demos/manual_smoke_numpy_or_tf.py) for a simple custom fluid simulation.
+[manual_fluid_numpy_or_tf.py](../demos/manual_fluid_numpy_or_tf.py) for a simple custom fluid simulation.
 
 ## Simplified API with world
 

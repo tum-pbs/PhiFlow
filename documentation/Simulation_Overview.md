@@ -70,7 +70,7 @@ Slightly more complex examples can be found in
 [marker.py](../demos/marker.py) which passively advects an additional marker field,
 [fluid_logo.py](../demos/fluid_logo.py) which adds obstacles to the scene and
 [moving_inflow.py](../demos/moving_inflow.py) which adds geometry movement.
-The example [manual_smoke_numpy_or_tf.py](../demos/manual_smoke_numpy_or_tf.py) shows a simple
+The example [manual_fluid_numpy_or_tf.py](../demos/manual_fluid_numpy_or_tf.py) shows a simple
 fluid simulation with custom inflow, that can run via NumPy or TensorFlow with a switch,
 to illustrate similarities and differences of the two execution modes.
 
