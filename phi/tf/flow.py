@@ -1,4 +1,4 @@
-# pylint: disable-msg = wildcard-import, unused-wildcard-import
+# pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 
 from phi.flow import *
 from .app import *

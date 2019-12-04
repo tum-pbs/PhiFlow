@@ -15,6 +15,7 @@ script:
   - pytest
 
 after_success:
+  - pip show pylint
   - pylint --rcfile=./demos/.pylintrc demos
   - pylint --rcfile=./tests/.pylintrc tests
   - pylint --rcfile=./phi/.pylintrc phi

@@ -4,7 +4,6 @@ import numpy
 
 from phi import math
 from phi.physics import Physics
-from phi.physics.burgers import Burgers
 from phi.physics.domain import Domain
 from phi.physics.field.effect import FieldEffect
 from phi.physics.schroedinger import SinPotential
