@@ -28,7 +28,7 @@ class TestBurgers(TestCase):
 
     def test_batched_forced_burgers_1d(self):
         world = World(batch_size=3)
-        burgers = world.add(Burgers(Domain([4]), batch_size=world.batch_size))
+        burgers = world.add(Domain([4]).centered_grid(0, batch_size=world.batch_size, name='velocity'))
         k = math.to_float(numpy.random.uniform(3, 6, [world.batch_size, 1]))
         amplitude = numpy.random.uniform(-0.5, 0.5, [world.batch_size, 1])
         force = SinPotential(k, phase_offset=numpy.random.uniform(0, 2 * numpy.pi, [world.batch_size]), data=amplitude)
@@ -40,7 +40,7 @@ class TestBurgers(TestCase):
 
     def test_batched_forced_burgers_2d(self):
         world = World(batch_size=3)
-        burgers = world.add(Burgers(Domain([4, 4]), batch_size=world.batch_size))
+        burgers = world.add(Domain([4, 4]).centered_grid(0, batch_size=world.batch_size, name='velocity'))
         k = math.to_float(numpy.random.uniform(3, 6, [world.batch_size, 2]))
         amplitude = numpy.random.uniform(-0.5, 0.5, [world.batch_size])
         force = SinPotential(k, phase_offset=numpy.random.uniform(0, 2 * numpy.pi, [world.batch_size]), data=amplitude)
