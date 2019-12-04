@@ -5,7 +5,7 @@ from phi import math
 from .solver_api import PressureSolver, FluidDomain
 
 
-class Multiscale(PressureSolver):
+class MultiscaleSolver(PressureSolver):
 
     def __init__(self, solvers, autodiff=False):
         """
@@ -20,7 +20,7 @@ class Multiscale(PressureSolver):
         """
         if isinstance(solvers, PressureSolver):
             solvers = [solvers] * 2
-        PressureSolver.__init__(self, 'Multiscale',
+        PressureSolver.__init__(self, 'MultiscaleSolver',
                                 supported_devices=solvers[0].supported_devices,
                                 supports_guess=solvers[0].supports_guess,
                                 supports_loop_counter=np.all([s.supports_loop_counter for s in solvers]),
@@ -42,7 +42,7 @@ class Multiscale(PressureSolver):
                                          [divergence, domain, pressure_guess, self.solvers],
                                          pressure_gradient,
                                          input_index=0, output_index=0,
-                                         name_base='multigrid_solve')
+                                         name_base='multiscale_solve')
 
 
 def _mg_solve_forward(divergence, domain, pressure_guess, solvers):
@@ -51,7 +51,7 @@ def _mg_solve_forward(divergence, domain, pressure_guess, solvers):
     if active_mask is not None or fluid_mask is not None:
         if not np.all([s.supports_continuous_masks for s in solvers[:-1]]):
             logging.warning(
-                "Multiscale solver: There are boundary conditions inside the domain but "
+                "MultiscaleSolver solver: There are boundary conditions inside the domain but "
                 "not all intermediate solvers support continuous masks")
     div_lvls = [divergence]
     act_lvls = [active_mask]

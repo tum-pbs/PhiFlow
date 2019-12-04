@@ -13,21 +13,21 @@ A paragraph below also summarizes differences to mantaflow simulations.
 The easiest way to run a simulation or set of interacting simulations forward in time is using the `World` interface.
 A `World` manages the current states of registered simulations as well as the physical behaviour that drives them.
 
-The following code uses the default world to initialize a smoke simulation and create an inflow.
+The following code uses the default world to initialize a fluid simulation and create an inflow.
 
 ```python
 from phi.flow import *
 
-smoke = world.Smoke(Domain([80, 64]), density=0)
+fluid = world.Fluid(Domain([80, 64]), density=0)
 world.Inflow(Sphere((10, 32), 5), rate=0.2)
 ```
 
-Most properties of the smoke simulation can be accessed and manipulated through the simulation reference, `smoke` in this case.
-This includes fields (e.g. `smoke.density`, `smoke.velocity`) as well as properties (e.g. `smoke.buoyancy_factor`).
+Most properties of the fluid simulation can be accessed and manipulated through the simulation reference, `fluid` in this case.
+This includes fields (e.g. `fluid.density`, `fluid.velocity`) as well as properties (e.g. `fluid.buoyancy_factor`).
 
-Note that while `smoke.density` directly returns a NumPy array, the velocity is held in staggered form and
-`smoke.velocity` returns an instance of `StaggeredGrid`.
-To access the actual NumPy array holding the staggered values, write `smoke.velocity.staggered` (read-only).
+Note that while `fluid.density` directly returns a NumPy array, the velocity is held in staggered form and
+`fluid.velocity` returns an instance of `StaggeredGrid`.
+To access the actual NumPy array holding the staggered values, write `fluid.velocity.staggered` (read-only).
 For more on staggered grids, see [the documentation](Staggered_Grids.md).
 
 To run a simulation, we can use the `step` method:
@@ -37,7 +37,7 @@ world.step(dt=1.0)
 ```
 
 This progresses all simulations that are associated with that world by a time increment `dt` (defaults to `1.0`).
-Accessing any property of a simulation reference (such as `smoke`) will now return the updated value.
+Accessing any property of a simulation reference (such as `fluid`) will now return the updated value.
 
 ### Simulation + GUI
 
@@ -52,10 +52,10 @@ class Simpleplume(App):
 
     def __init__(self):
         App.__init__(self, 'Simpleplume', stride=5)
-        smoke = world.Smoke(Domain([80, 64], SLIPPERY))
+        fluid = world.Fluid(Domain([80, 64], CLOSED))
         world.Inflow(Sphere((10, 32), 5), rate=0.2)
-        self.add_field('Density', lambda: smoke.density)
-        self.add_field('Velocity', lambda: smoke.velocity)
+        self.add_field('Density', lambda: fluid.density)
+        self.add_field('Velocity', lambda: fluid.velocity)
 
 show()
 ```
@@ -68,10 +68,10 @@ By subclassing `App`, we inherit the following functions:
 
 Slightly more complex examples can be found in 
 [marker.py](../demos/marker.py) which passively advects an additional marker field,
-[smoke_logo.py](../demos/smoke_logo.py) which adds obstacles to the scene and
+[fluid_logo.py](../demos/fluid_logo.py) which adds obstacles to the scene and
 [moving_inflow.py](../demos/moving_inflow.py) which adds geometry movement.
 The example [manual_smoke_numpy_or_tf.py](../demos/manual_smoke_numpy_or_tf.py) shows a simple
-smoke simulation with custom inflow, that can run via NumPy or TensorFlow with a switch,
+fluid simulation with custom inflow, that can run via NumPy or TensorFlow with a switch,
 to illustrate similarities and differences of the two execution modes.
 
 ### Running on the GPU

@@ -50,7 +50,11 @@ class Session(object):
                 with struct.anytype(): struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS)
 
         tensor_fetches = struct.flatten(fetches, item_condition=struct.ALL_ITEMS)
-        tensor_fetches = tuple(filter(istensor, tensor_fetches))
+        if isinstance(fetches, (tuple, list)):
+            is_fetch = lambda x: istensor(x) or x in fetches
+        else:
+            is_fetch = lambda x: istensor(x) or x is fetches
+        tensor_fetches = tuple(filter(is_fetch, tensor_fetches))
 
         # Handle tracing
         trace = _trace_stack.get_default(raise_error=False)
@@ -63,7 +67,7 @@ class Session(object):
 
         # Summary
         if summary_key is not None and merged_summary is not None:
-            tensor_fetches = [merged_summary] + tensor_fetches
+            tensor_fetches = (merged_summary,) + tensor_fetches
 
         result_fetches = self._session.run(tensor_fetches, tensor_feed_dict, options, run_metadata)
         result_dict = {fetch: result for fetch, result in zip(tensor_fetches, result_fetches)}

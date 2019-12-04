@@ -8,16 +8,15 @@ Which algorithm is used to compute the pressure can be specified using the `pres
 both of these methods provide.
 
 In a high-level setting, the solver is specified by the `Physics` object that handles the simulation.
-For smoke, this defaults to the global object `SMOKE`.
-If you want to use a custom solver, simply replace the physics with a new SmokePhysics, e.g.
+For fluid, this defaults to the global object `INCOMPRESSIBLE_FLOW`.
+If you want to use a custom solver, simply replace the physics with a new IncompressibleFlow or directly set the pressure_solver property.
 
 ```python
 from phi.flow import *
-from phi.physics.pressuresolver.sparse import SparseCG
 
-smoke = world.Smoke()
-my_solver = SparseCG(accuracy=1e-4, max_iterations=200)
-smoke.physics = SmokePhysics(pressure_solver=my_solver)
+INCOMPRESSIBLE_FLOW.pressure_solver = SparseCG(accuracy=1e-4, max_iterations=200)
+# or
+world.add(Fluid([32, 32]), physics=IncompressibleFlow(pressure_solver=...))
 ```
 
 Here is an overview of the pressure solvers implemented in Φ<sub>*Flow*</sub>:
@@ -28,7 +27,7 @@ Here is an overview of the pressure solvers implemented in Φ<sub>*Flow*</sub>:
 | `SparseSciPy` | [phi.physics.pressuresolver.sparse](../phi/physics/pressuresolver/sparse.py)        | CPU          | SciPy           | Stable, no control over accuracy, no loop counter  |
 | `CUDA`        | [phi.physics.pressuresolver.cuda](../phi/physics/pressuresolver/cuda.py)            | GPU          | TensorFlow      | Stable, no support for initial guess               |
 | `GeometricCG` | [phi.physics.pressuresolver.geom](../phi/physics/pressuresolver/geom.py)            | CPU/GPU/TPU  |                 | Stable, limited boundary condition support         |
-| `Multiscale`  | [phi.physics.pressuresolver.multigrid](../phi/physics/pressuresolver/multiscale.py) |              |                 | Stable, best performance in absence of boundaries  |
+| `MultiscaleSolver`  | [phi.physics.pressuresolver.multigrid](../phi/physics/pressuresolver/multiscale.py) |              |                 | Stable, best performance in absence of boundaries  |
 
 All solvers provide a gradient function for TensorFlow, needed to back-propagate weight updates through the pressure solve operation.
 
@@ -42,7 +41,7 @@ Nevertheless, here are some recommendations:
 
 - For the GPU, `CUDA` is the fastest single-grid solver.
 
-- If your grid size is larger than 100 in any dimension, `Multiscale` can reduce the amount of iterations required.
+- If your grid size is larger than 100 in any dimension, `MultiscaleSolver` can reduce the amount of iterations required.
 It can currently use the following solvers per level: `SparseCG`, `GeometricCG`.
 The multigrid solver is not yet optimized for obstacles.
 

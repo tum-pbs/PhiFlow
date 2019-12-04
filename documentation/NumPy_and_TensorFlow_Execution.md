@@ -12,7 +12,7 @@ If any input to a math method is a `Tensor`, the TensorFlow version of the metho
 
 ## Simulating with TensorFlow
 
-By default, all simulations are initialized with NumPy arrays, e.g. calling `Smoke(Domain([64, 64])` creates a NumPy array for the smoke density and the velocity field.
+By default, all simulations are initialized with NumPy arrays, e.g. calling `Fluid(Domain([64, 64])` creates a NumPy array for the fluid marker density and the velocity field.
 
 Consequently, when `step()` is called to execute the simulation, it produces new states containing NumPy arrays.
 
@@ -25,9 +25,9 @@ TensorFlow can also be used manually by replacing NumPy arrays with `Tensor`s.
 ```python
 from phi.tf.flow import *
 
-smoke1 = Smoke(Domain([64, 64]), density=placeholder, velocity=variable)
-smoke2 = SMOKE.step(smoke1)
+fluid1 = Fluid(Domain([64, 64]), density=placeholder, velocity=variable)
+fluid2 = INCOMPRESSIBLE_FLOW.step(fluid1)
 ```
 
-In this example, the `Smoke` object is initialized with a TensorFlow placeholder and a TensorFlow variable instead of NumPy arrays.
-Consequently, `smoke2` holds nodes from the computational graph and can be passed to `Session.run()` as a fetch argument.
+In this example, the `Fluid` object is initialized with a TensorFlow placeholder and a TensorFlow variable instead of NumPy arrays.
+Consequently, `fluid2` holds nodes from the computational graph and can be passed to `Session.run()` as a fetch argument.

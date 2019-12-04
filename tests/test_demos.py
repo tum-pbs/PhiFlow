@@ -75,8 +75,8 @@ class TestDemos(TestCase):
     def test_smoke_datagen_commandline(self):
         demo_run('smoke_datagen_commandline')
 
-    def test_smoke_logo(self):
-        demo_run('smoke_logo')
+    def test_fluid_logo(self):
+        demo_run('fluid_logo')
 
     def test_wavepacket(self):
         demo_run('wavepacket')

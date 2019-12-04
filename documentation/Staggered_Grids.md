@@ -9,13 +9,13 @@ In Φ<sub>*Flow*</sub>, staggered grids are represented as instances of [Stagger
 Since each voxel has two faces per dimension, staggered grids contain more values than the corresponding centered grids.
 In memory, each component of a staggered grid is held in a different array while on disk, a single array, called `staggered_tensor`, is stored.
 
-When using a built-in simulation such as Smoke, staggered grids are generated automatically from the provided values.
+When using a built-in simulation such as Fluid, staggered grids are generated automatically from the provided values.
 New grids can also be created from the simulation object.
 ```python
 from phi.tf.flow import *
 
-centered_zeros = smoke.centered_grid('f0', 0)
-staggered_zeros = smoke.staggered_grid('v', 0)
+centered_zeros = fluid.centered_grid('f0', 0)
+staggered_zeros = fluid.staggered_grid('v', 0)
 ```
 
 
@@ -28,12 +28,12 @@ velocity_tensor = np.zeros([1, 65, 65, 2])
 staggered_field = StaggeredGrid(velocity_tensor)
 ```
 
-States such as [Smoke](../phi/physics/smoke.py) ([documentation](Smoke_Simulation.md)) that use staggered grids will automatically create one if not provided.
+States such as [fluid](../phi/physics/fluid.py) ([documentation](Smoke_Simulation.md)) that use staggered grids will automatically create one if not provided.
 
 ```python
 from phi.tf.flow import *
 
-smoke = Smoke(Domain([64, 64]), velocity=placeholder)
+fluid = Fluid(Domain([64, 64]), velocity=placeholder)
 ```
 
 Staggered grids can also be created from centered fields. The first example below stores the spatial

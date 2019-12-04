@@ -102,12 +102,16 @@ class Domain(struct.Struct):
             return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
+        if extrapolation is None:
+            extrapolation = Material.extrapolation_mode(self.boundaries)
         if callable(data):  # data is an initializer
             shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
             try:
                 data = data(shape, dtype=dtype)
             except TypeError:
                 data = data(shape)
+            if data.age == ():
+                data._age = 0.0
         if isinstance(data, Field):
             assert_same_rank(data.rank, self.rank, 'data does not match Domain')
             data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
@@ -123,12 +127,17 @@ class Domain(struct.Struct):
         return grid
 
     def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
+        if extrapolation is None:
+            extrapolation = Material.extrapolation_mode(self.boundaries)
         if callable(data):  # data is an initializer
             shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
             try:
                 data = data(shape, dtype=dtype)
             except TypeError:
                 data = data(shape)
+            if data.age == ():
+                data._age = 0.0
+                for field in data.data: field._age = 0.0
         if isinstance(data, Field):
             assert isinstance(data, StaggeredGrid)
             assert np.all(data.resolution == self.resolution)

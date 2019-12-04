@@ -7,7 +7,9 @@ from phi.physics.collective import CollectiveState
 from phi.physics.domain import Domain
 from phi.physics.field import CenteredGrid, manta
 from phi import struct
-from phi.physics.smoke import Smoke
+from phi.physics.fluid import Fluid
+from phi.struct import VARIABLES, CONSTANTS
+from phi.struct.functions import mappable
 from phi.struct.tensorop import collapse, collapsed_gather_nd, expand
 
 
@@ -15,7 +17,7 @@ def generate_test_structs():
     return [manta.centered_grid(numpy.zeros([1,4,1])),
             [('Item',)],
             {'A': 'Entry A', 'Vel': manta.staggered_grid(numpy.zeros([1,5,5,2]))},
-            CollectiveState((Smoke(Domain([4])),))]
+            CollectiveState((Fluid(Domain([4])),))]
 
 
 class TestStruct(TestCase):
@@ -54,13 +56,13 @@ class TestStruct(TestCase):
 
     def test_copy(self):
         with struct.anytype():
-            smoke = Smoke(Domain([4]), density='Density', velocity='Velocity')
-            v = smoke.copied_with(velocity='V2')
+            fluid = Fluid(Domain([4]), density='Density', velocity='Velocity')
+            v = fluid.copied_with(velocity='V2')
             self.assertEqual(v.velocity, 'V2')
             self.assertEqual(v.density, 'Density')
 
             try:
-                smoke.copied_with(velocity='D2')
+                fluid.copied_with(velocity='D2')
                 self.fail()
             except AssertionError:
                 pass
@@ -85,3 +87,12 @@ class TestStruct(TestCase):
     def test_expand(self):
         numpy.testing.assert_equal(expand(1, shape=(2,2)), [[1,1], [1,1]])
         numpy.testing.assert_equal(expand(['a', ('b', 'c')], shape=(2,2)), [['a', 'a'], ['b', 'c']])
+
+    def test_mappable(self):
+        x = [0]
+        @mappable(item_condition=VARIABLES)
+        def act_on_variables(x): return x + 1
+        @mappable(item_condition=CONSTANTS)
+        def act_on_constants(x): return x + 1
+        self.assertEqual([1], act_on_variables(x))
+        self.assertEqual([0], act_on_constants(x))

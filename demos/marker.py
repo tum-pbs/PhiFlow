@@ -13,7 +13,7 @@ class MarkerDemo(App):
 
     def __init__(self):
         App.__init__(self, 'Passive Marker', 'Fluid simulation with a marker field and modified simulation step function', stride=5)
-        smoke = self.smoke = world.add(Smoke(Domain([160, 126], SLIPPERY)))
+        smoke = self.smoke = world.add(Fluid(Domain([160, 126], CLOSED), buoyancy_factor=0.1))
         self.marker = smoke.density.with_data(checkerboard(smoke.domain.resolution)) # the new field
         world.add(Inflow(Sphere((18, 64), 10), rate=0.2))
         self.add_field('Density', lambda: smoke.density)
@@ -22,7 +22,6 @@ class MarkerDemo(App):
 
     def step(self):
         world.step()
-        # run an additional advection step to update the marker field
         self.marker = advect.semi_lagrangian(self.marker, self.smoke.velocity, 1)
 
 

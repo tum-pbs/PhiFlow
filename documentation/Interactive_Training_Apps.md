@@ -29,18 +29,18 @@ class TrainingTest(TFApp):
 
     def __init__(self):
         TFApp.__init__(self, "Training")
-        smoke = world.Smoke(Domain([64] * 2), density=placeholder, velocity=placeholder)
+        fluid = world.add(Fluid(Domain([64] * 2), density=placeholder, velocity=placeholder))
 
         with self.model_scope():
-            pred_vel = network(smoke.density)
-        loss = l2_loss(pred_vel - smoke.velocity)
+            pred_vel = network(fluid.density)
+        loss = l2_loss(pred_vel - fluid.velocity)
         self.add_objective("Supervised_Loss", loss)
 
         self.set_data(train=Dataset.load('~/phi/simpleplume', range(0,8)),
                       val=Dataset.load('~/phi/simpleplume', range(8,10)),
-                      placeholders=smoke.state)
+                      placeholders=fluid.state)
 
-        self.add_field("Velocity (Ground Truth)", smoke.velocity)
+        self.add_field("Velocity (Ground Truth)", fluid.velocity)
         self.add_field("Velocity (Model)", pred_vel)
 
 app = TrainingTest().show(production=__name__!="__main__")

@@ -15,6 +15,7 @@ if tf.__version__[0] == '2':
     tf = tf.compat.v1
     tf.disable_eager_execution()
 
+
 def _tf_name(trace, basename):
     if basename is None:
         return trace.path('/')
@@ -41,9 +42,9 @@ def placeholder_like(obj, basename=None):
     return struct.map(f, obj, leaf_condition=is_static_shape, trace=True)
 
 
-def variable(initial_value, dtype=np.float32, basename=None, trainable=True):
+def variable(initial_value, dtype=np.float32, basename=None, trainable=True, item_condition=struct.VARIABLES):
     f = lambda attr: tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
-    return struct.map(f, initial_value, leaf_condition=is_static_shape, trace=True)
+    return struct.map(f, initial_value, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
 
 
 def variable_generator(initializer, dtype=np.float32, basename=None, trainable=True):

@@ -1,4 +1,4 @@
-from phi.tf.flow import *
+from phi.flow import *
 
 
 world.batch_size = 4
@@ -26,7 +26,7 @@ class SmokeDataGen(App):
 
     def __init__(self):
         App.__init__(self, 'Smoke Data Generation', HOW_TO, stride=16, base_dir='~/phi/data', summary='smoke')
-        self.smoke = world.add(Smoke(Domain([64, 64]), density=random_density, velocity=random_velocity, batch_size=world.batch_size))
+        self.smoke = world.add(Fluid(Domain([64, 64]), density=random_density, velocity=random_velocity, batch_size=world.batch_size, buoyancy_factor=0.1))
         self.add_field('Density', lambda: self.smoke.density)
         self.add_field('Velocity', lambda: self.smoke.velocity)
         self.add_field('Domain', lambda: self.smoke.domaincache.accessible(1))

@@ -48,18 +48,10 @@ def effect_applied(effect, field, dt):
         raise ValueError('Invalid mode: %s' % effect.mode)
 
 
-Inflow = lambda geometry, rate=1.0:\
-    FieldEffect(GeometryMask('inflow', [geometry], rate), ('density',), GROW, tags=('inflow', 'effect'))
-Fan = lambda geometry, acceleration:\
-    FieldEffect(GeometryMask('fan', [geometry], acceleration), ('velocity',), GROW, tags=('fan', 'effect'))
-# ConstantDensity = lambda geometry, density:\
-#     FieldEffect(GeometryMask('constant-density', [geometry], density), ('density',), FIX)
-# ConstantTemperature = lambda geometry, temperature:\
-#     FieldEffect(GeometryMask('constant-temperature', [geometry], temperature), ('temperature',), FIX)
-HeatSource = lambda geometry, rate:\
-    FieldEffect(GeometryMask('heat-source', [geometry], rate), ('temperature',), GROW)
-ColdSource = lambda geometry, rate:\
-    FieldEffect(GeometryMask('heat-source', [geometry], -rate), ('temperature',), GROW)
+Inflow = lambda geometry, rate=1.0: FieldEffect(GeometryMask([geometry], value=rate, name='inflow'), ('density',), GROW, tags=('inflow', 'effect'))
+Fan = lambda geometry, acceleration: FieldEffect(GeometryMask([geometry], value=acceleration, name='fan'), ('velocity',), GROW, tags=('fan', 'effect'))
+HeatSource = lambda geometry, rate: FieldEffect(GeometryMask([geometry], value=rate, name='heat-source'), ('temperature',), GROW)
+ColdSource = lambda geometry, rate: FieldEffect(GeometryMask([geometry], value=-rate, name='heat-source'), ('temperature',), GROW)
 
 
 @struct.definition()

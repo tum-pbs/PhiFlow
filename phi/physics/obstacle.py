@@ -2,13 +2,13 @@ from phi import struct
 from phi.geom.geometry import Geometry
 from .field.effect import FieldEffect, GeometryMask
 from .physics import State, Physics
-from .material import Material, SLIPPERY
+from .material import Material, CLOSED
 
 
 @struct.definition()
 class Obstacle(State):
 
-    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), **kwargs):
+    def __init__(self, geometry, material=CLOSED, velocity=0, tags=('obstacle',), **kwargs):
         State.__init__(self, **struct.kwargs(locals()))
 
     @struct.constant()
@@ -16,7 +16,7 @@ class Obstacle(State):
         assert isinstance(geometry, Geometry)
         return geometry
 
-    @struct.constant(default=SLIPPERY)
+    @struct.constant(default=CLOSED)
     def material(self, material):
         assert isinstance(material, Material)
         return material

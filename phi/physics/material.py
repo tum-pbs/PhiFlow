@@ -87,5 +87,5 @@ Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').
 
 OPEN = Material('open', solid=False)
 CLOSED = NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0.0)
-NO_SLIP = STICKY = Material('sticky', solid=True, friction=1.0)
+# NO_SLIP = STICKY = Material('sticky', solid=True, friction=1.0)
 PERIODIC = Material('periodic', solid=False, periodic=True)

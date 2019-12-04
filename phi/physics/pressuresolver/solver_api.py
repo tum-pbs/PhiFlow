@@ -52,6 +52,7 @@ class FluidDomain(struct.Struct):
     def active(self, active):
         assert isinstance(active, CenteredGrid)
         assert active.rank == self.domain.rank
+        assert active.extrapolation == 'constant'
         return active
 
     @struct.constant(dependencies='domain')

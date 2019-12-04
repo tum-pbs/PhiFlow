@@ -1,7 +1,5 @@
-from numbers import Number
 import numpy as np
 
-from phi.math.base_backend import NoBackendFound
 from phi.physics.world import World
 from phi.physics import Physics
 from phi.physics.collective import CollectivePhysics
@@ -12,8 +10,8 @@ from .util import placeholder
 
 def tf_bake_graph(world, session):
     # --- Build placeholder state ---
-    dtype = _32_bit(math.types(world.state))
     shape = world.state.shape
+    dtype = _32_bit(math.types(world.state))
     state_in = placeholder(shape, dtype=dtype)
     dt = placeholder(())
     # --- Build graph ---
@@ -70,8 +68,10 @@ class BakedWorldPhysics(CollectivePhysics):
         return result
 
 
-@mappable(item_condition=struct.VARIABLES, anytype_context=True)
+@mappable(item_condition=None, anytype_context=True)
 def _32_bit(dtype):
-    if dtype == np.float64: return np.float32
-    if dtype == np.int64: return np.int32
+    if dtype == np.float64:
+        return np.float32
+    if dtype == np.int64:
+        return np.int32
     return dtype

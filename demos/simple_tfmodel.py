@@ -31,7 +31,7 @@ class TrainingTest(TFApp):
                        "Load simulations from disk, and train network to reproduce the flow field given the density",
                        learning_rate=2e-4,
                        validation_batch_size=4, training_batch_size=8)
-        smoke_in, load_dict = load_state(Smoke(Domain(RESOLUTION)))
+        smoke_in, load_dict = load_state(Fluid(Domain(RESOLUTION)))
 
 
         with self.model_scope():

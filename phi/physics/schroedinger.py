@@ -81,7 +81,7 @@ class Schroedinger(Physics):
 SCHROEDINGER = Schroedinger()
 
 
-StepPotential = lambda geometry, height: FieldEffect(GeometryMask('potential', [geometry], height), ['potential'], mode=ADD)
+StepPotential = lambda geometry, height: FieldEffect(GeometryMask([geometry], height, 'potential'), ['potential'], mode=ADD)
 
 
 @struct.definition()

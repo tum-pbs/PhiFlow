@@ -17,7 +17,7 @@ class WavePacketDemo(App):
         self.value_dt = 1.0
         glassbar = world.add(StepPotential(box[30*SCALE:50*SCALE, 0:1024], height=1+0j))
         topbar = world.add(Obstacle(box[80*SCALE:90*SCALE, 0:1024]))
-        dom = GeometryMask('', glassbar.field.geometries + (topbar.geometry,)).at(wave.amplitude)
+        dom = GeometryMask(glassbar.field.geometries).at(wave.amplitude) * 0.5 + GeometryMask([topbar.geometry]).at(wave.amplitude)
 
         self.add_field('Real', lambda: math.real(wave.amplitude))
         self.add_field('Imag', lambda: math.imag(wave.amplitude))

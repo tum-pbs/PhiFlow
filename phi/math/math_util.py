@@ -9,7 +9,7 @@ from .base_backend import NoBackendFound
 from .nd import fftfreq
 
 
-@mappable(item_condition=struct.VARIABLES, anytype_context=True)
+@mappable(item_condition=struct.ALL_ITEMS, anytype_context=True)
 def types(x):
     try:
         return math.dtype(x)

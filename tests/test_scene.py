@@ -7,7 +7,7 @@ from phi.data.fluidformat import Scene
 from phi import struct
 from phi.physics.domain import Domain
 from phi.physics.field import StaggeredGrid, CenteredGrid
-from phi.physics.smoke import Smoke
+from phi.physics.fluid import Fluid
 from phi.struct.functions import print_differences
 
 
@@ -17,14 +17,14 @@ class TestScene(TestCase):
         for scene in Scene.list('data'):
             scene.remove()
 
-        state = Smoke(Domain([4, 4]))
+        state = Fluid(Domain([4, 4]))
         scene = Scene.create('data')
 
         scene.write(state, frame=0)
         self.assertTrue(isfile(scene.subpath('density_000000.npz')))
         self.assertTrue(isfile(scene.subpath('velocity_000000.npz')))
         loaded_state = scene.read(state, frame=0)
-        self.assertIsInstance(loaded_state, Smoke)
+        self.assertIsInstance(loaded_state, Fluid)
         self.assertIsInstance(loaded_state.velocity, StaggeredGrid)
         self.assertIsInstance(loaded_state.density, CenteredGrid)
         _differences = struct.compare([loaded_state.density, state.density])
