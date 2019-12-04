@@ -24,6 +24,6 @@ For more on [Fields, see here](Fields.md).
 
 For the pressure solve, a [`PressuresSolver`](../phi/physics/pressuresolver/base.py) object is managed by the `IncompressibleFlow`.
 The [documentation on pressure solvers](Pressure_Solvers.md) explains the differences between the available solvers.
-The example [manual_smoke_numpy_or_tf.py](../demos/manual_smoke_numpy_or_tf.py) shows how the
+The example [manual_fluid_numpy_or_tf.py](../demos/manual_fluid_numpy_or_tf.py) shows how the
 sequence of simulation steps of a fluid simulation can be executed manually without
 using the `IncompressibleFlow` object.
