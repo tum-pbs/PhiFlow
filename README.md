@@ -1,6 +1,7 @@
 # Φ<sub>*Flow*</sub>
 
 [![Build Status](https://travis-ci.com/tum-pbs/PhiFlow.svg?token=8vG2QPsZzeswTApmkekH&branch=master)](https://travis-ci.com/tum-pbs/PhiFlow)
+[![image](https://www.tensorflow.org/images/colab_logo_32px.png) Run in Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true)
 
 ![Gui](documentation/figures/Gui.png)
 
@@ -18,6 +19,8 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 - Flexible, easy-to-use web interface featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 
 ## Installation
+
+You can experiment with [Φ<sub>*Flow*</sub> on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) without installing it on your machine.
 
 The following commands will get you Φ<sub>*Flow*</sub> + browser-GUI + NumPy execution:
 
