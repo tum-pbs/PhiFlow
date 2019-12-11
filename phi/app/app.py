@@ -59,14 +59,15 @@ class App(object):
                  name=None,
                  subtitle='',
                  fields=None,
-                 stride=1,
+                 stride=None,
                  record_images=False, record_data=False,
                  base_dir='~/phi/data/',
                  recorded_fields=None,
                  summary=None,
                  custom_properties=None,
                  target_scene=None,
-                 objects_to_save=None):
+                 objects_to_save=None,
+                 framerate=None):
         self.start_time = time.time()
         self.name = name if name is not None else self.__class__.__name__
         self.subtitle = subtitle
@@ -125,6 +126,7 @@ class App(object):
         self.recorded_fields = recorded_fields if recorded_fields is not None else []
         self.rec_all_slices = False
         self.sequence_stride = stride
+        self.framerate = framerate if framerate is not None else stride
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
         self.info('Setting up model...')
@@ -341,7 +343,7 @@ class App(object):
                 self.record_frame()
             if framerate is not None:
                 duration = time.time() - starttime
-                rest = 1.0/framerate/self.sequence_stride - duration
+                rest = 1.0/framerate - duration
                 if rest > 0:
                     self.current_action = 'Waiting'
                     time.sleep(rest)
@@ -352,6 +354,8 @@ class App(object):
             self.current_action = None
 
     def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
+        if framerate is None:
+            framerate = self.framerate
         def target():
             self._pause = False
             step_count = 0
