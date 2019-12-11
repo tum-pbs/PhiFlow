@@ -14,7 +14,7 @@ from .flag import SAMPLE_POINTS
 def _crop_for_interpolation(data, offset_float, window_resolution):
     offset = math.to_int(offset_float)
     slices = [slice(o, o+res+1) for o, res in zip(offset, window_resolution)]
-    data = data[[slice(None)] + slices + [slice(None)]]
+    data = data[tuple([slice(None)] + slices + [slice(None)])]
     return data
 
 
