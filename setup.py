@@ -145,6 +145,7 @@ setup(
                 'dash-renderer',
                 'dash-html-components',
                 'dash-core-components',
-                'plotly'],
+                'plotly',
+                'imageio'],
     }
 )
