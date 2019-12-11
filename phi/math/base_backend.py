@@ -23,7 +23,7 @@ class Backend:
     def as_tensor(self, x):
         raise NotImplementedError()
 
-    def random_like(self, array):
+    def random_uniform(self, shape):
         raise NotImplementedError(self)
 
     def stack(self, values, axis=0):
@@ -67,7 +67,10 @@ class Backend:
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError(self)
 
-    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='ZERO'):
+    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='zero'):
+        raise NotImplementedError(self)
+
+    def range(self, start, limit=None, delta=1, dtype=None):
         raise NotImplementedError(self)
 
     def zeros_like(self, tensor):
@@ -147,6 +150,9 @@ class Backend:
         return range(1, len(tensor.shape) - 1)
 
     def gather(self, values, indices):
+        raise NotImplementedError(self)
+
+    def gather_nd(self, values, indices):
         raise NotImplementedError(self)
 
     def flatten(self, x):
@@ -273,8 +279,8 @@ class DynamicBackend(Backend):
     def as_tensor(self, x):
         return self.choose_backend(x).as_tensor(x)
 
-    def random_like(self, tensor):
-        return self.choose_backend(tensor).random_like(tensor)
+    def random_uniform(self, tensor):
+        return self.choose_backend(tensor).random_uniform(tensor)
 
     def stack(self, values, axis=0):
         return self.choose_backend(values).stack(values, axis)
@@ -313,8 +319,11 @@ class DynamicBackend(Backend):
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         return self.choose_backend(inputs).py_func(func, inputs, Tout, shape_out, stateful, name, grad)
 
-    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='ZERO'):
+    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='zero'):
         return self.choose_backend((inputs, sample_coords)).resample(inputs, sample_coords, interpolation, boundary)
+
+    def range(self, start, limit=None, delta=1, dtype=None):
+        return self.choose_backend((start, limit, delta)).range(start, limit, delta, dtype)
 
     def zeros_like(self, tensor):
         return self.choose_backend(tensor).zeros_like(tensor)
@@ -389,7 +398,10 @@ class DynamicBackend(Backend):
         return self.choose_backend(x).to_complex(x)
 
     def gather(self, values, indices):
-        return self.choose_backend([values, indices]).gather(values, indices)
+        return self.choose_backend([values]).gather(values, indices)
+
+    def gather_nd(self, values, indices):
+        return self.choose_backend([values]).gather_nd(values, indices)
 
     def unstack(self, tensor, axis=0):
         return self.choose_backend(tensor).unstack(tensor, axis)

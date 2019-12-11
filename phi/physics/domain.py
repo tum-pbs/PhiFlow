@@ -89,7 +89,7 @@ class Domain(struct.Struct):
 
     def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None, age=0.0):
         with struct.unsafe():
-            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size)
+            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size, flags=())
 
     def staggered_shape(self, batch_size=1, name=None, extrapolation=None, age=0.0):
         with struct.unsafe():
@@ -97,9 +97,9 @@ class Domain(struct.Struct):
             for axis in range(self.rank):
                 shape = _extend1(tensor_shape(batch_size, self.resolution, 1), axis)
                 box = staggered_component_box(self.resolution, axis, self.box)
-                grid = CenteredGrid(shape, box, age=age, extrapolation=extrapolation, name=None, batch_size=batch_size)
+                grid = CenteredGrid(shape, box, age=age, extrapolation=extrapolation, name=None, batch_size=batch_size, flags=())
                 grids.append(grid)
-            return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation)
+            return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation, flags=())
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         if extrapolation is None:
