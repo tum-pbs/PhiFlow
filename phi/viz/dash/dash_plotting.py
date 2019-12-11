@@ -2,6 +2,9 @@ import warnings
 
 import numpy
 
+import plotly.figure_factory as plotly_figures
+
+from phi import math
 from phi.physics.field import CenteredGrid, StaggeredGrid
 from phi.viz.plot import FRONT, RIGHT, TOP
 
@@ -13,7 +16,13 @@ def dash_graph_plot(data, settings):
     if data is None:
         return EMPTY_FIGURE
 
-    if isinstance(data, (CenteredGrid, numpy.ndarray)):
+    if isinstance(data, numpy.ndarray):
+        data = CenteredGrid(data)
+
+    if isinstance(data, (CenteredGrid, StaggeredGrid)):
+        component = settings.get('component', 'x')
+        if component == 'vec2' and data.rank >= 2 and data.component_count >= 2:
+            return vector_field(data, settings)
         if data.rank == 1:
             return plot(data, settings)
         if data.rank == 2:
@@ -21,27 +30,32 @@ def dash_graph_plot(data, settings):
         if data.rank == 3:
             return heatmap(slice_2d(data, settings), settings)
 
-    if isinstance(data, StaggeredGrid):
-        component = settings.get('component', 'length')
-        if component == 'x':
-            return heatmap(data.unstack()[-1], settings)
-
     warnings.warn('No figure recipe for data %s' % data)
     return EMPTY_FIGURE
 
 
 def heatmap(data, settings):
+    assert isinstance(data, (StaggeredGrid, CenteredGrid))
+    assert data.rank == 2
     batch = settings.get('batch', 0)
     component = settings.get('component', 'x')  # ToDo
-    if isinstance(data, CenteredGrid):
-        z = data.data[batch,:,:,0]
-        y = numpy.linspace(data.box.get_lower(0), data.box.get_upper(0), data.resolution[0])
-        x = numpy.linspace(data.box.get_lower(1), data.box.get_upper(1), data.resolution[1])
-        return {'data': [{'x': x, 'y': y, 'z': z, 'type': 'heatmap'}]}
-    elif isinstance(data, numpy.ndarray):
-        return {'data': [{'z': data, 'type': 'heatmap'}]}
-    else:
-        raise ValueError('Unsupported type for heatmap: %s' % type(data))
+
+    if isinstance(data, StaggeredGrid):
+        if component == 'x':
+            data = data.unstack()[-1]
+        elif component == 'y':
+            data = data.unstack()[-2]
+        elif component == 'z':
+            return EMPTY_FIGURE
+        elif component == 'length':
+            data = data.at_centers()
+        else:
+            raise ValueError(component)
+    z = data.data[batch,...]
+    z = reduce_component(z, component)
+    y = data.points.data[0, :, 0, 0]
+    x = data.points.data[0, 0, :, 1]
+    return {'data': [{'x': x, 'y': y, 'z': z, 'type': 'heatmap'}]}
 
 
 def slice_2d(field3d, settings):
@@ -70,12 +84,96 @@ def slice_2d(field3d, settings):
 
 
 def plot(field1d, settings):
+    assert isinstance(field1d, (CenteredGrid, StaggeredGrid))
     batch = settings.get('batch', 0)
-    component = settings.get('component', 'x')  # ToDo
-    if isinstance(field1d, CenteredGrid):
-        x = numpy.linspace(field1d.box.lower, field1d.box.upper, field1d.resolution[0])
-        data = field1d.data[min(field1d.resolution[0], batch), :, :]
-        return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data} for i in range(data.shape[-1])]}
-    elif isinstance(field1d, numpy.ndarray):
-        data = field1d[min(field1d.shape[0], batch), :, :]
-        return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'y': data} for i in range(data.shape[-1])]}
+    component = settings.get('component', 'x')
+    if isinstance(field1d, StaggeredGrid):
+        field1d = field1d.unstack()[0]
+    assert isinstance(field1d, CenteredGrid)
+    x = field1d.points.data[0, :, 0]
+    data = field1d.data[min(field1d.resolution[0], batch), :, :]
+    data = reduce_component(data, component)
+    return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
+
+
+def reduce_component(tensor, component):
+    clen = tensor.shape[-1]
+    if clen == 1:
+        return tensor[...,0]
+    if component == 'x':
+        return tensor[...,-1]
+    if component == 'y':
+        return tensor[...,-2]
+    if component == 'z':
+        if clen >= 3:
+            return tensor[...,-3]
+        else:
+            return numpy.zeros_like(tensor[...,0])
+    if component == 'length':
+        return numpy.sqrt(numpy.sum(tensor ** 2, axis=-1, keepdims=False))
+    if component == 'vec2':
+        return tensor[...,-2:]
+
+
+def vector_field(field2d, settings, draw_arrows_backward=True, max_resolution=40, max_lines=300, full_arrows=False):
+    assert isinstance(field2d, (CenteredGrid, StaggeredGrid))
+    if isinstance(field2d, StaggeredGrid):
+        field2d = field2d.at_centers()
+    assert isinstance(field2d, CenteredGrid)
+    assert field2d.rank == 2
+
+    batch = settings.get('batch', 0)
+    batch = min(batch, field2d.data.shape[0])
+
+    y, x = math.unstack(field2d.points.data[0,...,-2:], axis=-1)
+    data_y, data_x = math.unstack(field2d.data[batch,...], -1)
+
+    while numpy.prod(x.shape) > max_resolution ** 2:
+        y = y[::2, ::2]
+        x = x[::2, ::2]
+        data_y = data_y[::2, ::2]
+        data_x = data_x[::2, ::2]
+
+    y = y.flatten()
+    x = x.flatten()
+    data_y = data_y.flatten()
+    data_x = data_x.flatten()
+
+    if max_lines is not None and len(x) > max_lines:
+        length = numpy.sqrt(data_y**2 + data_x**2)
+        keep_indices = numpy.argsort(length)[-max_lines:]
+        # size = numpy.max(field2d.box.size)
+        # threshold = size * negligeable_threshold
+        # keep_condition = (numpy.abs(data_x) > threshold) | (numpy.abs(data_y) > threshold)
+        # keep_indices = numpy.where(keep_condition)
+        y = y[keep_indices]
+        x = x[keep_indices]
+        data_y = data_y[keep_indices]
+        data_x = data_x[keep_indices]
+
+    if draw_arrows_backward:
+        x -= data_x
+        y -= data_y
+
+    if full_arrows:
+        result = plotly_figures.create_quiver(x, y, data_x, data_y, scale=1.0)  # 7 points per arrow
+        result.update_xaxes(range=[field2d.box.get_lower(1), field2d.box.get_upper(1)])
+        result.update_yaxes(range=[field2d.box.get_lower(0), field2d.box.get_upper(0)])
+        return result
+    else:
+        lines_y = numpy.stack([y, y+data_y, [None]*len(x)], -1).flatten()  # 3 points per arrow
+        lines_x = numpy.stack([x, x+data_x, [None]*len(x)], -1).flatten()
+        return {
+            'data': [
+                {
+                    'mode': 'lines',
+                    'x': lines_x,
+                    'y': lines_y,
+                    'type': 'scatter',
+                }
+            ],
+            'layout': {
+                'xaxis': {'range': [field2d.box.get_lower(1), field2d.box.get_upper(1)]},
+                'yaxis': {'range': [field2d.box.get_lower(0), field2d.box.get_upper(0)]},
+            }
+        }
