@@ -2,57 +2,106 @@ import sys, inspect, os
 from phi.app.app import App
 
 
-class ModelDisplay(object):
+class AppDisplay(object):
 
-    def __init__(self, model, *args, **kwargs):
-        self.model = model
+    def __init__(self, app):
+        """
+Creates a display for the given app and initializes the configuration.
+This method does not set up the display. It only sets up the AppDisplay object and returns as quickly as possible.
+        :param app: app to be displayed, may not be prepared or be otherwise invalid at this point.
+        """
+        self.app = app
+        self.config = {}
 
-    def show(self):
-        raise NotImplementedError()
+    def configure(self, config):
+        # type: (dict) -> None
+        """
+Updates the GUI configuration.
+This method may only be called while the GUI is not yet visible, i.e. before show() is called.
+        :param config: Complete or partial GUI-specific configuration. dictionary mapping from strings to JSON serializable values
+        """
+        self.config.update(config)
 
-    def play(self):
-        self.model.play()
+    def get_configuration(self):
+        # type: () -> dict
+        """
+Returns the current configuration of the GUI.
+The returned dictionary may only contain serializable values and all keys must be strings.
+The configuration can be passed to another instance of this class using set_configuration().
+        :rtype: dict
+        """
+        return self.config
+
+    def setup(self):
+        """
+Sets up all necessary GUI components.
+
+The GUI can register callbacks with the app to be informed about app-state changes induced externally.
+The app can be assumed to be prepared when this method is called.
+
+This method is called after set_configuration() but before show()
+
+The return value of this method will be returned by show(app).
+        """
+        pass
+
+    def show(self, caller_is_main):
+        # type: (bool) -> bool
+        """
+Displays the previously setup GUI.
+This method is blocking and returns only when the GUI is hidden.
+
+This method will always be called after setup().
+        :param caller_is_main: True if the calling script is the __main__ module.
+        :return: Whether the GUI was displayed
+        :rtype: bool
+        """
+        return False
 
 
 DEFAULT_DISPLAY_CLASS = None
 
 if 'headless' not in sys.argv:
     try:
-        from .dash.dash_gui import DashFieldSequenceGui
-        DEFAULT_DISPLAY_CLASS = DashFieldSequenceGui
-    except:
-        print('Failed to load dash GUI')
+        from .dash.dash_gui import DashGui
+        DEFAULT_DISPLAY_CLASS = DashGui
+    except ImportError as import_error:
+        print('Failed to load dash GUI: %s' % import_error)
 
 
 AUTORUN = 'autorun' in sys.argv
 
 
-def show(model=None, *args, **kwargs):
+def show(app=None, **config):
 
-    if model is None:
+    if app is None:
         frame_records = inspect.stack()[1]
         calling_module = inspect.getmodulename(frame_records[1])
         fitting_models = _find_subclasses_in_module(App, calling_module, [])
         assert len(fitting_models) == 1, 'show() called without model but detected %d possible classes: %s' % (len(fitting_models), fitting_models)
-        model = fitting_models[0]
+        app = fitting_models[0]
 
-    if inspect.isclass(model) and issubclass(model, App):
-        model = model()
+    if inspect.isclass(app) and issubclass(app, App):
+        app = app()
 
-    called_from_main = inspect.getmodule(model.__class__).__name__ == '__main__'
+    called_from_main = inspect.getmodule(app.__class__).__name__ == '__main__'
+
+    app.prepare()
 
     display = None
     if DEFAULT_DISPLAY_CLASS is not None:
-        display = DEFAULT_DISPLAY_CLASS(model, *args, **kwargs)
+        display = DEFAULT_DISPLAY_CLASS(app)
+        display.configure(config)
+        display.setup()
     # --- Autorun ---
     if AUTORUN:
-        model.info('Starting execution because autorun is enabled.')
-        display.play()  # asynchronous call
+        app.info('Starting execution because autorun is enabled.')
+        app.play()  # asynchronous call
     # --- Show ---
     if display is None:
-        return model
+        return app
     else:
-        return display.show()  # blocking call
+        return display.show(called_from_main)  # blocking call
 
 
 def _find_subclasses_in_module(base_class, module_name, result_list):
