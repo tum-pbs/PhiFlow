@@ -116,34 +116,9 @@ class SciPyBackend(Backend):
             pass # default
         elif boundary.lower() == "replicate":
             sample_coords = clamp(sample_coords, inputs.shape[1:-1])
-        elif boundary.lower() == "updim":
-            dimensions = inputs.shape[1:-1]
-            rank = len(dimensions)
-            if rank == 1:
-                updim = 0
-            else:
-                updim = rank - 2
-            # Zero boundary resample in positive upper dimension, replicate resample for all other dimensions.
-            # Adding 1 will allow out of bounds resample, which results to a zero value.
-            dimensions = np.array(dimensions)
-            dimensions[updim] = dimensions[updim] + 1
-            sample_coords = clamp(sample_coords, dimensions)
         else:
             raise ValueError("Unsupported boundary: %s"%boundary)
 
-        # if interpolation.lower() == "sigmoid":            
-        #     def sigmoid(x):
-        #         x_sc = 10.0
-        #         x_tr = 0.5
-        #         b = (np.exp(x_sc * (1 - x_tr)) + 1) / (1 - np.exp(x_sc))
-        #         a = -b * (1 + np.exp(x_sc * x_tr))
-                
-        #         return b + a / (1 + np.exp(-x_sc * (x - x_tr)))
-
-        #     diff = sample_coords - np.floor(sample_coords)
-        #     sample_coords = np.floor(sample_coords) + sigmoid(diff)
-        #     interpolation = "linear"
-        
         import scipy.interpolate
         points = [np.arange(dim) for dim in inputs.shape[1:-1]]
         result = []

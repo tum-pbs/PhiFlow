@@ -374,7 +374,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     batch_size = tf.shape(inputs)[0]
 
     out_spatial_rank = tensor_spatial_rank(sample_coords)
-    out_spatial_size = tf.shape(sample_coords)[1:-1]
+    out_spatial_size = sample_coords.get_shape().as_list()[1:-1]
 
     if sample_coords.shape[0] != inputs.shape[0]:
         sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
@@ -391,24 +391,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     if boundary.upper() == 'ZERO':
         weight_0 = [tf.expand_dims(x - tf.cast(i, tf.float32), -1) for (x, i) in zip(xy, floor_coords)]
         weight_1 = [tf.expand_dims(tf.cast(i, tf.float32) - x, -1) for (x, i) in zip(xy, ceil_coords)]
-    elif boundary == 'updim':
-        if in_spatial_rank == 1:
-            updim = 0
-        else:
-            updim = in_spatial_rank - 2
-
-        # Zero boundary resample in positive upper dimension, replicate resample for all other dimensions.
-        # We allow out of bounds coordinates for updim, such that we can filter these out in the next step
-        updim_floor = [(tf.cast(x, COORDINATES_TYPE) if idx == updim else tf.cast(boundary_func(x, in_spatial_size[idx]), COORDINATES_TYPE)) for (idx, x) in enumerate(base_coords)]
-
-        updim_ceil = [(tf.cast(x + 1.0, COORDINATES_TYPE) if idx == updim else tf.cast(boundary_func(x + 1.0, in_spatial_size[idx]), COORDINATES_TYPE)) for (idx, x) in enumerate(base_coords)]
-
-        # The updim coordinates are the only ones that have been left out of bounds, the other dimensions have been clamped.
-        weight_0 = [tf.expand_dims(tf.where(c > s-1, tf.zeros_like(x), x - i), axis=-1) for (x, i, c, s) in zip(xy, base_coords, updim_ceil, in_spatial_size)]
-
-        #weight_1 = [tf.where(tf.expand_dims(c > s-1, axis=-1), tf.zeros_like(w), 1.0 - w) for (w, c, s) in zip(weight_0, updim_ceil, in_spatial_size)]
-
-        weight_1 = [tf.expand_dims(tf.where(f > s-1, tf.zeros_like(x), i + 1.0 - x), axis=-1) for (x, i, f, s) in zip(xy, base_coords, updim_floor, in_spatial_size)]
     else:
         weight_0 = [tf.expand_dims(x - i, -1) for (x, i) in zip(xy, base_coords)]
         weight_1 = [1.0 - w for w in weight_0]
@@ -481,7 +463,6 @@ def _boundary_symmetric(sample_coords, input_size):
 SUPPORTED_BOUNDARY = {
     'zero': _boundary_replicate,
     'replicate': _boundary_replicate,
-    'updim': _boundary_replicate,
     'circular': _boundary_circular,
     'symmetric': _boundary_symmetric
 }
