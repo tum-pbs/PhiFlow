@@ -1,2 +1,3 @@
 include README
 recursive-include phi/tf/cuda/build *
+recursive-include webglviewer *
