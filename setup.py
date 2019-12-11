@@ -128,7 +128,8 @@ setup(
               'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
-              'phi.viz', 'phi.viz.dash'],
+              'phi.viz', 'phi.viz.dash',
+              'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
     },
