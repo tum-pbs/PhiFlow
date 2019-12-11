@@ -259,6 +259,14 @@ class DashFieldSequenceGui(ModelDisplay):
                                            html.Div([
                                                html.Button('Write current frame', id='button-write-frame'),
                                            ]),
+                                           html.Div([
+                                               html.Button('Create animation using existing npz files', id='button-animate'),
+                                           ]),
+                                           html.Div([
+                                               'Animation FPS: ',
+                                               dcc.Textarea(placeholder='30', id='animation_fps', value=str(self.model.animation_fps), rows=1,
+                                                            style={'width': '100px', 'display': 'inline-block'})
+                                           ]),
                                        ]),
 
                                        html.Div(
@@ -463,6 +471,22 @@ class DashFieldSequenceGui(ModelDisplay):
         def write_current_frame(n):
             if n is not None:
                 self.model.record_frame()
+            return False
+
+        @self.app.callback(Output('animation_fps', 'disabled'),
+                           [Input('animation_fps', 'value')])
+        def update_animation_fps(fps):
+            if fps is not None:
+                try:
+                    self.model.animation_fps = int(fps)
+                except ValueError:
+                    pass  # Invalid stride
+            return False
+
+        @self.app.callback(Output('button-animate', 'disabled'), [Input('button-animate', 'n_clicks')])
+        def animate_data(n):
+            if n is not None:
+                self.model.animate()
             return False
 
         @self.app.callback(Output('button-sequence', 'style'), [Input('button-sequence', 'n_clicks')])

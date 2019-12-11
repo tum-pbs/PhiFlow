@@ -124,6 +124,7 @@ class App(object):
         self.recorded_fields = recorded_fields if recorded_fields is not None else []
         self.rec_all_slices = False
         self.sequence_stride = stride
+        self.animation_fps = 30
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
         self.info('Setting up model...')
@@ -392,6 +393,42 @@ class App(object):
 
         if files:
             self.message = 'Frame written to %s' % files
+        self.current_action = None
+
+    def animate(self):
+        # Creates animation using all npz files in the folder. This will however only allow the user to store one data array per simulation, if multiple fields are stored, the animation won't work.
+        self.current_action = 'Animating'
+
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import matplotlib.animation as animation
+        import numpy as np
+        from os.path import join
+
+        # Set up formatting for the movie files
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=self.animation_fps, metadata=dict(artist='Me'), bitrate=1800)
+
+        fig = plt.figure()
+
+        ims = []
+        for filename in os.listdir(self.directory):
+            if filename.endswith(".npz"):
+                data = np.load(join(self.directory, filename))
+                array = data['arr_0'][:,:,0]
+                ims.append((plt.pcolor(array),))
+                data.close()
+
+        im_ani = animation.ArtistAnimation(fig, ims, interval=50, repeat_delay=3000,
+                                        blit=True)
+        filename = 'FluidAnimation@' + str(self.animation_fps) + '.mp4'
+        im_ani.save(join(self.directory, filename), writer=writer)
+
+        plt.close(fig)
+        import gc
+        gc.collect()
+
         self.current_action = None
 
     def benchmark(self, sequence_count):
