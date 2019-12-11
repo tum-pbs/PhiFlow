@@ -35,8 +35,8 @@ def heatmap(data, settings):
     component = settings.get('component', 'x')  # ToDo
     if isinstance(data, CenteredGrid):
         z = data.data[batch,:,:,0]
-        y = numpy.linspace(data.box.lower, data.box.upper, data.resolution[0])[:,0]
-        x = numpy.linspace(data.box.lower, data.box.upper, data.resolution[1])[:,1]
+        y = numpy.linspace(data.box.get_lower(0), data.box.get_upper(0), data.resolution[0])
+        x = numpy.linspace(data.box.get_lower(1), data.box.get_upper(1), data.resolution[1])
         return {'data': [{'x': x, 'y': y, 'z': z, 'type': 'heatmap'}]}
     elif isinstance(data, numpy.ndarray):
         return {'data': [{'z': data, 'type': 'heatmap'}]}

@@ -1,3 +1,4 @@
+# coding=utf-8
 import inspect
 import os
 import datetime
@@ -70,8 +71,9 @@ def build_app_time(dashapp):
 
     def build_text():
         now = datetime.datetime.now()
-        local_timezone = datetime.datetime.now().astimezone().tzinfo
-        return 'Application started: %s (Running for %s seconds)' % (start_time.astimezone(local_timezone).ctime(), (now-start_time).seconds)
+        elapsed = now - start_time
+        minutes, seconds = divmod(elapsed.seconds, 60)
+        return 'Application started: %s (Running for %d minutes and %d seconds)' % (start_time.ctime(), minutes, seconds)
 
     layout = html.Div([
         dcc.Markdown(children=build_text(), id='clock-output'),

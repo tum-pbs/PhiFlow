@@ -1,3 +1,4 @@
+# coding=utf-8
 import os
 
 import dash
@@ -15,7 +16,7 @@ class DashApp:
     def __init__(self, app, header_layout):
         assert isinstance(app, App)
         self.app = app
-        self.dash = dash.Dash(u'Φ-Flow')
+        self.dash = dash.Dash(u'PhiFlow')
         self.dash.config.suppress_callback_exceptions = True
         self.hrefs = set()
         self.page_urls = {}
