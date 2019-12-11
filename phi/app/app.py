@@ -67,6 +67,7 @@ class App(object):
                  custom_properties=None,
                  target_scene=None,
                  objects_to_save=None):
+        self.start_time = time.time()
         self.name = name if name is not None else self.__class__.__name__
         self.subtitle = subtitle
         self.summary = summary if summary else name
