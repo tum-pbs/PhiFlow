@@ -26,8 +26,8 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer'):
             html.Div(style={'width': '90%', 'display': 'inline-block'}, children=[
                 dcc.Dropdown(options=field_options, value=initial_field_name, id=id+'-field-select'),
             ]),
-            html.Div(style={'width': '10%', 'display': 'inline-block', 'vertical-align': 'middle', 'text-align': 'center'}, children=[
-                dcc.Checklist(options=[{'label': '3D', 'value': '3D'}], value=[], id=id+'-3d'),
+            html.Div(style={'width': '10%', 'display': 'inline-block', 'vertical-align': 'top', 'text-align': 'center'}, children=[
+                dcc.Checklist(options=[{'label': '3D', 'value': '3D'}], value=[], id=id+'-3d', style={'margin-top': 6}),
             ]),
         ]),
         html.Div(id=id+'-figure-container', children=[], style={'height': '95%', 'width': '100%', 'display': 'inline-block'}),

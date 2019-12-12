@@ -45,18 +45,24 @@ def build_view_selection(dashapp, viewed_batch=0, viewed_depth=0, viewed_compone
 
     layout = html.Div(style={'width': '100%', 'display': 'inline-block', 'backgroundColor': '#E0E0FF', 'vertical-align': 'middle'}, children=[
         # --- Settings ---
-        html.Div(style={'width': '30%', 'display': 'inline-block'}, children=[
-            html.Div(style={'width': '35%'}, children=[
-                dcc.Dropdown(options=[{'value': FRONT, 'label': 'Front'}, {'value': RIGHT, 'label': 'Side'}, {'value': TOP, 'label': 'Top'}], value='front', id=PROJECTION_AXIS.component_id),
+        html.Div(style={'width': '30%', 'display': 'inline-block', 'vertical-align': 'top'}, children=[
+            html.Div(style={'width': '50%', 'display': 'inline-block'}, children=[
+                dcc.Dropdown(options=[{'value': FRONT, 'label': 'Front'}, {'value': RIGHT, 'label': 'Side'}, {'value': TOP, 'label': 'Top'}], value='front', id=PROJECTION_AXIS.component_id, disabled=resolution3d is None),
+                html.Div(style={'margin-top': 6}, children=[
+                    html.Div('Component', style={'text-align': 'center'}),
+                    html.Div(style={'width': '90%', 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
+                        dcc.Slider(min=0, max=4, step=1, value=_COMPONENTS.index(viewed_component), marks={0: 'v', 4: '|.|', 1: 'x', 2: 'y', 3: 'z'}, id='component-slider', updatemode='drag'),
+                    ])
+                ]),
             ]),
-            html.Div(style={'width': '35%', 'height': '50px', 'display': 'inline-block'}, children=[
-                'Component',
-                dcc.Slider(min=0, max=4, step=1, value=_COMPONENTS.index(viewed_component), marks={0: 'v', 4: '|.|', 1: 'x', 2: 'y', 3: 'z'}, id='component-slider', updatemode='drag'),
-            ]),
-            html.Div(style={'width': '30%', 'height': '50px', 'display': 'inline-block', 'margin-left': 40}, children=[
-                html.Button('Refresh', id=REFRESH_BUTTON.component_id, style={'margin-bottom': 20}),
-                'Refresh Rate',
-                dcc.Slider(min=0, max=3, step=1, value=1, marks={0: 'low', 3: 'high'}, id=REFRESH_RATE.component_id, updatemode='drag'),
+            html.Div(style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}, children=[  # , 'margin-left': 40
+                html.Div('Refresh Rate', style={'text-align': 'center'}),
+                html.Div(style={'width': '60%', 'margin-left': 'auto', 'margin-right': 'auto', 'height': 50}, children=[
+                    dcc.Slider(min=0, max=3, step=1, value=1, marks={0: 'low', 3: 'high'}, id=REFRESH_RATE.component_id, updatemode='drag'),
+                ]),
+                html.Div(style={'text-align': 'center'}, children=[
+                    html.Button('Refresh now', id=REFRESH_BUTTON.component_id),
+                ])
             ])
         ]),
         # --- Batch & Depth ---

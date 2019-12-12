@@ -1,6 +1,7 @@
 # coding=utf-8
 import dash_core_components as dcc
 import dash_html_components as html
+import six
 
 from phi.struct.tensorop import collapsed_gather_nd
 from phi.viz.dash.board import build_benchmark, build_tf_profiler, build_tensorboard_launcher, build_system_controls
@@ -54,14 +55,20 @@ class DashGui(AppDisplay):
         ])
         dash_app.add_page('/', layout)
 
-        # --- Player ---
+        # --- Side by Side ---
+        if 'display' in self.config:
+            sbs_fieldnames = self.config['display']
+            if isinstance(sbs_fieldnames, six.string_types):
+                sbs_fieldnames = [sbs_fieldnames] * 2
+        else:
+            sbs_fieldnames = self.app.fieldnames
         layout = html.Div([
             build_view_selection(dash_app),
-            html.Div(style={'width': '50%', 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='left'),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='left', initial_field_name=sbs_fieldnames[0]),
             ]),
-            html.Div(style={'width': '50%', 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='right'),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='right', initial_field_name=sbs_fieldnames[1]),
             ]),
             status_bar,
             player_controls,
