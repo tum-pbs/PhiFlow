@@ -44,14 +44,10 @@ def build_player_controls(dashapp):
     @dashapp.dash.callback(Output(PLAY_BUTTON.component_id, 'style'), inputs=[PLAY_BUTTON], state=[STEP_COUNT])
     def play(n_clicks, step_count):
         if n_clicks and not dashapp.app.running:
-            if not step_count:
+            step_count = parse_step_count(step_count, dashapp, default=None)
+            if step_count is None:
                 dashapp.app.play()
             else:
-                step_count = step_count.strip()
-                if step_count.startswith('*'):
-                    step_count = dashapp.app.sequence_stride * int(step_count[1:].strip())
-                else:
-                    step_count = int(step_count)
                 dashapp.app.play(step_count)
         else:
             raise PreventUpdate()
@@ -83,3 +79,17 @@ def build_player_controls(dashapp):
         return result
 
     return layout
+
+
+def parse_step_count(step_count, dashapp, default=1):
+    if step_count is None:
+        return default
+    try:
+        step_count = step_count.strip()
+        if step_count.startswith('*'):
+            step_count = dashapp.app.sequence_stride * int(step_count[1:].strip())
+        else:
+            step_count = int(step_count)
+        return step_count
+    except ValueError:
+        return default

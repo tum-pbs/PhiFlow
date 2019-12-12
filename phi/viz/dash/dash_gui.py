@@ -3,6 +3,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 
 from phi.struct.tensorop import collapsed_gather_nd
+from phi.viz.dash.board import build_benchmark, build_tf_profiler
 from phi.viz.dash.log import build_log
 from phi.viz.dash.model_controls import build_model_controls
 from phi.viz.dash.viewsettings import build_view_selection
@@ -28,8 +29,8 @@ class DashGui(AppDisplay):
                 dcc.Link('Info', href='/info'),
                 ' - ',
                 dcc.Link('Log', href='/log'),
-                # ' - ',
-                # dcc.Link(u'Φ Board', href='/board'),
+                ' - ',
+                dcc.Link(u'Φ Board', href='/board'),
                 # ' - ',
                 # dcc.Link('Scripting', href='/scripting'),
             ])
@@ -94,8 +95,12 @@ class DashGui(AppDisplay):
             dcc.Markdown(u'# Φ Board'),
             status_bar,
             player_controls,
-            'Graphs/Save, TensorBoard, Record/Animate, Benchmark/Profile, Exit/Restart/ShutdownUI',
             model_controls,
+            build_benchmark(dash_app),
+        ] + ([] if 'tensorflow' not in dash_app.app.traits else [
+            build_tf_profiler(dash_app),
+        ]) + [
+            # ToDo: 'Graphs/Save, TensorBoard, Record/Animate, Exit/Restart/ShutdownUI',
         ])
         dash_app.add_page('/board', layout)
 
