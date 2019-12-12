@@ -1,6 +1,7 @@
 # Φ<sub>*Flow*</sub>
 
 [![Build Status](https://travis-ci.com/tum-pbs/PhiFlow.svg?token=8vG2QPsZzeswTApmkekH&branch=master)](https://travis-ci.com/tum-pbs/PhiFlow)
+[![image](https://www.tensorflow.org/images/colab_logo_32px.png) Run in Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true)
 
 ![Gui](documentation/figures/Gui.png)
 
@@ -34,7 +35,12 @@ with TensorFlow support.
 | [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) |
 |------------------------|---------------------------------|---------------|
 
-If you would like to get right into it and have a look at some example code, check out the following demos:
+
+If you would like to get right into it and have a look at some code, check out the example
+[notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
+It lets you experiment with Φ<sub>*Flow*</sub> in the browser.
+
+The following introductory demos are also helpful to get started with writing your own app using Φ<sub>*Flow*</sub>:
 
 - [simpleplume.py](./demos/simpleplume.py): Runs a fluid simulation and displays it in the browser
 - [optimize_pressure.py](./demos/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
@@ -63,6 +69,8 @@ The [simulation code design documentation](documentation/Simulation_Architecture
 All simulations of continuous systems are based on the [Field API](documentation/Fields.md) and underlying all states is the [struct API](documentation/Structs.ipynb).
 
 The [software architecture documentation](documentation/Software_Architecture.md) shows the building blocks of Φ<sub>*Flow*</sub> and the module dependencies.
+
+## [Version history](documentation/Version_History.md)
 
 
 ## Known Issues

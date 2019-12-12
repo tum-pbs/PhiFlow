@@ -19,7 +19,6 @@ class PlotlyFigureBuilder(object):
     def __init__(self,
                  batches=slice(None),
                  depths=slice(None),
-                 staggered=False,
                  antisymmetry=False,
                  view=FRONT,
                  component=LENGTH,
@@ -28,7 +27,6 @@ class PlotlyFigureBuilder(object):
                  max_resolution=128):
         self.batches = batches
         self.depths = depths
-        self.staggered = staggered
         self.antisymmetry = antisymmetry
         self.view = view
         self.component = component
@@ -106,24 +104,30 @@ class PlotlyFigureBuilder(object):
                 raise ValueError('no depth specified and default depths contains more than one element')
             depth = selected_depths[0]
 
-        if isinstance(data, CenteredGrid):
-            data = data.data
-
-        # Antisymmetry
+        # special handling for staggered grids and anti symmetry
         if isinstance(data, StaggeredGrid):
-            data = data.staggered_tensor()
-            shape = data.shape
-            staggered = True
-        else:
-            staggered = self.staggered
-        if self.antisymmetry:
-            if staggered:
-                data = data[..., 1:, :]
-            if shape[-1] != 1:
-                datax = data[..., ::-1, 0:1] + data[..., 0:1]
-                datayz = data[..., ::-1, 1:] - data[..., 1:]
-                data = np.concatenate((datax, datayz), axis=-1)
+            if not self.antisymmetry:
+                data = data.staggered_tensor()
             else:
+                dims = len(data.data[0].data.shape) - 2 # any better way to get this?
+                dataxyz = []
+                for i in range(dims):
+                    c = data.data[i].data
+                    factor = -1. if i==(dims-1) else 1. # add, instead of subtract, for X dim
+                    cdiff = c[..., ::-1,0:1] - ( c[...,0:1] * factor ) 
+
+                    # crop staggered grid dimension by one
+                    shape = np.asarray(cdiff.shape)
+                    shape[1+i] += -1 
+                    cdiff.resize(shape)
+                    dataxyz.append(cdiff)
+                data = np.concatenate(dataxyz, axis=-1)
+            shape = data.shape
+
+        else:
+            if isinstance(data, CenteredGrid):
+                data = data.data
+            if self.antisymmetry:
                 data = data - data[..., ::-1, :]
 
         # Select batch

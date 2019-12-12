@@ -8,3 +8,4 @@ from .analytic import AnalyticField
 from . import advect
 from . import manta
 from .util import diffuse, data_bounds
+from .sampled import SampledField

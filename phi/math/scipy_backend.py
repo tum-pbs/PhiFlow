@@ -44,11 +44,16 @@ class SciPyBackend(Backend):
         else:
             return (x/y)
 
-    def random_like(self, shape):
+    def random_uniform(self, shape):
         return np.random.random(shape).astype('f')
 
     def rank(self, value):
         return len(value.shape)
+
+    def range(self, start, limit=None, delta=1, dtype=None):
+        if limit is None:
+            start, limit = 0, start
+        return np.arange(start, limit, delta, dtype)
 
     def tile(self, value, multiples):
         return np.tile(value, multiples)
@@ -228,6 +233,11 @@ class SciPyBackend(Backend):
 
     def gather(self, values, indices):
         return values[indices]
+
+    def gather_nd(self, values, indices):
+        # Reduce rank of input indices, by convention it should be [index] so gather works for Tensorflow
+        index, = indices
+        return values[index]
 
     def unstack(self, tensor, axis=0):
         if axis < 0:

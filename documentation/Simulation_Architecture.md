@@ -88,8 +88,8 @@ This aligns with the typical TensorFlow workflow where `tf.Session.run` is used 
 `phi.tf.session.Session.run` simply extends the functionality by allowing `State` objects to be passed directly.
 
 While this extra code is unavoidable for machine learning applications, if you are simply running a simulation, you
-can add the states to a world (e.g. using `world.Fluid` instead of `Fluid`) and call the function
-`tf_bake_graph(session, world)` to automatically convert all physics objects to TensorFlow graph executions.
+can add the states to a world using `world.add(state)` and call the function
+`tf_bake_graph(world, session)` to automatically convert all physics objects to TensorFlow graph executions.
 
 The similarities and differences of NumPy vs TensorFlow are illustrated in the example 
 [manual_fluid_numpy_or_tf.py](../demos/manual_fluid_numpy_or_tf.py) for a simple custom fluid simulation.
