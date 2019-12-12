@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 from phi.physics.field import CenteredGrid, StaggeredGrid
+from phi.physics.field.staggered_grid import stack_staggered_components
 
 
 # Views
@@ -113,17 +114,11 @@ class PlotlyFigureBuilder(object):
                 dataxyz = []
                 for i in range(dims):
                     c = data.data[i].data
-                    factor = -1. if i==(dims-1) else 1. # add, instead of subtract, for X dim
-                    cdiff = c[..., ::-1, 0:1] - (c[..., 0:1] * factor) 
-
-                    # crop staggered grid dimension by one
-                    shape = np.asarray(cdiff.shape)
-                    shape[1+i] += -1 
-                    cdiff.resize(shape)
+                    factor = -1. if i==(dims-1) else 1. # add (instead of subtract) for X dim
+                    cdiff = c[..., ::-1,0:1] - ( c[...,0:1] * factor ) 
                     dataxyz.append(cdiff)
-                data = np.concatenate(dataxyz, axis=-1)
+                data = stack_staggered_components(dataxyz)
             shape = data.shape
-
         else:
             if isinstance(data, CenteredGrid):
                 data = data.data
