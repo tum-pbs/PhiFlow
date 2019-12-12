@@ -58,6 +58,13 @@ This method will always be called after setup().
         """
         return False
 
+    def play(self):
+        """
+Called if AUTORUN is enabled.
+If no Display is specified, App.run() is called instead.
+        """
+        self.app.play()
+
 
 DEFAULT_DISPLAY_CLASS = None
 
@@ -95,8 +102,11 @@ def show(app=None, **config):
         display.setup()
     # --- Autorun ---
     if AUTORUN:
-        app.info('Starting execution because autorun is enabled.')
-        app.play()  # asynchronous call
+        if display is None:
+            app.info('Starting execution because autorun is enabled.')
+            app.play()  # asynchronous call
+        else:
+            display.play()
     # --- Show ---
     if display is None:
         return app
