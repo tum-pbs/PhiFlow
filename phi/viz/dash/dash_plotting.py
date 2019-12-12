@@ -38,7 +38,7 @@ def heatmap(data, settings):
     assert isinstance(data, (StaggeredGrid, CenteredGrid))
     assert data.rank == 2
     batch = settings.get('batch', 0)
-    component = settings.get('component', 'x')  # ToDo
+    component = settings.get('component', 'x')
 
     if isinstance(data, StaggeredGrid):
         if component == 'x':
