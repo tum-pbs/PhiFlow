@@ -41,8 +41,12 @@ def detect_skybox_format(raw):
 def split_cubemap(raw, target_resolution):
     h, w = raw.shape[0] // 3, raw.shape[1] // 4
     assert w == h
-    top, bottom, left, front, right, back = \
-        (raw[:h, w:2 * w], raw[2 * h:, w:2 * w], raw[h:2 * h, :w], raw[h:2 * h, w:2 * w], raw[h:2 * h, 2 * w:3 * w], raw[h:2 * h, 3 * w:])
+    right = raw[h:2*h, 2*w:3*w]
+    left = raw[h:2*h, :w]
+    top = raw[:h, w:2*w]
+    bottom = raw[2*h:, w:2*w]
+    front = raw[h:2*h, w:2*w]
+    back = raw[h:2*h, 3*w:]
     return right, left, top, bottom, front, back
 
 
@@ -73,22 +77,22 @@ def equiangular_to_cubemap(equiangular, resolution=None):
         phi = np.arctan(x) + phi0
         return theta, phi
 
+    right = lookup(*face(0, np.pi/2))
+    left = lookup(*face(0, -np.pi/2))
+    top = lookup(*face(np.pi/2, 0))
+    bottom = lookup(*face(-np.pi/2, 0))
     front = lookup(*face(0, 0))
-    right = lookup(*face(0, np.pi / 2))
     back = lookup(*face(0, np.pi))
-    left = lookup(*face(0, - np.pi / 2))
-    top = lookup(*face(np.pi / 2, 0))
-    bottom = lookup(*face(-np.pi / 2, 0))
     images = right, left, top, bottom, front, back
     return images
 
 
 def default_sky():
+    right = [.3, .5, .4]
+    left = [.3, .4, .5]
     top = [.8, .8, 1]
     bottom = [.2, .15, .15]
     front = [.4, .5, .4]
-    right = [.3, .5, .4]
-    left = [.3, .4, .5]
     back = [.4, .4, .4]
     images = right, left, top, bottom, front, back
     images = [np.array(image + [1.0]) * 255 for image in images]
