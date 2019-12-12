@@ -9,43 +9,44 @@ import webglviewer
 from phi.viz.dash.webgl_util import default_sky
 
 
-app = dash.Dash(__name__)
-app.config.suppress_callback_exceptions = True
+APP = dash.Dash(__name__)
+APP.config.suppress_callback_exceptions = True
 
-app.layout = html.Div([
+APP.layout = html.Div([
     html.Button('2D/3D', id='button'),
     html.Div(id='display'),
     dcc.Interval(id='interval', interval=1000)
 ])
 
-dim = [50, 50, 50]
+DIM = [50, 50, 50]
 
-webgl = webglviewer.Webglviewer(
-        id='viewer',
-        sky=default_sky(),
-        material_type="LIQUID",
-        representation_type="SDF"
-    )
+WEBGL = webglviewer.Webglviewer(
+    id='viewer',
+    sky=default_sky(),
+    material_type="LIQUID",
+    representation_type="SDF"
+)
 
 
-@app.callback(Output('display', 'children'), [Input('button', 'n_clicks')])
+@APP.callback(Output('display', 'children'), [Input('button', 'n_clicks')])
 def switch_display(n):
-    if n is None: return []
+    if n is None:
+        return []
     print(n)
     if n % 2 == 0:
         return dcc.Graph(id='graph')
     else:
-        return webgl
+        return WEBGL
 
 
-@app.callback(Output('viewer', 'data'), [Input('interval', 'n_intervals')])
+@APP.callback(Output('viewer', 'data'), [Input('interval', 'n_intervals')])
 def display_output(n_intervals):
     if n_intervals is None:
         n_intervals = 0
     n_intervals = n_intervals % 5
-    arr = np.ones((dim[0], dim[1], dim[2]), dtype="float32")
-    arr[n_intervals:n_intervals + int(dim[0]*0.3), n_intervals:n_intervals + int(dim[0]*0.3), n_intervals:n_intervals + int(dim[0]*0.3)] = -1
+    arr = np.ones((DIM[0], DIM[1], DIM[2]), dtype="float32")
+    arr[n_intervals:n_intervals + int(DIM[0]*0.3), n_intervals:n_intervals + int(DIM[0]*0.3), n_intervals:n_intervals + int(DIM[0]*0.3)] = -1
     return arr
 
 
-app.run_server(debug=True, port=8051)
+APP.run_server(debug=True, port=8051)

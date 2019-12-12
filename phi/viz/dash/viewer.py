@@ -63,8 +63,4 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer'):
         settings_dict = parse_view_settings(*settings)
         return webgl_prepare_data(data, settings_dict)
 
-    # @dashapp.dash.callback(Output(id+'-webgl', 'sky'), [Input(id+'-webgl-initializer', 'n_intervals')])
-    # def set_sky(_):
-    #     return load_sky('sky0.hdr')
-
     return layout

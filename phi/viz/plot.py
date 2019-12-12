@@ -114,7 +114,7 @@ class PlotlyFigureBuilder(object):
                 for i in range(dims):
                     c = data.data[i].data
                     factor = -1. if i==(dims-1) else 1. # add, instead of subtract, for X dim
-                    cdiff = c[..., ::-1,0:1] - ( c[...,0:1] * factor ) 
+                    cdiff = c[..., ::-1, 0:1] - (c[..., 0:1] * factor) 
 
                     # crop staggered grid dimension by one
                     shape = np.asarray(cdiff.shape)
@@ -215,7 +215,7 @@ class PlotlyFigureBuilder(object):
     def graphs(self, data, library):
         x = np.arange(data.shape[0])
         if library == 'dash':
-            graphs = [{ 'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data[:, i]} for i in range(data.shape[-1])]
+            graphs = [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data[:, i]} for i in range(data.shape[-1])]
             return {'data': graphs}
         else:
             import matplotlib.pyplot as plt
