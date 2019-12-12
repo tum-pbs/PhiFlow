@@ -13,9 +13,10 @@ from phi.app import App
 
 class DashApp:
 
-    def __init__(self, app, header_layout):
+    def __init__(self, app, config, header_layout):
         assert isinstance(app, App)
         self.app = app
+        self.config = config
         self.dash = dash.Dash(u'PhiFlow')
         self.dash.config.suppress_callback_exceptions = True
         self.hrefs = set()

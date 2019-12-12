@@ -1,3 +1,6 @@
+import logging
+import time
+
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Output, Input, State
@@ -79,4 +82,39 @@ def build_tf_profiler(dashapp):
         output += '  \n*Average*: %.04f seconds per step, %.02f steps per second.' % (time_elapsed / step_count, step_count / time_elapsed)
         output += '  \nProfile saved. Open  \n*chrome://tracing/*  \n and load file  \n *%s*' % timeline_file
         return output
+    return layout
+
+
+TENSORBOARD_STATUS = Input('tensorboard-status', 'children')
+
+
+def build_tensorboard_launcher(dashapp):
+    assert isinstance(dashapp, DashApp)
+
+    layout = html.Div([
+        html.Div(id='tensorboard-div'),
+        dcc.Interval(id='tensorboard-init', interval=200, max_intervals=1),
+        html.Div(style={'display': 'none'}, id=TENSORBOARD_STATUS.component_id),
+    ])
+
+    @dashapp.dash.callback(Output('tensorboard-div', 'children'), [Input('tensorboard-init', 'n_intervals'), TENSORBOARD_STATUS])
+    def update(*_):
+        if 'tensorboard_url' in dashapp.config:
+            return html.A('TensorBoard', href=dashapp.config['tensorboard_url'], id='tensorboard-href')
+        else:
+            return html.Button('Launch TensorBoard', id='launch-tensorboard')
+
+    @dashapp.dash.callback(Output(TENSORBOARD_STATUS.component_id, TENSORBOARD_STATUS.component_property), [Input('launch-tensorboard', 'n_clicks')])
+    def launch_tensorboard(clicks):
+        if clicks:
+            logging.info('Launching TensorBoard...')
+            logdir = dashapp.app.session.summary_directory
+            import phi.tf.profiling as profiling
+            url = profiling.launch_tensorboard(logdir, port=dashapp.config.get('tensorboard_port', None))
+            dashapp.config['tensorboard_url'] = url
+            logging.info('TensorBoard launched, URL: %s' % url)
+            return 'running'
+        else:
+            raise PreventUpdate()
+
     return layout

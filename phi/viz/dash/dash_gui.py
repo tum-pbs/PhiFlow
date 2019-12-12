@@ -3,7 +3,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 
 from phi.struct.tensorop import collapsed_gather_nd
-from phi.viz.dash.board import build_benchmark, build_tf_profiler
+from phi.viz.dash.board import build_benchmark, build_tf_profiler, build_tensorboard_launcher
 from phi.viz.dash.log import build_log
 from phi.viz.dash.model_controls import build_model_controls
 from phi.viz.dash.viewsettings import build_view_selection
@@ -34,7 +34,7 @@ class DashGui(AppDisplay):
                 # ' - ',
                 # dcc.Link('Scripting', href='/scripting'),
             ])
-        dash_app = self.dash_app = DashApp(self.app, header_layout)
+        dash_app = self.dash_app = DashApp(self.app, self.config, header_layout)
 
         # --- Shared components ---
         player_controls = build_player_controls(dash_app)
@@ -51,7 +51,6 @@ class DashGui(AppDisplay):
             status_bar,
             player_controls,
             model_controls,
-            # ToDo Run sequence, sequence length
         ])
         dash_app.add_page('/', layout)
 
@@ -95,12 +94,15 @@ class DashGui(AppDisplay):
             dcc.Markdown(u'# Φ Board'),
             status_bar,
             player_controls,
-            model_controls,
+        ] + ([] if 'tensorflow' not in dash_app.app.traits else [
+            build_tensorboard_launcher(dash_app),
+        ]) + [
             build_benchmark(dash_app),
+            model_controls,
         ] + ([] if 'tensorflow' not in dash_app.app.traits else [
             build_tf_profiler(dash_app),
         ]) + [
-            # ToDo: 'Graphs/Save, TensorBoard, Record/Animate, Exit/Restart/ShutdownUI',
+            # ToDo: 'Graphs, Record/Animate, Exit/Restart/ShutdownUI',
         ])
         dash_app.add_page('/board', layout)
 
