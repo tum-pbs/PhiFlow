@@ -125,7 +125,7 @@ class App(object):
         self.record_data = record_data
         self.recorded_fields = recorded_fields if recorded_fields is not None else []
         self.rec_all_slices = False
-        self.sequence_stride = stride
+        self.sequence_stride = stride if stride is not None else 1
         self.framerate = framerate if framerate is not None else stride
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()

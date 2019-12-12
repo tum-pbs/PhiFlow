@@ -1,8 +1,9 @@
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Output, Input
+from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 
+from phi.viz.dash.dash_app import DashApp
 from phi.viz.dash.viewsettings import refresh_rate_ms, REFRESH_RATE
 
 
@@ -25,21 +26,33 @@ PAUSE_BUTTON = Input('pause-button', 'n_clicks')
 STEP_BUTTON = Input('step-button', 'n_clicks')
 STEP_COMPLETE = Input('step-complete', 'children')
 REFRESH_INTERVAL = Input('playing-refresh-interval', 'n_intervals')
+STEP_COUNT = State('step-count', 'value')
 
 
 def build_player_controls(dashapp):
+    assert isinstance(dashapp, DashApp)
+
     layout = html.Div(style={'height': '30px'}, children=[
         html.Button('Play', id=PLAY_BUTTON.component_id),
         html.Button('Pause', id=PAUSE_BUTTON.component_id),
         html.Button('Step', id=STEP_BUTTON.component_id),
+        dcc.Textarea(placeholder='#steps', id=STEP_COUNT.component_id, value='', rows=1, style={'width': 70}),
         html.Div(style={'display': 'none'}, id=STEP_COMPLETE.component_id),
         dcc.Interval(id=REFRESH_INTERVAL.component_id, interval=refresh_rate_ms(None)),
     ])
 
-    @dashapp.dash.callback(Output(PLAY_BUTTON.component_id, 'style'), [PLAY_BUTTON])
-    def start_simulation(n_clicks):
+    @dashapp.dash.callback(Output(PLAY_BUTTON.component_id, 'style'), inputs=[PLAY_BUTTON], state=[STEP_COUNT])
+    def play(n_clicks, step_count):
         if n_clicks and not dashapp.app.running:
-            dashapp.app.play()
+            if not step_count:
+                dashapp.app.play()
+            else:
+                step_count = step_count.strip()
+                if step_count.startswith('*'):
+                    step_count = dashapp.app.sequence_stride * int(step_count[1:].strip())
+                else:
+                    step_count = int(step_count)
+                dashapp.app.play(step_count)
         else:
             raise PreventUpdate()
 

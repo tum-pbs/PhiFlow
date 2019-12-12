@@ -13,10 +13,10 @@ def random_sdf():
 domain = Domain([20, 20, 20])
 
 
-class Simpleplume(App):
+class GuiDemo(App):
 
     def __init__(self):
-        App.__init__(self)
+        App.__init__(self, framerate=EditableFloat('Framerate', 10, (1, 100), log_scale=True))
         self.field = world.add(domain.centered_grid(math.randfreq) * 10)
         data = self.field.data
         data[:, 2:5, ...] = 0
