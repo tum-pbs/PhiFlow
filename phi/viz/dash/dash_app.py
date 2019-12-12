@@ -49,10 +49,6 @@ class DashApp:
     def server(self):
         return self.dash.server
 
-    @property
-    def batch_count(self):
-        return 1
-
     def search_callback(self, output, hrefs):
         assert isinstance(output, Output)
         self.hrefs.update(hrefs)

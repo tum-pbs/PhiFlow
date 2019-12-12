@@ -83,8 +83,8 @@ class AABox(Geometry):
         upper = []
         for ax in range(self.rank):
             if ax != axis:
-                lower.append(self.get_lower(axis))
-                upper.append(self.get_upper(axis))
+                lower.append(self.get_lower(ax))
+                upper.append(self.get_upper(ax))
         return self.copied_with(lower=lower, upper=upper)
 
     def __repr__(self):
