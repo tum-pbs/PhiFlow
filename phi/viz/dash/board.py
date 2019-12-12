@@ -1,14 +1,13 @@
 import logging
-import time
+import os
 
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Output, Input, State
+from dash.dependencies import Output, Input
 from dash.exceptions import PreventUpdate
 
 from phi.viz.dash.dash_app import DashApp
 from phi.viz.dash.player_controls import STEP_COUNT, parse_step_count
-from phi.viz.dash.viewsettings import refresh_rate_ms, REFRESH_RATE
 
 
 BENCHMARK_BUTTON = Input('benchmark-button', 'n_clicks')
@@ -116,5 +115,22 @@ def build_tensorboard_launcher(dashapp):
             return 'running'
         else:
             raise PreventUpdate()
+
+    return layout
+
+
+def build_system_controls(dashapp):
+    assert  isinstance(dashapp, DashApp)
+
+    layout = html.Div([
+        dcc.Markdown('## Application'),
+        html.Button('Terminate', id='exit-button')
+    ])
+
+    @dashapp.dash.callback(Output('exit-button', 'style'), [Input('exit-button', 'n_clicks')])
+    def exit_application(n):
+        if n:
+            print('DashGUI: Exiting...')
+            os._exit(0)  # exit() does not work from Dash threads
 
     return layout

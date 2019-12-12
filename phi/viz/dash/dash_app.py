@@ -1,8 +1,6 @@
 # coding=utf-8
-import os
 
 import dash
-
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
@@ -37,9 +35,6 @@ class DashApp:
                     return layout(self)
                 else:
                     return layout
-            elif pathname == '/exit':
-                print('DashGUI: Exiting...')
-                os._exit(0)  # exit() does not work from Dash threads
             else:
                 return html.Div([
                     html.Div('404 - No such page: %s' % pathname),
