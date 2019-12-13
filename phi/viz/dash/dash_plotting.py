@@ -61,6 +61,8 @@ def heatmap(data, settings):
 def slice_2d(field3d, settings):
     if isinstance(field3d, numpy.ndarray):
         field3d = CenteredGrid(field3d)
+    if isinstance(field3d, StaggeredGrid):
+        field3d = field3d.at_centers()  # ToDo
     assert isinstance(field3d, CenteredGrid) and field3d.rank == 3
     depth = settings.get('depth', 0)
     projection = settings.get('projection', FRONT)

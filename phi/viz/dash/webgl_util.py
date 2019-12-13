@@ -6,7 +6,8 @@ import os
 import inspect
 
 import webglviewer
-from phi.physics.field import CenteredGrid
+from phi.physics.field import CenteredGrid, StaggeredGrid
+from phi.viz.dash.dash_plotting import reduce_component
 
 
 def load_sky(file, image_format=None, flatten=True, resolution=None, scale=1.0):
@@ -102,15 +103,41 @@ def default_sky():
 EMPTY_GRID = np.zeros([2, 2, 2], np.float32)
 
 
-def webgl_prepare_data(data, settings):
+def webgl_prepare_data(field, settings):
     # type: (object, dict) -> np.ndarray
-    if data is None:
+    if field is None:
         return EMPTY_GRID
 
-    if isinstance(data, CenteredGrid):
-        assert data.rank == 3
-        data = data.data[0,...,0]
-        return data
+    component = settings.get('component', 'length')
+    batch = settings.get('batch', 0)
 
-    warnings.warn('No figure recipe for data %s' % data)
-    return EMPTY_GRID
+    data = None
+
+    if isinstance(field, CenteredGrid):
+        if field.rank == 1:
+            return EMPTY_GRID
+        else:
+            data = field.data
+
+    elif isinstance(field, StaggeredGrid):
+        if field.rank == 1:
+            return EMPTY_GRID
+        if component == 'vec2' or component == 'length':
+            data = field.at_centers().data
+        else:
+            data = field.unstack()[('z', 'y', 'x').index(component)].data
+
+    if data is None:
+        return EMPTY_GRID
+    if not isinstance(data, np.ndarray):
+        return EMPTY_GRID
+
+    if data.ndim == 4:
+        data = np.stack([data] * 2, axis=1)
+
+    data = data[min(batch, data.shape[0] - 1), ...]
+    data = reduce_component(data, component)
+    data = np.transpose(data, axes=(1, 0, 2))
+    data *= 2
+    data = np.abs(data)
+    return data
