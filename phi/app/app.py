@@ -404,7 +404,7 @@ class App(object):
         step_count = 0
         starttime = time.time()
         for i in range(sequence_count):
-            self.run_step(framerate=None, allow_recording=False)
+            self.run_step(framerate=np.inf, allow_recording=False)
             step_count += 1
             if self._pause:
                 break

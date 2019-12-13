@@ -126,7 +126,7 @@ def l2_loss(tensor, batch_norm=True):
 def l_n_loss(tensor, n, batch_norm=True):
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
-        return sum(l_n_loss(tensor, n , batch_norm) for tensor in all_tensors)
+        return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
     total_loss = math.sum(tensor ** n) / n
     if batch_norm:
         batch_size = math.shape(tensor)[0]
