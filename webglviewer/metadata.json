@@ -16,7 +16,14 @@
           "name": "array"
         },
         "required": false,
-        "description": "A grid that will be rendered when this component is rendered."
+        "description": "A grid or a list of grids that will be rendered when this component is rendered."
+      },
+      "idx": {
+        "type": {
+          "name": "number"
+        },
+        "required": false,
+        "description": "Index of datum in data list which should be rendered."
       },
       "sky": {
         "type": {

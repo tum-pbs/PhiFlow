@@ -38,7 +38,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer'):
         if list3d:
             return [
                 dcc.Interval(id=id + '-webgl-initializer', interval=100, max_intervals=1),
-                webglviewer.Webglviewer(id=id+'-webgl', sky=default_sky(), material_type='SMOKE', representation_type='DENSITY')
+                webglviewer.Webglviewer(id=id+'-webgl', sky=default_sky(), material_type='LIGHT_SMOKE', representation_type='DENSITY')
             ]
         else:
             return dcc.Graph(figure=EMPTY_FIGURE, id=id + '-graph', style={'height': '100%'})

@@ -13,7 +13,8 @@ which is editable by the user.
 
 Keyword arguments:
 - id (string; required): The ID used to identify this component in Dash callbacks.
-- data (list; optional): A grid that will be rendered when this component is rendered.
+- data (list; optional): A grid or a list of grids that will be rendered when this component is rendered.
+- idx (number; optional): Index of datum in data list which should be rendered.
 - sky (list; optional): Sky map, expects an array of six arrays.
 Value have to be between 0 and 255.
 Each array represents one side of the cube map (flattened pixels of an image).
@@ -25,12 +26,12 @@ Possible types: SMOKE, DARK_SMOKE, LIGHT_SMOKE, SOLID, LIQUID
 Possible types: DENSITY, SDF, PARTICLE
 - scale (number; optional): Particle scale."""
     @_explicitize_args
-    def __init__(self, id=Component.REQUIRED, data=Component.UNDEFINED, sky=Component.UNDEFINED, material_type=Component.UNDEFINED, representation_type=Component.UNDEFINED, scale=Component.UNDEFINED, **kwargs):
-        self._prop_names = ['id', 'data', 'sky', 'material_type', 'representation_type', 'scale']
+    def __init__(self, id=Component.REQUIRED, data=Component.UNDEFINED, idx=Component.UNDEFINED, sky=Component.UNDEFINED, material_type=Component.UNDEFINED, representation_type=Component.UNDEFINED, scale=Component.UNDEFINED, **kwargs):
+        self._prop_names = ['id', 'data', 'idx', 'sky', 'material_type', 'representation_type', 'scale']
         self._type = 'Webglviewer'
         self._namespace = 'webglviewer'
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['id', 'data', 'sky', 'material_type', 'representation_type', 'scale']
+        self.available_properties = ['id', 'data', 'idx', 'sky', 'material_type', 'representation_type', 'scale']
         self.available_wildcard_properties =            []
 
         _explicit_args = kwargs.pop('_explicit_args')
