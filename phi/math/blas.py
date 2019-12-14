@@ -44,11 +44,11 @@ def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations
         laplace_momentum : A_times_momentum
         residual : residual
         """
-        tmp = math.sum(momentum * A_times_momentum)  # t = sum(mAm)
-        a = math.sum(momentum * residual) / tmp  # a = sum(mr)/sum(mAm)
+        tmp = math.sum(momentum * A_times_momentum, axis=1, keepdims=True)  # t = sum(mAm)
+        a = math.sum(momentum * residual, axis=1, keepdims=True) / tmp  # a = sum(mr)/sum(mAm)
         pressure += a * momentum  # p += am
         residual -= a * A_times_momentum  # r -= aAm
-        momentum = residual - (math.sum(residual * A_times_momentum) * momentum / tmp)  # m = r-sum(rAm)*m/t = r-sum(rAm)*m/sum(mAm)
+        momentum = residual - (math.sum(residual * A_times_momentum, axis=1, keepdims=True) * momentum / tmp)  # m = r-sum(rAm)*m/t = r-sum(rAm)*m/sum(mAm)
         A_times_momentum = apply_A(momentum)  # Am = A*m
         return [pressure, momentum, A_times_momentum, residual, loop_index + 1]
 
