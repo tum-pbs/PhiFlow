@@ -21,14 +21,18 @@ def dash_graph_plot(data, settings):
 
     if isinstance(data, (CenteredGrid, StaggeredGrid)):
         component = settings.get('component', 'x')
-        if component == 'vec2' and data.rank >= 2 and data.component_count >= 2:
-            return vector_field(data, settings)
         if data.rank == 1:
             return plot(data, settings)
         if data.rank == 2:
-            return heatmap(data, settings)
+            if component == 'vec2' and data.component_count >= 2:
+                return vector_field(data, settings)
+            else:
+                return heatmap(data, settings)
         if data.rank == 3:
-            return heatmap(slice_2d(data, settings), settings)
+            if component == 'vec2' and data.component_count >= 2:
+                return vector_field(slice_2d(data, settings), settings)
+            else:
+                return heatmap(slice_2d(data, settings), settings)
 
     warnings.warn('No figure recipe for data %s' % data)
     return EMPTY_FIGURE
@@ -62,7 +66,11 @@ def slice_2d(field3d, settings):
     if isinstance(field3d, numpy.ndarray):
         field3d = CenteredGrid(field3d)
     if isinstance(field3d, StaggeredGrid):
-        field3d = field3d.at_centers()  # ToDo
+        component = settings.get('component', 'length')
+        if component in ('z', 'y', 'x'):
+            field3d = field3d.unstack()[('z', 'y', 'x').index(component)]
+        else:
+            field3d = field3d.at_centers()
     assert isinstance(field3d, CenteredGrid) and field3d.rank == 3
     depth = settings.get('depth', 0)
     projection = settings.get('projection', FRONT)
@@ -128,7 +136,7 @@ def vector_field(field2d, settings, draw_arrows_backward=True, max_resolution=40
     batch = min(batch, field2d.data.shape[0])
 
     y, x = math.unstack(field2d.points.data[0,...,-2:], axis=-1)
-    data_y, data_x = math.unstack(field2d.data[batch,...], -1)
+    data_y, data_x = math.unstack(field2d.data[batch,...], -1)[-2:]
 
     while numpy.prod(x.shape) > max_resolution ** 2:
         y = y[::2, ::2]

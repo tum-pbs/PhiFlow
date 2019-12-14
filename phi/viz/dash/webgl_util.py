@@ -124,6 +124,7 @@ def webgl_prepare_data(field, settings):
             return EMPTY_GRID
         if component == 'vec2' or component == 'length':
             data = field.at_centers().data
+            component = 'length'
         else:
             data = field.unstack()[('z', 'y', 'x').index(component)].data
 
@@ -138,6 +139,5 @@ def webgl_prepare_data(field, settings):
     data = data[min(batch, data.shape[0] - 1), ...]
     data = reduce_component(data, component)
     data = np.transpose(data, axes=(1, 0, 2))
-    data *= 2
-    data = np.abs(data)
+    data = np.abs(data) * 2
     return data
