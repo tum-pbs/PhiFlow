@@ -75,8 +75,6 @@ The [software architecture documentation](documentation/Software_Architecture.md
 
 ## Known Issues
 
-GUI: Message not updating correctly on some Chrome installations on Windows.
-
 TensorBoard: Live supervision does not work when running a local app that writes to a remote directory.
 
 Resampling / Advection: NumPy interpolation handles the boundaries slightly differently than TensorFlow.

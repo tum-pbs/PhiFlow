@@ -1,0 +1,58 @@
+{
+  "src/lib/components/Webglviewer.react.js": {
+    "description": "ExampleComponent is an example component.\nIt takes a property, `label`, and\ndisplays it.\nIt renders an input with the property `value`\nwhich is editable by the user.",
+    "displayName": "Webglviewer",
+    "methods": [],
+    "props": {
+      "id": {
+        "type": {
+          "name": "string"
+        },
+        "required": true,
+        "description": "The ID used to identify this component in Dash callbacks."
+      },
+      "data": {
+        "type": {
+          "name": "array"
+        },
+        "required": false,
+        "description": "A grid or a list of grids that will be rendered when this component is rendered."
+      },
+      "idx": {
+        "type": {
+          "name": "number"
+        },
+        "required": false,
+        "description": "Index of datum in data list which should be rendered."
+      },
+      "sky": {
+        "type": {
+          "name": "array"
+        },
+        "required": false,
+        "description": "Sky map, expects an array of six arrays.\nValue have to be between 0 and 255.\nEach array represents one side of the cube map (flattened pixels of an image).\nExpects 4 channels (r,g,b,a).\nImage has to be quadratic."
+      },
+      "material_type": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": "Material type used for rendering.\nPossible types: SMOKE, DARK_SMOKE, LIGHT_SMOKE, SOLID, LIQUID"
+      },
+      "representation_type": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": "Specifies the representation type used.\nPossible types: DENSITY, SDF, PARTICLE"
+      },
+      "scale": {
+        "type": {
+          "name": "number"
+        },
+        "required": false,
+        "description": "Particle scale."
+      }
+    }
+  }
+}

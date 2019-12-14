@@ -8,10 +8,10 @@ import phi.viz.display as display
 from phi.physics.field import Field
 
 
-class PerformModelTests(display.ModelDisplay):
+class PerformModelTests(display.AppDisplay):
 
-    def show(self):
-        model = self.model
+    def setup(self):
+        model = self.app
         print('Testing model %s...' % model.__class__.__name__)
         model.prepare()
         print('Model prepared.')
@@ -28,8 +28,8 @@ class PerformModelTests(display.ModelDisplay):
         model.world.reset()
 
     def validate_fields(self):
-        for name in self.model.fieldnames:
-            value = self.model.get_field(name)
+        for name in self.app.fieldnames:
+            value = self.app.get_field(name)
             assert isinstance(value, (np.ndarray, Field)), 'Field "%s" has an invalid value: %s' % (name, value)
         print('All fields are valid.')
 

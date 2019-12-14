@@ -128,7 +128,8 @@ setup(
               'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
-              'phi.viz', 'phi.viz.dash'],
+              'phi.viz', 'phi.viz.dash',
+              'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
     },
@@ -144,6 +145,7 @@ setup(
                 'dash-renderer',
                 'dash-html-components',
                 'dash-core-components',
-                'plotly'],
+                'plotly',
+                'imageio'],
     }
 )

@@ -59,14 +59,16 @@ class App(object):
                  name=None,
                  subtitle='',
                  fields=None,
-                 stride=1,
+                 stride=None,
                  record_images=False, record_data=False,
                  base_dir='~/phi/data/',
                  recorded_fields=None,
                  summary=None,
                  custom_properties=None,
                  target_scene=None,
-                 objects_to_save=None):
+                 objects_to_save=None,
+                 framerate=None):
+        self.start_time = time.time()
         self.name = name if name is not None else self.__class__.__name__
         self.subtitle = subtitle
         self.summary = summary if summary else name
@@ -123,8 +125,8 @@ class App(object):
         self.record_data = record_data
         self.recorded_fields = recorded_fields if recorded_fields is not None else []
         self.rec_all_slices = False
-        self.sequence_stride = stride
-        self.animation_fps = 30
+        self.sequence_stride = stride if stride is not None else 1
+        self.framerate = framerate if framerate is not None else stride
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
         self.info('Setting up model...')
@@ -341,7 +343,7 @@ class App(object):
                 self.record_frame()
             if framerate is not None:
                 duration = time.time() - starttime
-                rest = 1.0/framerate/self.sequence_stride - duration
+                rest = 1.0/framerate - duration
                 if rest > 0:
                     self.current_action = 'Waiting'
                     time.sleep(rest)
@@ -352,6 +354,8 @@ class App(object):
             self.current_action = None
 
     def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
+        if framerate is None:
+            framerate = self.framerate
         def target():
             self._pause = False
             step_count = 0
@@ -395,48 +399,12 @@ class App(object):
             self.message = 'Frame written to %s' % files
         self.current_action = None
 
-    def animate(self):
-        # Creates animation using all npz files in the folder. This will however only allow the user to store one data array per simulation, if multiple fields are stored, the animation won't work.
-        self.current_action = 'Animating'
-
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-        import matplotlib.animation as animation
-        import numpy as np
-        from os.path import join
-
-        # Set up formatting for the movie files
-        Writer = animation.writers['ffmpeg']
-        writer = Writer(fps=self.animation_fps, metadata=dict(artist='Me'), bitrate=1800)
-
-        fig = plt.figure()
-
-        ims = []
-        for filename in os.listdir(self.directory):
-            if filename.endswith(".npz"):
-                data = np.load(join(self.directory, filename))
-                array = data['arr_0'][:,:,0]
-                ims.append((plt.pcolor(array),))
-                data.close()
-
-        im_ani = animation.ArtistAnimation(fig, ims, interval=50, repeat_delay=3000,
-                                        blit=True)
-        filename = 'FluidAnimation@' + str(self.animation_fps) + '.mp4'
-        im_ani.save(join(self.directory, filename), writer=writer)
-
-        plt.close(fig)
-        import gc
-        gc.collect()
-
-        self.current_action = None
-
     def benchmark(self, sequence_count):
         self._pause = False
         step_count = 0
         starttime = time.time()
         for i in range(sequence_count):
-            self.run_step(framerate=None, allow_recording=False)
+            self.run_step(framerate=np.inf, allow_recording=False)
             step_count += 1
             if self._pause:
                 break

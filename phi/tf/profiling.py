@@ -45,6 +45,8 @@ class Timeliner:
 
 
 def launch_tensorboard(log_dir, same_process=False, port=6006):
+    if port is None:
+        port = 6006
     if same_process:
         from tensorboard import main as tb
         tf.flags.FLAGS.logdir = log_dir
@@ -59,6 +61,6 @@ def launch_tensorboard(log_dir, same_process=False, port=6006):
         import phi.local.hostname
         host = phi.local.hostname.hostname
     except:
-        host = socket.gethostname()
+        host = 'localhost'  # socket.gethostname()
     url = "http://%s:%d/"%(host,port)
     return url
