@@ -44,7 +44,7 @@ def indices_tensor(tensor, dtype=np.float32):
     return idx.astype(dtype)
 
 
-def normalize_to(target, source=1, epsilon=1e-5):
+def normalize_to(target, source=1, epsilon=1e-5, batch_dims=1):
     """
     Multiplies the target so that its total content matches the source.
 
@@ -53,8 +53,10 @@ def normalize_to(target, source=1, epsilon=1e-5):
     :param epsilon: small number to prevent division by zero or None.
     :return: normalized tensor of the same shape as target
     """
-    denominator = math.maximum(math.sum(target), epsilon) if epsilon is not None else math.sum(target)
-    return target * (math.sum(source) / denominator)
+    target_total = math.sum(target, axis=tuple(range(batch_dims, math.ndims(target))), keepdims=True)
+    denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
+    source_total = math.sum(source, axis=tuple(range(batch_dims, math.ndims(source))), keepdims=True)
+    return target * (source_total / denominator)
 
 
 def batch_align(tensor, innate_dims, target):
