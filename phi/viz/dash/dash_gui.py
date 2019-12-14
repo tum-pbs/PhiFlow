@@ -4,14 +4,14 @@ import dash_html_components as html
 import six
 
 from phi.struct.tensorop import collapsed_gather_nd
-from phi.viz.dash.board import build_benchmark, build_tf_profiler, build_tensorboard_launcher, build_system_controls
-from phi.viz.dash.log import build_log
-from phi.viz.dash.model_controls import build_model_controls
-from phi.viz.dash.viewsettings import build_view_selection
+from .board import build_benchmark, build_tf_profiler, build_tensorboard_launcher, build_system_controls
+from .log import build_log
+from .model_controls import build_model_controls
+from .viewsettings import build_view_selection
 from .dash_app import DashApp
 from .info import build_app_details, build_description, build_phiflow_info, build_app_time
 from .viewer import build_viewer
-from phi.viz.dash.player_controls import build_status_bar, build_player_controls
+from .player_controls import build_status_bar, build_player_controls
 from ..display import AppDisplay
 
 

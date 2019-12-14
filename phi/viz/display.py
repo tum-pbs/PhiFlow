@@ -1,4 +1,6 @@
 import sys, inspect, os
+import warnings
+
 from phi.app.app import App
 
 
@@ -71,9 +73,10 @@ DEFAULT_DISPLAY_CLASS = None
 if 'headless' not in sys.argv:
     try:
         from .dash.dash_gui import DashGui
+        raise ImportError()
         DEFAULT_DISPLAY_CLASS = DashGui
     except ImportError as import_error:
-        print('Failed to load dash GUI: %s' % import_error)
+        warnings.warn('GUI is disabled because Dash could not be imported. To install Dash, run $ pip install dash')
 
 
 AUTORUN = 'autorun' in sys.argv
@@ -109,6 +112,7 @@ def show(app=None, **config):
             display.play()
     # --- Show ---
     if display is None:
+        warnings.warn('show() has no effect because no display is available. To use the Dash GUI, run $ pip install dash')
         return app
     else:
         return display.show(called_from_main)  # blocking call
