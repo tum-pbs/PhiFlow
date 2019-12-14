@@ -73,7 +73,6 @@ DEFAULT_DISPLAY_CLASS = None
 if 'headless' not in sys.argv:
     try:
         from .dash.dash_gui import DashGui
-        raise ImportError()
         DEFAULT_DISPLAY_CLASS = DashGui
     except ImportError as import_error:
         warnings.warn('GUI is disabled because Dash could not be imported. To install Dash, run $ pip install dash')
