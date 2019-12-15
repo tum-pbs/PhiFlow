@@ -11,7 +11,7 @@ import inspect
 
 import six
 
-from .physics import State, Physics
+from .physics import State, Physics, Static
 from .collective import CollectiveState
 from .field.effect import Gravity
 
@@ -202,9 +202,10 @@ Adds a State to the world that will be stepped forward in time each time world.s
         :return: StateProxy referencing the current state of the added system. If world.state is updated (e.g. because world.step() was called), the StateProxy will refer to the updated values.
         """
         if physics is not None:
-            warnings.warn('No physics provided to world.add(%s). This will result in an error in the future.' % state)
             assert isinstance(physics, Physics)
             self.physics.add(state.name, physics)
+        elif state.default_physics() is not None and not isinstance(state.default_physics(), Static):
+            warnings.warn('No physics provided to world.add(%s). In the future this will default to static physics' % state)
         self.state = self.state.state_added(state)
         return StateProxy(self, state.name)
 
