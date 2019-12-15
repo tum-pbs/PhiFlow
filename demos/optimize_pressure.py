@@ -4,12 +4,19 @@ from phi.math.math_util import randn
 from phi.viz.plot import PlotlyFigureBuilder
 
 
+DESCRIPTION = """
+This application demonstrates the backpropagation through the pressure solve operation used in simulating incompressible fluids.
+
+The demo Optimizes the velocity of an incompressible fluid in the left half of a closed space to match the target in the right half.
+
+Select the Y component in the UI to see how the target is approached.
+"""
+
+
 class PressureOptimization(TFApp):
 
     def __init__(self):
-        TFApp.__init__(self, 'Pressure Optimization',
-                       subtitle='Optimize velocity in left half of closed room to match target in right half',
-                       learning_rate=0.1)
+        TFApp.__init__(self, 'Pressure Optimization', DESCRIPTION, learning_rate=0.1)
         # --- Physics ---
         domain = Domain([62, 62], boundaries=CLOSED)
         with self.model_scope():

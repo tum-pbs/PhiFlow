@@ -1,12 +1,15 @@
 from phi.flow import *
 
 
+DESCRIPTION = """
+A horizontal plate at the top is heated and a sphere at the bottom is cooled.
+"""
+
+
 class HeatEquilibriumDemo(App):
 
     def __init__(self):
-        App.__init__(self, 'Heat Relaxation',
-                     'A horizontal plate at the top is heated and a sphere at the bottom is cooled.',
-                     stride=10)
+        App.__init__(self, 'Heat Relaxation', DESCRIPTION, framerate=10)
         self.temperature = world.add(Domain([64, 64]).centered_grid(0, name='temperature'), physics=HeatDiffusion(diffusivity=0.2))
         world.add(HeatSource(box[44:46, 0:64], rate=1))
         world.add(ColdSource(Sphere([20, 32], 4), rate=1), physics=GeometryMovement(lambda t: Sphere([self.y, self.x], 4)))

@@ -14,8 +14,8 @@ def inflow_at(time):
 class MovingInflowDemo(App):
 
     def __init__(self):
-        App.__init__(self, 'Moving Objects Demo', stride=5)
-        smoke = world.add(Fluid(Domain([64, 64], CLOSED), buoyancy_factor=0.1))
+        App.__init__(self, 'Moving Objects Demo', framerate=10)
+        smoke = world.add(Fluid(Domain([64, 64], CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
         world.add(Inflow(inflow_at(0), rate=0.2), physics=GeometryMovement(inflow_at))
         world.add(Obstacle(obstacle_at(0)), physics=GeometryMovement(obstacle_at))
         self.add_field('Density', lambda: smoke.density)

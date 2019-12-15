@@ -8,8 +8,8 @@ SCALE = 4
 class WavePacketDemo(App):
 
     def __init__(self):
-        App.__init__(self, u'Schrödinger Demo', stride=10)
-        wave = self.wave = world.add(QuantumWave(Domain([128 * SCALE, 128 * SCALE])))
+        App.__init__(self, u'Schrödinger Demo', framerate=10)
+        wave = self.wave = world.add(QuantumWave(Domain([128 * SCALE, 128 * SCALE])), physics=Schroedinger())
         self.value_mass = 0.2
         self.value_frequency = 1.0
         self.value_size = 6.0
