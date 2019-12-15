@@ -116,7 +116,7 @@ class CudaCommand(distutils.cmd.Command):
 
 setup(
     name='phiflow',
-    version='1.0.0',
+    version='1.0.1',
     packages=['phi',
               'phi.app',
               'phi.data',
