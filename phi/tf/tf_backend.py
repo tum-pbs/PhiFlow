@@ -407,10 +407,10 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
         coord = [sc[c][i] for i, c in enumerate(bc)]
         if version.parse(tf.__version__) >= version.parse('1.14.0'):
             coord = tf.stack(coord, -1)
-            return tf.gather_nd(inputs, coord, batch_dims=1)
+            return tf.gather_nd(inputs, coord, batch_dims=1)  # NaN can cause negative integers here
         else:
             coord = tf.stack([batch_ids] + coord, -1)
-            return tf.gather_nd(inputs, coord)
+            return tf.gather_nd(inputs, coord)  # NaN can cause negative integers here
 
 
 
