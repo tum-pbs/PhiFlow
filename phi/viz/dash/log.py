@@ -20,7 +20,7 @@ def build_log(dashapp):
     @dashapp.dash.callback(Output('log-dump', 'children'), [STEP_COMPLETE, Input('initialize-log', 'n_intervals'), Input('log-refresh', 'n_clicks')])
     def refresh_log(*args):
         try:
-            log_file = dashapp.app.scene.subpath('info.log')
+            log_file = dashapp.app.log_file
             with open(log_file, 'r') as stream:
                 log_text = stream.read()
             paragraphs = log_text.split('\n')

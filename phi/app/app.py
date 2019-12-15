@@ -97,12 +97,12 @@ class App(object):
             self.scene = target_scene
             self.uses_existing_scene = True
         if not isfile(self.scene.subpath('info.log')):
-            logfile = self.scene.subpath('info.log')
+            log_file = self.log_file = self.scene.subpath('info.log')
         else:
             index = 2
             while True:
-                logfile = self.scene.subpath('info_%d.log' % index)
-                if not isfile(logfile):
+                log_file = self.scene.subpath('info_%d.log' % index)
+                if not isfile(log_file):
                     break
                 else:
                     index += 1
@@ -111,7 +111,7 @@ class App(object):
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
         customLogger = logging.Logger('app', logging.DEBUG)
-        fileHandler = logging.FileHandler(logfile)
+        fileHandler = logging.FileHandler(log_file)
         fileHandler.setFormatter(logFormatter)
         customLogger.addHandler(fileHandler)
         consoleHandler = logging.StreamHandler(sys.stdout)
