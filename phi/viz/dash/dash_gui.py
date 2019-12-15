@@ -58,10 +58,14 @@ class DashGui(AppDisplay):
         # --- Side by Side ---
         if 'display' in self.config:
             sbs_fieldnames = self.config['display']
-            if isinstance(sbs_fieldnames, six.string_types):
+            if sbs_fieldnames is None:
+                sbs_fieldnames = [None, None]
+            elif isinstance(sbs_fieldnames, six.string_types):
                 sbs_fieldnames = [sbs_fieldnames] * 2
         else:
             sbs_fieldnames = self.app.fieldnames
+            if len(sbs_fieldnames) < 2:
+                sbs_fieldnames = list(sbs_fieldnames) + ['None']
         layout = html.Div([
             build_view_selection(dash_app),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[

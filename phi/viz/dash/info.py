@@ -21,12 +21,14 @@ def build_app_details(dashapp):
 
 Summary: %s
 
+Stride: %d
+
 Traits: %s
 
 Script path: %s
 
 Data path: %s
-    """ % (app.summary, app.traits, inspect.getfile(app.__class__), app.scene))
+    """ % (app.summary, app.sequence_stride, app.traits, inspect.getfile(app.__class__), app.scene))
     return details
 
 
