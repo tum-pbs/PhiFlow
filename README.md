@@ -32,13 +32,12 @@ with TensorFlow support.
 
 ## Documentation and Guides
 
-| [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) |
-|------------------------|---------------------------------|---------------|
+| [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) | ![image](https://www.tensorflow.org/images/colab_logo_32px.png) [Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true) |
+|------------------------|---------------------------------|---------------| -----------------------------|
 
-
-If you would like to get right into it and have a look at some code, check out the example
-[notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
-It lets you experiment with Φ<sub>*Flow*</sub> in the browser.
+If you would like to get right into it and have a look at some code, check out the
+[tutorial notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
+It lets you run fluid simulations with Φ<sub>*Flow*</sub> in the browser.
 
 The following introductory demos are also helpful to get started with writing your own app using Φ<sub>*Flow*</sub>:
 
@@ -70,14 +69,19 @@ All simulations of continuous systems are based on the [Field API](documentation
 
 The [software architecture documentation](documentation/Software_Architecture.md) shows the building blocks of Φ<sub>*Flow*</sub> and the module dependencies.
 
-## [Version history](documentation/Version_History.md)
+## Version History
 
+The [Version history](documentation/Version_History.md) lists all major changes since release.
 
 ## Known Issues
 
 TensorBoard: Live supervision does not work when running a local app that writes to a remote directory.
 
 Resampling / Advection: NumPy interpolation handles the boundaries slightly differently than TensorFlow.
+
+## Contributions
+
+Contributions are welcome! Check out [this document](documentation/Contributing.md) for some guidelines.
 
 ## Acknowledgements
 
