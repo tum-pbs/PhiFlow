@@ -37,6 +37,9 @@ class SciPyBackend(Backend):
     def is_tensor(self, x):
         return isinstance(x, np.ndarray)
 
+    def equal(self, x, y):
+        return np.equal(x, y)
+
     def divide_no_nan(self, x, y):
         # Only for scalars, not arrays yet.
         if y == 0:

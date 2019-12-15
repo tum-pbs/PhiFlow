@@ -33,6 +33,7 @@ cast = DYNAMIC_BACKEND.cast
 ceil = DYNAMIC_BACKEND.ceil
 cos = DYNAMIC_BACKEND.cos
 dtype = DYNAMIC_BACKEND.dtype
+equal = DYNAMIC_BACKEND.equal
 floor = DYNAMIC_BACKEND.floor
 concat = DYNAMIC_BACKEND.concat
 conv = DYNAMIC_BACKEND.conv

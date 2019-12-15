@@ -24,10 +24,13 @@ class TFBackend(Backend):
         return False
 
     def is_tensor(self, x):
-        return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor))
+        return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
     def as_tensor(self, x):
         return tf.convert_to_tensor(x)
+
+    def equal(self, x, y):
+        return tf.equal(x, y)
 
     def divide_no_nan(self, x, y):
         return tf.div_no_nan(x, y)

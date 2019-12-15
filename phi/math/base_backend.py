@@ -23,6 +23,9 @@ class Backend:
     def as_tensor(self, x):
         raise NotImplementedError()
 
+    def equal(self, x, y):
+        raise NotImplementedError()
+
     def random_uniform(self, shape):
         raise NotImplementedError(self)
 
@@ -278,6 +281,9 @@ class DynamicBackend(Backend):
 
     def as_tensor(self, x):
         return self.choose_backend(x).as_tensor(x)
+
+    def equal(self, x, y):
+        return self.choose_backend([x, y]).equal(x, y)
 
     def random_uniform(self, tensor):
         return self.choose_backend(tensor).random_uniform(tensor)
