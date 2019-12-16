@@ -114,6 +114,10 @@ class CudaCommand(distutils.cmd.Command):
         assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
+with open("README.md", "r") as readme:
+    long_description = readme.read()
+
+
 setup(
     name='phiflow',
     version='1.0.1',
@@ -135,6 +139,8 @@ setup(
         'tf_cuda': CudaCommand,
     },
     description='Research-oriented differentiable fluid simulation framework',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     keywords=['Differentiable', 'Simulation', 'Fluid', 'Machine Learning', 'Deep Learning'],
     license='MIT',
     author='Philipp Holl',
