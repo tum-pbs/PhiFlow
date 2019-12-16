@@ -25,8 +25,7 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 The following commands will get you Φ<sub>*Flow*</sub> + browser-GUI + NumPy execution:
 
 ```bash
-$ git clone https://github.com/tum-pbs/PhiFlow.git
-$ pip install phiflow/[gui]
+$ pip install phiflow[gui]
 ```
 
 See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to install Φ<sub>*Flow*</sub>
