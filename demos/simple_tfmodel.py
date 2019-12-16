@@ -2,7 +2,7 @@ from phi.tf.flow import *
 
 
 RESOLUTION = y, x = 64, 64
-DATAPATH = '~/phi/data/smoke/'  # at least 10 sims, has to match RESOLUTION
+DATAPATH = os.path.expanduser('~/phi/data/smoke/')  # at least 10 sims, has to match RESOLUTION
 DESCRIPTION = u"""
 Train a neural network to reproduce the flow field given the marker density.
 

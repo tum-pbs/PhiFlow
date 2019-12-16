@@ -65,6 +65,9 @@ class App(nontf.App):
         return feed_dict
 
 
+EVERY_EPOCH = lambda tfapp: tfapp.steps % tfapp.epoch_size == 0
+
+
 class TFApp(App):
 
     def __init__(self, name='TensorFlow application', subtitle='',
@@ -74,7 +77,9 @@ class TFApp(App):
                  model_scope_name='model',
                  base_dir='~/phi/model/',
                  stride=None,
+                 epoch_size=None,
                  force_custom_stride=False,
+                 log_scalars=EVERY_EPOCH,
                  **kwargs):
         App.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
@@ -86,9 +91,12 @@ class TFApp(App):
         self.model_scope_name = model_scope_name
         self.auto_bake = False
         self.scalar_values = {}
+        self.scalar_values_validation = {}
         self.set_data(None, None)
-        self.custom_stride = stride
-        self.force_custom_stride = force_custom_stride
+        assert stride is None or epoch_size is None
+        self.epoch_size = epoch_size if epoch_size is not None else stride
+        assert isinstance(log_scalars, bool) or callable(log_scalars)
+        self.log_scalars = log_scalars
 
     def prepare(self):
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
@@ -104,19 +112,19 @@ class TFApp(App):
                 #     tf.summary.image(var.name, var)
         self.add_custom_property('parameter_count', model_parameter_count)
         self.info('Model variables contain %d total parameters.' % model_parameter_count)
-
+        # --- Use world.batch_size? ---
         if self.world.batch_size is not None:
             self.training_batch_size = self.world.batch_size
             self.validation_batch_size = self.world.batch_size
-
-        if self._train_reader is not None:
-            self.sequence_stride = len(self._train_reader.all_batches(batch_size=self.training_batch_size))
-            self.validation_step()
-        if self.custom_stride is not None:
-            self.sequence_stride = min(self.custom_stride, self.sequence_stride)
-            if self.force_custom_stride:
-                self.sequence_stride = self.custom_stride
-
+        # --- Epoch size ---
+        if self.epoch_size is None:
+            if self._train_reader is not None:
+                self.epoch_size = len(self._train_reader.all_batches(batch_size=self.training_batch_size))
+            else:
+                self.epoch_size = 1
+        self.sequence_stride = self.epoch_size
+        # --- Validate ---
+        self.validation_step()
         return self
 
     def set_data(self, dict, train=None, val=None):
@@ -169,11 +177,11 @@ class TFApp(App):
 
     def step(self):
         self.optimization_step(self.all_optimizers)
-        if self.steps % self.sequence_stride == 0:
+        if self.steps % self.epoch_size == 0:
             self.validation_step(create_checkpoint=True)
         return self
 
-    def optimization_step(self, optim_nodes, log_loss=False):
+    def optimization_step(self, optim_nodes, log_loss=None):
         try:
             optim_nodes = list(optim_nodes)
         except:
@@ -181,19 +189,25 @@ class TFApp(App):
         batch = next(self._train_iterator) if self._train_iterator is not None else None
         feed_dict = self._feed_dict(batch, True)
         scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
-        self.scalar_values = {name: value for name, value in zip(self.scalar_names, scalar_values) }
+        self.scalar_values = {name: value for name, value in zip(self.scalar_names, scalar_values)}
+        if log_loss is None:
+            log_loss = self.log_scalars
+        if callable(log_loss):
+            log_loss = log_loss(self)
+        assert isinstance(log_loss, bool)
         if log_loss:
-            self.info('Optimization: ' + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
+            self.info('Optimization (%06d): ' % self.steps + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
     def validation_step(self, create_checkpoint=False):
         if self._val_reader is None:
             return
         batch = self._val_reader[0:self.validation_batch_size]
         feed_dict = self._feed_dict(batch, False)
-        self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
+        scalar_values = self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
+        self.scalar_values_validation = {name: value for name, value in zip(self.scalar_names, scalar_values)}
         if create_checkpoint:
             self.save_model()
-        self.info('Parameters: %d. Validation Done (%d).' % (self.custom_properties()['parameter_count'], self.steps) )
+        self.info('Validation (%06d): ' % self.steps + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
 
     def base_feed_dict(self):
         return {}

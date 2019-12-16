@@ -16,7 +16,7 @@ Select the Y component in the UI to see how the target is approached.
 class PressureOptimization(TFApp):
 
     def __init__(self):
-        TFApp.__init__(self, 'Pressure Optimization', DESCRIPTION, learning_rate=0.1)
+        TFApp.__init__(self, 'Pressure Optimization', DESCRIPTION, learning_rate=0.1, epoch_size=5)
         # --- Physics ---
         domain = Domain([62, 62], boundaries=CLOSED)
         with self.model_scope():
