@@ -43,7 +43,7 @@ Accessing any property of a simulation reference (such as `fluid`) will now retu
 
 To use the browser-based GUI that comes with Φ<sub>*Flow*</sub>, we need to wrap our simulation code with a
 `App`.
-How to use `App`s is documented [here](Browser_GUI.md).
+How to use `App`s is documented [here](Web_Interface.md).
 
 The following code is taken from [the simpleplume example](../demos/simpleplume.py).
 

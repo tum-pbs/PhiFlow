@@ -2,6 +2,7 @@
 import inspect
 import os
 import datetime
+import subprocess
 import warnings
 from os.path import dirname, exists, join, isfile
 
@@ -56,11 +57,12 @@ def _description_markdown_src(title, subtitle=''):
 
 
 def build_phiflow_info(dashapp):
-    setup_file = join(dirname(dirname(inspect.getfile(phi))), 'setup.py')
+    root_dir = dirname(dirname(inspect.getfile(phi)))
+    setup_file = join(root_dir, 'setup.py')
     version = 'unknown'
     if isfile(setup_file):
         try:
-            version = os.popen('python %s --version' % setup_file).read()
+            version = subprocess.check_output('python %s --version' % setup_file, cwd=os.path.abspath(root_dir))
         except BaseException as exc:
             warnings.warn('Could not get PhiFlow version: %s' % exc)
     return dcc.Markdown(u"""

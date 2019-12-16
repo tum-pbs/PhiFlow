@@ -75,7 +75,7 @@ if 'headless' not in sys.argv:
         from .dash.dash_gui import DashGui
         DEFAULT_DISPLAY_CLASS = DashGui
     except ImportError as import_error:
-        warnings.warn('GUI is disabled because Dash could not be imported. To install Dash, run $ pip install dash')
+        warnings.warn('GUI is disabled because of missing dependencies: %s. To install all dependencies, run $ pip install phiflow[gui]' % import_error)
 
 
 AUTORUN = 'autorun' in sys.argv
@@ -111,7 +111,7 @@ def show(app=None, **config):
             display.play()
     # --- Show ---
     if display is None:
-        warnings.warn('show() has no effect because no display is available. To use the Dash GUI, run $ pip install dash')
+        warnings.warn('show() has no effect because no display is available. To use the web interface, run $ pip install phiflow[gui]')
         return app
     else:
         return display.show(called_from_main)  # blocking call

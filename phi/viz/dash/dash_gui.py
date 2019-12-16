@@ -34,6 +34,8 @@ class DashGui(AppDisplay):
                 dcc.Link(u'Φ Board', href='/board'),
                 # ' - ',
                 # dcc.Link('Scripting', href='/scripting'),
+                ' - ',
+                html.A('Help', href='https://github.com/tum-pbs/PhiFlow/blob/master/documentation/Web_Interface.md', target='_blank'),
             ])
         dash_app = self.dash_app = DashApp(self.app, self.config, header_layout)
 
@@ -64,7 +66,9 @@ class DashGui(AppDisplay):
                 sbs_fieldnames = [sbs_fieldnames] * 2
         else:
             sbs_fieldnames = self.app.fieldnames
-            if len(sbs_fieldnames) < 2:
+            if len(sbs_fieldnames) == 0:
+                sbs_fieldnames = ['None', 'None']
+            elif len(sbs_fieldnames) < 2:
                 sbs_fieldnames = list(sbs_fieldnames) + ['None']
         layout = html.Div([
             build_view_selection(dash_app),
@@ -128,7 +132,7 @@ class DashGui(AppDisplay):
         return self.dash_app.dash
 
     def show(self, caller_is_main):
-        if caller_is_main:
+        if caller_is_main or self.config.get('force_launch', False):
             port = self.config.get('port', 8051)
             print('Starting Dash server on http://localhost:%d/' % port)
             self.dash_app.dash.run_server(debug=True, host='0.0.0.0', port=port, use_reloader=False)

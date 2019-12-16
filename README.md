@@ -5,7 +5,7 @@
 [![PyPI license](https://img.shields.io/pypi/l/phiflow.svg)](https://pypi.org/project/phiflow/)
 [![image](https://www.tensorflow.org/images/colab_logo_32px.png) Run in Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true)
 
-![Gui](documentation/figures/Gui.png)
+![Gui](documentation/figures/WebInterface.png)
 
 Φ<sub>*Flow*</sub> is a research-oriented, open-source fluid simulation toolkit.
 It is written mostly in Python and can use both NumPy and TensorFlow for execution.
@@ -52,7 +52,7 @@ The [simulation overview](documentation/Simulation_Overview.md) explains how to 
 
 To learn how specific simulations are implemented, check out the documentation for [Fluids](documentation/Fluid_Simulation.md) or read about [staggered grids](documentation/Staggered_Grids.md) or [pressure solvers](documentation/Pressure_Solvers.md).
 
-[Writing a Φ<sub>*Flow*</sub> Application](documentation/Browser_GUI.md) introduces the high-level classes and explains how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
+[Writing a Φ<sub>*Flow*</sub> Application](documentation/Web_Interface.md) introduces the high-level classes and explains how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
 
 For I/O and data management, see the [data documentation](documentation/Reading_and_Writing_Data.md) or the [scene format specification](documentation/Scene_Format_Specification.md).
 

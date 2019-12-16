@@ -1,30 +1,54 @@
-# Φ<sub>*Flow*</sub> Browser GUI
+# Φ<sub>*Flow*</sub> Web Interface
 
-![Gui](./figures/Gui.png)
+![Gui](figures/WebInterface.png)
 
-Φ<sub>*Flow*</sub> contains an interactive GUI that can display any kind of two-dimensional or three-dimensional fields. The interface is displayed in the browser and is very easy to set up.
+Φ<sub>*Flow*</sub> contains an interactive web interface that can display 1D, 2D and 3D data.
+The interface is displayed in the browser so it can be used remotely.
 
-The default GUI will display your application in the browser.
-If you intend to use the GUI for interactive training of a TensorFlow model, make sure to read the 
+*Note*:
+If you intend to use the interface for interactive training of a TensorFlow model, make sure to read the 
 [TensorFlow specific section](Interactive_Training_Apps.md) as well. Else, you can simply create a subclass of [App](../phi/app/app.py) as described below.
 
-## Launching the GUI
+## Tabs & Features
 
-The following code defines a custom [App](../phi/app/app.py) and uses it to launch the GUI.
+The web interface consists of multiple tabs (web pages) which can be accessed from the top left.
+
+- **Home** shows the title and description of the app. It allows the user to choose one field to view and to start/pause the app or step a single frame. Additionally all app-specific controls are shown at the bottom.
+- **Side-by-Side** is similar to Home but shows two fields at a time instead of one.
+- **Info** displays additional information about the current session such as file paths and run time.
+- **Log** displays the complete application log.
+- **Φ Board** contains benchmarking functionality. For TensorFlow apps it also allows the user to launch TensorBoard and run the TensorFlow profiler.
+- **Help** refers to this page.
+
+Tips & Tricks:
+
+- You can run a specified number of frames by entering the number in the text box next to the 'Step' button. If you put a '*' before the number, it is multiplied by the app's `stride` value which can be found in the `info` tab.
+
+
+## Launching the Web Interface
+
+The web interface is based on [Dash by Plotly](https://plot.ly/dash/) which uses the popular framework [Flask](https://www.palletsprojects.com/p/flask/).
+
+To launch the web interface, you have to create an instance of [`App`](../phi/app/app.py) and pass it to the `show` method.
+
+While a direct instance of `App` can be used (with `force_show=True`), the preferred way is to create a subclass of `App`.
+The following code snippet shows how to do this and launch the interface.
 
 ```python
 from phi.flow import *
 
-class GuiTest(App):
+class HelloWorld(App):
     def __init__(self):
-        App.__init__(self, 'Hello World!')
+        App.__init__(self)
 
 show()
 ```
 
-When run, the application prints a URL to the console. Enter this URL into a browser to view the GUI.
+When run, the application prints a URL to the console.
+Enter this URL into a browser to view the interface.
+The URL always stays the same, so you can simply refresh the web page when restarting your app.
 
-You should see the _Hello World_ text at the top, followed by two empty diagrams and a bunch of controls. None of the controls will do anything useful at this point so let's focus on the diagrams.
+You should see *Hello World*, the name of our app, at the top, followed by a diagram and the controls. None of the controls will do anything useful at this point so let's focus on the diagram.
 
 A key part of any [App](../phi/app/app.py) is that it exposes a set of fields (NumPy arrays) which can change over time. How these fields are generated and how they evolve is up to the application. They could change as part of an evolving fluid simulation, they could be the predictions of a neural network that is being optimized or they could simply be a sequence read from disc.
 
@@ -58,13 +82,18 @@ Your subclass of [App](../phi/app/app.py) automatically inherits the variable `t
 
 After `step()` finishes, the GUI is updated to reflect the change in the data. Consequently, the channel generators (`numpy,ndarray`'s and `lambda` expressions in the above example) can be called after each step. In practice, however, steps can often be performed at a higher framerate than the GUI update rate.
 
-## Framerate, Sequences and Recording
+## Frame Rate and Refresh Rate
 
-The default app provides control for the display framerate and for running sequences. If `framerate control` is enabled, the corresponding slides control the number of targeted updates per second. I.e., for a setting of 2, the field displays will be updated twice per second. If the computations take more time, or the bandwidth is limited, the update frequency is reduced. The `substeps` field controls how many updates, i.e., `step()` calls should be performed at least before an UI update is triggered.
+The web interface provides a *Refresh rate* control above the field viewer.
+This value describes how often the diagrams in the browser are refreshed.
+It is independent of the frame rate of the app.
 
-In the UI section below the framerate, the run `Run sequence` button performs a chosen number of updates (each with `substeps` iterations), while `Benchmark sequence` additionally measures execution time.
+The frame rate of the app can be set in the constructor, `App.__init__(self, framerate=10)`.
+To allow the user to control the frame rate, set it to `framerate=EditableInt('Framerate', 10, minmax=(1, 30))`.
 
-The Record section controls with registered UI fields are written to disk. The data can either be saved visually as an `Image` and/or as a numpy array with `Data`. The `substeps` setting controls the interval for writing data.
+The `stride` parameter is used to segment frames of the app.
+For machine learning applications, this is equal to the number of steps in one epoch and influences how often validations are performed.
+It has no effect on the interface, except that it is multiplied to the frame count when entering `*` in front of the number into the text box.
 
 ## Custom Controls
 

@@ -1,7 +1,7 @@
 # Interactive training or optimization
 
 This document assumes you have some basic knowledge of `Apps` and how they interact with the GUI.
-If not, checkout the [documentation](Browser_GUI.md).
+If not, checkout the [documentation](Web_Interface.md).
 
 If the purpose of your application is to train a TensorFlow model, your main application class should extend [TFApp](../phi/tf/app.py) which in turn extends `App`.
 This has a couple of benefits:
