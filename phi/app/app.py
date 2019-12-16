@@ -119,7 +119,6 @@ class App(object):
         consoleHandler.setLevel(logging.INFO)
         customLogger.addHandler(consoleHandler)
         self.logger = customLogger
-        print('Scene directory is %s' % self.scene.path)
         # Recording
         self.record_images = record_images
         self.record_data = record_data
@@ -129,7 +128,7 @@ class App(object):
         self.framerate = framerate if framerate is not None else stride
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
-        self.info('Setting up model...')
+        self.info('App created. Scene directory is %s' % self.scene.path)
 
     def new_scene(self, count=None):
         if count is None:
@@ -263,13 +262,8 @@ class App(object):
                     return trace.find_in(world_state)
                 self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
-        old_worldstate = world.state
         with struct.unsafe():
-            struct.map(add_default_field, world.state,
-                       leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
-                       trace=True)
-        is_same = old_worldstate is world.state
-        print()
+            struct.map(add_default_field, world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True)
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value

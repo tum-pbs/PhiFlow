@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import socket
 import threading
@@ -7,7 +8,7 @@ from tensorflow.python.client import timeline
 
 
 if tf.__version__[0] == '2':
-    print('Adjusting for tensorflow 2.0')
+    logging.info('Adjusting for tensorflow 2.0')
     tf = tf.compat.v1
     tf.disable_eager_execution()
 

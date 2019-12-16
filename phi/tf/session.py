@@ -1,3 +1,4 @@
+import logging
 import os
 import contextlib
 import threading
@@ -26,7 +27,7 @@ class Session(object):
     def initialize_variables(self):
         import tensorflow as tf
         if tf.__version__[0] == '2':
-            print('Adjusting for tensorflow 2.0')
+            logging.info('Adjusting for tensorflow 2.0')
             tf = tf.compat.v1
             tf.disable_eager_execution()
         self._session.run(tf.global_variables_initializer())
@@ -126,7 +127,7 @@ class Session(object):
             saver.restore(self._session, path)
         except tf.errors.NotFoundError as e:
             from tensorflow.contrib.framework.python.framework import checkpoint_utils
-            print(checkpoint_utils.list_variables(dir))
+            logging.info(checkpoint_utils.list_variables(dir))
             raise e
 
     def as_default(self):

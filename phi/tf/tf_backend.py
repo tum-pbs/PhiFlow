@@ -1,3 +1,4 @@
+import logging
 import uuid
 import numpy as np
 import six
@@ -8,7 +9,7 @@ from phi.math.base_backend import Backend
 from phi.struct.tensorop import expand, collapsed_gather_nd
 
 if tf.__version__[0] == '2':
-    print('Adjusting for tensorflow 2.0')
+    logging.info('Adjusting for tensorflow 2.0')
     tf = tf.compat.v1
     tf.disable_eager_execution()
 

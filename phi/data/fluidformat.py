@@ -6,6 +6,8 @@ import os
 import os.path
 import re
 import shutil
+import warnings
+
 import six
 import numpy as np
 from os.path import join, isfile, isdir
@@ -225,7 +227,7 @@ class Scene(object):
         try:
             shutil.copystat(script_path, target)
         except:
-            pass  # print("Could not copy file metadata to %s"%target)
+            warnings.warn('Could not copy file metadata to %s' % target)
 
     def copy_src(self, path):
         file_name = os.path.basename(path)
@@ -237,7 +239,7 @@ class Scene(object):
         try:
             shutil.copystat(path, join(target_dir, file_name))
         except:
-            pass  # print("Could not copy file metadata to %s"%target)
+            warnings.warn('Could not copy file metadata to %s' % join(target_dir, file_name))
 
     def mkdir(self, subdir=None):
         path = self.path

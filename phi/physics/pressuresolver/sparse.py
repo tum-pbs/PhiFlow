@@ -1,3 +1,4 @@
+import logging
 from numbers import Number
 import numpy as np
 import scipy
@@ -138,7 +139,7 @@ class SparseCG(PressureSolver):
         if math.choose_backend(divergence).matches_name('TensorFlow'):
             import tensorflow as tf
             if tf.__version__[0] == '2':
-                print('Adjusting for tensorflow 2.0')
+                logging.info('Adjusting for tensorflow 2.0')
                 tf = tf.compat.v1
                 tf.disable_eager_execution()
             sidx, sorting = sparse_indices(dimensions)

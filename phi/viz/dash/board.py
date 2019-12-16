@@ -130,7 +130,7 @@ def build_system_controls(dashapp):
     @dashapp.dash.callback(Output('exit-button', 'style'), [Input('exit-button', 'n_clicks')])
     def exit_application(n):
         if n:
-            print('DashGUI: Exiting...')
+            logging.info('DashGUI: Exiting...')
             os._exit(0)  # exit() does not work from Dash threads
 
     return layout
