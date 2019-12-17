@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import tensorflow as tf
@@ -8,7 +9,7 @@ from phi.physics.pressuresolver.solver_api import PressureSolver
 
 
 if tf.__version__[0] == '2':
-    print('Adjusting for tensorflow 2.0')
+    logging.info('Adjusting for tensorflow 2.0')
     tf = tf.compat.v1
     tf.disable_eager_execution()
 

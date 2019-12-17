@@ -8,43 +8,24 @@ from phi.app import App
 class Viewer(App):
 
     def __init__(self, simpath):
-        App.__init__(self, name=u'*Φ-Flow* Viewer', subtitle='Play a recorded simulation')
+        App.__init__(self, name=u'*Φ-Flow* Viewer', subtitle='Play a recorded simulation',
+                     framerate=EditableFloat('Framerate', 10, (1, 30), log_scale=False))
         self.value_directory = simpath
         self.view_scene = None
-        self.indices = None
-        self.fieldvalues = None
-        self.action_rewind()
-
-    def update(self):
-        if not self.indices:
-            self.info('No frames present.')
-            self.steps = 0
-        else:
-            self.steps = self.indices[self.timeindex % len(self.indices)]
-            self.info('Loading frame %d...' % self.steps)
-            self.fieldvalues = read_sim_frame(self.value_directory, self.fieldnames, self.steps)
-            self.info('')
+        self.action_load()
+        self.current_frame = EditableInt('Frame', 0, (min(self.view_scene.frames), max(self.view_scene.frames)))
+        self.value_looping = True
+        for field_name in self.view_scene.fieldnames:
+            self.add_field(field_name, lambda f=field_name: self.view_scene.read_array(f, self.current_frame))
 
     def step(self):
-        self.timeindex += 1
-        self.update()
+        self.current_frame += 1
+        if self.current_frame >= max(self.view_scene.frames):
+            self.current_frame = min(self.view_scene.frames) if self.value_looping else max(self.view_scene.frames) - 1
+        self.steps = self.current_frame
 
-    def action_rewind(self):
-        self.timeindex = 0
-        self.action_refresh()
-        if self.indices:
-            self.steps = self.indices[0]
-        else:
-            self.steps = 0
-
-    def action_refresh(self):
+    def action_load(self):
         self.view_scene = Scene.at(self.value_directory)
-        self.indices = self.view_scene.get_frames(mode='union')
-        for fieldname in self.view_scene.fieldnames:
-            def getfield(fieldname=fieldname):
-                return self.view_scene.read_array(fieldname, self.steps)
-            self.add_field(fieldname, getfield)
-        self.update()
 
 
 SCENE_PATH = sys.argv[1] if len(sys.argv) >= 2 else '~/phi/data/smoke/sim_000000'

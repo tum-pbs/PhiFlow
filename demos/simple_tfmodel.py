@@ -2,11 +2,28 @@ from phi.tf.flow import *
 
 
 RESOLUTION = y, x = 64, 64
-DATAPATH = '~/phi/data/smoke/' # at least 10 sims, has to match RESOLUTION
+DATAPATH = os.path.expanduser('~/phi/data/smoke/')  # at least 10 sims, has to match RESOLUTION
+DESCRIPTION = u"""
+Train a neural network to reproduce the flow field given the marker density.
+
+This application loads the previously generated training data from "%s".
+
+Try showing only the X component of the velocity - that one is more interesting than the magnitude.
+Use the batch slider to change the example shown in the viewer.
+
+Also make sure to check out the TensorBoard integration.
+In TensorBoard you will see how the loss changes during optimization.
+You can launch TensorBord right from the GUI by opening the Φ Board page and clicking on 'Launch TensorBoard'.
+""" % DATAPATH
+
+
+if not os.path.exists(os.path.join(DATAPATH, 'sim_000009')):
+    print('Not enough training data found in %s. Run smoke_datagen_commandline.py or smoke_datagen_interactive.py to generate training data.' % DATAPATH)
+    exit(1)
 
 
 def network(density):
-    """very simple conv net"""
+    """ very simple conv net """
     n_feat = 32  # number of features in inner layers
     w_1 = tf.get_variable('w_1', [5, 5, 1, n_feat], initializer=tf.random_normal_initializer(stddev=0.01, mean=0.))
     f_1 = tf.nn.relu(tf.nn.conv2d(density, w_1, strides=[1, 1, 1, 1], padding='SAME'))
@@ -27,30 +44,24 @@ def network(density):
 class TrainingTest(TFApp):
 
     def __init__(self):
-        TFApp.__init__(self, 'Training',
-                       "Load simulations from disk, and train network to reproduce the flow field given the density",
-                       learning_rate=2e-4,
-                       validation_batch_size=4, training_batch_size=8)
+        TFApp.__init__(self, 'Training', DESCRIPTION, learning_rate=2e-4, validation_batch_size=4, training_batch_size=8)
+        # --- Setup simulation and placeholders ---
         smoke_in, load_dict = load_state(Fluid(Domain(RESOLUTION)))
-
-
+        # --- Build neural network ---
         with self.model_scope():
             pred_vel = network(smoke_in.density.data)
-
+        # --- Loss function ---
         target_vel = smoke_in.velocity.staggered_tensor()[..., :-1, :-1, :]
         loss = math.l2_loss(pred_vel - target_vel)
         self.add_objective(loss, 'Loss')
-
-        # this assumes we have 10 sims in the path
+        # --- Training data ---
         self.set_data(dict=load_dict,
                       train=Dataset.load(DATAPATH, range(0, 8)),
                       val=Dataset.load(DATAPATH, range(8, 10)))
-
+        # --- GUI ---
         self.add_field('Velocity (Ground Truth)', smoke_in.velocity)
         self.add_field('Velocity (Model)', pred_vel)
         self.add_field('Density (Input)', smoke_in.density)
 
 
 show(display=('Velocity (Ground Truth)', 'Velocity (Model)'))
-
-# hint, try showing x component only in UI - that one is more interesting than the magnitude

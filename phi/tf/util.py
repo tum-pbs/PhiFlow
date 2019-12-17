@@ -1,4 +1,5 @@
 # coding=utf-8
+import logging
 import warnings
 import numpy as np
 import tensorflow as tf
@@ -11,7 +12,7 @@ from phi.physics.field.grid import CenteredGrid
 from phi.struct.functions import mappable
 
 if tf.__version__[0] == '2':
-    print('Adjusting for tensorflow 2.0')
+    logging.info('Adjusting for tensorflow 2.0')
     tf = tf.compat.v1
     tf.disable_eager_execution()
 

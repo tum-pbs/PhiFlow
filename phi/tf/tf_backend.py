@@ -1,3 +1,4 @@
+import logging
 import uuid
 import numpy as np
 import six
@@ -8,7 +9,7 @@ from phi.math.base_backend import Backend
 from phi.struct.tensorop import expand, collapsed_gather_nd
 
 if tf.__version__[0] == '2':
-    print('Adjusting for tensorflow 2.0')
+    logging.info('Adjusting for tensorflow 2.0')
     tf = tf.compat.v1
     tf.disable_eager_execution()
 
@@ -24,19 +25,25 @@ class TFBackend(Backend):
         return False
 
     def is_tensor(self, x):
-        return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor))
+        return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
     def as_tensor(self, x):
         return tf.convert_to_tensor(x)
 
+    def equal(self, x, y):
+        return tf.equal(x, y)
+
     def divide_no_nan(self, x, y):
         return tf.div_no_nan(x, y)
 
-    def random_like(self, shape):
+    def random_uniform(self, shape):
         return tf.random.uniform(shape)
 
     def rank(self, value):
         return len(value.shape)
+
+    def range(self, start, limit=None, delta=1, dtype=None):
+        return tf.range(start, limit, delta, dtype)
 
     def tile(self, value, multiples):
         return tf.tile(value, multiples)
@@ -132,7 +139,7 @@ class TFBackend(Backend):
             result.set_shape(shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
+    def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
         return resample_tf(inputs, sample_coords, interpolation, boundary)
 
     def zeros_like(self, tensor):
@@ -252,6 +259,9 @@ class TFBackend(Backend):
     def gather(self, values, indices):
         return tf.gather(values, indices)
 
+    def gather_nd(self, values, indices):
+        return tf.gather_nd(values, indices)
+
     def unstack(self, tensor, axis=0):
         return tf.unstack(tensor, axis=axis)
 
@@ -273,12 +283,10 @@ class TFBackend(Backend):
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
-        # Input indices only has the 2D coordinates.
-        # EDIT: This formatting should be already done before calling scatter.
         z = tf.zeros(shape, dtype=values.dtype)
 
         if duplicates_handling == 'add':
-            # Only for Tensorflow with custom gradient
+            #Only for Tensorflow with custom gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
                 result = tf.tensor_scatter_add(z, indices, values)
@@ -294,12 +302,7 @@ class TFBackend(Backend):
             count = tf.tensor_scatter_add(z, indices, tf.ones_like(values))
             total = tf.tensor_scatter_add(z, indices, values)
             return (total / tf.maximum(1.0, count))
-        elif duplicates_handling == 'no duplicates':
-            st = tf.SparseTensor(indices, values, shape)
-            st = tf.sparse.reorder(st)   # only needed if not ordered
-            return tf.sparse.to_dense(st)
-        else:  # last, any, undefined
-            # Same as 'no duplicates'?
+        else: # last, any, undefined
             st = tf.SparseTensor(indices, values, shape)
             st = tf.sparse.reorder(st)   # only needed if not ordered
             return tf.sparse.to_dense(st)
@@ -405,10 +408,10 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
         coord = [sc[c][i] for i, c in enumerate(bc)]
         if version.parse(tf.__version__) >= version.parse('1.14.0'):
             coord = tf.stack(coord, -1)
-            return tf.gather_nd(inputs, coord, batch_dims=1)
+            return tf.gather_nd(inputs, coord, batch_dims=1)  # NaN can cause negative integers here
         else:
             coord = tf.stack([batch_ids] + coord, -1)
-            return tf.gather_nd(inputs, coord)
+            return tf.gather_nd(inputs, coord)  # NaN can cause negative integers here
 
 
 
@@ -424,7 +427,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     return _pyramid_combination(samples, weight_0, weight_1)
 
 
-def resample_tf(inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
+def resample_tf(inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
     """
 Resamples an N-dimensional tensor at the locations provided by sample_coords
     :param inputs: grid with dimensions (batch_size, spatial dimensions..., element_size)

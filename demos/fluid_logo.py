@@ -7,6 +7,13 @@ else:
     MODE = 'NumPy'
 
 
+DESCRIPTION = """
+Incompressible fluid simulation with obstacles and buoyancy.
+
+Currently %s is used for processing. This setting is set in the commandline by passing either 'tf' (TensorFlow) or nothing (NumPy) after the resolution argument.
+""" % MODE
+
+
 def create_tum_logo():
     for x in range(1, 10, 2):
         world.add(Obstacle(box[41:83, 15 + x * 7:15 + (x+1) * 7]))
@@ -15,10 +22,9 @@ def create_tum_logo():
 
 class SmokeLogo(App):
 
-    def __init__(self, size):
-        App.__init__(self, 'Fluid Logo', 'Run a smoke simulation using %s for processing.' % MODE,
-                     summary='smokedemo' + 'x'.join([str(d) for d in size]), stride=20)
-        smoke = self.smoke = world.add(Fluid(Domain(size, box=box[0:100, 0:100], boundaries=CLOSED), buoyancy_factor=0.1))
+    def __init__(self, resolution):
+        App.__init__(self, 'Fluid Logo', DESCRIPTION, summary='smoke' + 'x'.join([str(d) for d in resolution]), framerate=20)
+        smoke = self.smoke = world.add(Fluid(Domain(resolution, box=box[0:100, 0:100], boundaries=CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
         world.add_all(Inflow(box[6:10, 14:21], rate=1.0), Inflow(box[6:10, 79:86], 0.8), Inflow(box[49:50, 43:46], 0.1))
         create_tum_logo()
         # Add Fields

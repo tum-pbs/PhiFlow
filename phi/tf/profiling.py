@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import socket
 import threading
@@ -7,7 +8,7 @@ from tensorflow.python.client import timeline
 
 
 if tf.__version__[0] == '2':
-    print('Adjusting for tensorflow 2.0')
+    logging.info('Adjusting for tensorflow 2.0')
     tf = tf.compat.v1
     tf.disable_eager_execution()
 
@@ -45,6 +46,8 @@ class Timeliner:
 
 
 def launch_tensorboard(log_dir, same_process=False, port=6006):
+    if port is None:
+        port = 6006
     if same_process:
         from tensorboard import main as tb
         tf.flags.FLAGS.logdir = log_dir
@@ -59,6 +62,6 @@ def launch_tensorboard(log_dir, same_process=False, port=6006):
         import phi.local.hostname
         host = phi.local.hostname.hostname
     except:
-        host = socket.gethostname()
+        host = 'localhost'  # socket.gethostname()
     url = "http://%s:%d/"%(host,port)
     return url

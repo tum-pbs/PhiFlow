@@ -20,6 +20,18 @@ $ pip install tensorflow_gpu==1.14.0
 The browser-based GUI depends on [Plotly / Dash](https://dash.plot.ly/installation).
 These packages can be installed together with Φ<sub>*Flow*</sub> (see next section).
 
+## Installing a pre-built Φ<sub>*Flow*</sub> version
+
+*Note*: If you want to use the Φ<sub>*Flow*</sub> CUDA operations with TensorFlow, you have to build Φ<sub>*Flow*</sub> from sources instead.
+
+The following code  installs Φ<sub>*Flow*</sub> with GUI dependencies using pip.
+
+```bash
+$ pip install phiflow[gui]
+```
+
+If you do not require the web interface, leave out the optional dependency `[gui]`.
+
 ## Installing Φ<sub>*Flow*</sub> from sources
 
 Clone the git repository by running

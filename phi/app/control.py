@@ -54,5 +54,3 @@ class Action(object):
     @property
     def id(self):
         return self.method_name
-
-

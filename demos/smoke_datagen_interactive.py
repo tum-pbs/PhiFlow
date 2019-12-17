@@ -8,9 +8,9 @@ HOW_TO = """
 Press 'Play' to continuously generate data until stopped.
 Each step computes one frame for each scene in the batch (batch_size=%d).
 
-Press 'Run sequence' to generate as many batches as specified in 'Sequence length'.
+The number of frames per simulation can be adjusted in the model parameters section.
 
-Each generated scene contains 'Substeps' many frames.
+The text box next to 'Play' lets you choose how many frames you want to generate in total. It should be a multiple of the frames per simulation.
 """ % world.batch_size
 
 
@@ -25,15 +25,14 @@ def random_velocity(shape):
 class SmokeDataGen(App):
 
     def __init__(self):
-        App.__init__(self, 'Smoke Data Generation', HOW_TO, stride=16, base_dir='~/phi/data', summary='smoke')
-        self.smoke = world.add(Fluid(Domain([64, 64]), density=random_density, velocity=random_velocity, batch_size=world.batch_size, buoyancy_factor=0.1))
+        App.__init__(self, 'Smoke Data Generation', HOW_TO, base_dir='~/phi/data', summary='smoke')
+        self.smoke = world.add(Fluid(Domain([64, 64]), density=random_density, velocity=random_velocity, batch_size=world.batch_size, buoyancy_factor=0.1), physics=IncompressibleFlow())
+        self.value_frames_per_simulation = 16
         self.add_field('Density', lambda: self.smoke.density)
         self.add_field('Velocity', lambda: self.smoke.velocity)
-        self.add_field('Domain', lambda: self.smoke.domaincache.accessible(1))
-        self.add_field('Pressure', lambda: self.smoke.last_pressure)
 
     def step(self):
-        if self.steps >= self.sequence_stride:
+        if self.steps >= self.value_frames_per_simulation:
             self.new_scene()
             self.steps = 0
             self.smoke.density = random_density
@@ -43,4 +42,4 @@ class SmokeDataGen(App):
         self.scene.write(self.smoke.state, frame=self.steps)
 
 
-show(SmokeDataGen(), display=('Density', 'Velocity'), sequence_count=4)
+show(SmokeDataGen(), display=('Density', 'Velocity'))

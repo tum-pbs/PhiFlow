@@ -34,7 +34,20 @@ class AABox(Geometry):
     def upper(self, upper):
         return math.to_float(math.as_tensor(upper))
 
-    @property
+    def get_lower(self, axis):
+        return self._get(self.lower, axis)
+
+    def get_upper(self, axis):
+        return self._get(self.upper, axis)
+
+    @staticmethod
+    def _get(vector, axis):
+        if math.ndims(vector) == 0:
+            return vector
+        else:
+            return vector[...,axis]
+
+    @struct.derived()
     def size(self):
         return self.upper - self.lower
 
@@ -64,6 +77,15 @@ class AABox(Geometry):
             return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
         else:
             raise NotImplementedError()
+
+    def without_axis(self, axis):
+        lower = []
+        upper = []
+        for ax in range(self.rank):
+            if ax != axis:
+                lower.append(self.get_lower(ax))
+                upper.append(self.get_upper(ax))
+        return self.copied_with(lower=lower, upper=upper)
 
     def __repr__(self):
         try:

@@ -1,8 +1,11 @@
 # Φ<sub>*Flow*</sub>
 
 [![Build Status](https://travis-ci.com/tum-pbs/PhiFlow.svg?token=8vG2QPsZzeswTApmkekH&branch=master)](https://travis-ci.com/tum-pbs/PhiFlow)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/phiflow.svg)](https://pypi.org/project/phiflow/)
+[![PyPI license](https://img.shields.io/pypi/l/phiflow.svg)](https://pypi.org/project/phiflow/)
+[![image](https://www.tensorflow.org/images/colab_logo_32px.png) Run in Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true)
 
-![Gui](documentation/figures/Gui.png)
+![Gui](documentation/figures/WebInterface.png)
 
 Φ<sub>*Flow*</sub> is a research-oriented, open-source fluid simulation toolkit.
 It is written mostly in Python and can use both NumPy and TensorFlow for execution.
@@ -22,8 +25,7 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 The following commands will get you Φ<sub>*Flow*</sub> + browser-GUI + NumPy execution:
 
 ```bash
-$ git clone https://github.com/tum-pbs/PhiFlow.git
-$ pip install phiflow/[gui]
+$ pip install phiflow[gui]
 ```
 
 See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to install Φ<sub>*Flow*</sub>
@@ -31,10 +33,14 @@ with TensorFlow support.
 
 ## Documentation and Guides
 
-| [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) |
-|------------------------|---------------------------------|---------------|
+| [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) | ![image](https://www.tensorflow.org/images/colab_logo_32px.png) [Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true) |
+|------------------------|---------------------------------|---------------| -----------------------------|
 
-If you would like to get right into it and have a look at some example code, check out the following demos:
+If you would like to get right into it and have a look at some code, check out the
+[tutorial notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
+It lets you run fluid simulations with Φ<sub>*Flow*</sub> in the browser.
+
+The following introductory demos are also helpful to get started with writing your own app using Φ<sub>*Flow*</sub>:
 
 - [simpleplume.py](./demos/simpleplume.py): Runs a fluid simulation and displays it in the browser
 - [optimize_pressure.py](./demos/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
@@ -46,7 +52,7 @@ The [simulation overview](documentation/Simulation_Overview.md) explains how to 
 
 To learn how specific simulations are implemented, check out the documentation for [Fluids](documentation/Fluid_Simulation.md) or read about [staggered grids](documentation/Staggered_Grids.md) or [pressure solvers](documentation/Pressure_Solvers.md).
 
-[Writing a Φ<sub>*Flow*</sub> Application](documentation/Browser_GUI.md) introduces the high-level classes and explains how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
+[Writing a Φ<sub>*Flow*</sub> Application](documentation/Web_Interface.md) introduces the high-level classes and explains how to use the Φ<sub>*Flow*</sub> GUI for displaying a simulation.
 
 For I/O and data management, see the [data documentation](documentation/Reading_and_Writing_Data.md) or the [scene format specification](documentation/Scene_Format_Specification.md).
 
@@ -64,14 +70,19 @@ All simulations of continuous systems are based on the [Field API](documentation
 
 The [software architecture documentation](documentation/Software_Architecture.md) shows the building blocks of Φ<sub>*Flow*</sub> and the module dependencies.
 
+## Version History
+
+The [Version history](documentation/Version_History.md) lists all major changes since release.
 
 ## Known Issues
-
-GUI: Message not updating correctly on some Chrome installations on Windows.
 
 TensorBoard: Live supervision does not work when running a local app that writes to a remote directory.
 
 Resampling / Advection: NumPy interpolation handles the boundaries slightly differently than TensorFlow.
+
+## Contributions
+
+Contributions are welcome! Check out [this document](documentation/Contributing.md) for some guidelines.
 
 ## Acknowledgements
 

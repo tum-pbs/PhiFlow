@@ -114,9 +114,14 @@ class CudaCommand(distutils.cmd.Command):
         assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
+with open("README.md", "r") as readme:
+    long_description = readme.read()
+
+
 setup(
     name='phiflow',
-    version='1.0.0',
+    version='1.0.1',
+    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.1.tar.gz',
     packages=['phi',
               'phi.app',
               'phi.data',
@@ -128,22 +133,37 @@ setup(
               'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
-              'phi.viz', 'phi.viz.dash'],
+              'phi.viz', 'phi.viz.dash',
+              'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
     },
-    include_package_data=True,
-    url='https://bitbucket.org/thunil/mantaflowgit/src/PhiFlow/',
-    license='Apache License, Version 2.0',
+    description='Research-oriented differentiable fluid simulation framework',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    keywords=['Differentiable', 'Simulation', 'Fluid', 'Machine Learning', 'Deep Learning'],
+    license='MIT',
     author='Philipp Holl',
     author_email='philipp.holl@tum.de',
-    description='Fully Differentiable Grid-based Fluid Simulations on the GPU',
+    url='https://github.com/tum-pbs/PhiFlow',
+    include_package_data=True,
     install_requires=['six', 'packaging', 'scipy'],
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development :: Build Tools',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+    ],
     extras_require={
         'gui': ['dash',
                 'dash-renderer',
                 'dash-html-components',
                 'dash-core-components',
-                'plotly'],
+                'plotly',
+                'imageio'],
     }
 )

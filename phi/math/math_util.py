@@ -52,7 +52,6 @@ def randfreq(shape, dtype=np.float32, power=8):
         k = fftfreq(shape[1:-1], mode='absolute')
         shape_fac = math.sqrt(math.mean(shape[1:-1]))  # 16: 4, 64: 8, 256: 24,
         fft *= (1 / (k + 1)) ** power * power * shape_fac
-        array = math.ifft(fft)
-        array = array.astype(dtype)
+        array = math.real(math.ifft(fft)).astype(dtype)
         return array
     return struct.map(genarray, shape, leaf_condition=is_static_shape)

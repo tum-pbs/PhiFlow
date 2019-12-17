@@ -1,3 +1,6 @@
+# Because division is different in Python 2 and 3
+from __future__ import division
+
 import numpy as np
 
 from phi import struct
@@ -41,7 +44,7 @@ def indices_tensor(tensor, dtype=np.float32):
     return idx.astype(dtype)
 
 
-def normalize_to(target, source=1, epsilon=1e-5):
+def normalize_to(target, source=1, epsilon=1e-5, batch_dims=1):
     """
     Multiplies the target so that its total content matches the source.
 
@@ -50,8 +53,10 @@ def normalize_to(target, source=1, epsilon=1e-5):
     :param epsilon: small number to prevent division by zero or None.
     :return: normalized tensor of the same shape as target
     """
-    denominator = math.maximum(math.sum(target), epsilon) if epsilon is not None else math.sum(target)
-    return target * (math.sum(source) / denominator)
+    target_total = math.sum(target, axis=tuple(range(batch_dims, math.ndims(target))), keepdims=True)
+    denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
+    source_total = math.sum(source, axis=tuple(range(batch_dims, math.ndims(source))), keepdims=True)
+    return target * (source_total / denominator)
 
 
 def batch_align(tensor, innate_dims, target):
@@ -123,7 +128,7 @@ def l2_loss(tensor, batch_norm=True):
 def l_n_loss(tensor, n, batch_norm=True):
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
-        return sum(l_n_loss(tensor, n , batch_norm) for tensor in all_tensors)
+        return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
     total_loss = math.sum(tensor ** n) / n
     if batch_norm:
         batch_size = math.shape(tensor)[0]
@@ -212,8 +217,8 @@ def gradient(tensor, dx=1, difference='forward'):
 def _backward_diff_nd(field, dims):
     df_dq = []
     for dimension in dims:
-        upper_slices = [(slice(1, None) if i == dimension else slice(None)) for i in dims]
-        lower_slices = [(slice(-1)      if i == dimension else slice(None)) for i in dims]
+        upper_slices = tuple([(slice(1, None) if i==dimension else slice(None)) for i in dims])
+        lower_slices = tuple([(slice(-1)      if i==dimension else slice(None)) for i in dims])
         diff = field[(slice(None),)+upper_slices] - field[(slice(None),)+lower_slices]
         padded = math.pad(diff, [[0,0]]+[([1,0] if i == dimension else [0,0]) for i in dims])
         df_dq.append(padded)
@@ -223,9 +228,9 @@ def _backward_diff_nd(field, dims):
 def _forward_diff_nd(field, dims):
     df_dq = []
     for dimension in dims:
-        upper_slices = [(slice(1, None) if i == dimension else slice(None)) for i in dims]
-        lower_slices = [(slice(-1)      if i == dimension else slice(None)) for i in dims]
-        diff = field[(slice(None),)+upper_slices] - field[(slice(None),)+lower_slices]
+        upper_slices = tuple([(slice(1, None) if i==dimension else slice(None)) for i in dims])
+        lower_slices = tuple([(slice(-1)      if i==dimension else slice(None)) for i in dims])
+        diff = field[(slice(None),) + upper_slices] - field[(slice(None),) + lower_slices]
         padded = math.pad(diff, [[0,0]]+[([0,1] if i == dimension else [0,0]) for i in dims])
         df_dq.append(padded)
     return math.stack(df_dq, axis=-1)
@@ -235,9 +240,9 @@ def _central_diff_nd(field, dims):
     field = math.pad(field, [[0,0]] + [[1,1]]*spatial_rank(field) + [[0, 0]], 'symmetric')
     df_dq = []
     for dimension in dims:
-        upper_slices = [(slice(2, None) if i==dimension else slice(1,-1)) for i in dims]
-        lower_slices = [(slice(-2)      if i==dimension else slice(1,-1)) for i in dims]
-        diff = field[(slice(None),) + upper_slices + [0]] - field[(slice(None),) + lower_slices + [0]]
+        upper_slices = tuple([(slice(2, None) if i==dimension else slice(1,-1)) for i in dims])
+        lower_slices = tuple([(slice(-2)      if i==dimension else slice(1,-1)) for i in dims])
+        diff = field[(slice(None),) + upper_slices + (0,)] - field[(slice(None),) + lower_slices + (0,)]
         df_dq.append(diff)
     return math.stack(df_dq, axis=-1)
 
@@ -392,7 +397,7 @@ def interpolate_linear(tensor, upper_weight, dimensions):
     lower_weight = 1 - upper_weight
     for dimension in spatial_dimensions(tensor):
         if dimension in dimensions:
-            upper_slices = [(slice(1, None) if i == dimension else slice(None)) for i in all_dimensions(tensor)]
-            lower_slices = [(slice(-1) if i == dimension else slice(None)) for i in all_dimensions(tensor)]
+            upper_slices = tuple([(slice(1, None) if i == dimension else slice(None)) for i in all_dimensions(tensor)])
+            lower_slices = tuple([(slice(-1) if i == dimension else slice(None)) for i in all_dimensions(tensor)])
             tensor = tensor[upper_slices] * upper_weight[...,dimension-1] + tensor[lower_slices] * lower_weight[...,dimension-1]
     return tensor

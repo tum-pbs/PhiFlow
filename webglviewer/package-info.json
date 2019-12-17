@@ -1,0 +1,60 @@
+{
+  "name": "webglviewer",
+  "version": "0.0.1",
+  "description": "Project Description",
+  "main": "build/index.js",
+  "scripts": {
+    "start": "webpack-serve --config ./webpack.serve.config.js --open",
+    "build:js": "webpack --mode production",
+    "build:py_and_r": "dash-generate-components ./src/lib/components webglviewer -p package-info.json --r-prefix ''",
+    "build": "npm run build:js && npm run build:py_and_r"
+  },
+  "author": "Lukas Prantl <lukas.prantl@tum.de>",
+  "license": "MIT",
+  "dependencies": {
+    "ramda": "^0.26.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.5.4",
+    "@babel/plugin-proposal-object-rest-spread": "^7.5.4",
+    "@babel/preset-env": "^7.5.4",
+    "@babel/preset-react": "^7.0.0",
+    "@types/gl-matrix": "^2.4.5",
+    "@types/jquery": "^3.3.31",
+    "@types/node": "^12.12.5",
+    "@types/pako": "^1.0.1",
+    "@types/react": "^16.9.11",
+    "@types/react-dom": "^16.9.3",
+    "@types/webgl2": "0.0.5",
+    "@types/webpack": "^4.39.8",
+    "awesome-typescript-loader": "^5.2.1",
+    "babel-eslint": "^10.0.2",
+    "babel-loader": "^8.0.6",
+    "copyfiles": "^2.1.1",
+    "css-loader": "^3.0.0",
+    "eslint": "^6.0.1",
+    "eslint-config-prettier": "^6.0.0",
+    "eslint-plugin-import": "^2.18.0",
+    "eslint-plugin-react": "^7.14.2",
+    "gl-matrix": "^3.1.0",
+    "http-server": "^0.11.1",
+    "jquery": "^3.4.1",
+    "npm": "^6.1.0",
+    "pako": "^1.0.10",
+    "prop-types": "^15.7.2",
+    "react": "^16.8.6",
+    "react-docgen": "^4.1.1",
+    "react-dom": "^16.8.6",
+    "style-loader": "^0.23.1",
+    "styled-jsx": "^3.2.1",
+    "ts-shader-loader": "^1.0.6",
+    "typescript": "^3.6.4",
+    "webpack": "^4.36.1",
+    "webpack-cli": "^3.3.6",
+    "webpack-serve": "3.1.0"
+  },
+  "engines": {
+    "node": ">=8.11.0",
+    "npm": ">=6.1.0"
+  }
+}

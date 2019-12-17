@@ -59,14 +59,16 @@ class App(object):
                  name=None,
                  subtitle='',
                  fields=None,
-                 stride=1,
+                 stride=None,
                  record_images=False, record_data=False,
                  base_dir='~/phi/data/',
                  recorded_fields=None,
                  summary=None,
                  custom_properties=None,
                  target_scene=None,
-                 objects_to_save=None):
+                 objects_to_save=None,
+                 framerate=None):
+        self.start_time = time.time()
         self.name = name if name is not None else self.__class__.__name__
         self.subtitle = subtitle
         self.summary = summary if summary else name
@@ -95,12 +97,12 @@ class App(object):
             self.scene = target_scene
             self.uses_existing_scene = True
         if not isfile(self.scene.subpath('info.log')):
-            logfile = self.scene.subpath('info.log')
+            log_file = self.log_file = self.scene.subpath('info.log')
         else:
             index = 2
             while True:
-                logfile = self.scene.subpath('info_%d.log' % index)
-                if not isfile(logfile):
+                log_file = self.scene.subpath('info_%d.log' % index)
+                if not isfile(log_file):
                     break
                 else:
                     index += 1
@@ -109,7 +111,7 @@ class App(object):
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
         customLogger = logging.Logger('app', logging.DEBUG)
-        fileHandler = logging.FileHandler(logfile)
+        fileHandler = logging.FileHandler(log_file)
         fileHandler.setFormatter(logFormatter)
         customLogger.addHandler(fileHandler)
         consoleHandler = logging.StreamHandler(sys.stdout)
@@ -117,16 +119,16 @@ class App(object):
         consoleHandler.setLevel(logging.INFO)
         customLogger.addHandler(consoleHandler)
         self.logger = customLogger
-        print('Scene directory is %s' % self.scene.path)
         # Recording
         self.record_images = record_images
         self.record_data = record_data
         self.recorded_fields = recorded_fields if recorded_fields is not None else []
         self.rec_all_slices = False
-        self.sequence_stride = stride
+        self.sequence_stride = stride if stride is not None else 1
+        self.framerate = framerate if framerate is not None else stride
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
-        self.info('Setting up model...')
+        self.info('App created. Scene directory is %s' % self.scene.path)
 
     def new_scene(self, count=None):
         if count is None:
@@ -260,13 +262,8 @@ class App(object):
                     return trace.find_in(world_state)
                 self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
-        old_worldstate = world.state
         with struct.unsafe():
-            struct.map(add_default_field, world.state,
-                       leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
-                       trace=True)
-        is_same = old_worldstate is world.state
-        print()
+            struct.map(add_default_field, world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True)
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
@@ -340,7 +337,7 @@ class App(object):
                 self.record_frame()
             if framerate is not None:
                 duration = time.time() - starttime
-                rest = 1.0/framerate/self.sequence_stride - duration
+                rest = 1.0/framerate - duration
                 if rest > 0:
                     self.current_action = 'Waiting'
                     time.sleep(rest)
@@ -351,6 +348,8 @@ class App(object):
             self.current_action = None
 
     def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
+        if framerate is None:
+            framerate = self.framerate
         def target():
             self._pause = False
             step_count = 0
@@ -399,7 +398,7 @@ class App(object):
         step_count = 0
         starttime = time.time()
         for i in range(sequence_count):
-            self.run_step(framerate=None, allow_recording=False)
+            self.run_step(framerate=np.inf, allow_recording=False)
             step_count += 1
             if self._pause:
                 break

@@ -5,13 +5,13 @@ Worlds also facilitate referencing states when performing a forward simulation.
 
 A default World, called `world` is provided for convenience.
 """
-
+import warnings
 from typing import TypeVar
 import inspect
 
 import six
 
-from .physics import State, Physics
+from .physics import State, Physics, Static
 from .collective import CollectiveState
 from .field.effect import Gravity
 
@@ -204,6 +204,8 @@ Adds a State to the world that will be stepped forward in time each time world.s
         if physics is not None:
             assert isinstance(physics, Physics)
             self.physics.add(state.name, physics)
+        elif state.default_physics() is not None and not isinstance(state.default_physics(), Static):
+            warnings.warn('No physics provided to world.add(%s). In the future this will default to static physics' % state)
         self.state = self.state.state_added(state)
         return StateProxy(self, state.name)
 
