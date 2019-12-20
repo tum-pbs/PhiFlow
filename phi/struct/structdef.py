@@ -1,32 +1,59 @@
-import typing  # pylint: disable-msg = unused-import  # this is used in # type
-from typing import Dict
+import copy
 import six
+import numpy
+
+from .trait import Trait
 
 
-def definition():
+def definition(traits=()):
     """
 Required decorator for custom struct classes.
     """
-    def decorator(cls):
+    if isinstance(traits, Trait):
+        traits = (traits,)
+    else:
+        for trait in traits:
+            assert isinstance(trait, Trait), 'Illegal trait: %s' % trait
+        traits = tuple(traits)
+
+    def decorator(struct_class, traits=traits):
         items = {}
-        for attribute_name in dir(cls):
-            item = getattr(cls, attribute_name)
+        for attribute_name in dir(struct_class):
+            item = getattr(struct_class, attribute_name)
             if isinstance(item, Item):
                 items[attribute_name] = item
-        # --- Inherit items ---
-        for base in cls.__bases__:
+        # --- Inheritance ---
+        inherited_traits = ()
+        for base in struct_class.__bases__:
             if base.__name__ != 'Struct' and hasattr(base, '__items__'):
                 for item in base.__items__:
                     if item.name not in items:
-                        items[item.name] = item
-        # --- Order items by dependencies ---
-        items = _order_by_dependencies(items, cls)
-        cls.__items__ = tuple(items)
-        return cls
+                        subclassed_item = copy.copy(item)
+                        items[item.name] = subclassed_item
+                        setattr(struct_class, item.name, subclassed_item)
+                for trait in base.__traits__:
+                    if trait not in traits:
+                        inherited_traits += (trait,)
+        traits = inherited_traits + traits
+        # --- Initialize & Decorate ---
+        struct_class.__traits__ = traits
+        for item in items.values():
+            item.__initialize_for__(struct_class)
+        items = _order_by_dependencies(items, struct_class)
+        struct_class.__items__ = tuple(items)
+        # --- Check trait keywords ---
+        for item in items:
+            for trait_kw, trait_kw_val in item.trait_kwargs.items():
+                matching_traits = [trait for trait in traits if trait_kw in trait.keywords]
+                if len(matching_traits) == 0:
+                    raise ValueError('Trait keyword "%s" does not match any trait of struct %s' % (trait_kw, struct_class.__name__))
+                for trait in matching_traits:
+                    trait.check_argument(struct_class, item, trait_kw, trait_kw_val)
+        return struct_class
     return decorator
 
 
-def variable(default=None, dependencies=(), holds_data=True):
+def variable(default=None, dependencies=(), holds_data=True, **trait_kwargs):
     """
 Required decorator for data_dict of custom structs.
 The enclosing class must be decorated with struct.definition().
@@ -36,12 +63,11 @@ The enclosing class must be decorated with struct.definition().
     :return: read-only property
     """
     def decorator(validate):
-        item = Item(validate.__name__, validate, True, default, dependencies, holds_data)
-        return item
+        return Item(validate.__name__, validate, True, default, dependencies, holds_data, **trait_kwargs)
     return decorator
 
 
-def constant(default=None, dependencies=(), holds_data=False):
+def constant(default=None, dependencies=(), holds_data=False, **trait_kwargs):
     """
 Required decorator for constants_dict of custom structs.
 The enclosing class must be decorated with struct.definition().
@@ -51,8 +77,7 @@ The enclosing class must be decorated with struct.definition().
     :return: read-only property
     """
     def decorator(validate):
-        item = Item(validate.__name__, validate, False, default, dependencies, holds_data)
-        return item
+        return Item(validate.__name__, validate, False, default, dependencies, holds_data, **trait_kwargs)
     return decorator
 
 
@@ -73,14 +98,33 @@ Represents an item type of a struct, a variable or a constant.
 
     def __init__(self, name, validation_function, is_variable, default_value, dependencies, holds_data, **trait_kwargs):
         assert callable(validation_function) or validation_function is None
+        assert isinstance(is_variable, bool)
         self.name = name
         self.validation_function = validation_function
         self.is_variable = is_variable
         self.default_value = default_value
+        # --- Format and test dependencies ---
+        if dependencies is None:
+            self.dependencies = []
+        elif isinstance(dependencies, (tuple, list)):
+            self.dependencies = list(dependencies)
+        else:
+            self.dependencies = [dependencies]
+        for i, dependency in enumerate(self.dependencies):
+            if isinstance(dependency, Item):
+                self.dependencies[i] = dependency.name
+            elif isinstance(dependency, six.string_types):
+                pass
+            else:
+                raise ValueError('Illegal dependency: %s on item %s' % (dependency, name))
         self.dependencies = dependencies
         self.holds_data = holds_data
         self.trait_kwargs = trait_kwargs
-        self.owner = None
+        self.struct_class = None
+
+    def __initialize_for__(self, struct_class):
+        self.struct_class = struct_class
+        self.traits = [trait for trait in struct_class.__traits__ if len(numpy.intersect1d(trait.keywords, self.trait_kwargs.keys())) > 0]
 
     def set(self, struct, value):
         try:
@@ -93,21 +137,24 @@ Represents an item type of a struct, a variable or a constant.
 
     def validate(self, struct):
         if self.validation_function is not None:
-            old_val = self.get(struct)
-            new_val = self.validation_function(struct, old_val)
-            self.set(struct, new_val)
+            value = self.get(struct)
+            for trait in self.traits:
+                value = trait.pre_validated(struct, self, value)
+            value = self.validation_function(struct, value)
+            for trait in self.traits:
+                value = trait.post_validated(struct, self, value)
+            self.set(struct, value)
 
     def __get__(self, instance, owner):
         if instance is not None:
             return getattr(instance, '_'+self.name)
         else:
-            self.owner = owner
             return self
 
     def __call__(self, obj):
-        assert self.owner is not None
+        assert self.struct_class is not None
         from .functions import map
-        return map(lambda x: getattr(x, '_'+self.name), obj, leaf_condition=lambda x: isinstance(x, self.owner))
+        return map(lambda x: getattr(x, '_'+self.name), obj, leaf_condition=lambda x: isinstance(x, self.struct_class))
 
     def __set__(self, instance, value):
         raise AttributeError('Struct variables and constants are read-only.')

@@ -1,6 +1,8 @@
 from unittest import TestCase
 
 import numpy as np
+
+from phi.geom import AABox
 from phi.tf import tf
 
 # pylint: disable-msg = redefined-builtin, redefined-outer-name, unused-wildcard-import, wildcard-import
@@ -93,3 +95,11 @@ class TestMath(TestCase):
         a_tf = tf.constant(a, tf.float32, shape=(2,2))
         p_tf = pad(a_tf, [[1,1], [1,1]], mode=['symmetric', ['wrap', 'constant']], constant_values=[0, [0, 10]])
         np.testing.assert_equal(p, p_tf.eval())
+
+
+
+# class TestBatchedStructs(TestCase):
+#
+#     def test_validations(self):
+#         AABox([0,0], [1,2,3])
+#         self.fail()

@@ -43,13 +43,14 @@ See the struct documentation at documentation/Structs.ipynb
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
         self._set_items(**kwargs)
-        self.__validate__()
+        for trait in self.__traits__:
+            trait.endow(self)
+        self.validate()
 
     def copied_with(self, **kwargs):
         duplicate = copy(self)
         duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
-        if not skip_validate():  # double-check since __validate__ could be overridden
-            duplicate.__validate__()
+        duplicate.validate()
         return duplicate
 
     def _set_items(self, **kwargs):
@@ -61,10 +62,17 @@ See the struct documentation at documentation/Structs.ipynb
             item.set(self, value)
         return self
 
-    def __validate__(self):
+    def validate(self):
         if not skip_validate():
-            for item in self.__items__:
-                item.validate(self)
+            self.__validate__()
+
+    def __validate__(self):
+        for trait in self.__traits__:
+            trait.pre_validate_struct(self)
+        for item in self.__items__:
+            item.validate(self)
+        for trait in self.__traits__:
+            trait.post_validate_struct(self)
 
     def __to_dict__(self, item_condition):
         if item_condition is not None:

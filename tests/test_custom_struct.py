@@ -3,13 +3,31 @@ from unittest import TestCase
 from phi import struct
 
 
-@struct.definition()
+class MyTrait(struct.Trait):
+
+    def __init__(self):
+        struct.Trait.__init__(self, keywords=['weight'])
+
+    def check_argument(self, struct_class, item, keyword, value):
+        assert keyword == 'weight'
+        assert isinstance(value, int)
+        print('Checked value %s' % value)
+
+    def endow(self, struct):
+        struct._counter = 0
+
+    def pre_validated(self, struct, item, value):
+        struct._counter += item.trait_kwargs['weight']
+        print(struct._counter)
+
+
+@struct.definition(traits=[MyTrait()])
 class Parent(struct.Struct):
 
     @struct.constant(default='parent')
     def parent(self, parent): return parent
 
-    @struct.variable(default=0, dependencies='parent')
+    @struct.variable(default=0, dependencies='parent', weight=1)
     def density(self, density): return density
 
 
