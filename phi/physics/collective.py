@@ -84,9 +84,8 @@ class CollectiveState(struct.Struct):
 
     def _set_items(self, **kwargs):
         for name, value in kwargs.items():
-            if name == 'states':
-                item = self.__struct__.find(name)
-                item.set(self, value)
+            if name in ('states', 'age'):
+                getattr(self.__class__, name).set(self, value)
             else:
                 self._states = self.states.copy()
                 if not skip_validate():
