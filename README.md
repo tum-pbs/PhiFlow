@@ -72,7 +72,7 @@ The [software architecture documentation](documentation/Software_Architecture.md
 
 ## Version History
 
-The [Version history](documentation/Version_History.md) lists all major changes since release.
+The [Version history](https://github.com/tum-pbs/PhiFlow/releases) lists all major changes since release.
 
 ## Known Issues
 
@@ -82,7 +82,7 @@ Resampling / Advection: NumPy interpolation handles the boundaries slightly diff
 
 ## Contributions
 
-Contributions are welcome! Check out [this document](documentation/Contributing.md) for some guidelines.
+Contributions are welcome! Check out [this document](documentation/Contributing.md) for guidelines.
 
 ## Acknowledgements
 
