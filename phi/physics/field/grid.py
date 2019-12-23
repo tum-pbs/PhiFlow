@@ -57,7 +57,7 @@ class CenteredGrid(Field):
         if not isinstance(self.extrapolation, six.string_types):
             return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
-        local_points = local_points * math.to_float(self.resolution) - 0.5
+        local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
         if self.extrapolation == 'periodic':
             data = math.pad(self.data, [[0,0]]+[[0,1]]*self.rank+[[0,0]], mode='wrap')
             local_points = local_points % math.to_float(math.staticshape(self.data)[1:-1])

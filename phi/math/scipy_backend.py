@@ -87,9 +87,6 @@ class SciPyBackend(Backend):
         else:
             return np.pad(value, pad_width, single_mode.lower())
 
-    def add(self, values):
-        return np.sum(values, axis=0)
-
     def reshape(self, value, shape):
         return value.reshape(shape)
 

@@ -175,7 +175,7 @@ class StaggeredGrid(Field):
             if physical_units:
                 grad /= self.dx[dim]
             components.append(grad)
-        data = math.add(components)
+        data = math.sum(components, 0)
         return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
 
     @property

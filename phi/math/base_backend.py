@@ -13,6 +13,9 @@ class Backend:
         return self.name.lower() == name.lower()
 
     def is_applicable(self, values):
+        for value in values:
+            if self.is_tensor(value):
+                return True
         return False
 
     # --- Abstract math functions ---
@@ -46,9 +49,6 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def add(self, values):
-        raise NotImplementedError(self)
-
     def reshape(self, value, shape):
         raise NotImplementedError(self)
 
@@ -70,7 +70,7 @@ class Backend:
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError(self)
 
-    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='zero'):
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='zero'):
         raise NotImplementedError(self)
 
     def range(self, start, limit=None, delta=1, dtype=None):
@@ -128,7 +128,7 @@ class Backend:
     def exp(self, x):
         raise NotImplementedError(self)
 
-    def conv(self, tensor, kernel, padding='SAME'):
+    def conv(self, tensor, kernel, padding='same'):
         raise NotImplementedError(self)
 
     def expand_dims(self, a, axis=0, number=1):
@@ -243,6 +243,15 @@ class Backend:
             batches = [batches]
         return tensor[batches, ...]
 
+    def add(self, a, b):
+        return self.as_tensor(a) * self.as_tensor(b)
+
+    def sub(self, a, b):
+        return self.as_tensor(a) - self.as_tensor(b)
+
+    def mul(self, a, b):
+        return self.as_tensor(a) * self.as_tensor(b)
+
 
 class DynamicBackend(Backend):
 
@@ -299,9 +308,6 @@ class DynamicBackend(Backend):
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         return self.choose_backend(value).pad(value, pad_width, mode, constant_values)
-
-    def add(self, values):
-        return self.choose_backend(values).add(values)
 
     def reshape(self, value, shape):
         return self.choose_backend(value).reshape(value, shape)
@@ -453,6 +459,15 @@ class DynamicBackend(Backend):
 
     def dtype(self, array):
         return self.choose_backend(array).dtype(array)
+
+    def add(self, a, b):
+        return self.choose_backend([a, b]).add(a, b)
+
+    def sub(self, a, b):
+        return self.choose_backend([a, b]).sub(a, b)
+
+    def mul(self, a, b):
+        return self.choose_backend([a, b]).mul(a, b)
 
 
 class NoBackendFound(Exception):

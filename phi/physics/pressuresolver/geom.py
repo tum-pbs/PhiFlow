@@ -89,4 +89,4 @@ def _weighted_sliced_laplace_nd(tensor, weights):
 
         diff = upper_values * upper_weights + lower_values * lower_weights + center_values * center_weights
         components.append(diff)
-    return math.add(components)
+    return math.sum(components, 0)
