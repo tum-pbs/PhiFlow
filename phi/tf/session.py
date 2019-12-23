@@ -52,7 +52,7 @@ class Session(object):
 
         tensor_fetches = struct.flatten(fetches, item_condition=struct.ALL_ITEMS)
         if isinstance(fetches, (tuple, list)):
-            is_fetch = lambda x: istensor(x) or x in fetches
+            is_fetch = lambda x: istensor(x) or _identity_in(x, fetches)
         else:
             is_fetch = lambda x: istensor(x) or x is fetches
         tensor_fetches = tuple(filter(is_fetch, tensor_fetches))
@@ -189,3 +189,9 @@ class _TraceStack(threading.local):
 
 _trace_stack = _TraceStack()
 
+
+def _identity_in(obj, list):
+    for item in list:
+        if item is obj:
+            return True
+    return False
