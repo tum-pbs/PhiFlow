@@ -405,5 +405,5 @@ def interpolate_linear(tensor, upper_weight, dimensions):
         if dimension in dimensions:
             upper_slices = tuple([(slice(1, None) if i == dimension else slice(None)) for i in all_dimensions(tensor)])
             lower_slices = tuple([(slice(-1) if i == dimension else slice(None)) for i in all_dimensions(tensor)])
-            tensor = tensor[upper_slices] * upper_weight[...,dimension-1] + tensor[lower_slices] * lower_weight[...,dimension-1]
+            tensor = math.mul(tensor[upper_slices], upper_weight[...,dimension-1]) + math.mul(tensor[lower_slices], lower_weight[...,dimension-1])
     return tensor

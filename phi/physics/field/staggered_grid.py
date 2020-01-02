@@ -210,5 +210,5 @@ class StaggeredGrid(Field):
             else:
                 upper = scalar_field.axis_padded(axis, 0, 1).data
                 lower = scalar_field.axis_padded(axis, 1, 0).data
-                tensors.append((upper + lower) / 2 * force)
+                tensors.append(math.mul((upper + lower) / 2, force))
         return StaggeredGrid(tensors, scalar_field.box, name=name, batch_size=scalar_field._batch_size)
