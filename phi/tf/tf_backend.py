@@ -354,6 +354,9 @@ class TFBackend(Backend):
     def dtype(self, array):
         return array.dtype.as_numpy_dtype
 
+    def sparse_tensor(self, indices, values, shape):
+        return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
+
 
 # from niftynet.layer.resampler.py
 # https://cmiclab.cs.ucl.ac.uk/CMIC/NiftyNet/blob/69c98e5a95cc6788ad9fb8c5e27dc24d1acec634/niftynet/layer/resampler.py

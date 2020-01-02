@@ -245,6 +245,9 @@ class Backend:
     def tile(self, value, multiples):
         raise NotImplementedError(self)
 
+    def sparse_tensor(self, indices, values, shape):
+        raise NotImplementedError(self)
+
     # --- Math function with default implementation ---
 
     def ndims(self, tensor):
@@ -471,6 +474,9 @@ class DynamicBackend(Backend):
 
     def cos(self, x):
         return self.choose_backend(x).cos(x)
+
+    def sparse_tensor(self, indices, values, shape):
+        return self.choose_backend([indices, values]).sparse_tensor(indices, values, shape)
 
     def dtype(self, array):
         return self.choose_backend(array).dtype(array)

@@ -72,6 +72,7 @@ size = DYNAMIC_BACKEND.size
 scatter = DYNAMIC_BACKEND.scatter
 shape = DYNAMIC_BACKEND.shape
 sin = DYNAMIC_BACKEND.sin
+sparse_tensor = DYNAMIC_BACKEND.sparse_tensor
 sqrt = DYNAMIC_BACKEND.sqrt
 stack = DYNAMIC_BACKEND.stack
 staticshape = DYNAMIC_BACKEND.staticshape

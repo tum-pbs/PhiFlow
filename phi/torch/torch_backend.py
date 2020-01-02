@@ -121,6 +121,9 @@ class TorchBackend(Backend):
         raise NotImplementedError()
 
     def matmul(self, A, b):
+        if isinstance(A, torch.sparse.FloatTensor):
+            result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
+            return torch.transpose(result, 0, 1)
         raise NotImplementedError()
 
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None):
@@ -259,6 +262,11 @@ class TorchBackend(Backend):
 
     def tile(self, value, multiples):
         raise NotImplementedError()
+
+    def sparse_tensor(self, indices, values, shape):
+        indices_ = torch.transpose(torch.LongTensor(indices), 0, 1)
+        values_ = torch.FloatTensor(values)
+        return torch.sparse.FloatTensor(indices_, values_, shape)
 
 
 def channels_first(x):

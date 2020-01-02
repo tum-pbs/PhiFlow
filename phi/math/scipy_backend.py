@@ -326,6 +326,9 @@ class SciPyBackend(Backend):
             array = np.array(array)
         return array.dtype
 
+    def sparse_tensor(self, indices, values, shape):
+        return scipy.sparse.csc_matrix((values, self.unstack(indices, -1)), shape=shape)
+
 
 def clamp(coordinates, shape):
     assert coordinates.shape[-1] == len(shape)
