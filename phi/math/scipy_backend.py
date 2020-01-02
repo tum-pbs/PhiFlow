@@ -41,11 +41,9 @@ class SciPyBackend(Backend):
         return np.equal(x, y)
 
     def divide_no_nan(self, x, y):
-        # Only for scalars, not arrays yet.
-        if y == 0:
-            return x * 0
-        else:
-            return (x/y)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            result = x / y
+        return np.where(y == 0, 0, result)
 
     def random_uniform(self, shape):
         return np.random.random(shape).astype('f')

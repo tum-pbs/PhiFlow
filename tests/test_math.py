@@ -93,3 +93,14 @@ class TestMath(TestCase):
         a_tf = tf.constant(a, tf.float32, shape=(2,2))
         p_tf = pad(a_tf, [[1,1], [1,1]], mode=['symmetric', ['wrap', 'constant']], constant_values=[0, [0, 10]])
         np.testing.assert_equal(p, p_tf.eval())
+
+    def test_div_no_nan(self):
+        x = np.array([1, -1, 0, 1, -1], np.float32)
+        y = np.array([1,  2, 0, 0, 0], np.float32)
+        result = divide_no_nan(x, y)
+        np.testing.assert_equal(result, [1, -0.5, 0, 0, 0])
+        sess = tf.InteractiveSession()
+        x = tf.convert_to_tensor(x)
+        y = tf.convert_to_tensor(y)
+        result = divide_no_nan(x, y).eval()
+        np.testing.assert_equal(result, [1, -0.5, 0, 0, 0])

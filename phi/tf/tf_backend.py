@@ -34,7 +34,11 @@ class TFBackend(Backend):
         return tf.equal(x, y)
 
     def divide_no_nan(self, x, y):
-        return tf.div_no_nan(x, y)
+        if version.parse(tf.__version__) >= version.parse('1.11.0'):
+            return tf.div_no_nan(x, y)
+        else:
+            result = x / y
+            return tf.where(tf.equal(y, 0), tf.zeros_like(result), result)
 
     def random_uniform(self, shape):
         return tf.random.uniform(shape)

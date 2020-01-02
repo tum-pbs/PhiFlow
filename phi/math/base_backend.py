@@ -59,6 +59,7 @@ class Backend:
         raise NotImplementedError(self)
 
     def divide_no_nan(self, x, y):
+        """ Computes x/y but returns 0 if y=0. """
         raise NotImplementedError(self)
 
     def where(self, condition, x=None, y=None):
