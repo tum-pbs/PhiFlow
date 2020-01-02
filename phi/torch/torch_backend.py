@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 
 import torch
@@ -18,9 +20,16 @@ class TorchBackend(Backend):
         if self.is_tensor(x):
             return x
         if isinstance(x, np.ndarray):
+            if x.dtype == np.float64:
+                x = x.astype(np.float32)
             return torch.from_numpy(x)
-        else:
-            return torch.Tensor(x)
+        if isinstance(x, (tuple, list)):
+            try:
+                return torch.tensor(x)
+            except ValueError:  # there may be Tensors inside the list
+                components = [self.as_tensor(c) for c in x]
+                return torch.stack(components, dim=0)
+        return torch.tensor(x)
 
     def equal(self, x, y):
         return x == y
@@ -35,13 +44,28 @@ class TorchBackend(Backend):
         return torch.cat(values, dim=axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        pad = sum(pad_width, [] if isinstance(pad_width, list) else ())
-        return torchf.pad(value, pad, mode=mode, value=constant_values)
+        mode = mode.lower()
+        if mode == 'wrap':
+            warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
+            mode = 'circular'
+        if mode == 'constant':
+            pad = sum(pad_width[::-1], [] if isinstance(pad_width, list) else ())
+            return torchf.pad(value, pad, mode=mode, value=constant_values)  # constant, reflect, replicate, circular
+        if mode == 'symmetric':
+            warnings.warn("mode 'symmetric' is not supported by PyTorch. Defaults to 'replicate'.")
+            mode = 'replicate'
+        value = channels_first(value)
+        reversed_axis_pad = pad_width[1:-1][::-1]
+        pad = sum(reversed_axis_pad, [] if isinstance(pad_width, list) else ())
+        result = torchf.pad(value, pad, mode=mode, value=constant_values)  # constant, reflect, replicate, circular
+        result = channels_last(result)
+        return result
 
     def reshape(self, value, shape):
         return torch.reshape(value, shape)
 
     def sum(self, value, axis=None, keepdims=False):
+        value = self.as_tensor(value)
         return torch.sum(value, dim=axis, keepdim=keepdims)
 
     def prod(self, value, axis=None):
@@ -59,22 +83,28 @@ class TorchBackend(Backend):
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError()
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='zero'):
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        # --- Interpolation ---
         if interpolation.lower() == 'linear':
             interpolation = 'bilinear'
         elif interpolation.lower() == 'nearest':
             interpolation = 'nearest'
         else:
             raise NotImplementedError(interpolation)
-        if boundary == 'zero':
+        # --- Boundary ---
+        if boundary == 'zero' or boundary == 'constant':
             boundary = 'zeros'
+        elif boundary == 'replicate':
+            boundary = 'border'
         else:
             raise NotImplementedError(boundary)
+        inputs = self.as_tensor(inputs)
+        sample_coords = self.as_tensor(sample_coords)
         resolution = torch.Tensor(self.staticshape(inputs)[1:-1])
         sample_coords = 2 * sample_coords / (resolution-1) - 1
         inputs = channels_first(inputs)
         sample_coords = torch.flip(sample_coords, dims=[-1])
-        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary)
+        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
         return result
 
@@ -94,7 +124,12 @@ class TorchBackend(Backend):
         raise NotImplementedError()
 
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None):
-        raise NotImplementedError()
+        i = 0
+        while cond(*loop_vars):
+            if maximum_iterations is not None and i == maximum_iterations: break
+            loop_vars = body(*loop_vars)
+            i += 1
+        return loop_vars
 
     def abs(self, x):
         return torch.abs(x)
@@ -112,19 +147,24 @@ class TorchBackend(Backend):
         return torch.floor(x)
 
     def max(self, x, axis=None):
+        if axis is None:
+            return torch.max(x)
         return torch.max(x, dim=axis)
 
     def min(self, x, axis=None):
+        if axis is None:
+            return torch.min(x)
         return torch.min(x, dim=axis)
 
     def maximum(self, a, b):
+        b = self.as_tensor(b)
         return torch.max(a, other=b)
 
     def minimum(self, a, b):
         return torch.min(a, other=b)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
-        raise NotImplementedError()
+        return function(*inputs)  # ToDo
 
     def sqrt(self, x):
         return torch.sqrt(x)

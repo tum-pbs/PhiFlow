@@ -40,11 +40,15 @@ class Backend:
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         """
-        Pad a tensor.
-
-        :param value:
-        :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[before axis 0, after axis 0], ...].
-        :param mode: 'constant', 'symmetric', 'reflect', 'wrap'
+    Pad a tensor.
+        :param value: tensor
+        :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[before axis 0, after axis 0], ...] including batch and component axes.
+        :param mode:
+            'constant',
+            'reflect',
+            'replicate',
+            'circular'
+            ('wrap' is deprecated, use 'circular' instead, 'symmetric' may not be supported by all backends and defaults to 'replicate').
         :param constant_values: used for out-of-bounds points if mode='constant'
         """
         raise NotImplementedError(self)
@@ -70,7 +74,18 @@ class Backend:
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError(self)
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='zero'):
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        """
+    Interpolates a regular grid at the sample coordinates.
+        :param inputs: grid data
+        :param sample_coords: tensor of floating grid locations. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at data.shape[i]-1.
+        :param interpolation: only 'linear' is currently supported
+        :param boundary:
+            'constant'/'zero',
+            'replicate',
+            'circular'
+            ('symmetric' may not be supported by all backends and defaults to 'replicate')
+        """
         raise NotImplementedError(self)
 
     def range(self, start, limit=None, delta=1, dtype=None):
@@ -331,7 +346,7 @@ class DynamicBackend(Backend):
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         return self.choose_backend(inputs).py_func(func, inputs, Tout, shape_out, stateful, name, grad)
 
-    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='zero'):
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
         return self.choose_backend((inputs, sample_coords)).resample(inputs, sample_coords, interpolation, boundary)
 
     def range(self, start, limit=None, delta=1, dtype=None):
