@@ -124,7 +124,9 @@ Represents an item type of a struct, a variable or a constant.
 
     def __initialize_for__(self, struct_class):
         self.struct_class = struct_class
-        self.traits = [trait for trait in struct_class.__traits__ if len(numpy.intersect1d(trait.keywords, self.trait_kwargs.keys())) > 0]
+        self.traits = []
+        self_kws = list(self.trait_kwargs.keys())
+        self.traits = [trait for trait in struct_class.__traits__ if len(numpy.intersect1d(trait.keywords, self_kws)) > 0]
 
     def set(self, struct, value):
         try:
