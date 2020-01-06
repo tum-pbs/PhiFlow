@@ -6,8 +6,7 @@ import six
 import numpy as np
 
 from .context import skip_validate
-from .structdef import Item, VARIABLES, CONSTANTS, DATA
-from . import structdef
+from .structdef import Item, VARIABLES, CONSTANTS
 
 
 def kwargs(locals, include_self=False, ignore=()):
@@ -35,45 +34,55 @@ To implement a custom struct, extend this class and add the decorator @struct.de
 See the struct documentation at documentation/Structs.ipynb
     """
 
-    __struct__ = None
+    __items__ = None
+    __traits__ = None
 
     def __init__(self, **kwargs):
         assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
-        for item in self.__struct__.items:
+        for item in self.__items__:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
         self._set_items(**kwargs)
-        self.__validate__()
+        for trait in self.__traits__:
+            trait.endow(self)
+        self.validate()
 
     def copied_with(self, **kwargs):
         duplicate = copy(self)
         duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
-        if not skip_validate():  # double-check since __validate__ could be overridden
-            duplicate.__validate__()
+        duplicate.validate()
         return duplicate
 
     def _set_items(self, **kwargs):
         for name, value in kwargs.items():
             try:
-                item = self.__struct__.find(name)
+                item = getattr(self.__class__, name)
             except (KeyError, TypeError):
                 raise TypeError('Struct %s has no property %s' % (self, name))
             item.set(self, value)
         return self
 
-    def __validate__(self):
+    def validate(self):
         if not skip_validate():
-            self.__struct__.validate(self)
+            self.__validate__()
+
+    def __validate__(self):
+        for trait in self.__traits__:
+            trait.pre_validate_struct(self)
+        for item in self.__items__:
+            item.validate(self)
+        for trait in self.__traits__:
+            trait.post_validate_struct(self)
 
     def __to_dict__(self, item_condition):
         if item_condition is not None:
-            return {item.name: item.get(self) for item in self.__struct__.items if item_condition(item)}
+            return {item.name: item.get(self) for item in self.__items__ if item_condition(item)}
         else:
-            return {item.name: item.get(self) for item in self.__struct__.items}
+            return {item.name: item.get(self) for item in self.__items__}
 
     def __properties_dict__(self):
-        result = {item.name: properties_dict(getattr(self, item.name)) for item in self.__struct__.items if not item.holds_data}
-        for item in self.__struct__.items:
+        result = {item.name: properties_dict(getattr(self, item.name)) for item in self.__items__ if not item.holds_data}
+        for item in self.__items__:
             if isstruct(item.get(self)):
                 result[item.name] = properties_dict(item.get(self))
         result['type'] = str(self.__class__.__name__)
@@ -83,7 +92,7 @@ See the struct documentation at documentation/Structs.ipynb
     def __eq__(self, other):
         if type(self) != type(other):  # pylint: disable-msg = unidiomatic-typecheck
             return False
-        for item in self.__struct__.items:
+        for item in self.__items__:
             if not equal(item.get(self), item.get(other)): return False
         return True
 
@@ -98,9 +107,6 @@ See the struct documentation at documentation/Structs.ipynb
             except TypeError:  # unhashable type
                 pass
         return hash_value
-
-
-structdef.STRUCT_CLASSES = [Struct]
 
 
 def to_dict(struct, item_condition=None):

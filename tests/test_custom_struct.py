@@ -1,16 +1,33 @@
 from unittest import TestCase
 
 from phi import struct
-from phi.struct.structdef import _UNUSED_ITEMS, get_type
 
 
-@struct.definition()
+class MyTrait(struct.Trait):
+
+    def __init__(self):
+        struct.Trait.__init__(self, keywords=['weight'])
+
+    def check_argument(self, struct_class, item, keyword, value):
+        assert keyword == 'weight'
+        assert isinstance(value, int)
+        print('Checked value %s' % value)
+
+    def endow(self, struct):
+        struct._counter = 0
+
+    def pre_validated(self, struct, item, value):
+        struct._counter += item.trait_kwargs['weight']
+        print(struct._counter)
+
+
+@struct.definition(traits=[MyTrait()])
 class Parent(struct.Struct):
 
     @struct.constant(default='parent')
     def parent(self, parent): return parent
 
-    @struct.variable(default=0, dependencies='parent')
+    @struct.variable(default=0, dependencies='parent', weight=1)
     def density(self, density): return density
 
 
@@ -19,7 +36,6 @@ class MyStruct(Parent):
 
     def __init__(self, **kwargs):
         Parent.__init__(self, **struct.kwargs(locals(), include_self=False))
-        print(self.__class__.__struct__)
 
     @struct.constant(dependencies=['age', 'age2', 'parent'])
     def a_super_dependent(self, super_dependent): return super_dependent
@@ -36,11 +52,6 @@ class MyStruct(Parent):
 
 
 class TestStruct(TestCase):
-
-    def test_custom_struct_typedef(self):
-        self.assertEqual(len(_UNUSED_ITEMS), 0)
-        structtype = get_type(MyStruct)
-        self.assertIsNotNone(structtype)
 
     def test_custom_struct_instance(self):
         m = MyStruct()

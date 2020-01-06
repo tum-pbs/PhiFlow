@@ -1,6 +1,8 @@
 from unittest import TestCase
 
 import numpy as np
+
+from phi.geom import AABox
 from phi.tf import tf
 
 # pylint: disable-msg = redefined-builtin, redefined-outer-name, unused-wildcard-import, wildcard-import

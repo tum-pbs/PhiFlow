@@ -1,27 +1,59 @@
-import typing  # pylint: disable-msg = unused-import  # this is used in # type
-from typing import Dict
+import copy
 import six
+import numpy
+
+from .trait import Trait
 
 
-STRUCT_CLASSES = None  # type: tuple
-
-
-_STRUCT_REGISTER = {}  # type: Dict[typing.Type, StructType]
-_UNUSED_ITEMS = {}  # type: Dict[str, Item] # only temporary, before class decorator called
-
-
-def definition():
+def definition(traits=()):
     """
 Required decorator for custom struct classes.
     """
-    def decorator(cls):
-        structtype = _build_type(cls)
-        cls.__struct__ = structtype
-        return cls
+    if isinstance(traits, Trait):
+        traits = (traits,)
+    else:
+        for trait in traits:
+            assert isinstance(trait, Trait), 'Illegal trait: %s' % trait
+        traits = tuple(traits)
+
+    def decorator(struct_class, traits=traits):
+        items = {}
+        for attribute_name in dir(struct_class):
+            item = getattr(struct_class, attribute_name)
+            if isinstance(item, Item):
+                items[attribute_name] = item
+        # --- Inheritance ---
+        inherited_traits = ()
+        for base in struct_class.__bases__:
+            if base.__name__ != 'Struct' and hasattr(base, '__items__'):
+                for item in base.__items__:
+                    if item.name not in items:
+                        subclassed_item = copy.copy(item)
+                        items[item.name] = subclassed_item
+                        setattr(struct_class, item.name, subclassed_item)
+                for trait in base.__traits__:
+                    if trait not in traits:
+                        inherited_traits += (trait,)
+        traits = inherited_traits + traits
+        # --- Initialize & Decorate ---
+        struct_class.__traits__ = traits
+        for item in items.values():
+            item.__initialize_for__(struct_class)
+        items = _order_by_dependencies(items, struct_class)
+        struct_class.__items__ = tuple(items)
+        # --- Check trait keywords ---
+        for item in items:
+            for trait_kw, trait_kw_val in item.trait_kwargs.items():
+                matching_traits = [trait for trait in traits if trait_kw in trait.keywords]
+                if len(matching_traits) == 0:
+                    raise ValueError('Trait keyword "%s" does not match any trait of struct %s' % (trait_kw, struct_class.__name__))
+                for trait in matching_traits:
+                    trait.check_argument(struct_class, item, trait_kw, trait_kw_val)
+        return struct_class
     return decorator
 
 
-def variable(default=None, dependencies=(), holds_data=True):
+def variable(default=None, dependencies=(), holds_data=True, **trait_kwargs):
     """
 Required decorator for data_dict of custom structs.
 The enclosing class must be decorated with struct.definition().
@@ -31,13 +63,11 @@ The enclosing class must be decorated with struct.definition().
     :return: read-only property
     """
     def decorator(validate):
-        item = Item(validate.__name__, validate, True, default, dependencies, holds_data)
-        _register_item(validate, item)
-        return item
+        return Item(validate.__name__, validate, True, default, dependencies, holds_data, **trait_kwargs)
     return decorator
 
 
-def constant(default=None, dependencies=(), holds_data=False):
+def constant(default=None, dependencies=(), holds_data=False, **trait_kwargs):
     """
 Required decorator for constants_dict of custom structs.
 The enclosing class must be decorated with struct.definition().
@@ -47,9 +77,7 @@ The enclosing class must be decorated with struct.definition().
     :return: read-only property
     """
     def decorator(validate):
-        item = Item(validate.__name__, validate, False, default, dependencies, holds_data)
-        _register_item(validate, item)
-        return item
+        return Item(validate.__name__, validate, False, default, dependencies, holds_data, **trait_kwargs)
     return decorator
 
 
@@ -63,75 +91,42 @@ Derived properties work similar to @property but can be easily broadcast across 
     return decorator
 
 
-def _register_item(_function, item):
-    _UNUSED_ITEMS[item.name] = item
-
-
-def _build_type(cls):
-    assert cls not in _STRUCT_REGISTER
-    items = {}
-    for attribute in dir(cls):
-        if attribute in _UNUSED_ITEMS:
-            items[attribute] = _UNUSED_ITEMS.pop(attribute)
-    for base in cls.__bases__:
-        if base not in STRUCT_CLASSES and base in _STRUCT_REGISTER:
-            basetype = _STRUCT_REGISTER[base]
-            for item in basetype.items:
-                if item.name not in items:
-                    items[item.name] = item
-    structtype = StructType(cls, items)
-    _STRUCT_REGISTER[cls] = structtype
-    return structtype
-
-
-def get_type(struct_class):
-    """
-    :rtype: StructType
-    """
-    return _STRUCT_REGISTER[struct_class]
-
-
-class StructType(object):
-    """
-One StructType is associated with each defined struct (subclass of Struct) and stored in the _STRUCT_REGISTER.
-    """
-
-    def __init__(self, struct_class, item_dict):
-        self.struct_class = struct_class
-        self.item_dict = item_dict
-        self.items = _order_by_dependencies(item_dict, self)
-        self.variables = tuple(filter(lambda item: item.is_variable, self.items))
-        self.constants = tuple(filter(lambda item: not item.is_variable, self.items))
-
-    def find(self, name):
-        return self.item_dict[name]
-
-    def validate(self, struct):
-        for item in self.items:
-            item.validate(struct)
-
-    @property
-    def item_names(self):
-        return [item.name for item in self.items]
-
-    def __repr__(self):
-        return self.struct_class.__name__
-
-
 class Item(object):
     """
 Represents an item type of a struct, a variable or a constant.
     """
 
-    def __init__(self, name, validation_function, is_variable, default_value, dependencies, holds_data):
+    def __init__(self, name, validation_function, is_variable, default_value, dependencies, holds_data, **trait_kwargs):
         assert callable(validation_function) or validation_function is None
+        assert isinstance(is_variable, bool)
         self.name = name
         self.validation_function = validation_function
         self.is_variable = is_variable
         self.default_value = default_value
+        # --- Format and test dependencies ---
+        if dependencies is None:
+            self.dependencies = []
+        elif isinstance(dependencies, (tuple, list)):
+            self.dependencies = list(dependencies)
+        else:
+            self.dependencies = [dependencies]
+        for i, dependency in enumerate(self.dependencies):
+            if isinstance(dependency, Item):
+                self.dependencies[i] = dependency.name
+            elif isinstance(dependency, six.string_types):
+                pass
+            else:
+                raise ValueError('Illegal dependency: %s on item %s' % (dependency, name))
         self.dependencies = dependencies
         self.holds_data = holds_data
-        self.owner = None
+        self.trait_kwargs = trait_kwargs
+        self.struct_class = None
+
+    def __initialize_for__(self, struct_class):
+        self.struct_class = struct_class
+        self.traits = []
+        self_kws = list(self.trait_kwargs.keys())
+        self.traits = [trait for trait in struct_class.__traits__ if len(numpy.intersect1d(trait.keywords, self_kws)) > 0]
 
     def set(self, struct, value):
         try:
@@ -144,21 +139,24 @@ Represents an item type of a struct, a variable or a constant.
 
     def validate(self, struct):
         if self.validation_function is not None:
-            old_val = self.get(struct)
-            new_val = self.validation_function(struct, old_val)
-            self.set(struct, new_val)
+            value = self.get(struct)
+            for trait in self.traits:
+                value = trait.pre_validated(struct, self, value)
+            value = self.validation_function(struct, value)
+            for trait in self.traits:
+                value = trait.post_validated(struct, self, value)
+            self.set(struct, value)
 
     def __get__(self, instance, owner):
         if instance is not None:
             return getattr(instance, '_'+self.name)
         else:
-            self.owner = owner
             return self
 
     def __call__(self, obj):
-        assert self.owner is not None
+        assert self.struct_class is not None
         from .functions import map
-        return map(lambda x: getattr(x, '_'+self.name), obj, leaf_condition=lambda x: isinstance(x, self.owner))
+        return map(lambda x: getattr(x, '_'+self.name), obj, leaf_condition=lambda x: isinstance(x, self.struct_class))
 
     def __set__(self, instance, value):
         raise AttributeError('Struct variables and constants are read-only.')
@@ -204,38 +202,38 @@ class DerivedProperty(object):
         return self.name
 
 
-def _order_by_dependencies(item_dict, owner):
+def _order_by_dependencies(item_dict, struct_cls):
     result = []
     for item in item_dict.values():
-        _recursive_deps_add(item, item_dict, result, owner)
+        _recursive_deps_add(item, item_dict, result, struct_cls)
     return result
 
 
-def _recursive_deps_add(item, item_dict, result_list, owner):
+def _recursive_deps_add(item, item_dict, result_list, struct_cls):
     if item in result_list: return
-    dependencies = _get_dependencies(item, item_dict, owner)
+    dependencies = _get_dependencies(item, item_dict, struct_cls)
     for dependency in dependencies:
-        _recursive_deps_add(dependency, item_dict, result_list, owner)
+        _recursive_deps_add(dependency, item_dict, result_list, struct_cls)
     result_list.append(item)
 
 
-def _get_dependencies(item, item_dict, owner):
-    dependencies = _resolve_dependencies(item.dependencies, item_dict, owner)
+def _get_dependencies(item, item_dict, struct_cls):
+    dependencies = _resolve_dependencies(item.dependencies, item_dict, struct_cls)
     unique_dependencies = set(dependencies)
     assert len(unique_dependencies) == len(dependencies), 'Duplicate dependencies in item %s' % item
     return unique_dependencies
 
 
-def _resolve_dependencies(dependency, item_dict, owner):
+def _resolve_dependencies(dependency, item_dict, struct_cls):
     if dependency is None: return []
     if isinstance(dependency, six.string_types):
         try:
             return [item_dict[dependency]]
         except KeyError:
-            raise DependencyError('Declared dependency "%s" does not exist on struct %s. Properties: %s' % (dependency, owner, tuple(item_dict.keys())))
+            raise DependencyError('Declared dependency "%s" does not exist on struct %s. Properties: %s' % (dependency, struct_cls.__name__, tuple(item_dict.keys())))
     if isinstance(dependency, Item): return [item_dict[dependency.name]]
     if isinstance(dependency, (tuple, list)):
-        return sum([_resolve_dependencies(dep, item_dict, owner) for dep in dependency], [])
+        return sum([_resolve_dependencies(dep, item_dict, struct_cls) for dep in dependency], [])
     raise ValueError('Cannot resolve dependency "%s". Available items: %s' % (dependency, item_dict.keys()))
 
 
