@@ -41,10 +41,10 @@ def network(density):
     return f_o
 
 
-class TrainingTest(TFApp):
+class TrainingTest(LearningApp):
 
     def __init__(self):
-        TFApp.__init__(self, 'Training', DESCRIPTION, learning_rate=2e-4, validation_batch_size=4, training_batch_size=8)
+        LearningApp.__init__(self, 'Training', DESCRIPTION, learning_rate=2e-4, validation_batch_size=4, training_batch_size=8)
         # --- Setup simulation and placeholders ---
         smoke_in, load_dict = load_state(Fluid(Domain(RESOLUTION)))
         # --- Build neural network ---

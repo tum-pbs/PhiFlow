@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+import warnings
+
 import six
 
 import numpy as np
@@ -68,7 +70,7 @@ class App(nontf.App):
 EVERY_EPOCH = lambda tfapp: tfapp.steps % tfapp.epoch_size == 0
 
 
-class TFApp(App):
+class LearningApp(App):
 
     def __init__(self, name='TensorFlow application', subtitle='',
                  learning_rate=1e-3,
@@ -271,3 +273,9 @@ class TFApp(App):
         #     App.add_field(self, name, lambda: self.view_batch(field))
         else:
             App.add_field(self, name, field)
+
+
+def TFApp(*args, **kwargs):
+    # pylint: disable-msg = invalid-name
+    warnings.warn("The class 'TFApp' was renamed to 'LearningApp' in version 1.0.2.", DeprecationWarning)
+    return LearningApp(*args, **kwargs)

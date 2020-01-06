@@ -97,7 +97,7 @@ whole_dataset = Dataset.load('~/phi/data/simpleplume')
 training_data = Dataset.load('~/phi/data/simpleplume', range(1000), name='train')
 ```
 
-Classes that extend [`TFApp`](../phi/tf/app.py) only need to call `self.set_data`, passing a training and validation dataset as well as a struct containing TensorFlow placeholders (see the [documentation](Interactive_Training_Apps.md)).
+Classes that extend [`LearningApp`](../phi/tf/app.py) only need to call `self.set_data`, passing a training and validation dataset as well as a struct containing TensorFlow placeholders (see the [documentation](Interactive_Training_Apps.md)).
 
 ### Channels
 

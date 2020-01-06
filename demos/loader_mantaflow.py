@@ -18,10 +18,10 @@ MANTAFLOW_RESOLUTION = 64
 DIMS = 2
 
 
-class DataLoader(TFApp):
+class DataLoader(App):
 
     def __init__(self, scene_path, dims, mantaflowRes):
-        TFApp.__init__(self, 'Data Demo')
+        App.__init__(self, 'Data Demo')
 
         smoke = world.add(Fluid(Domain([mantaflowRes - 1] * dims)), physics=IncompressibleFlow())  # 2D: YXc , 3D: ZYXc
         smoke.velocity = smoke.density = placeholder  # switch to TF tensors
