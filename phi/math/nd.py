@@ -59,9 +59,15 @@ def normalize_to(target, source=1, epsilon=1e-5, batch_dims=1):
     return target * (source_total / denominator)
 
 
-def batch_align(tensor, innate_dims, target):
+def batch_align(tensor, innate_dims, target, convert_to_same_backend=True):
     if isinstance(tensor, (tuple, list)):
         return [batch_align(t, innate_dims, target) for t in tensor]
+    # --- Convert type ---
+    if convert_to_same_backend:
+        backend = math.choose_backend([tensor, target])
+        tensor = backend.as_tensor(tensor)
+        target = backend.as_tensor(target)
+    # --- Batch align ---
     ndims = len(math.staticshape(tensor))
     if ndims <= innate_dims:
         return tensor  # There is no batch dimension
@@ -165,9 +171,9 @@ def _forward_divergence_nd(field):
         upper_slices = [(slice(1, None) if i == dimension else slice(None)) for i in dims]
         lower_slices = [(slice(-1)      if i == dimension else slice(None)) for i in dims]
         diff = vq[(slice(None),)+upper_slices] - vq[(slice(None),)+lower_slices]
-        padded = math.pad(diff, [[0,0]] + [([0,1] if i==dimension else [0,0]) for i in dims])
+        padded = math.pad(diff, [[0,0]] + [([0,1] if i == dimension else [0,0]) for i in dims])
         components.append(padded)
-    return math.expand_dims(math.add(components), -1)
+    return math.expand_dims(math.sum(components, 0), -1)
 
 
 def _central_divergence_nd(tensor):
@@ -181,7 +187,7 @@ def _central_divergence_nd(tensor):
         diff = tensor[(slice(None),) + upper_slices + [rank - dimension - 1]] \
              - tensor[(slice(None),) + lower_slices + [rank - dimension - 1]]
         components.append(diff)
-    return math.expand_dims(math.add(components), -1)
+    return math.expand_dims(math.sum(components, 0), -1)
 
 
 # Gradient
@@ -313,7 +319,7 @@ def _sliced_laplace_nd(tensor):
                + tensor[(slice(None),) + lower_slices + (slice(None),)] \
                - 2 * tensor[(slice(None),) + center_slices + (slice(None),)]
         components.append(diff)
-    return math.add(components)
+    return math.sum(components, 0)
 
 
 def fourier_laplace(tensor):
@@ -399,5 +405,5 @@ def interpolate_linear(tensor, upper_weight, dimensions):
         if dimension in dimensions:
             upper_slices = tuple([(slice(1, None) if i == dimension else slice(None)) for i in all_dimensions(tensor)])
             lower_slices = tuple([(slice(-1) if i == dimension else slice(None)) for i in all_dimensions(tensor)])
-            tensor = tensor[upper_slices] * upper_weight[...,dimension-1] + tensor[lower_slices] * lower_weight[...,dimension-1]
+            tensor = math.mul(tensor[upper_slices], upper_weight[...,dimension-1]) + math.mul(tensor[lower_slices], lower_weight[...,dimension-1])
     return tensor

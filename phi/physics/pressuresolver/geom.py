@@ -1,7 +1,12 @@
 from numbers import Number
 
 from phi import math
+from phi.math.blas import conjugate_gradient
+from phi.physics.field import CenteredGrid
 from .solver_api import PressureSolver, FluidDomain
+
+
+# ToDo can cause NaNs, unsafe
 
 
 class GeometricCG(PressureSolver):
@@ -48,14 +53,14 @@ class GeometricCG(PressureSolver):
         fluid_mask = domain.accessible_tensor(extend=1)
 
         if self.autodiff:
-            return solve_pressure_forward(divergence, fluid_mask, self.max_iterations, pressure_guess, self.accuracy, boundaries, back_prop=True)
+            return solve_pressure_forward(divergence, fluid_mask, self.max_iterations, pressure_guess, self.accuracy, domain, back_prop=True)
         else:
             def pressure_gradient(op, grad):
-                return solve_pressure_forward(grad, fluid_mask, max_gradient_iterations, None, self.gradient_accuracy, boundaries)[0]
+                return solve_pressure_forward(grad, fluid_mask, max_gradient_iterations, None, self.gradient_accuracy, domain)[0]
 
             pressure, iteration = math.with_custom_gradient(
                 solve_pressure_forward,
-                [divergence, fluid_mask, self.max_iterations, pressure_guess, self.accuracy, boundaries],
+                [divergence, fluid_mask, self.max_iterations, pressure_guess, self.accuracy, domain],
                 pressure_gradient,
                 input_index=0, output_index=0, name_base='geom_solve'
             )
@@ -64,9 +69,15 @@ class GeometricCG(PressureSolver):
             return pressure, iteration
 
 
-def solve_pressure_forward(divergence, fluid_mask, max_iterations, guess, accuracy, boundaries, back_prop=False):
-    apply_A = lambda pressure: _weighted_sliced_laplace_nd(boundaries.pad_pressure(pressure), weights=fluid_mask)
-    return math.conjugate_gradient(divergence, apply_A, guess, accuracy, max_iterations, back_prop=back_prop)
+def solve_pressure_forward(divergence, fluid_mask, max_iterations, guess, accuracy, domain, back_prop=False):
+
+    def apply_A(pressure):
+        from phi.physics.material import Material
+        mode = 'replicate' if Material.solid(domain.domain.boundaries) else 'constant'
+        padded = math.pad(pressure, [[0,0]] + [[1,1]]*(math.ndims(pressure)-2) + [[0,0]], mode=mode)
+        return _weighted_sliced_laplace_nd(padded, weights=fluid_mask)
+
+    return conjugate_gradient(divergence, apply_A, guess, accuracy, max_iterations, back_prop=back_prop)
 
 
 def _weighted_sliced_laplace_nd(tensor, weights):
@@ -75,9 +86,9 @@ def _weighted_sliced_laplace_nd(tensor, weights):
     dims = range(math.spatial_rank(tensor))
     components = []
     for dimension in dims:
-        center_slices = [(slice(1, -1) if i == dimension else slice(1,-1)) for i in dims]
-        upper_slices = [(slice(2, None) if i == dimension else slice(1,-1)) for i in dims]
-        lower_slices = [(slice(-2) if i == dimension else slice(1,-1)) for i in dims]
+        center_slices = tuple([(slice(1, -1) if i == dimension else slice(1,-1)) for i in dims])
+        upper_slices = tuple([(slice(2, None) if i == dimension else slice(1,-1)) for i in dims])
+        lower_slices = tuple([(slice(-2) if i == dimension else slice(1,-1)) for i in dims])
 
         lower_weights = weights[(slice(None),) + lower_slices + (slice(None),)] * weights[(slice(None),) + center_slices + (slice(None),)]
         upper_weights = weights[(slice(None),) + upper_slices + (slice(None),)] * weights[(slice(None),) + center_slices + (slice(None),)]
@@ -87,6 +98,8 @@ def _weighted_sliced_laplace_nd(tensor, weights):
         upper_values = tensor[(slice(None),) + upper_slices + (slice(None),)]
         center_values = tensor[(slice(None),) + center_slices + (slice(None),)]
 
-        diff = upper_values * upper_weights + lower_values * lower_weights + center_values * center_weights
+        diff = math.mul(upper_values, upper_weights) + \
+               math.mul(lower_values, lower_weights) + \
+               math.mul(center_values, center_weights)
         components.append(diff)
-    return math.add(components)
+    return math.sum(components, 0)

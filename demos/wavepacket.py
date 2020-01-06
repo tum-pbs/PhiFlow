@@ -36,4 +36,4 @@ class WavePacketDemo(App):
                                          wave_vector=[1 * self.value_frequency, 0.6 * self.value_frequency])
 
 
-show()
+show(WavePacketDemo)

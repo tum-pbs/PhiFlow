@@ -14,22 +14,23 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 
 ## Features
 
-- Support for a variety of differentiable simulation types, from Burgers over Navier-Stokes to the Schrödinger equation.
-- Tight integration with [TensorFlow](https://www.tensorflow.org/) allowing for straightforward network training with fully differentiable simulations that run on the GPU.
+- Variety of built-in fully-differentiable simulations, ranging from Burgers and Navier-Stokes to the Schrödinger equation.
+- Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) (experimental) allowing for straightforward neural network training with fully differentiable simulations that run on the GPU.
 - Object-oriented architecture enabling concise and expressive code, designed for ease of use and extensibility.
-- Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow.
+- Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
 - Flexible, easy-to-use web interface featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 
 ## Installation
 
-The following commands will get you Φ<sub>*Flow*</sub> + browser-GUI + NumPy execution:
+To install Φ<sub>*Flow*</sub> with web interface, run:
 
 ```bash
 $ pip install phiflow[gui]
 ```
 
-See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to install Φ<sub>*Flow*</sub>
-with TensorFlow support.
+Install TensorFlow or PyTorch in addition to Φ<sub>*Flow*</sub> to enable machine learning capabilities and GPU execution.
+
+See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to compile the custom CUDA operators and verify your installation.
 
 ## Documentation and Guides
 
@@ -72,7 +73,7 @@ The [software architecture documentation](documentation/Software_Architecture.md
 
 ## Version History
 
-The [Version history](documentation/Version_History.md) lists all major changes since release.
+The [Version history](https://github.com/tum-pbs/PhiFlow/releases) lists all major changes since release.
 
 ## Known Issues
 
@@ -82,7 +83,7 @@ Resampling / Advection: NumPy interpolation handles the boundaries slightly diff
 
 ## Contributions
 
-Contributions are welcome! Check out [this document](documentation/Contributing.md) for some guidelines.
+Contributions are welcome! Check out [this document](documentation/Contributing.md) for guidelines.
 
 ## Acknowledgements
 
