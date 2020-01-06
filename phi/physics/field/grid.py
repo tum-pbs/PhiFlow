@@ -57,14 +57,9 @@ class CenteredGrid(Field):
         if not isinstance(self.extrapolation, six.string_types):
             return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
-        local_points = local_points * math.to_float(self.resolution) - 0.5
-        if self.extrapolation == 'periodic':
-            data = math.pad(self.data, [[0,0]]+[[0,1]]*self.rank+[[0,0]], mode='wrap')
-            local_points = local_points % math.to_float(math.staticshape(self.data)[1:-1])
-            resampled = math.resample(data, local_points, interpolation=self.interpolation)
-        else:
-            boundary = 'replicate' if self.extrapolation == 'boundary' else 'zero'
-            resampled = math.resample(self.data, local_points, boundary=boundary, interpolation=self.interpolation)
+        local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
+        boundary = {'periodic': 'circular', 'boundary': 'replicate', 'constant': 'constant'}[self.extrapolation]
+        resampled = math.resample(self.data, local_points, boundary=boundary, interpolation=self.interpolation)
         return resampled
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
@@ -175,6 +170,6 @@ def _pad_mode(extrapolation):
     if extrapolation == 'periodic':
         return 'wrap'
     elif extrapolation == 'boundary':
-        return 'symmetric'
+        return 'replicate'
     else:
         return extrapolation

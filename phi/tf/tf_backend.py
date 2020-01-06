@@ -1,5 +1,7 @@
 import logging
 import uuid
+import warnings
+
 import numpy as np
 import six
 import tensorflow as tf
@@ -19,15 +21,12 @@ class TFBackend(Backend):
     def __init__(self):
         Backend.__init__(self, "TensorFlow")
 
-    def is_applicable(self, values):
-        for value in values:
-            if self.is_tensor(value): return True
-        return False
-
     def is_tensor(self, x):
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
     def as_tensor(self, x):
+        if isinstance(x, np.ndarray) and x.dtype == np.float64:
+            return tf.convert_to_tensor(x, dtype=tf.float32)
         return tf.convert_to_tensor(x)
 
     def equal(self, x, y):
@@ -64,7 +63,7 @@ class TFBackend(Backend):
             return self._single_mode_single_constant_pad(value, pad_width, mode, constant_values)
         else:
             mode = expand(mode, shape=(len(dims), 2))
-            passes = [('wrap', 0), ('symmetric', 0), ('reflect', 0)]
+            passes = [('circular', 0), ('wrap', 0), ('replicate', 0), ('symmetric', 0), ('reflect', 0)]
             constant_values = expand(constant_values, shape=(len(dims), 2))
             constant_value_set = set()
             for d in dims:
@@ -79,10 +78,13 @@ class TFBackend(Backend):
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
         single_mode = single_mode.lower()
-        assert single_mode in ('constant', 'symmetric', 'wrap', 'reflect'), single_mode
+        if single_mode == 'wrap':
+            warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
+            single_mode = 'circular'
+        assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
         if np.sum(np.array(pad_width)) == 0:
             return value
-        if single_mode == 'wrap':
+        if single_mode == 'circular':
             dims = range(len(value.shape))
             for dim in dims:
                 s = value.shape[dim]
@@ -95,12 +97,11 @@ class TFBackend(Backend):
                 upper = value[upper_slices]
                 value = tf.concat([lower, value, upper], axis=dim)
             return value
-        else:
-            single_mode = single_mode.upper()
-            return tf.pad(value, pad_width, single_mode, constant_values=constant_value)
-
-    def add(self, values):
-        return tf.add_n(values)
+        if single_mode == 'replicate':
+            if np.any(np.array(pad_width) > 1):
+                raise NotImplementedError()  # ToDo: manual padding with slices
+        single_mode = single_mode.upper()
+        return tf.pad(value, pad_width, single_mode, constant_values=constant_value)
 
     def reshape(self, value, shape):
         return tf.reshape(value, shape)
@@ -143,8 +144,12 @@ class TFBackend(Backend):
             result.set_shape(shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
-        return resample_tf(inputs, sample_coords, interpolation, boundary)
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        if boundary.lower() == 'constant':
+            boundary = 'zero'
+        boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
+        assert interpolation.lower() == 'linear'
+        return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 
     def zeros_like(self, tensor):
         return tf.zeros_like(tensor)
@@ -353,6 +358,9 @@ class TFBackend(Backend):
     def dtype(self, array):
         return array.dtype.as_numpy_dtype
 
+    def sparse_tensor(self, indices, values, shape):
+        return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
+
 
 # from niftynet.layer.resampler.py
 # https://cmiclab.cs.ucl.ac.uk/CMIC/NiftyNet/blob/69c98e5a95cc6788ad9fb8c5e27dc24d1acec634/niftynet/layer/resampler.py
@@ -429,20 +437,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
         return f_0 * w_1[-1] + f_1 * w_0[-1]
 
     return _pyramid_combination(samples, weight_0, weight_1)
-
-
-def resample_tf(inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
-    """
-Resamples an N-dimensional tensor at the locations provided by sample_coords
-    :param inputs: grid with dimensions (batch_size, spatial dimensions..., element_size)
-    :param sample_coords: sample coords (batch_size, output_shape, input_dimension)
-    :param interpolation: LINEAR, BSPLINE, IDW (default is LINEAR)
-    :param boundary: ZERO, REPLICATE, CIRCULAR, SYMMETRIC (default is ZERO)
-    :return:
-    """
-    boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
-    assert interpolation.upper() == "LINEAR"
-    return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 
 
 def _boundary_snap(sample_coords, spatial_shape):

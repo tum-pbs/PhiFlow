@@ -164,7 +164,10 @@ class Field(State):
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
             self_data = self.data if self.has_points else self.at(other).data
             other_data = other.data if other.has_points else other.at(self).data
-            data = data_operator(self_data, other_data)
+            backend = math.choose_backend([self_data, other_data])
+            self_data_tensor = backend.as_tensor(self_data)
+            other_data_tensor = backend.as_tensor(other_data)
+            data = data_operator(self_data_tensor, other_data_tensor)
         else:
             flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
             data = data_operator(self.data, other)

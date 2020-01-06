@@ -1,5 +1,7 @@
 import collections
 import numbers
+import warnings
+
 import numpy as np
 import scipy.sparse
 import scipy.signal
@@ -72,7 +74,7 @@ class SciPyBackend(Backend):
             return self._single_mode_pad(value, pad_width, mode, constant_values)
         else:
             mode = expand(mode, shape=(len(dims), 2))
-            for single_mode in ('wrap', 'symmetric', 'reflect', 'constant'):  # order matters! wrap first
+            for single_mode in ('wrap', 'circular', 'replicate', 'symmetric', 'reflect', 'constant'):  # order matters! circular first
                 widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode else 0 for upper in (False, True)] for d in dims]
                 value = self._single_mode_pad(value, widths, single_mode, constant_values)
             return value
@@ -80,13 +82,15 @@ class SciPyBackend(Backend):
     def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
         if np.sum(np.array(pad_width)) == 0:
             return value
+        if single_mode == 'wrap':
+            warnings.warn("padding mode 'wrap' is deprecated. Use 'circular' instead.", DeprecationWarning, stacklevel=2)
         if single_mode.lower() == 'constant':
             return np.pad(value, pad_width, 'constant', constant_values=constant_values)
-        else:
-            return np.pad(value, pad_width, single_mode.lower())
-
-    def add(self, values):
-        return np.sum(values, axis=0)
+        if single_mode.lower() == 'circular':
+            single_mode = 'wrap'
+        if single_mode.lower() == 'replicate':
+            single_mode = 'edge'
+        return np.pad(value, pad_width, single_mode.lower())
 
     def reshape(self, value, shape):
         return value.reshape(shape)
@@ -112,11 +116,14 @@ class SciPyBackend(Backend):
         assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
-        if boundary.lower() == "zero":
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        if boundary.lower() == 'zero' or boundary.lower() == 'constant':
             pass # default
-        elif boundary.lower() == "replicate":
+        elif boundary.lower() == 'replicate':
             sample_coords = clamp(sample_coords, inputs.shape[1:-1])
+        elif boundary.lower() == 'circular':
+            inputs = self.pad(inputs, [[0,0]]+[[0,1]]*tensor_spatial_rank(inputs)+[[0,0]], mode='circular')
+            sample_coords = sample_coords % self.to_float(self.staticshape(inputs)[1:-1])
         else:
             raise ValueError("Unsupported boundary: %s"%boundary)
 
@@ -316,6 +323,9 @@ class SciPyBackend(Backend):
         if not isinstance(array, np.ndarray):
             array = np.array(array)
         return array.dtype
+
+    def sparse_tensor(self, indices, values, shape):
+        return scipy.sparse.csc_matrix((values, self.unstack(indices, -1)), shape=shape)
 
 
 def clamp(coordinates, shape):
