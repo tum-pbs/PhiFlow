@@ -72,7 +72,8 @@ class TorchBackend(Backend):
         return torch.prod(value, dim=axis)
 
     def divide_no_nan(self, x, y):
-        raise NotImplementedError()
+        result = self.as_tensor(x) / self.as_tensor(y)
+        return torch.where(y == 0, torch.zeros_like(result), result)
 
     def where(self, condition, x=None, y=None):
         return torch.where(condition, x, y)
@@ -186,8 +187,9 @@ class TorchBackend(Backend):
         else:
             raise ValueError(padding)
         tensor = channels_first(tensor)
-        kernel = kernel.permute(tuple(range(2, len(kernel.shape))) + (0, 1))
-        result = torchf.conv2d(tensor, kernel, padding=padding)
+        kernel = kernel.permute((-2, -1) + tuple(range(len(kernel.shape)-2)))
+        convf = {3: torchf.conv1d, 4: torchf.conv2d, 5: torchf.conv3d}[len(tensor.shape)]
+        result = convf(tensor, kernel, padding=padding)
         result = channels_last(result)
         return result
 
