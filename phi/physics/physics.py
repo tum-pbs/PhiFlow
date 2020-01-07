@@ -47,8 +47,10 @@ All states that represent a configuration of the same system must have the same 
 
 Names can also be used as a shortcut to reference states (e.g. in CollectiveState or World).
         """
-        if name is None: return '%s_%d' % (self.__class__.__name__.lower(), id(self))
-        else: return str(name)
+        if name is None:
+            return '%s_%d' % (self.__class__.__name__.lower(), id(self))
+        else:
+            return str(name)
 
     def default_physics(self):
         """
@@ -62,7 +64,8 @@ Returns a Physics object that can be used to progress this state forward in time
 Similar to phi.math.shape(self) but respects unknown dimensions.
         """
         def tensorshape(tensor):
-            if tensor is None: return None
+            if tensor is None:
+                return None
             default_batched_shape = staticshape(tensor)
             if len(default_batched_shape) >= 2:
                 return (self._batch_size,) + default_batched_shape[1:]
@@ -102,7 +105,8 @@ Define a StateDependency.
         self.single_state = single_state
         self.blocking = blocking
         self.state_name = state_name
-        if state_name is not None: assert single_state
+        if state_name is not None:
+            assert single_state
 
     def __repr__(self):
         if self.state_name is not None:

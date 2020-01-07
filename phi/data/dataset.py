@@ -1,5 +1,6 @@
-from .source import DataSource, SceneSource
 from weakref import WeakSet
+
+from .source import DataSource, SceneSource
 
 
 class Dataset(object):
@@ -78,7 +79,7 @@ class Dataset(object):
                 frames = scene.frames
             dataset.add(SceneSource(scene, frames=frames, shape_map=shape_map))
 
-        if dataset.count()==0:
+        if dataset.count() == 0:
             raise ValueError("No data sets found in '%s' " % directory)
 
         return dataset

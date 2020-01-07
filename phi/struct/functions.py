@@ -1,16 +1,18 @@
 import six
 
-from .structdef import DATA, ALL_ITEMS
-from .struct import isstruct, copy_with, equal, to_dict
 from .context import unsafe
+from .struct import copy_with, equal, isstruct, to_dict
+from .structdef import ALL_ITEMS, DATA
 
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=DATA):
     result = []
+
     def map_leaf(value):
         result.append(value)
         return value
-    with unsafe(): map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition)
+    with unsafe():
+        map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition)
     return result
 
 
@@ -72,6 +74,7 @@ class IncompatibleStructs(Exception):
     """
 Thrown when two or more structs are required to have the same structure but do not.
     """
+
     def __init__(self, *args):
         Exception.__init__(self, *args)
 
@@ -138,8 +141,10 @@ Trace objects can be used to reference a specific item of a struct or sub-struct
 
 
 def compare(structs, leaf_condition=None, recursive=True, item_condition=ALL_ITEMS):
-    if len(structs) <= 1: return []
+    if len(structs) <= 1:
+        return []
     result = set()
+
     def check(trace):
         value = trace.value
         for other in structs[1:]:
@@ -149,7 +154,8 @@ def compare(structs, leaf_condition=None, recursive=True, item_condition=ALL_ITE
                     result.add(trace)
             except (ValueError, KeyError, TypeError):
                 result.add(trace)
-    with unsafe(): map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, item_condition=item_condition)
+    with unsafe():
+        map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, item_condition=item_condition)
     return result
 
 

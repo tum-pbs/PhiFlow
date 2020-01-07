@@ -49,7 +49,7 @@ Computes the velocity multiplication factor for fluid that moves along the surfa
         if dt == 1 or self.friction == 1 or self.friction == 0:
             return 1 - self.friction
         else:
-            time_friction_exponent = math.log(1/(1-self.friction))
+            time_friction_exponent = math.log(1 / (1 - self.friction))
             return math.exp(- dt * time_friction_exponent)
 
     @struct.constant(default=False)

@@ -32,19 +32,20 @@ def placeholder(shape, dtype=np.float32, basename=None, item_condition=struct.VA
         zipped = struct.zip([shape, dtype], leaf_condition=is_static_shape, item_condition=item_condition)
         return struct.map(placeholder_map, zipped, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
     else:
-        f = lambda trace: tf.placeholder(dtype, trace.value, _tf_name(trace, basename))
+        def f(trace): return tf.placeholder(dtype, trace.value, _tf_name(trace, basename))
         return struct.map(f, shape, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
 
 
 def placeholder_like(obj, basename=None):
     warnings.warn("placeholder_like may not respect the batch dimension. "
                   "For State objects, use placeholder(state.shape) instead.", DeprecationWarning, stacklevel=2)
-    f = lambda attr: tf.placeholder(attr.value.dtype, attr.value.shape, _tf_name(attr, basename))
+
+    def f(attr): return tf.placeholder(attr.value.dtype, attr.value.shape, _tf_name(attr, basename))
     return struct.map(f, obj, leaf_condition=is_static_shape, trace=True)
 
 
 def variable(initial_value, dtype=np.float32, basename=None, trainable=True, item_condition=struct.VARIABLES):
-    f = lambda attr: tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
+    def f(attr): return tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
     return struct.map(f, initial_value, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
 
 
@@ -83,7 +84,7 @@ def residual_block(y, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activati
     # down-sampling is performed with a stride of 2
     y = tf.pad(y, [[0, 0], pad1, pad2, [0, 0]], mode=padding)
     y = tf.layers.conv2d(y, nb_channels, kernel_size=kernel_size, strides=_strides, padding='valid',
-                         name=None if name is None else name+"/conv1", trainable=trainable, reuse=reuse)
+                         name=None if name is None else name + "/conv1", trainable=trainable, reuse=reuse)
     # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm1", training=training, trainable=trainable, reuse=reuse)
     y = activation(y)
 
@@ -108,7 +109,7 @@ def residual_block(y, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activati
 
 
 def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activation=tf.nn.leaky_relu,
-                   _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
+                      _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
     shortcut = y
 
     if isinstance(kernel_size, int):
@@ -119,13 +120,13 @@ def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activatio
     # down-sampling is performed with a stride of 2
     y = tf.pad(y, [[0, 0], pad1, [0, 0]], mode=padding)
     y = tf.layers.conv1d(y, nb_channels, kernel_size=kernel_size, strides=_strides, padding='valid',
-             name=None if name is None else name+"/conv1", trainable=trainable, reuse=reuse)
+                         name=None if name is None else name + "/conv1", trainable=trainable, reuse=reuse)
     # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm1", training=training, trainable=trainable, reuse=reuse)
     y = activation(y)
 
     y = tf.pad(y, [[0, 0], pad1, [0, 0]], mode=padding)
     y = tf.layers.conv1d(y, nb_channels, kernel_size=kernel_size, strides=(1,), padding='valid',
-             name=None if name is None else name + "/conv2", trainable=trainable, reuse=reuse)
+                         name=None if name is None else name + "/conv2", trainable=trainable, reuse=reuse)
     # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm2", training=training, trainable=trainable, reuse=reuse)
 
     # identity shortcuts used directly when the input and output are of the same dimensions
@@ -134,7 +135,7 @@ def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activatio
         # when the shortcuts go across feature maps of two sizes, they are performed with a stride of 2
         shortcut = tf.pad(shortcut, [[0, 0], pad1, [0, 0]], mode=padding)
         shortcut = tf.layers.conv1d(shortcut, nb_channels, kernel_size=(1, 1), strides=_strides, padding='valid',
-                        name=None if name is None else name + "/convid", trainable=trainable, reuse=reuse)
+                                    name=None if name is None else name + "/convid", trainable=trainable, reuse=reuse)
         # shortcut = tf.layers.batch_normalization(shortcut, name=None if name is None else name+"/normid", training=training, trainable=trainable, reuse=reuse)
 
     y += shortcut
@@ -151,10 +152,10 @@ def istensor(obj):
     return isinstance(obj, (tf.Tensor, tf.Variable))
 
 
-
 def conv_function(scope, constants_file=None):
     if constants_file is not None:
         reader = pywrap_tensorflow.NewCheckpointReader(constants_file)
+
         def conv(n, filters, kernel_size, strides=[1, 1, 1, 1], padding="VALID", activation=None, name=None, kernel_initializer=None):
             assert name is not None
             kernel = reader.get_tensor("%s/%s/kernel" % (scope, name))

@@ -1,7 +1,7 @@
-from .physics import Physics, StateDependency
 from .field import advect
-from .field.util import diffuse
 from .field.effect import effect_applied
+from .field.util import diffuse
+from .physics import Physics, StateDependency
 
 
 class Burgers(Physics):

@@ -1,12 +1,12 @@
 # pylint: disable-msg = redefined-outer-name  # kwargs should be accessed as struct.kwargs
-from copy import copy
 import json
-import six
+from copy import copy
 
 import numpy as np
+import six
 
 from .context import skip_validate
-from .structdef import Item, VARIABLES, CONSTANTS
+from .structdef import CONSTANTS, VARIABLES, Item
 
 
 def kwargs(locals, include_self=False, ignore=()):
@@ -93,7 +93,8 @@ See the struct documentation at documentation/Structs.ipynb
         if type(self) != type(other):  # pylint: disable-msg = unidiomatic-typecheck
             return False
         for item in self.__items__:
-            if not equal(item.get(self), item.get(other)): return False
+            if not equal(item.get(self), item.get(other)):
+                return False
         return True
 
     def __ne__(self, other):

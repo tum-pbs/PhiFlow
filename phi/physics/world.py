@@ -5,15 +5,15 @@ Worlds also facilitate referencing states when performing a forward simulation.
 
 A default World, called `world` is provided for convenience.
 """
+import inspect
 import warnings
 from typing import TypeVar
-import inspect
 
 import six
 
-from .physics import State, Physics, Static
 from .collective import CollectiveState
 from .field.effect import Gravity
+from .physics import Physics, State, Static
 
 
 class StateProxy(object):
@@ -153,7 +153,8 @@ Sets the current state of the world and informs all observers.
         assert state is not None
         assert isinstance(state, CollectiveState)
         self._state = state
-        for observer in self.observers: observer(self)
+        for observer in self.observers:
+            observer(self)
 
     def step(self, state=None, dt=1.0, physics=None):
         """
@@ -171,7 +172,8 @@ Sets the current state of the world and informs all observers.
             :return: evolved state if a specific state was provided
         """
         if state is None:
-            if physics is None: physics = self.physics
+            if physics is None:
+                physics = self.physics
             self.state = physics.step(self._state, dt)
             return self.state
         else:
@@ -186,7 +188,8 @@ Sets the current state of the world and informs all observers.
 Similar to step() but does not change the state of the world. Instead, the new state is returned.
         """
         if state is None:
-            if physics is None: physics = self.physics
+            if physics is None:
+                physics = self.physics
             return physics.step(self._state, None, dt)
         else:
             if isinstance(state, StateProxy):
@@ -236,7 +239,7 @@ Remove a system or collection of systems from the world.
         """
         Looks up the Physics object associated with a given State or StateProxy.
         If no Physics object was registered manually, the state.default_physics() object is used.
-        
+
         :param state: State or StateProxy contained in this world
         :return: Physics
         """

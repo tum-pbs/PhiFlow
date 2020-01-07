@@ -1,8 +1,9 @@
+from phi import struct
 from phi.data.fluidformat import _transform_for_writing
-from .util import placeholder
 from phi.physics.physics import State
 from phi.physics.world import StateProxy
-from phi import struct
+
+from .util import placeholder
 
 
 def load_state(state):

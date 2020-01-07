@@ -29,6 +29,7 @@ class StructBroadcastBackend(Backend):
 def broadcast_function(backend, func, args, kwargs):
     backend_func = getattr(backend, func)
     obj, build_arguments = argument_assembler(args, kwargs)
+
     def f(*values):
         args, kwargs = build_arguments(values)
         result = backend_func(*args, **kwargs)

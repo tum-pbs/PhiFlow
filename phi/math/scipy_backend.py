@@ -3,11 +3,11 @@ import numbers
 import warnings
 
 import numpy as np
-import scipy.sparse
 import scipy.signal
+import scipy.sparse
 import six
-
 from phi.struct.tensorop import collapsed_gather_nd, expand
+
 from .base_backend import Backend
 
 
@@ -17,15 +17,21 @@ class SciPyBackend(Backend):
         Backend.__init__(self, "SciPy")
 
     def is_applicable(self, values):
-        if values is None: return True
-        if isinstance(values, np.ndarray): return True
-        if isinstance(values, numbers.Number): return True
-        if isinstance(values, bool): return True
-        if scipy.sparse.issparse(values): return True
+        if values is None:
+            return True
+        if isinstance(values, np.ndarray):
+            return True
+        if isinstance(values, numbers.Number):
+            return True
+        if isinstance(values, bool):
+            return True
+        if scipy.sparse.issparse(values):
+            return True
         if isinstance(values, collections.Iterable):
             try:
                 for value in values:
-                    if not self.is_applicable(value): return False
+                    if not self.is_applicable(value):
+                        return False
                 return True
             except:
                 return False
@@ -118,14 +124,14 @@ class SciPyBackend(Backend):
 
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
         if boundary.lower() == 'zero' or boundary.lower() == 'constant':
-            pass # default
+            pass  # default
         elif boundary.lower() == 'replicate':
             sample_coords = clamp(sample_coords, inputs.shape[1:-1])
         elif boundary.lower() == 'circular':
-            inputs = self.pad(inputs, [[0,0]]+[[0,1]]*tensor_spatial_rank(inputs)+[[0,0]], mode='circular')
+            inputs = self.pad(inputs, [[0,0]] + [[0,1]] * tensor_spatial_rank(inputs) + [[0,0]], mode='circular')
             sample_coords = sample_coords % self.to_float(self.staticshape(inputs)[1:-1])
         else:
-            raise ValueError("Unsupported boundary: %s"%boundary)
+            raise ValueError("Unsupported boundary: %s" % boundary)
 
         import scipy.interpolate
         points = [np.arange(dim) for dim in inputs.shape[1:-1]]
@@ -159,7 +165,8 @@ class SciPyBackend(Backend):
                    swap_memory=False, name=None, maximum_iterations=None):
         i = 0
         while cond(*loop_vars):
-            if maximum_iterations is not None and i == maximum_iterations: break
+            if maximum_iterations is not None and i == maximum_iterations:
+                break
             loop_vars = body(*loop_vars)
             i += 1
         return loop_vars
@@ -209,7 +216,7 @@ class SciPyBackend(Backend):
             valid = [tensor.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(tensor))]
             result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], np.float32)
         else:
-            raise ValueError("Illegal padding: %s"%padding)
+            raise ValueError("Illegal padding: %s" % padding)
         for batch in range(tensor.shape[0]):
             for o in range(kernel.shape[-1]):
                 for i in range(tensor.shape[-1]):
@@ -254,7 +261,7 @@ class SciPyBackend(Backend):
             raise ValueError("Illegal axis value")
         result = []
         for i in range(tensor.shape[axis]):
-            result.append(tensor[tuple([i if d==axis else slice(None) for d in range(len(tensor.shape))])])
+            result.append(tensor[tuple([i if d == axis else slice(None) for d in range(len(tensor.shape))])])
         return result
 
     def std(self, x, axis=None):
@@ -295,7 +302,7 @@ class SciPyBackend(Backend):
         elif rank == 2:
             return np.fft.fft2(x, axes=[1,2])
         else:
-            return np.fft.fftn(x, axes=list(range(1,rank+1)))
+            return np.fft.fftn(x, axes=list(range(1,rank + 1)))
 
     def ifft(self, k):
         rank = len(k.shape) - 2
@@ -305,7 +312,7 @@ class SciPyBackend(Backend):
         elif rank == 2:
             return np.fft.ifft2(k, axes=[1,2])
         else:
-            return np.fft.ifftn(k, axes=list(range(1,rank+1)))
+            return np.fft.ifftn(k, axes=list(range(1,rank + 1)))
 
     def imag(self, complex):
         return np.imag(complex)
@@ -331,7 +338,7 @@ class SciPyBackend(Backend):
 def clamp(coordinates, shape):
     assert coordinates.shape[-1] == len(shape)
     for i in range(len(shape)):
-        coordinates[...,i] = np.maximum(0, np.minimum(shape[i]-1, coordinates[...,i]))
+        coordinates[...,i] = np.maximum(0, np.minimum(shape[i] - 1, coordinates[...,i]))
     return coordinates
 
 

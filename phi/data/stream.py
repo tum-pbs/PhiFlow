@@ -220,7 +220,7 @@ class MantaScalar(DerivedStream):
         a = self.stream.get(datasource, indices)
         c = []
         for b in a:
-            b = b[..., 0:b.shape[1]-1, 0:b.shape[2]-1, :]  # crop 1 layer
+            b = b[..., 0:b.shape[1] - 1, 0:b.shape[2] - 1, :]  # crop 1 layer
             c.append(b)
         a = np.asarray(c)
         return a
@@ -244,4 +244,4 @@ Every DataSource accessed through these channels must contain at least n frames.
     :param n: Number of frames to load
     :return: tuple containing n DataChannels
     """
-    return tuple([FrameSelect(lambda frames, i=i: frames[i:i-n+1+len(frames)], channel) for i in range(n)])
+    return tuple([FrameSelect(lambda frames, i=i: frames[i:i - n + 1 + len(frames)], channel) for i in range(n)])

@@ -1,12 +1,13 @@
 import numpy as np
-from phi import struct, math
+from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
 from phi.physics.field.staggered_grid import staggered_component_box
 from phi.struct.tensorop import collapse, collapsed_gather_nd
+
 from . import State
-from .material import Material, OPEN
-from .field import CenteredGrid, StaggeredGrid, Field, DIVERGENCE_FREE
+from .field import DIVERGENCE_FREE, CenteredGrid, Field, StaggeredGrid
+from .material import OPEN, Material
 
 
 @struct.definition()
@@ -58,15 +59,15 @@ class Domain(struct.Struct):
         local_position = self.box.global_to_local(global_position) * self.resolution
         position = math.to_int(local_position - 0.5)
         position = math.maximum(0, position)
-        position = math.minimum(position, self.resolution-1)
+        position = math.minimum(position, self.resolution - 1)
         return position
 
     def center_points(self):
-        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+0.5, 1) for dim in self.resolution], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5, dim + 0.5, 1) for dim in self.resolution], indexing="ij")
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
     def staggered_points(self, dimension):
-        idx_zyx = np.meshgrid(*[np.arange(0.5, dim+1.5, 1)  if dim != dimension else np.arange(0, dim+1, 1) for dim in self.resolution], indexing="ij")
+        idx_zyx = np.meshgrid(*[np.arange(0.5, dim + 1.5, 1) if dim != dimension else np.arange(0, dim + 1, 1) for dim in self.resolution], indexing="ij")
         return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
 
     def indices(self):
@@ -74,7 +75,7 @@ class Domain(struct.Struct):
         Constructs a grid containing the index-location as components.
         Each index denotes the location within the tensor starting from zero.
         Indices are encoded as vectors in the index tensor.
-        
+
         :param dtype: a numpy data type (default float32)
         :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
         """
@@ -137,7 +138,8 @@ class Domain(struct.Struct):
                 data = data(shape)
             if data.age == ():
                 data._age = 0.0
-                for field in data.data: field._age = 0.0
+                for field in data.data:
+                    field._age = 0.0
         if isinstance(data, Field):
             assert isinstance(data, StaggeredGrid)
             assert np.all(data.resolution == self.resolution)
@@ -165,7 +167,7 @@ def tensor_shape(batch_size, resolution, components):
 
 def _extend1(shape, axis):
     shape = list(shape)
-    shape[axis+1] += 1
+    shape[axis + 1] += 1
     return shape
 
 
@@ -175,9 +177,12 @@ class DomainState(State):
     @struct.constant()
     def domain(self, domain):
         assert domain is not None
-        if isinstance(domain, Domain): return domain
-        if isinstance(domain, int): return Domain([domain])
-        if isinstance(domain, (tuple, list)): return Domain(domain)
+        if isinstance(domain, Domain):
+            return domain
+        if isinstance(domain, int):
+            return Domain([domain])
+        if isinstance(domain, (tuple, list)):
+            return Domain(domain)
         raise ValueError('Not a valid domain: %s' % domain)
 
     @property

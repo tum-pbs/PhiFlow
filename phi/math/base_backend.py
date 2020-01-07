@@ -175,7 +175,7 @@ class Backend:
         raise NotImplementedError(self)
 
     def flatten(self, x):
-        return self.reshape(x, (-1,) )
+        return self.reshape(x, (-1,))
 
     def unstack(self, tensor, axis=0):
         raise NotImplementedError(self)
@@ -220,7 +220,7 @@ class Backend:
     def ifft(self, k):
         """
         Computes the n-dimensional inverse FFT along all but the first and last dimensions.
-        
+
         :param k: tensor of dimension 3 or higher
         """
         raise NotImplementedError(self)

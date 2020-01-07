@@ -1,6 +1,7 @@
 import six
-from .physics import State, struct, Physics
 from phi.struct.context import skip_validate
+
+from .physics import Physics, State, struct
 
 
 @struct.definition()

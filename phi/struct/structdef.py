@@ -1,6 +1,7 @@
 import copy
-import six
+
 import numpy
+import six
 
 from .trait import Trait
 
@@ -149,14 +150,14 @@ Represents an item type of a struct, a variable or a constant.
 
     def __get__(self, instance, owner):
         if instance is not None:
-            return getattr(instance, '_'+self.name)
+            return getattr(instance, '_' + self.name)
         else:
             return self
 
     def __call__(self, obj):
         assert self.struct_class is not None
         from .functions import map
-        return map(lambda x: getattr(x, '_'+self.name), obj, leaf_condition=lambda x: isinstance(x, self.struct_class))
+        return map(lambda x: getattr(x, '_' + self.name), obj, leaf_condition=lambda x: isinstance(x, self.struct_class))
 
     def __set__(self, instance, value):
         raise AttributeError('Struct variables and constants are read-only.')
@@ -169,8 +170,14 @@ Represents an item type of a struct, a variable or a constant.
 
 
 def CONSTANTS(item): return not item.is_variable
+
+
 def VARIABLES(item): return item.is_variable
+
+
 def DATA(item): return item.holds_data
+
+
 ALL_ITEMS = None
 
 
@@ -210,7 +217,8 @@ def _order_by_dependencies(item_dict, struct_cls):
 
 
 def _recursive_deps_add(item, item_dict, result_list, struct_cls):
-    if item in result_list: return
+    if item in result_list:
+        return
     dependencies = _get_dependencies(item, item_dict, struct_cls)
     for dependency in dependencies:
         _recursive_deps_add(dependency, item_dict, result_list, struct_cls)
@@ -225,13 +233,15 @@ def _get_dependencies(item, item_dict, struct_cls):
 
 
 def _resolve_dependencies(dependency, item_dict, struct_cls):
-    if dependency is None: return []
+    if dependency is None:
+        return []
     if isinstance(dependency, six.string_types):
         try:
             return [item_dict[dependency]]
         except KeyError:
             raise DependencyError('Declared dependency "%s" does not exist on struct %s. Properties: %s' % (dependency, struct_cls.__name__, tuple(item_dict.keys())))
-    if isinstance(dependency, Item): return [item_dict[dependency.name]]
+    if isinstance(dependency, Item):
+        return [item_dict[dependency.name]]
     if isinstance(dependency, (tuple, list)):
         return sum([_resolve_dependencies(dep, item_dict, struct_cls) for dep in dependency], [])
     raise ValueError('Cannot resolve dependency "%s". Available items: %s' % (dependency, item_dict.keys()))

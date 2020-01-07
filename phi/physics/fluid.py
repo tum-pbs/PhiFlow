@@ -4,17 +4,15 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 from numbers import Number
 
 import numpy as np
+from phi import math, struct
 
-from phi import struct
-from phi import math
-
-from .physics import StateDependency, Physics
+from .domain import Domain, DomainState
+from .field import CenteredGrid, StaggeredGrid, advect, union_mask
+from .field.effect import Gravity, effect_applied, gravity_tensor
+from .material import OPEN, Material
+from .physics import Physics, StateDependency
 from .pressuresolver.solver_api import FluidDomain
 from .pressuresolver.sparse import SparseCG
-from .field import CenteredGrid, StaggeredGrid, union_mask, advect
-from .material import OPEN, Material
-from .domain import Domain, DomainState
-from .field.effect import Gravity, gravity_tensor, effect_applied
 
 
 @struct.definition()
