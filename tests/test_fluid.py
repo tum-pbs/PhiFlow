@@ -3,12 +3,13 @@ from unittest import TestCase
 import numpy
 
 from phi import struct, math
-from phi.geom import Sphere
+from phi.geom import Sphere, AABox
 from phi.physics.domain import Domain
 from phi.physics.field import StaggeredGrid
 from phi.physics.field.effect import Fan, Inflow
 from phi.physics.material import CLOSED, OPEN
-from phi.physics.fluid import Fluid, INCOMPRESSIBLE_FLOW
+from phi.physics.fluid import Fluid, INCOMPRESSIBLE_FLOW, IncompressibleFlow
+from phi.physics.pressuresolver.sparse import SparseCG
 from phi.physics.world import World
 
 
@@ -72,3 +73,25 @@ class TestFluid(TestCase):
         numpy.testing.assert_equal(centered_ones.data, 1)
         staggered_ones = fluid.staggered_grid('v', 1)
         numpy.testing.assert_equal(staggered_ones.data[0].data, 1)
+
+    def test_batch_independence(self):
+        def simulate(centers):
+            world = World()
+            fluid = world.add(Fluid(Domain([5, 4], boundaries=CLOSED, box=AABox(0, [40, 32])),
+                                    buoyancy_factor=0.1,
+                                    batch_size=centers.shape[0]),
+                              physics=IncompressibleFlow(pressure_solver=SparseCG(max_iterations=3)))
+            world.add(Inflow(Sphere(center=centers, radius=3), rate=0.2))
+            world.add(Fan(Sphere(center=centers, radius=5), acceleration=[1.0, 0]))
+            world.step(dt=1.5)
+            world.step(dt=1.5)
+            world.step(dt=1.5)
+            print()
+            return fluid.density.data[0, ...], fluid.velocity.unstack()[0].data[0, ...], fluid.velocity.unstack()[1].data[0, ...]
+
+        d1, vy1, vx1 = simulate(numpy.array([[5, 16], [5, 4]]))
+        d2, vy2, vx2 = simulate(numpy.array([[5, 16], [5, 16]]))
+
+        numpy.testing.assert_equal(d1, d2)
+        numpy.testing.assert_equal(vy1, vy2)
+        numpy.testing.assert_equal(vx1, vx2)
