@@ -120,8 +120,8 @@ with open("documentation/Package_Info.md", "r") as readme:
 
 setup(
     name='phiflow',
-    version='1.0.1',
-    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.1.tar.gz',
+    version='1.0.2',
+    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.2.tar.gz',
     packages=['phi',
               'phi.app',
               'phi.data',
