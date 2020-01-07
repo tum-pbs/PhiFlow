@@ -100,8 +100,9 @@ class TFBackend(Backend):
         if single_mode == 'replicate':
             if np.any(np.array(pad_width) > 1):
                 raise NotImplementedError()  # ToDo: manual padding with slices
-        single_mode = single_mode.upper()
-        return tf.pad(value, pad_width, single_mode, constant_values=constant_value)
+            else:
+                single_mode = 'symmetric'
+        return tf.pad(value, pad_width, single_mode.upper(), constant_values=constant_value)
 
     def reshape(self, value, shape):
         return tf.reshape(value, shape)

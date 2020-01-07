@@ -183,7 +183,7 @@ class StaggeredGrid(Field):
         return self.data[0].dtype
 
     @staticmethod
-    def gradient(scalar_field, padding_mode='symmetric'):
+    def gradient(scalar_field, padding_mode='replicate'):
         assert isinstance(scalar_field, CenteredGrid)
         data = scalar_field.data
         if data.shape[-1] != 1:

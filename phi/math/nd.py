@@ -243,7 +243,7 @@ def _forward_diff_nd(field, dims):
 
 
 def _central_diff_nd(field, dims):
-    field = math.pad(field, [[0,0]] + [[1,1]]*spatial_rank(field) + [[0, 0]], 'symmetric')
+    field = math.pad(field, [[0,0]] + [[1,1]]*spatial_rank(field) + [[0, 0]], 'replicate')
     df_dq = []
     for dimension in dims:
         upper_slices = tuple([(slice(2, None) if i==dimension else slice(1,-1)) for i in dims])
@@ -264,19 +264,19 @@ def axis_gradient(tensor, spatial_axis):
 
 # Laplace
 
-def laplace(tensor, padding='symmetric'):
+def laplace(tensor, padding='replicate'):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
 
     :param tensor: n-dimensional field of shape (batch, spacial dimensions..., components)
-    :param padding: 'valid', 'constant', 'reflect', 'symmetric', 'cyclic'
+    :param padding: 'valid', 'constant', 'reflect', 'replicate', 'cyclic'
     :return:
     """
     if padding.lower() == 'cyclic':
         return fourier_laplace(tensor)
     rank = spatial_rank(tensor)
-    if padding.lower() in ('constant', 'reflect', 'symmetric'):
+    if padding.lower() in ('constant', 'reflect', 'replicate'):
         tensor = math.pad(tensor, [[0,0]] + [[1,1]] * rank + [[0,0]], padding)
     # --- convolutional laplace ---
     if rank == 2:
@@ -354,7 +354,7 @@ def downsample2x(tensor, interpolation='linear'):
     dims = range(spatial_rank(tensor))
     tensor = math.pad(tensor, [[0,0]]+
                           [([0, 1] if (dim % 2) != 0 else [0,0]) for dim in tensor.shape[1:-1]]
-                          + [[0,0]], 'SYMMETRIC')
+                          + [[0,0]], 'replicate')
     for dimension in dims:
         upper_slices = tuple([(slice(1, None, 2) if i==dimension else slice(None)) for i in dims])
         lower_slices = tuple([(slice(0, None, 2) if i==dimension else slice(None)) for i in dims])
@@ -372,7 +372,7 @@ def upsample2x(tensor, interpolation='linear'):
     dims = range(spatial_rank(tensor))
     vlen = tensor.shape[-1]
     spatial_dims = tensor.shape[1:-1]
-    tensor = math.pad(tensor, [[0, 0]] + [[1, 1]]*spatial_rank(tensor) + [[0, 0]], 'SYMMETRIC')
+    tensor = math.pad(tensor, [[0, 0]] + [[1, 1]]*spatial_rank(tensor) + [[0, 0]], 'replicate')
     for dim in dims:
         left_slices_1 =  tuple([(slice(2, None) if i==dim else slice(None)) for i in dims])
         left_slices_2 =  tuple([(slice(1,-1)    if i==dim else slice(None)) for i in dims])
