@@ -22,7 +22,7 @@ def diffuse(field, amount, substeps=1):
     else:
         data = field.data
         for i in range(substeps):
-            data += amount / substeps * field.laplace()
+            data += amount / substeps * field.laplace().data
     return field.with_data(data)
 
 

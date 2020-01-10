@@ -126,7 +126,8 @@ def solve_pressure(divergence, fluiddomain, pressure_solver=None):
     :param divergence: CenteredGrid
     :param fluiddomain: FluidDomain instance
     :param pressure_solver: PressureSolver to use, None for default
-    :return: scalar tensor or CenteredGrid, depending on the type of divergence
+    :return: pressure field, iteration count
+    :rtype: CenteredGrid, int
     """
     assert isinstance(divergence, CenteredGrid)
     if pressure_solver is None:

@@ -192,7 +192,7 @@ def _central_divergence_nd(tensor):
 
 # Gradient
 
-def gradient(tensor, dx=1, difference='forward'):
+def gradient(tensor, dx=1, difference='forward', padding='replicate'):
     """
     Calculates the gradient of a scalar channel from finite differences.
     The gradient vectors are in reverse order, lowest dimension first.
@@ -211,39 +211,39 @@ def gradient(tensor, dx=1, difference='forward'):
         raise ValueError('All spatial dimensions must have size larger than 1, got {}'.format(tensor.shape))
 
     if difference.lower() == 'central':
-        return _central_diff_nd(tensor, dims) / (dx * 2)
+        return _central_diff_nd(tensor, dims, padding) / (dx * 2)
     elif difference.lower() == 'forward':
-        return _forward_diff_nd(field, dims) / dx
+        return _forward_diff_nd(field, dims, padding) / dx
     elif difference.lower() == 'backward':
-        return _backward_diff_nd(field, dims) / dx
+        return _backward_diff_nd(field, dims, padding) / dx
     else:
         raise ValueError('Invalid difference type: {}. Can be CENTRAL or FORWARD'.format(difference))
 
 
-def _backward_diff_nd(field, dims):
+def _backward_diff_nd(field, dims, padding):
     df_dq = []
     for dimension in dims:
         upper_slices = tuple([(slice(1, None) if i==dimension else slice(None)) for i in dims])
         lower_slices = tuple([(slice(-1)      if i==dimension else slice(None)) for i in dims])
         diff = field[(slice(None),)+upper_slices] - field[(slice(None),)+lower_slices]
-        padded = math.pad(diff, [[0,0]]+[([1,0] if i == dimension else [0,0]) for i in dims])
+        padded = math.pad(diff, [[0,0]]+[([1,0] if i == dimension else [0,0]) for i in dims], mode=padding)
         df_dq.append(padded)
     return math.stack(df_dq, axis=-1)
 
 
-def _forward_diff_nd(field, dims):
+def _forward_diff_nd(field, dims, padding):
     df_dq = []
     for dimension in dims:
         upper_slices = tuple([(slice(1, None) if i==dimension else slice(None)) for i in dims])
         lower_slices = tuple([(slice(-1)      if i==dimension else slice(None)) for i in dims])
         diff = field[(slice(None),) + upper_slices] - field[(slice(None),) + lower_slices]
-        padded = math.pad(diff, [[0,0]]+[([0,1] if i == dimension else [0,0]) for i in dims])
+        padded = math.pad(diff, [[0,0]]+[([0,1] if i == dimension else [0,0]) for i in dims], mode=padding)
         df_dq.append(padded)
     return math.stack(df_dq, axis=-1)
 
 
-def _central_diff_nd(field, dims):
-    field = math.pad(field, [[0,0]] + [[1,1]]*spatial_rank(field) + [[0, 0]], 'replicate')
+def _central_diff_nd(field, dims, padding):
+    field = math.pad(field, [[0,0]] + [[1,1]]*spatial_rank(field) + [[0, 0]], mode=padding)
     df_dq = []
     for dimension in dims:
         upper_slices = tuple([(slice(2, None) if i==dimension else slice(1,-1)) for i in dims])
