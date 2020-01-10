@@ -1,9 +1,7 @@
-from __future__ import print_function
-
 import warnings
 
 import numpy as np
-import phi.app.app as nontf
+import phi.app.app as base_app
 import six
 import tensorflow as tf
 from phi.app.app import EditableFloat, EditableInt, EditableValue
@@ -14,10 +12,10 @@ from .util import istensor
 from .world import tf_bake_graph
 
 
-class App(nontf.App):
+class App(base_app.App):
 
     def __init__(self, *args, **kwargs):
-        nontf.App.__init__(self, *args, **kwargs)
+        base_app.App.__init__(self, *args, **kwargs)
         self.session = Session(self.scene)
         self.scalars = []
         self.scalar_names = []
@@ -28,7 +26,7 @@ class App(nontf.App):
     def prepare(self):
         if self.prepared:
             return
-        nontf.App.prepare(self)
+        base_app.App.prepare(self)
         self.info('Initializing variables')
         self.session.initialize_variables()
         if self.auto_bake:

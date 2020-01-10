@@ -31,7 +31,7 @@ class PressureOptimization(LearningApp):
         target_velocity = math.expand_dims(np.stack([target_velocity_y, np.zeros_like(target_velocity_y)], axis=-1), 0)
         target_velocity *= self.editable_float('Target_Direction', 1, [-1, 1], log_scale=False)
         # --- Optimization ---
-        loss = math.l2_loss(velocity.staggered_tensor()[:, :, 31:, :] - target_velocity[:, :, 31:, :])
+        loss = math.l2_loss(math.sub(velocity.staggered_tensor()[:, :, 31:, :], target_velocity[:, :, 31:, :]))
         self.add_objective(loss, 'Loss')
         # --- Display ---
         gradient = StaggeredGrid(tf.gradients(loss, [component.data for component in optimizable_velocity.unstack()]))

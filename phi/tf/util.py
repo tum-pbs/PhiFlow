@@ -9,7 +9,6 @@ from phi import struct
 from phi.math.math_util import is_static_shape
 from phi.physics.field.staggered_grid import StaggeredGrid
 from phi.physics.field.grid import CenteredGrid
-from phi.struct.functions import mappable
 
 if tf.__version__[0] == '2':
     logging.info('Adjusting for tensorflow 2.0')
@@ -46,7 +45,7 @@ def placeholder_like(obj, basename=None):
 
 def variable(initial_value, dtype=np.float32, basename=None, trainable=True, item_condition=struct.VARIABLES):
     def f(attr): return tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
-    return struct.map(f, initial_value, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
+    return struct.map(f, initial_value, trace=True, item_condition=item_condition)
 
 
 def variable_generator(initializer, dtype=np.float32, basename=None, trainable=True):
