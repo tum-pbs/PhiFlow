@@ -4,6 +4,7 @@ from __future__ import division
 import numpy as np
 
 from phi import struct
+from phi.struct.tensorop import collapsed_gather_nd
 from .base_backend import DYNAMIC_BACKEND as math
 
 
@@ -264,21 +265,25 @@ def axis_gradient(tensor, spatial_axis):
 
 # Laplace
 
-def laplace(tensor, padding='replicate'):
+def laplace(tensor, padding='replicate', axes=None):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
 
     :param tensor: n-dimensional field of shape (batch, spacial dimensions..., components)
     :param padding: 'valid', 'constant', 'reflect', 'replicate', 'cyclic'
-    :return:
+    :param axes: The second derivative along these axes is summed over
+    :type axes: list
+    :return: tensor of same shape
     """
     if padding.lower() == 'cyclic':
         return fourier_laplace(tensor)
     rank = spatial_rank(tensor)
     if padding.lower() in ('constant', 'reflect', 'replicate'):
-        tensor = math.pad(tensor, [[0,0]] + [[1,1]] * rank + [[0,0]], padding)
+        tensor = math.pad(tensor, [[0,0]] + [([1,1] if _contains_axis(axes, i, rank) else [0,0]) for i in range(rank)] + [[0,0]], padding)
     # --- convolutional laplace ---
+    if axes is not None:
+        return _sliced_laplace_nd(tensor, axes)
     if rank == 2:
         return _conv_laplace_2d(tensor)
     elif rank == 3:
@@ -307,19 +312,33 @@ def _conv_laplace_3d(tensor):
         return math.concat([math.conv(tensor[..., i:i+1], kernel, padding='VALID') for i in range(tensor.shape[-1])], -1)
 
 
-def _sliced_laplace_nd(tensor):
+def _sliced_laplace_nd(tensor, axes=None):
     # Laplace code for n dimensions
-    dims = range(spatial_rank(tensor))
+    rank = spatial_rank(tensor)
+    dims = range(rank)
     components = []
-    for dimension in dims:
-        center_slices = tuple([(slice(1, -1) if i == dimension else slice(1,-1)) for i in dims])
-        upper_slices = tuple([(slice(2, None) if i == dimension else slice(1,-1)) for i in dims])
-        lower_slices = tuple([(slice(-2) if i == dimension else slice(1,-1)) for i in dims])
-        diff = tensor[(slice(None),) + upper_slices + (slice(None),)] \
-               + tensor[(slice(None),) + lower_slices + (slice(None),)] \
-               - 2 * tensor[(slice(None),) + center_slices + (slice(None),)]
-        components.append(diff)
+    for ax in dims:
+        if _contains_axis(axes, ax, rank):
+            center_slices = tuple([(slice(1, -1) if i == ax else (slice(1,-1)) if _contains_axis(axes, i, rank) else slice(None)) for i in dims])
+            upper_slices = tuple([(slice(2, None) if i == ax else (slice(1,-1)) if _contains_axis(axes, i, rank) else slice(None)) for i in dims])
+            lower_slices = tuple([(slice(-2) if i == ax else (slice(1,-1)) if _contains_axis(axes, i, rank) else slice(None)) for i in dims])
+            diff = tensor[(slice(None),) + upper_slices + (slice(None),)] \
+                   + tensor[(slice(None),) + lower_slices + (slice(None),)] \
+                   - 2 * tensor[(slice(None),) + center_slices + (slice(None),)]
+            components.append(diff)
     return math.sum(components, 0)
+
+
+def _contains_axis(axes, axis, sp_rank):
+    assert -sp_rank <= axis < sp_rank
+    return axes is None or axis in axes or axis+sp_rank in axes
+
+
+def map_for_axes(function, obj, axes, rank):
+    if axes is None:
+        return function(obj)
+    else:
+        return [(function(collapsed_gather_nd(obj, i)) if _contains_axis(axes, i, rank) else collapsed_gather_nd(obj, i)) for i in range(rank)]
 
 
 def fourier_laplace(tensor):

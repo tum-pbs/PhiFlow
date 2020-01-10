@@ -4,6 +4,7 @@ import six
 from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
+from phi.math.nd import map_for_axes
 from phi.struct.functions import mappable
 from phi.struct.tensorop import collapse, collapsed_gather_nd
 
@@ -134,14 +135,15 @@ class CenteredGrid(Field):
         points = box.local_to_global(local_coords)
         return CenteredGrid(points, box, name='grid_centers(%s, %s)' % (box, resolution), flags=[SAMPLE_POINTS])
 
-    def laplace(self, physical_units=True):
+    def laplace(self, physical_units=True, axes=None):
         if not physical_units:
-            data = math.laplace(self.data, padding=_pad_mode(self.extrapolation))
+            data = math.laplace(self.data, padding=_pad_mode(self.extrapolation), axes=axes)
         else:
             if not self.has_cubic_cells: raise NotImplementedError('Only cubic cells supported.')
-            laplace = math.laplace(self.data, padding=_pad_mode(self.extrapolation))
+            laplace = math.laplace(self.data, padding=_pad_mode(self.extrapolation), axes=axes)
             data = laplace / self.dx[0] ** 2
-        return self.copied_with(data=data, extrapolation=_gradient_extrapolation(self.extrapolation), flags=())
+        extrapolation = map_for_axes(_gradient_extrapolation, self.extrapolation, axes, self.rank)
+        return self.copied_with(data=data, extrapolation=extrapolation, flags=())
 
     def gradient(self, physical_units=True):
         if not physical_units or self.has_cubic_cells:
@@ -153,19 +155,6 @@ class CenteredGrid(Field):
     @property
     def has_cubic_cells(self):
         return np.allclose(self.dx, np.mean(self.dx))
-
-    def axis_laplace(self, axis):
-        return self
-        # components = []
-        # for dimension in dims:
-        #     center_slices = tuple([(slice(1, -1) if i == dimension else slice(1, -1)) for i in dims])
-        #     upper_slices = tuple([(slice(2, None) if i == dimension else slice(1, -1)) for i in dims])
-        #     lower_slices = tuple([(slice(-2) if i == dimension else slice(1, -1)) for i in dims])
-        #     diff = tensor[(slice(None),) + upper_slices + (slice(None),)] \
-        #            + tensor[(slice(None),) + lower_slices + (slice(None),)] \
-        #            - 2 * tensor[(slice(None),) + center_slices + (slice(None),)]
-        #     components.append(diff)
-        # return math.sum(components, 0)
 
     def normalized(self, total, epsilon=1e-5):
         if isinstance(total, CenteredGrid):
