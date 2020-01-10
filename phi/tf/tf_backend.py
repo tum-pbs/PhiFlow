@@ -37,7 +37,7 @@ class TFBackend(Backend):
             return tf.div_no_nan(x, y)
         else:
             result = x / y
-            return tf.where(tf.equal(y, 0), tf.zeros_like(result), result)
+            return tf.where(tf.is_finite(result), result, tf.zeros_like(result))
 
     def random_uniform(self, shape):
         return tf.random.uniform(shape)
