@@ -271,6 +271,12 @@ class Backend:
     def mul(self, a, b):
         return self.as_tensor(a) * self.as_tensor(b)
 
+    def div(self, numerator, denominator):
+        return self.as_tensor(numerator) / self.as_tensor(denominator)
+
+    def pow(self, base, exp):
+        return self.as_tensor(base) ** self.as_tensor(exp)
+
 
 class DynamicBackend(Backend):
 
@@ -490,6 +496,12 @@ class DynamicBackend(Backend):
 
     def mul(self, a, b):
         return self.choose_backend([a, b]).mul(a, b)
+
+    def div(self, numerator, denominator):
+        return self.choose_backend([numerator, denominator]).div(numerator, denominator)
+
+    def pow(self, base, exp):
+        return self.choose_backend([base, exp]).pow(base, exp)
 
 
 class NoBackendFound(Exception):

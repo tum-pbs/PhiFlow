@@ -123,7 +123,7 @@ def l1_loss(tensor, batch_norm=True, reduce_batches=True):
         total_loss = math.sum(math.abs(tensor), axis=list(range(1, len(tensor.shape))))
     if batch_norm and reduce_batches:
         batch_size = math.shape(tensor)[0]
-        return total_loss / math.to_float(batch_size)
+        return math.div(total_loss, math.to_float(batch_size))
     else:
         return total_loss
 
@@ -139,7 +139,7 @@ def l_n_loss(tensor, n, batch_norm=True):
     total_loss = math.sum(tensor ** n) / n
     if batch_norm:
         batch_size = math.shape(tensor)[0]
-        return total_loss / math.to_float(batch_size)
+        return math.div(total_loss, math.to_float(batch_size))
     else:
         return total_loss
 
