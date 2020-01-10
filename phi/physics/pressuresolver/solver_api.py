@@ -50,16 +50,23 @@ class FluidDomain(struct.Struct):
 
     @struct.constant(dependencies='domain')
     def active(self, active):
-        assert isinstance(active, CenteredGrid)
-        assert active.rank == self.domain.rank
-        assert active.extrapolation == 'constant'
-        return active
+        if active is not None:
+            assert isinstance(active, CenteredGrid)
+            assert active.rank == self.domain.rank
+            assert active.extrapolation == 'constant'
+            return active
+        else:
+            return self.domain.centered_grid(1, extrapolation='constant')
 
     @struct.constant(dependencies='domain')
     def accessible(self, accessible):
-        assert isinstance(accessible, CenteredGrid)
-        assert accessible.rank == self.domain.rank
-        return accessible
+        if accessible is not None:
+            assert isinstance(accessible, CenteredGrid)
+            assert accessible.rank == self.domain.rank
+            return accessible
+        else:
+            return self.domain.centered_grid(1, extrapolation=Material.extrapolation_mode(self.domain.boundaries))
+
 
     @property
     def rank(self):
