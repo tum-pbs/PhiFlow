@@ -152,8 +152,8 @@ class SciPyBackend(Backend):
     def ones_like(self, tensor):
         return np.ones_like(tensor)
 
-    def mean(self, value, axis=None):
-        return np.mean(value, axis)
+    def mean(self, value, axis=None, keepdims=False):
+        return np.mean(value, axis, keepdims=keepdims)
 
     def dot(self, a, b, axes):
         return np.tensordot(a, b, axes)

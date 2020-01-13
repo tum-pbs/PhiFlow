@@ -46,6 +46,7 @@ fft = DYNAMIC_BACKEND.fft
 flatten = DYNAMIC_BACKEND.flatten
 floor = DYNAMIC_BACKEND.floor
 gather = DYNAMIC_BACKEND.gather
+gather_nd = DYNAMIC_BACKEND.gather_nd
 ifft = DYNAMIC_BACKEND.ifft
 imag = DYNAMIC_BACKEND.imag
 isfinite = DYNAMIC_BACKEND.isfinite

@@ -124,11 +124,11 @@ class TFBackend(Backend):
     def where(self, condition, x=None, y=None):
         return tf.where(condition, x, y)
 
-    def mean(self, value, axis=None):
+    def mean(self, value, axis=None, keepdims=False):
         if axis is not None:
             if not isinstance(axis, int):
                 axis = list(axis)
-        return tf.reduce_mean(value, axis)
+        return tf.reduce_mean(value, axis, keepdims=keepdims)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         if grad is None:
