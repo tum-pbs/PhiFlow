@@ -18,6 +18,7 @@ Required decorator for custom struct classes.
         traits = tuple(traits)
 
     def decorator(struct_class, traits=traits):
+        assert struct_class.__initialized_class__ != struct_class, 'Struct class already initialized: %s' % struct_class
         items = {}
         for attribute_name in dir(struct_class):
             item = getattr(struct_class, attribute_name)
@@ -42,6 +43,7 @@ Required decorator for custom struct classes.
             item.__initialize_for__(struct_class)
         items = _order_by_dependencies(items, struct_class)
         struct_class.__items__ = tuple(items)
+        struct_class.__initialized_class__ = struct_class
         # --- Check trait keywords ---
         for item in items:
             for trait_kw, trait_kw_val in item.trait_kwargs.items():

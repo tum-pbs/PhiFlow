@@ -11,7 +11,7 @@ from .structdef import CONSTANTS, VARIABLES, Item
 
 def kwargs(locals, include_self=False, ignore=()):
     # pylint: disable-msg = redefined-builtin
-    assert 'kwargs' in locals
+    assert 'kwargs' in locals, "No 'kwargs' variable found in locals. Maybe you forgot to add '**kwargs' as a parameter."
     locals = locals.copy()
     kwargs_in_locals = locals['kwargs']
     del locals['kwargs']
@@ -36,9 +36,11 @@ See the struct documentation at documentation/Structs.ipynb
 
     __items__ = None
     __traits__ = None
+    __initialized_class__ = None
 
     def __init__(self, **kwargs):
         assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
+        assert self.__initialized_class__ == self.__class__, "Instancing %s before struct class is initialized. Maybe you forgot to decorate the class with @struct.definition()" % self.__class__.__name__
         for item in self.__items__:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
