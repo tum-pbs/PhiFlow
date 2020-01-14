@@ -320,6 +320,7 @@ class TFBackend(Backend):
     def fft(self, x):
         rank = len(x.shape) - 2
         assert rank >= 1
+        x = self.to_complex(x)
         if rank == 1:
             return tf.stack([tf.fft(c) for c in tf.unstack(x, axis=-1)], axis=-1)
         elif rank == 2:

@@ -14,7 +14,7 @@ class TorchBackend(Backend):
         Backend.__init__(self, 'PyTorch')
 
     def is_tensor(self, x):
-        return isinstance(x, torch.Tensor)
+        return isinstance(x, (torch.Tensor, ComplexTensor))
 
     def as_tensor(self, x):
         if self.is_tensor(x):
@@ -87,6 +87,8 @@ class TorchBackend(Backend):
         raise NotImplementedError()
 
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        inputs = channels_first(self.as_tensor(inputs))
+        sample_coords = self.as_tensor(sample_coords)
         # --- Interpolation ---
         if interpolation.lower() == 'linear':
             interpolation = 'bilinear'
@@ -99,13 +101,15 @@ class TorchBackend(Backend):
             boundary = 'zeros'
         elif boundary == 'replicate':
             boundary = 'border'
+        elif boundary == 'circular':
+            shape = self.to_float(inputs.shape[1:-1])
+            sample_coords = torch.fmod(sample_coords, shape)
+            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape)-2), mode='circular')
+            boundary = 'zeros'
         else:
             raise NotImplementedError(boundary)
-        inputs = self.as_tensor(inputs)
-        sample_coords = self.as_tensor(sample_coords)
-        resolution = torch.Tensor(self.staticshape(inputs)[1:-1])
+        resolution = torch.Tensor(self.staticshape(inputs)[2:])
         sample_coords = 2 * sample_coords / (resolution-1) - 1
-        inputs = channels_first(inputs)
         sample_coords = torch.flip(sample_coords, dims=[-1])
         result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
@@ -205,13 +209,16 @@ class TorchBackend(Backend):
         return tuple(tensor.shape)
 
     def to_float(self, x):
-        raise NotImplementedError()
+        x = self.as_tensor(x)
+        return x.float()
 
     def to_int(self, x, int64=False):
-        raise NotImplementedError()
+        x = self.as_tensor(x)
+        return x.int()
 
     def to_complex(self, x):
-        raise NotImplementedError()
+        x = self.as_tensor(x)
+        return ComplexTensor(self.stack([x, torch.zeros_like(x)], -1))
 
     def gather(self, values, indices):
         raise NotImplementedError()
@@ -241,16 +248,40 @@ class TorchBackend(Backend):
         raise NotImplementedError()
 
     def fft(self, x):
-        raise NotImplementedError()
+        if not isinstance(x, ComplexTensor):
+            x = self.to_complex(x)
+        rank = len(x.shape) - 2
+        x = channels_first(x)
+        k = torch.fft(x.tensor, rank)
+        k = ComplexTensor(k)
+        k = channels_last(k)
+        return k
 
     def ifft(self, k):
-        raise NotImplementedError()
+        if not isinstance(k, ComplexTensor):
+            k = self.to_complex(k)
+        rank = len(k.shape) - 2
+        k = channels_first(k)
+        x = torch.ifft(k.tensor, rank)
+        x = ComplexTensor(x)
+        x = channels_last(x)
+        return x
 
     def imag(self, complex):
-        raise NotImplementedError()
+        if isinstance(complex, ComplexTensor):
+            return complex.imag
+        else:
+            if isinstance(complex, np.ndarray):
+                complex = np.imag(complex)
+            return torch.zeros_like(self.as_tensor(complex))
 
     def real(self, complex):
-        raise NotImplementedError()
+        if isinstance(complex, ComplexTensor):
+            return complex.real
+        else:
+            if isinstance(complex, np.ndarray):
+                complex = np.real(complex)
+            return self.as_tensor(complex)
 
     def cast(self, x, dtype):
         raise NotImplementedError()
@@ -274,8 +305,43 @@ class TorchBackend(Backend):
 
 
 def channels_first(x):
-    return x.permute(*((0, -1) + tuple(range(1, len(x.shape) - 1))))
+    if isinstance(x, ComplexTensor):
+        x = x.tensor
+        y = x.permute(*((0, -2) + tuple(range(1, len(x.shape) - 2)) + (-1,)))
+        return ComplexTensor(y)
+    else:
+        return x.permute(*((0, -1) + tuple(range(1, len(x.shape) - 1))))
 
 
 def channels_last(x):
-    return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))
+    if isinstance(x, ComplexTensor):
+        x = x.tensor
+        x = x.permute((0,) + tuple(range(2, len(x.shape)-1)) + (1, -1))
+        return ComplexTensor(x)
+    else:
+        return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))
+
+
+class ComplexTensor(object):
+
+    def __init__(self, tensor):
+        self.tensor = tensor
+
+    @property
+    def shape(self):
+        return self.tensor.shape[:-1]
+
+    @property
+    def real(self):
+        return self.tensor[...,0]
+
+    @property
+    def imag(self):
+        return self.tensor[...,1]
+
+    def __mul__(self, other):
+        math = TorchBackend()
+        real = self.real * math.real(other) - self.imag * math.imag(other)
+        imag = self.real * math.imag(other) + self.imag * math.real(other)
+        result = math.stack([real, imag], -1)
+        return ComplexTensor(result)
