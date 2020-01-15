@@ -214,9 +214,10 @@ def assert_same_rank(rank1, rank2, error_message):
 def _rank(rank):
     if rank is None:
         return None
-    if isinstance(rank, int):
-        return rank
-    if isinstance(rank, Geometry):
-        return rank.rank
+    elif isinstance(rank, int):
+        pass
+    elif isinstance(rank, Geometry):
+        rank = rank.rank
     else:
-        return math.spatial_rank(rank)
+        rank = math.spatial_rank(rank)
+    return None if rank == 0 else rank

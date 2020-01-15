@@ -15,6 +15,7 @@ New grids can also be created from the simulation object.
 from phi.tf.flow import *
 
 centered_zeros = fluid.centered_grid('f0', 0)
+centered_zeros = CenteredGrid.sample(0, fluid.domain)
 staggered_zeros = fluid.staggered_grid('v', 0)
 ```
 

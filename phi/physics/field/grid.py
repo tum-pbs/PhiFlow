@@ -5,6 +5,8 @@ from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
 from phi.math.nd import map_for_axes
+from phi.physics.domain import Domain
+from phi.physics.material import Material
 from phi.struct.functions import mappable
 from phi.struct.tensorop import collapse, collapsed_gather_nd
 
@@ -25,6 +27,30 @@ class CenteredGrid(Field):
     def __init__(self, data, box=None, extrapolation='boundary', name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals()))
         self._sample_points = None
+
+    @staticmethod
+    def sample(value, domain, batch_size=None):
+        assert isinstance(domain, Domain)
+        if isinstance(value, Field):
+            assert_same_rank(value.rank, domain.rank, 'rank of value (%s) does not match domain (%s)' % (value.rank, domain.rank))
+            if isinstance(value, CenteredGrid) and value.box == domain.box and np.all(value.resolution == domain.resolution):
+                data = value.data
+            else:
+                data = value.sample_at(CenteredGrid.getpoints(domain.box, domain.resolution).data)
+        else:  # value is constant
+            components = math.staticshape(value)[-1] if math.ndims(value) > 0 else 1
+            data = math.zeros((batch_size,) + tuple(domain.resolution) + (components,)) + value
+        return CenteredGrid(data, box=domain.box, extrapolation=Material.extrapolation_mode(domain.boundaries))
+
+    @struct.variable()
+    def data(self, data):
+        if data is None:
+            return None
+        if isinstance(data, (tuple, list)):
+            data = np.array(data)  # numbers or objects
+        while math.ndims(data) < 2:
+            data = math.expand_dims(data)
+        return data
 
     @property
     def resolution(self):

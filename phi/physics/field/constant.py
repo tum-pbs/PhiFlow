@@ -10,7 +10,7 @@ from .field import Field, propagate_flags_children
 @struct.definition()
 class ConstantField(Field):
 
-    def __init__(self, value=1.0, name=None, flags=(DIVERGENCE_FREE,), **kwargs):
+    def __init__(self, value=1.0, name=None, **kwargs):
         data = _convert_constant_to_data(value)
         Field.__init__(self, **struct.kwargs(locals(), ignore='value'))
 
