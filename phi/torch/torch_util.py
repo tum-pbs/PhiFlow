@@ -15,3 +15,12 @@ def variable(initial_value, dtype=torch.float32, requires_grad=True, device=None
 
 def torch_from_numpy(obj, item_condition=struct.DATA):
     return struct.map(torch.from_numpy, obj, item_condition=item_condition)
+
+
+def torch_to_numpy(obj, item_condition=struct.ALL_ITEMS):
+    def to_numpy(obj):
+        if isinstance(obj, torch.Tensor):
+            return obj.numpy()
+        else:
+            return obj
+    return struct.map(to_numpy, obj, item_condition=item_condition)

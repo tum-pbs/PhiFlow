@@ -1,12 +1,8 @@
-import warnings
 from contextlib import contextmanager
 
-import numpy as np
 import phi.app.app as base_app
-import six
-import tensorflow as tf
-from phi.app.app import EditableFloat, EditableInt, EditableValue
-from phi.data.reader import BatchReader
+
+from .torch_util import torch_to_numpy, torch_from_numpy
 
 
 class App(base_app.App):
@@ -14,6 +10,13 @@ class App(base_app.App):
     def __init__(self, *args, **kwargs):
         base_app.App.__init__(self, *args, **kwargs)
         self.add_trait('torch')
+        self.auto_convert = True
+
+    def prepare(self):
+        if self.prepared: return
+        base_app.App.prepare(self)
+        if self.auto_convert:
+            self.world.state = torch_from_numpy(self.world.state)
 
     def add_scalar(self, name, node):
         pass
@@ -26,6 +29,14 @@ class App(base_app.App):
 
     def editable_values_dict(self):
         raise NotImplementedError()
+
+    def add_field(self, name, value):
+        if callable(value):
+            wrapped = lambda: torch_to_numpy(value())
+        else:
+            wrapped = torch_to_numpy(value)
+        base_app.App.add_field(self, name, wrapped)
+
 
 
 def EVERY_EPOCH(tfapp): return tfapp.steps % tfapp.epoch_size == 0

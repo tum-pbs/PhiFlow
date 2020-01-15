@@ -35,8 +35,7 @@ class FieldEffect(State):
 def effect_applied(effect, field, dt):
     resampled = effect.field.at(field)
     if effect._mode == GROW:
-        dt = math.cast(dt, resampled.dtype)
-        return field + resampled * dt
+        return field + math.mul(resampled, dt)
     elif effect._mode == ADD:
         return field + resampled
     elif effect._mode == FIX:
