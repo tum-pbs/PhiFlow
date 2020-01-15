@@ -25,23 +25,24 @@ class DiffusiveVelocity(DomainState):
 
 class Burgers(Physics):
 
-    def __init__(self, default_viscosity=0.1, viscosity=None):
+    def __init__(self, default_viscosity=0.1, viscosity=None, diffusion_substeps=1):
         Physics.__init__(self, [StateDependency('effects', 'velocity_effect', blocking=True)])
         if viscosity is not None:
             warnings.warn("Argument 'viscosity' is deprecated, use 'default_viscosity' instead.", DeprecationWarning)
             default_viscosity = viscosity
         self.default_viscosity = default_viscosity
+        self.diffusion_substeps = diffusion_substeps
 
     def step(self, v, dt=1.0, effects=()):
         if isinstance(v, DiffusiveVelocity):
-            return v.copied_with(velocity=self.step_velocity(v.velocity, v.viscosity, dt, effects), age=v.age+dt)
+            return v.copied_with(velocity=self.step_velocity(v.velocity, v.viscosity, dt, effects, self.diffusion_substeps), age=v.age+dt)
         else:
-            return self.step_velocity(v, self.default_viscosity, dt, effects)
+            return self.step_velocity(v, self.default_viscosity, dt, effects, self.diffusion_substeps)
 
     @staticmethod
-    def step_velocity(v, viscosity, dt, effects):
+    def step_velocity(v, viscosity, dt, effects, diffusion_substeps):
         v = advect.semi_lagrangian(v, v, dt)
-        v = diffuse(v, dt * viscosity, substeps=1)
+        v = diffuse(v, dt * viscosity, substeps=diffusion_substeps)
         for effect in effects:
             v = effect_applied(effect, v, dt)
         return v.copied_with(age=v.age + dt)
