@@ -141,8 +141,6 @@ class Domain(struct.Struct):
             grid = grid.copied_with(name=name, tags=(name,)+grid.tags)
         if extrapolation is not None:
             grid = grid.copied_with(extrapolation=extrapolation)
-        ref = self._centered_grid(data, components, dtype, name, batch_size, extrapolation)
-        struct.print_differences(grid, ref)
         return grid
 
     def _centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):

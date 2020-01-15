@@ -102,7 +102,7 @@ class TorchBackend(Backend):
         elif boundary == 'replicate':
             boundary = 'border'
         elif boundary == 'circular':
-            shape = self.to_float(inputs.shape[1:-1])
+            shape = self.to_float(inputs.shape[2:])
             sample_coords = torch.fmod(sample_coords, shape)
             inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape)-2), mode='circular')
             boundary = 'zeros'
@@ -251,8 +251,8 @@ class TorchBackend(Backend):
         if not isinstance(x, ComplexTensor):
             x = self.to_complex(x)
         rank = len(x.shape) - 2
-        x = channels_first(x)
-        k = torch.fft(x.tensor, rank)
+        x = channels_first(x).tensor
+        k = torch.fft(x, rank)
         k = ComplexTensor(k)
         k = channels_last(k)
         return k
@@ -284,6 +284,14 @@ class TorchBackend(Backend):
             return self.as_tensor(complex)
 
     def cast(self, x, dtype):
+        if dtype == np.float32:
+            return self.to_float(x)
+        if dtype == np.int32:
+            return self.to_int(x)
+        if dtype == np.int64:
+            return self.to_int(x, int64=True)
+        if dtype == np.complex64:
+            return self.to_complex(x)
         raise NotImplementedError()
 
     def sin(self, x):
