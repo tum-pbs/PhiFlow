@@ -1,4 +1,4 @@
-# example that runs a "manual" simple INCOMPRESSIBLE_FLOW sim either in numpy or TF
+# example that runs a "manual" simple incompressible fluid sim either in numpy or TF
 # note, this example does not use the dash GUI, instead it creates PNG images via PIL
 
 import sys
@@ -18,12 +18,12 @@ GRAPH_STEPS = 3  # how many STEPS to unroll in TF graph
 RES = 32
 DT = 0.6
 
-# by default, creates a numpy state, i.e. "INCOMPRESSIBLE_FLOW.density.data" is a numpy array
-INCOMPRESSIBLE_FLOW = Fluid(Domain([RES] * DIM, boundaries=OPEN), batch_size=BATCH_SIZE)
+# by default, creates a numpy state, i.e. "FLOW.density.data" is a numpy array
+FLOW = Fluid(Domain([RES] * DIM, boundaries=OPEN), batch_size=BATCH_SIZE, buoyancy_factor=0.2)
 
 if MODE == 'NumPy':
-    DENSITY = INCOMPRESSIBLE_FLOW.density
-    VELOCITY = INCOMPRESSIBLE_FLOW.velocity
+    DENSITY = FLOW.density
+    VELOCITY = FLOW.velocity
     # no phiflow session for pure numpy, write to specific directory instead
     IMG_PATH = os.path.expanduser("~/phi/data/manual/numpy")
     if not os.path.exists(IMG_PATH):
@@ -33,9 +33,9 @@ else:
     SESSION = Session(SCENE)
     IMG_PATH = SCENE.path
     # create TF placeholders with the correct shapes
-    INCOMPRESSIBLE_FLOW_IN = INCOMPRESSIBLE_FLOW.copied_with(density=placeholder, velocity=placeholder)
-    DENSITY = INCOMPRESSIBLE_FLOW_IN.density
-    VELOCITY = INCOMPRESSIBLE_FLOW_IN.velocity
+    FLOW_IN = FLOW.copied_with(density=placeholder, velocity=placeholder)
+    DENSITY = FLOW_IN.density
+    VELOCITY = FLOW_IN.velocity
 
 # optional , write images
 SAVE_IMAGES = False
@@ -60,13 +60,13 @@ except ImportError:
     # def save_img(array, scale, name, idx=0):
     print("(Skipping image output)")
 
-# main , step 1: run INCOMPRESSIBLE_FLOW sim (numpy), or only set up graph for TF
+# main , step 1: run FLOW sim (numpy), or only set up graph for TF
 
 for i in range(STEPS if (MODE == 'NumPy') else GRAPH_STEPS):
     # simulation step; note that the core is only 3 lines for the actual simulation
     # the RESt is setting up the inflow, and debug info afterwards
 
-    INFLOW_DENSITY = math.zeros_like(INCOMPRESSIBLE_FLOW.density)
+    INFLOW_DENSITY = math.zeros_like(FLOW.density)
     if DIM == 2:
         # (batch, y, x, components)
         INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
@@ -75,8 +75,8 @@ for i in range(STEPS if (MODE == 'NumPy') else GRAPH_STEPS):
         INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4 * 1):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
 
     DENSITY = advect.semi_lagrangian(DENSITY, VELOCITY, DT) + DT * INFLOW_DENSITY
-    VELOCITY = advect.semi_lagrangian(VELOCITY, VELOCITY, DT) + buoyancy(DENSITY, 9.81, INCOMPRESSIBLE_FLOW.buoyancy_factor) * DT
-    VELOCITY = divergence_free(VELOCITY, INCOMPRESSIBLE_FLOW.domain, obstacles=())
+    VELOCITY = advect.semi_lagrangian(VELOCITY, VELOCITY, DT) + buoyancy(DENSITY, 9.81, FLOW.buoyancy_factor) * DT
+    VELOCITY = divergence_free(VELOCITY, FLOW.domain, obstacles=())
 
     if i == 0:
         print("Density type: %s" % type(DENSITY.data))  # here we either have np array of tf tensor
@@ -92,15 +92,16 @@ for i in range(STEPS if (MODE == 'NumPy') else GRAPH_STEPS):
 
 if MODE == 'TensorFlow':
     # for TF, all the work still needs to be done, feed empty state and start simulation
-    INCOMPRESSIBLE_FLOW_OUT = INCOMPRESSIBLE_FLOW.copied_with(density=DENSITY, velocity=VELOCITY, age=INCOMPRESSIBLE_FLOW.age + DT)
+    FLOW_OUT = FLOW.copied_with(density=DENSITY, velocity=VELOCITY, age=FLOW.age + DT)
 
     # run session
     for i in range(STEPS // GRAPH_STEPS):
-        INCOMPRESSIBLE_FLOW = SESSION.run(INCOMPRESSIBLE_FLOW_OUT, feed_dict={INCOMPRESSIBLE_FLOW_IN: INCOMPRESSIBLE_FLOW})  # Passes DENSITY and VELOCITY tensors
+        FLOW = SESSION.run(FLOW_OUT, feed_dict={FLOW_IN: FLOW})  # Passes DENSITY and VELOCITY tensors
 
         # for TF, we only have RESults now after each GRAPH_STEPS iterations
         if SAVE_IMAGES:
-            save_img(INCOMPRESSIBLE_FLOW.density.data, 10000., IMG_PATH + "/tf_%04d.png" % (GRAPH_STEPS * (i + 1) - 1))
+            save_img(FLOW.density.data, 10000., IMG_PATH + "/tf_%04d.png" % (GRAPH_STEPS * (i + 1) - 1))
 
         print("Step SESSION.run %04d done, DENSITY shape %s, means %s %s" %
-              (i, INCOMPRESSIBLE_FLOW.density.data.shape, np.mean(INCOMPRESSIBLE_FLOW.density.data), np.mean(INCOMPRESSIBLE_FLOW.velocity.staggered_tensor())))
+              (i, FLOW.density.data.shape, np.mean(FLOW.density.data), np.mean(FLOW.velocity.staggered_tensor())))
+
