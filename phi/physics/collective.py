@@ -134,6 +134,7 @@ class CollectivePhysics(Physics):
                 physics = self.for_(state)
                 if self._all_dependencies_fulfilled(physics.blocking_dependencies, collectivestate, partial_next_collectivestate):
                     next_state = self.substep(state, collectivestate, dt, partial_next_collectivestate=partial_next_collectivestate)
+                    assert next_state.name == state.name, "The state name must remain constant during step(). Caused by '%s' on state '%s'." % (type(physics).__name__, state)
                     next_states[next_state.name] = next_state
                     unhandled_states.remove(state)
             partial_next_collectivestate = CollectiveState(next_states)
