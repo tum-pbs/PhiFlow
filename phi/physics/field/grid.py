@@ -8,7 +8,7 @@ from phi.math.nd import map_for_axes
 from phi.physics.domain import Domain
 from phi.physics.material import Material
 from phi.struct.functions import mappable
-from phi.struct.tensorop import collapse, collapsed_gather_nd
+from phi.struct.tensorop import collapse
 
 from .field import Field, propagate_flags_children
 from .flag import SAMPLE_POINTS
