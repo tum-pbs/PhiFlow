@@ -30,7 +30,7 @@ class PerformModelTests(display.AppDisplay):
     def validate_fields(self):
         for name in self.app.fieldnames:
             value = self.app.get_field(name)
-            assert isinstance(value, (np.ndarray, Field)), 'Field "%s" has an invalid value: %s' % (name, value)
+            assert isinstance(value, (np.ndarray, Field)) or value is None, 'Field "%s" has an invalid value: %s' % (name, value)
         print('All fields are valid.')
 
     def play(self):
