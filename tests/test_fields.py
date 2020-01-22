@@ -4,9 +4,10 @@ import numpy as np
 
 from phi import struct, math
 from phi.geom import box, AABox
-from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, data_bounds
+from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, data_bounds, ConstantField
 from phi.physics.field.flag import SAMPLE_POINTS
 from phi.physics.field.staggered_grid import stack_staggered_components
+from phi.physics.fluid import Fluid
 
 
 class TestFields(TestCase):
@@ -97,3 +98,14 @@ class TestFields(TestCase):
         np.testing.assert_equal(field.sample_at([[0.5,1.5]]), [[[2]]])
         np.testing.assert_equal(field.sample_at([[-10,0.5]]), [[[1]]])
         np.testing.assert_equal(field.sample_at([[-10,1.5]]), [[[2]]])
+
+    def test_constant_resample(self):
+        field = ConstantField([0, 1])
+        self.assertEqual(field.component_count, 2)
+        # --- Resample to CenteredGrid ---
+        at_cgrid = field.at(CenteredGrid(np.zeros([1, 4, 4, 1])), collapse_dimensions=False)
+        np.testing.assert_equal(at_cgrid.data.shape, [1, 4, 4, 2])
+        # --- Resample to StaggeredGrid ---
+        at_sgrid = field.at(Fluid([4, 4]).velocity)
+        np.testing.assert_equal(at_sgrid.unstack()[0].data.shape, [1, 5, 4, 1])
+        np.testing.assert_equal(at_sgrid.unstack()[1].data.shape, [1, 4, 5, 1])
