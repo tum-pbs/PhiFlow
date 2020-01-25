@@ -1,3 +1,5 @@
+import warnings
+
 from phi.geom import Geometry
 from phi.physics.field import Field, GeometryMask, ConstantField
 from phi import math, struct
@@ -52,11 +54,18 @@ def effect_applied(effect, field, dt):
         raise ValueError('Invalid mode: %s' % effect.mode)
 
 
+# pylint: disable-msg = invalid-name
 Inflow = lambda geometry, rate=1.0: FieldEffect(GeometryMask([geometry], value=rate, name='inflow'), ('density',), GROW, tags=('inflow', 'effect'))
-Accelerator = Fan = lambda geometry, acceleration: FieldEffect(GeometryMask([geometry], value=acceleration, name='fan'), ('velocity',), GROW, tags=('fan', 'effect'))
+Accelerator = lambda geometry, acceleration: FieldEffect(GeometryMask([geometry], value=acceleration, name='fan'), ('velocity',), GROW, tags=('fan', 'effect'))
 ConstantVelocity = lambda geometry, velocity: FieldEffect(ConstantField(velocity), bounds=geometry, targets=('velocity',), mode=FIX, tags=('effect',))
 HeatSource = lambda geometry, rate: FieldEffect(GeometryMask([geometry], value=rate, name='heat-source'), ('temperature',), GROW)
 ColdSource = lambda geometry, rate: FieldEffect(GeometryMask([geometry], value=-rate, name='heat-source'), ('temperature',), GROW)
+
+
+def Fan(*args, **kwargs):
+    # pylint: disable-msg = invalid-name
+    warnings.warn("'Fan' was renamed to 'Accelerator' in version 1.0.2.", DeprecationWarning)
+    return Accelerator(*args, **kwargs)
 
 
 @struct.definition()

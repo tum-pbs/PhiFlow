@@ -271,7 +271,4 @@ class LearningApp(App):
             App.add_field(self, name, field)
 
 
-def TFApp(*args, **kwargs):
-    # pylint: disable-msg = invalid-name
-    warnings.warn("The class 'TFApp' was renamed to 'LearningApp' in version 1.0.2.", DeprecationWarning)
-    return LearningApp(*args, **kwargs)
+TFApp = LearningApp
