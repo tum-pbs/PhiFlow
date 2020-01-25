@@ -1,6 +1,6 @@
 """
 Worlds are used to manage simulations consisting of multiple states.
-A world uses a CollectiveState with CollectivePhysics to resolve state dependencies.
+A world uses a StateCollection with CollectivePhysics to resolve state dependencies.
 Worlds also facilitate referencing states when performing a forward simulation.
 
 A default World, called `world` is provided for convenience.
@@ -11,7 +11,7 @@ from typing import TypeVar
 
 import six
 
-from .collective import CollectiveState
+from .collective import StateCollection
 from .field.effect import Gravity
 from .physics import Physics, State, Static
 
@@ -122,7 +122,7 @@ This removes all States and observers.
         :param batch_size: int or None
         :param add_default_objects: if True, adds defaults like Gravity
         """
-        self._state = CollectiveState()
+        self._state = StateCollection()
         self.physics = self._state.default_physics()
         self.observers = set()
         self.batch_size = batch_size
@@ -133,7 +133,7 @@ This removes all States and observers.
     def state(self):
         """
 Returns the current state of the world.
-        :return: CollectiveState
+        :return: StateCollection
         """
         return self._state
 
@@ -148,10 +148,10 @@ Alias for world.state.age
     def state(self, state):
         """
 Sets the current state of the world and informs all observers.
-        :param state: CollectiveState
+        :param state: StateCollection
         """
         assert state is not None
-        assert isinstance(state, CollectiveState)
+        assert isinstance(state, StateCollection)
         self._state = state
         for observer in self.observers:
             observer(self)

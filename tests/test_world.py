@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy
 
-from phi.physics.collective import CollectiveState
+from phi.physics.collective import StateCollection
 from phi.physics.domain import Domain
 from phi.physics.fluid import Fluid
 from phi.physics.world import World
@@ -11,7 +11,7 @@ from phi.physics.world import World
 class TestWorld(TestCase):
 
     def test_names(self):
-        c = CollectiveState()
+        c = StateCollection()
         self.assertEqual(c.states, {})
         c = c.state_added(Fluid(Domain([64])))
         try:

@@ -5,7 +5,7 @@ from .physics import Physics, State, struct
 
 
 @struct.definition()
-class CollectiveState(struct.Struct):
+class StateCollection(struct.Struct):
 
     def __init__(self, states=None, **kwargs):
         struct.Struct.__init__(self, **struct.kwargs(locals()))
@@ -115,58 +115,61 @@ class CollectiveState(struct.Struct):
         return struct.map(lambda state: state.shape, self, recursive=False)
 
 
+CollectiveState = StateCollection
+
+
 class CollectivePhysics(Physics):
 
     def __init__(self):
         Physics.__init__(self, {})
         self.physics = {}  # map from name to Physics
 
-    def step(self, collectivestate, dt=1.0, **dependent_states):
+    def step(self, state_collection, dt=1.0, **dependent_states):
         assert len(dependent_states) == 0
-        if len(collectivestate) == 0:
-            return collectivestate
-        unhandled_states = list(collectivestate.states.values())
+        if len(state_collection) == 0:
+            return state_collection
+        unhandled_states = list(state_collection.states.values())
         next_states = {}
-        partial_next_collectivestate = CollectiveState(next_states)
+        partial_next_state_collection = StateCollection(next_states)
 
-        for sweep in range(len(collectivestate)):
+        for sweep in range(len(state_collection)):
             for state in tuple(unhandled_states):
                 physics = self.for_(state)
-                if self._all_dependencies_fulfilled(physics.blocking_dependencies, collectivestate, partial_next_collectivestate):
-                    next_state = self.substep(state, collectivestate, dt, partial_next_collectivestate=partial_next_collectivestate)
+                if self._all_dependencies_fulfilled(physics.blocking_dependencies, state_collection, partial_next_state_collection):
+                    next_state = self.substep(state, state_collection, dt, partial_next_state_collection=partial_next_state_collection)
                     assert next_state.name == state.name, "The state name must remain constant during step(). Caused by '%s' on state '%s'." % (type(physics).__name__, state)
                     next_states[next_state.name] = next_state
                     unhandled_states.remove(state)
-            partial_next_collectivestate = CollectiveState(next_states)
+            partial_next_state_collection = StateCollection(next_states)
             if len(unhandled_states) == 0:
-                ordered_states = [partial_next_collectivestate[state] for state in collectivestate.states]
-                return partial_next_collectivestate.copied_with(states=ordered_states)
+                ordered_states = [partial_next_state_collection[state] for state in state_collection.states]
+                return partial_next_state_collection.copied_with(states=ordered_states)
 
         # Error
         errstr = 'Cyclic blocking_dependencies in simulation: %s' % unhandled_states
         for state in tuple(unhandled_states):
             physics = self.for_(state)
-            state_dict = self._gather_dependencies(physics.blocking_dependencies, collectivestate, {})
+            state_dict = self._gather_dependencies(physics.blocking_dependencies, state_collection, {})
             errstr += '\nState "%s" with physics "%s" depends on %s' % (state, physics, state_dict)
         raise AssertionError(errstr)
 
-    def substep(self, state, collectivestate, dt, override_physics=None, partial_next_collectivestate=None):
+    def substep(self, state, state_collection, dt, override_physics=None, partial_next_state_collection=None):
         physics = self.for_(state) if override_physics is None else override_physics
         # --- gather dependencies
         dependent_states = {}
-        self._gather_dependencies(physics.dependencies, collectivestate, dependent_states)
-        if partial_next_collectivestate is not None:
-            self._gather_dependencies(physics.blocking_dependencies, partial_next_collectivestate, dependent_states)
+        self._gather_dependencies(physics.dependencies, state_collection, dependent_states)
+        if partial_next_state_collection is not None:
+            self._gather_dependencies(physics.blocking_dependencies, partial_next_state_collection, dependent_states)
         # --- execute step ---
         next_state = physics.step(state, dt, **dependent_states)
         return next_state
 
-    def _gather_dependencies(self, dependencies, collectivestate, result_dict):
+    def _gather_dependencies(self, dependencies, state_collection, result_dict):
         for statedependency in dependencies:
             if statedependency.state_name is not None:
-                matching_states = collectivestate.find(statedependency.state_name)
+                matching_states = state_collection.find(statedependency.state_name)
             else:
-                matching_states = collectivestate.all_with_tag(statedependency.tag)
+                matching_states = state_collection.all_with_tag(statedependency.tag)
             if statedependency.single_state:
                 assert len(matching_states) == 1, 'Dependency %s requires 1 state but found %d' % (statedependency, len(matching_states))
                 value = matching_states[0]

@@ -63,8 +63,8 @@ class BakedWorldPhysics(CollectivePhysics):
         self.session = session
         self.dt = dt
 
-    def step(self, collectivestate, dt=1.0, **dependent_states):
-        result = self.session.run(self.state_out, {self.state_in: collectivestate, self.dt: dt})
+    def step(self, state_collection, dt=1.0, **dependent_states):
+        result = self.session.run(self.state_out, {self.state_in: state_collection, self.dt: dt})
         return result
 
 
