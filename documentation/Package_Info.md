@@ -12,4 +12,4 @@ To install phiflow with web interface, run
 $ pip install phiflow[gui]
 ```
 
-To run phiflow with custom CUDA operators, you have to install it from source, see the [detailed installation instructions](documentation/Installation_Instructions.md).
+To run phiflow with custom CUDA operators, you have to install it from source, see the [detailed installation instructions](https://github.com/tum-pbs/PhiFlow/blob/master/documentation/Installation_Instructions.md).
