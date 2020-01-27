@@ -175,7 +175,7 @@ class StaggeredGrid(Field):
             if physical_units:
                 grad /= self.dx[dim]
             components.append(grad)
-        data = math.add(components)
+        data = math.sum(components, 0)
         return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
 
     @property
@@ -183,7 +183,7 @@ class StaggeredGrid(Field):
         return self.data[0].dtype
 
     @staticmethod
-    def gradient(scalar_field, padding_mode='symmetric'):
+    def gradient(scalar_field, padding_mode='replicate'):
         assert isinstance(scalar_field, CenteredGrid)
         data = scalar_field.data
         if data.shape[-1] != 1:
@@ -210,5 +210,5 @@ class StaggeredGrid(Field):
             else:
                 upper = scalar_field.axis_padded(axis, 0, 1).data
                 lower = scalar_field.axis_padded(axis, 1, 0).data
-                tensors.append((upper + lower) / 2 * force)
+                tensors.append(math.mul((upper + lower) / 2, force))
         return StaggeredGrid(tensors, scalar_field.box, name=name, batch_size=scalar_field._batch_size)

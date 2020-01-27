@@ -5,21 +5,22 @@ import inspect
 import logging
 import numbers
 import os
-import six
 import sys
 import threading
 import time
 import warnings
-import numpy as np
 from os.path import isfile
 
-from phi.data.fluidformat import Scene, write_sim_frame
+import numpy as np
+import six
 from phi import struct
-from phi.physics.field import Field, StaggeredGrid, CenteredGrid
-from phi.physics.world import world, StateProxy
+from phi.data.fluidformat import Scene, write_sim_frame
+from phi.physics.field import CenteredGrid, Field, StaggeredGrid
+from phi.physics.world import StateProxy, world
 from phi.viz.plot import PlotlyFigureBuilder
-from .value import EditableValue, EditableFloat, EditableInt, EditableBool, EditableString
-from .control import Control, Action
+
+from .control import Action, Control
+from .value import (EditableBool, EditableFloat, EditableInt, EditableString, EditableValue)
 
 
 def synchronized_method(method):
@@ -263,15 +264,15 @@ class App(object):
                 self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
         with struct.unsafe():
-            struct.map(add_default_field, world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True)
+            struct.map(add_default_field, self.world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True)
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
         if self.prepared:
             self._update_scene_properties()
 
-    def add_custom_properties(self, dict):
-        self._custom_properties.update(dict)
+    def add_custom_properties(self, dictionary):
+        self._custom_properties.update(dictionary)
         if self.prepared:
             self._update_scene_properties()
 

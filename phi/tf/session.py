@@ -1,12 +1,12 @@
+import contextlib
 import logging
 import os
-import contextlib
 import threading
 
 import numpy as np
 import tensorflow as tf
-
 from phi import struct
+
 from .profiling import Timeliner
 from .util import isplaceholder, istensor
 
@@ -44,17 +44,19 @@ class Session(object):
             tensor_feed_dict = {}
             for (key, value) in feed_dict.items():
                 pairs = struct.zip([key, value], item_condition=struct.ALL_ITEMS, zip_parents_if_incompatible=True)
+
                 def add_to_dict(key_tensor, value_tensor):
                     if isplaceholder(key_tensor):
                         tensor_feed_dict[key_tensor] = value_tensor
                     return None
-                with struct.unsafe(): struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS)
+                with struct.unsafe():
+                    struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS)
 
         tensor_fetches = struct.flatten(fetches, item_condition=struct.ALL_ITEMS)
         if isinstance(fetches, (tuple, list)):
-            is_fetch = lambda x: istensor(x) or x in fetches
+            def is_fetch(x): return istensor(x) or _identity_in(x, fetches)
         else:
-            is_fetch = lambda x: istensor(x) or x is fetches
+            def is_fetch(x): return istensor(x) or x is fetches
         tensor_fetches = tuple(filter(is_fetch, tensor_fetches))
 
         # Handle tracing
@@ -134,7 +136,6 @@ class Session(object):
         return self._session.as_default()
 
 
-
 class Trace(object):
 
     def __init__(self, index, directory):
@@ -189,3 +190,9 @@ class _TraceStack(threading.local):
 
 _trace_stack = _TraceStack()
 
+
+def _identity_in(obj, list):
+    for item in list:
+        if item is obj:
+            return True
+    return False

@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy
 
 from phi.geom import box
-from phi.physics.collective import CollectiveState
+from phi.physics.collective import StateCollection
 from phi.physics.domain import Domain
 from phi.physics.field import CenteredGrid, manta
 from phi import struct
@@ -17,7 +17,7 @@ def generate_test_structs():
     return [manta.centered_grid(numpy.zeros([1,4,1])),
             [('Item',)],
             {'A': 'Entry A', 'Vel': manta.staggered_grid(numpy.zeros([1,5,5,2]))},
-            CollectiveState((Fluid(Domain([4])),))]
+            StateCollection((Fluid(Domain([4])),))]
 
 
 class TestStruct(TestCase):

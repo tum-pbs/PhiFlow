@@ -79,7 +79,7 @@ class Field(State):
             resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)
             return other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
         except StaggeredSamplePoints:  # other_field is staggered
-            return broadcast_at(self, other_field)
+            return broadcast_at(self, other_field, collapse_dimensions=False)
 
     @property
     def rank(self):
@@ -164,7 +164,10 @@ class Field(State):
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
             self_data = self.data if self.has_points else self.at(other).data
             other_data = other.data if other.has_points else other.at(self).data
-            data = data_operator(self_data, other_data)
+            backend = math.choose_backend([self_data, other_data])
+            self_data_tensor = backend.as_tensor(self_data)
+            other_data_tensor = backend.as_tensor(other_data)
+            data = data_operator(self_data_tensor, other_data_tensor)
         else:
             flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
             data = data_operator(self.data, other)
@@ -220,11 +223,11 @@ def propagate_flags_operation(flags, is_linear, result_rank, result_components):
     return tuple(result)
 
 
-def broadcast_at(field1, field2):
+def broadcast_at(field1, field2, collapse_dimensions=True):
     if field1.component_count != field2.component_count and field1.component_count != 1:
         raise IncompatibleFieldTypes('Can only resample to staggered fields with same number of components.\n%s\n%s' % (field1, field2))
     if field1.component_count == 1:
         new_components = [field1.at(f2) for f2 in field2.unstack()]
     else:
-        new_components = [f1.at(f2) for f1, f2 in zip(field1.unstack(), field2.unstack())]
+        new_components = [f1.at(f2, collapse_dimensions=collapse_dimensions) for f1, f2 in zip(field1.unstack(), field2.unstack())]
     return field2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(field1, field2.flags, field2.rank))

@@ -124,7 +124,7 @@ The following content was created by running the [simpleplume.py](../demos/simpl
         "module": "phi.physics.objects"
       }
     ],
-    "type": "CollectiveState",
+    "type": "StateCollection",
     "module": "phi.physics.collective"
   }
 }

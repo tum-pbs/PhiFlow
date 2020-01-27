@@ -3,9 +3,9 @@ import logging
 import os
 import socket
 import threading
+
 import tensorflow as tf
 from tensorflow.python.client import timeline
-
 
 if tf.__version__[0] == '2':
     logging.info('Adjusting for tensorflow 2.0')
@@ -63,5 +63,5 @@ def launch_tensorboard(log_dir, same_process=False, port=6006):
         host = phi.local.hostname.hostname
     except:
         host = 'localhost'  # socket.gethostname()
-    url = "http://%s:%d/"%(host,port)
+    url = "http://%s:%d/" % (host,port)
     return url

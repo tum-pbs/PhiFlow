@@ -299,14 +299,14 @@ class Scene(object):
         if max_count and len(indices) >= max_count:
             indices = indices[0:max_count]
         indices = sorted(indices)
-        if len(indices)==0:
+        if len(indices) == 0:
             logging.warning("No simulations sim_XXXXXX found in '%s'" % root_path)
         return [Scene(directory, category, scene_index) for scene_index in indices]
 
     @staticmethod
     def at(sim_dir):
         sim_dir = os.path.expanduser(sim_dir)
-        if sim_dir[-1]=='/':  # remove trailing backslash
+        if sim_dir[-1] == '/':  # remove trailing backslash
             sim_dir = sim_dir[0:-1]
         dirname = os.path.basename(sim_dir)
         if not dirname.startswith("sim_"):

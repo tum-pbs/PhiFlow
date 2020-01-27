@@ -1,5 +1,6 @@
-from .value import EditableValue
 import numpy as np
+
+from .value import EditableValue
 
 
 class Control(object):

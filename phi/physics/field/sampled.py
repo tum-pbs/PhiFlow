@@ -1,10 +1,13 @@
-from phi.physics.field.util import extrapolate
-from phi import struct, math
 import numpy as np
+
+from phi import struct, math
+from phi.physics.domain import Domain
+
 from .field import Field
 from .grid import CenteredGrid
 from .staggered_grid import StaggeredGrid, unstack_staggered_tensor
 from .flag import SAMPLE_POINTS
+from .util import extrapolate
 
 
 @struct.definition()
@@ -18,7 +21,6 @@ class SampledField(Field):
         raise NotImplementedError()
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
-        from phi.physics.domain import Domain
         if isinstance(other_field, SampledField) and other_field.sample_points is self.sample_points:
             return self
         elif isinstance(other_field, (CenteredGrid, Domain)):

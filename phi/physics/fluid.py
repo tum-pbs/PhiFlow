@@ -4,17 +4,15 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 from numbers import Number
 
 import numpy as np
+from phi import math, struct
 
-from phi import struct
-from phi import math
-
-from .physics import StateDependency, Physics
+from .domain import Domain, DomainState
+from .field import CenteredGrid, StaggeredGrid, advect, union_mask
+from .field.effect import Gravity, effect_applied, gravity_tensor
+from .material import OPEN, Material
+from .physics import Physics, StateDependency
 from .pressuresolver.solver_api import FluidDomain
 from .pressuresolver.sparse import SparseCG
-from .field import CenteredGrid, StaggeredGrid, union_mask, advect
-from .material import OPEN, Material
-from .domain import Domain, DomainState
-from .field.effect import Gravity, gravity_tensor, effect_applied
 
 
 @struct.definition()
@@ -25,6 +23,7 @@ class Fluid(DomainState):
 
     def __init__(self, domain, density=0.0, velocity=0.0, buoyancy_factor=0.0, tags=('fluid', 'velocityfield'), name='fluid', **kwargs):
         DomainState.__init__(self, **struct.kwargs(locals()))
+        self.solve_info = {}
 
     def default_physics(self): return INCOMPRESSIBLE_FLOW
 
@@ -78,7 +77,7 @@ Supports obstacles, density effects, velocity effects, global gravity.
         velocity = fluid.velocity
         density = fluid.density
         if self.make_input_divfree:
-            velocity = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver)
+            velocity, fluid.solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
@@ -92,7 +91,7 @@ Supports obstacles, density effects, velocity effects, global gravity.
         velocity += buoyancy(fluid.density, gravity, fluid.buoyancy_factor) * dt
         # --- Pressure solve ---
         if self.make_output_divfree:
-            velocity = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver)
+            velocity, fluid.solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
         return fluid.copied_with(density=density, velocity=velocity, age=fluid.age + dt)
 
 
@@ -128,7 +127,8 @@ def solve_pressure(divergence, fluiddomain, pressure_solver=None):
     :param divergence: CenteredGrid
     :param fluiddomain: FluidDomain instance
     :param pressure_solver: PressureSolver to use, None for default
-    :return: scalar tensor or CenteredGrid, depending on the type of divergence
+    :return: pressure field, iteration count
+    :rtype: CenteredGrid, int
     """
     assert isinstance(divergence, CenteredGrid)
     if pressure_solver is None:
@@ -139,9 +139,10 @@ def solve_pressure(divergence, fluiddomain, pressure_solver=None):
     return pressure, iteration
 
 
-def divergence_free(velocity, domain=None, obstacles=(), pressure_solver=None):
+def divergence_free(velocity, domain=None, obstacles=(), pressure_solver=None, return_info=False):
     """
 Projects the given velocity field by solving for and subtracting the pressure.
+    :param return_info: if True, returns a dict holding information about the solve as a second object
     :param velocity: StaggeredGrid
     :param domain: Domain matching the velocity field, used for boundary conditions
     :param obstacles: list of Obstacles
@@ -163,8 +164,8 @@ Projects the given velocity field by solving for and subtracting the pressure.
     # --- Boundary Conditions, Pressure Solve ---
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)
     divergence_field = velocity.divergence(physical_units=False)
-    pressure, _ = solve_pressure(divergence_field, fluiddomain, pressure_solver=pressure_solver)
+    pressure, iterations = solve_pressure(divergence_field, fluiddomain, pressure_solver=pressure_solver)
     pressure *= velocity.dx[0]
     gradp = StaggeredGrid.gradient(pressure)
     velocity -= fluiddomain.with_hard_boundary_conditions(gradp)
-    return velocity
+    return velocity if not return_info else (velocity, {'pressure': pressure, 'iterations': iterations})

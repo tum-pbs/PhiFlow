@@ -1,10 +1,10 @@
 import numpy as np
-
-from .domain import DomainState
-from .field.effect import effect_applied, FieldEffect, ADD
-from .field import AnalyticField, union_mask, GeometryMask
-from . import StateDependency, Physics
 from phi import math, struct
+
+from . import Physics, StateDependency
+from .domain import DomainState
+from .field import AnalyticField, GeometryMask, union_mask
+from .field.effect import ADD, FieldEffect, effect_applied
 
 
 @struct.definition()
@@ -18,9 +18,11 @@ class QuantumWave(DomainState):
         return self.centered_grid('amplitude', amplitude, dtype=np.complex64)
 
     @struct.constant(default=0.1)
-    def mass(self, mass): return mass
+    def mass(self, mass):
+        return mass
 
-    def default_physics(self): return SCHROEDINGER
+    def default_physics(self):
+        return SCHROEDINGER
 
 
 def normalize_probability(probability_amplitude):
@@ -58,7 +60,7 @@ class Schroedinger(Physics):
         # Move by rotating in Fourier space
         amplitude_fft = math.fft(amplitude)
         laplace = math.fftfreq(state.resolution, mode='square')
-        amplitude_fft *= math.exp(-1j * (2 * np.pi)**2 * math.to_complex(dt) * laplace / (2*state.mass))
+        amplitude_fft *= math.exp(-1j * (2 * np.pi)**2 * math.to_complex(dt) * laplace / (2 * state.mass))
         amplitude = math.ifft(amplitude_fft)
 
         obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles]).at(state.amplitude).data
@@ -81,7 +83,8 @@ class Schroedinger(Physics):
 SCHROEDINGER = Schroedinger()
 
 
-StepPotential = lambda geometry, height: FieldEffect(GeometryMask([geometry], height, 'potential'), ['potential'], mode=ADD)
+def StepPotential(geometry, height):
+    return FieldEffect(GeometryMask([geometry], height, 'potential'), ['potential'], mode=ADD)
 
 
 @struct.definition()

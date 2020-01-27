@@ -114,14 +114,14 @@ class CudaCommand(distutils.cmd.Command):
         assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
-with open("README.md", "r") as readme:
+with open("documentation/Package_Info.md", "r") as readme:
     long_description = readme.read()
 
 
 setup(
     name='phiflow',
-    version='1.0.1',
-    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.1.tar.gz',
+    version='1.0.2',
+    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.2.tar.gz',
     packages=['phi',
               'phi.app',
               'phi.data',

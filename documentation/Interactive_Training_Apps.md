@@ -3,7 +3,7 @@
 This document assumes you have some basic knowledge of `Apps` and how they interact with the GUI.
 If not, checkout the [documentation](Web_Interface.md).
 
-If the purpose of your application is to train a TensorFlow model, your main application class should extend [TFApp](../phi/tf/app.py) which in turn extends `App`.
+If the purpose of your application is to train a TensorFlow model, your main application class should extend [LearningApp](../phi/tf/app.py) which in turn extends `App`.
 This has a couple of benefits:
 
 - Model parameters can be saved and loaded from the GUI
@@ -25,10 +25,10 @@ data sets such as the ones used in this example).
 ```python
 from phi.tf.flow import *
 
-class TrainingTest(TFApp):
+class TrainingTest(LearningApp):
 
     def __init__(self):
-        TFApp.__init__(self, "Training")
+        LearningApp.__init__(self, "Training")
         fluid = world.add(Fluid(Domain([64] * 2), density=placeholder, velocity=placeholder))
 
         with self.model_scope():

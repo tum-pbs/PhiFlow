@@ -46,3 +46,19 @@ def expand(collapsed, shape):
             raise ValueError('Cannot match shape: requested %d but actual %d' % (shape[0], len(collapsed)))
     else:
         return [expand(collapsed, shape[1:])] * shape[0]
+
+
+class CollapsedTensor(object):
+
+    def __init__(self, collapsed, leaf_condition=None, shape=None):
+        self.collapsed = collapsed
+        self.leaf_condition = leaf_condition
+        self.shape = shape
+
+    def __getitem__(self, item):
+        return collapsed_gather_nd(self.collapsed, item, self.leaf_condition)
+
+    def expand(self, shape=None):
+        shape = self.shape if shape is None else shape
+        assert shape is not None
+        return expand(self.collapsed, shape)

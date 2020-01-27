@@ -1,11 +1,13 @@
 import collections
 import numbers
-import numpy as np
-import scipy.sparse
-import scipy.signal
-import six
+import warnings
 
+import numpy as np
+import scipy.signal
+import scipy.sparse
+import six
 from phi.struct.tensorop import collapsed_gather_nd, expand
+
 from .base_backend import Backend
 
 
@@ -15,15 +17,21 @@ class SciPyBackend(Backend):
         Backend.__init__(self, "SciPy")
 
     def is_applicable(self, values):
-        if values is None: return True
-        if isinstance(values, np.ndarray): return True
-        if isinstance(values, numbers.Number): return True
-        if isinstance(values, bool): return True
-        if scipy.sparse.issparse(values): return True
+        if values is None:
+            return True
+        if isinstance(values, np.ndarray):
+            return True
+        if isinstance(values, numbers.Number):
+            return True
+        if isinstance(values, bool):
+            return True
+        if scipy.sparse.issparse(values):
+            return True
         if isinstance(values, collections.Iterable):
             try:
                 for value in values:
-                    if not self.is_applicable(value): return False
+                    if not self.is_applicable(value):
+                        return False
                 return True
             except:
                 return False
@@ -41,11 +49,9 @@ class SciPyBackend(Backend):
         return np.equal(x, y)
 
     def divide_no_nan(self, x, y):
-        # Only for scalars, not arrays yet.
-        if y == 0:
-            return x * 0
-        else:
-            return (x/y)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            result = x / y
+        return np.where(y == 0, 0, result)
 
     def random_uniform(self, shape):
         return np.random.random(shape).astype('f')
@@ -74,7 +80,7 @@ class SciPyBackend(Backend):
             return self._single_mode_pad(value, pad_width, mode, constant_values)
         else:
             mode = expand(mode, shape=(len(dims), 2))
-            for single_mode in ('wrap', 'symmetric', 'reflect', 'constant'):  # order matters! wrap first
+            for single_mode in ('wrap', 'circular', 'replicate', 'symmetric', 'reflect', 'constant'):  # order matters! circular first
                 widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode else 0 for upper in (False, True)] for d in dims]
                 value = self._single_mode_pad(value, widths, single_mode, constant_values)
             return value
@@ -82,13 +88,15 @@ class SciPyBackend(Backend):
     def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
         if np.sum(np.array(pad_width)) == 0:
             return value
+        if single_mode == 'wrap':
+            warnings.warn("padding mode 'wrap' is deprecated. Use 'circular' instead.", DeprecationWarning, stacklevel=2)
         if single_mode.lower() == 'constant':
             return np.pad(value, pad_width, 'constant', constant_values=constant_values)
-        else:
-            return np.pad(value, pad_width, single_mode.lower())
-
-    def add(self, values):
-        return np.sum(values, axis=0)
+        if single_mode.lower() == 'circular':
+            single_mode = 'wrap'
+        if single_mode.lower() == 'replicate':
+            single_mode = 'edge'
+        return np.pad(value, pad_width, single_mode.lower())
 
     def reshape(self, value, shape):
         return value.reshape(shape)
@@ -114,13 +122,16 @@ class SciPyBackend(Backend):
         assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation="LINEAR", boundary="ZERO"):
-        if boundary.lower() == "zero":
-            pass # default
-        elif boundary.lower() == "replicate":
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        if boundary.lower() == 'zero' or boundary.lower() == 'constant':
+            pass  # default
+        elif boundary.lower() == 'replicate':
             sample_coords = clamp(sample_coords, inputs.shape[1:-1])
+        elif boundary.lower() == 'circular':
+            inputs = self.pad(inputs, [[0,0]] + [[0,1]] * tensor_spatial_rank(inputs) + [[0,0]], mode='circular')
+            sample_coords = sample_coords % self.to_float(self.staticshape(inputs)[1:-1])
         else:
-            raise ValueError("Unsupported boundary: %s"%boundary)
+            raise ValueError("Unsupported boundary: %s" % boundary)
 
         import scipy.interpolate
         points = [np.arange(dim) for dim in inputs.shape[1:-1]]
@@ -141,8 +152,8 @@ class SciPyBackend(Backend):
     def ones_like(self, tensor):
         return np.ones_like(tensor)
 
-    def mean(self, value, axis=None):
-        return np.mean(value, axis)
+    def mean(self, value, axis=None, keepdims=False):
+        return np.mean(value, axis, keepdims=keepdims)
 
     def dot(self, a, b, axes):
         return np.tensordot(a, b, axes)
@@ -154,7 +165,8 @@ class SciPyBackend(Backend):
                    swap_memory=False, name=None, maximum_iterations=None):
         i = 0
         while cond(*loop_vars):
-            if maximum_iterations is not None and i == maximum_iterations: break
+            if maximum_iterations is not None and i == maximum_iterations:
+                break
             loop_vars = body(*loop_vars)
             i += 1
         return loop_vars
@@ -204,7 +216,7 @@ class SciPyBackend(Backend):
             valid = [tensor.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(tensor))]
             result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], np.float32)
         else:
-            raise ValueError("Illegal padding: %s"%padding)
+            raise ValueError("Illegal padding: %s" % padding)
         for batch in range(tensor.shape[0]):
             for o in range(kernel.shape[-1]):
                 for i in range(tensor.shape[-1]):
@@ -249,7 +261,7 @@ class SciPyBackend(Backend):
             raise ValueError("Illegal axis value")
         result = []
         for i in range(tensor.shape[axis]):
-            result.append(tensor[tuple([i if d==axis else slice(None) for d in range(len(tensor.shape))])])
+            result.append(tensor[tuple([i if d == axis else slice(None) for d in range(len(tensor.shape))])])
         return result
 
     def std(self, x, axis=None):
@@ -290,7 +302,7 @@ class SciPyBackend(Backend):
         elif rank == 2:
             return np.fft.fft2(x, axes=[1,2])
         else:
-            return np.fft.fftn(x, axes=list(range(1,rank+1)))
+            return np.fft.fftn(x, axes=list(range(1,rank + 1)))
 
     def ifft(self, k):
         rank = len(k.shape) - 2
@@ -300,7 +312,7 @@ class SciPyBackend(Backend):
         elif rank == 2:
             return np.fft.ifft2(k, axes=[1,2])
         else:
-            return np.fft.ifftn(k, axes=list(range(1,rank+1)))
+            return np.fft.ifftn(k, axes=list(range(1,rank + 1)))
 
     def imag(self, complex):
         return np.imag(complex)
@@ -319,11 +331,14 @@ class SciPyBackend(Backend):
             array = np.array(array)
         return array.dtype
 
+    def sparse_tensor(self, indices, values, shape):
+        return scipy.sparse.csc_matrix((values, self.unstack(indices, -1)), shape=shape)
+
 
 def clamp(coordinates, shape):
     assert coordinates.shape[-1] == len(shape)
     for i in range(len(shape)):
-        coordinates[...,i] = np.maximum(0, np.minimum(shape[i]-1, coordinates[...,i]))
+        coordinates[...,i] = np.maximum(0, np.minimum(shape[i] - 1, coordinates[...,i]))
     return coordinates
 
 

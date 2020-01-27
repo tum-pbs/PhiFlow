@@ -22,7 +22,7 @@ class GeometryMask(Field):
             result = self.geometries[0].value_at(points)
         else:
             result = math.max([geometry.value_at(points) for geometry in self.geometries], axis=0)
-        return result * self.data
+        return math.mul(result, self.data)
 
     @property
     def rank(self):

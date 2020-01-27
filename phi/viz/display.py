@@ -83,9 +83,11 @@ AUTORUN = 'autorun' in sys.argv
 
 def show(app=None, **config):
 
+    frame_records = inspect.stack()[1]
+    calling_module = inspect.getmodulename(frame_records[1])
+    python_file = os.path.basename(sys.argv[0])[:-3]
+
     if app is None:
-        frame_records = inspect.stack()[1]
-        calling_module = inspect.getmodulename(frame_records[1])
         fitting_models = _find_subclasses_in_module(App, calling_module, [])
         assert len(fitting_models) == 1, 'show() called without model but detected %d possible classes: %s' % (len(fitting_models), fitting_models)
         app = fitting_models[0]
@@ -93,7 +95,7 @@ def show(app=None, **config):
     if inspect.isclass(app) and issubclass(app, App):
         app = app()
 
-    called_from_main = inspect.getmodule(app.__class__).__name__ == '__main__'
+    called_from_main = inspect.getmodule(app.__class__).__name__ == '__main__' or calling_module == python_file
 
     app.prepare()
 

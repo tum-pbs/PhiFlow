@@ -162,13 +162,6 @@ class _Union(Geometry):
     def __init__(self, geometries, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    def __validate_geometries__(self):
-        assert len(self.geometries) > 0
-        rank = self.geometries[0].rank
-        for g in self.geometries[1:]:
-            assert g.rank == rank or g.rank is None or rank is None
-        self.geometries = tuple(self.geometries)
-
     def value_at(self, points, collapse_dimensions=True):
         if len(self.geometries) == 1:
             result = self.geometries[0].value_at(points)
@@ -185,6 +178,10 @@ class _Union(Geometry):
 
     @struct.constant()
     def geometries(self, geometries):
+        assert len(geometries) > 0
+        rank = geometries[0].rank
+        for g in geometries[1:]:
+            assert g.rank == rank or g.rank is None or rank is None
         return tuple(geometries)
 
 
@@ -217,9 +214,10 @@ def assert_same_rank(rank1, rank2, error_message):
 def _rank(rank):
     if rank is None:
         return None
-    if isinstance(rank, int):
-        return rank
-    if isinstance(rank, Geometry):
-        return rank.rank
+    elif isinstance(rank, int):
+        pass
+    elif isinstance(rank, Geometry):
+        rank = rank.rank
     else:
-        return math.spatial_rank(rank)
+        rank = math.spatial_rank(rank)
+    return None if rank == 0 else rank

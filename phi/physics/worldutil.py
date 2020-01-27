@@ -1,6 +1,6 @@
 """ High-level world utility and convenience functions. """
 
-from .world import World, StateProxy
+from .world import StateProxy, World
 from .field.mask import union_mask
 
 

@@ -1,22 +1,21 @@
-from __future__ import print_function
-
-import six
+import warnings
 
 import numpy as np
+import phi.app.app as base_app
+import six
 import tensorflow as tf
-
-from .util import istensor
-from .session import Session
-from .world import tf_bake_graph
-import phi.app.app as nontf
-from phi.app.app import EditableInt, EditableFloat, EditableValue
+from phi.app.app import EditableFloat, EditableInt, EditableValue
 from phi.data.reader import BatchReader
 
+from .session import Session
+from .util import istensor
+from .world import tf_bake_graph
 
-class App(nontf.App):
+
+class App(base_app.App):
 
     def __init__(self, *args, **kwargs):
-        nontf.App.__init__(self, *args, **kwargs)
+        base_app.App.__init__(self, *args, **kwargs)
         self.session = Session(self.scene)
         self.scalars = []
         self.scalar_names = []
@@ -27,7 +26,7 @@ class App(nontf.App):
     def prepare(self):
         if self.prepared:
             return
-        nontf.App.prepare(self)
+        base_app.App.prepare(self)
         self.info('Initializing variables')
         self.session.initialize_variables()
         if self.auto_bake:
@@ -41,18 +40,18 @@ class App(nontf.App):
 
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
-        setattr(self, 'float_'+name.lower(), val)
+        setattr(self, 'float_' + name.lower(), val)
         placeholder = tf.placeholder(tf.float32, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
-        self.editable_placeholders[placeholder] = 'float_'+name.lower()
+        self.editable_placeholders[placeholder] = 'float_' + name.lower()
         return placeholder
 
     def editable_int(self, name, initial_value, minmax=None):
         val = EditableInt(name, initial_value, minmax, None)
-        setattr(self, 'int_'+name.lower(), val)
+        setattr(self, 'int_' + name.lower(), val)
         placeholder = tf.placeholder(tf.int32, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
-        self.editable_placeholders[placeholder] = 'int_'+name.lower()
+        self.editable_placeholders[placeholder] = 'int_' + name.lower()
         return placeholder
 
     def editable_values_dict(self):
@@ -65,10 +64,10 @@ class App(nontf.App):
         return feed_dict
 
 
-EVERY_EPOCH = lambda tfapp: tfapp.steps % tfapp.epoch_size == 0
+def EVERY_EPOCH(tfapp): return tfapp.steps % tfapp.epoch_size == 0
 
 
-class TFApp(App):
+class LearningApp(App):
 
     def __init__(self, name='TensorFlow application', subtitle='',
                  learning_rate=1e-3,
@@ -160,7 +159,7 @@ class TFApp(App):
             optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
         if reg is not None:
-            self.add_scalar(name+'_reg_unscaled', reg)
+            self.add_scalar(name + '_reg_unscaled', reg)
             reg_scale = self.editable_float(name + '_reg_scale', 1.0)
             optim_function = loss + reg * reg_scale
         else:
@@ -196,7 +195,7 @@ class TFApp(App):
             log_loss = log_loss(self)
         assert isinstance(log_loss, bool)
         if log_loss:
-            self.info('Optimization (%06d): ' % self.steps + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
+            self.info('Optimization (%06d): ' % self.steps + ', '.join([self.scalar_names[i] + ': ' + str(scalar_values[i]) for i in range(len(self.scalars))]))
 
     def validation_step(self, create_checkpoint=False):
         if self._val_reader is None:
@@ -207,7 +206,7 @@ class TFApp(App):
         self.scalar_values_validation = {name: value for name, value in zip(self.scalar_names, scalar_values)}
         if create_checkpoint:
             self.save_model()
-        self.info('Validation (%06d): ' % self.steps + ', '.join([self.scalar_names[i]+': '+str(scalar_values[i]) for i in range(len(self.scalars))]))
+        self.info('Validation (%06d): ' % self.steps + ', '.join([self.scalar_names[i] + ': ' + str(scalar_values[i]) for i in range(len(self.scalars))]))
 
     def base_feed_dict(self):
         return {}
@@ -243,7 +242,6 @@ class TFApp(App):
         assert self.view_reader is not None, 'There is no data to view.'
         return self.view_reader[0:self.validation_batch_size]
 
-
     def view_batch(self, get_attribute):
         batch = self.view_reader[0:self.validation_batch_size]
         return get_attribute(batch)
@@ -271,3 +269,6 @@ class TFApp(App):
         #     App.add_field(self, name, lambda: self.view_batch(field))
         else:
             App.add_field(self, name, field)
+
+
+TFApp = LearningApp

@@ -13,6 +13,9 @@ class Backend:
         return self.name.lower() == name.lower()
 
     def is_applicable(self, values):
+        for value in values:
+            if self.is_tensor(value):
+                return True
         return False
 
     # --- Abstract math functions ---
@@ -37,16 +40,17 @@ class Backend:
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         """
-        Pad a tensor.
-
-        :param value:
-        :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[before axis 0, after axis 0], ...].
-        :param mode: 'constant', 'symmetric', 'reflect', 'wrap'
+    Pad a tensor.
+        :param value: tensor
+        :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[before axis 0, after axis 0], ...] including batch and component axes.
+        :param mode:
+            'constant',
+            'reflect',
+            'replicate',
+            'circular'
+            ('wrap' is deprecated, use 'circular' instead, 'symmetric' may not be supported by all backends and defaults to 'replicate').
         :param constant_values: used for out-of-bounds points if mode='constant'
         """
-        raise NotImplementedError(self)
-
-    def add(self, values):
         raise NotImplementedError(self)
 
     def reshape(self, value, shape):
@@ -59,18 +63,30 @@ class Backend:
         raise NotImplementedError(self)
 
     def divide_no_nan(self, x, y):
+        """ Computes x/y but returns 0 if y=0. """
         raise NotImplementedError(self)
 
     def where(self, condition, x=None, y=None):
         raise NotImplementedError(self)
 
-    def mean(self, value, axis=None):
+    def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError(self)
 
-    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='zero'):
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        """
+    Interpolates a regular grid at the sample coordinates.
+        :param inputs: grid data
+        :param sample_coords: tensor of floating grid locations. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at data.shape[i]-1.
+        :param interpolation: only 'linear' is currently supported
+        :param boundary:
+            'constant'/'zero',
+            'replicate',
+            'circular'
+            ('symmetric' may not be supported by all backends and defaults to 'replicate')
+        """
         raise NotImplementedError(self)
 
     def range(self, start, limit=None, delta=1, dtype=None):
@@ -128,7 +144,7 @@ class Backend:
     def exp(self, x):
         raise NotImplementedError(self)
 
-    def conv(self, tensor, kernel, padding='SAME'):
+    def conv(self, tensor, kernel, padding='same'):
         raise NotImplementedError(self)
 
     def expand_dims(self, a, axis=0, number=1):
@@ -159,7 +175,7 @@ class Backend:
         raise NotImplementedError(self)
 
     def flatten(self, x):
-        return self.reshape(x, (-1,) )
+        return self.reshape(x, (-1,))
 
     def unstack(self, tensor, axis=0):
         raise NotImplementedError(self)
@@ -204,7 +220,7 @@ class Backend:
     def ifft(self, k):
         """
         Computes the n-dimensional inverse FFT along all but the first and last dimensions.
-        
+
         :param k: tensor of dimension 3 or higher
         """
         raise NotImplementedError(self)
@@ -230,6 +246,9 @@ class Backend:
     def tile(self, value, multiples):
         raise NotImplementedError(self)
 
+    def sparse_tensor(self, indices, values, shape):
+        raise NotImplementedError(self)
+
     # --- Math function with default implementation ---
 
     def ndims(self, tensor):
@@ -242,6 +261,21 @@ class Backend:
         if isinstance(batches, int):
             batches = [batches]
         return tensor[batches, ...]
+
+    def add(self, a, b):
+        return self.as_tensor(a) * self.as_tensor(b)
+
+    def sub(self, a, b):
+        return self.as_tensor(a) - self.as_tensor(b)
+
+    def mul(self, a, b):
+        return self.as_tensor(a) * self.as_tensor(b)
+
+    def div(self, numerator, denominator):
+        return self.as_tensor(numerator) / self.as_tensor(denominator)
+
+    def pow(self, base, exp):
+        return self.as_tensor(base) ** self.as_tensor(exp)
 
 
 class DynamicBackend(Backend):
@@ -300,9 +334,6 @@ class DynamicBackend(Backend):
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         return self.choose_backend(value).pad(value, pad_width, mode, constant_values)
 
-    def add(self, values):
-        return self.choose_backend(values).add(values)
-
     def reshape(self, value, shape):
         return self.choose_backend(value).reshape(value, shape)
 
@@ -319,13 +350,13 @@ class DynamicBackend(Backend):
         # For Tensorflow x,y the condition can be a Numpy array, but not the other way around. If possible, choose backend based on first input, otherwise based on condition.
         return self.choose_backend((condition, x, y)).where(condition, x, y)
 
-    def mean(self, value, axis=None):
-        return self.choose_backend(value).mean(value, axis)
+    def mean(self, value, axis=None, keepdims=False):
+        return self.choose_backend(value).mean(value, axis, keepdims=keepdims)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         return self.choose_backend(inputs).py_func(func, inputs, Tout, shape_out, stateful, name, grad)
 
-    def resample(self, inputs, sample_coords, interpolation='LINEAR', boundary='zero'):
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
         return self.choose_backend((inputs, sample_coords)).resample(inputs, sample_coords, interpolation, boundary)
 
     def range(self, start, limit=None, delta=1, dtype=None):
@@ -451,8 +482,26 @@ class DynamicBackend(Backend):
     def cos(self, x):
         return self.choose_backend(x).cos(x)
 
+    def sparse_tensor(self, indices, values, shape):
+        return self.choose_backend([indices, values]).sparse_tensor(indices, values, shape)
+
     def dtype(self, array):
         return self.choose_backend(array).dtype(array)
+
+    def add(self, a, b):
+        return self.choose_backend([a, b]).add(a, b)
+
+    def sub(self, a, b):
+        return self.choose_backend([a, b]).sub(a, b)
+
+    def mul(self, a, b):
+        return self.choose_backend([a, b]).mul(a, b)
+
+    def div(self, numerator, denominator):
+        return self.choose_backend([numerator, denominator]).div(numerator, denominator)
+
+    def pow(self, base, exp):
+        return self.choose_backend([base, exp]).pow(base, exp)
 
 
 class NoBackendFound(Exception):

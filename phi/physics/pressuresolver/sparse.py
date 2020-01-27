@@ -136,17 +136,12 @@ class SparseCG(PressureSolver):
         dimensions = list(divergence.shape[1:-1])
         N = int(np.prod(dimensions))
 
-        if math.choose_backend(divergence).matches_name('TensorFlow'):
-            import tensorflow as tf
-            if tf.__version__[0] == '2':
-                logging.info('Adjusting for tensorflow 2.0')
-                tf = tf.compat.v1
-                tf.disable_eager_execution()
+        if math.choose_backend(divergence).matches_name('SciPy'):
+            A = sparse_pressure_matrix(dimensions, active_mask, fluid_mask)
+        else:
             sidx, sorting = sparse_indices(dimensions)
             sval_data = sparse_values(dimensions, active_mask, fluid_mask, sorting)
-            A = tf.SparseTensor(indices=sidx, values=sval_data, dense_shape=[N, N])
-        else:
-            A = sparse_pressure_matrix(dimensions, active_mask, fluid_mask)
+            A = math.choose_backend(divergence).sparse_tensor(indices=sidx, values=sval_data, shape=[N, N])
 
         if self.autodiff:
             return sparse_cg(divergence, A, self.max_iterations, pressure_guess, self.accuracy, back_prop=True)

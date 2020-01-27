@@ -1,8 +1,9 @@
 from phi import struct
 from phi.geom.geometry import Geometry
+
 from .field.effect import FieldEffect, GeometryMask
-from .physics import State, Physics
-from .material import Material, CLOSED
+from .material import CLOSED, Material
+from .physics import Physics, State
 
 
 @struct.definition()
@@ -22,7 +23,8 @@ class Obstacle(State):
         return material
 
     @struct.constant(default=0)
-    def velocity(self, velocity): return velocity
+    def velocity(self, velocity):
+        return velocity
 
 
 class GeometryMovement(Physics):

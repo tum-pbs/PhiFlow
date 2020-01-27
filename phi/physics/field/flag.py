@@ -71,6 +71,7 @@ class Flag(struct.Struct):
         return self.name
 
 
+@struct.definition()
 class _DivergenceFree(Flag):
     pass
 
@@ -80,6 +81,7 @@ DIVERGENCE_FREE = _DivergenceFree('divergence-free', True, False,
                                   field_types=[_FIELD_TYPE.VECTOR])
 
 
+@struct.definition()
 class _L2Norm(Flag):
     pass
 
@@ -89,6 +91,7 @@ L2_NORMALIZED = _L2Norm('L2-normalized', True, False,
                         field_types=[_FIELD_TYPE.ANY])
 
 
+@struct.definition()
 class SamplePoints(Flag):
     pass
 
@@ -96,7 +99,3 @@ class SamplePoints(Flag):
 SAMPLE_POINTS = SamplePoints('sample-points', True, True,
                              propagators=[],
                              field_types=[_FIELD_TYPE.VECTOR])
-
-
-class Cubic(Flag):
-    pass

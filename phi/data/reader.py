@@ -1,11 +1,12 @@
-from .stream import DataStream, SourceStream
-from phi import struct
-from bisect import bisect_left
-from sys import getsizeof
-from collections import Iterable
-import numpy as np
 import math
+from bisect import bisect_left
+from collections import Iterable
+from sys import getsizeof
 
+import numpy as np
+from phi import struct
+
+from .stream import DataStream, SourceStream
 
 SKIP = 'skip'
 WRAP = 'wrap'
@@ -95,8 +96,8 @@ class _IndexCache(object):
             self.sources = []
             p = np.random.permutation(len(sources))
             for i in range(len(sources)):
-                self.sources.append( sources[p[i]] )
-            #replace sometime with original code: self.sources = sources[np.random.permutation(len(sources))]
+                self.sources.append(sources[p[i]])
+            # replace sometime with original code: self.sources = sources[np.random.permutation(len(sources))]
         else:
             self.sources = sources
         self.datastream = stream
@@ -109,8 +110,8 @@ class _IndexCache(object):
             source_size = self.datastream.size(source, lookup=True)
             max_size = max_size + source_size
             self.accumulated_sizes.append(max_size)
-        pos = bisect_left(self.accumulated_sizes, index+1)
-        local_index = index if pos == 0 else index - self.accumulated_sizes[pos-1]
+        pos = bisect_left(self.accumulated_sizes, index + 1)
+        local_index = index if pos == 0 else index - self.accumulated_sizes[pos - 1]
         return self.sources[pos], local_index
 
 
