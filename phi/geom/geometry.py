@@ -22,6 +22,10 @@ Samples the geometry at the given locations and returns a binary mask, labelling
 
 @struct.definition()
 class AABox(Geometry):
+    """
+    Axis-aligned box, defined by lower and upper corner.
+    AABoxes can be created using the shorthand notation box[slices], (e.g. box[:,0:1] to create an inifinite-height box from x=0 to x=1).
+    """
 
     def __init__(self, lower, upper, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
@@ -127,7 +131,7 @@ class AABoxGenerator(object):
         return AABox(lower, upper)
 
 
-box = AABoxGenerator()
+box = AABoxGenerator()  # Instantiate an AABox using the syntax box[slices]
 
 
 @struct.definition()
