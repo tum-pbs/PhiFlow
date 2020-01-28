@@ -13,10 +13,10 @@ from .util import isplaceholder, istensor
 
 class Session(object):
 
-    def __init__(self, scene, session=tf.Session()):
+    def __init__(self, scene, session=None):
         self._scene = scene
-        self._session = session
-        assert self._session.graph == tf.get_default_graph()
+        self._session = session if session is not None else tf.Session()
+        assert self._session.graph == tf.get_default_graph(), 'Session %s does not reference the current TensorFlow graph.'
         self.graph = tf.get_default_graph()
         self.summary_writers = {}
         self.summary_directory = os.path.abspath(scene.subpath('summary')) if scene is not None else None
