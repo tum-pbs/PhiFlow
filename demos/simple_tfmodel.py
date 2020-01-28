@@ -1,7 +1,8 @@
+# coding=utf-8
 from phi.tf.flow import *
 
 
-RESOLUTION = y, x = 64, 64
+DOMAIN = Domain([64, 64], boundaries=OPEN)  # [y, x]
 DATAPATH = os.path.expanduser('~/phi/data/smoke/')  # at least 10 sims, has to match RESOLUTION
 DESCRIPTION = u"""
 Train a neural network to reproduce the flow field given the marker density.
@@ -46,7 +47,7 @@ class TrainingTest(LearningApp):
     def __init__(self):
         LearningApp.__init__(self, 'Training', DESCRIPTION, learning_rate=2e-4, validation_batch_size=4, training_batch_size=8)
         # --- Setup simulation and placeholders ---
-        smoke_in, load_dict = load_state(Fluid(Domain(RESOLUTION)))
+        smoke_in, load_dict = load_state(Fluid(DOMAIN))
         # --- Build neural network ---
         with self.model_scope():
             pred_vel = network(smoke_in.density.data)
