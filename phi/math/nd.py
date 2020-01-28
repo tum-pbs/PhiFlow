@@ -276,10 +276,12 @@ def laplace(tensor, padding='replicate', axes=None):
     :type axes: list
     :return: tensor of same shape
     """
-    if padding.lower() == 'cyclic':
-        return fourier_laplace(tensor)
     rank = spatial_rank(tensor)
-    if padding.lower() in ('constant', 'reflect', 'replicate'):
+    if padding is None or padding.lower() == 'valid':
+        pass  # do not pad tensor
+    elif padding.lower() == 'cyclic' or padding.lower() == 'wrap':
+        return fourier_laplace(tensor)
+    else:
         tensor = math.pad(tensor, [[0,0]] + [([1,1] if _contains_axis(axes, i, rank) else [0,0]) for i in range(rank)] + [[0,0]], padding)
     # --- convolutional laplace ---
     if axes is not None:

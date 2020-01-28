@@ -85,8 +85,7 @@ class CenteredGrid(Field):
             return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
         local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
-        boundary = {'periodic': 'circular', 'boundary': 'replicate', 'constant': 'constant'}[self.extrapolation]
-        resampled = math.resample(self.data, local_points, boundary=boundary, interpolation=self.interpolation)
+        resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation)
         return resampled
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
@@ -204,16 +203,23 @@ def _required_paddings_transposed(box, dx, target):
 
 @mappable()
 def _pad_mode(extrapolation):
-    if extrapolation == 'periodic':
-        return 'wrap'
-    elif extrapolation == 'boundary':
-        return 'replicate'
-    else:
-        return extrapolation
+    """
+Converts an extrapolation string (or struct of strings) to a string that can be passed to math functions like math.pad or math.resample.
+    :param extrapolation: field extrapolation
+    :return: padding mode, same type as extrapolation
+    """
+    return {'periodic': 'circular',
+            'boundary': 'replicate',
+            'constant': 'constant'}[extrapolation]
+
 
 @mappable()
 def _gradient_extrapolation(extrapolation):
-    if extrapolation == 'boundary':
-        return 'constant'
-    else:
-        return extrapolation
+    """
+Given the extrapolation of a field, returns the extrapolation mode of the corresponding gradient field.
+    :param extrapolation: string or struct of strings
+    :return: same type as extrapolation
+    """
+    return {'periodic': 'periodic',
+            'boundary': 'constant',
+            'constant': 'constant'}[extrapolation]
