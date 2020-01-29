@@ -1,3 +1,4 @@
 include phi/VERSION
+include documentation/Package_Info.md
 recursive-include phi/tf/cuda/build *
 recursive-include webglviewer *
