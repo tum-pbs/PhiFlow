@@ -7,6 +7,7 @@ import scipy.sparse.linalg
 
 from phi import math
 from phi.math.blas import conjugate_gradient
+from phi.physics.material import Material
 from phi.struct.tensorop import collapsed_gather_nd
 from .solver_api import PressureSolver, FluidDomain
 
@@ -25,7 +26,7 @@ class SparseSciPy(PressureSolver):
     def solve(self, divergence, domain, pressure_guess):
         assert isinstance(domain, FluidDomain)
         dimensions = list(divergence.shape[1:-1])
-        A = sparse_pressure_matrix(dimensions, domain.active_tensor(extend=1), domain.accessible_tensor(extend=1))
+        A = sparse_pressure_matrix(dimensions, domain.active_tensor(extend=1), domain.accessible_tensor(extend=1), Material.periodic(domain.domain.boundaries))
 
         def np_solve_p(div):
             div_vec = div.reshape([-1, A.shape[0]])
@@ -83,7 +84,7 @@ class SparseCG(PressureSolver):
         dimensions = math.staticshape(divergence)[1:-1]
         N = int(np.prod(dimensions))
 
-        A = sparse_pressure_matrix(dimensions, active_mask, fluid_mask)
+        A = sparse_pressure_matrix(dimensions, active_mask, fluid_mask, Material.periodic(domain.domain.boundaries))
         if not math.choose_backend(divergence).matches_name('SciPy'):
             A = A.tocoo()
             A = math.choose_backend(divergence).sparse_tensor(indices=math.stack([A.col, A.row], axis=-1), values=A.data, shape=[N, N])
@@ -114,8 +115,8 @@ def sparse_cg(divergence, A, max_iterations, guess, accuracy, back_prop=False):
 
 def sparse_pressure_matrix(dimensions, extended_active_mask, extended_fluid_mask, periodic=False):
     """
-    Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
-    of that channel, taking into account obstacles and empty cells.
+Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
+of that channel, taking into account obstacles and empty cells.
 
     :param dimensions: valid simulation dimensions. Pressure channel should be of shape (batch size, dimensions..., 1)
     :param extended_active_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
@@ -158,7 +159,21 @@ def sparse_pressure_matrix(dimensions, extended_active_mask, extended_fluid_mask
     return scipy.sparse.csc_matrix(A)
 
 
-def wrap_or_discard(indices, dim, dimensions, periodic=False):
-    upper_in_range_inx = np.nonzero((indices[dim] < dimensions[dim]) & (indices[dim] >= 0))
-    indices_linear = np.ravel_multi_index(indices[:, upper_in_range_inx], dimensions)
-    return indices_linear, upper_in_range_inx
+def wrap_or_discard(points, check_bounds_dim, dimensions, periodic=False):
+    """
+Handles points that lie outside the domain by either discarding them or wrapping them, depending on periodic.
+    :param points: grid indices, typically of shape (dimensions, cell_count)
+    :param check_bounds_dim: int
+    :param dimensions: domain resolution
+    :param periodic: if False: discard indices outside domain, if True: wrap indices outside domain
+    :return:
+    """
+    if not periodic:
+        upper_in_range_inx = np.nonzero((points[check_bounds_dim] < dimensions[check_bounds_dim]) & (points[check_bounds_dim] >= 0))
+        new_points = points[:, upper_in_range_inx]  # discard points outside domain
+    else:
+        upper_in_range_inx = slice(None)
+        new_points = points % math.expand_dims(dimensions, -1)  # wrap points
+
+    linear_points = np.ravel_multi_index(new_points, dimensions)
+    return linear_points, upper_in_range_inx
