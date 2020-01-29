@@ -1,14 +1,12 @@
 #ifndef HELPERS_H_
 #define HELPERS_H_
 
-// Declare functions as host device for NVCC
 #ifdef __CUDACC__
 #define CUDA_HOSTDEV __host__ __device__
 #else
 #define CUDA_HOSTDEV
 #endif
 
-// Function declarations - parsed by NVCC and GCC
 CUDA_HOSTDEV
 bool checkBit(int var, int pos);
 
@@ -35,8 +33,6 @@ bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const uns
 template<typename T>
 T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components);
 
-
-// Function definitions - parsed only by NVCC
 #ifdef __CUDACC__
 
 #include "tensorflow/core/util/gpu_kernel_helper.h"
@@ -47,25 +43,12 @@ typedef Eigen::GpuDevice GPUDevice;
 
 } // Namespace tensorflow
 
-// https://stackoverflow.com/questions/13245258/handle-error-not-found-error-in-cuda/13245319
-static void HandleError( cudaError_t err,
-                         const char *file,
-                         int line ) {
-    if (err != cudaSuccess) {
-        printf( "%s in %s at line %d\n", cudaGetErrorString( err ),
-                file, line );
-        exit( EXIT_FAILURE );
-    }
-}
-#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
-
 __host__ __device__
 bool checkBit(int var, int pos){
 	return var & (1 << pos);
 }
 
 
-// get index in multidimensional data array
 template<>
 __host__ __device__
 unsigned int getDataIndex(const unsigned int batch, const unsigned int* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
@@ -97,14 +80,10 @@ template
 __host__ __device__
 unsigned int getDataIndex(const unsigned int, const float*, const unsigned int, const int, const unsigned int*, const unsigned int);
 
-template
-__host__
-unsigned int getDataIndex(const unsigned int, const double*, const unsigned int, const int, const unsigned int*, const unsigned int);
+
+enum Boundary : unsigned int {ZERO, REPLICATE, CIRCULAR, SYMMETRIC};
 
 
-enum Boundary : unsigned int {ZERO, REPLICATE, CIRCULAR, SYMMETRIC, REFLECT};
-
-// Float modulo with positive result
 template<typename T>
 __host__ __device__
 inline T mod(T k, T n) {
@@ -113,8 +92,7 @@ inline T mod(T k, T n) {
 }
 
 
-// Change point q according to boundary condition
-// Returns false if q is outside the field and boundary condition is ZERO
+//Returns false if value is ZERO
 template<typename T>
 __host__ __device__
 bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const unsigned int* dimSizes) {
@@ -130,17 +108,15 @@ bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const uns
 					q[dim] = 0;
 					break;
 				case CIRCULAR:
-					q[dim] = mod(qDim, (T) dimSize);
+					q[dim] = mod(qDim, (float) dimSize);
 					break;
 				case SYMMETRIC:
-					qDim = mod((-qDim - 1), ((T) (2 * dimSize)));
+					/*qDim = mod((-qDim - 1), ((float) (2 * dimSize)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 1;
 					}
-					q[dim] = qDim;
-					break;
-				case REFLECT:
-				    qDim = mod((-qDim), ((T) (2 * dimSize - 2)));
+					q[dim] = qDim;*/
+					qDim = mod((-qDim), ((float) (2 * dimSize - 2)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 2;
 					}
@@ -156,17 +132,15 @@ bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const uns
 					q[dim] = dimSize - 1;
 					break;
 				case CIRCULAR:
-					q[dim] = fmod(qDim, (T) dimSize);
+					q[dim] = fmod(qDim, (float) dimSize);
 					break;
 				case SYMMETRIC:
-					qDim = fmod(qDim, ((T) (2 * dimSize)));
+					/*qDim = fmod(qDim, ((float) (2 * dimSize)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 1;
 					}
-					q[dim] = qDim;
-					break;
-				case REFLECT:
-				    qDim = fmod(qDim, ((T) (2 * dimSize - 2)));
+					q[dim] = qDim;*/
+					qDim = fmod(qDim, ((float) (2 * dimSize - 2)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 2;
 					}
@@ -182,12 +156,7 @@ template
 __host__ __device__
 bool applyBoundaries(const Boundary*, float*, const int, const unsigned int*);
 
-template
-__host__
-bool applyBoundaries(const Boundary*, double*, const int, const unsigned int*);
 
-
-// Retrieve data from host array according to position and boundary condition
 template<typename T>
 __host__
 T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
@@ -201,13 +170,18 @@ T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int ba
 template
 __host__
 float fetchDataHost(const float*, const Boundary*, const unsigned int, float*, const unsigned int, const int, const unsigned int*, const unsigned int);
-
-template
+/*template<>
 __host__
-double fetchDataHost(const double*, const Boundary*, const unsigned int, double*, const unsigned int, const int, const unsigned int*, const unsigned int);
+float fetchDataHost(const float* data, const Boundary* boundaries, const unsigned int batch, float* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
+	if(applyBoundaries(boundaries, q, dims, dimSizes)) {
+		return data[getDataIndex(batch, q, component, dims, dimSizes, components)];
+	} else {
+		return 0.0;
+	}
+}*/
 
 
-// Retrieve data from device array according to position and boundary condition
+
 template<typename T>
 __device__
 T fetchDataDevice(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
@@ -308,42 +282,38 @@ cudaSurfaceObject_t createSurfaceObject(cudaArray* cuArray){
 	return surfaceObject;
 }
 
-// Copy float3 data to float4 texture
+
 __global__
 void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch) {
 	unsigned int dataElementsPerBatch = xSize * ySize * zSize;
 	for (unsigned int i = batch * dataElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * dataElementsPerBatch + dataElementsPerBatch; i += blockDim.x * gridDim.x) {
-	    unsigned int index = i % dataElementsPerBatch;
-		unsigned int x = index % xSize;
-		unsigned int y = (index / xSize) % ySize;
-		unsigned int z = index / (xSize * ySize);
+		unsigned int x = i % xSize;
+		unsigned int y = (i / xSize) % ySize;
+		unsigned int z = i / (xSize * ySize);
 		float4 element;
 		element.x = tensorflow::ldg(data + 3 * i);
 		element.y = tensorflow::ldg(data + 3 * i + 1);
 		element.z = tensorflow::ldg(data + 3 * i + 2);
 		element.w = 0;
+		//printf("Write: [%f, %f, %f, %f]\n", element.x, element.y, element.z, element.w);
 		if (dims == 1) {
 			surf1Dwrite(element, surfaceObject, x * sizeof(float4));
 		} else if (dims == 2) {
 			surf2Dwrite(element, surfaceObject, x * sizeof(float4), y);
 		} else {
+			//printf("%ld, %ld, %ld\n", x, y, z);
 			surf3Dwrite(element, surfaceObject, x * sizeof(float4), y, z);
 		}
 	}
 }
 
-// Copy data to texture array according to spatial rank and numer of components
+
 template<typename T>
-void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d) {
+void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d, int blockCount, int threadPerBlock) {
 	if (components == 3) {
 		// Use Surface to write to texture array
-		int blockSize;
-		int minGridSize;
-		int gridSize;
-		cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, CopyKernel, 0, 0);
-		gridSize = (xSize * ySize * zSize + blockSize - 1) / blockSize;
-		CopyKernel<<<gridSize, blockSize, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
-		HANDLE_ERROR(cudaDeviceSynchronize());
+		CopyKernel<<<blockCount, threadPerBlock, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
+		cudaDeviceSynchronize();
 	} else if (dims <= 2) {
 		cudaMemcpyToArray(cuArray, 0, 0, data + batch * xSize * ySize * zSize * components, xSize * ySize * zSize * components * sizeof(T), cudaMemcpyDeviceToDevice);
 	} else {
@@ -352,14 +322,14 @@ void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurface
 	}
 }
 
-// Funtion template for retrieving data from texture memory
+
 template<typename T>
 __device__
 inline T tex1DHelper(cudaTextureObject_t texObj, float x) {
 	return tex1D<T>(texObj, x);
 }
 
-// Specialised definition for retrieving float3 from float4 texture
+
 template<>
 __device__
 inline float3 tex1DHelper(cudaTextureObject_t texObj, float x) {
@@ -371,7 +341,7 @@ inline float3 tex1DHelper(cudaTextureObject_t texObj, float x) {
 	return result;
 }
 
-// Retrieve data from texture memory according to position and boundary condition
+
 template<typename T>
 __device__
 inline T tex1DHelper(cudaTextureObject_t texObj, float x, const Boundary* boundaries, const unsigned int xSize) {

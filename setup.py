@@ -296,6 +296,86 @@ class CudaCommand(distutils.cmd.Command):
             else:
                 raise e
 
+        #Build the Resample CUDA Kernels
+        subprocess.check_call(
+            [
+                self.nvcc,
+                '-std=c++11',
+                '-c',
+                '-o',
+                os.path.join(build_path, 'resample.cu.o'),
+                os.path.join(src_path, 'resample.cu.cc'),
+                '-D GOOGLE_CUDA=1',
+                '-x', 'cu',
+                '-Xcompiler',
+                '-fPIC',
+                '--expt-relaxed-constexpr',
+                '-DNDEBUG',
+                '-O3'
+            ]
+            + tf_cflags
+        )
+
+        #Build the Resample Custom Op
+        subprocess.check_call(
+            [
+                self.gcc,
+                '-std=c++11',
+                '-shared',
+                '-o',
+                os.path.join(build_path, 'resample.so'),
+                os.path.join(src_path, 'resample.cc'),
+                os.path.join(build_path, 'resample.cu.o'),
+                '-fPIC',
+                '-lcudart',
+                '-D GOOGLE_CUDA=1',
+                '-I/usr/local/cuda-10.0/include',
+                '-O3'
+            ]
+            + tf_cflags
+            + tf_lflags
+        )
+
+        #Build the Resample Gradient CUDA Kernels
+        subprocess.check_call(
+            [
+                self.nvcc,
+                '-std=c++11',
+                '-c',
+                '-o',
+                os.path.join(build_path, 'resample_gradient.cu.o'),
+                os.path.join(src_path, 'resample_gradient.cu.cc'),
+                '-D GOOGLE_CUDA=1',
+                '-x', 'cu',
+                '-Xcompiler',
+                '-fPIC',
+                '--expt-relaxed-constexpr',
+                '-DNDEBUG',
+                '-O3'
+            ]
+            + tf_cflags
+        )
+
+        #Build the Resample Gradient Custom Op
+        subprocess.check_call(
+            [
+                self.gcc,
+                '-std=c++11',
+                '-shared',
+                '-o',
+                os.path.join(build_path, 'resample_gradient.so'),
+                os.path.join(src_path, 'resample_gradient.cc'),
+                os.path.join(build_path, 'resample_gradient.cu.o'),
+                '-fPIC',
+                '-lcudart',
+                '-D GOOGLE_CUDA=1',
+                '-I/usr/local/cuda-10.0/include',
+                '-O3'
+            ]
+            + tf_cflags
+            + tf_lflags
+        )
+
     def initialize_options(self):
         self.gcc = 'gcc'
         self.gcc_4_8 = 'g++-4.8'

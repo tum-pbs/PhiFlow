@@ -6,7 +6,6 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
-// Op registration
 namespace tensorflow {
 REGISTER_OP("Resample")
 	.Attr("T: {bfloat16, float, double}")
@@ -17,11 +16,11 @@ REGISTER_OP("Resample")
 	.SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
 		::tensorflow::shape_inference::ShapeHandle dataShape = c->input(0);
 		::tensorflow::shape_inference::ShapeHandle pointsShape = c->input(1);
-		::tensorflow::shape_inference::ShapeHandle outputShape;
+		::tensorflow::shape_inference::ShapeHandle outputShape = c->input(1);
 		::tensorflow::shape_inference::DimensionHandle batchSize;
-		TF_RETURN_IF_ERROR(c->Max(c->Dim(dataShape, 0), c->Dim(pointsShape, 0), &batchSize));
-		TF_RETURN_IF_ERROR(c->ReplaceDim(outputShape, 0, batchSize, &outputShape));
-		TF_RETURN_IF_ERROR(c->ReplaceDim(pointsShape, c->Rank(pointsShape) - 1, c->Dim(dataShape, c->Rank(dataShape) - 1), &outputShape));
+		c->Max(c->Dim(dataShape, 0), c->Dim(pointsShape, 0), &batchSize);
+		c->ReplaceDim(outputShape, 0, batchSize, &outputShape);
+		c->ReplaceDim(outputShape, c->Rank(outputShape) - 1, c->Dim(dataShape, c->Rank(dataShape) - 1), &outputShape);
 		c->set_output(0, outputShape);
 		return Status::OK();
 	});
@@ -127,6 +126,12 @@ public:
 		const unsigned int outputElementsPerBatch = output->NumElements() / outputBatchSize;
 
 		// Do the computation.
+		/*OP_REQUIRES(
+			context,
+			data.NumElements() <= tensorflow::kint32max,
+			errors::InvalidArgument("Too many elements in tensor.")
+		);*/
+
 		ResampleFunctor<Device, T>()(
 			context->eigen_device<Device>(),
 			dataBatchSize,
@@ -153,7 +158,7 @@ public:
 
 //REGISTER_CPU(bfloat16);
 REGISTER_CPU(float);
-REGISTER_CPU(double);
+//REGISTER_CPU(double);
 
 // Register the GPU kernels.
 #ifdef GOOGLE_CUDA
