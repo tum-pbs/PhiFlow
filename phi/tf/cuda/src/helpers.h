@@ -1,0 +1,428 @@
+#ifndef HELPERS_H_
+#define HELPERS_H_
+
+#ifdef __CUDACC__
+#define CUDA_HOSTDEV __host__ __device__
+#else
+#define CUDA_HOSTDEV
+#endif
+
+CUDA_HOSTDEV
+bool checkBit(int var, int pos);
+
+template<typename T>
+CUDA_HOSTDEV
+unsigned int getDataIndex(const unsigned int batch, const T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components);
+
+CUDA_HOSTDEV
+unsigned int getPointsIndex(const unsigned int i, int dim, int dims, const unsigned int pointsSize);
+
+CUDA_HOSTDEV
+int pow2(int exp);
+
+enum Boundary : unsigned int;
+
+template<typename T>
+CUDA_HOSTDEV
+inline T mod(T k, T n);
+
+template<typename T>
+CUDA_HOSTDEV
+bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const unsigned int* dimSizes);
+
+template<typename T>
+T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components);
+
+#ifdef __CUDACC__
+
+#include "tensorflow/core/util/gpu_kernel_helper.h"
+
+namespace tensorflow {
+
+typedef Eigen::GpuDevice GPUDevice;
+
+} // Namespace tensorflow
+
+__host__ __device__
+bool checkBit(int var, int pos){
+	return var & (1 << pos);
+}
+
+
+template<>
+__host__ __device__
+unsigned int getDataIndex(const unsigned int batch, const unsigned int* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
+	unsigned int index = component;
+	unsigned int multiplier = components;
+	for(int dim = dims - 1; dim >= 0; dim--){
+		index += q[dim] * multiplier;
+		multiplier *= dimSizes[dim];
+	}
+	index += batch * multiplier;
+	return index;
+}
+
+
+template<typename T>
+__host__ __device__
+unsigned int getDataIndex(const unsigned int batch, const T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
+	unsigned int index = component;
+	unsigned int multiplier = components;
+	for(int dim = dims - 1; dim >= 0; dim--){
+		index += ((unsigned int) round(q[dim])) * multiplier;
+		multiplier *= dimSizes[dim];
+	}
+	index += batch * multiplier;
+	return index;
+}
+
+template
+__host__ __device__
+unsigned int getDataIndex(const unsigned int, const float*, const unsigned int, const int, const unsigned int*, const unsigned int);
+
+
+enum Boundary : unsigned int {ZERO, REPLICATE, CIRCULAR, SYMMETRIC};
+
+
+template<typename T>
+__host__ __device__
+inline T mod(T k, T n) {
+	k = fmod(k, n);
+	return k < 0 ? k + n : k;
+}
+
+
+//Returns false if value is ZERO
+template<typename T>
+__host__ __device__
+bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const unsigned int* dimSizes) {
+	for (int dim = 0; dim < dims; dim++) {
+		T qDim = q[dim];
+		const unsigned int dimSize = dimSizes[dim];
+		if (qDim < 0) {
+			Boundary lowerBoundary = boundaries[2 * dim];
+			switch(lowerBoundary) {
+				case ZERO:
+					return false;
+				case REPLICATE:
+					q[dim] = 0;
+					break;
+				case CIRCULAR:
+					q[dim] = mod(qDim, (float) dimSize);
+					break;
+				case SYMMETRIC:
+					/*qDim = mod((-qDim - 1), ((float) (2 * dimSize)));
+					if (qDim > dimSize - 1) {
+						qDim = 2 * dimSize - qDim - 1;
+					}
+					q[dim] = qDim;*/
+					qDim = mod((-qDim), ((float) (2 * dimSize - 2)));
+					if (qDim > dimSize - 1) {
+						qDim = 2 * dimSize - qDim - 2;
+					}
+					q[dim] = qDim;
+					break;
+			}
+		} else if (qDim > dimSize - 1) {
+			Boundary upperBoundary = boundaries[2 * dim + 1];
+			switch(upperBoundary) {
+				case ZERO:
+					return false;
+				case REPLICATE:
+					q[dim] = dimSize - 1;
+					break;
+				case CIRCULAR:
+					q[dim] = fmod(qDim, (float) dimSize);
+					break;
+				case SYMMETRIC:
+					/*qDim = fmod(qDim, ((float) (2 * dimSize)));
+					if (qDim > dimSize - 1) {
+						qDim = 2 * dimSize - qDim - 1;
+					}
+					q[dim] = qDim;*/
+					qDim = fmod(qDim, ((float) (2 * dimSize - 2)));
+					if (qDim > dimSize - 1) {
+						qDim = 2 * dimSize - qDim - 2;
+					}
+					q[dim] = qDim;
+					break;
+			}
+		}
+	}
+	return true;
+}
+
+template
+__host__ __device__
+bool applyBoundaries(const Boundary*, float*, const int, const unsigned int*);
+
+
+template<typename T>
+__host__
+T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
+	if(applyBoundaries(boundaries, q, dims, dimSizes)) {
+		return data[getDataIndex(batch, q, component, dims, dimSizes, components)];
+	} else {
+		return 0.0;
+	}
+}
+
+template
+__host__
+float fetchDataHost(const float*, const Boundary*, const unsigned int, float*, const unsigned int, const int, const unsigned int*, const unsigned int);
+/*template<>
+__host__
+float fetchDataHost(const float* data, const Boundary* boundaries, const unsigned int batch, float* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
+	if(applyBoundaries(boundaries, q, dims, dimSizes)) {
+		return data[getDataIndex(batch, q, component, dims, dimSizes, components)];
+	} else {
+		return 0.0;
+	}
+}*/
+
+
+
+template<typename T>
+__device__
+T fetchDataDevice(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
+	if(applyBoundaries(boundaries, q, dims, dimSizes)){
+		return tensorflow::ldg(data + getDataIndex(batch, q, component, dims, dimSizes, components));
+	} else {
+		return 0.0;
+	}
+}
+
+
+__host__ __device__
+unsigned int getPointsIndex(const unsigned int i, int dim, int dims, const unsigned int pointsSize){
+	unsigned int index = i * dims + dim;
+	index = index % pointsSize;
+	return index;
+}
+
+
+__host__ __device__
+int pow2(int exp) {
+	int power = 2;
+	for (int i = 1; i < exp; i++){
+		power *= 2;
+	}
+	return power;
+}
+
+
+cudaArray* createArray(const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int components) {
+	cudaArray* cuArray;
+	// Create cuda extent
+	cudaExtent extent = make_cudaExtent(xSize, ySize, zSize);
+
+	// Create channel format description
+	cudaChannelFormatDesc channelDesc;
+	if (components == 1) {
+		channelDesc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
+	} else if (components == 2) {
+		channelDesc = cudaCreateChannelDesc(32, 32, 0, 0, cudaChannelFormatKindFloat);
+	} else {
+		channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat);
+	}
+
+	// Create array
+	cudaMalloc3DArray(&cuArray, &channelDesc, extent, cudaArraySurfaceLoadStore);
+	return cuArray;
+}
+
+
+template<typename T>
+cudaMemcpy3DParms createCopyParams(const T* __restrict__ data, cudaArray* cuArray, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int components) {
+	cudaMemcpy3DParms copyParams = {0};
+	cudaExtent extent = make_cudaExtent(xSize, ySize, zSize);
+	copyParams.srcPtr = make_cudaPitchedPtr((void*) data, xSize * components * sizeof(T), xSize, ySize);
+	copyParams.dstArray = cuArray;
+	copyParams.extent = extent;
+	copyParams.kind = cudaMemcpyDeviceToDevice;
+	return copyParams;
+}
+
+
+cudaResourceDesc createResDesc(cudaArray* cuArray) {
+	struct cudaResourceDesc resDesc;
+	memset(&resDesc, 0, sizeof(resDesc));
+	resDesc.resType = cudaResourceTypeArray;
+	resDesc.res.array.array = cuArray;
+	return resDesc;
+}
+
+
+cudaTextureObject_t createTextureObject(cudaArray* cuArray) {
+	cudaTextureObject_t dataTexture = 0;
+	// Specify texture
+	cudaResourceDesc resDesc = createResDesc(cuArray);
+
+	// Specify texture object
+	struct cudaTextureDesc texDesc;
+	memset(&texDesc, 0, sizeof(texDesc));
+	texDesc.addressMode[0] = cudaAddressModeClamp;
+	texDesc.addressMode[1] = cudaAddressModeClamp;
+	texDesc.addressMode[2] = cudaAddressModeClamp;
+	texDesc.filterMode = cudaFilterModePoint;
+	//texDesc.filterMode = cudaFilterModeLinear;
+	texDesc.readMode = cudaReadModeElementType;
+	texDesc.normalizedCoords = false;
+
+	//Create texture object
+	cudaCreateTextureObject(&dataTexture, &resDesc, &texDesc, NULL);
+	return dataTexture;
+}
+
+
+cudaSurfaceObject_t createSurfaceObject(cudaArray* cuArray){
+	cudaSurfaceObject_t surfaceObject = 0;
+	cudaResourceDesc resDesc = createResDesc(cuArray);
+	cudaCreateSurfaceObject(&surfaceObject, &resDesc);
+	return surfaceObject;
+}
+
+
+__global__
+void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch) {
+	unsigned int dataElementsPerBatch = xSize * ySize * zSize;
+	for (unsigned int i = batch * dataElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * dataElementsPerBatch + dataElementsPerBatch; i += blockDim.x * gridDim.x) {
+		unsigned int x = i % xSize;
+		unsigned int y = (i / xSize) % ySize;
+		unsigned int z = i / (xSize * ySize);
+		float4 element;
+		element.x = tensorflow::ldg(data + 3 * i);
+		element.y = tensorflow::ldg(data + 3 * i + 1);
+		element.z = tensorflow::ldg(data + 3 * i + 2);
+		element.w = 0;
+		//printf("Write: [%f, %f, %f, %f]\n", element.x, element.y, element.z, element.w);
+		if (dims == 1) {
+			surf1Dwrite(element, surfaceObject, x * sizeof(float4));
+		} else if (dims == 2) {
+			surf2Dwrite(element, surfaceObject, x * sizeof(float4), y);
+		} else {
+			//printf("%ld, %ld, %ld\n", x, y, z);
+			surf3Dwrite(element, surfaceObject, x * sizeof(float4), y, z);
+		}
+	}
+}
+
+
+template<typename T>
+void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d, int blockCount, int threadPerBlock) {
+	if (components == 3) {
+		// Use Surface to write to texture array
+		CopyKernel<<<blockCount, threadPerBlock, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
+		cudaDeviceSynchronize();
+	} else if (dims <= 2) {
+		cudaMemcpyToArray(cuArray, 0, 0, data + batch * xSize * ySize * zSize * components, xSize * ySize * zSize * components * sizeof(T), cudaMemcpyDeviceToDevice);
+	} else {
+		copyParams.srcPtr = make_cudaPitchedPtr((void*) (data + batch * xSize * ySize * zSize * components), xSize * components * sizeof(T), xSize, ySize);
+		cudaMemcpy3D(&copyParams);
+	}
+}
+
+
+template<typename T>
+__device__
+inline T tex1DHelper(cudaTextureObject_t texObj, float x) {
+	return tex1D<T>(texObj, x);
+}
+
+
+template<>
+__device__
+inline float3 tex1DHelper(cudaTextureObject_t texObj, float x) {
+	float4 texel = tex1D<float4>(texObj, x);
+	float3 result;
+	result.x = texel.x;
+	result.y = texel.y;
+	result.z = texel.z;
+	return result;
+}
+
+
+template<typename T>
+__device__
+inline T tex1DHelper(cudaTextureObject_t texObj, float x, const Boundary* boundaries, const unsigned int xSize) {
+	if (applyBoundaries(boundaries, &x, 1, &xSize)) {
+		return tex1DHelper<T>(texObj, x + 0.5);
+	} else {
+		T v;
+		memset(&v, 0, sizeof(T));
+		return v;
+	}
+}
+
+
+template<typename T>
+__device__
+inline T tex2DHelper(cudaTextureObject_t texObj, float x, float y) {
+	return tex2D<T>(texObj, x, y);
+}
+
+
+template<>
+__device__
+inline float3 tex2DHelper(cudaTextureObject_t texObj, float x, float y) {
+	float4 texel = tex2D<float4>(texObj, x, y);
+	float3 result;
+	result.x = texel.x;
+	result.y = texel.y;
+	result.z = texel.z;
+	return result;
+}
+
+
+template<typename T>
+__device__
+inline T tex2DHelper(cudaTextureObject_t texObj, float x, float y, const Boundary* boundaries, const unsigned int xSize, const unsigned int ySize) {
+	float q[2] = {y, x};
+	unsigned int dimSizes[2] = {ySize, xSize};
+	if (applyBoundaries(boundaries, q, 2, dimSizes)) {
+		return tex2DHelper<T>(texObj, q[1] + 0.5, q[0] + 0.5);
+	} else {
+		T v;
+		memset(&v, 0, sizeof(T));
+		return v;
+	}
+}
+
+
+template<typename T>
+__device__
+inline T tex3DHelper(cudaTextureObject_t texObj, float x, float y, float z) {
+	return tex3D<T>(texObj, x, y, z);
+}
+
+
+template<>
+__device__
+inline float3 tex3DHelper(cudaTextureObject_t texObj, float x, float y, float z) {
+	float4 texel = tex3D<float4>(texObj, x, y, z);
+	float3 result;
+	result.x = texel.x;
+	result.y = texel.y;
+	result.z = texel.z;
+	return result;
+}
+
+
+template<typename T>
+__device__
+inline T tex3DHelper(cudaTextureObject_t texObj, float x, float y, float z, const Boundary* boundaries, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize) {
+	float q[3] = {z, y, x};
+	unsigned int dimSizes[3] = {zSize, ySize, xSize};
+	if (applyBoundaries(boundaries, q, 3, dimSizes)) {
+		return tex3DHelper<T>(texObj, q[2] + 0.5, q[1] + 0.5, q[0] + 0.5);
+	} else {
+		T v;
+		memset(&v, 0, sizeof(T));
+		return v;
+	}
+}
+
+
+#endif // __NVCC__
+
+#endif // HELPERS_H_
