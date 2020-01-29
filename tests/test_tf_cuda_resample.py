@@ -97,3 +97,35 @@ class TestTfCudaResample(TestCase):
                         point = points[index[:-1]]
                         print(point)'''
                     assert -self.MAX_DIFFERENCE < difference.flat[j] < self.MAX_DIFFERENCE
+
+    def test_mixed_boundaries(self):
+        data = np.array([[[[1.0], [2.0], [3.0]],
+                          [[4.0], [5.0], [6.0]],
+                          [[7.0], [8.0], [9.0]]]])
+        points = np.array([[[-0.5, -0.5], [2.5, 2.5]]])
+        precomputed = np.array([[[0.25, 2.25], [0.5, 4.5], [1.0, 4.0], [0.75, 4.25]],
+                                [[0.5, 4.5], [1.0, 9.0], [2.0, 8.0], [1.5, 8.5]],
+                                [[2.0, 3.0], [4.0, 6.0], [5.0, 5.0], [4.5, 5.5]],
+                                [[1.25, 3.75], [2.5, 7.5], [3.5, 6.5], [3.0, 7.0]]])
+        boundaries = ['zero', 'replicate', 'circular', 'symmetric']
+        for i in range(4):
+            for j in range(4):
+                boundary = (boundaries[i], boundaries[j])
+                data_placeholder = tf.placeholder(tf.float32, name="data_placeholder", shape=data.shape)
+                points_placeholder = tf.placeholder(tf.float32, name="points_placeholder", shape=points.shape)
+                cuda_resampled = resample_cuda(data_placeholder, points_placeholder, boundary)
+                with tf.Session() as sess:
+                    result = sess.run(cuda_resampled, feed_dict={data_placeholder: data, points_placeholder: points})
+                assert result.flat[0] == precomputed[i, j, 0]
+                assert result.flat[1] == precomputed[i, j, 1]
+        boundary = [('zero', 'replicate'), ('circular', 'symmetric')]
+        points = np.array([[[-0.5, -0.5], [-0.5, 2.5], [2.5, -0.5], [2.5, 2.5]]])
+        points_placeholder = tf.placeholder(tf.float32, name="points_placeholder", shape=points.shape)
+        cuda_resampled = resample_cuda(data_placeholder, points_placeholder, boundary)
+        with tf.Session() as sess:
+            result = sess.run(cuda_resampled, feed_dict={data_placeholder: data, points_placeholder: points})
+        assert result.flat[0] == 1.0
+        assert result.flat[1] == 1.25
+        assert result.flat[2] == 8
+        assert result.flat[3] == 8.5
+
