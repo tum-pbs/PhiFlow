@@ -4,6 +4,7 @@ import numpy as np
 import six
 import tensorflow as tf
 from packaging import version
+from phi.tf.tf_cuda_resample import *
 
 from phi.math.base_backend import Backend
 from phi.struct.tensorop import expand, collapsed_gather_nd
@@ -438,6 +439,11 @@ Resamples an N-dimensional tensor at the locations provided by sample_coords
     """
     boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
     assert interpolation.upper() == "LINEAR"
+
+    # Check if CUDA can be used benefitially
+    if use_cuda(inputs):
+        return resample_cuda(inputs, sample_coords, boundary)
+
     return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 
 
