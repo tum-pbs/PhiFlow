@@ -43,17 +43,6 @@ typedef Eigen::GpuDevice GPUDevice;
 
 } // Namespace tensorflow
 
-static void HandleError( cudaError_t err,
-                         const char *file,
-                         int line ) {
-    if (err != cudaSuccess) {
-        printf( "%s in %s at line %d\n", cudaGetErrorString( err ),
-                file, line );
-        exit( EXIT_FAILURE );
-    }
-}
-#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
-
 __host__ __device__
 bool checkBit(int var, int pos){
 	return var & (1 << pos);
@@ -91,12 +80,8 @@ template
 __host__ __device__
 unsigned int getDataIndex(const unsigned int, const float*, const unsigned int, const int, const unsigned int*, const unsigned int);
 
-template
-__host__
-unsigned int getDataIndex(const unsigned int, const double*, const unsigned int, const int, const unsigned int*, const unsigned int);
 
-
-enum Boundary : unsigned int {ZERO, REPLICATE, CIRCULAR, SYMMETRIC, REFLECT};
+enum Boundary : unsigned int {ZERO, REPLICATE, CIRCULAR, SYMMETRIC};
 
 
 template<typename T>
@@ -123,17 +108,15 @@ bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const uns
 					q[dim] = 0;
 					break;
 				case CIRCULAR:
-					q[dim] = mod(qDim, (T) dimSize);
+					q[dim] = mod(qDim, (float) dimSize);
 					break;
 				case SYMMETRIC:
-					qDim = mod((-qDim - 1), ((T) (2 * dimSize)));
+					/*qDim = mod((-qDim - 1), ((float) (2 * dimSize)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 1;
 					}
-					q[dim] = qDim;
-					break;
-				case REFLECT:
-				    qDim = mod((-qDim), ((T) (2 * dimSize - 2)));
+					q[dim] = qDim;*/
+					qDim = mod((-qDim), ((float) (2 * dimSize - 2)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 2;
 					}
@@ -149,17 +132,15 @@ bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const uns
 					q[dim] = dimSize - 1;
 					break;
 				case CIRCULAR:
-					q[dim] = fmod(qDim, (T) dimSize);
+					q[dim] = fmod(qDim, (float) dimSize);
 					break;
 				case SYMMETRIC:
-					qDim = fmod(qDim, ((T) (2 * dimSize)));
+					/*qDim = fmod(qDim, ((float) (2 * dimSize)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 1;
 					}
-					q[dim] = qDim;
-					break;
-				case REFLECT:
-				    qDim = fmod(qDim, ((T) (2 * dimSize - 2)));
+					q[dim] = qDim;*/
+					qDim = fmod(qDim, ((float) (2 * dimSize - 2)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 2;
 					}
@@ -175,10 +156,6 @@ template
 __host__ __device__
 bool applyBoundaries(const Boundary*, float*, const int, const unsigned int*);
 
-template
-__host__
-bool applyBoundaries(const Boundary*, double*, const int, const unsigned int*);
-
 
 template<typename T>
 __host__
@@ -193,10 +170,6 @@ T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int ba
 template
 __host__
 float fetchDataHost(const float*, const Boundary*, const unsigned int, float*, const unsigned int, const int, const unsigned int*, const unsigned int);
-
-template
-__host__
-double fetchDataHost(const double*, const Boundary*, const unsigned int, double*, const unsigned int, const int, const unsigned int*, const unsigned int);
 /*template<>
 __host__
 float fetchDataHost(const float* data, const Boundary* boundaries, const unsigned int batch, float* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
@@ -314,10 +287,9 @@ __global__
 void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch) {
 	unsigned int dataElementsPerBatch = xSize * ySize * zSize;
 	for (unsigned int i = batch * dataElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * dataElementsPerBatch + dataElementsPerBatch; i += blockDim.x * gridDim.x) {
-	    unsigned int index = i % dataElementsPerBatch;
-		unsigned int x = index % xSize;
-		unsigned int y = (index / xSize) % ySize;
-		unsigned int z = index / (xSize * ySize);
+		unsigned int x = i % xSize;
+		unsigned int y = (i / xSize) % ySize;
+		unsigned int z = i / (xSize * ySize);
 		float4 element;
 		element.x = tensorflow::ldg(data + 3 * i);
 		element.y = tensorflow::ldg(data + 3 * i + 1);
@@ -329,7 +301,7 @@ void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims,
 		} else if (dims == 2) {
 			surf2Dwrite(element, surfaceObject, x * sizeof(float4), y);
 		} else {
-			//printf("%u, %u, %u\n", x, y, z);
+			//printf("%ld, %ld, %ld\n", x, y, z);
 			surf3Dwrite(element, surfaceObject, x * sizeof(float4), y, z);
 		}
 	}
@@ -337,16 +309,11 @@ void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims,
 
 
 template<typename T>
-void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d) {
+void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d, int blockCount, int threadPerBlock) {
 	if (components == 3) {
 		// Use Surface to write to texture array
-		int blockSize;
-		int minGridSize;
-		int gridSize;
-		cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, CopyKernel, 0, 0);
-		gridSize = (xSize * ySize * zSize + blockSize - 1) / blockSize;
-		CopyKernel<<<gridSize, blockSize, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
-		HANDLE_ERROR(cudaDeviceSynchronize());
+		CopyKernel<<<blockCount, threadPerBlock, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
+		cudaDeviceSynchronize();
 	} else if (dims <= 2) {
 		cudaMemcpyToArray(cuArray, 0, 0, data + batch * xSize * ySize * zSize * components, xSize * ySize * zSize * components * sizeof(T), cudaMemcpyDeviceToDevice);
 	} else {

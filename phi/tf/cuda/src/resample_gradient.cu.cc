@@ -16,7 +16,7 @@ namespace tensorflow {
 typedef Eigen::GpuDevice GPUDevice;
 
 
-/*static void HandleError( cudaError_t err,
+static void HandleError( cudaError_t err,
                          const char *file,
                          int line ) {
     if (err != cudaSuccess) {
@@ -25,7 +25,7 @@ typedef Eigen::GpuDevice GPUDevice;
         exit( EXIT_FAILURE );
     }
 }
-#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))*/
+#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
 
 /*template<typename T>
@@ -53,35 +53,34 @@ void ResampleGradientCudaKernel(
 	const unsigned int pointsSize,
 	const unsigned int outputElementsPerBatch,
 	const unsigned int outputSize,
-	const unsigned int outputGradientSize,
 	const T* __restrict__ outputGradient,
 	const T* __restrict__ data,
 	const T* __restrict__ points,
 	T* __restrict__ dataGradient,
 	T* __restrict__ pointsGradient,
-	const Boundary* __restrict__ boundaries,
-	T* __restrict__ q,
-	T* __restrict__ weights
+	const Boundary* __restrict__ boundaries
 ) {
-    unsigned int absThreadIdx = blockIdx.x * blockDim.x + threadIdx.x;
-    q = q + absThreadIdx * dims;
-    weights = weights + absThreadIdx * (dims + 1);
-	for (unsigned int i = absThreadIdx; i < outputSize / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < outputSize / components; i += blockDim.x * gridDim.x){
 		unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
+		T* p = (T*) malloc(dims * sizeof(T));
+		for (int dim = 0; dim < dims; dim++){
+			p[dim] = ldg(points + getPointsIndex(i, dim, dims, pointsSize));
+		}
 		int n = pow2(dims);
 		for (int j = 0; j < n; j++) {
-			for (int dim = 0; dim <= dims; dim++){
-				weights[dim] = 1;
+			T* q = (T*) malloc(dims * sizeof(unsigned int));
+			T* weights = (T*) malloc((dims + 1) * sizeof(T));
+			for (int l = 0; l < dims + 1; l++){
+				weights[l] = 1;
 			}
 			for (int dim = 0; dim < dims; dim++){
-			    T p = ldg(points + getPointsIndex(i, dim, dims, pointsSize));
 				T weight = 1;
 				if (checkBit(j, dim)) {
-					q[dim] = floor(p) + 1;
-					weight = 1 - (q[dim] - p);
+					q[dim] = floor(p[dim]) + 1;
+					weight = 1 - (q[dim] - p[dim]);
 				} else {
-					q[dim] = floor(p);
-					weight = 1 - (p - q[dim]);
+					q[dim] = floor(p[dim]);
+					weight = 1 - (p[dim] - q[dim]);
 				}
 				for (int otherDim = 0; otherDim <= dims; otherDim++){
 					if(otherDim != dim) {
@@ -91,7 +90,7 @@ void ResampleGradientCudaKernel(
 			}
 			for (unsigned int component = 0; component < components; component++) {
 				T dataValue = 0;
-				T outputGradientValue = ldg(outputGradient + ((i * components + component) % outputGradientSize));
+				T outputGradientValue = ldg(outputGradient + i * components + component);
 				if (applyBoundaries(boundaries, q, dims, dimSizes)) {
 					// compute dataGradient
 					unsigned int dataIndex = getDataIndex(dataBatch, q, component, dims, dimSizes, components);
@@ -105,7 +104,10 @@ void ResampleGradientCudaKernel(
 					atomicAdd(pointsGradient + getPointsIndex(i, dim, dims, pointsSize), factor * weights[dim] * dataValue * outputGradientValue);
 				}
 			}
+			free(q);
+			free(weights);
 		}
+		free(p);
 	}
 }
 
@@ -119,7 +121,6 @@ void ResampleGradient1DCudaKernel(
 	const unsigned int pointsSize,
 	const unsigned int outputElementsPerBatch,
 	const unsigned int outputSize,
-	const unsigned int outputGradientSize,
 	const T* __restrict__ outputGradient,
 	cudaTextureObject_t dataTexture,
 	const T* __restrict__ points,
@@ -127,7 +128,7 @@ void ResampleGradient1DCudaKernel(
 	T* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < (batch * outputElementsPerBatch + outputElementsPerBatch) / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
 		T x = ldg(points + getPointsIndex(i, 0, 1, pointsSize));
 		T pa = floor(x);
@@ -152,7 +153,7 @@ void ResampleGradient1DCudaKernel(
 		}
 
 		for (int component = 0; component < components; component++){
-			T outputGrad = ldg(outputGradient + ((i * components + component) % outputGradientSize));
+			T outputGrad = ldg(outputGradient + i * components + component);
 			// compute dataGradient
 			if(aExists)
 				atomicAdd(dataGradient + getDataIndex(dataBatch, &pa, component, 1, &xSize, components), (1 - fx) * outputGrad);
@@ -160,7 +161,7 @@ void ResampleGradient1DCudaKernel(
 				atomicAdd(dataGradient + getDataIndex(dataBatch, &pb, component, 1, &xSize, components), fx * outputGrad);
 
 			// compute PointsGradient
-			pointsGradient[getPointsIndex(i, 0, 1, pointsSize)] += (*(((float*) &b) + component) - *(((float*) &a) + component)) * outputGrad;
+			atomicAdd(pointsGradient + getPointsIndex(i, 0, 1, pointsSize), (*(((float*) &b) + component) - *(((float*) &a) + component)) * outputGrad);
 		}
 	}
 }
@@ -177,7 +178,6 @@ void ResampleGradient2DCudaKernel (
 	const unsigned int pointsSize,
 	const unsigned int outputElementsPerBatch,
 	const unsigned int outputSize,
-	const unsigned int outputGradientSize,
 	const T* __restrict__ outputGradient,
 	cudaTextureObject_t dataTexture,
 	const T* __restrict__ points,
@@ -185,7 +185,7 @@ void ResampleGradient2DCudaKernel (
 	T* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < (batch * outputElementsPerBatch + outputElementsPerBatch) / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
 		unsigned int dimSizes[2] = {ySize, xSize};
 
@@ -234,7 +234,7 @@ void ResampleGradient2DCudaKernel (
 		}
 
 		for (int component = 0; component < components; component++){
-			T outputGrad = ldg(outputGradient + ((i * components + component) % outputGradientSize));
+			T outputGrad = ldg(outputGradient + i * components + component);
 			// compute dataGradient
 			if (aExists)
 				atomicAdd(dataGradient + getDataIndex(dataBatch, pa, component, 2, dimSizes, components), (1 - fx) * (1 - fy) * outputGrad);
@@ -250,8 +250,8 @@ void ResampleGradient2DCudaKernel (
 			T bComp = *(((T*) &b) + component);
 			T cComp = *(((T*) &c) + component);
 			T dComp = *(((T*) &d) + component);
-			pointsGradient[getPointsIndex(i, 0, 2, pointsSize)] += (fx * dComp + (1 - fx) * cComp - fx * bComp + (fx - 1) * aComp) * outputGrad; // y
-			pointsGradient[getPointsIndex(i, 1, 2, pointsSize)] += (fy * dComp - fy * cComp + (1 - fy) * bComp + (fy - 1) * aComp) * outputGrad; // x
+			atomicAdd(pointsGradient + getPointsIndex(i, 0, 2, pointsSize), (fx * dComp + (1 - fx) * cComp - fx * bComp + (fx - 1) * aComp) * outputGrad); // y
+			atomicAdd(pointsGradient + getPointsIndex(i, 1, 2, pointsSize), (fy * dComp - fy * cComp + (1 - fy) * bComp + (fy - 1) * aComp) * outputGrad); // x
 		}
 	}
 }
@@ -269,7 +269,6 @@ void ResampleGradient3DCudaKernel (
 	const unsigned int pointsSize,
 	const unsigned int outputElementsPerBatch,
 	const unsigned int outputSize,
-	const unsigned int outputGradientSize,
 	const T* __restrict__ outputGradient,
 	cudaTextureObject_t dataTexture,
 	const T* __restrict__ points,
@@ -277,7 +276,7 @@ void ResampleGradient3DCudaKernel (
 	T* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < (batch * outputElementsPerBatch + outputElementsPerBatch) / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
 		unsigned int dimSizes[3] = {zSize, ySize, xSize};
 
@@ -364,7 +363,7 @@ void ResampleGradient3DCudaKernel (
 		}
 
 		for (int component = 0; component < components; component++){
-			T outputGrad = ldg(outputGradient + ((i * components + component) % outputGradientSize));
+			T outputGrad = ldg(outputGradient + i * components + component);
 			// compute dataGradient
 			if (aExists)
 				atomicAdd(dataGradient + getDataIndex(dataBatch, pa, component, 3, dimSizes, components), (1 - fx) * (1 - fy) * (1 - fz) * outputGrad);
@@ -392,9 +391,9 @@ void ResampleGradient3DCudaKernel (
 			T fComp = *(((T*) &f) + component);
 			T gComp = *(((T*) &g) + component);
 			T hComp = *(((T*) &h) + component);
-			pointsGradient[getPointsIndex(i, 0, 3, pointsSize)] += (fx * fy * hComp + (1 - fx) * fy * gComp + fx * (1 - fy) * fComp + (1 - fx) * (1 - fy) * eComp - fx * fy * dComp - (1 - fx) * fy * cComp - fx * (1 - fy) * bComp - (1 - fx) * (1 - fy) * aComp) * outputGrad; // z
-			pointsGradient[getPointsIndex(i, 1, 3, pointsSize)] += (fx * fz * hComp + (1 - fx) * fz * gComp - fx * fz * fComp - (1 - fx) * fz * eComp + fx * (1 - fz) * dComp + (1 - fx) * (1 - fz) * cComp - fx * (1 - fz) * bComp - (1 - fx) * (1 - fz) * aComp) * outputGrad; // y
-			pointsGradient[getPointsIndex(i, 2, 3, pointsSize)] += (fy * fz * hComp - fy * fz * gComp + (1 - fy) * fz * fComp - (1 - fy) * fz * eComp + fy * (1 - fz) * dComp - fy * (1 - fz) * cComp + (1 - fy) * (1 - fz) * bComp - (1 - fy) * (1 - fz) * aComp) * outputGrad; // x
+			atomicAdd(pointsGradient + getPointsIndex(i, 0, 3, pointsSize), (fx * fy * hComp + (1 - fx) * fy * gComp + fx * (1 - fy) * fComp + (1 - fx) * (1 - fy) * eComp - fx * fy * dComp - (1 - fx) * fy * cComp - fx * (1 - fy) * bComp - (1 - fx) * (1 - fy) * aComp) * outputGrad); // z
+			atomicAdd(pointsGradient + getPointsIndex(i, 1, 3, pointsSize), (fx * fz * hComp + (1 - fx) * fz * gComp - fx * fz * fComp - (1 - fx) * fz * eComp + fx * (1 - fz) * dComp + (1 - fx) * (1 - fz) * cComp - fx * (1 - fz) * bComp - (1 - fx) * (1 - fz) * aComp) * outputGrad); // y
+			atomicAdd(pointsGradient + getPointsIndex(i, 2, 3, pointsSize), (fy * fz * hComp - fy * fz * gComp + (1 - fy) * fz * fComp - (1 - fy) * fz * eComp + fy * (1 - fz) * dComp - fy * (1 - fz) * cComp + (1 - fy) * (1 - fz) * bComp - (1 - fy) * (1 - fz) * aComp) * outputGrad); // x
 
 		}
 	}
@@ -413,71 +412,45 @@ void runResampleGradientTextureMemoryKernel(
 	const unsigned int pointsSize,
 	const unsigned int elementsPerKernelCall,
 	const unsigned int outputSize,
-	const unsigned int outputGradientSize,
 	const T* __restrict__ outputGradient,
 	cudaTextureObject_t dataTexture,
 	const T* __restrict__ points,
 	T* __restrict__ dataGradient,
 	T* __restrict__ pointsGradient,
 	GPUDevice d,
+	const int blockCount,
+	const int threadPerBlock,
 	const Boundary* __restrict__ boundaries
 ) {
-    int blockSize;
-    int minGridSize;
-    int gridSize;
 	if(dims == 1) {
 		if (components == 1) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient1DCudaKernel<float, float>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient1DCudaKernel<float, float><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient1DCudaKernel<float, float><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else if (components == 2) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient1DCudaKernel<float, float2>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient1DCudaKernel<float, float2><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient1DCudaKernel<float, float2><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else if (components == 3) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient1DCudaKernel<float, float3>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient1DCudaKernel<float, float3><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient1DCudaKernel<float, float3><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient1DCudaKernel<float, float4>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient1DCudaKernel<float, float4><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient1DCudaKernel<float, float4><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		}
 	} else if (dims == 2) {
 		if (components == 1){
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient2DCudaKernel<float, float>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient2DCudaKernel<float, float><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient2DCudaKernel<float, float><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else if (components == 2) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient2DCudaKernel<float, float2>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient2DCudaKernel<float, float2><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient2DCudaKernel<float, float2><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else if (components == 3) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient2DCudaKernel<float, float3>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient2DCudaKernel<float, float3><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient2DCudaKernel<float, float3><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient2DCudaKernel<float, float4>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient2DCudaKernel<float, float4><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient2DCudaKernel<float, float4><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		}
 	} else {
 		if (components == 1) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient3DCudaKernel<float, float>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient3DCudaKernel<float, float><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient3DCudaKernel<float, float><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else if (components == 2) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient3DCudaKernel<float, float2>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient3DCudaKernel<float, float2><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient3DCudaKernel<float, float2><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else if (components == 3) {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient3DCudaKernel<float, float3>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient3DCudaKernel<float, float3><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient3DCudaKernel<float, float3><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		} else {
-		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradient3DCudaKernel<float, float4>, 0, 0);
-		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			ResampleGradient3DCudaKernel<float, float4><<<gridSize, blockSize,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
+			ResampleGradient3DCudaKernel<float, float4><<<blockCount, threadPerBlock,  0, d.stream()>>>(batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
 		}
 	}
 }
@@ -493,7 +466,6 @@ void ResampleGradientTextureMemory (
 	const unsigned int pointsSize,
 	const unsigned int outputElementsPerBatch,
 	const unsigned int outputSize,
-	const unsigned int outputGradientSize,
 	const T* __restrict__ outputGradient,
 	const T* __restrict__ data,
 	const T* __restrict__ points,
@@ -525,6 +497,13 @@ void ResampleGradientTextureMemory (
 		// Create texture object
 		cudaTextureObject_t dataTexture = createTextureObject(cuArray);
 
+		// Specify number of blocks and threads
+		//int threadPerBlock = outputSize / components >= 256 ? 256 : outputSize / components;
+		int threadPerBlock = 1;
+		//int blockCount = outputSize / threadPerBlock / components;
+		int blockCount = 1;
+		//std::cout << "blockCount: " << blockCount << std::endl;
+
 		// Deal with dataBatchSize = 1 && pointsBatchSize > 1
 		unsigned int elementsPerKernelCall = outputElementsPerBatch;
 		if (dataBatchSize == 1 && outputSize > outputElementsPerBatch) {
@@ -533,10 +512,10 @@ void ResampleGradientTextureMemory (
 
 		for (unsigned int batch = 0; batch < dataBatchSize; batch++) {
 			// Copy data to array
-			copyDataToArray<T>(data, cuArray, surfaceObject, copyParams, dims, xSize, ySize, zSize, batch, components, d);
+			copyDataToArray<T>(data, cuArray, surfaceObject, copyParams, dims, xSize, ySize, zSize, batch, components, d, blockCount, threadPerBlock);
 
 			// Run Kernel
-			runResampleGradientTextureMemoryKernel(dims, batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient,  d, boundaries);
+			runResampleGradientTextureMemoryKernel(dims, batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradient, dataTexture, points, dataGradient, pointsGradient,  d, blockCount, threadPerBlock, boundaries);
 			//std::cout << "Device synchronize." << std::endl;
 			HANDLE_ERROR(cudaDeviceSynchronize());
 		}
@@ -559,7 +538,6 @@ struct ResampleGradientFunctor<GPUDevice, T> {
 		const unsigned int pointsSize,
 		const unsigned int outputElementsPerBatch,
 		const unsigned int outputSize,
-		const unsigned int outputGradientSize,
 		const T* __restrict__ outputGradient,
 		const T* __restrict__ data,
 		const T* __restrict__ points,
@@ -578,49 +556,38 @@ struct ResampleGradientFunctor<GPUDevice, T> {
 
 		// Run kernel with texture memory
 		if (dims <= 3 && components <= 4) {
-            if((dims == 1 && dimSizes[0] <= 8192)||
-               (dims == 2 && dimSizes[0] <= 32768 && dimSizes[1] <= 65536)||
-               (dims == 3 && dimSizes[0] <= 2048 && dimSizes[1] <= 2048 && dimSizes[2] <= 2048))
-            {
-                ResampleGradientTextureMemory<T>(
-                    d,
-                    dataBatchSize,
-                    dims,
-                    dimSizes,
-                    components,
-                    pointsSize,
-                    outputElementsPerBatch,
-                    outputSize,
-                    outputGradientSize,
-                    outputGradient,
-                    data,
-                    points,
-                    dataGradient,
-                    pointsGradient,
-                    boundaries
-                );
-                return;
-            }
+			ResampleGradientTextureMemory<T>(
+				d,
+				dataBatchSize,
+				dims,
+				dimSizes,
+				components,
+				pointsSize,
+				outputElementsPerBatch,
+				outputSize,
+				outputGradient,
+				data,
+				points,
+				dataGradient,
+				pointsGradient,
+				boundaries
+			);
+			return;
 		}
 
 		// Launch the cuda kernel.
-		int blockSize;
-		int minGridSize;
-		int gridSize;
-		cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleGradientCudaKernel<T>, 0, 0);
-		gridSize = (outputSize / components + blockSize - 1) / blockSize;
+		// TODO: See core/util/cuda_kernel_helper.h for example of computing
+		// block count and thread_per_block count.
+		//int thread_per_block = outputSize / components >= 512 ? 512 : outputSize / components;
+		int thread_per_block = 1;
+		//int block_count = outputSize / thread_per_block / components;
+		int block_count = 1;
 
-		unsigned int* dimSizesDevice;
+		unsigned int *dimSizesDevice;
 		cudaMalloc(&dimSizesDevice, dims * sizeof(unsigned int));
 		cudaMemcpy(dimSizesDevice, dimSizes, dims * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
-		T* q;
-        cudaMalloc(&q, gridSize * blockSize * dims * sizeof(T));
-
-        T* weights;
-        cudaMalloc(&weights, gridSize * blockSize * (dims + 1) * sizeof(T));
-
-		ResampleGradientCudaKernel<T><<<gridSize, blockSize, 0, d.stream()>>>(
+		ResampleGradientCudaKernel<T><<<block_count, thread_per_block, 0, d.stream()>>>(
 			dataBatchSize,
 			dims,
 			dimSizesDevice,
@@ -628,21 +595,16 @@ struct ResampleGradientFunctor<GPUDevice, T> {
 			pointsSize,
 			outputElementsPerBatch,
 			outputSize,
-			outputGradientSize,
 			outputGradient,
 			data,
 			points,
 			dataGradient,
 			pointsGradient,
-			boundaries,
-			q,
-			weights
+			boundaries
 		);
 
 		HANDLE_ERROR(cudaDeviceSynchronize());
 		HANDLE_ERROR(cudaFree(dimSizesDevice));
-		HANDLE_ERROR(cudaFree(q));
-		HANDLE_ERROR(cudaFree(weights));
 	}
 };
 
