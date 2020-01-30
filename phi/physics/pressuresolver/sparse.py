@@ -83,11 +83,14 @@ class SparseCG(PressureSolver):
         fluid_mask = domain.accessible_tensor(extend=1)
         dimensions = math.staticshape(divergence)[1:-1]
         N = int(np.prod(dimensions))
+        periodic = Material.periodic(domain.domain.boundaries)
 
-        A = sparse_pressure_matrix(dimensions, active_mask, fluid_mask, Material.periodic(domain.domain.boundaries))
-        if not math.choose_backend(divergence).matches_name('SciPy'):
-            A = A.tocoo()
-            A = math.choose_backend(divergence).sparse_tensor(indices=math.stack([A.col, A.row], axis=-1), values=A.data, shape=[N, N])
+        if math.choose_backend([divergence, active_mask, fluid_mask]).matches_name('SciPy'):
+            A = sparse_pressure_matrix(dimensions, active_mask, fluid_mask, periodic)
+        else:
+            sidx, sorting = sparse_indices(dimensions, periodic)
+            sval_data = sparse_values(dimensions, active_mask, fluid_mask, sorting, periodic)
+            A = math.choose_backend(divergence).sparse_tensor(indices=sidx, values=sval_data, shape=[N, N])
 
         if self.autodiff:
             return sparse_cg(divergence, A, self.max_iterations, pressure_guess, self.accuracy, back_prop=True)
@@ -145,18 +148,86 @@ of that channel, taking into account obstacles and empty cells.
 
         diagonal_entries += math.flatten(stencil_center)
 
-        # Find entries in matrix
         dim_direction = math.expand_dims([1 if i == dim else 0 for i in range(d)], axis=-1)
-        # Upper frames
+        # --- Stencil upper cells ---
         upper_points, upper_idx = wrap_or_discard(gridpoints + dim_direction, dim, dimensions, periodic=collapsed_gather_nd(periodic, [dim, 1]))
         A[gridpoints_linear[upper_idx], upper_points] = stencil_upper.flatten()[upper_idx]
-        # Lower frames
+        # --- Stencil lower cells ---
         lower_points, lower_idx = wrap_or_discard(gridpoints - dim_direction, dim, dimensions, periodic=collapsed_gather_nd(periodic, [dim, 0]))
         A[gridpoints_linear[lower_idx], lower_points] = stencil_lower.flatten()[lower_idx]
 
     A[gridpoints_linear, gridpoints_linear] = math.minimum(diagonal_entries, -1)  # avoid 0, could lead to NaN
 
     return scipy.sparse.csc_matrix(A)
+
+
+def sparse_indices(dimensions, periodic=False):
+    N = int(np.prod(dimensions))
+    d = len(dimensions)
+    dims = range(d)
+    gridpoints_linear = np.arange(N)
+    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial frames
+    indices_list = [np.stack([gridpoints_linear] * 2, axis=-1)]
+    for dim in dims:
+        dim_direction = math.expand_dims([1 if i == dim else 0 for i in range(d)], axis=-1)
+        # --- Stencil upper cells ---
+        upper_points, upper_idx = wrap_or_discard(gridpoints + dim_direction, dim, dimensions, periodic=collapsed_gather_nd(periodic, [dim, 1]))
+        indices_list.append(np.stack([gridpoints_linear[upper_idx], upper_points], axis=-1))
+        # --- Stencil lower cells ---
+        lower_points, lower_idx = wrap_or_discard(gridpoints - dim_direction, dim, dimensions, periodic=collapsed_gather_nd(periodic, [dim, 0]))
+        indices_list.append(np.stack([gridpoints_linear[lower_idx], lower_points], axis=-1))
+    indices = np.concatenate(indices_list, axis=0)
+    # --- Sort indices ---
+    sorting = np.lexsort(np.transpose(indices)[:, ::-1])
+    sorted_indices = indices[sorting]
+    return sorted_indices, sorting
+
+
+def sparse_values(dimensions, extended_active_mask, extended_fluid_mask, sorting=None, periodic=False):
+    """
+    Builds a sparse matrix such that when applied to a flattened pressure channel, it calculates the laplace
+    of that channel, taking into account obstacles and empty cells.
+
+    :param dimensions: valid simulation dimensions. Pressure channel should be of shape (batch size, dimensions..., 1)
+    :param extended_active_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
+    :param extended_fluid_mask: Binary tensor with 2 more entries in every dimension than 'dimensions'.
+    :return: SciPy sparse matrix that acts as a laplace on a flattened pressure channel given obstacles and empty cells
+    """
+    N = int(np.prod(dimensions))
+    d = len(dimensions)
+    dims = range(d)
+
+    values_list = []
+    diagonal_entries = 0  # diagonal matrix entries
+
+    gridpoints_linear = np.arange(N)
+    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial frames
+
+    for dim in dims:
+        upper_indices = tuple([slice(None)] + [slice(2, None) if i == dim else slice(1, -1) for i in dims] + [slice(None)])
+        center_indices = tuple([slice(None)] + [slice(1, -1) if i == dim else slice(1, -1) for i in dims] + [slice(None)])
+        lower_indices = tuple([slice(None)] + [slice(0, -2) if i == dim else slice(1, -1) for i in dims] + [slice(None)])
+
+        self_active = extended_active_mask[center_indices]
+        stencil_upper = extended_active_mask[upper_indices] * self_active
+        stencil_lower = extended_active_mask[lower_indices] * self_active
+        stencil_center = - extended_fluid_mask[upper_indices] - extended_fluid_mask[lower_indices]
+
+        diagonal_entries += math.flatten(stencil_center)
+
+        dim_direction = math.expand_dims([1 if i == dim else 0 for i in range(d)], axis=-1)
+        # --- Stencil upper cells ---
+        upper_points, upper_idx = wrap_or_discard(gridpoints + dim_direction, dim, dimensions, periodic=collapsed_gather_nd(periodic, [dim, 1]))
+        values_list.append(math.gather(math.flatten(stencil_upper), upper_idx))
+        # --- Stencil lower cells ---
+        lower_points, lower_idx = wrap_or_discard(gridpoints - dim_direction, dim, dimensions, periodic=collapsed_gather_nd(periodic, [dim, 0]))
+        values_list.append(math.gather(math.flatten(stencil_lower), lower_idx))
+
+    values_list.insert(0, math.minimum(diagonal_entries, -1.))
+    values = math.concat(values_list, axis=0)
+    if sorting is not None:
+        values = math.gather(values, sorting)
+    return values
 
 
 def wrap_or_discard(points, check_bounds_dim, dimensions, periodic=False):
@@ -169,7 +240,7 @@ Handles points that lie outside the domain by either discarding them or wrapping
     :return:
     """
     if not periodic:
-        upper_in_range_inx = np.nonzero((points[check_bounds_dim] < dimensions[check_bounds_dim]) & (points[check_bounds_dim] >= 0))
+        upper_in_range_inx = np.nonzero((points[check_bounds_dim] < dimensions[check_bounds_dim]) & (points[check_bounds_dim] >= 0))[0]
         new_points = points[:, upper_in_range_inx]  # discard points outside domain
     else:
         upper_in_range_inx = slice(None)

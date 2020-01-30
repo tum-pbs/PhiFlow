@@ -267,6 +267,8 @@ class TFBackend(Backend):
         return tf.to_complex64(x)
 
     def gather(self, values, indices):
+        if isinstance(indices, slice):
+            return values[indices]
         return tf.gather(values, indices)
 
     def gather_nd(self, values, indices):
