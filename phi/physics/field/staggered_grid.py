@@ -135,6 +135,18 @@ class StaggeredGrid(Field):
     def unstack(self):
         return self.data
 
+    @struct.derived()
+    def x(self):
+        return self.data[-1]
+
+    @struct.derived()
+    def y(self):
+        return self.data[-2]
+
+    @struct.derived()
+    def z(self):
+        return self.data[-3]
+
     @property
     def points(self):
         raise StaggeredSamplePoints(self)
