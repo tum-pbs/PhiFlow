@@ -5,6 +5,10 @@ import threading
 
 import numpy as np
 import tensorflow as tf
+if tf.__version__[0] == '2':
+    logging.info('Adjusting for tensorflow 2.0')
+    tf = tf.compat.v1
+    tf.disable_eager_execution()
 from phi import struct
 
 from .profiling import Timeliner
@@ -25,11 +29,6 @@ class Session(object):
         self.saver = None
 
     def initialize_variables(self):
-        import tensorflow as tf
-        if tf.__version__[0] == '2':
-            logging.info('Adjusting for tensorflow 2.0')
-            tf = tf.compat.v1
-            tf.disable_eager_execution()
         self._session.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver(max_to_keep=100, allow_empty=True)
 
