@@ -78,7 +78,8 @@ class StaggeredGrid(Field):
             assert grid.component_count == 1
             assert grid.rank == self.rank
             assert grid.box == box
-            assert grid.extrapolation == self.extrapolation
+            if grid.extrapolation != self.extrapolation:
+                grid = grid.copied_with(extrapolation=self.extrapolation)
         else:
             grid = CenteredGrid(data=grid, box=box, extrapolation=self.extrapolation, name=_subname(self.name, axis),
                                 batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
