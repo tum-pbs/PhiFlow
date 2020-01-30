@@ -12,7 +12,7 @@ from .field.effect import Gravity, effect_applied, gravity_tensor
 from .material import OPEN, Material
 from .physics import Physics, StateDependency
 from .pressuresolver.solver_api import FluidDomain
-from .pressuresolver.sparse import SparseCG
+from .pressuresolver.sparse import SparseCG, SparseSciPy
 
 
 @struct.definition()
@@ -132,7 +132,10 @@ def solve_pressure(divergence, fluiddomain, pressure_solver=None):
     """
     assert isinstance(divergence, CenteredGrid)
     if pressure_solver is None:
-        pressure_solver = SparseCG()
+        if math.choose_backend([divergence.data, fluiddomain.active.data, fluiddomain.accessible.data]).matches_name('SciPy'):
+            pressure_solver = SparseSciPy()
+        else:
+            pressure_solver = SparseCG()
     pressure, iteration = pressure_solver.solve(divergence.data, fluiddomain, pressure_guess=None)
     if isinstance(divergence, CenteredGrid):
         pressure = CenteredGrid(pressure, divergence.box, name='pressure')
