@@ -4,7 +4,7 @@ import six
 from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
-from phi.math.nd import map_for_axes
+from phi.math.helper import map_for_axes
 from phi.physics.domain import Domain
 from phi.physics.material import Material
 from phi.struct.functions import mappable

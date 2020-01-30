@@ -4,29 +4,8 @@ from __future__ import division
 import numpy as np
 
 from phi import struct
-from phi.struct.tensorop import collapsed_gather_nd
 from .base_backend import DYNAMIC_BACKEND as math
-
-
-def spatial_rank(tensor):
-    """ The spatial rank of a tensor is ndims - 2. """
-    return math.ndims(tensor) - 2
-
-
-def spatial_dimensions(obj):
-    return tuple(range(1, len(math.staticshape(obj)) - 1))
-
-
-def axes(obj):
-    return tuple(range(len(math.staticshape(obj)) - 2))
-
-
-def all_dimensions(tensor):
-    return range(len(math.staticshape(tensor)))
-
-
-def is_scalar(obj):
-    return len(math.staticshape(obj)) == 0
+from .helper import _get_pad_width_axes, _get_pad_width, spatial_rank, _dim_shifted, _contains_axis, spatial_dimensions, all_dimensions
 
 
 def indices_tensor(tensor, dtype=np.float32):
@@ -146,49 +125,33 @@ def l_n_loss(tensor, n, batch_norm=True):
 
 # Divergence
 
-def divergence(vel, dx=1, difference='central'):
+def divergence(tensor, dx=1, difference='central'):
     """
     Computes the spatial divergence of a vector channel from finite differences.
 
-    :param vel: tensor of shape (batch size, spatial dimensions..., spatial rank)
+    :param tensor: vector field; tensor of shape (batch size, spatial dimensions..., spatial rank)
     :param dx: distance between adjacent grid points (default 1)
     :param difference: type of difference, one of ('forward', 'central') (default 'forward')
     :return: tensor of shape (batch size, spatial dimensions..., 1)
     """
-    assert difference in ('central', 'forward')
-    rank = spatial_rank(vel)
-    if difference == 'forward':
-        return _forward_divergence_nd(vel) / dx ** rank
-    else:
-        return _central_divergence_nd(vel) / (2 * dx) ** rank
-
-
-def _forward_divergence_nd(field):
-    rank = spatial_rank(field)
-    dims = range(rank)
-    components = []
-    for dimension in dims:
-        vq = field[..., (rank - dimension - 1)]
-        upper_slices = [(slice(1, None) if i == dimension else slice(None)) for i in dims]
-        lower_slices = [(slice(-1) if i == dimension else slice(None)) for i in dims]
-        diff = vq[(slice(None),) + upper_slices] - vq[(slice(None),) + lower_slices]
-        padded = math.pad(diff, [[0, 0]] + [([0, 1] if i == dimension else [0, 0]) for i in dims])
-        components.append(padded)
-    return math.expand_dims(math.sum(components, 0), -1)
-
-
-def _central_divergence_nd(tensor):
+    assert difference in ('central', 'forward', 'backward'), difference
     rank = spatial_rank(tensor)
-    dims = range(rank)
+    if difference == 'forward':
+        return _divergence_nd(tensor, (0, 1)) / dx ** rank
+    elif difference == 'backward':
+        return _divergence_nd(tensor, (-1, 0)) / dx ** rank
+    else:
+        return _divergence_nd(tensor, (-1, 1)) / (2 * dx) ** rank
+
+
+def _divergence_nd(tensor, relative_shifts):
+    rank = spatial_rank(tensor)
+    tensor = math.pad(tensor, _get_pad_width(rank, (-relative_shifts[0], relative_shifts[1])))
     components = []
-    tensor = math.pad(tensor, _get_pad_width(rank))
-    for dimension in dims:
-        upper_slices = [(slice(2, None) if i == dimension else slice(1, -1)) for i in dims]
-        lower_slices = [(slice(-2) if i == dimension else slice(1, -1)) for i in dims]
-        diff = tensor[(slice(None),) + upper_slices + [rank - dimension - 1]] \
-            - tensor[(slice(None),) + lower_slices + [rank - dimension - 1]]
-        components.append(diff)
-    return math.expand_dims(math.sum(components, 0), -1)
+    for dimension in range(rank):
+        lower, upper = _dim_shifted(tensor, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]), components=rank - dimension - 1)
+        components.append(upper - lower)
+    return math.sum(components, 0)
 
 
 # Gradient
@@ -201,57 +164,29 @@ def gradient(tensor, dx=1, difference='forward', padding='replicate'):
     :param tensor: channel with shape (batch_size, spatial_dimensions..., 1)
     :param dx: physical distance between grid points (default 1)
     :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
+    :param padding: tensor padding mode
     :return: tensor of shape (batch_size, spatial_dimensions..., spatial rank)
     """
-    if tensor.shape[-1] != 1:
-        raise ValueError('Gradient requires a scalar channel as input')
-    dims = range(spatial_rank(tensor))
-    field = tensor[..., 0]
-
-    if 1 in field.shape[1:]:
-        raise ValueError('All spatial dimensions must have size larger than 1, got {}'.format(tensor.shape))
-
+    assert tensor.shape[-1] == 1, "Gradient requires a scalar channel as input"
+    assert 1 not in tensor.shape[1:-1], "All spatial dimensions must have size larger than 1, got %s" % tensor.shape
     if difference.lower() == 'central':
-        return _central_diff_nd(tensor, dims, padding) / (dx * 2)
+        return _gradient_nd(tensor, padding, (-1, 1)) / (dx * 2)
     elif difference.lower() == 'forward':
-        return _forward_diff_nd(field, dims, padding) / dx
+        return _gradient_nd(tensor, padding, (0, 1)) / dx
     elif difference.lower() == 'backward':
-        return _backward_diff_nd(field, dims, padding) / dx
+        return _gradient_nd(tensor, padding, (-1, 0)) / dx
     else:
         raise ValueError('Invalid difference type: {}. Can be CENTRAL or FORWARD'.format(difference))
 
 
-def _backward_diff_nd(field, dims, padding):
-    df_dq = []
-    for dimension in dims:
-        upper_slices = tuple([(slice(1, None) if i == dimension else slice(None)) for i in dims])
-        lower_slices = tuple([(slice(-1) if i == dimension else slice(None)) for i in dims])
-        diff = field[(slice(None),) + upper_slices] - field[(slice(None),) + lower_slices]
-        padded = math.pad(diff, [[0, 0]] + [([1, 0] if i == dimension else [0, 0]) for i in dims], mode=padding)
-        df_dq.append(padded)
-    return math.stack(df_dq, axis=-1)
-
-
-def _forward_diff_nd(field, dims, padding):
-    df_dq = []
-    for dimension in dims:
-        upper_slices = tuple([(slice(1, None) if i == dimension else slice(None)) for i in dims])
-        lower_slices = tuple([(slice(-1) if i == dimension else slice(None)) for i in dims])
-        diff = field[(slice(None),) + upper_slices] - field[(slice(None),) + lower_slices]
-        padded = math.pad(diff, [[0, 0]] + [([0, 1] if i == dimension else [0, 0]) for i in dims], mode=padding)
-        df_dq.append(padded)
-    return math.stack(df_dq, axis=-1)
-
-
-def _central_diff_nd(field, dims, padding):
-    field = math.pad(field, _get_pad_width(spatial_rank(field)), mode=padding)
-    df_dq = []
-    for dimension in dims:
-        upper_slices = tuple([(slice(2, None) if i == dimension else slice(1, -1)) for i in dims])
-        lower_slices = tuple([(slice(-2) if i == dimension else slice(1,-1)) for i in dims])
-        diff = field[(slice(None),) + upper_slices + (0,)] - field[(slice(None),) + lower_slices + (0,)]
-        df_dq.append(diff)
-    return math.stack(df_dq, axis=-1)
+def _gradient_nd(tensor, padding, relative_shifts):
+    rank = spatial_rank(tensor)
+    tensor = math.pad(tensor, _get_pad_width(rank, (-relative_shifts[0], relative_shifts[1])), mode=padding)
+    components = []
+    for dimension in range(rank):
+        lower, upper = _dim_shifted(tensor, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]), components=rank - dimension - 1)
+        components.append(upper - lower)
+    return math.concat(components, axis=-1)
 
 
 def axis_gradient(tensor, spatial_axis):
@@ -294,28 +229,14 @@ def laplace(tensor, padding='replicate', axes=None):
         return _sliced_laplace_nd(tensor)
 
 
-def _get_pad_width_axes(rank, axes, val_true=[1, 1], val_false=[0, 0]):
-    mid_shape = []
-    for i in range(rank):
-        if _contains_axis(axes, i, rank):
-            mid_shape.append(val_true)
-        else:
-            mid_shape.append(val_false)
-    return [[0, 0]] + mid_shape + [[0, 0]]
-
-
-def _get_pad_width(rank):
-    return [[0, 0]] + [[1, 1]] * rank + [[0, 0]]
-
-
 def _conv_laplace_2d(tensor):
     kernel = np.array([[0., 1., 0.], [1., -4., 1.], [0., 1., 0.]], dtype=np.float32)
     kernel = kernel.reshape((3, 3, 1, 1))
     if tensor.shape[-1] == 1:
         return math.conv(tensor, kernel, padding='VALID')
     else:
-        return math.concat([math.conv(tensor[..., i:i + 1], kernel, padding='VALID')
-                            for i in range(tensor.shape[-1])], -1)
+        return math.concat([math.conv(tensor[..., i:i + 1], kernel, padding='VALID') for i in range(tensor.shape[-1])], -1)
+
 
 def _conv_laplace_3d(tensor):
     """
@@ -355,40 +276,9 @@ def _sliced_laplace_nd(tensor, axes=None):
     components = []
     for ax in dims:
         if _contains_axis(axes, ax, rank):
-            c_slices = tuple([(slice(1, -1) if i == ax
-                               else 
-                                    slice(1, -1) if _contains_axis(axes, i, rank)
-                                    else slice(None))
-                              for i in dims])
-            u_slices = tuple([(slice(2, None) if i == ax
-                               else 
-                                    slice(1, -1) if _contains_axis(axes, i, rank)
-                                    else slice(None))
-                              for i in dims])
-            l_slices = tuple([(slice(-2) if i == ax
-                               else 
-                                    slice(1, -1) if _contains_axis(axes, i, rank)
-                                    else slice(None))
-                              for i in dims])
-            diff = tensor[(slice(None),) + u_slices + (slice(None),)] \
-                + tensor[(slice(None),) + l_slices + (slice(None),)] \
-                - 2 * tensor[(slice(None),) + c_slices + (slice(None),)]
-            components.append(diff)
+            lower, center, upper = _dim_shifted(tensor, ax, (-1, 0, 1), diminish_others=(1, 1), diminish_other_condition=lambda other_ax: _contains_axis(axes, other_ax, rank))
+            components.append(upper + lower - 2 * center)
     return math.sum(components, 0)
-
-
-def _contains_axis(axes, axis, sp_rank):
-    assert -sp_rank <= axis < sp_rank
-    return (axes is None) or (axis in axes) or (axis + sp_rank in axes)
-
-
-def map_for_axes(function, obj, axes, rank):
-    if axes is None:
-        return function(obj)
-    else:
-        return [(function(collapsed_gather_nd(obj, i)) if _contains_axis(axes, i, rank)
-                 else collapsed_gather_nd(obj, i))
-                for i in range(rank)]
 
 
 def fourier_laplace(tensor):
@@ -446,13 +336,8 @@ def upsample2x(tensor, interpolation='linear'):
     rank = spatial_rank(tensor)
     tensor = math.pad(tensor, _get_pad_width(rank), 'replicate')
     for dim in dims:
-        left_slices_1 = tuple([(slice(2, None) if i == dim else slice(None)) for i in dims])
-        left_slices_2 = tuple([(slice(1,-1) if i == dim else slice(None)) for i in dims])
-        right_slices_1 = tuple([(slice(1, -1) if i == dim else slice(None)) for i in dims])
-        right_slices_2 = tuple([(slice(-2) if i == dim else slice(None)) for i in dims])
-        left = 0.75 * tensor[(slice(None),) + left_slices_2 + (slice(None),)] + 0.25 * tensor[(slice(None),) + left_slices_1 + (slice(None),)]
-        right = 0.25 * tensor[(slice(None),) + right_slices_2 + (slice(None),)] + 0.75 * tensor[(slice(None),) + right_slices_1 + (slice(None),)]
-        combined = math.stack([right, left], axis=2 + dim)
+        lower, center, upper = _dim_shifted(tensor, dim, (-1, 0, 1))
+        combined = math.stack([0.25 * lower + 0.75 * center, 0.75 * center + 0.25 * upper], axis=2 + dim)
         tensor = math.reshape(combined, [-1] + [spatial_dims[dim] * 2 if i == dim else tensor.shape[i + 1] for i in dims] + [vlen])
     return tensor
 

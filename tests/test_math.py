@@ -3,6 +3,7 @@ from unittest import TestCase
 import numpy as np
 
 from phi.geom import AABox
+from phi.math.nd import _dim_shifted
 from phi.tf import tf
 
 # pylint: disable-msg = redefined-builtin, redefined-outer-name, unused-wildcard-import, wildcard-import
@@ -37,7 +38,7 @@ class TestMath(TestCase):
 
             self.assertLess(max(abs(x_np - x_tf.eval())), 1e-3)
 
-    def test_laplace(self):
+    def test_laplace_padding(self):
         tf.InteractiveSession()
         for dims in range(1, 4):
             shape = [2] + [4]*dims + [3]
@@ -106,3 +107,33 @@ class TestMath(TestCase):
         y = tf.convert_to_tensor(y)
         result = divide_no_nan(x, y).eval()
         np.testing.assert_equal(result, [1, -0.5, 0, 0, 0])
+
+    def test_dim_shifted(self):
+        # --- 1D ---
+        tensor = np.expand_dims(np.expand_dims(np.arange(10), axis=-1), axis=0)
+        lower, center, upper = _dim_shifted(tensor, 0, (-1, 0, 1), components=0)
+        np.testing.assert_equal(lower[0,:,0], np.arange(8))
+        np.testing.assert_equal(center[0,:,0], np.arange(1,9))
+        np.testing.assert_equal(upper[0,:,0], np.arange(2,10))
+        # --- 2D ---
+        tensor = np.ones([1, 4, 4, 2])
+        lower, upper = _dim_shifted(tensor, 0, (0, 1), diminish_others=(0, 1), components=0)
+        np.testing.assert_equal(lower.shape, (1, 3, 3, 1))
+        np.testing.assert_equal(upper.shape, (1, 3, 3, 1))
+
+    def test_gradient(self):
+        # --- 1D ---
+        tensor = np.expand_dims(np.expand_dims(np.arange(5), axis=-1), axis=0)
+        grad = gradient(tensor, padding='replicate')
+        np.testing.assert_equal(grad[0,:,0], [1, 1, 1, 1, 0])
+        grad = gradient(tensor, padding='circular')
+        np.testing.assert_equal(grad[0,:,0], [1, 1, 1, 1, -4])
+        grad = gradient(tensor, dx=0.1, padding='replicate')
+        np.testing.assert_equal(grad[0,:,0], [10, 10, 10, 10, 0])
+
+    def test_upsample_downsample(self):
+        # --- 1D ---
+        tensor = np.expand_dims(np.expand_dims(np.arange(5), axis=-1), axis=0)
+        up = upsample2x(tensor)
+        inverted = downsample2x(up)
+        np.testing.assert_equal(inverted[:, 1:-1, :], tensor[:, 1:-1, :])
