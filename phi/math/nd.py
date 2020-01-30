@@ -295,15 +295,13 @@ def laplace(tensor, padding='replicate', axes=None):
 
 
 def _get_pad_width_axes(rank, axes, val_true=[1, 1], val_false=[0, 0]):
-    beg_shape = [[0, 0]]
-    end_shape = [[0, 0]]
     mid_shape = []
     for i in range(rank):
         if _contains_axis(axes, i, rank):
             mid_shape.append(val_true)
         else:
             mid_shape.append(val_false)
-    return beg_shape + mid_shape + end_shape
+    return [[0, 0]] + mid_shape + [[0, 0]]
 
 
 def _get_pad_width(rank):
@@ -312,13 +310,12 @@ def _get_pad_width(rank):
 
 def _conv_laplace_2d(tensor):
     kernel = np.array([[0., 1., 0.], [1., -4., 1.], [0., 1., 0.]], dtype=np.float32)
-    kernel.reshape((3, 3, 1, 1))
+    kernel = kernel.reshape((3, 3, 1, 1))
     if tensor.shape[-1] == 1:
         return math.conv(tensor, kernel, padding='VALID')
     else:
         return math.concat([math.conv(tensor[..., i:i + 1], kernel, padding='VALID')
                             for i in range(tensor.shape[-1])], -1)
-
 
 def _conv_laplace_3d(tensor):
     """
