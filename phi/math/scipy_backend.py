@@ -133,8 +133,9 @@ class SciPyBackend(Backend):
         elif boundary.lower() == 'replicate':
             sample_coords = clamp(sample_coords, inputs.shape[1:-1])
         elif boundary.lower() == 'circular':
+            resolution = self.staticshape(inputs)[1:-1]
             inputs = self.pad(inputs, [[0,0]] + [[0,1]] * tensor_spatial_rank(inputs) + [[0,0]], mode='circular')
-            sample_coords = sample_coords % self.to_float(self.staticshape(inputs)[1:-1])
+            sample_coords = sample_coords % self.to_float(resolution)
         else:
             raise ValueError("Unsupported boundary: %s" % boundary)
 
