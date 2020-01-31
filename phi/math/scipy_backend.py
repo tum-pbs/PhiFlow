@@ -220,6 +220,7 @@ class SciPyBackend(Backend):
         return np.exp(x)
 
     def conv(self, tensor, kernel, padding="SAME"):
+        """ apply convolution of kernel on tensor """
         assert tensor.shape[-1] == kernel.shape[-2]
         # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
         if padding.lower() == "same":
