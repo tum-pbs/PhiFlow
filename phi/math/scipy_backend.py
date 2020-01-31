@@ -1,9 +1,4 @@
-try:
-    # Python 3
-    from collections.abc import Iterable
-except ImportError:
-    # Python 2.7
-    from collections import Iterable
+import collections
 import numbers
 import warnings
 
@@ -17,6 +12,10 @@ from .base_backend import Backend
 
 
 class SciPyBackend(Backend):
+
+    """
+    Core Python Backend using NumPy & SciPy
+    """
 
     def __init__(self):
         Backend.__init__(self, "SciPy")
@@ -32,7 +31,7 @@ class SciPyBackend(Backend):
             return True
         if scipy.sparse.issparse(values):
             return True
-        if isinstance(values, Iterable):
+        if isinstance(values, collections.Iterable):
             try:
                 for value in values:
                     if not self.is_applicable(value):
@@ -45,12 +44,15 @@ class SciPyBackend(Backend):
     # --- Abstract math functions ---
 
     def as_tensor(self, x):
+        """ as array """
         return np.array(x)
 
     def is_tensor(self, x):
+        """ is array """
         return isinstance(x, np.ndarray)
 
     def equal(self, x, y):
+        """ array equality comparison """
         return np.equal(x, y)
 
     def divide_no_nan(self, x, y):
@@ -59,12 +61,15 @@ class SciPyBackend(Backend):
         return np.where(y == 0, 0, result)
 
     def random_uniform(self, shape):
+        """ random array [0.0, 1.0) """
         return np.random.random(shape).astype('f')
 
     def rank(self, value):
+        """ len(shape), number of dimensions """
         return len(value.shape)
 
     def range(self, start, limit=None, delta=1, dtype=None):
+        """ range syntax to arange syntax """
         if limit is None:
             start, limit = 0, start
         return np.arange(start, limit, delta, dtype)
@@ -93,13 +98,13 @@ class SciPyBackend(Backend):
     def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
         if np.sum(np.array(pad_width)) == 0:
             return value
-        if single_mode == 'wrap':
+        if single_mode.lower() == 'wrap':
             warnings.warn("padding mode 'wrap' is deprecated. Use 'circular' instead.", DeprecationWarning, stacklevel=2)
-        if single_mode.lower() == 'constant':
+        elif single_mode.lower() == 'constant':
             return np.pad(value, pad_width, 'constant', constant_values=constant_values)
-        if single_mode.lower() == 'circular':
+        elif single_mode.lower() == 'circular':
             single_mode = 'wrap'
-        if single_mode.lower() == 'replicate':
+        elif single_mode.lower() == 'replicate':
             single_mode = 'edge'
         return np.pad(value, pad_width, single_mode.lower())
 
@@ -128,27 +133,28 @@ class SciPyBackend(Backend):
         return result
 
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        if boundary.lower() == 'zero' or boundary.lower() == 'constant':
+        """ resample input array at certain coordinates """
+        if boundary.lower() in ('zero', 'constant'):
             pass  # default
         elif boundary.lower() == 'replicate':
             sample_coords = clamp(sample_coords, inputs.shape[1:-1])
         elif boundary.lower() == 'circular':
             resolution = self.staticshape(inputs)[1:-1]
-            inputs = self.pad(inputs, [[0,0]] + [[0,1]] * tensor_spatial_rank(inputs) + [[0,0]], mode='circular')
+            inputs = self.pad(inputs, [[0, 0]] + [[0, 1]] * tensor_spatial_rank(inputs) + [[0, 0]], mode='circular')
             sample_coords = sample_coords % self.to_float(resolution)
         else:
             raise ValueError("Unsupported boundary: %s" % boundary)
-
+        # Interpolate
         import scipy.interpolate
         points = [np.arange(dim) for dim in inputs.shape[1:-1]]
         result = []
         for batch in range(sample_coords.shape[0]):
             components = []
             for dim in range(inputs.shape[-1]):
-                resampled = scipy.interpolate.interpn(points, inputs[batch, ..., dim], sample_coords[batch, ...], method=interpolation.lower(), bounds_error=False, fill_value=0)
+                resampled = scipy.interpolate.interpn(points,inputs[batch, ..., dim], sample_coords[batch, ...],
+                                                      method=interpolation.lower(), bounds_error=False, fill_value=0)
                 components.append(resampled)
             result.append(np.stack(components, -1))
-
         result = np.stack(result).astype(inputs.dtype)
         return result
 
@@ -306,9 +312,9 @@ class SciPyBackend(Backend):
         if rank == 1:
             return np.fft.fft(x, axis=1)
         elif rank == 2:
-            return np.fft.fft2(x, axes=[1,2])
+            return np.fft.fft2(x, axes=[1, 2])
         else:
-            return np.fft.fftn(x, axes=list(range(1,rank + 1)))
+            return np.fft.fftn(x, axes=list(range(1, rank + 1)))
 
     def ifft(self, k):
         rank = len(k.shape) - 2
@@ -316,15 +322,15 @@ class SciPyBackend(Backend):
         if rank == 1:
             return np.fft.ifft(k, axis=1)
         elif rank == 2:
-            return np.fft.ifft2(k, axes=[1,2])
+            return np.fft.ifft2(k, axes=[1, 2])
         else:
-            return np.fft.ifftn(k, axes=list(range(1,rank + 1)))
+            return np.fft.ifftn(k, axes=list(range(1, rank + 1)))
 
-    def imag(self, complex):
-        return np.imag(complex)
+    def imag(self, complex_arr):
+        return np.imag(complex_arr)
 
-    def real(self, complex):
-        return np.real(complex)
+    def real(self, complex_arr):
+        return np.real(complex_arr)
 
     def sin(self, x):
         return np.sin(x)
@@ -344,7 +350,7 @@ class SciPyBackend(Backend):
 def clamp(coordinates, shape):
     assert coordinates.shape[-1] == len(shape)
     for i in range(len(shape)):
-        coordinates[...,i] = np.maximum(0, np.minimum(shape[i] - 1, coordinates[...,i]))
+        coordinates[...,i] = np.maximum(0, np.minimum(shape[i] - 1, coordinates[..., i]))
     return coordinates
 
 
