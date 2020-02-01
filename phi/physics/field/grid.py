@@ -195,6 +195,9 @@ class CenteredGrid(Field):
         return resampled
 
 
+CenteredGrid.data.override(CenteredGrid.staticshape, lambda grid, data: (grid._batch_size,) + math.staticshape(data)[1:])
+
+
 def _required_paddings_transposed(box, dx, target):
     lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx))
     upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper) / dx))

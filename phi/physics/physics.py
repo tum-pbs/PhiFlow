@@ -3,7 +3,6 @@ Defines base classes for all simulations such as State and Physics.
 """
 
 from phi import struct
-from phi.math import staticshape
 
 
 @struct.definition()
@@ -57,22 +56,6 @@ Names can also be used as a shortcut to reference states (e.g. in StateCollectio
 Returns a Physics object that can be used to progress this state forward in time.
         """
         return STATIC
-
-    @property
-    def shape(self):
-        """
-Similar to phi.math.shape(self) but respects unknown dimensions.
-        """
-        def tensorshape(tensor):
-            if tensor is None:
-                return None
-            default_batched_shape = staticshape(tensor)
-            if len(default_batched_shape) >= 2:
-                return (self._batch_size,) + default_batched_shape[1:]
-            else:
-                return default_batched_shape
-        with struct.unsafe():
-            return struct.map(tensorshape, self, item_condition=struct.VARIABLES)
 
     @property
     def state(self):

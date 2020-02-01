@@ -5,6 +5,7 @@ from copy import copy
 import numpy as np
 import six
 
+from ..backend.dynamic_backend import DYNAMIC_BACKEND as math
 from .context import skip_validate
 from .item_condition import context_item_condition, VARIABLES, CONSTANTS
 from .structdef import Item, derived
@@ -49,6 +50,44 @@ See the struct documentation at documentation/Structs.ipynb
         for trait in self.__traits__:
             trait.endow(self)
         self.validate()
+
+    @derived()
+    def shape(self):
+        """
+Maps all DATA values to their respective dynamic shapes.
+Shapes of sub-structs are obtained using struct.shape while shapes of non-structs are obtained using math.shape().
+Struct subclasses can override this method e.g. to specify unknown dimensions (although the current data has a known dimension).
+        :return: Invalid struct holding shapes instead of data
+        """
+        duplicate = copy(self)
+        for item in duplicate.__items__:
+            if context_item_condition(item):
+                obj = item.get(duplicate)
+                if item.has_override(Struct.shape):
+                    shape = item.get_override(Struct.shape)(duplicate, obj)
+                else:
+                    shape = Struct.shape(obj) if isstruct(obj) else math.shape(obj)
+                item.set(duplicate, shape)
+        return duplicate
+
+    @derived()
+    def staticshape(self):
+        """
+Maps all DATA values to their respective static shapes.
+Shapes of sub-structs are obtained using struct.staticshape while shapes of non-structs are obtained using math.staticshape().
+Struct subclasses can override this method e.g. to specify unknown dimensions (although the current data has a known dimension).
+        :return: Invalid struct holding shapes instead of data
+        """
+        duplicate = copy(self)
+        for item in duplicate.__items__:
+            if context_item_condition(item):
+                obj = item.get(duplicate)
+                if item.has_override(Struct.staticshape):
+                    shape = item.get_override(Struct.staticshape)(duplicate, obj)
+                else:
+                    shape = Struct.staticshape(obj) if isstruct(obj) else math.staticshape(obj)
+                item.set(duplicate, shape)
+        return duplicate
 
     def copied_with(self, **kwargs):
         """

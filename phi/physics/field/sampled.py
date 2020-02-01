@@ -113,15 +113,6 @@ class SampledField(Field):
         return sample_points
 
     @property
-    def shape(self):
-        with struct.unsafe():
-            if math.ndims(self.data) > 0:
-                data_shape = (self._batch_size, self._point_count, self.component_count)
-            else:
-                data_shape = ()
-            return self.copied_with(data=data_shape, sample_points=(self._batch_size, self._point_count, self.rank))
-
-    @property
     def rank(self):
         return math.staticshape(self.sample_points)[-1]
 
@@ -149,6 +140,10 @@ class SampledField(Field):
 
     def __repr__(self):
         return '%s[%sx(%d), %dD]' % (self.__class__.__name__, self._point_count if self._point_count is not None else '?', self.component_count, self.rank)
+
+
+SampledField.data.override(SampledField.staticshape, lambda field, data: (field._batch_size, field._point_count, field.component_count) if math.ndims(field.data) > 0 else ())
+SampledField.sample_points.override(SampledField.staticshape, lambda field, data: (field._batch_size, field._point_count, field.rank))
 
 
 def batch_indices(indices):
