@@ -124,6 +124,7 @@ Represents an item type of a struct, a variable or a constant.
         self.holds_data = holds_data
         self.trait_kwargs = trait_kwargs
         self.struct_class = None
+        self._overrides = {}
 
     def __initialize_for__(self, struct_class):
         self.struct_class = struct_class
@@ -150,6 +151,37 @@ Represents an item type of a struct, a variable or a constant.
                 value = trait.post_validated(struct, self, value)
             self.set(struct, value)
 
+    def has_override(self, name_or_attribute):
+        return self._attribute_name(name_or_attribute) in self._overrides
+
+    def get_override(self, name_or_attribute):
+        return self._overrides[self._attribute_name(name_or_attribute)]
+
+    def override(self, name_or_attribute, override_function):
+        """
+Override a property or behaviour of this item and/or its values.
+This affects all instances of the associated Struct.
+
+Overrides can be used to specify custom shape or staticshape getters for specific properties.
+As this method is called on an Item, it must be invoked outside the Struct class it affects.
+
+Example: `CenteredGrid.data.override(CenteredGrid.staticshape, lambda grid, data: custom_shape)`
+        :param name_or_attribute: custom name or Item/DerivedItem reference
+        :param override_function: function, signature depends on the overridden property.
+        """
+        self._overrides[self._attribute_name(name_or_attribute)] = override_function
+
+    @staticmethod
+    def _attribute_name(name_or_attribute):
+        if isinstance(name_or_attribute, (Item, DerivedProperty)):
+            name = name_or_attribute.name
+        elif callable(name_or_attribute):
+            name = name_or_attribute.__name__
+        else:
+            name = name_or_attribute
+        assert isinstance(name, six.string_types)
+        return name
+
     def __get__(self, instance, owner):
         if instance is not None:
             return getattr(instance, '_' + self.name)
@@ -169,18 +201,6 @@ Represents an item type of a struct, a variable or a constant.
 
     def __repr__(self):
         return self.name
-
-
-def CONSTANTS(item): return not item.is_variable
-
-
-def VARIABLES(item): return item.is_variable
-
-
-def DATA(item): return item.holds_data
-
-
-ALL_ITEMS = None
 
 
 class DerivedProperty(object):
