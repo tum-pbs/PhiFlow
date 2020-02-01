@@ -1,8 +1,8 @@
 import six
 
 from .context import unsafe
+from .item_condition import ALL_ITEMS, DATA, context_item_condition
 from .struct import copy_with, equal, isstruct, to_dict
-from .structdef import ALL_ITEMS, DATA
 
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=DATA):
@@ -79,10 +79,12 @@ Thrown when two or more structs are required to have the same structure but do n
         Exception.__init__(self, *args)
 
 
-def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=DATA):
+def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None):
     # pylint: disable-msg = redefined-builtin
     if trace is True:
         trace = Trace(struct, None, None)
+    if item_condition is None:
+        item_condition = context_item_condition
     if not isstruct(struct, leaf_condition):
         if trace is False:
             if isinstance(struct, LeafZip):

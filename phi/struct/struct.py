@@ -6,7 +6,8 @@ import numpy as np
 import six
 
 from .context import skip_validate
-from .structdef import CONSTANTS, VARIABLES, Item
+from .item_condition import context_item_condition, VARIABLES, CONSTANTS
+from .structdef import Item, derived
 
 
 def kwargs(locals, include_self=False, ignore=()):
@@ -50,6 +51,13 @@ See the struct documentation at documentation/Structs.ipynb
         self.validate()
 
     def copied_with(self, **kwargs):
+        """
+Returns a copy of this Struct with some items values changed.
+The Struct, this method is invoked on, remains unaltered.
+Unless otherwise specified, the returned object will be validated, i.e. the new item values may be altered before the new object is returned.
+        :param kwargs: Items to change, in the form item_name=new_value.
+        :return: Altered copy of this object
+        """
         duplicate = copy(self)
         duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
         duplicate.validate()
@@ -65,6 +73,11 @@ See the struct documentation at documentation/Structs.ipynb
         return self
 
     def validate(self):
+        """
+Performs validation on this struct.
+Structs are always valid unless otherwise specified.
+A user need only invoke this method when explicitly dealing with invalid structs.
+        """
         if not skip_validate():
             self.__validate__()
 
