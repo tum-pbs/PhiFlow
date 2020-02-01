@@ -1,6 +1,6 @@
 from phi.struct.tensorop import collapsed_gather_nd
 
-from .base_backend import DYNAMIC_BACKEND as math
+from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 
 
 

@@ -6,9 +6,9 @@ import numpy as np
 import scipy.signal
 import scipy.sparse
 import six
-from phi.struct.tensorop import collapsed_gather_nd, expand
 
-from .base_backend import Backend
+from .backend import Backend
+from .tensorop import collapsed_gather_nd, expand
 
 
 class SciPyBackend(Backend):

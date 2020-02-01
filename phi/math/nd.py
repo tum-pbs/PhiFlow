@@ -4,7 +4,7 @@ from __future__ import division
 import numpy as np
 
 from phi import struct
-from .base_backend import DYNAMIC_BACKEND as math
+from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 from .helper import _get_pad_width_axes, _get_pad_width, spatial_rank, _dim_shifted, _contains_axis, spatial_dimensions, all_dimensions
 
 

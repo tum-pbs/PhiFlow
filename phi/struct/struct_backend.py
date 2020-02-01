@@ -1,5 +1,5 @@
-from phi import struct
-from .base_backend import Backend
+from phi.backend.backend import Backend
+from . import context, struct, functions
 
 
 class StructBroadcastBackend(Backend):
@@ -34,8 +34,8 @@ def broadcast_function(backend, func, args, kwargs):
         args, kwargs = build_arguments(values)
         result = backend_func(*args, **kwargs)
         return result
-    with struct.unsafe():
-        return struct.map(f, obj)
+    with context.unsafe():
+        return functions.map(f, obj)
 
 
 def argument_assembler(args, kwargs):
@@ -44,7 +44,7 @@ def argument_assembler(args, kwargs):
     if len(structs) == 1:
         obj = structs[0]
     else:
-        obj = struct.zip(structs)
+        obj = functions.zip(structs)
 
     def assemble_arguments(items):
         args = []

@@ -4,8 +4,8 @@ from numbers import Number
 from phi import struct
 from phi.struct.functions import mappable
 
-from .base_backend import DYNAMIC_BACKEND as math
-from .base_backend import NoBackendFound
+from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
+from phi.backend.dynamic_backend import NoBackendFound
 from .nd import fftfreq
 
 

@@ -1,6 +1,6 @@
-from .base_backend import DYNAMIC_BACKEND
-from .scipy_backend import SciPyBackend
-from .struct_backend import StructBroadcastBackend
+from phi.backend.dynamic_backend import DYNAMIC_BACKEND
+from phi.backend.scipy_backend import SciPyBackend
+from phi.struct.struct_backend import StructBroadcastBackend
 from .math_util import types, is_static_shape, zeros, ones, randn, randfreq
 from .helper import is_scalar, axes
 from .nd import (spatial_rank, spatial_dimensions, all_dimensions,
