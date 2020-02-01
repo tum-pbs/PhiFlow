@@ -5,12 +5,19 @@ from .item_condition import ALL_ITEMS, DATA, context_item_condition
 from .struct import copy_with, equal, isstruct, to_dict
 
 
-def flatten(struct, leaf_condition=None, trace=False, item_condition=DATA):
-    result = []
-
+def flatten(struct, leaf_condition=None, trace=False, item_condition=None):
+    """
+Generates a list of all leaves by recursively iterating over the given struct.
+    :param struct: struct or leaf
+    :param leaf_condition: (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves.
+    :param trace: If True, returns a list of Trace objects instead of values.
+    :param item_condition: (optional) ItemCondition or boolean function that filters which Items are accumulated.
+    :return: list containing all leaves in the struct hierarchy
+    """
     def map_leaf(value):
         result.append(value)
         return value
+    result = []
     with unsafe():
         map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition)
     return result
@@ -26,7 +33,19 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
         return map(to_name, struct, leaf_condition, recursive=True, trace=True)
 
 
-def zip(structs, leaf_condition=None, item_condition=DATA, zip_parents_if_incompatible=False):
+def zip(structs, leaf_condition=None, item_condition=None, zip_parents_if_incompatible=False):
+    """
+Builds a single struct containing LeaefZip entries from a list of compatible structs.
+Passing zipped structs to 'map' will call the mapping function with the all leaves at equal positions in the structure.
+
+Example `struct.map(lambda x, y: x+y, struct.zip([{0: 'Hello'}, {0: ' World'}]))` returns `{0: 'Hello World'}`.
+    :param structs: iterable collection of structs or leaves
+    :param leaf_condition: (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves.
+    :param item_condition: (optional) ItemCondition or boolean function that filters which Items are zipped. Excluded items should have the same values among all structs.
+    :param zip_parents_if_incompatible: If True, suppresses IncompatibleStructs errors if structs with non-matching excluded items are encountered. Instead, these structs are treated as leaves and zipped.
+    :return: Single struct matching the structure of any of the given structs and holding LeafZip objects as leaves for non-excluded items
+    :raise IncompatibleStructs: If structs with non-matching excluded items are encountered and zip_parents_if_incompatible=False
+    """
     # pylint: disable-msg = redefined-builtin
     assert len(structs) > 0
     first = structs[0]
@@ -55,8 +74,8 @@ def zip(structs, leaf_condition=None, item_condition=DATA, zip_parents_if_incomp
 class LeafZip(object):
     """
 Created by struct.zip to replace data.
+When a LeafZip is mapped using 'map', the values are passed as multiple arguments (*args).
     """
-
     def __init__(self, values):
         self.values = values
 
@@ -72,14 +91,24 @@ Created by struct.zip to replace data.
 
 class IncompatibleStructs(Exception):
     """
-Thrown when two or more structs are required to have the same structure but do not.
+Thrown when two or more structs are required to have the same structure but do not, e.g. when trying to zip incompatible structs.
     """
-
     def __init__(self, *args):
         Exception.__init__(self, *args)
 
 
 def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None):
+    """
+Iterates over all items of the struct and maps their values according to the specified function.
+Preserves the hierarchical structure of struct, returning an object of the same type and leaving struct untouched.
+    :param function: function mapping from leaf values to new values. If not otherwise specified, the new values will be validated before map returns. If trace=True, Trace objects will be passed instead of values. For zipped structs, multiple values or a Trace containing multiple values is passed to function.
+    :param struct: struct or leaf value
+    :param leaf_condition: (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves. Leaf structs are not iterated over but directly passed to function.
+    :param recursive: If True, recursively iterates over all non-leaf sub-structs, passing only leaves to function. Otherwise only iterates over direct items of struct; all sub-structs are treated as leaves.
+    :param trace: If True, passes a Trace object to function instead of the value. Traces contain additional information.
+    :param item_condition: (optional) ItemCondition or boolean function that filters which Items are iterated over. Excluded items are left untouched. If None, the context item condition is used (data-holding items by default).
+    :return: object of the same type and hierarchy as struct
+    """
     # pylint: disable-msg = redefined-builtin
     if trace is True:
         trace = Trace(struct, None, None)
@@ -185,7 +214,7 @@ def print_differences(struct1, struct2, level=0):
             print(indent+'Item "%s" is missing from %s.' % (key2, struct1))
 
 
-def mappable(leaf_condition=None, recursive=True, item_condition=DATA, unsafe_context=False):
+def mappable(leaf_condition=None, recursive=True, item_condition=None, unsafe_context=False):
     def decorator(function):
         def broadcast_function(obj, *args, **kwargs):
             def function_with_args(x): return function(x, *args, **kwargs)
