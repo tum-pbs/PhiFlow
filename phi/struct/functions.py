@@ -1,7 +1,7 @@
 import six
 
 from .context import unsafe
-from .item_condition import ALL_ITEMS, DATA, context_item_condition
+from .item_condition import ALL_ITEMS, context_item_condition
 from .struct import copy_with, equal, isstruct, to_dict
 
 

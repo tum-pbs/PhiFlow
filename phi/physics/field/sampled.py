@@ -101,6 +101,7 @@ class SampledField(Field):
         if isinstance(data, (tuple, list, np.ndarray)):
             data = math.zeros_like(self.sample_points) + data
         return data
+    data.override(struct.Struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.component_count) if math.ndims(self.data) > 0 else ())
 
     @struct.constant(default='add')
     def mode(self, mode):
@@ -111,6 +112,7 @@ class SampledField(Field):
     def sample_points(self, sample_points):
         assert math.ndims(sample_points) == 3, sample_points.shape
         return sample_points
+    sample_points.override(struct.Struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.rank))
 
     @property
     def rank(self):
@@ -142,8 +144,6 @@ class SampledField(Field):
         return '%s[%sx(%d), %dD]' % (self.__class__.__name__, self._point_count if self._point_count is not None else '?', self.component_count, self.rank)
 
 
-SampledField.data.override(SampledField.staticshape, lambda field, data: (field._batch_size, field._point_count, field.component_count) if math.ndims(field.data) > 0 else ())
-SampledField.sample_points.override(SampledField.staticshape, lambda field, data: (field._batch_size, field._point_count, field.rank))
 
 
 def batch_indices(indices):

@@ -51,6 +51,7 @@ class CenteredGrid(Field):
         while math.ndims(data) < 2:
             data = math.expand_dims(data)
         return data
+    data.override(struct.Struct.staticshape, lambda self, data: (self._batch_size,) + math.staticshape(data)[1:])
 
     @property
     def resolution(self):
@@ -193,9 +194,6 @@ class CenteredGrid(Field):
         local_points = local_points * math.to_float(self.resolution) + 0.5  # depends on amount of padding
         resampled = math.resample(data, local_points, boundary='replicate', interpolation=self.interpolation)
         return resampled
-
-
-CenteredGrid.data.override(CenteredGrid.staticshape, lambda grid, data: (grid._batch_size,) + math.staticshape(data)[1:])
 
 
 def _required_paddings_transposed(box, dx, target):

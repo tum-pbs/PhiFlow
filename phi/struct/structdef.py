@@ -163,9 +163,9 @@ Override a property or behaviour of this item and/or its values.
 This affects all instances of the associated Struct.
 
 Overrides can be used to specify custom shape or staticshape getters for specific properties.
-As this method is called on an Item, it must be invoked outside the Struct class it affects.
+As this method is called on an Item, it must be invoked outside the item it affects.
 
-Example: `CenteredGrid.data.override(CenteredGrid.staticshape, lambda grid, data: custom_shape)`
+Example: to override the shape of an item, put the following just below its declaration: `item.override(Struct.shape, lambda self, value: custom_shape)`
         :param name_or_attribute: custom name or Item/DerivedItem reference
         :param override_function: function, signature depends on the overridden property.
         """
