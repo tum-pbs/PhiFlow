@@ -13,6 +13,7 @@ from .nd import (spatial_rank, spatial_dimensions, all_dimensions,
                  fftfreq,
                  downsample2x, upsample2x, interpolate_linear,
                  spatial_sum,)
+from .batched import BATCHED, ShapeMismatch
 
 
 # Setup Backend

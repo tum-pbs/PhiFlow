@@ -20,7 +20,7 @@ Samples the geometry at the given locations and returns a binary mask, labelling
         raise NotImplementedError()
 
 
-@struct.definition()
+@struct.definition(traits=[math.BATCHED])
 class AABox(Geometry):
     """
     Axis-aligned box, defined by lower and upper corner.
@@ -30,13 +30,13 @@ class AABox(Geometry):
     def __init__(self, lower, upper, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.constant()
+    @struct.constant(min_rank=1)
     def lower(self, lower):
-        return math.to_float(math.as_tensor(lower))
+        return math.to_float(lower)
 
-    @struct.constant()
+    @struct.constant(min_rank=1)
     def upper(self, upper):
-        return math.to_float(math.as_tensor(upper))
+        return math.to_float(upper)
 
     def get_lower(self, axis):
         return self._get(self.lower, axis)
@@ -134,19 +134,19 @@ class AABoxGenerator(object):
 box = AABoxGenerator()  # Instantiate an AABox using the syntax box[slices]
 
 
-@struct.definition()
+@struct.definition(traits=[math.BATCHED])
 class Sphere(Geometry):
 
     def __init__(self, center, radius, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.constant()
+    @struct.constant(min_rank=0)
     def radius(self, radius):
-        return math.as_tensor(radius)
+        return radius
 
-    @struct.constant()
+    @struct.constant(min_rank=1)
     def center(self, center):
-        return math.as_tensor(center)
+        return center
 
     def value_at(self, location):
         center = math.batch_align(self.center, 1, location)

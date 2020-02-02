@@ -36,7 +36,8 @@ Required decorator for custom struct classes.
                 for trait in base.__traits__:
                     if trait not in traits:
                         inherited_traits += (trait,)
-        traits = inherited_traits + traits
+        traits = inherited_traits + tuple([t for t in traits if t not in inherited_traits])
+        assert len(set(traits)) == len(traits), "Duplicate traits on struct class '%s'" % struct_class
         # --- Initialize & Decorate ---
         struct_class.__traits__ = traits
         for item in items.values():
