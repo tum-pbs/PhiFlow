@@ -124,6 +124,7 @@ setup(
     download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.2.tar.gz',
     packages=['phi',
               'phi.app',
+              'phi.backend',
               'phi.data',
               'phi.geom',
               'phi.local',
@@ -133,7 +134,8 @@ setup(
               'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
-              'phi.viz', 'phi.viz.dash',
+              'phi.viz',
+              'phi.viz.dash',
               'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
