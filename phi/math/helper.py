@@ -69,7 +69,7 @@ def _dim_shifted(tensor, axis, relative_shifts, components=None, diminish_others
             if ax == axis:
                 slices.append(slice(shift_start, shift_end))
             else:
-                if diminish_other_condition is None or not diminish_other_condition(ax):
+                if diminish_other_condition is None or diminish_other_condition(ax):
                     slices.append(slice_others)
                 else:
                     slices.append(slice(None))

@@ -206,7 +206,7 @@ def laplace(tensor, padding='replicate', axes=None):
     If a vector field is passed, the laplace is computed component-wise.
 
     :param tensor: n-dimensional field of shape (batch, spacial dimensions..., components)
-    :param padding: 'valid', 'constant', 'reflect', 'replicate', 'cyclic'
+    :param padding: 'valid', 'constant', 'reflect', 'replicate', 'circular'
     :param axes: The second derivative along these axes is summed over
     :type axes: list
     :return: tensor of same shape
@@ -214,7 +214,7 @@ def laplace(tensor, padding='replicate', axes=None):
     rank = spatial_rank(tensor)
     if padding is None or padding.lower() == 'valid':
         pass  # do not pad tensor
-    elif padding.lower() in ['cyclic', 'wrap']:
+    elif padding.lower() in ['circular', 'wrap']:
         return fourier_laplace(tensor)
     else:
         tensor = math.pad(tensor, _get_pad_width_axes(rank, axes, val_true=[1, 1], val_false=[0, 0]), padding)

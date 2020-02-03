@@ -49,7 +49,7 @@ class TestMath(TestCase):
             l = laplace(a, padding='reflect')
             np.testing.assert_equal(l, 0)
             np.testing.assert_equal(l.shape, a.shape)
-            l = laplace(a, padding='cyclic')
+            l = laplace(a, padding='circular')
             np.testing.assert_equal(l, 0)
             np.testing.assert_equal(l.shape, a.shape)
             l = laplace(a, padding='valid')
