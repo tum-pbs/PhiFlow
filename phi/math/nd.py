@@ -184,7 +184,7 @@ def _gradient_nd(tensor, padding, relative_shifts):
     tensor = math.pad(tensor, _get_pad_width(rank, (-relative_shifts[0], relative_shifts[1])), mode=padding)
     components = []
     for dimension in range(rank):
-        lower, upper = _dim_shifted(tensor, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]), components=rank - dimension - 1)
+        lower, upper = _dim_shifted(tensor, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]))
         components.append(upper - lower)
     return math.concat(components, axis=-1)
 
