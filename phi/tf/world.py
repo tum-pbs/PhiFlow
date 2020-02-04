@@ -2,7 +2,7 @@ import numpy as np
 
 from phi.physics.world import World
 from phi.physics import Physics
-from phi.physics.collective import CollectivePhysics
+from phi.physics.collective import CollectivePhysics, StateCollection
 from phi import math
 from phi.struct import VARIABLES
 from phi.struct.functions import mappable

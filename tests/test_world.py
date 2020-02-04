@@ -3,6 +3,7 @@ from unittest import TestCase
 import numpy
 import six
 
+from phi import struct
 from phi.physics.collective import StateCollection
 from phi.physics.domain import Domain
 from phi.physics.fluid import Fluid
@@ -37,6 +38,7 @@ class TestWorld(TestCase):
         assert isinstance(repr(c1), six.string_types)
         assert len(c1) == len(c1.shape) == len(c1.staticshape) == len(c1.dtype)
         assert c1.shape.fluid.density.data == (1, 1, 1, 1)
+        self.assertIsInstance(c1.dtype.fluid.density.data, numpy.dtype)
 
         c2 = StateCollection()
         assert len(c2) == 0
@@ -50,3 +52,7 @@ class TestWorld(TestCase):
 
         c4 = c3.state_removed(fluid2)
         assert len(c4) == 0
+
+        c5 = struct.map(lambda x: x, c1)
+        assert isinstance(c5, StateCollection)
+        assert c5 == c1

@@ -153,6 +153,8 @@ Represents an item type of a struct, a variable or a constant.
             self.set(struct, value)
 
     def has_override(self, name_or_attribute):
+        if name_or_attribute is None:
+            return False
         return self._attribute_name(name_or_attribute) in self._overrides
 
     def get_override(self, name_or_attribute):
@@ -180,7 +182,7 @@ Example: to override the shape of an item, put the following just below its decl
             name = name_or_attribute.__name__
         else:
             name = name_or_attribute
-        assert isinstance(name, six.string_types)
+        assert isinstance(name, six.string_types), 'Not an attribute: %s' % name
         return name
 
     def __get__(self, instance, owner):

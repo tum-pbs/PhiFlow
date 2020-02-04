@@ -2,7 +2,7 @@ import six
 
 from .context import unsafe
 from .item_condition import ALL_ITEMS, context_item_condition
-from .struct import copy_with, equal, isstruct, to_dict
+from .struct import copy_with, equal, isstruct, to_dict, Struct
 
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=None):
@@ -51,11 +51,16 @@ Example `struct.map(lambda x, y: x+y, struct.zip([{0: 'Hello'}, {0: ' World'}]))
     first = structs[0]
     if isstruct(first, leaf_condition):
         for struct in structs[1:]:
+            if not isstruct(struct):
+                if zip_parents_if_incompatible:
+                    return LeafZip(structs)
+                else:
+                    raise IncompatibleStructs('Cannot zip %s and %s because the latter is not a struct.' % (first, struct))
             if set(to_dict(struct, item_condition=item_condition).keys()) != set(to_dict(first, item_condition=item_condition).keys()):
                 if zip_parents_if_incompatible:
                     return LeafZip(structs)
                 else:
-                    raise IncompatibleStructs('Cannot zip %s and %s because keys vary:\n%s\n%s' % (struct, first, to_dict(struct, item_condition=item_condition).keys(), to_dict(first, item_condition=item_condition).keys()))
+                    raise IncompatibleStructs('Cannot zip %s and %s because keys vary:\n%s\n%s' % (first, struct, to_dict(first, item_condition=item_condition).keys(), to_dict(struct, item_condition=item_condition).keys()))
 
     if not isstruct(first, leaf_condition):
         return LeafZip(structs)
@@ -97,7 +102,7 @@ Thrown when two or more structs are required to have the same structure but do n
         Exception.__init__(self, *args)
 
 
-def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None):
+def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None, override=None, change_type=None):
     """
 Iterates over all items of the struct and maps their values according to the specified function.
 Preserves the hierarchical structure of struct, returning an object of the same type and leaving struct untouched.
@@ -107,6 +112,8 @@ Preserves the hierarchical structure of struct, returning an object of the same 
     :param recursive: If True, recursively iterates over all non-leaf sub-structs, passing only leaves to function. Otherwise only iterates over direct items of struct; all sub-structs are treated as leaves.
     :param trace: If True, passes a Trace object to function instead of the value. Traces contain additional information.
     :param item_condition: (optional) ItemCondition or boolean function that filters which Items are iterated over. Excluded items are left untouched. If None, the context item condition is used (data-holding items by default).
+    :param override: (optional) Key to look up Item-specific override functions. Override functions are called with the containing struct as first argument, followed by the usual arguments.
+    :param change_type: (optional) Type key to use for new Structs. Set to True
     :return: object of the same type and hierarchy as struct
     """
     # pylint: disable-msg = redefined-builtin
@@ -123,16 +130,35 @@ Preserves the hierarchical structure of struct, returning an object of the same 
         else:
             return function(trace)
     else:
-        old_values = to_dict(struct, item_condition=item_condition)
-        new_values = {}
-        if not recursive:
-            leaf_condition = lambda x: True
-        for key, value in old_values.items():
-            new_values[key] = map(function, value, leaf_condition, recursive,
-                                  Trace(value, key, trace) if trace is not False else False,
-                                  item_condition=item_condition)
-
-        return copy_with(struct, new_values)
+        if isinstance(struct, Struct):
+            with unsafe(): duplicate = copy_with(struct, {}, change_type=change_type)
+            for item in duplicate.__items__:
+                if item_condition(item):
+                    old_value = item.get(duplicate)
+                    if item.has_override(override):
+                        new_value = item.get_override(override)(duplicate, old_value)
+                    else:
+                        new_value = map(function, old_value, leaf_condition, recursive,
+                                      Trace(old_value, item.name, trace) if trace is not False else False,
+                                      item_condition,
+                                      override,
+                                      change_type)
+                    item.set(duplicate, new_value)
+            duplicate.validate()
+            return duplicate
+        else:
+            # --- dict, list, tuple, array ---
+            old_values = to_dict(struct, item_condition=item_condition)
+            new_values = {}
+            if not recursive:
+                leaf_condition = lambda x: True
+            for key, value in old_values.items():
+                new_values[key] = map(function, value, leaf_condition, recursive,
+                                      Trace(value, key, trace) if trace is not False else False,
+                                      item_condition,
+                                      override,
+                                      change_type)
+            return copy_with(struct, new_values, change_type=change_type)
 
 
 class Trace(object):

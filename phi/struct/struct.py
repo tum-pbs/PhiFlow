@@ -1,13 +1,12 @@
 # pylint: disable-msg = redefined-outer-name  # kwargs should be accessed as struct.kwargs
 import json
 from copy import copy
-from typing import TypeVar
 
 import numpy as np
 import six
 
 from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
-from .context import skip_validate
+from .context import skip_validate, unsafe
 from .item_condition import context_item_condition, VARIABLES, CONSTANTS
 from .structdef import Item, derived
 
@@ -29,6 +28,18 @@ def kwargs(locals, include_self=False, ignore=()):
     return locals
 
 
+class _DataType(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
+
+
+INVALID = _DataType('data/invalid')
+VALID = _DataType('data/valid')
+
+
 class Struct(object):
     """
 Base class for all custom structs.
@@ -44,7 +55,7 @@ See the struct documentation at documentation/Structs.ipynb
     def __init__(self, **kwargs):
         assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
         assert self.__initialized_class__ == self.__class__, "Instancing %s before struct class is initialized. Maybe you forgot to decorate the class with @struct.definition()" % self.__class__.__name__
-        self.__content_type__ = False  # False for unvalidated data, True for valid data, Item for property, string for custom
+        self.__content_type__ = INVALID  # VALID, INVALID, Item for property, string for custom
         for item in self.__items__:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
@@ -61,17 +72,15 @@ Shapes of sub-structs are obtained using `struct.shape` while shapes of non-stru
 To override the shape of items, use Item.override instead of overriding this method.
         :return: Invalid struct holding shapes instead of data
         """
-        def get_shape(_self, obj):
-            if isinstance(obj, Struct):
-                return Struct.shape(obj)
-            elif isstruct(obj):
-                return np.array(obj).shape
-            else:
-                try:
-                    return math.shape(obj)
-                except NoBackendFound:
-                    return ()
-        return _map_to_property(self, Struct.dtype, get_shape)
+        def get_shape(obj):
+            try:
+                return math.shape(obj)
+            except NoBackendFound:
+                return ()
+        assert isinstance(self.__content_type__, _DataType), "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
+        from .functions import map
+        with unsafe():
+            return map(get_shape, self, override=Struct.shape, change_type=Struct.shape)
 
     @derived()
     def staticshape(self):
@@ -81,17 +90,15 @@ Shapes of sub-structs are obtained using `struct.staticshape` while shapes of no
 To override the staticshape of items, use Item.override instead of overriding this method.
         :return: Struct of same type holding shapes instead of data
         """
-        def get_staticshape(_self, obj):
-            if isinstance(obj, Struct):
-                return Struct.staticshape(obj)
-            elif isstruct(obj):
-                return np.array(obj).shape
-            else:
-                try:
-                    return math.staticshape(obj)
-                except NoBackendFound:
-                    return ()
-        return _map_to_property(self, Struct.dtype, get_staticshape)
+        def get_staticshape(obj):
+            try:
+                return math.staticshape(obj)
+            except NoBackendFound:
+                return ()
+        assert isinstance(self.__content_type__, _DataType), "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
+        from .functions import map
+        with unsafe():
+            return map(get_staticshape, self, override=Struct.staticshape, change_type=Struct.staticshape)
 
     @derived()
     def dtype(self):
@@ -101,15 +108,15 @@ Shapes of sub-structs are obtained using `struct.dtype` while shapes of non-stru
 To override the dtype of items, use Item.override instead of overriding this method.
         :return: Struct of same type holding data types instead of data
         """
-        def get_dtype(_self, obj):
-            if isinstance(obj, Struct):
-                return obj.dtype
-            else:
-                try:
-                    return math.dtype(obj)
-                except NoBackendFound:
-                    return type(obj)
-        return _map_to_property(self, Struct.dtype, get_dtype)
+        def get_dtype(obj):
+            try:
+                return math.dtype(obj)
+            except NoBackendFound:
+                return type(obj)
+        assert isinstance(self.__content_type__, _DataType), "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
+        from .functions import map
+        with unsafe():
+            return map(get_dtype, self, override=Struct.dtype, change_type=Struct.dtype)
 
     def copied_with(self, **kwargs):
         """
@@ -140,8 +147,14 @@ Structs are always valid unless otherwise specified.
 A user need only invoke this method when explicitly dealing with invalid structs.
         """
         if not skip_validate():
-            assert isinstance(self.__content_type__, bool), "Trying to validate '%s' but content type is '%s'" % (type(self).__name__, self.__content_type__)
-            self.__validate__()
+            if isinstance(self.__content_type__, _DataType):
+                self.__validate__()
+            else:
+                try:
+                    self.__validate__()
+                    self.__content_type__ = VALID
+                except BaseException as exc:
+                    raise AssertionError(exc, "Trying to validate '%s' but content type is '%s'" % (type(self).__name__, self.__content_type__))
 
     def __validate__(self):
         for trait in self.__traits__:
@@ -153,7 +166,7 @@ A user need only invoke this method when explicitly dealing with invalid structs
 
     @property
     def is_valid(self):
-        return self.__content_type__ is True
+        return self.__content_type__ is VALID
 
     def __to_dict__(self, item_condition):
         if item_condition is not None:
@@ -169,13 +182,6 @@ A user need only invoke this method when explicitly dealing with invalid structs
         result['type'] = str(self.__class__.__name__)
         result['module'] = str(self.__class__.__module__)
         return result
-
-    def _copy_with_type(self, new_content_type, assert_is_data=True):
-        if assert_is_data is not None:
-            assert isinstance(self.__content_type__, bool), "%s can only be accessed on data structs but '%s' has content type '%s'" % (new_content_type, type(self).__name__, self.__content_type__)
-        duplicate = copy(self)
-        duplicate.__content_type__ = new_content_type
-        return duplicate
 
     def __eq__(self, other):
         if type(self) != type(other):  # pylint: disable-msg = unidiomatic-typecheck
@@ -198,17 +204,13 @@ A user need only invoke this method when explicitly dealing with invalid structs
         return hash_value
 
 
-S = TypeVar('S', bound=Struct)
-
-
 def to_dict(struct, item_condition=None):
+    if item_condition is None:
+        item_condition = context_item_condition
     if isinstance(struct, Struct):
         return struct.__to_dict__(item_condition)
     if isinstance(struct, (list, tuple, np.ndarray)):
-        if item_condition is None:
-            return {i: struct[i] for i in range(len(struct))}
-        else:
-            return {i: struct[i] for i in range(len(struct)) if item_condition(Item(name=i, validation_function=None, is_variable=True, default_value=None, dependencies=(), holds_data=True))}
+        return {i: struct[i] for i in range(len(struct)) if item_condition(Item(name=i, validation_function=None, is_variable=True, default_value=None, dependencies=(), holds_data=True))}
     if isinstance(struct, dict):
         return struct
     raise ValueError("Not a struct: %s" % struct)
@@ -243,9 +245,12 @@ def properties_dict(struct):
         return {'type': str(struct.__class__.__name__), 'module': str(struct.__class__.__module__)}
 
 
-def copy_with(struct, new_values_dict):
+def copy_with(struct, new_values_dict, change_type=None):
     if isinstance(struct, Struct):
-        return struct.copied_with(**new_values_dict)
+        duplicate = struct.copied_with(**new_values_dict)
+        if change_type is not None:
+            duplicate.__content_type__ = change_type
+        return duplicate
     if isinstance(struct, tuple):
         duplicate = list(struct)
         for key, value in new_values_dict.items():
@@ -265,7 +270,10 @@ def copy_with(struct, new_values_dict):
         duplicate = dict(struct)
         for key, value in new_values_dict.items():
             duplicate[key] = value
-        return duplicate
+        if type(struct) is dict:
+            return duplicate
+        else:
+            return type(struct)(duplicate)
     raise ValueError("Not a struct: %s" % struct)
 
 
@@ -297,16 +305,3 @@ def equal(obj1, obj2):
                 return False
     return True
 
-
-def _map_to_property(struct, prop, default_getter):
-    # type: (S, object, function) -> S
-    duplicate = struct._copy_with_type(prop)
-    for item in duplicate.__items__:
-        if context_item_condition(item):
-            obj = item.get(duplicate)
-            if item.has_override(prop):
-                value = item.get_override(prop)(duplicate, obj)
-            else:
-                value = default_getter(duplicate, obj)
-            item.set(duplicate, value)
-    return duplicate

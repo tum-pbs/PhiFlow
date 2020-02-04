@@ -124,7 +124,7 @@ class CollectivePhysics(Physics):
         assert len(dependent_states) == 0
         if len(state_collection) == 0:
             return state_collection
-        unhandled_states = list(state_collection.states.values())
+        unhandled_states = list(state_collection.values())
         next_states = {}
         partial_next_state_collection = StateCollection(next_states)
 
@@ -138,7 +138,7 @@ class CollectivePhysics(Physics):
                     unhandled_states.remove(state)
             partial_next_state_collection = StateCollection(next_states)
             if len(unhandled_states) == 0:
-                ordered_states = [partial_next_state_collection[state] for state in state_collection.states]
+                ordered_states = [partial_next_state_collection[state] for state in state_collection]
                 return StateCollection(ordered_states)
 
         # Error
