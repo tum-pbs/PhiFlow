@@ -23,16 +23,16 @@ def _tf_name(trace, basename):
         return basename + '/' + trace.path('/')
 
 
-def placeholder(shape, dtype=np.float32, basename=None, item_condition=struct.VARIABLES):
+def placeholder(shape, dtype=np.float32, basename=None):
     if struct.isstruct(dtype):
         def placeholder_map(trace):
             shape, dtype = trace.value
             return tf.placeholder(dtype, shape, _tf_name(trace, basename))
-        zipped = struct.zip([shape, dtype], leaf_condition=is_static_shape, item_condition=item_condition)
-        return struct.map(placeholder_map, zipped, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
+        zipped = struct.zip([shape, dtype], leaf_condition=is_static_shape)
+        return struct.map(placeholder_map, zipped, leaf_condition=is_static_shape, trace=True)
     else:
         def f(trace): return tf.placeholder(dtype, trace.value, _tf_name(trace, basename))
-        return struct.map(f, shape, leaf_condition=is_static_shape, trace=True, item_condition=item_condition)
+        return struct.map(f, shape, leaf_condition=is_static_shape, trace=True)
 
 
 def placeholder_like(obj, basename=None):
@@ -43,9 +43,9 @@ def placeholder_like(obj, basename=None):
     return struct.map(f, obj, leaf_condition=is_static_shape, trace=True)
 
 
-def variable(initial_value, dtype=np.float32, basename=None, trainable=True, item_condition=struct.VARIABLES):
+def variable(initial_value, dtype=np.float32, basename=None, trainable=True):
     def f(attr): return tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=dtype, trainable=trainable)
-    return struct.map(f, initial_value, trace=True, item_condition=item_condition)
+    return struct.map(f, initial_value, trace=True)
 
 
 def variable_generator(initializer, dtype=np.float32, basename=None, trainable=True):

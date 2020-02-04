@@ -1,7 +1,22 @@
+import warnings
+
 import six
 from phi.struct.context import skip_validate
+from phi.struct.structdef import Item
 
 from .physics import Physics, State, struct
+
+
+class DictItem(Item):
+
+    def set(self, struct, value):
+        try:
+            setattr(struct, '_' + self.name, value)
+        except AttributeError:
+            raise AttributeError("can't modify struct %s because item %s cannot be set." % (struct, self))
+
+    def get(self, struct):
+        return getattr(struct, '_' + self.name)
 
 
 @struct.definition()
@@ -18,6 +33,14 @@ class StateCollection(struct.Struct):
             return {state.name: state for state in states}
         assert isinstance(states, dict)
         return states.copy()
+
+    @property
+    def __items__(self):
+        return
+
+    def __validate__(self):
+        StateCollection.states.validate(self)
+        self.__items__ = [Item(name, lambda x: x, True, None, (), True) for name, state in self.states.items()]
 
     def all_with_tag(self, tag):
         return [s for s in self.states.values() if tag in s.tags]
@@ -60,14 +83,15 @@ class StateCollection(struct.Struct):
             pass
         raise ValueError('Illegal argument: %s' % item)
 
-    def __getattr__(self, item):
-        if item.startswith('_'):
-            return struct.Struct.__getattribute__(self, item)
-        if item in self.states:
-            return self.states[item]
-        return struct.Struct.__getattribute__(self, item)
+    # def __getattr__(self, item):
+    #     if item.startswith('_'):
+    #         return struct.Struct.__getattribute__(self, item)
+    #     if item in self.states:
+    #         return self.states[item]
+    #     return struct.Struct.__getattribute__(self, item)
 
     def default_physics(self):
+        warnings.warn("StateCollection will be removed in the future.", DeprecationWarning)
         return CollectivePhysics()
 
     def __repr__(self):

@@ -1,11 +1,12 @@
 # pylint: disable-msg = redefined-outer-name  # kwargs should be accessed as struct.kwargs
 import json
 from copy import copy
+from typing import TypeVar
 
 import numpy as np
 import six
 
-from ..backend.dynamic_backend import DYNAMIC_BACKEND as math
+from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
 from .context import skip_validate
 from .item_condition import context_item_condition, VARIABLES, CONSTANTS
 from .structdef import Item, derived
@@ -43,6 +44,7 @@ See the struct documentation at documentation/Structs.ipynb
     def __init__(self, **kwargs):
         assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
         assert self.__initialized_class__ == self.__class__, "Instancing %s before struct class is initialized. Maybe you forgot to decorate the class with @struct.definition()" % self.__class__.__name__
+        self.__content_type__ = False  # False for unvalidated data, True for valid data, Item for property, string for custom
         for item in self.__items__:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
@@ -54,40 +56,60 @@ See the struct documentation at documentation/Structs.ipynb
     @derived()
     def shape(self):
         """
-Maps all DATA values to their respective dynamic shapes.
-Shapes of sub-structs are obtained using struct.shape while shapes of non-structs are obtained using math.shape().
-Struct subclasses can override this method e.g. to specify unknown dimensions (although the current data has a known dimension).
+Retrieves the dynamic shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+Shapes of sub-structs are obtained using `struct.shape` while shapes of non-structs are obtained using `math.shape()`.
+To override the shape of items, use Item.override instead of overriding this method.
         :return: Invalid struct holding shapes instead of data
         """
-        duplicate = copy(self)
-        for item in duplicate.__items__:
-            if context_item_condition(item):
-                obj = item.get(duplicate)
-                if item.has_override(Struct.shape):
-                    shape = item.get_override(Struct.shape)(duplicate, obj)
-                else:
-                    shape = Struct.shape(obj) if isstruct(obj) else math.shape(obj)
-                item.set(duplicate, shape)
-        return duplicate
+        def get_shape(_self, obj):
+            if isinstance(obj, Struct):
+                return Struct.shape(obj)
+            elif isstruct(obj):
+                return np.array(obj).shape
+            else:
+                try:
+                    return math.shape(obj)
+                except NoBackendFound:
+                    return ()
+        return _map_to_property(self, Struct.dtype, get_shape)
 
     @derived()
     def staticshape(self):
         """
-Maps all DATA values to their respective static shapes.
-Shapes of sub-structs are obtained using struct.staticshape while shapes of non-structs are obtained using math.staticshape().
-Struct subclasses can override this method e.g. to specify unknown dimensions (although the current data has a known dimension).
-        :return: Invalid struct holding shapes instead of data
+Retrieves the static shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+Shapes of sub-structs are obtained using `struct.staticshape` while shapes of non-structs are obtained using `math.staticshape()`.
+To override the staticshape of items, use Item.override instead of overriding this method.
+        :return: Struct of same type holding shapes instead of data
         """
-        duplicate = copy(self)
-        for item in duplicate.__items__:
-            if context_item_condition(item):
-                obj = item.get(duplicate)
-                if item.has_override(Struct.staticshape):
-                    shape = item.get_override(Struct.staticshape)(duplicate, obj)
-                else:
-                    shape = Struct.staticshape(obj) if isstruct(obj) else math.staticshape(obj)
-                item.set(duplicate, shape)
-        return duplicate
+        def get_staticshape(_self, obj):
+            if isinstance(obj, Struct):
+                return Struct.staticshape(obj)
+            elif isstruct(obj):
+                return np.array(obj).shape
+            else:
+                try:
+                    return math.staticshape(obj)
+                except NoBackendFound:
+                    return ()
+        return _map_to_property(self, Struct.dtype, get_staticshape)
+
+    @derived()
+    def dtype(self):
+        """
+Retrieves the data types of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+Shapes of sub-structs are obtained using `struct.dtype` while shapes of non-structs are obtained using `math.dtype()`.
+To override the dtype of items, use Item.override instead of overriding this method.
+        :return: Struct of same type holding data types instead of data
+        """
+        def get_dtype(_self, obj):
+            if isinstance(obj, Struct):
+                return obj.dtype
+            else:
+                try:
+                    return math.dtype(obj)
+                except NoBackendFound:
+                    return type(obj)
+        return _map_to_property(self, Struct.dtype, get_dtype)
 
     def copied_with(self, **kwargs):
         """
@@ -118,6 +140,7 @@ Structs are always valid unless otherwise specified.
 A user need only invoke this method when explicitly dealing with invalid structs.
         """
         if not skip_validate():
+            assert isinstance(self.__content_type__, bool), "Trying to validate '%s' but content type is '%s'" % (type(self).__name__, self.__content_type__)
             self.__validate__()
 
     def __validate__(self):
@@ -127,6 +150,10 @@ A user need only invoke this method when explicitly dealing with invalid structs
             item.validate(self)
         for trait in self.__traits__:
             trait.post_validate_struct(self)
+
+    @property
+    def is_valid(self):
+        return self.__content_type__ is True
 
     def __to_dict__(self, item_condition):
         if item_condition is not None:
@@ -142,6 +169,13 @@ A user need only invoke this method when explicitly dealing with invalid structs
         result['type'] = str(self.__class__.__name__)
         result['module'] = str(self.__class__.__module__)
         return result
+
+    def _copy_with_type(self, new_content_type, assert_is_data=True):
+        if assert_is_data is not None:
+            assert isinstance(self.__content_type__, bool), "%s can only be accessed on data structs but '%s' has content type '%s'" % (new_content_type, type(self).__name__, self.__content_type__)
+        duplicate = copy(self)
+        duplicate.__content_type__ = new_content_type
+        return duplicate
 
     def __eq__(self, other):
         if type(self) != type(other):  # pylint: disable-msg = unidiomatic-typecheck
@@ -162,6 +196,9 @@ A user need only invoke this method when explicitly dealing with invalid structs
             except TypeError:  # unhashable type
                 pass
         return hash_value
+
+
+S = TypeVar('S', bound=Struct)
 
 
 def to_dict(struct, item_condition=None):
@@ -259,3 +296,17 @@ def equal(obj1, obj2):
             if obj1 is not obj2:
                 return False
     return True
+
+
+def _map_to_property(struct, prop, default_getter):
+    # type: (S, object, function) -> S
+    duplicate = struct._copy_with_type(prop)
+    for item in duplicate.__items__:
+        if context_item_condition(item):
+            obj = item.get(duplicate)
+            if item.has_override(prop):
+                value = item.get_override(prop)(duplicate, obj)
+            else:
+                value = default_getter(duplicate, obj)
+            item.set(duplicate, value)
+    return duplicate
