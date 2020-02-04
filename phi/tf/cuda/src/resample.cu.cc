@@ -14,16 +14,7 @@ namespace tensorflow {
 typedef Eigen::GpuDevice GPUDevice;
 
 
-static void HandleError( cudaError_t err,
-                         const char *file,
-                         int line ) {
-    if (err != cudaSuccess) {
-        printf( "%s in %s at line %d\n", cudaGetErrorString( err ),
-                file, line );
-        exit( EXIT_FAILURE );
-    }
-}
-#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
+
 
 
 // Define the CUDA kernel.
@@ -53,7 +44,7 @@ void ResampleCudaKernel(
 		int n = pow2(dims);
 		for (int j = 0; j < n; j++) {
 			//unsigned int q[dims];
-			T* q = (T*) malloc(dims * sizeof(unsigned int));
+			T* q = (T*) malloc(dims * sizeof(T));
 			T weight = (T) 1.0;
 			for (int dim = 0; dim < dims; dim++){
 				if (checkBit(j, dim)) {
@@ -125,7 +116,7 @@ void Resample1DCudaKernel(
 	const Boundary* __restrict__ boundaries
 ) {
 	//printf("batch: %ld, outputElementsPerBatch: %ld, outputSize: %ld\n", batch, outputElementsPerBatch, outputSize);
-	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch / components + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		//printf("pointsIndex: %d\n", getPointsIndex(i, 0, 1, pointsSize, batch, outputElementsPerBatch));
 		T x = ldg(points + getPointsIndex(i, 0, 1, pointsSize)); // / xSize;
 		T px = floor(x);
@@ -151,7 +142,7 @@ void Resample2DCudaKernel (
 	T* __restrict__ output,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch /components + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch / components + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		T x = ldg(points + getPointsIndex(i, 1, 2, pointsSize));// / xSize;
 		T y = ldg(points + getPointsIndex(i, 0, 2, pointsSize));// / ySize;
 		T px = floor(x);
@@ -184,7 +175,7 @@ void Resample3DCudaKernel (
 	T* __restrict__ output,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch / components + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		T x = ldg(points + getPointsIndex(i, 2, 3, pointsSize));// / xSize;
 		T y = ldg(points + getPointsIndex(i, 1, 3, pointsSize));// / ySize;
 		T z = ldg(points + getPointsIndex(i, 0, 3, pointsSize));// / zSize;
