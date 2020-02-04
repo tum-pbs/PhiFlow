@@ -285,7 +285,7 @@ def fourier_laplace(tensor):
     frequencies = math.fft(math.to_complex(tensor))
     k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
     fft_laplace = -(2 * np.pi)**2 * k
-    return math.ifft(frequencies * fft_laplace)
+    return math.real(math.ifft(frequencies * fft_laplace))
 
 
 def fftfreq(resolution, mode='vector', dtype=np.float32):
