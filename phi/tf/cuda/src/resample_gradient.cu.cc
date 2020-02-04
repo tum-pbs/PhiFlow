@@ -16,7 +16,7 @@ namespace tensorflow {
 typedef Eigen::GpuDevice GPUDevice;
 
 
-static void HandleError( cudaError_t err,
+/*static void HandleError( cudaError_t err,
                          const char *file,
                          int line ) {
     if (err != cudaSuccess) {
@@ -25,7 +25,7 @@ static void HandleError( cudaError_t err,
         exit( EXIT_FAILURE );
     }
 }
-#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
+#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))*/
 
 
 /*template<typename T>
@@ -68,10 +68,10 @@ void ResampleGradientCudaKernel(
 		}
 		int n = pow2(dims);
 		for (int j = 0; j < n; j++) {
-			T* q = (T*) malloc(dims * sizeof(unsigned int));
+			T* q = (T*) malloc(dims * sizeof(T));
 			T* weights = (T*) malloc((dims + 1) * sizeof(T));
-			for (int l = 0; l < dims + 1; l++){
-				weights[l] = 1;
+			for (int dim = 0; dim <= dims; dim++){
+				weights[dim] = 1;
 			}
 			for (int dim = 0; dim < dims; dim++){
 				T weight = 1;
@@ -128,7 +128,7 @@ void ResampleGradient1DCudaKernel(
 	T* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch / components + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
 		T x = ldg(points + getPointsIndex(i, 0, 1, pointsSize));
 		T pa = floor(x);
@@ -185,7 +185,7 @@ void ResampleGradient2DCudaKernel (
 	T* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch /components + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch / components + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
 		unsigned int dimSizes[2] = {ySize, xSize};
 
@@ -276,7 +276,7 @@ void ResampleGradient3DCudaKernel (
 	T* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ) {
-	for (unsigned int i = batch * outputElementsPerBatch + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
+	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < batch * outputElementsPerBatch /components + outputElementsPerBatch / components; i += blockDim.x * gridDim.x){
 		unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
 		unsigned int dimSizes[3] = {zSize, ySize, xSize};
 
