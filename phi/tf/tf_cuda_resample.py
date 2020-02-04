@@ -53,6 +53,7 @@ def resample_cuda(inputs, sample_coords, boundary):
     REPLICATE = 1
     CIRCULAR = 2
     SYMMETRIC = 3
+    REFLECT = 4
     shape = inputs.shape
     dims = len(shape) - 2
     boundary_array = np.zeros((dims, 2), np.uint32)
@@ -67,6 +68,8 @@ def resample_cuda(inputs, sample_coords, boundary):
                 boundary_array[i, j] = CIRCULAR
             elif current_boundary == 'symmetric':
                 boundary_array[i, j] = SYMMETRIC
+            elif current_boundary == 'reflect':
+                boundary_array[i, j] = REFLECT
 
     return resample_op.resample(inputs, sample_coords, boundary_array)
 
