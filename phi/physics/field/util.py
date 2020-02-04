@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 from numpy import pi
-from phi import math
+from phi import math, struct
 from phi.geom import AABox
 from phi.physics.field import StaggeredGrid
 from .field import StaggeredSamplePoints
@@ -10,7 +10,9 @@ from .grid import CenteredGrid
 
 
 def diffuse(field, amount, substeps=1):
-    assert isinstance(field, CenteredGrid)
+    if isinstance(field, StaggeredGrid):
+        return struct.map(lambda grid: diffuse(grid, amount, substeps=substeps), field, leaf_condition=lambda x: isinstance(x, CenteredGrid))
+    assert isinstance(field, CenteredGrid), "Cannot diffuse type '%s'" % type(field)
     if field.extrapolation == 'periodic':
         frequencies = math.fft(field.data)
         k = math.fftfreq(field.resolution) / field.dx
