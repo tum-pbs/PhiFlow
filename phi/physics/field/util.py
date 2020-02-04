@@ -1,19 +1,33 @@
+# coding=utf-8
 import itertools
 
 import numpy as np
 from numpy import pi
 from phi import math, struct
 from phi.geom import AABox
-from phi.physics.field import StaggeredGrid
-from .field import StaggeredSamplePoints
+from phi.physics.field import StaggeredGrid, ConstantField
+from .field import StaggeredSamplePoints, Field
 from .grid import CenteredGrid
 
 
 def diffuse(field, amount, substeps=1):
+    u"""
+Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` F with diffusion coefficient α.
+
+If `field` is periodic (set via `extrapolation='periodic'`), diffusion may be simulated in Fourier space.
+Otherwise, finite differencing is used to approximate the
+    :param field: CenteredGrid, StaggeredGrid or ConstantField
+    :param amount: number of Field, typically α · dt
+    :param substeps: number of iterations to use
+    :return: Field of same type as `field`
+    :rtype: Field
+    """
+    if isinstance(field, ConstantField):
+        return field
     if isinstance(field, StaggeredGrid):
         return struct.map(lambda grid: diffuse(grid, amount, substeps=substeps), field, leaf_condition=lambda x: isinstance(x, CenteredGrid))
-    assert isinstance(field, CenteredGrid), "Cannot diffuse type '%s'" % type(field)
-    if field.extrapolation == 'periodic':
+    assert isinstance(field, CenteredGrid), "Cannot diffuse field of type '%s'" % type(field)
+    if field.extrapolation == 'periodic' and not isinstance(amount, Field):
         frequencies = math.fft(field.data)
         k = math.fftfreq(field.resolution) / field.dx
         k = math.sum(k ** 2, axis=-1, keepdims=True)
@@ -22,6 +36,8 @@ def diffuse(field, amount, substeps=1):
         data = math.ifft(frequencies * diffuse_kernel)
         data = math.real(data)
     else:
+        if isinstance(amount, Field):
+            amount = amount.at(field).data
         data = field.data
         for i in range(substeps):
             data += amount / substeps * field.laplace().data
