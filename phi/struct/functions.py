@@ -4,7 +4,7 @@ import six
 
 from .context import _unsafe
 from .item_condition import ALL_ITEMS, context_item_condition
-from .struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID
+from .struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID, items
 
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=None):
@@ -132,32 +132,20 @@ Preserves the hierarchical structure of struct, returning an object of the same 
             return function(trace)
     else:
         new_values = {}
-        if isinstance(struct, Struct):
-            with _unsafe():
-                duplicate = copy_with(struct, {}, change_type=content_type)
-            for item in duplicate.__items__:
-                if item_condition(item):
-                    old_value = item.get(duplicate)
-                    if item.has_override(override):
-                        new_value = item.get_override(override)(duplicate, old_value)
-                    else:
-                        new_value = map(function, old_value, leaf_condition, recursive,
-                                        Trace(old_value, item.name, trace) if trace is not False else False,
-                                        item_condition,
-                                        override,
-                                        content_type)
-                    new_values[item.name] = new_value
-        else:
-            # --- dict, list, tuple, array ---
-            old_values = to_dict(struct, item_condition=item_condition)
-            if not recursive:
-                leaf_condition = lambda x: True
-            for key, value in old_values.items():
-                new_values[key] = map(function, value, leaf_condition, recursive,
-                                      Trace(value, key, trace) if trace is not False else False,
-                                      item_condition,
-                                      override,
-                                      content_type)
+        if not recursive:
+            def leaf_condition(_): return True
+        for item in items(struct):
+            if item_condition(item):
+                old_value = item.get(struct)
+                if item.has_override(override):
+                    new_value = item.get_override(override)(struct, old_value)
+                else:
+                    new_value = map(function, old_value, leaf_condition, recursive,
+                                    Trace(old_value, item.name, trace) if trace is not False else False,
+                                    item_condition,
+                                    override,
+                                    content_type)
+                new_values[item.name] = new_value
         return copy_with(struct, new_values, change_type=content_type)
 
 

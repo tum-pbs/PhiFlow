@@ -8,7 +8,7 @@ import six
 from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
 from .context import skip_validate, unsafe
 from .item_condition import context_item_condition, VARIABLES, CONSTANTS
-from .structdef import Item, derived
+from .structdef import Item, derived, _IndexItem
 
 
 def kwargs(locals, include_self=False, ignore=()):
@@ -228,6 +228,16 @@ def to_dict(struct, item_condition=None):
     if isinstance(struct, dict):
         return struct
     raise ValueError("Not a struct: %s" % struct)
+
+
+def items(struct):
+    if isinstance(struct, Struct):
+        return struct.__items__
+    if isinstance(struct, (list, tuple, np.ndarray)):
+        return [_IndexItem(i) for i in range(len(struct))]
+    if isinstance(struct, dict):
+        return [_IndexItem(key) for key in struct.keys()]
+    raise ValueError("Not a struct: '%s'" % struct)
 
 
 def variables(struct):

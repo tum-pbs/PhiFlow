@@ -206,6 +206,19 @@ Example: to override the shape of an item, put the following just below its decl
         return self.name
 
 
+class _IndexItem(Item):
+
+    def __init__(self, index, is_variable=True, holds_data=True):
+        Item.__init__(self, name=index, validation_function=None, is_variable=is_variable, default_value=None, dependencies=(), holds_data=holds_data)
+        self.index = index
+
+    def get(self, struct):
+        return struct[self.index]
+
+    def set(self, struct, value):
+        struct[self.index] = value
+
+
 class DerivedProperty(object):
 
     def __init__(self, name, getter):
