@@ -2,6 +2,7 @@ from unittest import TestCase
 
 import numpy
 
+from phi import math
 from phi.geom import box
 from phi.physics.collective import StateCollection
 from phi.physics.domain import Domain
@@ -90,9 +91,24 @@ class TestStruct(TestCase):
 
     def test_mappable(self):
         x = [0]
+
         @mappable(item_condition=VARIABLES)
         def act_on_variables(x): return x + 1
+
         @mappable(item_condition=CONSTANTS)
         def act_on_constants(x): return x + 1
+
         self.assertEqual([1], act_on_variables(x))
         self.assertEqual([0], act_on_constants(x))
+
+    def test_content_types(self):
+        dom = Domain([4])
+        assert dom.is_valid
+        # --- CenteredGrid ---
+        assert dom.centered_shape().content_type is struct.Struct.shape
+        assert dom.centered_grid(math.zeros).content_type is struct.VALID
+        # --- StaggeredGrid ---
+        assert dom.staggered_shape().content_type is struct.Struct.shape
+        assert dom.staggered_shape().x.content_type is struct.Struct.shape
+        assert dom.staggered_grid(math.zeros).content_type is struct.VALID
+        assert dom.staggered_grid(math.zeros).x.content_type is struct.VALID

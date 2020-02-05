@@ -112,7 +112,7 @@ class Domain(struct.Struct):
         warnings.warn("Domain.centered_shape and Domain.centered_grid are deprecated. Use CenteredGrid.sample() instead.", DeprecationWarning)
         with struct.unsafe():
             from phi.physics.field import CenteredGrid
-            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size, flags=())
+            return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size, flags=(), content_type=struct.Struct.shape)
 
     def staggered_shape(self, batch_size=1, name=None, extrapolation=None, age=0.0):
         with struct.unsafe():
@@ -122,10 +122,10 @@ class Domain(struct.Struct):
                 from phi.physics.field.staggered_grid import staggered_component_box
                 box = staggered_component_box(self.resolution, axis, self.box)
                 from phi.physics.field import CenteredGrid
-                grid = CenteredGrid(shape, box, age=age, extrapolation=extrapolation, name=None, batch_size=batch_size, flags=())
+                grid = CenteredGrid(shape, box, age=age, extrapolation=extrapolation, name=None, batch_size=batch_size, flags=(), content_type=struct.Struct.shape)
                 grids.append(grid)
             from phi.physics.field import StaggeredGrid
-            return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation, flags=())
+            return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation, flags=(), content_type=struct.Struct.shape)
 
     def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
         warnings.warn("Domain.centered_shape and Domain.centered_grid are deprecated. Use CenteredGrid.sample() instead.", DeprecationWarning)
