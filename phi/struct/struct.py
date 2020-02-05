@@ -52,17 +52,18 @@ See the struct documentation at documentation/Structs.ipynb
     __traits__ = None
     __initialized_class__ = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, content_type=VALID, **kwargs):
         assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
         assert self.__initialized_class__ == self.__class__, "Instancing %s before struct class is initialized. Maybe you forgot to decorate the class with @struct.definition()" % self.__class__.__name__
-        self.__content_type__ = INVALID  # VALID, INVALID, Item for property, string for custom
+        self.__content_type__ = INVALID if content_type is VALID else content_type  # VALID, INVALID, Item for property, string for custom
         for item in self.__items__:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
         self._set_items(**kwargs)
         for trait in self.__traits__:
             trait.endow(self)
-        self.validate()
+        if content_type is VALID:
+            self.validate()
 
     @derived()
     def shape(self):
@@ -129,8 +130,6 @@ The returned struct will be validated unless this struct is not valid or the con
         """
         duplicate = copy(self)
         duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
-        if duplicate.is_valid and len(kwargs) > 0:
-            duplicate.__content_type__ = INVALID
         target_type = change_type if change_type is not None else self.__content_type__
         if target_type is VALID and not duplicate.is_valid:
             duplicate.__content_type__ = INVALID
@@ -140,13 +139,16 @@ The returned struct will be validated unless this struct is not valid or the con
         return duplicate
 
     def _set_items(self, **kwargs):
+        if len(kwargs) == 0:
+            return
+        if self.is_valid:
+            self.__content_type__ = INVALID
         for name, value in kwargs.items():
             try:
                 item = getattr(self.__class__, name)
             except (KeyError, TypeError):
                 raise TypeError('Struct %s has no property %s' % (self, name))
             item.set(self, value)
-        return self
 
     def validate(self):
         """
