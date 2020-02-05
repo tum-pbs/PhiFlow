@@ -1,8 +1,10 @@
+import warnings
+
 import six
 
-from .context import unsafe
+from .context import _unsafe
 from .item_condition import ALL_ITEMS, context_item_condition
-from .struct import copy_with, equal, isstruct, to_dict, Struct
+from .struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID
 
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=None):
@@ -18,8 +20,7 @@ Generates a list of all leaves by recursively iterating over the given struct.
         result.append(value)
         return value
     result = []
-    with unsafe():
-        map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition)
+    map(map_leaf, struct, leaf_condition, recursive=True, trace=trace, item_condition=item_condition, content_type=INVALID)
     return result
 
 
@@ -29,8 +30,7 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
             return trace.name if basename is None else basename + separator + trace.name
         else:
             return trace.path(separator) if basename is None else basename + separator + trace.path(separator)
-    with unsafe():
-        return map(to_name, struct, leaf_condition, recursive=True, trace=True)
+    return map(to_name, struct, leaf_condition, recursive=True, trace=True, content_type=names)
 
 
 def zip(structs, leaf_condition=None, item_condition=None, zip_parents_if_incompatible=False):
@@ -72,8 +72,7 @@ Example `struct.map(lambda x, y: x+y, struct.zip([{0: 'Hello'}, {0: ' World'}]))
         values = [d[key] for d in dicts]
         values = zip(values, leaf_condition, item_condition=item_condition, zip_parents_if_incompatible=zip_parents_if_incompatible)
         new_dict[key] = values
-    with unsafe():
-        return copy_with(first, new_dict)
+    return copy_with(first, new_dict, change_type=LeafZip)
 
 
 class LeafZip(object):
@@ -102,7 +101,7 @@ Thrown when two or more structs are required to have the same structure but do n
         Exception.__init__(self, *args)
 
 
-def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None, override=None, change_type=None):
+def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None, override=None, content_type=None):
     """
 Iterates over all items of the struct and maps their values according to the specified function.
 Preserves the hierarchical structure of struct, returning an object of the same type and leaving struct untouched.
@@ -113,7 +112,7 @@ Preserves the hierarchical structure of struct, returning an object of the same 
     :param trace: If True, passes a Trace object to function instead of the value. Traces contain additional information.
     :param item_condition: (optional) ItemCondition or boolean function that filters which Items are iterated over. Excluded items are left untouched. If None, the context item condition is used (data-holding items by default).
     :param override: (optional) Key to look up Item-specific override functions. Override functions are called with the containing struct as first argument, followed by the usual arguments.
-    :param change_type: (optional) Type key to use for new Structs. Set to True
+    :param content_type: (optional) Type key to use for new Structs. Defaults to VALID.
     :return: object of the same type and hierarchy as struct
     """
     # pylint: disable-msg = redefined-builtin
@@ -121,6 +120,8 @@ Preserves the hierarchical structure of struct, returning an object of the same 
         trace = Trace(struct, None, None)
     if item_condition is None:
         item_condition = context_item_condition
+    if content_type is None:
+        content_type = VALID
     if not isstruct(struct, leaf_condition):
         if trace is False:
             if isinstance(struct, LeafZip):
@@ -130,8 +131,10 @@ Preserves the hierarchical structure of struct, returning an object of the same 
         else:
             return function(trace)
     else:
+        new_values = {}
         if isinstance(struct, Struct):
-            with unsafe(): duplicate = copy_with(struct, {}, change_type=change_type)
+            with _unsafe():
+                duplicate = copy_with(struct, {}, change_type=content_type)
             for item in duplicate.__items__:
                 if item_condition(item):
                     old_value = item.get(duplicate)
@@ -139,17 +142,14 @@ Preserves the hierarchical structure of struct, returning an object of the same 
                         new_value = item.get_override(override)(duplicate, old_value)
                     else:
                         new_value = map(function, old_value, leaf_condition, recursive,
-                                      Trace(old_value, item.name, trace) if trace is not False else False,
-                                      item_condition,
-                                      override,
-                                      change_type)
-                    item.set(duplicate, new_value)
-            duplicate.validate()
-            return duplicate
+                                        Trace(old_value, item.name, trace) if trace is not False else False,
+                                        item_condition,
+                                        override,
+                                        content_type)
+                    new_values[item.name] = new_value
         else:
             # --- dict, list, tuple, array ---
             old_values = to_dict(struct, item_condition=item_condition)
-            new_values = {}
             if not recursive:
                 leaf_condition = lambda x: True
             for key, value in old_values.items():
@@ -157,8 +157,8 @@ Preserves the hierarchical structure of struct, returning an object of the same 
                                       Trace(value, key, trace) if trace is not False else False,
                                       item_condition,
                                       override,
-                                      change_type)
-            return copy_with(struct, new_values, change_type=change_type)
+                                      content_type)
+        return copy_with(struct, new_values, change_type=content_type)
 
 
 class Trace(object):
@@ -211,8 +211,7 @@ def compare(structs, leaf_condition=None, recursive=True, item_condition=ALL_ITE
                     result.add(trace)
             except (ValueError, KeyError, TypeError):
                 result.add(trace)
-    with unsafe():
-        map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, item_condition=item_condition)
+    map(check, structs[0], leaf_condition=leaf_condition, recursive=recursive, trace=True, item_condition=item_condition, content_type=INVALID)
     return result
 
 
@@ -240,15 +239,17 @@ def print_differences(struct1, struct2, level=0):
             print(indent+'Item "%s" is missing from %s.' % (key2, struct1))
 
 
-def mappable(leaf_condition=None, recursive=True, item_condition=None, unsafe_context=False):
+def mappable(leaf_condition=None, recursive=True, item_condition=None, unsafe_context=False, content_type=None):
+    if unsafe_context:
+        warnings.warn("unsafe_context is deprecated. Use content_type=INVALID instead.")
     def decorator(function):
         def broadcast_function(obj, *args, **kwargs):
             def function_with_args(x): return function(x, *args, **kwargs)
             if unsafe_context:
-                with unsafe():
-                    result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
+                with _unsafe():
+                    result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition, content_type=content_type)
             else:
-                result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition)
+                result = map(function_with_args, obj, leaf_condition=leaf_condition, recursive=recursive, item_condition=item_condition, content_type=content_type)
             return result
         return broadcast_function
     return decorator

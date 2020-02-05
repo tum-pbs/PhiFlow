@@ -36,8 +36,8 @@ class _DataType(object):
         return self.name
 
 
-INVALID = _DataType('data/invalid')
-VALID = _DataType('data/valid')
+INVALID = _DataType('invalid')
+VALID = _DataType('valid')
 
 
 class Struct(object):
@@ -80,7 +80,7 @@ To override the shape of items, use Item.override instead of overriding this met
         assert isinstance(self.__content_type__, _DataType), "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
         from .functions import map
         with unsafe():
-            return map(get_shape, self, override=Struct.shape, change_type=Struct.shape)
+            return map(get_shape, self, override=Struct.shape, content_type=Struct.shape)
 
     @derived()
     def staticshape(self):
@@ -98,7 +98,7 @@ To override the staticshape of items, use Item.override instead of overriding th
         assert isinstance(self.__content_type__, _DataType), "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
         from .functions import map
         with unsafe():
-            return map(get_staticshape, self, override=Struct.staticshape, change_type=Struct.staticshape)
+            return map(get_staticshape, self, override=Struct.staticshape, content_type=Struct.staticshape)
 
     @derived()
     def dtype(self):
@@ -116,19 +116,27 @@ To override the dtype of items, use Item.override instead of overriding this met
         assert isinstance(self.__content_type__, _DataType), "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
         from .functions import map
         with unsafe():
-            return map(get_dtype, self, override=Struct.dtype, change_type=Struct.dtype)
+            return map(get_dtype, self, override=Struct.dtype, content_type=Struct.dtype)
 
-    def copied_with(self, **kwargs):
+    def copied_with(self, change_type=None, **kwargs):
         """
 Returns a copy of this Struct with some items values changed.
 The Struct, this method is invoked on, remains unaltered.
-Unless otherwise specified, the returned object will be validated, i.e. the new item values may be altered before the new object is returned.
+The returned struct will be validated unless this struct is not valid or the content_type is set to something different than VALID.
+        :param change_type: content type of the returned struct
         :param kwargs: Items to change, in the form item_name=new_value.
         :return: Altered copy of this object
         """
         duplicate = copy(self)
         duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
-        duplicate.validate()
+        if duplicate.is_valid and len(kwargs) > 0:
+            duplicate.__content_type__ = INVALID
+        target_type = change_type if change_type is not None else self.__content_type__
+        if target_type is VALID and not duplicate.is_valid:
+            duplicate.__content_type__ = INVALID
+            duplicate.validate()
+        else:
+            duplicate.__content_type__ = target_type
         return duplicate
 
     def _set_items(self, **kwargs):
@@ -142,19 +150,16 @@ Unless otherwise specified, the returned object will be validated, i.e. the new 
 
     def validate(self):
         """
-Performs validation on this struct.
-Structs are always valid unless otherwise specified.
-A user need only invoke this method when explicitly dealing with invalid structs.
+Performs validation on this struct if it holds data and is invalid.
+Data-holding structs should always be valid while structs holding non-data content such as shapes or data types are not regarded as valid.
+        :return: True if validation was performed, False otherwise
         """
-        if not skip_validate():
-            if isinstance(self.__content_type__, _DataType):
-                self.__validate__()
-            else:
-                try:
-                    self.__validate__()
-                    self.__content_type__ = VALID
-                except BaseException as exc:
-                    raise AssertionError(exc, "Trying to validate '%s' but content type is '%s'" % (type(self).__name__, self.__content_type__))
+        if not skip_validate() and self.__content_type__ is INVALID:
+            self.__validate__()
+            self.__content_type__ = VALID
+            return True
+        else:
+            return False
 
     def __validate__(self):
         for trait in self.__traits__:
@@ -167,6 +172,10 @@ A user need only invoke this method when explicitly dealing with invalid structs
     @property
     def is_valid(self):
         return self.__content_type__ is VALID
+
+    @property
+    def content_type(self):
+        return self.__content_type__
 
     def __to_dict__(self, item_condition):
         if item_condition is not None:
@@ -202,6 +211,9 @@ A user need only invoke this method when explicitly dealing with invalid structs
             except TypeError:  # unhashable type
                 pass
         return hash_value
+
+    def __repr__(self):
+        return "%s[%s]" % (type(self).__name__, self.content_type)
 
 
 def to_dict(struct, item_condition=None):
@@ -247,10 +259,7 @@ def properties_dict(struct):
 
 def copy_with(struct, new_values_dict, change_type=None):
     if isinstance(struct, Struct):
-        duplicate = struct.copied_with(**new_values_dict)
-        if change_type is not None:
-            duplicate.__content_type__ = change_type
-        return duplicate
+        return struct.copied_with(change_type=change_type, **new_values_dict)
     if isinstance(struct, tuple):
         duplicate = list(struct)
         for key, value in new_values_dict.items():

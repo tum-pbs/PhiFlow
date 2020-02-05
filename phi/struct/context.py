@@ -1,3 +1,4 @@
+import warnings
 from contextlib import contextmanager
 
 
@@ -14,6 +15,11 @@ def _struct_context(object):
 
 
 def unsafe():
+    warnings.warn("struct.unsafe() is deprecated. Use map() with new_type argument to avoid validation.")
+    return _struct_context('unsafe')
+
+
+def _unsafe():
     return _struct_context('unsafe')
 
 

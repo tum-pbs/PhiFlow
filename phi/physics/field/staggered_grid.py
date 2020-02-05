@@ -157,10 +157,10 @@ class StaggeredGrid(Field):
         return CenteredGrid.getpoints(self.box, self.resolution)
 
     def __repr__(self):
-        try:
+        if self.is_valid:
             return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
-        except:
-            return 'StaggeredGrid[invalid]'
+        else:
+            return struct.Struct.__repr__(self)
 
     def compatible(self, other_field):
         if not other_field.has_points:

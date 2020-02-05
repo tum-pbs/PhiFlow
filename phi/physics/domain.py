@@ -66,6 +66,12 @@ class Domain(struct.Struct):
     def rank(self):
         return len(self.resolution)
 
+    def __repr__(self):
+        if self.is_valid:
+            return '(%s, size=%s)' % (self.resolution, self.box.size)
+        else:
+            return struct.Struct.__repr__(self)
+
     def cell_index(self, global_position):
         local_position = self.box.global_to_local(global_position) * self.resolution
         position = math.to_int(local_position - 0.5)
