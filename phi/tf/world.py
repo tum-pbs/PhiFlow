@@ -2,7 +2,7 @@ import numpy as np
 
 from phi.physics.world import World
 from phi.physics import Physics
-from phi.physics.collective import CollectivePhysics
+from phi.physics.collective import CollectivePhysics, StateCollection
 from phi import math
 from phi.struct import VARIABLES
 from phi.struct.functions import mappable
@@ -13,7 +13,7 @@ def tf_bake_graph(world, session):
     # --- Build placeholder state ---
     with VARIABLES:
         shape = world.state.staticshape
-        dtype = _32_bit(math.types(world.state))
+        dtype = _32_bit(world.state.dtype)
         state_in = placeholder(shape, dtype=dtype)
     dt = placeholder(())
     # --- Build graph ---
@@ -32,7 +32,7 @@ def tf_bake_subgraph(tracker, session):
     # --- Build placeholder state ---
     with VARIABLES:
         shape = tracker.state.staticshape
-        dtype = _32_bit(math.types(tracker.state))
+        dtype = _32_bit(tracker.state.dtype)
         state_in = placeholder(shape, dtype=dtype)
     dt = placeholder(())
     # --- Build graph ---
@@ -71,7 +71,7 @@ class BakedWorldPhysics(CollectivePhysics):
         return result
 
 
-@mappable(item_condition=None, unsafe_context=True)
+@mappable(unsafe_context=True)
 def _32_bit(dtype):
     if dtype == np.float64:
         return np.float32

@@ -138,10 +138,10 @@ class CenteredGrid(Field):
             return False
 
     def __repr__(self):
-        try:
+        if self.is_valid:
             return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
-        except:
-            return 'Grid[invalid]'
+        else:
+            return struct.Struct.__repr__(self)
 
     def padded(self, widths):
         extrapolation = self.extrapolation if isinstance(self.extrapolation, six.string_types) else ['constant'] + list(self.extrapolation) + ['constant']

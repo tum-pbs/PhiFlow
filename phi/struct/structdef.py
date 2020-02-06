@@ -153,6 +153,8 @@ Represents an item type of a struct, a variable or a constant.
             self.set(struct, value)
 
     def has_override(self, name_or_attribute):
+        if name_or_attribute is None:
+            return False
         return self._attribute_name(name_or_attribute) in self._overrides
 
     def get_override(self, name_or_attribute):
@@ -180,7 +182,7 @@ Example: to override the shape of an item, put the following just below its decl
             name = name_or_attribute.__name__
         else:
             name = name_or_attribute
-        assert isinstance(name, six.string_types)
+        assert isinstance(name, six.string_types), 'Not an attribute: %s' % name
         return name
 
     def __get__(self, instance, owner):
@@ -202,6 +204,19 @@ Example: to override the shape of an item, put the following just below its decl
 
     def __repr__(self):
         return self.name
+
+
+class _IndexItem(Item):
+
+    def __init__(self, index, is_variable=True, holds_data=True):
+        Item.__init__(self, name=index, validation_function=None, is_variable=is_variable, default_value=None, dependencies=(), holds_data=holds_data)
+        self.index = index
+
+    def get(self, struct):
+        return struct[self.index]
+
+    def set(self, struct, value):
+        struct[self.index] = value
 
 
 class DerivedProperty(object):

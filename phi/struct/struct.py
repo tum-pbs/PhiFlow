@@ -5,10 +5,10 @@ from copy import copy
 import numpy as np
 import six
 
-from ..backend.dynamic_backend import DYNAMIC_BACKEND as math
-from .context import skip_validate
+from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
+from .context import skip_validate, unsafe
 from .item_condition import context_item_condition, VARIABLES, CONSTANTS
-from .structdef import Item, derived
+from .structdef import Item, derived, _IndexItem
 
 
 def kwargs(locals, include_self=False, ignore=()):
@@ -28,6 +28,18 @@ def kwargs(locals, include_self=False, ignore=()):
     return locals
 
 
+class _DataType(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
+
+
+INVALID = _DataType('invalid')
+VALID = _DataType('valid')
+
+
 class Struct(object):
     """
 Base class for all custom structs.
@@ -40,85 +52,116 @@ See the struct documentation at documentation/Structs.ipynb
     __traits__ = None
     __initialized_class__ = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, content_type=VALID, **kwargs):
         assert isinstance(self, Struct), 'Struct.__init__() called on %s. Maybe you forgot **' % type(self)
         assert self.__initialized_class__ == self.__class__, "Instancing %s before struct class is initialized. Maybe you forgot to decorate the class with @struct.definition()" % self.__class__.__name__
+        self.__content_type__ = INVALID if content_type is VALID else content_type  # VALID, INVALID, Item for property, string for custom
         for item in self.__items__:
             if item.name not in kwargs:
                 kwargs[item.name] = item.default_value
         self._set_items(**kwargs)
         for trait in self.__traits__:
             trait.endow(self)
-        self.validate()
+        if content_type is VALID:
+            self.validate()
 
     @derived()
     def shape(self):
         """
-Maps all DATA values to their respective dynamic shapes.
-Shapes of sub-structs are obtained using struct.shape while shapes of non-structs are obtained using math.shape().
-Struct subclasses can override this method e.g. to specify unknown dimensions (although the current data has a known dimension).
+Retrieves the dynamic shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+Shapes of sub-structs are obtained using `struct.shape` while shapes of non-structs are obtained using `math.shape()`.
+To override the shape of items, use Item.override instead of overriding this method.
         :return: Invalid struct holding shapes instead of data
         """
-        duplicate = copy(self)
-        for item in duplicate.__items__:
-            if context_item_condition(item):
-                obj = item.get(duplicate)
-                if item.has_override(Struct.shape):
-                    shape = item.get_override(Struct.shape)(duplicate, obj)
-                else:
-                    shape = Struct.shape(obj) if isstruct(obj) else math.shape(obj)
-                item.set(duplicate, shape)
-        return duplicate
+        def get_shape(obj):
+            try:
+                return math.shape(obj)
+            except NoBackendFound:
+                return ()
+        assert isinstance(self.__content_type__, _DataType), "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
+        from .functions import map
+        with unsafe():
+            return map(get_shape, self, override=Struct.shape, content_type=Struct.shape)
 
     @derived()
     def staticshape(self):
         """
-Maps all DATA values to their respective static shapes.
-Shapes of sub-structs are obtained using struct.staticshape while shapes of non-structs are obtained using math.staticshape().
-Struct subclasses can override this method e.g. to specify unknown dimensions (although the current data has a known dimension).
-        :return: Invalid struct holding shapes instead of data
+Retrieves the static shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+Shapes of sub-structs are obtained using `struct.staticshape` while shapes of non-structs are obtained using `math.staticshape()`.
+To override the staticshape of items, use Item.override instead of overriding this method.
+        :return: Struct of same type holding shapes instead of data
         """
-        duplicate = copy(self)
-        for item in duplicate.__items__:
-            if context_item_condition(item):
-                obj = item.get(duplicate)
-                if item.has_override(Struct.staticshape):
-                    shape = item.get_override(Struct.staticshape)(duplicate, obj)
-                else:
-                    shape = Struct.staticshape(obj) if isstruct(obj) else math.staticshape(obj)
-                item.set(duplicate, shape)
-        return duplicate
+        def get_staticshape(obj):
+            try:
+                return math.staticshape(obj)
+            except NoBackendFound:
+                return ()
+        assert isinstance(self.__content_type__, _DataType), "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
+        from .functions import map
+        with unsafe():
+            return map(get_staticshape, self, override=Struct.staticshape, content_type=Struct.staticshape)
 
-    def copied_with(self, **kwargs):
+    @derived()
+    def dtype(self):
+        """
+Retrieves the data types of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+Shapes of sub-structs are obtained using `struct.dtype` while shapes of non-structs are obtained using `math.dtype()`.
+To override the dtype of items, use Item.override instead of overriding this method.
+        :return: Struct of same type holding data types instead of data
+        """
+        def get_dtype(obj):
+            try:
+                return math.dtype(obj)
+            except NoBackendFound:
+                return type(obj)
+        assert isinstance(self.__content_type__, _DataType), "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
+        from .functions import map
+        with unsafe():
+            return map(get_dtype, self, override=Struct.dtype, content_type=Struct.dtype)
+
+    def copied_with(self, change_type=None, **kwargs):
         """
 Returns a copy of this Struct with some items values changed.
 The Struct, this method is invoked on, remains unaltered.
-Unless otherwise specified, the returned object will be validated, i.e. the new item values may be altered before the new object is returned.
+The returned struct will be validated unless this struct is not valid or the content_type is set to something different than VALID.
+        :param change_type: content type of the returned struct
         :param kwargs: Items to change, in the form item_name=new_value.
         :return: Altered copy of this object
         """
         duplicate = copy(self)
         duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
-        duplicate.validate()
+        target_type = change_type if change_type is not None else self.__content_type__
+        if target_type is VALID and not duplicate.is_valid:
+            duplicate.__content_type__ = INVALID
+            duplicate.validate()
+        else:
+            duplicate.__content_type__ = target_type
         return duplicate
 
     def _set_items(self, **kwargs):
+        if len(kwargs) == 0:
+            return
+        if self.is_valid:
+            self.__content_type__ = INVALID
         for name, value in kwargs.items():
             try:
                 item = getattr(self.__class__, name)
             except (KeyError, TypeError):
                 raise TypeError('Struct %s has no property %s' % (self, name))
             item.set(self, value)
-        return self
 
     def validate(self):
         """
-Performs validation on this struct.
-Structs are always valid unless otherwise specified.
-A user need only invoke this method when explicitly dealing with invalid structs.
+Performs validation on this struct if it holds data and is invalid.
+Data-holding structs should always be valid while structs holding non-data content such as shapes or data types are not regarded as valid.
+        :return: True if validation was performed, False otherwise
         """
-        if not skip_validate():
+        if not skip_validate() and self.__content_type__ is INVALID:
             self.__validate__()
+            self.__content_type__ = VALID
+            return True
+        else:
+            return False
 
     def __validate__(self):
         for trait in self.__traits__:
@@ -127,6 +170,14 @@ A user need only invoke this method when explicitly dealing with invalid structs
             item.validate(self)
         for trait in self.__traits__:
             trait.post_validate_struct(self)
+
+    @property
+    def is_valid(self):
+        return self.__content_type__ is VALID
+
+    @property
+    def content_type(self):
+        return self.__content_type__
 
     def __to_dict__(self, item_condition):
         if item_condition is not None:
@@ -163,18 +214,30 @@ A user need only invoke this method when explicitly dealing with invalid structs
                 pass
         return hash_value
 
+    def __repr__(self):
+        return "%s[%s]" % (type(self).__name__, self.content_type)
+
 
 def to_dict(struct, item_condition=None):
+    if item_condition is None:
+        item_condition = context_item_condition
     if isinstance(struct, Struct):
         return struct.__to_dict__(item_condition)
     if isinstance(struct, (list, tuple, np.ndarray)):
-        if item_condition is None:
-            return {i: struct[i] for i in range(len(struct))}
-        else:
-            return {i: struct[i] for i in range(len(struct)) if item_condition(Item(name=i, validation_function=None, is_variable=True, default_value=None, dependencies=(), holds_data=True))}
+        return {i: struct[i] for i in range(len(struct)) if item_condition(Item(name=i, validation_function=None, is_variable=True, default_value=None, dependencies=(), holds_data=True))}
     if isinstance(struct, dict):
         return struct
     raise ValueError("Not a struct: %s" % struct)
+
+
+def items(struct):
+    if isinstance(struct, Struct):
+        return struct.__items__
+    if isinstance(struct, (list, tuple, np.ndarray)):
+        return [_IndexItem(i) for i in range(len(struct))]
+    if isinstance(struct, dict):
+        return [_IndexItem(key) for key in struct.keys()]
+    raise ValueError("Not a struct: '%s'" % struct)
 
 
 def variables(struct):
@@ -206,9 +269,9 @@ def properties_dict(struct):
         return {'type': str(struct.__class__.__name__), 'module': str(struct.__class__.__module__)}
 
 
-def copy_with(struct, new_values_dict):
+def copy_with(struct, new_values_dict, change_type=None):
     if isinstance(struct, Struct):
-        return struct.copied_with(**new_values_dict)
+        return struct.copied_with(change_type=change_type, **new_values_dict)
     if isinstance(struct, tuple):
         duplicate = list(struct)
         for key, value in new_values_dict.items():
@@ -228,7 +291,10 @@ def copy_with(struct, new_values_dict):
         duplicate = dict(struct)
         for key, value in new_values_dict.items():
             duplicate[key] = value
-        return duplicate
+        if type(struct) is dict:
+            return duplicate
+        else:
+            return type(struct)(duplicate)
     raise ValueError("Not a struct: %s" % struct)
 
 
@@ -259,3 +325,4 @@ def equal(obj1, obj2):
             if obj1 is not obj2:
                 return False
     return True
+

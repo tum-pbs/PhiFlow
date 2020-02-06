@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 from numbers import Number
 
@@ -11,6 +13,7 @@ from .nd import fftfreq
 
 @mappable(item_condition=struct.ALL_ITEMS, unsafe_context=True)
 def types(x):
+    warnings.warn("math.types is deprecated. Use struct.dtype isntead.", DeprecationWarning)
     try:
         return math.dtype(x)
     except NoBackendFound:

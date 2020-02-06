@@ -25,10 +25,6 @@ class Field(State):
     def with_data(self, data):
         return self.copied_with(data=data, flags=())
 
-    @property
-    def dtype(self):
-        return math.dtype(self.data)
-
     @struct.variable()
     def data(self, data):
         """

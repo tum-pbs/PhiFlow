@@ -157,7 +157,10 @@ class StaggeredGrid(Field):
         return CenteredGrid.getpoints(self.box, self.resolution)
 
     def __repr__(self):
-        return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
+        if self.is_valid:
+            return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
+        else:
+            return struct.Struct.__repr__(self)
 
     def compatible(self, other_field):
         if not other_field.has_points:
@@ -190,10 +193,6 @@ class StaggeredGrid(Field):
             components.append(grad)
         data = math.sum(components, 0)
         return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
-
-    @property
-    def dtype(self):
-        return self.data[0].dtype
 
     @staticmethod
     def gradient(scalar_field, padding_mode='replicate'):
