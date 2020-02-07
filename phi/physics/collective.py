@@ -58,8 +58,7 @@ Create a state collection from a dictionary of states.
         if isinstance(item, six.string_types):
             return dict.__getitem__(self, item)
         if struct.isstruct(item):
-            with struct.unsafe():
-                return struct.map(lambda x: self[x], item)
+            return struct.map(lambda x: self[x], item, content_type=struct.INVALID)
         try:
             return self[item.name]
         except AttributeError as e:

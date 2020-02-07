@@ -73,7 +73,7 @@ Example `struct.map(lambda x, y: x+y, struct.zip([{0: 'Hello'}, {0: ' World'}]))
         values = [d[key] for d in dicts]
         values = zip(values, leaf_condition, item_condition=item_condition, zip_parents_if_incompatible=zip_parents_if_incompatible)
         new_dict[key] = values
-    return copy_with(first, new_dict, change_type=LeafZip)
+    return copy_with(first, new_dict, change_type=zip)
 
 
 class LeafZip(object):
@@ -102,7 +102,7 @@ Thrown when two or more structs are required to have the same structure but do n
         Exception.__init__(self, *args)
 
 
-def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None, override=None, content_type=None):
+def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None, content_type=None):
     """
 Iterates over all items of the struct and maps their values according to the specified function.
 Preserves the hierarchical structure of struct, returning an object of the same type and leaving struct untouched.
@@ -112,8 +112,7 @@ Preserves the hierarchical structure of struct, returning an object of the same 
     :param recursive: If True, recursively iterates over all non-leaf sub-structs, passing only leaves to function. Otherwise only iterates over direct items of struct; all sub-structs are treated as leaves.
     :param trace: If True, passes a Trace object to function instead of the value. Traces contain additional information.
     :param item_condition: (optional) ItemCondition or boolean function that filters which Items are iterated over. Excluded items are left untouched. If None, the context item condition is used (data-holding items by default).
-    :param override: (optional) Key to look up Item-specific override functions. Override functions are called with the containing struct as first argument, followed by the usual arguments.
-    :param content_type: (optional) Type key to use for new Structs. Defaults to VALID.
+    :param content_type: (optional) Type key to use for new Structs. Defaults to VALID. Item-specific overrides can be defined by calling Item.override using the content_type as key. Override functions must have the signature (parent_struct, value).
     :return: object of the same type and hierarchy as struct
     """
     # pylint: disable-msg = redefined-builtin
@@ -138,13 +137,12 @@ Preserves the hierarchical structure of struct, returning an object of the same 
         for item in items(struct):
             if item_condition(item):
                 old_value = item.get(struct)
-                if item.has_override(override):
-                    new_value = item.get_override(override)(struct, old_value)
+                if content_type is not VALID and content_type is not INVALID and item.has_override(content_type):
+                    new_value = item.get_override(content_type)(struct, old_value)
                 else:
                     new_value = map(function, old_value, leaf_condition, recursive,
                                     Trace(old_value, item.name, trace) if trace is not False else False,
                                     item_condition,
-                                    override,
                                     content_type)
                 new_values[item.name] = new_value
         return copy_with(struct, new_values, change_type=content_type)
@@ -260,7 +258,7 @@ To specify custom shapes, add an override with key struct.shape to the Item.
             return ()
     if isinstance(obj, Struct):
         assert obj.content_type is VALID or obj.content_type is INVALID, "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
-    return map(get_shape, obj, leaf_condition=leaf_condition, item_condition=item_condition, override=shape, content_type=shape)
+    return map(get_shape, obj, leaf_condition=leaf_condition, item_condition=item_condition, content_type=shape)
 
 
 def staticshape(obj, leaf_condition=None, item_condition=None):
@@ -279,7 +277,7 @@ To specify custom static shapes, add an override with key struct.staticshape to 
             return ()
     if isinstance(obj, Struct):
         assert obj.content_type is VALID or obj.content_type is INVALID, "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
-    return map(get_staticshape, obj, leaf_condition=leaf_condition, item_condition=item_condition, override=staticshape, content_type=staticshape)
+    return map(get_staticshape, obj, leaf_condition=leaf_condition, item_condition=item_condition, content_type=staticshape)
 
 
 def dtype(obj, leaf_condition=None, item_condition=None):
@@ -298,4 +296,4 @@ To specify custom dtypes, add an override with key struct.dtype to the Item.
             return type(obj)
     if isinstance(obj, Struct):
         assert obj.content_type is VALID or obj.content_type is INVALID, "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
-    return map(get_dtype, obj, leaf_condition=leaf_condition, item_condition=item_condition, override=dtype, content_type=dtype)
+    return map(get_dtype, obj, leaf_condition=leaf_condition, item_condition=item_condition, content_type=dtype)

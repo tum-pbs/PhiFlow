@@ -152,27 +152,28 @@ Represents an item type of a struct, a variable or a constant.
                 value = trait.post_validated(struct, self, value)
             self.set(struct, value)
 
-    def has_override(self, name_or_attribute):
-        if name_or_attribute is None:
+    def has_override(self, content_type):
+        if content_type is None:
             return False
-        return self._attribute_name(name_or_attribute) in self._overrides
+        return self._attribute_name(content_type) in self._overrides
 
-    def get_override(self, name_or_attribute):
-        return self._overrides[self._attribute_name(name_or_attribute)]
+    def get_override(self, content_type):
+        return self._overrides[self._attribute_name(content_type)]
 
-    def override(self, name_or_attribute, override_function):
+    def override(self, content_type, override_function):
         """
 Override a property or behaviour of this item and/or its values.
 This affects all instances of the associated Struct.
+The override function is called instead of the usual function in `struct.map` to obtain a leaf value.
 
-Overrides can be used to specify custom shape or staticshape getters for specific properties.
+Overrides can also be used to specify custom property getters, e.g. to override shape, staticshape, dtype.
 As this method is called on an Item, it must be invoked outside the item it affects.
 
-Example: to override the shape of an item, put the following just below its declaration: `item.override(Struct.shape, lambda self, value: custom_shape)`
-        :param name_or_attribute: custom name or Item/DerivedItem reference
+Example: to override the shape of an item, put the following just below its declaration: `item.override(struct.shape, lambda self, value: custom_shape)`
+        :param content_type: custom name or Item/DerivedItem reference
         :param override_function: function, signature depends on the overridden property.
         """
-        self._overrides[self._attribute_name(name_or_attribute)] = override_function
+        self._overrides[self._attribute_name(content_type)] = override_function
 
     @staticmethod
     def _attribute_name(name_or_attribute):

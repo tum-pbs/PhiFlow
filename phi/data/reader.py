@@ -45,8 +45,7 @@ class BatchReader(object):
         data_list = self._cache.get(indices, self._load, add_to_cache=True)
         data = list_swap_axes(data_list)
         data_map = {self.streams[i]: data[i] for i in range(len(self._streams))}
-        with struct.unsafe():
-            return struct.map(lambda stream: data_map[stream], self._fields)
+        return struct.map(lambda stream: data_map[stream], self._fields, content_type=struct.INVALID)
 
     def _load(self, indices):
         result = []
