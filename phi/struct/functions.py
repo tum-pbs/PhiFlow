@@ -2,6 +2,7 @@ import warnings
 
 import six
 
+from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
 from .context import _unsafe
 from .item_condition import ALL_ITEMS, context_item_condition
 from .struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID, items
@@ -241,3 +242,60 @@ def mappable(leaf_condition=None, recursive=True, item_condition=None, unsafe_co
             return result
         return broadcast_function
     return decorator
+
+
+def shape(obj, leaf_condition=None, item_condition=None):
+    """
+Maps all values of a struct to their respective dynamic shapes using `math.shape()`.
+To specify custom shapes, add an override with key struct.shape to the Item.
+    :param obj: struct or leaf
+    :param leaf_condition: (optional) leaf_condition passed to `map`
+    :param item_condition: (optional) item_condition passed to `map`
+    :return: Struct of same type holding shapes instead of data
+    """
+    def get_shape(obj):
+        try:
+            return math.shape(obj)
+        except NoBackendFound:
+            return ()
+    if isinstance(obj, Struct):
+        assert obj.content_type is VALID or obj.content_type is INVALID, "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
+    return map(get_shape, obj, leaf_condition=leaf_condition, item_condition=item_condition, override=shape, content_type=shape)
+
+
+def staticshape(obj, leaf_condition=None, item_condition=None):
+    """
+Maps all values of a struct to their respective static shapes using `math.staticshape()`.
+To specify custom static shapes, add an override with key struct.staticshape to the Item.
+    :param obj: struct or leaf
+    :param leaf_condition: (optional) leaf_condition passed to `map`
+    :param item_condition: (optional) item_condition passed to `map`
+    :return: Struct of same type holding shapes instead of data
+    """
+    def get_staticshape(obj):
+        try:
+            return math.staticshape(obj)
+        except NoBackendFound:
+            return ()
+    if isinstance(obj, Struct):
+        assert obj.content_type is VALID or obj.content_type is INVALID, "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
+    return map(get_staticshape, obj, leaf_condition=leaf_condition, item_condition=item_condition, override=staticshape, content_type=staticshape)
+
+
+def dtype(obj, leaf_condition=None, item_condition=None):
+    """
+Maps all values of a struct to their respective data types using `math.dtype()`.
+To specify custom dtypes, add an override with key struct.dtype to the Item.
+    :param obj: struct or leaf
+    :param leaf_condition: (optional) leaf_condition passed to `map`
+    :param item_condition: (optional) item_condition passed to `map`
+    :return: Struct of same type holding data types instead of data
+    """
+    def get_dtype(obj):
+        try:
+            return math.dtype(obj)
+        except NoBackendFound:
+            return type(obj)
+    if isinstance(obj, Struct):
+        assert obj.content_type is VALID or obj.content_type is INVALID, "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
+    return map(get_dtype, obj, leaf_condition=leaf_condition, item_condition=item_condition, override=dtype, content_type=dtype)

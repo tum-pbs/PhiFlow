@@ -48,8 +48,7 @@ class Session(object):
                     if isplaceholder(key_tensor):
                         tensor_feed_dict[key_tensor] = value_tensor
                     return None
-                with struct.unsafe():
-                    struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS)
+                struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS, content_type=struct.INVALID)
 
         tensor_fetches = struct.flatten(fetches, item_condition=struct.ALL_ITEMS)
         if isinstance(fetches, (tuple, list)):

@@ -6,7 +6,7 @@ import numpy as np
 import six
 
 from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
-from .context import skip_validate, unsafe
+from .context import skip_validate
 from .item_condition import context_item_condition, VARIABLES, CONSTANTS
 from .structdef import Item, derived, _IndexItem
 
@@ -70,54 +70,42 @@ See the struct documentation at documentation/Structs.ipynb
         """
 Retrieves the dynamic shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
 Shapes of sub-structs are obtained using `struct.shape` while shapes of non-structs are obtained using `math.shape()`.
-To override the shape of items, use Item.override instead of overriding this method.
-        :return: Invalid struct holding shapes instead of data
+
+To override the shapes of items, use `Item.override` with key `struct.shape` instead of overriding this method.
+
+The result of `x.shape` is equivalent to calling `struct.shape(x)`.
+        :return: Struct of same type holding shapes instead of data
         """
-        def get_shape(obj):
-            try:
-                return math.shape(obj)
-            except NoBackendFound:
-                return ()
-        assert isinstance(self.__content_type__, _DataType), "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
-        from .functions import map
-        with unsafe():
-            return map(get_shape, self, override=Struct.shape, content_type=Struct.shape)
+        from .functions import shape
+        return shape(self)
 
     @derived()
     def staticshape(self):
         """
 Retrieves the static shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
 Shapes of sub-structs are obtained using `struct.staticshape` while shapes of non-structs are obtained using `math.staticshape()`.
-To override the staticshape of items, use Item.override instead of overriding this method.
+
+To override the static shapes of items, use `Item.override` with key `struct.staticshape` instead of overriding this method.
+
+The result of `x.staticshape` is equivalent to calling `struct.staticshape(x)`.
         :return: Struct of same type holding shapes instead of data
         """
-        def get_staticshape(obj):
-            try:
-                return math.staticshape(obj)
-            except NoBackendFound:
-                return ()
-        assert isinstance(self.__content_type__, _DataType), "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
-        from .functions import map
-        with unsafe():
-            return map(get_staticshape, self, override=Struct.staticshape, content_type=Struct.staticshape)
+        from .functions import staticshape
+        return staticshape(self)
 
     @derived()
     def dtype(self):
         """
 Retrieves the data types of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
-Shapes of sub-structs are obtained using `struct.dtype` while shapes of non-structs are obtained using `math.dtype()`.
-To override the dtype of items, use Item.override instead of overriding this method.
+Data types of sub-structs are obtained using `struct.dtype` while types of non-structs are obtained using `math.dtype()`.
+
+To override the dtype of items, use `Item.override` with key `struct.dtype` instead of overriding this method.
+
+The result of `x.dtype` is equivalent to calling `struct.dtype(x)`.
         :return: Struct of same type holding data types instead of data
         """
-        def get_dtype(obj):
-            try:
-                return math.dtype(obj)
-            except NoBackendFound:
-                return type(obj)
-        assert isinstance(self.__content_type__, _DataType), "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(self).__name__, self.__content_type__)
-        from .functions import map
-        with unsafe():
-            return map(get_dtype, self, override=Struct.dtype, content_type=Struct.dtype)
+        from .functions import dtype
+        return dtype(self)
 
     def copied_with(self, change_type=None, **kwargs):
         """

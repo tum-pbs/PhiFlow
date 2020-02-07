@@ -101,7 +101,7 @@ class SampledField(Field):
         if isinstance(data, (tuple, list, np.ndarray)):
             data = math.zeros_like(self.sample_points) + data
         return data
-    data.override(struct.Struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.component_count) if math.ndims(self.data) > 0 else ())
+    data.override(struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.component_count) if math.ndims(self.data) > 0 else ())
 
     @struct.constant(default='add')
     def mode(self, mode):
@@ -112,7 +112,7 @@ class SampledField(Field):
     def sample_points(self, sample_points):
         assert math.ndims(sample_points) == 3, sample_points.shape
         return sample_points
-    sample_points.override(struct.Struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.rank))
+    sample_points.override(struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.rank))
 
     @property
     def rank(self):

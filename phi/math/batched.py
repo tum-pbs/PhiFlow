@@ -64,7 +64,7 @@ def _combined_shape(shape1, shape2, prop, obj):
         try:
             resulting_shape.append(_combined_dim(dim1, dim2))
         except AssertionError:
-            raise ShapeMismatch("Batch dimensions %d of '%s' of %s in position %d does not match other properties with %d. Occured during comparison of batch shapes %s and %s" % (dim1, prop, obj, -i, dim2, shape1, shape2))
+            raise ShapeMismatch("Batch dimension %d with value %d of '%s' of %s does not match other properties with value %d. Occured during comparison of batch shapes %s and %s" % (-i, dim1, prop, obj, dim2, shape1, shape2))
     return tuple(resulting_shape[::-1])
 
 
@@ -85,4 +85,4 @@ Raised when a shape check fails, i.e. when tensors that require compatible shape
 It is a subclass of `ValueError` because ValueErrors are often raised in this case.
     """
     def __init__(self, *args):
-        ValueError.__init__(*args)
+        ValueError.__init__(self, *args)

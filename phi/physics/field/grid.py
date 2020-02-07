@@ -51,7 +51,7 @@ class CenteredGrid(Field):
         while math.ndims(data) < 2:
             data = math.expand_dims(data)
         return data
-    data.override(struct.Struct.staticshape, lambda self, data: (self._batch_size,) + math.staticshape(data)[1:])
+    data.override(struct.staticshape, lambda self, data: (self._batch_size,) + math.staticshape(data)[1:])
 
     @property
     def resolution(self):

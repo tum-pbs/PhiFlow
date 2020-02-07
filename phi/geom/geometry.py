@@ -92,10 +92,10 @@ class AABox(Geometry):
         return self.copied_with(lower=lower, upper=upper)
 
     def __repr__(self):
-        try:
+        if self.is_valid:
             return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
-        except TypeError:
-            return '%s at %s' % (self.size, self.lower)
+        else:
+            return struct.Struct.__repr__(self)
 
     @staticmethod
     def to_box(value, resolution_hint=None):
