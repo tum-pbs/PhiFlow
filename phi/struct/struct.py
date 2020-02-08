@@ -107,6 +107,16 @@ The result of `x.dtype` is equivalent to calling `struct.dtype(x)`.
         from .functions import dtype
         return dtype(self)
 
+    def map(self, function, leaf_condition=None, recursive=True, trace=False, item_condition=None, content_type=None):
+        """Alias for struct.map()"""
+        from .functions import map
+        return map(function, self, leaf_condition=leaf_condition, recursive=recursive, trace=trace, item_condition=item_condition, content_type=content_type)
+
+    def map_item(self, item, function, leaf_condition=None, recursive=True, content_type=None):
+        """Alias for struct.map_item()"""
+        from .functions import map_item
+        return map_item(item, function, self, leaf_condition=leaf_condition, recursive=recursive, content_type=content_type)
+
     def copied_with(self, change_type=None, **kwargs):
         """
 Returns a copy of this Struct with some items values changed.

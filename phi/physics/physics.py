@@ -139,7 +139,7 @@ Physics for states with no natural evolution.
         """
 Does not alter the state except for increasing its age.
         """
-        return state.copied_with(age=state.age + dt)
+        return state.map_item(State.age, lambda age: age + dt)
 
 
 STATIC = Static()

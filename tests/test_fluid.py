@@ -3,12 +3,13 @@ from unittest import TestCase
 import numpy
 
 from phi import struct, math
-from phi.geom import Sphere, AABox
+from phi.geom import Sphere, AABox, box
 from phi.physics.domain import Domain
 from phi.physics.field import StaggeredGrid
 from phi.physics.field.effect import Fan, Inflow
 from phi.physics.material import CLOSED, OPEN
 from phi.physics.fluid import Fluid, INCOMPRESSIBLE_FLOW, IncompressibleFlow
+from phi.physics.obstacle import Obstacle
 from phi.physics.pressuresolver.sparse import SparseCG
 from phi.physics.world import World
 
@@ -54,10 +55,12 @@ class TestFluid(TestCase):
 
     def test_effects(self):
         world = World()
-        world.add(Fluid(Domain([16, 16])))
-        world.add(Fan(Sphere((10, 8), 5), [-1, 0]))
-        world.step()
-        world.step()
+        fluid = world.add(Fluid(Domain([16, 16])))
+        fan = world.add(Fan(Sphere((10, 8), 5), [-1, 0]))
+        obstacle = world.add(Obstacle(box[0:1, 0:1]))
+        world.step(dt=1)
+        world.step(dt=0.5)
+        assert fluid.age == fan.age == obstacle.age == 1.5
 
     def test_properties_dict(self):
         world = World()

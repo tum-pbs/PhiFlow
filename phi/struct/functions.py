@@ -5,6 +5,7 @@ import six
 from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
 from .context import _unsafe
 from .item_condition import ALL_ITEMS, context_item_condition
+from .structdef import Item
 from .struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID, items
 
 
@@ -146,6 +147,17 @@ Preserves the hierarchical structure of struct, returning an object of the same 
                                     content_type)
                 new_values[item.name] = new_value
         return copy_with(struct, new_values, change_type=content_type)
+
+
+def map_item(item, function, struct, leaf_condition=None, recursive=True, content_type=None):
+    assert isinstance(item, Item) or isinstance(item, six.string_types)
+
+    def item_condition(item_):
+        if isinstance(item, six.string_types):
+            return item_.name == item
+        else:
+            return item_.name == item.name
+    return map(function, struct, leaf_condition=leaf_condition, recursive=recursive, trace=False, item_condition=item_condition, content_type=content_type)
 
 
 class Trace(object):

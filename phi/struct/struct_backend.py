@@ -16,7 +16,7 @@ class StructBroadcastBackend(Backend):
                 if callable(function):
                     def context(fname=fname):
                         def proxy(*args, **kwargs):
-                            return broadcast_function(self.backend, fname, args, kwargs)
+                            return self.broadcast_function(self.backend, fname, args, kwargs)
                         return proxy
                     setattr(self, fname, context())
 
@@ -26,16 +26,15 @@ class StructBroadcastBackend(Backend):
                 return True
         return False
 
+    def broadcast_function(self, backend, func, args, kwargs):
+        backend_func = getattr(backend, func)
+        obj, build_arguments = argument_assembler(args, kwargs)
 
-def broadcast_function(backend, func, args, kwargs):
-    backend_func = getattr(backend, func)
-    obj, build_arguments = argument_assembler(args, kwargs)
-
-    def f(*values):
-        args, kwargs = build_arguments(values)
-        result = backend_func(*args, **kwargs)
-        return result
-    return functions.map(f, obj, content_type=self.target_content_type)
+        def f(*values):
+            args, kwargs = build_arguments(values)
+            result = backend_func(*args, **kwargs)
+            return result
+        return functions.map(f, obj, content_type=self.target_content_type)
 
 
 def argument_assembler(args, kwargs):
