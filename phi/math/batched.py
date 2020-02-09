@@ -26,7 +26,7 @@ The Batched trait also ensures that all values are converted to tensors before t
 
     def check_argument(self, struct_class, item, keyword, value):
         assert keyword == 'min_rank'
-        assert isinstance(value, int)
+        assert isinstance(value, int) or callable(value), value
 
     def endow(self, struct):
         struct.batch_shape = None
@@ -39,6 +39,8 @@ The Batched trait also ensures that all values are converted to tensors before t
     def pre_validated(self, struct, item, value):
         tensor = math.as_tensor(value)
         min_rank = item.trait_kwargs['min_rank']
+        if callable(min_rank):
+            min_rank = min_rank(struct)
         shape = math.staticshape(value)
         if len(shape) < min_rank:
             tensor = math.expand_dims(tensor, axis=0, number=min_rank - len(shape))
