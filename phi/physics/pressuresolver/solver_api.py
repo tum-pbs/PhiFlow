@@ -4,6 +4,7 @@ from phi import struct
 from phi.physics.domain import Domain
 from phi.physics.field import CenteredGrid
 from phi.physics.material import Material
+from phi.struct.functions import mappable
 
 
 class PressureSolver(object):
@@ -50,13 +51,14 @@ class FluidDomain(struct.Struct):
 
     @struct.constant(dependencies='domain')
     def active(self, active):
+        extrapolation = _active_extrapolation(Material.extrapolation_mode(self.domain.boundaries))
         if active is not None:
             assert isinstance(active, CenteredGrid)
             assert active.rank == self.domain.rank
-            assert active.extrapolation == 'constant'
+            assert active.extrapolation == extrapolation
             return active
         else:
-            return self.domain.centered_grid(1, extrapolation='constant')
+            return self.domain.centered_grid(1, extrapolation=extrapolation)
 
     @struct.constant(dependencies='domain')
     def accessible(self, accessible):
@@ -66,7 +68,6 @@ class FluidDomain(struct.Struct):
             return accessible
         else:
             return self.domain.centered_grid(1, extrapolation=Material.extrapolation_mode(self.domain.boundaries))
-
 
     @property
     def rank(self):
@@ -82,7 +83,7 @@ class FluidDomain(struct.Struct):
 
         :param extend: Extend the grid in all directions beyond the grid size specified by the domain
         """
-        return math.pad(self.active.data, [[0, 0]] + [[extend, extend]] * self.rank + [[0, 0]], "constant")
+        return self.active.padded([[extend, extend]] * self.rank).data
 
     def accessible_tensor(self, extend=0):
         """
@@ -107,3 +108,8 @@ class FluidDomain(struct.Struct):
             lower = self.accessible.padded([[1, 0] if ax == axis else [0, 0] for ax in range(self.rank)])
             tensors.append(math.minimum(upper.data, lower.data))
         return velocity.with_data(tensors)
+
+
+@mappable()
+def _active_extrapolation(boundaries):
+    return 'periodic' if boundaries == 'periodic' else 'constant'
