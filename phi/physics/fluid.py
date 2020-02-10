@@ -11,8 +11,7 @@ from .field import CenteredGrid, StaggeredGrid, advect, union_mask
 from .field.effect import Gravity, effect_applied, gravity_tensor
 from .material import OPEN, Material
 from .physics import Physics, StateDependency
-from .pressuresolver.solver_api import FluidDomain
-from .pressuresolver.sparse import SparseCG, SparseSciPy
+from .pressuresolver.solver_api import FluidDomain, poisson_solve
 
 
 @struct.definition()
@@ -123,23 +122,14 @@ def _is_div_free(velocity, is_div_free):
 
 def solve_pressure(divergence, fluiddomain, pressure_solver=None):
     """
-    Computes the pressure from the given velocity or velocity divergence using the specified solver.
+Computes the pressure from the given velocity divergence using the specified solver.
     :param divergence: CenteredGrid
     :param fluiddomain: FluidDomain instance
     :param pressure_solver: PressureSolver to use, None for default
     :return: pressure field, iteration count
     :rtype: CenteredGrid, int
     """
-    assert isinstance(divergence, CenteredGrid)
-    if pressure_solver is None:
-        if math.choose_backend([divergence.data, fluiddomain.active.data, fluiddomain.accessible.data]).matches_name('SciPy'):
-            pressure_solver = SparseSciPy()
-        else:
-            pressure_solver = SparseCG()
-    pressure, iteration = pressure_solver.solve(divergence.data, fluiddomain, pressure_guess=None)
-    if isinstance(divergence, CenteredGrid):
-        pressure = CenteredGrid(pressure, divergence.box, name='pressure')
-    return pressure, iteration
+    return poisson_solve(divergence, fluiddomain, solver=pressure_solver)
 
 
 def divergence_free(velocity, domain=None, obstacles=(), pressure_solver=None, return_info=False):

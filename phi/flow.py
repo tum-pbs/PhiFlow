@@ -12,6 +12,7 @@ from .physics.obstacle import *
 from .physics.material import *
 from .physics.domain import *
 from .physics.field.effect import *
+from .physics.pressuresolver.solver_api import PoissonDomain, PoissonSolver
 from .physics.pressuresolver.sparse import SparseCG, SparseSciPy
 
 from .data.fluidformat import *

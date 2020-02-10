@@ -7,9 +7,9 @@ from phi.physics.material import Material
 from phi.struct.functions import mappable
 
 
-class PressureSolver(object):
+class PoissonSolver(object):
     """
-    Base class for solvers
+    Base class for Poisson solvers
     """
 
     def __init__(self, name, supported_devices, supports_guess, supports_loop_counter, supports_continuous_masks):
@@ -20,14 +20,14 @@ class PressureSolver(object):
         self.supports_loop_counter = supports_loop_counter
         self.supports_continuous_masks = supports_continuous_masks
 
-    def solve(self, divergence, domain, pressure_guess):
+    def solve(self, field, domain, guess):
         """
-        Solves the pressure equation Δp = ∇·v for all active fluid cells where active cells are given by the active_mask.
-        The resulting pressure is expected to fulfill (Δp-∇·v) ≤ accuracy for every active cell.
+        Solves the Poisson equation Δp = d for p for all active fluid cells where active cells are given by the active_mask.
+        p is expected to fulfill (Δp-d) ≤ accuracy for every active cell.
 
-        :param divergence: the scalar divergence of the velocity channel, ∇·v
+        :param field: scalar input field to the solve, e.g. the divergence of the velocity channel, ∇·v
         :param domain: DomainState object specifying boundary conditions and active/fluid masks. The domain must be equal for all examples (batch dimension equal to 1).
-        :param pressure_guess: (Optional) Pressure channel which can be used as an initial state for the solver
+        :param guess: (Optional) Pressure channel which can be used as an initial state for the solver
         :return: pressure tensor (same shape as divergence tensor), number of iterations (integer, 1D integer tensor or None if unknown)
         """
         raise NotImplementedError(self.__class__)
@@ -37,8 +37,11 @@ class PressureSolver(object):
         return self.name
 
 
+PressureSolver = PoissonSolver
+
+
 @struct.definition()
-class FluidDomain(struct.Struct):
+class PoissonDomain(struct.Struct):
 
     def __init__(self, domain, valid_state=(), active=None, accessible=None, **kwargs):
         struct.Struct.__init__(self, **struct.kwargs(locals(), ignore='valid_state'))
@@ -55,7 +58,8 @@ class FluidDomain(struct.Struct):
         if active is not None:
             assert isinstance(active, CenteredGrid)
             assert active.rank == self.domain.rank
-            assert active.extrapolation == extrapolation
+            if active.extrapolation != extrapolation:
+                active = active.copied_with(extrapolation=extrapolation)
             return active
         else:
             return self.domain.centered_grid(1, extrapolation=extrapolation)
@@ -72,9 +76,6 @@ class FluidDomain(struct.Struct):
     @property
     def rank(self):
         return self.domain.rank
-
-    def is_valid(self, state):
-        return self._valid_state == state
 
     def active_tensor(self, extend=0):
         """
@@ -110,6 +111,32 @@ class FluidDomain(struct.Struct):
         return velocity.with_data(tensors)
 
 
+FluidDomain = PoissonDomain
+
+
 @mappable()
 def _active_extrapolation(boundaries):
     return 'periodic' if boundaries == 'periodic' else 'constant'
+
+
+def poisson_solve(input_field, poisson_domain, solver=None):
+    """
+Solves the Poisson equation Δp = input_field for p.
+    :param input_field: CenteredGrid
+    :param poisson_domain: PoissonDomain instance
+    :param solver: PoissonSolver to use, None for default
+    :return: p as CenteredGrid, iteration count as int or None if not available
+    :rtype: CenteredGrid, int
+    """
+    from .sparse import SparseSciPy, SparseCG
+    assert isinstance(input_field, CenteredGrid)
+    if isinstance(poisson_domain, Domain):
+        poisson_domain = PoissonDomain(poisson_domain)
+    if solver is None:
+        if math.choose_backend([input_field.data, poisson_domain.active.data, poisson_domain.accessible.data]).matches_name('SciPy'):
+            solver = SparseSciPy()
+        else:
+            solver = SparseCG()
+    pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=None)
+    pressure = CenteredGrid(pressure, input_field.box, name='pressure')
+    return pressure, iteration
