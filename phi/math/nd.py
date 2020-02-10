@@ -212,9 +212,9 @@ def laplace(tensor, padding='replicate', axes=None):
     :return: tensor of same shape
     """
     rank = spatial_rank(tensor)
-    if padding is None or padding.lower() == 'valid':
+    if padding is None or padding == 'valid':
         pass  # do not pad tensor
-    elif padding.lower() in ['circular', 'wrap']:
+    elif padding in ['circular', 'wrap']:
         return fourier_laplace(tensor)
     else:
         tensor = math.pad(tensor, _get_pad_width_axes(rank, axes, val_true=[1, 1], val_false=[0, 0]), padding)
