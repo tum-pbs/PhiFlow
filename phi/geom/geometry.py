@@ -46,8 +46,8 @@ class AABox(Geometry):
 
     @staticmethod
     def _get(vector, axis):
-        if math.ndims(vector) == 0:
-            return vector
+        if vector.shape[-1] == 1:
+            return vector[...,0]
         else:
             return vector[...,axis]
 
