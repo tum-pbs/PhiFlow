@@ -132,6 +132,8 @@ class CollectivePhysics(Physics):
                 physics = self.for_(state)
                 if self._all_dependencies_fulfilled(physics.blocking_dependencies, state_collection, partial_next_state_collection):
                     next_state = self.substep(state, state_collection, dt, partial_next_state_collection=partial_next_state_collection)
+                    assert next_state is not None, "step() called on %s returned None for state '%s'" % (type(physics).__name__, state)
+                    assert isinstance(next_state, State), "step() called on %s dit not return a State but '%s' for state '%s'" % (type(physics).__name__, next_state, state)
                     assert next_state.name == state.name, "The state name must remain constant during step(). Caused by '%s' on state '%s'." % (type(physics).__name__, state)
                     next_states[next_state.name] = next_state
                     unhandled_states.remove(state)
