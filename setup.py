@@ -120,8 +120,8 @@ with open("documentation/Package_Info.md", "r") as readme:
 
 setup(
     name='phiflow',
-    version='1.0.2',
-    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.2.tar.gz',
+    version='1.0.3',
+    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.3.tar.gz',
     packages=['phi',
               'phi.app',
               'phi.backend',
@@ -142,7 +142,7 @@ setup(
     },
     description='Research-oriented differentiable fluid simulation framework',
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type='text/markdown',
     keywords=['Differentiable', 'Simulation', 'Fluid', 'Machine Learning', 'Deep Learning'],
     license='MIT',
     author='Philipp Holl',
@@ -159,6 +159,8 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     extras_require={
         'gui': ['dash',
