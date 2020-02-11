@@ -161,4 +161,4 @@ Projects the given velocity field by solving for and subtracting the pressure.
     pressure *= velocity.dx[0]
     gradp = StaggeredGrid.gradient(pressure)
     velocity -= fluiddomain.with_hard_boundary_conditions(gradp)
-    return velocity if not return_info else (velocity, {'pressure': pressure, 'iterations': iterations})
+    return velocity if not return_info else (velocity, {'pressure': pressure, 'iterations': iterations, 'divergence': divergence_field})
