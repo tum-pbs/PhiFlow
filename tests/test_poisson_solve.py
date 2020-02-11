@@ -44,7 +44,7 @@ class TestPoissonSolve(TestCase):
         for domain in DOMAINS:
             _test_solve_no_obstacles(domain, solver)
 
-    def test_sparse_scipy(self):
-        solver = SparseSciPy()
-        for domain in DOMAINS:
-            _test_solve_no_obstacles(domain, solver)
+    # def test_sparse_scipy(self):
+    #     solver = SparseSciPy()
+    #     for domain in DOMAINS:
+    #         _test_solve_no_obstacles(domain, solver)
