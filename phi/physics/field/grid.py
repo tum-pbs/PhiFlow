@@ -25,6 +25,17 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
 class CenteredGrid(Field):
 
     def __init__(self, data, box=None, extrapolation='boundary', name=None, **kwargs):
+        """Create new CenteredGrid from array like data
+        
+        :param data: numerical values to be set as values of CenteredGrid (immutable)
+        :type data: array-like
+        :param box: numerical values describing the surrounding area of the CenteredGrid, defaults to None
+        :type box: domain.box, optional
+        :param extrapolation: set conditions for boundaries, defaults to 'boundary'
+        :type extrapolation: str, optional
+        :param name: give CenteredGrid a custom name (immutable), defaults to None
+        :type name: string, optional
+        """                
         Field.__init__(self, **struct.kwargs(locals()))
         self._sample_points = None
 
