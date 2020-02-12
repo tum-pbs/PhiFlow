@@ -12,11 +12,11 @@ class GeometricCG(PoissonSolver):
     def __init__(self, accuracy=1e-5, gradient_accuracy='same',
                  max_iterations=2000, max_gradient_iterations='same',
                  autodiff=False):
-        '''
+        """
 Conjugate gradient solver that geometrically calculates laplace pressure in each iteration.
 Unlike most other solvers, this algorithm is TPU compatible but usually performs worse than SparseCG.
 
-Only fully-open or fully-closed boundaries are supported.
+Obstacles are allowed to vary between examples but the same number of iterations is performed for each example in one batch.
 
         :param accuracy: the maximally allowed error on the divergence channel for each cell
         :param gradient_accuracy: accuracy applied during backpropagation, number of 'same' to use forward accuracy
@@ -28,7 +28,7 @@ Only fully-open or fully-closed boundaries are supported.
             The intermediate results of each loop iteration will be permanently stored if backpropagation is used.
             If False, replaces autodiff by a forward pressure solve in reverse accumulation backpropagation.
             This requires less memory but is only accurate if the solution is fully converged.
-        '''
+        """
         PoissonSolver.__init__(self, 'Single-Phase Conjugate Gradient',
                                supported_devices=('CPU', 'GPU', 'TPU'),
                                supports_guess=True, supports_loop_counter=True, supports_continuous_masks=True)
@@ -69,11 +69,13 @@ Only fully-open or fully-closed boundaries are supported.
 
 
 def solve_pressure_forward(divergence, fluid_mask, max_iterations, guess, accuracy, domain, back_prop=False):
+    from phi.physics.material import Material
+    extrapolation = Material.extrapolation_mode(domain.domain.boundaries)
+
     def apply_A(pressure):
-        from phi.physics.material import Material
-        mode = 'replicate' if Material.solid(domain.domain.boundaries) else 'constant'
-        padded = math.pad(pressure, [[0, 0]] + [[1, 1]] * (math.ndims(pressure) - 2) + [[0, 0]], mode=mode)
-        return _weighted_sliced_laplace_nd(padded, weights=fluid_mask)
+        pressure = CenteredGrid(pressure, extrapolation=extrapolation)
+        pressure_padded = pressure.padded([[1, 1]] * pressure.rank)
+        return _weighted_sliced_laplace_nd(pressure_padded.data, weights=fluid_mask)
 
     return conjugate_gradient(divergence, apply_A, guess, accuracy, max_iterations, back_prop=back_prop)
 

@@ -4,11 +4,11 @@ import numpy as np
 from phi import math
 
 from phi.flow import CLOSED, PERIODIC, OPEN, Domain, poisson_solve
+from phi.physics.pressuresolver.geom import GeometricCG
 from phi.physics.pressuresolver.sparse import SparseCG, SparseSciPy
 
 
-def _test_solve_no_obstacles(domain, solver):
-    print('Testing domain with boundaries: %s' % (domain.boundaries,))
+def _generate_examples():
     # --- Example 1 ---
     ex1 = np.tile(np.linspace(1, 0, 5), [4, 1])
     ex1 = math.expand_dims(math.expand_dims(ex1, -1), 0) - math.mean(ex1)
@@ -17,8 +17,12 @@ def _test_solve_no_obstacles(domain, solver):
     ex2[0, :, 2, 0] = 1
     ex2 -= math.mean(ex2)
     # --- Stack examples to batch ---
-    data_in = math.concat([ex1, ex2], axis=0)
+    return math.concat([ex1, ex2], axis=0)
 
+
+def _test_solve_no_obstacles(domain, solver):
+    print('Testing domain with boundaries: %s' % (domain.boundaries,))
+    data_in = _generate_examples()
     p = poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0]
     np.testing.assert_almost_equal(p.laplace().data[:, 1:-1, 1:-1, :], data_in[:, 1:-1, 1:-1, :], decimal=5)
     if domain.boundaries is CLOSED:
@@ -36,8 +40,19 @@ DOMAINS = [
             Domain([4, 5], boundaries=[CLOSED, OPEN]),
         ]
 
+SOLVERS = [
+    SparseCG(), GeometricCG()
+]
+
 
 class TestPoissonSolve(TestCase):
+
+    def test_equal_results(self):
+        data_in = _generate_examples()
+        for domain in DOMAINS:
+            pressure_fields = [poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0].data for solver in SOLVERS]
+            for field in pressure_fields[1:]:
+                np.testing.assert_almost_equal(field, pressure_fields[0], decimal=4)
 
     def test_sparse_cg(self):
         solver = SparseCG()
@@ -48,3 +63,8 @@ class TestPoissonSolve(TestCase):
     #     solver = SparseSciPy()
     #     for domain in DOMAINS:
     #         _test_solve_no_obstacles(domain, solver)
+
+    def test_geometric_cg(self):
+        solver = GeometricCG()
+        for domain in DOMAINS:
+            _test_solve_no_obstacles(domain, solver)
