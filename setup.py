@@ -114,8 +114,11 @@ class CudaCommand(distutils.cmd.Command):
         assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
-with open("documentation/Package_Info.md", "r") as readme:
-    long_description = readme.read()
+try:
+    with open(os.path.join(os.path.dirname(__file__), 'documentation/Package_Info.md'), 'r') as readme:
+        long_description = readme.read()
+except FileNotFoundError:
+    pass
 
 
 setup(
