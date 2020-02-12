@@ -47,3 +47,4 @@ Additional style choices
 - Code comments that describe multiple lines precede the block and have the format `# --- Comment ---`.
 - No empty lines inside of methods. To separate code blocks use multi-line comments as described above.
 - Use the apostrophe character ' to enclose strings that affect the program / are not displayed to the user.
+- **Sphinx Docstring** format is used throughout the code base
