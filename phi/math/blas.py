@@ -36,6 +36,8 @@ def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations
         def loop_condition(*_args):
             return True
 
+    non_batch_dims = tuple(range(1, len(k.shape)))
+
     def loop_body(pressure, momentum, A_times_momentum, residual, loop_index):
         """
         iteratively solve for:
@@ -44,11 +46,11 @@ def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations
         laplace_momentum : A_times_momentum
         residual : residual
         """
-        tmp = math.sum(momentum * A_times_momentum, axis=1, keepdims=True)  # t = sum(mAm)
-        a = math.divide_no_nan(math.sum(momentum * residual, axis=1, keepdims=True), tmp)  # a = sum(mr)/sum(mAm)
+        tmp = math.sum(momentum * A_times_momentum, axis=non_batch_dims, keepdims=True)  # t = sum(mAm)
+        a = math.divide_no_nan(math.sum(momentum * residual, axis=non_batch_dims, keepdims=True), tmp)  # a = sum(mr)/sum(mAm)
         pressure += a * momentum  # p += am
         residual -= a * A_times_momentum  # r -= aAm
-        momentum = residual - math.divide_no_nan(math.sum(residual * A_times_momentum, axis=1, keepdims=True) * momentum, tmp)  # m = r-sum(rAm)*m/t = r-sum(rAm)*m/sum(mAm)
+        momentum = residual - math.divide_no_nan(math.sum(residual * A_times_momentum, axis=non_batch_dims, keepdims=True) * momentum, tmp)  # m = r-sum(rAm)*m/t = r-sum(rAm)*m/sum(mAm)
         A_times_momentum = apply_A(momentum)  # Am = A*m
         return [pressure, momentum, A_times_momentum, residual, loop_index + 1]
 
