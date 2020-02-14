@@ -16,6 +16,7 @@ struct ResampleGradientFunctor {
 		const unsigned int pointsSize,
 		const unsigned int outputElementsPerBatch,
 		const unsigned int outputSize,
+		const unsigned int outputGradientSize,
 		const T* __restrict__ outputGradient,
 		const T* __restrict__ data,
 		const T* __restrict__ points,
