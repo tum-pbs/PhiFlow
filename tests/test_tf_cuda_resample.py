@@ -11,7 +11,7 @@ from phi.tf.tf_cuda_resample import resample_cuda
 
 class TestTfCudaResample(TestCase):
     N = 50
-    MAX_DIFFERENCE = 0.0005
+    MAX_DIFFERENCE = 0.001
     MIN_VALUE = -10
     MAX_VALUE = 10
     BOUNDARIES = ['replicate', 'circular', 'symmetric', 'reflect']
@@ -50,22 +50,14 @@ class TestTfCudaResample(TestCase):
         points = np.zeros(shape, np.float32)
         dim = 0
         for i in range(points.size):
-            points.flat[i] = rand.uniform(-self.PERCENTAGE_OUT_OF_BOUNDS / 200 * data_shape[dim + 1],
-                                          data_shape[dim + 1] * (1 + self.PERCENTAGE_OUT_OF_BOUNDS / 200))
+            points.flat[i] = rand.uniform(-self.PERCENTAGE_OUT_OF_BOUNDS / 200 * (data_shape[dim + 1] - 1),
+                                          (data_shape[dim + 1] - 1) * (1 + self.PERCENTAGE_OUT_OF_BOUNDS / 200))
             dim = (dim + 1) % data_dims
         return points
 
     def test_global_boundaries(self):
         # rand.seed(42)
         for i in range(self.N):
-            '''data_batch_size = points_batch_size = 1
-            batch_size_selector = rand.randrange(4)
-            if batch_size_selector == 1:
-                points_batch_size = rand.randrange(4)
-            elif batch_size_selector == 2:
-                data_batch_size = rand.randrange(4)
-            elif batch_size_selector == 3:
-                data_batch_size = points_batch_size = rand.randrange(4)'''
             data = self.generate_data()
             points = self.generate_points(data.shape)
             boundary = rand.choice(self.BOUNDARIES)
@@ -136,13 +128,13 @@ class TestTfCudaResample(TestCase):
             data = self.generate_data()
             points = self.generate_points(data.shape)
             data2 = np.zeros(data.shape)
-            for i in range(data2.size):
-                data2.flat[i] = rand.uniform(self.MIN_VALUE, self.MAX_VALUE)
+            for x in range(data2.size):
+                data2.flat[x] = rand.uniform(self.MIN_VALUE, self.MAX_VALUE)
             points2 = np.zeros(points.shape)
             dim = 0
             dims = len(data.shape) - 2
-            for i in range(points.size):
-                points2.flat[i] = rand.uniform(-self.PERCENTAGE_OUT_OF_BOUNDS / 200 * data.shape[dim + 1],
+            for x in range(points.size):
+                points2.flat[x] = rand.uniform(-self.PERCENTAGE_OUT_OF_BOUNDS / 200 * data.shape[dim + 1],
                                                data.shape[dim + 1] * (1 + self.PERCENTAGE_OUT_OF_BOUNDS / 200))
                 dim = (dim + 1) % dims
             data_combined = np.concatenate((data, data2))
@@ -154,6 +146,8 @@ class TestTfCudaResample(TestCase):
             points_combined_placeholder = tf.placeholder(tf.float32, name="points_combined_placeholder",
                                                          shape=points_combined.shape)
 
+            print(points.shape)
+
             # batch_size = 2
             single = resample_cuda(data_placeholder, points_placeholder, boundary)
             single_data_gradient = (tf.gradients(single, data_placeholder))[0]
@@ -162,27 +156,33 @@ class TestTfCudaResample(TestCase):
             combined_data_gradient = (tf.gradients(combined, data_combined_placeholder))[0]
             combined_points_gradient = (tf.gradients(combined, points_combined_placeholder))[0]
             with tf.Session() as sess:
+                print('batch_size = 2, reference1')
                 reference1 = sess.run([single, single_data_gradient, single_points_gradient],
                                       feed_dict={data_placeholder: data, points_placeholder: points})
+                print('batch_size = 2, reference2')
                 reference2 = sess.run([single, single_data_gradient, single_points_gradient],
                                       feed_dict={data_placeholder: data2, points_placeholder: points2})
+                print('batch_size = 2, result')
                 result = sess.run([combined, combined_data_gradient, combined_points_gradient],
                                   feed_dict={data_combined_placeholder: data_combined,
                                              points_combined_placeholder: points_combined})
             for i in range(3):
                 reference = np.concatenate((reference1[i], reference2[i]))
                 for j in range(result[i].size):
-                    assert abs(reference.flat[i] - result[i].flat[i]) < self.MAX_DIFFERENCE
+                    assert abs(reference.flat[j] - result[i].flat[j]) < self.MAX_DIFFERENCE
 
             # data batch_size = 2
             combined = resample_cuda(data_combined_placeholder, points_placeholder, boundary)
             combined_data_gradient = (tf.gradients(combined, data_combined_placeholder))[0]
             combined_points_gradient = (tf.gradients(combined, points_placeholder))[0]
             with tf.Session() as sess:
+                print('data_batch_size = 2, reference1')
                 reference1 = sess.run([single, single_data_gradient, single_points_gradient],
                                       feed_dict={data_placeholder: data, points_placeholder: points})
+                print('data_batch_size = 2, reference2')
                 reference2 = sess.run([single, single_data_gradient, single_points_gradient],
                                       feed_dict={data_placeholder: data2, points_placeholder: points})
+                print('data_batch_size = 2, result')
                 result = sess.run([combined, combined_data_gradient, combined_points_gradient],
                                   feed_dict={data_combined_placeholder: data_combined,
                                              points_placeholder: points})
@@ -192,7 +192,7 @@ class TestTfCudaResample(TestCase):
                 else:
                     reference = np.concatenate((reference1[i], reference2[i]))
                 for j in range(result[i].size):
-                    assert abs(reference.flat[i] - result[i].flat[i]) < self.MAX_DIFFERENCE
+                    assert abs(reference.flat[j] - result[i].flat[j]) < self.MAX_DIFFERENCE
 
             # points batch_size = 2
             combined = resample_cuda(data_placeholder, points_combined_placeholder, boundary)
@@ -211,4 +211,4 @@ class TestTfCudaResample(TestCase):
                 else:
                     reference = np.concatenate((reference1[i], reference2[i]))
                 for j in range(result[i].size):
-                    assert abs(reference.flat[i] - result[i].flat[i]) < self.MAX_DIFFERENCE
+                    assert abs(reference.flat[j] - result[i].flat[j]) < self.MAX_DIFFERENCE

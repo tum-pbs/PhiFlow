@@ -325,10 +325,15 @@ void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims,
 
 
 template<typename T>
-void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d, int blockCount, int threadPerBlock) {
+void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d) {
 	if (components == 3) {
 		// Use Surface to write to texture array
-		CopyKernel<<<blockCount, threadPerBlock, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
+		int blockSize;
+		int minGridSize;
+		int gridSize;
+		cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, CopyKernel, 0, 0);
+		gridSize = (xSize * ySize * zSize + blockSize - 1) / blockSize;
+		CopyKernel<<<gridSize, blockSize, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
 		HANDLE_ERROR(cudaDeviceSynchronize());
 	} else if (dims <= 2) {
 		cudaMemcpyToArray(cuArray, 0, 0, data + batch * xSize * ySize * zSize * components, xSize * ySize * zSize * components * sizeof(T), cudaMemcpyDeviceToDevice);
