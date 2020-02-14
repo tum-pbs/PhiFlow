@@ -37,6 +37,7 @@ struct ResampleGradientFunctor<CPUDevice, T> {
 		const unsigned int pointsSize,
 		const unsigned int outputElementsPerBatch,
 		const unsigned int outputSize,
+		const unsigned int outputGradientSize,
 		const T* __restrict__ outputGradient,
 		const T* __restrict__ data,
 		const T* __restrict__ points,
@@ -79,7 +80,7 @@ struct ResampleGradientFunctor<CPUDevice, T> {
 				}
 				for (unsigned int component = 0; component < components; component++) {
 					T dataValue = 0;
-					T outputGradientValue = outputGradient[i * components + component];
+					T outputGradientValue = outputGradient[(i * components + component) % outputGradientSize];
 					if (applyBoundaries(boundaries, q, dims, dimSizes)) {
 						unsigned int dataIndex = getDataIndex(dataBatch, q, component, dims, dimSizes, components);
 						dataGradient[dataIndex] += weights[dims] * outputGradientValue;
@@ -116,7 +117,8 @@ public:
 		const unsigned int dataBatchSize = data.shape().dim_size(0);
 		const unsigned int pointsBatchSize = points.shape().dim_size(0);
 		assert(dataBatchSize == pointsBatchSize || dataBatchSize == 1 || pointsBatchSize == 1);
-		const unsigned int outputBatchSize = outputGradient.shape().dim_size(0);
+		//const unsigned int outputBatchSize = outputGradient.shape().dim_size(0);
+		unsigned int outputBatchSize = dataBatchSize > pointsBatchSize ? dataBatchSize : pointsBatchSize;
 		// dims
 		const int dims = data.shape().dims() - 2;
 		assert(dims == points.shape().dim_size(points.shape().dims() - 1));
@@ -143,9 +145,16 @@ public:
 			context->allocate_output(1, points.shape(), &pointsGradient)
 		);
 
+        //outputSize
+        unsigned int outputSize = 1;
+        for(int i = 1; i < points.shape().dims() - 1; i++) {
+            outputSize *= points.shape().dim_size(i);
+        }
+        outputSize *= outputBatchSize * components;
+        //unsigned int outputSize = outputGradient.NumElements() * outputBatchSize;
 
 		// outputElementsPerBatch
-		const unsigned int outputElementsPerBatch = outputGradient.NumElements() / outputBatchSize;
+		const unsigned int outputElementsPerBatch = outputSize / outputBatchSize;
 
 		// Do the computation.
 		/*OP_REQUIRES(
@@ -162,6 +171,7 @@ public:
 			components,
 			pointsSize,
 			outputElementsPerBatch,
+			outputSize,
 			outputGradient.NumElements(),
 			outputGradient.flat<T>().data(),
 			data.flat<T>().data(),

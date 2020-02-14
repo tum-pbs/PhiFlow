@@ -151,6 +151,9 @@ class TFBackend(Backend):
             boundary = 'zero'
         boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
         assert interpolation.lower() == 'linear'
+        # Check if CUDA can be used benefitially
+        if use_cuda(inputs):
+            return resample_cuda(inputs, sample_coords, boundary)
         return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 
     def zeros_like(self, tensor):
