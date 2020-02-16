@@ -578,24 +578,29 @@ struct ResampleGradientFunctor<GPUDevice, T> {
 
 		// Run kernel with texture memory
 		if (dims <= 3 && components <= 4) {
-			ResampleGradientTextureMemory<T>(
-				d,
-				dataBatchSize,
-				dims,
-				dimSizes,
-				components,
-				pointsSize,
-				outputElementsPerBatch,
-				outputSize,
-				outputGradientSize,
-				outputGradient,
-				data,
-				points,
-				dataGradient,
-				pointsGradient,
-				boundaries
-			);
-			return;
+            if((dims == 1 && dimSizes[0] <= 8192)||
+               (dims == 2 && dimSizes[0] <= 32768 && dimSizes[1] <= 65536)||
+               (dims == 3 && dimSizes[0] <= 2048 && dimSizes[1] <= 2048 && dimSizes[2] <= 2048))
+            {
+                ResampleGradientTextureMemory<T>(
+                    d,
+                    dataBatchSize,
+                    dims,
+                    dimSizes,
+                    components,
+                    pointsSize,
+                    outputElementsPerBatch,
+                    outputSize,
+                    outputGradientSize,
+                    outputGradient,
+                    data,
+                    points,
+                    dataGradient,
+                    pointsGradient,
+                    boundaries
+                );
+                return;
+            }
 		}
 
 		// Launch the cuda kernel.
