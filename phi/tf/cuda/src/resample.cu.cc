@@ -356,21 +356,26 @@ struct ResampleFunctor<GPUDevice, T> {
 
 		// Run kernel with texture memory
 		if (dims <= 3 && components <= 4){
-			ResampleTextureMemory<T>(
-				d,
-				dataBatchSize,
-				dims,
-				dimSizes,
-				components,
-				pointsSize,
-				outputElementsPerBatch,
-				outputSize,
-				data,
-				points,
-				output,
-				boundaries
-			);
-			return;
+		    if((dims == 1 && dimSizes[0] <= 8192)||
+		       (dims == 2 && dimSizes[0] <= 32768 && dimSizes[1] <= 65536)||
+		       (dims == 3 && dimSizes[0] <= 2048 && dimSizes[1] <= 2048 && dimSizes[2] <= 2048))
+		    {
+                ResampleTextureMemory<T>(
+                    d,
+                    dataBatchSize,
+                    dims,
+                    dimSizes,
+                    components,
+                    pointsSize,
+                    outputElementsPerBatch,
+                    outputSize,
+                    data,
+                    points,
+                    output,
+                    boundaries
+                );
+                return;
+			}
 		}
 
 		// Set output field to zero
