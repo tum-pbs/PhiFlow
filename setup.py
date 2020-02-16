@@ -1,5 +1,6 @@
 import distutils.cmd
 import distutils.log
+import errno
 import subprocess
 import os
 from setuptools import setup
@@ -9,6 +10,7 @@ class CudaCommand(distutils.cmd.Command):
     description = 'Compile CUDA sources'
     user_options = [
         ('gcc=', None, 'Path to the gcc compiler.'),
+        ('gcc-4-8=', None, 'Path to gcc-4.8 compiler.'),
         ('nvcc=', None, 'Path to the Nvidia nvcc compiler.'),
     ]
 
@@ -126,24 +128,31 @@ class CudaCommand(distutils.cmd.Command):
         )
 
         #Build the Resample Custom Op
-        subprocess.check_call(
-            [
-                self.gcc,
-                '-std=c++11',
-                '-shared',
-                '-o',
-                os.path.join(build_path, 'resample.so'),
-                os.path.join(src_path, 'resample.cc'),
-                os.path.join(build_path, 'resample.cu.o'),
-                '-fPIC',
-                '-lcudart',
-                '-D GOOGLE_CUDA=1',
-                '-I/usr/local/cuda-10.0/include',
-                '-O3'
-            ]
-            + tf_cflags
-            + tf_lflags
-        )
+        try:
+            subprocess.check_call(
+                [
+                    self.gcc_4_8,
+                    '-std=c++11',
+                    '-shared',
+                    '-o',
+                    os.path.join(build_path, 'resample.so'),
+                    os.path.join(src_path, 'resample.cc'),
+                    os.path.join(build_path, 'resample.cu.o'),
+                    '-fPIC',
+                    '-lcudart',
+                    '-D GOOGLE_CUDA=1',
+                    '-I/usr/local/cuda-10.0/include',
+                    '-O3'
+                ]
+                + tf_cflags
+                + tf_lflags
+            )
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                print('Please install g++-4.8 as it is needed to compile the advection operator.')
+                raise e
+            else:
+                raise e
 
         #Build the Resample Gradient CUDA Kernels
         subprocess.check_call(
@@ -166,31 +175,39 @@ class CudaCommand(distutils.cmd.Command):
         )
 
         #Build the Resample Gradient Custom Op
-        subprocess.check_call(
-            [
-                self.gcc,
-                '-std=c++11',
-                '-shared',
-                '-o',
-                os.path.join(build_path, 'resample_gradient.so'),
-                os.path.join(src_path, 'resample_gradient.cc'),
-                os.path.join(build_path, 'resample_gradient.cu.o'),
-                '-fPIC',
-                '-lcudart',
-                '-D GOOGLE_CUDA=1',
-                '-I/usr/local/cuda-10.0/include',
-                '-O3'
-            ]
-            + tf_cflags
-            + tf_lflags
-        )
+        try:
+            subprocess.check_call(
+                [
+                    self.gcc_4_8,
+                    '-std=c++11',
+                    '-shared',
+                    '-o',
+                    os.path.join(build_path, 'resample_gradient.so'),
+                    os.path.join(src_path, 'resample_gradient.cc'),
+                    os.path.join(build_path, 'resample_gradient.cu.o'),
+                    '-fPIC',
+                    '-lcudart',
+                    '-D GOOGLE_CUDA=1',
+                    '-I/usr/local/cuda-10.0/include',
+                    '-O3'
+                ]
+                + tf_cflags
+                + tf_lflags
+            )
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                print('Please install g++-4.8 as it is needed to compile the advection operator.')
+                raise e
+            else:
+                raise e
 
     def initialize_options(self):
-        self.gcc = 'g++-4.8'
+        self.gcc = 'gcc'
+        self.gcc_4_8 = 'g++-4.8'
         self.nvcc = 'nvcc'
 
     def finalize_options(self):
-        #assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
+        assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
         assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
