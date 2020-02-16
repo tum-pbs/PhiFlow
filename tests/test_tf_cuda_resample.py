@@ -1,5 +1,8 @@
+from collections import defaultdict
 from unittest import TestCase
 import random as rand
+
+from setuptools.command.develop import develop
 
 from phi.tf.flow import *
 
@@ -10,8 +13,8 @@ from phi.tf.tf_cuda_resample import resample_cuda
 
 
 class TestTfCudaResample(TestCase):
-    N = 50
-    MAX_DIFFERENCE = 0.001
+    N = 25
+    MAX_DIFFERENCE = 0.01
     MIN_VALUE = -10
     MAX_VALUE = 10
     BOUNDARIES = ['replicate', 'circular', 'symmetric', 'reflect']
@@ -55,7 +58,7 @@ class TestTfCudaResample(TestCase):
             dim = (dim + 1) % data_dims
         return points
 
-    def test_global_boundaries(self):
+    def global_boundaries(self, device):
         # rand.seed(42)
         for i in range(self.N):
             data = self.generate_data()
@@ -73,7 +76,7 @@ class TestTfCudaResample(TestCase):
             nifty_resampled = _resample_linear_niftynet(data_placeholder, points_placeholder, boundary, boundary_func)
             nifty_data_gradient = (tf.gradients(nifty_resampled, data_placeholder, gradient))[0]
             nifty_points_gradient = (tf.gradients(nifty_resampled, points_placeholder, gradient))[0]
-            with tf.Session() as sess:
+            with tf.Session() as sess, tf.device(device):
                 result = sess.run([cuda_resampled, nifty_resampled, cuda_data_gradient, nifty_data_gradient,
                                    cuda_points_gradient, nifty_points_gradient], feed_dict={data_placeholder: data,
                                                                                             points_placeholder: points})
@@ -89,7 +92,11 @@ class TestTfCudaResample(TestCase):
                         print(point)
                     assert -self.MAX_DIFFERENCE < difference.flat[j] < self.MAX_DIFFERENCE
 
-    def test_mixed_boundaries(self):
+    def test_global_boundaries(self):
+        self.global_boundaries('/CPU:0')
+        self.global_boundaries('/GPU:0')
+
+    def mixed_boundaries(self, device):
         data = np.array([[[[1.0], [2.0], [3.0]],
                           [[4.0], [5.0], [6.0]],
                           [[7.0], [8.0], [9.0]]]])
@@ -105,7 +112,7 @@ class TestTfCudaResample(TestCase):
                 data_placeholder = tf.placeholder(tf.float32, name="data_placeholder", shape=data.shape)
                 points_placeholder = tf.placeholder(tf.float32, name="points_placeholder", shape=points.shape)
                 cuda_resampled = resample_cuda(data_placeholder, points_placeholder, boundary)
-                with tf.Session() as sess:
+                with tf.Session() as sess, tf.device(device):
                     result = sess.run(cuda_resampled, feed_dict={data_placeholder: data, points_placeholder: points})
                 assert result.flat[0] == precomputed[i, j, 0]
                 assert result.flat[1] == precomputed[i, j, 1]
@@ -113,14 +120,18 @@ class TestTfCudaResample(TestCase):
         points = np.array([[[-0.5, -0.5], [-0.5, 2.5], [2.5, -0.5], [2.5, 2.5]]])
         points_placeholder = tf.placeholder(tf.float32, name="points_placeholder", shape=points.shape)
         cuda_resampled = resample_cuda(data_placeholder, points_placeholder, boundary)
-        with tf.Session() as sess:
+        with tf.Session() as sess, tf.device(device):
             result = sess.run(cuda_resampled, feed_dict={data_placeholder: data, points_placeholder: points})
         assert result.flat[0] == 1.0
         assert result.flat[1] == 1.25
         assert result.flat[2] == 8
         assert result.flat[3] == 8.5
 
-    def test_batch_sizes(self):
+    def test_mixed_boundaries(self):
+        self.mixed_boundaries('/CPU:0')
+        self.mixed_boundaries('/GPU:0')
+
+    def batch_sizes(self, device):
         # rand.seed(14)
         for n in range(self.N):
             # Generate arrays
@@ -155,7 +166,7 @@ class TestTfCudaResample(TestCase):
             combined = resample_cuda(data_combined_placeholder, points_combined_placeholder, boundary)
             combined_data_gradient = (tf.gradients(combined, data_combined_placeholder))[0]
             combined_points_gradient = (tf.gradients(combined, points_combined_placeholder))[0]
-            with tf.Session() as sess:
+            with tf.Session() as sess, tf.device(device):
                 print('batch_size = 2, reference1')
                 reference1 = sess.run([single, single_data_gradient, single_points_gradient],
                                       feed_dict={data_placeholder: data, points_placeholder: points})
@@ -175,7 +186,7 @@ class TestTfCudaResample(TestCase):
             combined = resample_cuda(data_combined_placeholder, points_placeholder, boundary)
             combined_data_gradient = (tf.gradients(combined, data_combined_placeholder))[0]
             combined_points_gradient = (tf.gradients(combined, points_placeholder))[0]
-            with tf.Session() as sess:
+            with tf.Session() as sess, tf.device(device):
                 print('data_batch_size = 2, reference1')
                 reference1 = sess.run([single, single_data_gradient, single_points_gradient],
                                       feed_dict={data_placeholder: data, points_placeholder: points})
@@ -198,7 +209,7 @@ class TestTfCudaResample(TestCase):
             combined = resample_cuda(data_placeholder, points_combined_placeholder, boundary)
             combined_data_gradient = (tf.gradients(combined, data_placeholder))[0]
             combined_points_gradient = (tf.gradients(combined, points_combined_placeholder))[0]
-            with tf.Session() as sess:
+            with tf.Session() as sess, tf.device(device):
                 reference1 = sess.run([single, single_data_gradient, single_points_gradient],
                                       feed_dict={data_placeholder: data, points_placeholder: points})
                 reference2 = sess.run([single, single_data_gradient, single_points_gradient],
@@ -212,3 +223,7 @@ class TestTfCudaResample(TestCase):
                     reference = np.concatenate((reference1[i], reference2[i]))
                 for j in range(result[i].size):
                     assert abs(reference.flat[j] - result[i].flat[j]) < self.MAX_DIFFERENCE
+
+    def test_batch_sizes(self):
+        self.batch_sizes('/CPU:0')
+        self.batch_sizes('/GPU:0')
