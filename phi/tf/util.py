@@ -23,7 +23,7 @@ def _tf_name(trace, basename):
         return basename + '/' + trace.path('/')
 
 
-def placeholder(shape, dtype=np.float32, basename=None):
+def placeholder(shape, dtype=np.float32, basename='Placeholder'):
     if struct.isstruct(dtype):
         def placeholder_map(trace):
             shape, dtype = trace.value
