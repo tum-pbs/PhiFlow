@@ -184,7 +184,7 @@ Trace objects can be used to reference a specific item of a struct or sub-struct
         if self.parent is not None and self.parent.key is not None:
             return self.parent.path(separator) + separator + self.name
         else:
-            return self.name
+            return self.name if self.name is not None else ''
 
     def __repr__(self):
         return "%s = %s" % (self.path(), self.value)

@@ -28,6 +28,6 @@ class TestPlaceholder(TestCase):
         obj = ([4], CenteredGrid([1, 4, 1], box[0:1], content_type=struct.shape), ([9], [8, 2]))
         tensorflow.reset_default_graph()
         p = placeholder(obj)
-        self.assertEqual(p[0].name, '0:0')
-        self.assertEqual(p[1].data.name, '1/data:0')
+        self.assertEqual('Placeholder/0:0', p[0].name)
+        self.assertEqual('Placeholder/1/data:0', p[1].data.name)
         self.assertIsInstance(p, tuple)
