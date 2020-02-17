@@ -11,7 +11,7 @@ from phi.backend.dynamic_backend import NoBackendFound
 from .nd import fftfreq
 
 
-@mappable(item_condition=struct.ALL_ITEMS, unsafe_context=True)
+@mappable(item_condition=struct.ALL_ITEMS, content_type=type)
 def types(x):
     warnings.warn("math.types is deprecated. Use struct.dtype isntead.", DeprecationWarning)
     try:
