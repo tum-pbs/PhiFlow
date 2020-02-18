@@ -36,7 +36,8 @@ Required decorator for custom struct classes.
                 for trait in base.__traits__:
                     if trait not in traits:
                         inherited_traits += (trait,)
-        traits = inherited_traits + traits
+        traits = inherited_traits + tuple([t for t in traits if t not in inherited_traits])
+        assert len(set(traits)) == len(traits), "Duplicate traits on struct class '%s'" % struct_class
         # --- Initialize & Decorate ---
         struct_class.__traits__ = traits
         for item in items.values():
@@ -124,6 +125,7 @@ Represents an item type of a struct, a variable or a constant.
         self.holds_data = holds_data
         self.trait_kwargs = trait_kwargs
         self.struct_class = None
+        self._overrides = {}
 
     def __initialize_for__(self, struct_class):
         self.struct_class = struct_class
@@ -150,6 +152,40 @@ Represents an item type of a struct, a variable or a constant.
                 value = trait.post_validated(struct, self, value)
             self.set(struct, value)
 
+    def has_override(self, content_type):
+        if content_type is None:
+            return False
+        return self._attribute_name(content_type) in self._overrides
+
+    def get_override(self, content_type):
+        return self._overrides[self._attribute_name(content_type)]
+
+    def override(self, content_type, override_function):
+        """
+Override a property or behaviour of this item and/or its values.
+This affects all instances of the associated Struct.
+The override function is called instead of the usual function in `struct.map` to obtain a leaf value.
+
+Overrides can also be used to specify custom property getters, e.g. to override shape, staticshape, dtype.
+As this method is called on an Item, it must be invoked outside the item it affects.
+
+Example: to override the shape of an item, put the following just below its declaration: `item.override(struct.shape, lambda self, value: custom_shape)`
+        :param content_type: custom name or Item/DerivedItem reference
+        :param override_function: function, signature depends on the overridden property.
+        """
+        self._overrides[self._attribute_name(content_type)] = override_function
+
+    @staticmethod
+    def _attribute_name(name_or_attribute):
+        if isinstance(name_or_attribute, (Item, DerivedProperty)):
+            name = name_or_attribute.name
+        elif callable(name_or_attribute):
+            name = name_or_attribute.__name__
+        else:
+            name = name_or_attribute
+        assert isinstance(name, six.string_types), 'Not an attribute: %s' % name
+        return name
+
     def __get__(self, instance, owner):
         if instance is not None:
             return getattr(instance, '_' + self.name)
@@ -171,16 +207,17 @@ Represents an item type of a struct, a variable or a constant.
         return self.name
 
 
-def CONSTANTS(item): return not item.is_variable
+class _IndexItem(Item):
 
+    def __init__(self, index, is_variable=True, holds_data=True):
+        Item.__init__(self, name=index, validation_function=None, is_variable=is_variable, default_value=None, dependencies=(), holds_data=holds_data)
+        self.index = index
 
-def VARIABLES(item): return item.is_variable
+    def get(self, struct):
+        return struct[self.index]
 
-
-def DATA(item): return item.holds_data
-
-
-ALL_ITEMS = None
+    def set(self, struct, value):
+        struct[self.index] = value
 
 
 class DerivedProperty(object):

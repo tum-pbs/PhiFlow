@@ -7,8 +7,8 @@ import six
 import tensorflow as tf
 from packaging import version
 
-from phi.math.base_backend import Backend
-from phi.struct.tensorop import expand, collapsed_gather_nd
+from phi.backend.backend import Backend
+from phi.backend.tensorop import expand, collapsed_gather_nd
 
 if tf.__version__[0] == '2':
     logging.info('Adjusting for tensorflow 2.0')
@@ -267,6 +267,8 @@ class TFBackend(Backend):
         return tf.to_complex64(x)
 
     def gather(self, values, indices):
+        if isinstance(indices, slice):
+            return values[indices]
         return tf.gather(values, indices)
 
     def gather_nd(self, values, indices):
@@ -459,14 +461,19 @@ def _boundary_circular(sample_coords, input_size):
 
 
 def _boundary_symmetric(sample_coords, input_size):
-    circular_size = input_size + input_size - 2
-    return (input_size - 1) - tf.abs(
-        (input_size - 1) - _boundary_circular(sample_coords, circular_size))
+    sample_coords = _boundary_circular(sample_coords, 2 * input_size)
+    return ((2 * input_size - 1) - tf.abs((2 * input_size - 1) - 2 * sample_coords)) // 2
+
+
+def _boundary_reflect(sample_coords, input_size):
+    sample_coords = _boundary_circular(sample_coords, 2 * input_size - 2)
+    return (input_size - 1) - tf.abs((input_size - 1) - sample_coords)
 
 
 SUPPORTED_BOUNDARY = {
     'zero': _boundary_replicate,
     'replicate': _boundary_replicate,
     'circular': _boundary_circular,
-    'symmetric': _boundary_symmetric
+    'symmetric': _boundary_symmetric,
+    'reflect': _boundary_reflect,
 }

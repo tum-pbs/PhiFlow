@@ -72,3 +72,6 @@ Processes the value of an item after the validation function is called.
 
     def __repr__(self):
         return '%s (Trait)' % self.__class__.__name__
+
+    def __hash__(self):
+        return hash(self.__class__)

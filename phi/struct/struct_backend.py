@@ -1,21 +1,22 @@
-from phi import struct
-from .base_backend import Backend
+from phi.backend.backend import Backend
+from . import context, struct, functions
 
 
 class StructBroadcastBackend(Backend):
     # Abstract mehtods are overridden generically.
     # pylint: disable-msg = abstract-method
 
-    def __init__(self, backend):
+    def __init__(self, backend, target_content_type=struct.VALID):
         Backend.__init__(self, 'StructBroadcast')
         self.backend = backend
+        self.target_content_type = target_content_type
         for fname in dir(self):
             if fname not in ('__init__', 'is_applicable', 'broadcast_function') and not fname.startswith('__'):
                 function = getattr(self, fname)
                 if callable(function):
                     def context(fname=fname):
                         def proxy(*args, **kwargs):
-                            return broadcast_function(self.backend, fname, args, kwargs)
+                            return self.broadcast_function(self.backend, fname, args, kwargs)
                         return proxy
                     setattr(self, fname, context())
 
@@ -25,17 +26,15 @@ class StructBroadcastBackend(Backend):
                 return True
         return False
 
+    def broadcast_function(self, backend, func, args, kwargs):
+        backend_func = getattr(backend, func)
+        obj, build_arguments = argument_assembler(args, kwargs)
 
-def broadcast_function(backend, func, args, kwargs):
-    backend_func = getattr(backend, func)
-    obj, build_arguments = argument_assembler(args, kwargs)
-
-    def f(*values):
-        args, kwargs = build_arguments(values)
-        result = backend_func(*args, **kwargs)
-        return result
-    with struct.unsafe():
-        return struct.map(f, obj)
+        def f(*values):
+            args, kwargs = build_arguments(values)
+            result = backend_func(*args, **kwargs)
+            return result
+        return functions.map(f, obj, content_type=self.target_content_type)
 
 
 def argument_assembler(args, kwargs):
@@ -44,7 +43,7 @@ def argument_assembler(args, kwargs):
     if len(structs) == 1:
         obj = structs[0]
     else:
-        obj = struct.zip(structs)
+        obj = functions.zip(structs)
 
     def assemble_arguments(items):
         args = []

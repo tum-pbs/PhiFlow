@@ -4,7 +4,7 @@ import six
 from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
-from phi.math.nd import map_for_axes
+from phi.math.helper import map_for_axes
 from phi.physics.domain import Domain
 from phi.physics.material import Material
 from phi.struct.functions import mappable
@@ -25,6 +25,17 @@ def _crop_for_interpolation(data, offset_float, window_resolution):
 class CenteredGrid(Field):
 
     def __init__(self, data, box=None, extrapolation='boundary', name=None, **kwargs):
+        """Create new CenteredGrid from array like data
+        
+        :param data: numerical values to be set as values of CenteredGrid (immutable)
+        :type data: array-like
+        :param box: numerical values describing the surrounding area of the CenteredGrid, defaults to None
+        :type box: domain.box, optional
+        :param extrapolation: set conditions for boundaries, defaults to 'boundary'
+        :type extrapolation: str, optional
+        :param name: give CenteredGrid a custom name (immutable), defaults to None
+        :type name: string, optional
+        """                
         Field.__init__(self, **struct.kwargs(locals()))
         self._sample_points = None
 
@@ -51,6 +62,7 @@ class CenteredGrid(Field):
         while math.ndims(data) < 2:
             data = math.expand_dims(data)
         return data
+    data.override(struct.staticshape, lambda self, data: (self._batch_size,) + math.staticshape(data)[1:])
 
     @property
     def resolution(self):
@@ -85,8 +97,7 @@ class CenteredGrid(Field):
             return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
         local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
-        boundary = {'periodic': 'circular', 'boundary': 'replicate', 'constant': 'constant'}[self.extrapolation]
-        resampled = math.resample(self.data, local_points, boundary=boundary, interpolation=self.interpolation)
+        resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation)
         return resampled
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
@@ -138,14 +149,13 @@ class CenteredGrid(Field):
             return False
 
     def __repr__(self):
-        try:
+        if self.is_valid:
             return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
-        except:
-            return 'Grid[invalid]'
+        else:
+            return struct.Struct.__repr__(self)
 
     def padded(self, widths):
-        extrapolation = self.extrapolation if isinstance(self.extrapolation, six.string_types) else ['constant'] + list(self.extrapolation) + ['constant']
-        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(extrapolation))
+        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(self.extrapolation))
         w_lower, w_upper = np.transpose(widths)
         box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
         return self.copied_with(data=data, box=box)
@@ -202,18 +212,32 @@ def _required_paddings_transposed(box, dx, target):
     return [lower, upper]
 
 
-@mappable()
 def _pad_mode(extrapolation):
-    if extrapolation == 'periodic':
-        return 'wrap'
-    elif extrapolation == 'boundary':
-        return 'replicate'
+    """ Inserts 'constant' padding for batch dimension and channel dimension. """
+    if isinstance(extrapolation, six.string_types):
+        return _pad_mode_str(extrapolation)
     else:
-        return extrapolation
+        return _pad_mode_str(['constant'] + list(extrapolation) + ['constant'])
+
+@mappable()
+def _pad_mode_str(extrapolation):
+    """
+Converts an extrapolation string (or struct of strings) to a string that can be passed to math functions like math.pad or math.resample.
+    :param extrapolation: field extrapolation
+    :return: padding mode, same type as extrapolation
+    """
+    return {'periodic': 'circular',
+            'boundary': 'replicate',
+            'constant': 'constant'}[extrapolation]
+
 
 @mappable()
 def _gradient_extrapolation(extrapolation):
-    if extrapolation == 'boundary':
-        return 'constant'
-    else:
-        return extrapolation
+    """
+Given the extrapolation of a field, returns the extrapolation mode of the corresponding gradient field.
+    :param extrapolation: string or struct of strings
+    :return: same type as extrapolation
+    """
+    return {'periodic': 'periodic',
+            'boundary': 'constant',
+            'constant': 'constant'}[extrapolation]

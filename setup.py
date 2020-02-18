@@ -114,16 +114,20 @@ class CudaCommand(distutils.cmd.Command):
         assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
-with open("documentation/Package_Info.md", "r") as readme:
-    long_description = readme.read()
+try:
+    with open(os.path.join(os.path.dirname(__file__), 'documentation/Package_Info.md'), 'r') as readme:
+        long_description = readme.read()
+except FileNotFoundError:
+    pass
 
 
 setup(
     name='phiflow',
-    version='1.0.2',
-    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.2.tar.gz',
+    version='1.0.3',
+    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.3.tar.gz',
     packages=['phi',
               'phi.app',
+              'phi.backend',
               'phi.data',
               'phi.geom',
               'phi.local',
@@ -133,14 +137,15 @@ setup(
               'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
-              'phi.viz', 'phi.viz.dash',
+              'phi.viz',
+              'phi.viz.dash',
               'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
     },
     description='Research-oriented differentiable fluid simulation framework',
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type='text/markdown',
     keywords=['Differentiable', 'Simulation', 'Fluid', 'Machine Learning', 'Deep Learning'],
     license='MIT',
     author='Philipp Holl',
@@ -157,6 +162,8 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     extras_require={
         'gui': ['dash',

@@ -72,6 +72,9 @@ class TestDemos(TestCase):
     def test_simpleplume(self):
         demo_run('simpleplume')
 
+    def test_simpleplume_3d(self):
+        demo_run('simpleplume_3d')
+
     def test_smoke_datagen_commandline(self):
         demo_run('smoke_datagen_commandline')
 

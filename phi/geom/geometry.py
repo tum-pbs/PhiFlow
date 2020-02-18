@@ -20,19 +20,23 @@ Samples the geometry at the given locations and returns a binary mask, labelling
         raise NotImplementedError()
 
 
-@struct.definition()
+@struct.definition(traits=[math.BATCHED])
 class AABox(Geometry):
+    """
+    Axis-aligned box, defined by lower and upper corner.
+    AABoxes can be created using the shorthand notation box[slices], (e.g. box[:,0:1] to create an inifinite-height box from x=0 to x=1).
+    """
 
     def __init__(self, lower, upper, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.constant()
+    @struct.constant(min_rank=1)
     def lower(self, lower):
-        return math.to_float(math.as_tensor(lower))
+        return math.to_float(lower)
 
-    @struct.constant()
+    @struct.constant(min_rank=1)
     def upper(self, upper):
-        return math.to_float(math.as_tensor(upper))
+        return math.to_float(upper)
 
     def get_lower(self, axis):
         return self._get(self.lower, axis)
@@ -42,8 +46,8 @@ class AABox(Geometry):
 
     @staticmethod
     def _get(vector, axis):
-        if math.ndims(vector) == 0:
-            return vector
+        if vector.shape[-1] == 1:
+            return vector[...,0]
         else:
             return vector[...,axis]
 
@@ -88,10 +92,10 @@ class AABox(Geometry):
         return self.copied_with(lower=lower, upper=upper)
 
     def __repr__(self):
-        try:
+        if self.is_valid:
             return '%s at (%s)' % ('x'.join([str(x) for x in self.size]), ','.join([str(x) for x in self.lower]))
-        except TypeError:
-            return '%s at %s' % (self.size, self.lower)
+        else:
+            return struct.Struct.__repr__(self)
 
     @staticmethod
     def to_box(value, resolution_hint=None):
@@ -127,22 +131,22 @@ class AABoxGenerator(object):
         return AABox(lower, upper)
 
 
-box = AABoxGenerator()
+box = AABoxGenerator()  # Instantiate an AABox using the syntax box[slices]
 
 
-@struct.definition()
+@struct.definition(traits=[math.BATCHED])
 class Sphere(Geometry):
 
     def __init__(self, center, radius, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    @struct.constant()
+    @struct.constant(min_rank=0)
     def radius(self, radius):
-        return math.as_tensor(radius)
+        return radius
 
-    @struct.constant()
+    @struct.constant(min_rank=1)
     def center(self, center):
-        return math.as_tensor(center)
+        return center
 
     def value_at(self, location):
         center = math.batch_align(self.center, 1, location)

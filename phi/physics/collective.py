@@ -1,59 +1,64 @@
+import warnings
+
 import six
 from phi.struct.context import skip_validate
+from phi.struct.structdef import Item
 
 from .physics import Physics, State, struct
 
 
-@struct.definition()
-class StateCollection(struct.Struct):
+class StateCollection(dict):
 
-    def __init__(self, states=None, **kwargs):
-        struct.Struct.__init__(self, **struct.kwargs(locals()))
-
-    @struct.variable()
-    def states(self, states):
+    def __init__(self, states=None):
+        """
+Create a state collection from a dictionary of states.
+        :param states: dict mapping from state names to states
+        :type states: dict or list or tuple None
+        """
         if states is None:
-            return {}
-        if isinstance(states, (tuple, list)):
-            return {state.name: state for state in states}
-        assert isinstance(states, dict)
-        return states.copy()
+            states = {}
+        elif not isinstance(states, dict):
+            states = {state.name: state for state in states}
+        dict.__init__(self, states)
+
+    def __setitem__(self, key, val):
+        raise AttributeError('StateCollections are immutable')
 
     def all_with_tag(self, tag):
-        return [s for s in self.states.values() if tag in s.tags]
+        return [s for s in self.values() if tag in s.tags]
 
     def all_instances(self, cls):
-        return [s for s in self.states.values() if isinstance(s, cls)]
+        return [s for s in self.values() if isinstance(s, cls)]
 
     def state_added(self, state):
-        assert state.name not in self.states,\
-            'A state with name "%s" is already present. Use state_replaced() to replace it.' % state.name
-        new_states = self.states.copy()
+        assert state.name not in self, 'A state with name "%s" is already present. Use state_replaced() to replace it.' % state.name
+        new_states = self.copy()
         new_states[state.name] = state
-        return self.copied_with(states=new_states)
+        return StateCollection(new_states)
 
     def state_replaced(self, new_state):
-        assert new_state.name in self.states, 'No state found with name "%s"' % new_state.name
-        new_states = {state.name: (state if state.name != new_state.name else new_state) for state in self.states.values()}
-        return self.copied_with(states=new_states)
+        assert new_state.name in self, 'No state found with name "%s"' % new_state.name
+        new_states = dict(self)
+        new_states[new_state.name] = new_state
+        return StateCollection(new_states)
 
     def state_removed(self, state):
         name = state if isinstance(state, six.string_types) else state.name
-        new_states = self.states.copy()
+        new_states = dict(self)
         del new_states[name]
-        return self.copied_with(states=new_states)
+        return StateCollection(new_states)
 
     def find(self, name):
-        return self.states[name]
+        warnings.warn("StateCollection.find is deprecated. Use statecollection[name] instead.", DeprecationWarning)
+        return dict.__getitem__(self, name)
 
     def __getitem__(self, item):
         if isinstance(item, State):
             return self[item.name]
         if isinstance(item, six.string_types):
-            return self.find(item)
+            return dict.__getitem__(self, item)
         if struct.isstruct(item):
-            with struct.unsafe():
-                return struct.map(lambda x: self[x], item)
+            return struct.map(lambda x: self[x], item, content_type=struct.INVALID)
         try:
             return self[item.name]
         except AttributeError as e:
@@ -61,58 +66,48 @@ class StateCollection(struct.Struct):
         raise ValueError('Illegal argument: %s' % item)
 
     def __getattr__(self, item):
-        if item.startswith('_'):
-            return struct.Struct.__getattribute__(self, item)
-        if item in self.states:
-            return self.states[item]
-        return struct.Struct.__getattribute__(self, item)
+        return self[item]
 
     def default_physics(self):
+        warnings.warn("StateCollection will be removed in the future.", DeprecationWarning)
         return CollectivePhysics()
 
     def __repr__(self):
-        return '[' + ', '.join((str(s) for s in self.states)) + ']'
-
-    def __len__(self):
-        return len(self.states)
+        return '[' + ', '.join((str(s) for s in self)) + ']'
 
     def __contains__(self, item):
         if isinstance(item, State):
-            return item.name in self.states
+            return item.name in self
         if isinstance(item, six.string_types):
-            return item in self.states
+            return dict.__contains__(self, item)
         raise ValueError('Illegal type: %s' % type(item))
 
-    def _set_items(self, **kwargs):
-        for name, value in kwargs.items():
-            if name in ('states', 'age'):
-                getattr(self.__class__, name).set(self, value)
-            else:
-                self._states = self.states.copy()
-                if not skip_validate():
-                    assert isinstance(value, State)
-                    assert value.name == name, 'Inconsisten names: trying to assign state "%s" to name "%s"' % (value.name, name)
-                    assert 'states' not in kwargs
-                self.states[name] = value
+    def __hash__(self):
+        return 0
+
+    @property
+    def states(self):
         return self
 
-    def __to_dict__(self, item_condition=None):
-        return self.states.copy()
-
-    def __properties__(self):
-        return {}
-
-    def __properties_dict__(self):
-        result = {}
-        for state in self.states.values():
-            result[state.name] = struct.properties_dict(state)
-        result['type'] = str(self.__class__.__name__)
-        result['module'] = str(self.__class__.__module__)
-        return result
+    def copied_with(self, **kwargs):
+        if len(kwargs) == 0:
+            return self
+        assert len(kwargs) == 1
+        name, value = next(iter(kwargs.items()))
+        assert name == 'states'
+        return StateCollection(value)
 
     @property
     def shape(self):
-        return struct.map(lambda state: state.shape, self, recursive=False)
+        return StateCollection({name: state.shape for name, state in self.items()})
+
+    @property
+    def staticshape(self):
+        return StateCollection({name: state.staticshape for name, state in self.items()})
+
+    @property
+    def dtype(self):
+        return StateCollection({name: state.dtype for name, state in self.items()})
 
 
 CollectiveState = StateCollection
@@ -128,7 +123,7 @@ class CollectivePhysics(Physics):
         assert len(dependent_states) == 0
         if len(state_collection) == 0:
             return state_collection
-        unhandled_states = list(state_collection.states.values())
+        unhandled_states = list(state_collection.values())
         next_states = {}
         partial_next_state_collection = StateCollection(next_states)
 
@@ -137,13 +132,15 @@ class CollectivePhysics(Physics):
                 physics = self.for_(state)
                 if self._all_dependencies_fulfilled(physics.blocking_dependencies, state_collection, partial_next_state_collection):
                     next_state = self.substep(state, state_collection, dt, partial_next_state_collection=partial_next_state_collection)
+                    assert next_state is not None, "step() called on %s returned None for state '%s'" % (type(physics).__name__, state)
+                    assert isinstance(next_state, State), "step() called on %s dit not return a State but '%s' for state '%s'" % (type(physics).__name__, next_state, state)
                     assert next_state.name == state.name, "The state name must remain constant during step(). Caused by '%s' on state '%s'." % (type(physics).__name__, state)
                     next_states[next_state.name] = next_state
                     unhandled_states.remove(state)
             partial_next_state_collection = StateCollection(next_states)
             if len(unhandled_states) == 0:
-                ordered_states = [partial_next_state_collection[state] for state in state_collection.states]
-                return partial_next_state_collection.copied_with(states=ordered_states)
+                ordered_states = [partial_next_state_collection[state] for state in state_collection]
+                return StateCollection(ordered_states)
 
         # Error
         errstr = 'Cyclic blocking_dependencies in simulation: %s' % unhandled_states

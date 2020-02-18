@@ -16,6 +16,7 @@ from phi.tf.flow import tf, Session, placeholder, variable, tf_bake_subgraph, tf
 class TestFluidTF(TestCase):
 
     def test_fluid_tf(self):
+        tf.reset_default_graph()
         world = World()
         fluid = Fluid(Domain([16, 16]))
         world.add(fluid)
@@ -30,6 +31,7 @@ class TestFluidTF(TestCase):
         self.assertIsInstance(fluid, Fluid)
 
     def test_tf_subgraph(self):
+        tf.reset_default_graph()
         world = World()
         fluid = world.add(Fluid(Domain([16, 16])))
         tf_bake_subgraph(fluid, Session(Scene.create('data', copy_calling_script=False)))
@@ -38,6 +40,7 @@ class TestFluidTF(TestCase):
         self.assertIsInstance(fluid.state.density.data, numpy.ndarray)
 
     def test_tf_worldgraph(self):
+        tf.reset_default_graph()
         world = World()
         fluid = world.add(Fluid(Domain([16, 16])))
         tf_bake_graph(world, Session(Scene.create('data', copy_calling_script=False)))

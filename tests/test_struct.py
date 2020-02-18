@@ -2,6 +2,7 @@ from unittest import TestCase
 
 import numpy
 
+from phi import math
 from phi.geom import box
 from phi.physics.collective import StateCollection
 from phi.physics.domain import Domain
@@ -24,13 +25,12 @@ class TestStruct(TestCase):
 
     def test_identity(self):
         for obj in generate_test_structs():
-            with struct.unsafe():
-                obj2 = struct.map(lambda s: s, obj, recursive=False)
-                self.assertEqual(obj, obj2)
-                obj3 = struct.map(lambda t: t, obj, recursive=True)
-                self.assertEqual(obj, obj3)
-                obj4 = struct.map(lambda t: t, obj, item_condition=struct.ALL_ITEMS)
-                self.assertEqual(obj, obj4)
+            obj2 = struct.map(lambda s: s, obj, recursive=False)
+            self.assertEqual(obj, obj2)
+            obj3 = struct.map(lambda t: t, obj, recursive=True)
+            self.assertEqual(obj, obj3)
+            obj4 = struct.map(lambda t: t, obj, item_condition=struct.ALL_ITEMS)
+            self.assertEqual(obj, obj4)
 
     def test_flatten(self):
         for obj in generate_test_structs():
@@ -42,37 +42,34 @@ class TestStruct(TestCase):
 
     def test_names(self):
         for obj in generate_test_structs():
-            with struct.unsafe():
-                names = struct.flatten(struct.map(lambda attr: attr.name, obj, trace=True))
-                self.assertGreater(len(names), 0)
-                for name in names:
-                    self.assertIsInstance(name, str)
+            names = struct.flatten(struct.map(lambda attr: attr.name, obj, trace=True, content_type='name'))
+            self.assertGreater(len(names), 0)
+            for name in names:
+                self.assertIsInstance(name, str)
 
     def test_paths(self):
         obj = {'Vels': [CenteredGrid(numpy.zeros([1, 4, 1]), box[0:1], name='v')]}
-        with struct.unsafe():
-            names = struct.flatten(struct.map(lambda attr: attr.path(), obj, trace=True))
+        names = struct.flatten(struct.map(lambda attr: attr.path(), obj, trace=True, content_type='name'))
         self.assertEqual(names[0], 'Vels.0.data')
 
     def test_copy(self):
-        with struct.unsafe():
-            fluid = Fluid(Domain([4]), density='Density', velocity='Velocity')
-            v = fluid.copied_with(velocity='V2')
-            self.assertEqual(v.velocity, 'V2')
-            self.assertEqual(v.density, 'Density')
+        fluid = Fluid(Domain([4]), density='Density', velocity='Velocity', content_type=struct.INVALID)
+        v = fluid.copied_with(velocity='V2')
+        self.assertEqual(v.velocity, 'V2')
+        self.assertEqual(v.density, 'Density')
 
-            try:
-                fluid.copied_with(velocity='D2')
-                self.fail()
-            except AssertionError:
-                pass
+        try:
+            fluid.copied_with(velocity='D2')
+            self.fail()
+        except AssertionError:
+            pass
 
     def test_zip(self):
-        with struct.unsafe():
-            a = CenteredGrid('a')
-            b = CenteredGrid('b')
-            stacked = struct.map(lambda *x: x, struct.zip([a, b]))
-            numpy.testing.assert_equal(stacked.data, ('a', 'b'))
+        a = CenteredGrid('a', content_type='name')
+        b = CenteredGrid('b', content_type='name')
+        zipped = struct.zip([a, b])
+        stacked = struct.map(lambda *x: x, zipped, content_type='name')
+        numpy.testing.assert_equal(stacked.data, ('a', 'b'))
 
     def test_collapse(self):
         self.assertEqual(0, collapse(numpy.zeros([2, 2])))
@@ -90,9 +87,24 @@ class TestStruct(TestCase):
 
     def test_mappable(self):
         x = [0]
+
         @mappable(item_condition=VARIABLES)
         def act_on_variables(x): return x + 1
+
         @mappable(item_condition=CONSTANTS)
         def act_on_constants(x): return x + 1
+
         self.assertEqual([1], act_on_variables(x))
         self.assertEqual([0], act_on_constants(x))
+
+    def test_content_types(self):
+        dom = Domain([4])
+        assert dom.is_valid
+        # --- CenteredGrid ---
+        assert dom.centered_shape().content_type is struct.Struct.shape
+        assert dom.centered_grid(math.zeros).content_type is struct.VALID
+        # --- StaggeredGrid ---
+        assert dom.staggered_shape().content_type is struct.Struct.shape
+        assert dom.staggered_shape().x.content_type is struct.Struct.shape
+        assert dom.staggered_grid(math.zeros).content_type is struct.VALID
+        assert dom.staggered_grid(math.zeros).x.content_type is struct.VALID

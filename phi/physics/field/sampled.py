@@ -101,6 +101,7 @@ class SampledField(Field):
         if isinstance(data, (tuple, list, np.ndarray)):
             data = math.zeros_like(self.sample_points) + data
         return data
+    data.override(struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.component_count) if math.ndims(self.data) > 0 else ())
 
     @struct.constant(default='add')
     def mode(self, mode):
@@ -111,15 +112,7 @@ class SampledField(Field):
     def sample_points(self, sample_points):
         assert math.ndims(sample_points) == 3, sample_points.shape
         return sample_points
-
-    @property
-    def shape(self):
-        with struct.unsafe():
-            if math.ndims(self.data) > 0:
-                data_shape = (self._batch_size, self._point_count, self.component_count)
-            else:
-                data_shape = ()
-            return self.copied_with(data=data_shape, sample_points=(self._batch_size, self._point_count, self.rank))
+    sample_points.override(struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.rank))
 
     @property
     def rank(self):
@@ -149,6 +142,8 @@ class SampledField(Field):
 
     def __repr__(self):
         return '%s[%sx(%d), %dD]' % (self.__class__.__name__, self._point_count if self._point_count is not None else '?', self.component_count, self.rank)
+
+
 
 
 def batch_indices(indices):

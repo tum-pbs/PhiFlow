@@ -3,12 +3,20 @@ language: python
 python:
   - "2.7"
   - "3.6"
+  - "3.7"
+  - "3.8"
+
+matrix:
+  allow_failures:
+  - python: "3.8"
 
 before_install:
   - pip install -U pip
 
 install:
-  - pip install --quiet tensorflow==1.14.0 nbformat ipython pylint
+  - if [[ $TRAVIS_PYTHON_VERSION != 3.8 ]]; then pip install --quiet tensorflow==1.14.0; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == "3.8" ]]; then pip install --quiet https://github.com/ppwwyyxx/tensorflow-wheels/releases/download/v0.2/tensorflow-1.15.0-cp38-cp38-linux_x86_64.whl numba llvmlite pytest; fi
+  - pip install nbformat ipython pylint;
   - pip install .
 
 script:

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as torchf
 
-from phi.math.base_backend import Backend
+from phi.backend.backend import Backend
 
 
 class TorchBackend(Backend):

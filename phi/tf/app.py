@@ -98,6 +98,9 @@ class LearningApp(App):
         self.log_scalars = log_scalars
 
     def prepare(self):
+        if self.prepared:
+            return
+
         scalars = [tf.summary.scalar(self.scalar_names[i], self.scalars[i]) for i in range(len(self.scalars))]
         self.merged_scalars = tf.summary.merge(scalars)
 

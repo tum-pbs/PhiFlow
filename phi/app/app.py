@@ -263,8 +263,7 @@ class App(object):
                     return trace.find_in(world_state)
                 self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
-        with struct.unsafe():
-            struct.map(add_default_field, self.world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True)
+        struct.map(add_default_field, self.world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True, content_type=struct.INVALID)
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
