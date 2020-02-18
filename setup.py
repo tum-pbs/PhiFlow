@@ -244,7 +244,7 @@ class CudaCommand(distutils.cmd.Command):
         except OSError as e:
             if e.errno == errno.ENOENT:
                 print('Please install g++-4.8 as it is needed to compile the advection operator.')
-                raise e
+                # raise e
             else:
                 raise e
 
@@ -291,7 +291,7 @@ class CudaCommand(distutils.cmd.Command):
         except OSError as e:
             if e.errno == errno.ENOENT:
                 print('Please install g++-4.8 as it is needed to compile the advection operator.')
-                raise e
+                # raise e
             else:
                 raise e
 
