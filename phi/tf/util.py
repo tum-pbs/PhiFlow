@@ -21,7 +21,6 @@ def _tf_name(trace, basename):
     if basename is None and len(path) == 0:
         return None
     result = path if basename is None else basename + '/' + path
-    print(result)
     return result
 
 
