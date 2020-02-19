@@ -109,7 +109,7 @@ class SciPyBackend(Backend):
         return np.pad(value, pad_width, single_mode.lower())
 
     def reshape(self, value, shape):
-        return value.reshape(shape)
+        return np.reshape(value, shape)
 
     def sum(self, value, axis=None, keepdims=False):
         return np.sum(value, axis=axis, keepdims=keepdims)
