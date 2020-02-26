@@ -217,11 +217,14 @@ try:
 except FileNotFoundError:
     pass
 
+with open(os.path.join(os.path.dirname(__file__), 'VERSION'), 'r') as version_file:
+    version = version_file.read()
+
 
 setup(
     name='phiflow',
-    version='1.0.3',
-    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.3.tar.gz',
+    version=version,
+    download_url='https://github.com/tum-pbs/PhiFlow/archive/%s.tar.gz' % version,
     packages=['phi',
               'phi.app',
               'phi.backend',
