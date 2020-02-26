@@ -120,7 +120,7 @@ try:
 except FileNotFoundError:
     pass
 
-with open(os.path.join(os.path.dirname(__file__), 'VERSION'), 'r') as version_file:
+with open(os.path.join(os.path.dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
     version = version_file.read()
 
 
