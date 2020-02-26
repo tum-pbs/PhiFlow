@@ -59,12 +59,7 @@ def _description_markdown_src(title, subtitle=''):
 def build_phiflow_info(dashapp):
     root_dir = dirname(dirname(inspect.getfile(phi)))
     setup_file = join(root_dir, 'setup.py')
-    version = 'unknown'
-    if isfile(setup_file):
-        try:
-            version = subprocess.check_output('python %s --version' % setup_file, cwd=os.path.abspath(root_dir))
-        except BaseException as exc:
-            warnings.warn('Could not get PhiFlow version: %s' % exc)
+    version = phi.__version__
     return dcc.Markdown(u"""
 This application is based on the open-source simulation framework [Φ-Flow](https://github.com/tum-pbs/PhiFlow), version %s.
 """ % version)
