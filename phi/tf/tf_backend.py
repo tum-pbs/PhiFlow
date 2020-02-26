@@ -164,7 +164,9 @@ class TFBackend(Backend):
     def matmul(self, A, b):
         if isinstance(A, tf.SparseTensor):
             result = tf.sparse_tensor_dense_matmul(A, tf.transpose(b))
-            return tf.transpose(result)
+            result = tf.transpose(result)
+            result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
+            return result
         else:
             return tf.matmul(A, b)
 
@@ -398,10 +400,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
 
     if sample_coords.shape[0] != inputs.shape[0]:
         sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
-
-    if in_spatial_rank == 2 and boundary.upper() == 'ZERO':
-        inputs = tf.transpose(inputs, [0, 2, 1, 3])
-        return tf.contrib.resampler.resampler(inputs, sample_coords)
 
     xy = tf.unstack(sample_coords, axis=-1)
     base_coords = [tf.floor(coords) for coords in xy]
