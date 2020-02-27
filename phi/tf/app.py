@@ -4,11 +4,13 @@ import numpy as np
 import phi.app.app as base_app
 import six
 import tensorflow as tf
+
 from phi.app.app import EditableFloat, EditableInt, EditableValue
 from phi.data.reader import BatchReader
+from phi.physics.field import Field, StaggeredGrid
 
+from . import TF_BACKEND
 from .session import Session
-from .util import istensor
 from .world import tf_bake_graph
 
 
@@ -34,7 +36,7 @@ class App(base_app.App):
         return self
 
     def add_scalar(self, name, node):
-        assert isinstance(node, tf.Tensor)
+        assert TF_BACKEND.is_tensor(node), 'add_scalar requires a TensorFlow tensor but got %s' % node
         self.scalar_names.append(name)
         self.scalars.append(node)
 
@@ -222,9 +224,6 @@ class LearningApp(App):
             feed_dict[self._placeholder_struct] = batch
         return feed_dict
 
-    # def val(self, fetches, subrange=None):
-    #     return self.session.run(fetches, self._feed_dict(self.val_iterator, False, subrange=subrange))
-
     @property
     def view_reader(self):
         if self._val_reader is None and self._train_reader is None:
@@ -266,12 +265,20 @@ class LearningApp(App):
         :param name: channel name
         :param field: Tensor, string (database fieldname) or function
         """
-        if istensor(field):
+        if is_tensorflow_field(field):
             App.add_field(self, name, lambda: self.view(field))
-        # elif isinstance(field, StructAttributeGetter):
-        #     App.add_field(self, name, lambda: self.view_batch(field))
         else:
             App.add_field(self, name, field)
 
 
 TFApp = LearningApp
+
+
+def is_tensorflow_field(obj):
+    if TF_BACKEND.is_tensor(obj):
+        return True
+    if isinstance(obj, StaggeredGrid):
+        return np.any([is_tensorflow_field(grid) for grid in obj.data])
+    if isinstance(obj, Field):
+        return TF_BACKEND.is_tensor(obj.data)
+    return False

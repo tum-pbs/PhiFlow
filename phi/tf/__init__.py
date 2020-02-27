@@ -5,7 +5,8 @@ from phi import math
 from .tf_backend import TFBackend
 
 
-math.DYNAMIC_BACKEND.add_backend(TFBackend())
+TF_BACKEND = TFBackend()
+math.DYNAMIC_BACKEND.add_backend(TF_BACKEND)
 
 
 if int(tf.__version__[0]) > 1:
