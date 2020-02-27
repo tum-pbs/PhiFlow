@@ -145,11 +145,14 @@ def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activatio
 
 
 def istensor(obj):
+    warnings.warn("istensor is deprecated, use phi.tf.app.is_tensorflow_field instead", DeprecationWarning)
     if isinstance(obj, CenteredGrid):
         return istensor(obj.data)
     if isinstance(obj, StaggeredGrid):
         return np.any([istensor(t) for t in obj.data])
     return isinstance(obj, (tf.Tensor, tf.Variable))
+
+
 
 
 def conv_function(scope, constants_file=None):
