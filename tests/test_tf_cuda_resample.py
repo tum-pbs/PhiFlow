@@ -13,7 +13,7 @@ from phi.tf.tf_cuda_resample import resample_cuda
 
 
 class TestTfCudaResample(TestCase):
-    N = 50
+    N = 25
     MAX_DIFFERENCE = 0.01
     MIN_VALUE = -10
     MAX_VALUE = 10
