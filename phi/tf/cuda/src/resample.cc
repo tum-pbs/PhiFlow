@@ -158,7 +158,7 @@ public:
 
 //REGISTER_CPU(bfloat16);
 REGISTER_CPU(float);
-//REGISTER_CPU(double);
+REGISTER_CPU(double);
 
 // Register the GPU kernels.
 #ifdef GOOGLE_CUDA
