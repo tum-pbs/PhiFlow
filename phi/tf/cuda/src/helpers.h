@@ -91,6 +91,10 @@ template
 __host__ __device__
 unsigned int getDataIndex(const unsigned int, const float*, const unsigned int, const int, const unsigned int*, const unsigned int);
 
+template
+__host__
+unsigned int getDataIndex(const unsigned int, const double*, const unsigned int, const int, const unsigned int*, const unsigned int);
+
 
 enum Boundary : unsigned int {ZERO, REPLICATE, CIRCULAR, SYMMETRIC, REFLECT};
 
@@ -119,17 +123,17 @@ bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const uns
 					q[dim] = 0;
 					break;
 				case CIRCULAR:
-					q[dim] = mod(qDim, (float) dimSize);
+					q[dim] = mod(qDim, (T) dimSize);
 					break;
 				case SYMMETRIC:
-					qDim = mod((-qDim - 1), ((float) (2 * dimSize)));
+					qDim = mod((-qDim - 1), ((T) (2 * dimSize)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 1;
 					}
 					q[dim] = qDim;
 					break;
 				case REFLECT:
-				    qDim = mod((-qDim), ((float) (2 * dimSize - 2)));
+				    qDim = mod((-qDim), ((T) (2 * dimSize - 2)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 2;
 					}
@@ -145,17 +149,17 @@ bool applyBoundaries(const Boundary* boundaries, T* q, const int dims, const uns
 					q[dim] = dimSize - 1;
 					break;
 				case CIRCULAR:
-					q[dim] = fmod(qDim, (float) dimSize);
+					q[dim] = fmod(qDim, (T) dimSize);
 					break;
 				case SYMMETRIC:
-					qDim = fmod(qDim, ((float) (2 * dimSize)));
+					qDim = fmod(qDim, ((T) (2 * dimSize)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 1;
 					}
 					q[dim] = qDim;
 					break;
 				case REFLECT:
-				    qDim = fmod(qDim, ((float) (2 * dimSize - 2)));
+				    qDim = fmod(qDim, ((T) (2 * dimSize - 2)));
 					if (qDim > dimSize - 1) {
 						qDim = 2 * dimSize - qDim - 2;
 					}
@@ -171,6 +175,10 @@ template
 __host__ __device__
 bool applyBoundaries(const Boundary*, float*, const int, const unsigned int*);
 
+template
+__host__
+bool applyBoundaries(const Boundary*, double*, const int, const unsigned int*);
+
 
 template<typename T>
 __host__
@@ -185,6 +193,10 @@ T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int ba
 template
 __host__
 float fetchDataHost(const float*, const Boundary*, const unsigned int, float*, const unsigned int, const int, const unsigned int*, const unsigned int);
+
+template
+__host__
+double fetchDataHost(const double*, const Boundary*, const unsigned int, double*, const unsigned int, const int, const unsigned int*, const unsigned int);
 /*template<>
 __host__
 float fetchDataHost(const float* data, const Boundary* boundaries, const unsigned int batch, float* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
