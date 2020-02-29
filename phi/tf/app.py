@@ -132,6 +132,12 @@ class LearningApp(App):
         return self
 
     def set_data(self, dict, train=None, val=None):
+        """
+Specify what data to use for training and validation.
+        :param dict: dict mapping from placeholders to file names or Stream instances. Placeholders and corresponding streams may be placed inside structs.
+        :param train: (optional) Dataset used for training
+        :param val: (optional) Dataset used for validation
+        """
         if train is not None or val is not None:
             assert dict is not None
         self._training_set = train
