@@ -253,9 +253,12 @@ class Scene(object):
             shutil.rmtree(self.path)
 
     @staticmethod
-    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True):
+    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True, calling_script_level=0):
         if count > 1:
-            return SceneBatch([Scene.create(directory, category, 1, mkdir, copy_calling_script) for i in range(count)])
+            scenes = []
+            for _ in range(count):
+                scenes.append(Scene.create(directory, category, 1, mkdir, copy_calling_script, calling_script_level + 1))
+            return SceneBatch(scenes)
         # Single scene
         directory = os.path.expanduser(directory)
         if category is None:
@@ -278,8 +281,11 @@ class Scene(object):
         if mkdir:
             scene.mkdir()
         if copy_calling_script:
-            assert mkdir
-            scene.copy_calling_script(2)
+            try:
+                assert mkdir
+                scene.copy_calling_script(2 + calling_script_level)
+            except IOError as err:
+                warnings.warn('Failed to copy calling script to scene during Scene.create().')
         return scene
 
     @staticmethod
