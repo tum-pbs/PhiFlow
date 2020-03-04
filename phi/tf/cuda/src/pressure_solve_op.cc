@@ -31,17 +31,19 @@ REGISTER_OP("PressureSolve")
     });
 
 
-void LaunchPressureKernel(const int *dimensions, const int dimProduct, const int dimSize,
-                          const signed char* laplaceMatrix,
-                          float* p, float* z, float* r, float *divergence, float* x,
-                          const float* oneVector,
-                          bool* thresholdReached,
-                          const float accuracy,
-                          const int max_iterations,
-                          const int batch_size,
-                          int* iterations_gpu);
+void LaunchPressureKernel(const int *dimensions, const int dim_product, const int dimSize,
+            const signed char* laplace_matrix,
+            float* p, float* z, float* r, float *divergence, float* x,
+            const float* oneVector,
+            bool* thresholdReached,
+            const float accuracy,
+            const int max_iterations,
+            const int batch_size,
+            int* iterations_gpu);
 
-void LaplaceMatrixKernelLauncher(const int *dimensions, const int dimSize, const int dimProduct, const float *active_mask, const float *fluid_mask, const int *maskDimensions, signed char *laplaceMatrix, int *cords);
+void LaplaceMatrixKernelLauncher(const int *dimensions, const int dimSize, const int dim_product, 
+            const float *active_mask, const float *fluid_mask, const int *maskDimensions, 
+            signed char *laplace_matrix, int *cords);
 
 class PressureSolveOp : public OpKernel {
     private:
@@ -139,9 +141,7 @@ class PressureSolveOp : public OpKernel {
 
         end = std::chrono::high_resolution_clock::now();
 
-
 //        printf("Pressure Solve Preparation took: %f\n", std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() * 1e-6);
-
 
         begin = std::chrono::high_resolution_clock::now();
         LaunchPressureKernel(dimensions.data(), dim_product, dim_size,
