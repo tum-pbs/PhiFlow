@@ -247,7 +247,10 @@ class App(object):
         self._update_scene_properties()
         source_files_to_save = set()
         for object in self.objects_to_save:
-            source_files_to_save.add(inspect.getabsfile(object))
+            try:
+                source_files_to_save.add(inspect.getabsfile(object))
+            except TypeError:
+                pass
         for source_file in source_files_to_save:
             self.scene.copy_src(source_file)
         # End
@@ -278,8 +281,11 @@ class App(object):
     def _update_scene_properties(self):
         if self.uses_existing_scene:
             return
-        app_name = os.path.basename(inspect.getfile(self.__class__))
-        app_path = inspect.getabsfile(self.__class__)
+        try:
+            app_name = os.path.basename(inspect.getfile(self.__class__))
+            app_path = inspect.getabsfile(self.__class__)
+        except TypeError:
+            app_name = app_path = ''
         properties = {
             'instigator': 'App',
             'traits': self.traits,
