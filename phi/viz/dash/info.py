@@ -17,6 +17,10 @@ from .dash_app import DashApp
 def build_app_details(dashapp):
     assert isinstance(dashapp, DashApp)
     app = dashapp.app
+    try:
+        app_file = inspect.getfile(app.__class__)
+    except TypeError:
+        app_file = 'Unknown'
     details = dcc.Markdown("""
 ## Details
 
@@ -29,7 +33,7 @@ Traits: %s
 Script path: %s
 
 Data path: %s
-    """ % (app.summary, app.sequence_stride, app.traits, inspect.getfile(app.__class__), app.scene))
+    """ % (app.summary, app.sequence_stride, app.traits, app_file, app.scene))
     return details
 
 
