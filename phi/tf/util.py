@@ -60,6 +60,41 @@ def isplaceholder(obj):
     return isinstance(obj, tf.Tensor) and obj.op.type == 'Placeholder'
 
 
+def dataset_handle(obj, frames=None):
+    """
+Creates a single virtual TensorFlow dataset (iterator_handle) for the given struct.
+The dataset is expected to hold contain all fields required for loading the obj given the current context item condition.
+From the dataset, graph input tensors are derived and arranged into a struct of the same shape as obj.
+If an integer is passed to frames, a list of such structs is created by unstacking the second-outer-most dimension of the dataset.
+    :param obj: struct, typically a State
+    :param frames: Number of frames contained in each example of the dataset. Expects shape (batch_size, frames, ...)
+    :type frames: int or None
+    :return: tuple of struct and placeholder.
+     1. If frames=None: valid struct corresponding to obj. If frames>1: list thereof
+     2. placeholder for a TensorFlow dataset iterator handle (dtype=string)
+    :rtype: tuple
+    """
+    shapes = tuple(struct.flatten(struct.staticshape(obj), leaf_condition=is_static_shape))
+    dtypes = tuple(struct.flatten(struct.dtype(obj)))
+    if frames is not None:
+        shapes = tuple([shape[0:1] + (frames,) + shape[1:] for shape in shapes])
+    # --- Dataset handle ---
+    iterator_handle = tf.placeholder(tf.string, shape=[])
+    iterator = tf.data.Iterator.from_string_handle(iterator_handle, output_types=dtypes, output_shapes=shapes)
+    next_element = iterator.get_next()
+    # --- Create resulting struct by splitting next_fields
+    if frames is None:
+        next_element_list = list(next_element)
+        next_struct = struct.map(lambda _: next_element_list.pop(0), obj)
+    else:
+        next_struct = []
+        for frame in range(frames):
+            next_element_list = list(next_element)
+            frame_struct = struct.map(lambda _: next_element_list.pop(0)[:, frame, ...], obj)
+            next_struct.append(frame_struct)
+    return next_struct, iterator_handle
+
+
 def group_normalization(x, group_count, eps=1e-5):
     batch_size, H, W, C = tf.shape(x)
     gamma = tf.Variable(np.ones([1, 1, 1, C]), dtype=tf.float32, name="GN_gamma")
