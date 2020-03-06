@@ -47,12 +47,12 @@ class TrainingTest(LearningApp):
     def __init__(self):
         LearningApp.__init__(self, 'Training', DESCRIPTION, learning_rate=2e-4, validation_batch_size=4, training_batch_size=8)
         # --- Setup simulation and placeholders ---
-        smoke_in, load_dict = load_state(Fluid(DOMAIN))
+        fluid_placeholders, load_dict = build_graph_input(Fluid(DOMAIN), input_type='dataset_handle')
         # --- Build neural network ---
         with self.model_scope():
-            pred_vel = network(smoke_in.density.data)
+            pred_vel = network(fluid_placeholders.density.data)
         # --- Loss function ---
-        target_vel = smoke_in.velocity.staggered_tensor()[..., :-1, :-1, :]
+        target_vel = fluid_placeholders.velocity.staggered_tensor()[..., :-1, :-1, :]
         loss = math.l2_loss(pred_vel - target_vel)
         self.add_objective(loss, 'Loss')
         # --- Training data ---
@@ -60,9 +60,9 @@ class TrainingTest(LearningApp):
                       train=Dataset.load(DATAPATH, range(0, 8)),
                       val=Dataset.load(DATAPATH, range(8, 10)))
         # --- GUI ---
-        self.add_field('Velocity (Ground Truth)', smoke_in.velocity)
+        self.add_field('Velocity (Ground Truth)', fluid_placeholders.velocity)
         self.add_field('Velocity (Model)', pred_vel)
-        self.add_field('Density (Input)', smoke_in.density)
+        self.add_field('Density (Input)', fluid_placeholders.density)
 
 
 show(display=('Velocity (Ground Truth)', 'Velocity (Model)'))

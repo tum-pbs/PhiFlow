@@ -5,9 +5,13 @@ import phi.app.app as base_app
 import six
 import tensorflow as tf
 
+from phi import math
 from phi.app.app import EditableFloat, EditableInt, EditableValue
+from phi.data.dataset import Dataset
 from phi.data.reader import BatchReader
+from phi.data.source import SceneSource
 from phi.physics.field import Field, StaggeredGrid
+from phi.tf.data import create_dataset
 
 from . import TF_BACKEND
 from .session import Session
@@ -84,15 +88,22 @@ class LearningApp(App):
                  **kwargs):
         App.__init__(self, name=name, subtitle=subtitle, base_dir=base_dir, **kwargs)
         self.add_trait('model')
-        self.learning_rate = self.editable_float('Learning_Rate', learning_rate)
-        self.training = tf.placeholder(tf.bool, (), 'training')
-        self.all_optimizers = []
-        self.training_batch_size = training_batch_size
-        self.validation_batch_size = validation_batch_size
+
+        # --- Model ---
         self.model_scope_name = model_scope_name
         self.auto_bake = False
         self.scalar_values = {}
         self.scalar_values_validation = {}
+        self.learning_rate = self.editable_float('Learning_Rate', learning_rate)
+        self.all_optimizers = []
+        # --- Data ---
+        self.training = tf.placeholder(tf.bool, (), 'training')
+        self.training_batch_size = training_batch_size
+        self.validation_batch_size = validation_batch_size
+        self._placeholder_struct = None  # Data-placeholders or Iterator placeholder
+        self._training_set = None
+        self._validation_set = None
+        self._pipeline = None
         self.set_data(None, None)
         assert stride is None or epoch_size is None
         self.epoch_size = epoch_size if epoch_size is not None else stride
@@ -134,14 +145,35 @@ class LearningApp(App):
     def set_data(self, dict, train=None, val=None):
         """
 Specify what data to use for training and validation.
-        :param dict: dict mapping from placeholders to file names or Stream instances. Placeholders and corresponding streams may be placed inside structs.
+
+The content of `dict` determines the data pipeline that is used.
+  - 'placeholder' pipline: the static TensorFlow graph uses placeholders as input. `dict` maps from placeholders to file names or Stream instances. Placeholders and corresponding streams may be placed inside structs.
+  - 'dataset_handle' pipeline: Use TensorFlow data pipeline. `dict` contains 'iterator_handle' and related properties as returned by `build_graph_input(...)[1]`.
+
+Regardless of pipeline, the recommended way to obtain `dict` is through `build_graph_input(...)[1]`.
+
+        :param dict: pipeline-dependent dict
+        :type dict: dict
         :param train: (optional) Dataset used for training
+        :type train: Dataset
         :param val: (optional) Dataset used for validation
+        :type val: Dataset
         """
+        assert isinstance(train, Dataset) or train is None
+        assert isinstance(val, Dataset) or train is None
         if train is not None or val is not None:
             assert dict is not None
+        if train is not None and val is not None:
+            self.value_view_training_data = False
         self._training_set = train
         self._validation_set = val
+        if dict is not None and 'iterator_handle' in dict:
+            self._init_tf_pipeline(**dict)
+        else:
+            self._init_numpy_iterators(dict)
+
+    def _init_numpy_iterators(self, dict):
+        self._pipeline = 'placeholder'
         self._placeholder_struct = []
         self._channel_struct = []
         if dict is not None:
@@ -159,10 +191,22 @@ Specify what data to use for training and validation.
             self._train_iterator = None
         # Val
         if self._validation_set is not None:
-            self.value_view_training_data = False
             self._val_reader = BatchReader(self._validation_set, self._channel_struct)
         else:
             self._val_reader = None
+
+    def _init_tf_pipeline(self, iterator_handle, names, shapes, dtypes, frames):
+        self._placeholder_struct = iterator_handle
+        self._pipeline = 'dataset_handle'
+        if self._training_set is not None:
+            train_dataset = create_dataset(self._training_set.sources, names, shapes, dtypes, batch_size=self.training_batch_size, shuffle=True, frames=frames)
+            self._train_iterator = train_dataset.make_initializable_iterator()
+            self._train_iterator_handle = self.session.run(self._train_iterator.string_handle())
+            self.session.run(self._train_iterator.initializer)
+        if self._validation_set is not None:
+            val_dataset = create_dataset(self._validation_set.sources, names, shapes, dtypes, batch_size=self.validation_batch_size, shuffle=True, frames=frames)
+            self._val_iterator = val_dataset.make_initializable_iterator()
+            self._val_iterator_handle = self.session.run(self._val_iterator.string_handle())
 
     def add_objective(self, loss, name='Loss', optimizer=None, reg=None, vars=None):
         assert len(loss.shape) <= 1, 'Loss function must be a scalar'
@@ -196,7 +240,12 @@ Specify what data to use for training and validation.
             optim_nodes = list(optim_nodes)
         except:
             optim_nodes = [optim_nodes]
-        batch = next(self._train_iterator) if self._train_iterator is not None else None
+        if self._pipeline == 'placeholder':
+            batch = next(self._train_iterator) if self._train_iterator is not None else None
+        elif self._pipeline == 'dataset_handle':
+            batch = self._train_iterator_handle
+        else:
+            raise NotImplementedError('Pipeline %s' % self._pipeline)
         feed_dict = self._feed_dict(batch, True)
         scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
         self.scalar_values = {name: value for name, value in zip(self.scalar_names, scalar_values)}
@@ -223,6 +272,14 @@ Specify what data to use for training and validation.
         return {}
 
     def _feed_dict(self, batch, training):
+        """
+Assemble a complete feed dict for graph execution.
+        :param batch: (optional)
+          'placeholder' pipeline: struct of Numpy arrays matching self._placeholder_struct
+          'dataset_handle' pipeline: iterator_handle string value
+        :param training: bool
+        :return: dict that can be passed to session.run()
+        """
         feed_dict = self.base_feed_dict()
         feed_dict.update(self.editable_values_dict())
         feed_dict[self.training] = training
@@ -238,12 +295,29 @@ Specify what data to use for training and validation.
             return self._train_reader
         return self._train_reader if self.value_view_training_data else self._val_reader
 
+    def _view_iterator(self):
+        if self._val_iterator is None and self._train_iterator is None:
+            return None, None
+        if self._val_iterator is None:
+            return self._train_iterator, self._train_iterator_handle
+        if self.value_view_training_data:
+            return self._train_iterator, self._train_iterator_handle
+        else:
+            return self._val_iterator, self._val_iterator_handle
+
     def view(self, tasks):
         if tasks is None:
             return None
-        reader = self.view_reader
-        batch = reader[0:self.validation_batch_size] if reader is not None else None
-        return self.session.run(tasks, self._feed_dict(batch, False))
+        if self._pipeline == 'placeholder':
+            batch = self.view_reader[0:self.validation_batch_size] if self.view_reader is not None else None
+        elif self._pipeline == 'dataset_handle':
+            view_iterator, view_iterator_handle = self._view_iterator()
+            self.session.run(view_iterator.initializer)
+            batch = view_iterator_handle
+        else:
+            raise NotImplementedError('Pipeline %s' % self._pipeline)
+        feed_dict = self._feed_dict(batch, False)
+        return self.session.run(tasks, feed_dict)
 
     @property
     def viewed_batch(self):
