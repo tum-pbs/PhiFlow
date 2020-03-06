@@ -69,7 +69,7 @@ If an integer is passed to frames, a list of such structs is created by unstacki
     :param obj: struct, typically a State
     :param frames: Number of frames contained in each example of the dataset. Expects shape (batch_size, frames, ...)
     :type frames: int or None
-    :return: tuple of struct and placeholder.
+    :return: list of struct and placeholder.
      1. If frames=None: valid struct corresponding to obj. If frames>1: list thereof
      2. placeholder for a TensorFlow dataset iterator handle (dtype=string)
     :rtype: tuple
@@ -78,19 +78,20 @@ If an integer is passed to frames, a list of such structs is created by unstacki
     dtypes = tuple(struct.flatten(struct.dtype(obj)))
     if frames is not None:
         shapes = tuple([shape[0:1] + (frames,) + shape[1:] for shape in shapes])
-    # --- Dataset handle ---
+    # --- TF Dataset handle from string ---
     iterator_handle = tf.placeholder(tf.string, shape=[])
     iterator = tf.data.Iterator.from_string_handle(iterator_handle, output_types=dtypes, output_shapes=shapes)
     next_element = iterator.get_next()
-    # --- Create resulting struct by splitting next_fields
+    # --- Create resulting struct by splitting `next_element`s
     if frames is None:
         next_element_list = list(next_element)
         next_struct = struct.map(lambda _: next_element_list.pop(0), obj)
     else:
+        # Remap structures -> to `frames` long list of structs
         next_struct = []
-        for frame in range(frames):
+        for frame_idx in range(frames):
             next_element_list = list(next_element)
-            frame_struct = struct.map(lambda _: next_element_list.pop(0)[:, frame, ...], obj)
+            frame_struct = struct.map(lambda _: next_element_list.pop(0)[:, frame_idx, ...], obj)
             next_struct.append(frame_struct)
     return next_struct, iterator_handle
 
