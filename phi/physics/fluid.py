@@ -87,7 +87,7 @@ Supports obstacles, density effects, velocity effects, global gravity.
             density = effect_applied(effect, density, dt)
         for effect in velocity_effects:
             velocity = effect_applied(effect, velocity, dt)
-        velocity += buoyancy(fluid.density, gravity, fluid.buoyancy_factor) * dt
+        velocity += buoyancy(fluid.density, gravity, fluid.buoyancy_factor).at(velocity) * dt
         # --- Pressure solve ---
         if self.make_output_divfree:
             velocity, fluid.solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
