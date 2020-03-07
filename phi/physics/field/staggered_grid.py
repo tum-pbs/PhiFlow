@@ -114,7 +114,7 @@ class StaggeredGrid(Field):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
-        if isinstance(other_field, StaggeredGrid) and other_field.box == self.box:
+        if isinstance(other_field, StaggeredGrid) and other_field.box == self.box and np.allclose(other_field.resolution, self.resolution):
             return self
         try:
             points = other_field.points
