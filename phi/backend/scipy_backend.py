@@ -49,7 +49,7 @@ class SciPyBackend(Backend):
 
     def is_tensor(self, x):
         """ is array """
-        return isinstance(x, np.ndarray)
+        return isinstance(x, (np.ndarray, int, float))
 
     def equal(self, x, y):
         """ array equality comparison """

@@ -73,7 +73,8 @@ class Field(State):
             return self
         try:
             resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)
-            return other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
+            result = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
+            return result
         except StaggeredSamplePoints:  # other_field is staggered
             return broadcast_at(self, other_field, collapse_dimensions=False)
 
