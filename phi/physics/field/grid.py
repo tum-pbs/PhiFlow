@@ -40,7 +40,7 @@ class CenteredGrid(Field):
         self._sample_points = None
 
     @staticmethod
-    def sample(value, domain, batch_size=None):
+    def sample(value, domain, batch_size=None, name=None):
         assert isinstance(domain, Domain)
         if isinstance(value, Field):
             assert_same_rank(value.rank, domain.rank, 'rank of value (%s) does not match domain (%s)' % (value.rank, domain.rank))
@@ -51,7 +51,7 @@ class CenteredGrid(Field):
         else:  # value is constant
             components = math.staticshape(value)[-1] if math.ndims(value) > 0 else 1
             data = math.zeros((batch_size,) + tuple(domain.resolution) + (components,)) + value
-        return CenteredGrid(data, box=domain.box, extrapolation=Material.extrapolation_mode(domain.boundaries))
+        return CenteredGrid(data, box=domain.box, extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
 
     @struct.variable()
     def data(self, data):
@@ -123,7 +123,8 @@ class CenteredGrid(Field):
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [CenteredGrid(math.expand_dims(component), box=self.box, name='%s[...,%d]' % (self.name, i), flags=flags, batch_size=self._batch_size) for i, component in enumerate(math.unstack(self.data, -1))]
+        components = math.unstack(self.data, axis=-1, keepdims=True)
+        return [CenteredGrid(component, box=self.box, flags=flags, batch_size=self._batch_size) for i, component in enumerate(components)]
 
     @property
     def points(self):
