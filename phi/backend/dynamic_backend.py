@@ -169,8 +169,8 @@ class DynamicBackend(Backend):
     def gather_nd(self, values, indices):
         return self.choose_backend([values]).gather_nd(values, indices)
 
-    def unstack(self, tensor, axis=0):
-        return self.choose_backend(tensor).unstack(tensor, axis)
+    def unstack(self, tensor, axis=0, keepdims=False):
+        return self.choose_backend(tensor).unstack(tensor, axis, keepdims=keepdims)
 
     def std(self, x, axis=None):
         return self.choose_backend(x).std(x, axis)

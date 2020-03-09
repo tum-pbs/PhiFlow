@@ -280,8 +280,11 @@ class TFBackend(Backend):
     def gather_nd(self, values, indices):
         return tf.gather_nd(values, indices)
 
-    def unstack(self, tensor, axis=0):
-        return tf.unstack(tensor, axis=axis)
+    def unstack(self, tensor, axis=0, keepdims=False):
+        unstacked = tf.unstack(tensor, axis=axis)
+        if keepdims:
+            unstacked = [self.expand_dims(c, axis=axis) for c in unstacked]
+        return unstacked
 
     def std(self, x, axis=None):
         _mean, var = tf.nn.moments(x, axis)

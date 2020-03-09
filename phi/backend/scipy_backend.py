@@ -267,16 +267,6 @@ class SciPyBackend(Backend):
         index, = indices
         return values[index]
 
-    def unstack(self, tensor, axis=0):
-        if axis < 0:
-            axis += len(tensor.shape)
-        if axis >= len(tensor.shape) or axis < 0:
-            raise ValueError("Illegal axis value")
-        result = []
-        for i in range(tensor.shape[axis]):
-            result.append(tensor[tuple([i if d == axis else slice(None) for d in range(len(tensor.shape))])])
-        return result
-
     def std(self, x, axis=None):
         return np.std(x, axis)
 
