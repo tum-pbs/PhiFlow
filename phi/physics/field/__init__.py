@@ -5,7 +5,7 @@ from .grid import CenteredGrid
 from .staggered_grid import StaggeredGrid, unstack_staggered_tensor
 from .mask import GeometryMask, mask, union_mask
 from .analytic import AnalyticField
+from .sampled import SampledField
 from . import advect
 from . import manta
 from .util import diffuse, data_bounds
-from .sampled import SampledField
