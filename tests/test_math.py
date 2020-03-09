@@ -2,7 +2,6 @@ from unittest import TestCase
 
 import numpy as np
 
-from phi.geom import AABox
 from phi.math.nd import _dim_shifted
 from phi.tf import tf
 
@@ -137,3 +136,18 @@ class TestMath(TestCase):
         up = upsample2x(tensor)
         inverted = downsample2x(up)
         np.testing.assert_equal(inverted[:, 1:-1, :], tensor[:, 1:-1, :])
+
+    def test_unstack(self):
+        tensor = random_uniform([1,2,3,4])
+        for dim in range(len(tensor.shape)):
+            components = unstack(tensor, dim, keepdims=True)
+            np.testing.assert_equal(tensor, concat(components, axis=dim))
+            components = unstack(tensor, dim, keepdims=False)
+            np.testing.assert_equal(tensor, stack(components, axis=dim))
+        # --- TensorFlow ---
+        sess = tf.InteractiveSession()
+        for dim in range(len(tensor.shape)):
+            components = unstack(tf.constant(tensor), dim, keepdims=True)
+            np.testing.assert_equal(tensor, concat(components, axis=dim).eval())
+            components = unstack(tf.constant(tensor), dim, keepdims=False)
+            np.testing.assert_equal(tensor, stack(components, axis=dim).eval())
