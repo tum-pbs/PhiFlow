@@ -3,7 +3,7 @@ import warnings
 import six
 
 from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
-from .context import _unsafe
+from .context import _unsafe, skip_validate
 from .item_condition import ALL_ITEMS, context_item_condition
 from .structdef import Item
 from .struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID, items
@@ -269,7 +269,8 @@ To specify custom shapes, add an override with key struct.shape to the Item.
         except NoBackendFound:
             return ()
     if isinstance(obj, Struct):
-        assert obj.content_type is VALID or obj.content_type is INVALID, "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
+        if not skip_validate():
+            assert obj.content_type is VALID or obj.content_type is INVALID, "shape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
     return map(get_shape, obj, leaf_condition=leaf_condition, item_condition=item_condition, content_type=shape)
 
 
@@ -288,7 +289,8 @@ To specify custom static shapes, add an override with key struct.staticshape to 
         except NoBackendFound:
             return ()
     if isinstance(obj, Struct):
-        assert obj.content_type is VALID or obj.content_type is INVALID, "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
+        if not skip_validate():
+            assert obj.content_type is VALID or obj.content_type is INVALID, "staticshape can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
     return map(get_staticshape, obj, leaf_condition=leaf_condition, item_condition=item_condition, content_type=staticshape)
 
 
@@ -307,5 +309,6 @@ To specify custom dtypes, add an override with key struct.dtype to the Item.
         except NoBackendFound:
             return type(obj)
     if isinstance(obj, Struct):
-        assert obj.content_type is VALID or obj.content_type is INVALID, "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
+        if not skip_validate():
+            assert obj.content_type is VALID or obj.content_type is INVALID, "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
     return map(get_dtype, obj, leaf_condition=leaf_condition, item_condition=item_condition, content_type=dtype)
