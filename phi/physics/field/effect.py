@@ -23,7 +23,7 @@ class FieldEffect(State):
 
     @struct.variable()
     def field(self, field):
-        assert isinstance(field, Field)
+        assert isinstance(field, Field) or field is None, field
         return field
 
     @struct.constant()

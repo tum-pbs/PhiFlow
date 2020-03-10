@@ -4,12 +4,14 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 from numbers import Number
 
 import numpy as np
+import six
+
 from phi import math, struct
 from phi.physics.field import Field
 
 from .domain import Domain, DomainState
 from .field import CenteredGrid, StaggeredGrid, advect, union_mask
-from .field.effect import Gravity, effect_applied, gravity_tensor
+from .field.effect import Gravity, effect_applied, gravity_tensor, FieldEffect
 from .material import OPEN, Material
 from .physics import Physics, StateDependency
 from .pressuresolver.solver_api import FluidDomain, poisson_solve
@@ -95,6 +97,24 @@ Supports obstacles, density effects, velocity effects, global gravity.
         return fluid.copied_with(density=density, velocity=velocity, age=fluid.age + dt)
 
 
+class IncompressibleVFlow(Physics):
+
+    def __init__(self, boundaries, pressure_solver=None):
+        Physics.__init__(self, dependencies=[
+            StateDependency('obstacles', 'obstacle'),
+            StateDependency('velocity_effects', 'velocity_effect', blocking=True),
+        ])
+        self.boundaries =  boundaries
+        self.pressure_solver = pressure_solver
+
+    def step(self, velocity, dt=1.0, obstacles=(), velocity_effects=()):
+        velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
+        for effect in velocity_effects:  # this is where buoyancy is applied
+            velocity = effect_applied(effect, velocity, dt)
+        velocity, _solve_info = divergence_free(velocity, Domain(velocity.resolution, self.boundaries, velocity.box), obstacles, pressure_solver=self.pressure_solver, return_info=True)
+        return velocity.copied_with(age=velocity.age + dt)
+
+
 INCOMPRESSIBLE_FLOW = IncompressibleFlow()
 
 
@@ -131,6 +151,30 @@ Computes the buoyancy force proportional to the density.
     if isinstance(gravity, (int, float)):
         gravity = math.to_float(math.as_tensor([gravity] + ([0] * (density.rank - 1))))
     return density * (-gravity * buoyancy_factor)
+
+
+def create_buoyancy(source, target='velocity', factor=0.1):
+    assert isinstance(source, six.string_types)
+    assert isinstance(target, six.string_types)
+    return {
+        'state': FieldEffect(None, targets=target),
+        'physics': _ComputeBuoyancy(source, factor)
+    }
+
+
+class _ComputeBuoyancy(Physics):
+
+    def __init__(self, source, factor):
+        Physics.__init__(self, dependencies=[
+            StateDependency('source_field', source, single_state=True, blocking=True),
+            StateDependency('gravity', 'gravity', single_state=True)
+        ])
+        self.factor = factor
+
+    def step(self, effect, dt=1.0, source_field=None, gravity=Gravity()):
+        gravity = gravity_tensor(gravity, source_field.rank)
+        buoyancy_field = buoyancy(source_field, gravity, self.factor)
+        return effect.copied_with(field=buoyancy_field)
 
 
 def _is_div_free(velocity, is_div_free):

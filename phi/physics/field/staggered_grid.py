@@ -58,6 +58,10 @@ class StaggeredGrid(Field):
     def __init__(self, data, box=None, name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals()))
 
+    @staticmethod
+    def sample(value, domain, batch_size=None, name=None):
+        return domain.staggered_grid(value, batch_size=batch_size, name=name)
+
     @struct.variable(dependencies=[Field.name, Field.flags])
     def data(self, data):
         assert data is not None
