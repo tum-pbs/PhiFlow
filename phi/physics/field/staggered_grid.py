@@ -1,4 +1,5 @@
 # coding=utf-8
+import warnings
 from numbers import Number
 import numpy as np
 import six
@@ -214,6 +215,7 @@ class StaggeredGrid(Field):
 
     @staticmethod
     def from_scalar(scalar_field, axis_forces, name=None):
+        warnings.warn('StaggeredGrid.from_scalar() is deprecated. Use (scalar * axis_forces).at(staggered_grid) or StaggeredField.sample(scalar * axis_forces, domain) instead.')
         assert isinstance(scalar_field, CenteredGrid)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
         tensors = []
