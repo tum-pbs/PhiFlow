@@ -243,5 +243,5 @@ class DomainState(State):
         return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, extrapolation=extrapolation)
 
     def staggered_grid(self, name, value, dtype=np.float32):
-        extrapolation = Material.extrapolation_mode(self.domain.boundaries)
+        extrapolation = Material.vector_extrapolation_mode(self.domain.boundaries)
         return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, extrapolation=extrapolation)
