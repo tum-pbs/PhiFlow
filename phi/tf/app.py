@@ -34,9 +34,9 @@ class App(base_app.App):
             return
         base_app.App.prepare(self)
         self.info('Initializing variables')
-        self.session.initialize_variables()
         if self.auto_bake:
             tf_bake_graph(self.world, self.session)
+        self.session.initialize_variables()
         return self
 
     def add_scalar(self, name, node):
