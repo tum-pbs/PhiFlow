@@ -32,6 +32,7 @@ batch_gather = DYNAMIC_BACKEND.batch_gather
 boolean_mask = DYNAMIC_BACKEND.boolean_mask
 cast = DYNAMIC_BACKEND.cast
 ceil = DYNAMIC_BACKEND.ceil
+copy = DYNAMIC_BACKEND.copy
 cos = DYNAMIC_BACKEND.cos
 concat = DYNAMIC_BACKEND.concat
 conv = DYNAMIC_BACKEND.conv

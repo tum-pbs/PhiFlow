@@ -14,6 +14,7 @@ class DynamicBackend(Backend):
         self.backends = []
 
     def choose_backend(self, values):
+        # type: (list) -> Backend
         if not isinstance(values, tuple) and not isinstance(values, list):
             values = [values]
         for backend in self.backends:
@@ -44,6 +45,9 @@ class DynamicBackend(Backend):
 
     def as_tensor(self, x):
         return self.choose_backend(x).as_tensor(x)
+
+    def copy(self, tensor, only_mutable=False):
+        return self.choose_backend(tensor).copy(tensor, only_mutable=only_mutable)
 
     def equal(self, x, y):
         return self.choose_backend([x, y]).equal(x, y)
