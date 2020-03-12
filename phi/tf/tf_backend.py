@@ -25,9 +25,17 @@ class TFBackend(Backend):
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
     def as_tensor(self, x):
+        if self.is_tensor(x):
+            return x
         if isinstance(x, np.ndarray) and x.dtype == np.float64:
             return tf.convert_to_tensor(x, dtype=tf.float32)
         return tf.convert_to_tensor(x)
+
+    def copy(self, tensor, only_mutable=False):
+        if not only_mutable or tf.executing_eagerly():
+            return tf.identity(tensor)
+        else:
+            return tensor
 
     def equal(self, x, y):
         return tf.equal(x, y)

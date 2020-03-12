@@ -51,6 +51,9 @@ class SciPyBackend(Backend):
         """ is array """
         return isinstance(x, (np.ndarray, int, float))
 
+    def copy(self, tensor, only_mutable=False):
+        return np.copy(tensor)
+
     def equal(self, x, y):
         """ array equality comparison """
         return np.equal(x, y)

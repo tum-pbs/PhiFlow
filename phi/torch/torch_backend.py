@@ -31,6 +31,9 @@ class TorchBackend(Backend):
                 return torch.stack(components, dim=0)
         return torch.tensor(x)
 
+    def copy(self, tensor, only_mutable=False):
+        return torch.clone(tensor)
+
     def equal(self, x, y):
         return x == y
 

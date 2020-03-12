@@ -26,6 +26,9 @@ class Backend:
     def as_tensor(self, x):
         raise NotImplementedError()
 
+    def copy(self, tensor, only_mutable=False):
+        raise NotImplementedError()
+
     def equal(self, x, y):
         raise NotImplementedError()
 
