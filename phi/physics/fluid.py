@@ -12,7 +12,7 @@ from phi.physics.field import Field
 
 from .domain import Domain, DomainState
 from .field import CenteredGrid, StaggeredGrid, advect, union_mask
-from .field.effect import Gravity, effect_applied, gravity_tensor, FieldEffect
+from .field.effect import Gravity, effect_applied, gravity_tensor, FieldEffect, FieldPhysics
 from .material import OPEN, Material
 from .physics import Physics, StateDependency
 from .pressuresolver.solver_api import FluidDomain, poisson_solve
@@ -55,6 +55,16 @@ This force is scaled with the buoyancy_factor (float).
 
     def __repr__(self):
         return "Fluid[density: %s, velocity: %s]" % (self.density, self.velocity)
+
+
+def create_smoke(domain, density=0.0, velocity=0.0, buoyancy_factor=0.0):
+    velocity_field = StaggeredGrid.sample(velocity, domain, name='velocity')
+    velocity_physics = IncompressibleVFlow(domain.boundaries)
+    density_field = CenteredGrid.sample(density, domain, name='density')
+    density_physics = [Drift(), FieldPhysics('density')]
+    buoyancy_state = FieldEffect(None, targets='velocity')
+    buoyancy_physics = _ComputeBuoyancy('density', buoyancy_factor)
+    return (velocity_field, density_field, buoyancy_state), (velocity_physics, density_physics, buoyancy_physics)
 
 
 class IncompressibleFlow(Physics):
@@ -176,8 +186,7 @@ class _ComputeBuoyancy(Physics):
 
     def step(self, effect, dt=1.0, source_field=None, gravity=Gravity()):
         gravity = gravity_tensor(gravity, source_field.rank)
-        buoyancy_field = source_field * -gravity * self.factor
-        return effect.copied_with(field=buoyancy_field)
+        return effect.copied_with(field=source_field * -gravity * self.factor)
 
 
 def _is_div_free(velocity, is_div_free):
