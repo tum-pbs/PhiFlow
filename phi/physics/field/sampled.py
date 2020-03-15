@@ -123,7 +123,7 @@ class SampledField(Field):
     def component_count(self):
         if math.ndims(self.data) == 0:
             return 1
-        return math.shape(self.data)[-1]
+        return math.staticshape(self.data)[-1]
 
     def unstack(self):
         raise NotImplementedError()
