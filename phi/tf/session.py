@@ -71,6 +71,7 @@ class Session(object):
             tensor_fetches = (merged_summary,) + tensor_fetches
 
         result_fetches = self._session.run(tensor_fetches, tensor_feed_dict, options, run_metadata)
+        result_dict = {fetch: result for fetch, result in zip(tensor_fetches, result_fetches)}
 
         if summary_key:
             summary_buffer = result_fetches[0]
@@ -83,7 +84,6 @@ class Session(object):
             summary_writer.add_summary(summary_buffer, time)
             summary_writer.flush()
 
-        result_dict = {fetch: result for fetch, result in zip(tensor_fetches, result_fetches)}
 
         if trace:
             trace.timeliner.add_run()
