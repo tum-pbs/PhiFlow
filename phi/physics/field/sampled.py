@@ -42,7 +42,8 @@ class SampledField(Field):
         sample_indices_nd = math.minimum(math.maximum(0, sample_indices_nd), resolution - 1)  # Snap outside points to edges, otherwise scatter raises an error
         # Correct format for math.scatter
         valid_indices = _batch_indices(sample_indices_nd)
-        scattered = math.scatter(self.sample_points, valid_indices, self.data, math.concat([[valid_indices.shape[0]], resolution, [1]], axis=-1), duplicates_handling=self.mode)
+        shape = (math.shape(self.data)[0],) + tuple(resolution) + (self.data.shape[-1],)
+        scattered = math.scatter(self.sample_points, valid_indices, self.data, shape, duplicates_handling=self.mode)
         return CenteredGrid(data=scattered, box=box, extrapolation='constant', name=self.name+'_centered')
 
     def _stagger_sample(self, box, resolution):
@@ -99,7 +100,11 @@ class SampledField(Field):
     @struct.variable()
     def data(self, data):
         assert math.is_tensor(data), data
-        assert math.ndims(data) in (0, 1, 3)
+        rank = math.ndims(data)
+        assert rank <= 3
+        if rank < 3:
+            assert rank in (0, 1)  # Scalar field / vector field
+            data = math.expand_dims(data, 0, 3 - rank)
         return data
     data.override(struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.component_count) if math.ndims(self.data) > 0 else ())
 
@@ -133,6 +138,9 @@ class SampledField(Field):
         if SAMPLE_POINTS in self.flags or self.sample_points is self.data:
             return self
         return SampledField(self.sample_points, self.sample_points, flags=[SAMPLE_POINTS])
+
+    def mask(self):
+        return self.copied_with(data=1, mode='any', flags=())
 
     def compatible(self, other_field):
         if not other_field.has_points:
