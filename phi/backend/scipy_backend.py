@@ -49,7 +49,10 @@ class SciPyBackend(Backend):
 
     def is_tensor(self, x):
         """ is array """
-        return isinstance(x, (np.ndarray, int, float))
+        if isinstance(x, np.ndarray):
+            return x.dtype != np.object
+        else:
+            return isinstance(x, (int, float))
 
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
