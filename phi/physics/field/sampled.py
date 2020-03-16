@@ -13,7 +13,7 @@ from .util import extrapolate
 @struct.definition()
 class SampledField(Field):
 
-    def __init__(self, sample_points, data=1, mode='add', point_count=None, **kwargs):
+    def __init__(self, sample_points, data=1, mode='mean', point_count=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals(), ignore=['point_count']))
         self._point_count = point_count
 
@@ -108,7 +108,7 @@ class SampledField(Field):
         return data
     data.override(struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.component_count) if math.ndims(self.data) > 0 else ())
 
-    @struct.constant(default='add')
+    @struct.constant(default='mean')
     def mode(self, mode):
         assert mode in ('add', 'mean', 'any')
         return mode
