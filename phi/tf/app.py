@@ -25,7 +25,7 @@ class App(base_app.App):
         self.session = Session(self.scene)
         self.scalars = []
         self.scalar_names = []
-        self.editable_placeholders = {}
+        self.editable_placeholders = {}  # placeholder -> attribute name
         self.auto_bake = True
         self.add_trait('tensorflow')
 
@@ -46,28 +46,32 @@ class App(base_app.App):
 
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
-        setattr(self, 'float_' + name.lower(), val)
+        self.set_editable_value(name, val)
         placeholder = tf.placeholder(tf.float32, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
-        self.editable_placeholders[placeholder] = 'float_' + name.lower()
+        self.editable_placeholders[placeholder] = name
         return placeholder
 
     def editable_int(self, name, initial_value, minmax=None):
         val = EditableInt(name, initial_value, minmax, None)
-        setattr(self, 'int_' + name.lower(), val)
+        self.set_editable_value(name, val)
         placeholder = tf.placeholder(tf.int32, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
-        self.editable_placeholders[placeholder] = 'int_' + name.lower()
+        self.editable_placeholders[placeholder] = name
         return placeholder
 
     def editable_values_dict(self):
-        feed_dict = {}
-        for placeholder, attrname in self.editable_placeholders.items():
-            val = getattr(self, attrname)
-            if isinstance(val, EditableValue):
-                val = val.initial_value
-            feed_dict[placeholder] = val
-        return feed_dict
+        return {placeholder: self.get_editable_value(name) for placeholder, name in self.editable_placeholders.items()}
+
+    def get_editable_value(self, name):
+        value = getattr(self, '_ed_val_' + name.lower())
+        if isinstance(value, EditableValue):
+            return value.initial_value
+        else:
+            return value
+
+    def set_editable_value(self, name, value):
+        setattr(self, '_ed_val_' + name.lower(), value)
 
 
 def EVERY_EPOCH(tfapp): return tfapp.steps % tfapp.epoch_size == 0
@@ -141,6 +145,9 @@ class LearningApp(App):
         # --- Validate ---
         self.validation_step()
         return self
+
+    def set_learning_rate(self, learning_rate):
+        self.set_editable_value('Learning_Rate', learning_rate)
 
     def set_data(self, dict, train=None, val=None):
         """
