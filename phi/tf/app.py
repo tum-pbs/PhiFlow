@@ -11,7 +11,7 @@ from phi.data.dataset import Dataset
 from phi.data.reader import BatchReader
 from phi.data.source import SceneSource
 from phi.physics.field import Field, StaggeredGrid
-from phi.tf.data import create_dataset
+from phi.tf.data import create_dataset, Dataset as TFDataset
 
 from . import TF_BACKEND
 from .session import Session
@@ -206,14 +206,16 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         self._placeholder_struct = iterator_handle
         self._pipeline = 'dataset_handle'
         if self._training_set is not None:
-            train_dataset = create_dataset(self._training_set.sources, names, shapes, dtypes, batch_size=self.training_batch_size, shuffle=True, frames=frames)
-            self._train_iterator = train_dataset.make_initializable_iterator()
-            self._train_iterator_handle = self.session.run(self._train_iterator.string_handle())
-            self.session.run(self._train_iterator.initializer)
+            assert isinstance(self._training_set, TFDataset)
+            if self._training_set.name is None:
+                self._training_set.name = 'train'
+            self._training_set.setup(names, shapes, dtypes, batch_size=self.training_batch_size, frames=frames)
+            self._training_set.reset_iterator(self.session)
         if self._validation_set is not None:
-            val_dataset = create_dataset(self._validation_set.sources, names, shapes, dtypes, batch_size=self.validation_batch_size, shuffle=True, frames=frames)
-            self._val_iterator = val_dataset.make_initializable_iterator()
-            self._val_iterator_handle = self.session.run(self._val_iterator.string_handle())
+            assert isinstance(self._validation_set, TFDataset)
+            if self._validation_set.name is None:
+                self._validation_set.name = 'validation'
+            self._validation_set.setup(names, shapes, dtypes, batch_size=self.validation_batch_size, frames=frames)
 
     def add_objective(self, loss, name='Loss', optimizer=None, reg=None, vars=None):
         assert len(loss.shape) <= 1, 'Loss function must be a scalar'
@@ -250,7 +252,7 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         if self._pipeline == 'placeholder':
             batch = next(self._train_iterator) if self._train_iterator is not None else None
         elif self._pipeline == 'dataset_handle':
-            batch = self._train_iterator_handle
+            batch = self._training_set.iterator_handle
         else:
             raise NotImplementedError('Pipeline %s' % self._pipeline)
         feed_dict = self._feed_dict(batch, True)
@@ -302,15 +304,15 @@ Assemble a complete feed dict for graph execution.
             return self._train_reader
         return self._train_reader if self.value_view_training_data else self._val_reader
 
-    def _view_iterator(self):
-        if self._val_iterator is None and self._train_iterator is None:
-            return None, None
-        if self._val_iterator is None:
-            return self._train_iterator, self._train_iterator_handle
+    def _view_dataset(self):
+        if self._validation_set is None and self._training_set is None:
+            return None
+        if self._validation_set is None:
+            return self._training_set
         if self.value_view_training_data:
-            return self._train_iterator, self._train_iterator_handle
+            return self._training_set
         else:
-            return self._val_iterator, self._val_iterator_handle
+            return self._validation_set
 
     def view(self, tasks):
         if tasks is None:
@@ -318,9 +320,7 @@ Assemble a complete feed dict for graph execution.
         if self._pipeline == 'placeholder':
             batch = self.view_reader[0:self.validation_batch_size] if self.view_reader is not None else None
         elif self._pipeline == 'dataset_handle':
-            view_iterator, view_iterator_handle = self._view_iterator()
-            self.session.run(view_iterator.initializer)
-            batch = view_iterator_handle
+            batch = self._view_dataset().get_reset_handle(self.session)
         else:
             raise NotImplementedError('Pipeline %s' % self._pipeline)
         feed_dict = self._feed_dict(batch, False)
