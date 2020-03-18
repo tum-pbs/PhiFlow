@@ -48,6 +48,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
         if data is None:
             return EMPTY_FIGURE
         settings_dict = parse_view_settings(config, *settings)
+        settings_dict['minmax'] = dashapp.field_minmax[field]
         return dash_graph_plot(data, settings_dict)
 
     @dashapp.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS)
