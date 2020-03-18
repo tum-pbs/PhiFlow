@@ -239,8 +239,10 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         return node
 
     def step(self):
-        self.optimization_step(self.all_optimizers)
-        if self.steps % self.epoch_size == 0:
+        optimized = self.optimization_step(self.all_optimizers)
+        if not optimized:
+            self.steps -= 1
+        if self._pipeline == 'placeholder' and  self.steps % self.epoch_size == 0:
             self.validation_step(create_checkpoint=True)
         return self
 
@@ -256,7 +258,13 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         else:
             raise NotImplementedError('Pipeline %s' % self._pipeline)
         feed_dict = self._feed_dict(batch, True)
-        scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
+        try:
+            scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
+        except tf.errors.OutOfRangeError as error:
+            if self._pipeline != 'dataset_handle':
+                raise error
+            self.on_training_set_end()
+            return False
         self.scalar_values = {name: value for name, value in zip(self.scalar_names, scalar_values)}
         if log_loss is None:
             log_loss = self.log_scalars
@@ -265,12 +273,23 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         assert isinstance(log_loss, bool)
         if log_loss:
             self.info('Optimization (%06d): ' % self.steps + ', '.join([self.scalar_names[i] + ': ' + str(scalar_values[i]) for i in range(len(self.scalars))]))
+        return True
+
+    def on_training_set_end(self):
+        self.validation_step(create_checkpoint=True)
+        self._training_set.reset_iterator(self.session)
 
     def validation_step(self, create_checkpoint=False):
-        if self._val_reader is None:
+        if self._validation_set is None:
             return
-        batch = self._val_reader[0:self.validation_batch_size]
+        if self._pipeline == 'placeholder':
+            batch = self._val_reader[0:self.validation_batch_size]
+        elif self._pipeline == 'dataset_handle':
+            batch = self._validation_set.get_reset_handle(self.session)
+        else:
+            raise NotImplementedError('Pipeline %s' % self._pipeline)
         feed_dict = self._feed_dict(batch, False)
+        # ToDo iterate over complete valiadtion set and average the results, e.g. with tf.contrib.metrics.streaming_mean - https://stackoverflow.com/questions/40788785/how-to-average-summaries-over-multiple-batches
         scalar_values = self.session.run(self.scalars, feed_dict, summary_key='val', merged_summary=self.merged_scalars, time=self.steps)
         self.scalar_values_validation = {name: value for name, value in zip(self.scalar_names, scalar_values)}
         if create_checkpoint:
