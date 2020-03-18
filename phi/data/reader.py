@@ -33,9 +33,7 @@ class BatchReader(object):
                 self._streams.append(SourceStream(stream))
         self._cache = _BatchCache()
         self.indexcache = None
-        self.callback = self._dataset_changed  # Permanent reference so it won't be garbage collected
-        self._dataset.on_change(self.callback)
-        self._dataset_changed(self._dataset)
+        self._dataset_changed()
 
     @property
     def dataset(self):
@@ -77,7 +75,7 @@ class BatchReader(object):
     def __len__(self):
         return self._len
 
-    def _dataset_changed(self, dataset):
+    def _dataset_changed(self):
         self._cache.clear()
         # Compute length
         if len(self._streams) == 0:
