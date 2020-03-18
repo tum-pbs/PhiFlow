@@ -1,4 +1,5 @@
 # coding=utf-8
+import numpy
 
 import dash
 import dash_core_components as dcc
@@ -7,6 +8,7 @@ from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
 from phi.app import App
+from phi import struct
 
 
 class DashApp:
@@ -19,6 +21,7 @@ class DashApp:
         self.dash.config.suppress_callback_exceptions = True
         self.hrefs = set()
         self.page_urls = {}
+        self.field_minmax = {}
         
         # The index page encapsulates the specific pages.
         self.dash.layout = html.Div([
@@ -63,3 +66,17 @@ class DashApp:
 
     def add_page(self, path, page_layout):
         self.page_urls[path] = page_layout
+
+    def get_field(self, name):
+        data = self.app.get_field(name)
+        tensors = struct.flatten(data)
+        minimum = min([numpy.min(tensor)] for tensor in tensors)
+        maximum = max([numpy.max(tensor)] for tensor in tensors)
+        if name in self.field_minmax:
+            minimum = min(minimum, self.field_minmax[name][0])
+            maximum = max(maximum, self.field_minmax[name][1])
+        self.field_minmax[name] = (minimum, maximum)
+        return data
+
+    def reset_field_summary(self):
+        self.field_minmax = {}
