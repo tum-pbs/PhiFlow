@@ -22,6 +22,7 @@ class DashApp:
         self.hrefs = set()
         self.page_urls = {}
         self.field_minmax = {}
+        self.minmax_decay = 0.95
         
         # The index page encapsulates the specific pages.
         self.dash.layout = html.Div([
@@ -70,13 +71,16 @@ class DashApp:
     def get_field(self, name):
         data = self.app.get_field(name)
         tensors = struct.flatten(data)
-        minimum = min([numpy.min(tensor)] for tensor in tensors)
-        maximum = max([numpy.max(tensor)] for tensor in tensors)
+        minimum = min([numpy.min(tensor) for tensor in tensors])
+        maximum = max([numpy.max(tensor) for tensor in tensors])
         if name in self.field_minmax:
-            minimum = min(minimum, self.field_minmax[name][0])
-            maximum = max(maximum, self.field_minmax[name][1])
+            minimum = min(minimum, self.field_minmax[name][0] * self.minmax_decay)
+            maximum = max(maximum, self.field_minmax[name][1] * self.minmax_decay)
         self.field_minmax[name] = (minimum, maximum)
         return data
 
     def reset_field_summary(self):
         self.field_minmax = {}
+
+    def get_minmax(self, field):
+        return self.field_minmax[field]

@@ -38,6 +38,40 @@ def dash_graph_plot(data, settings):
     return EMPTY_FIGURE
 
 
+VIRIDIS_COLORS = [
+    [68,   1,  84],
+    [72,  33, 115],
+    [67,  62, 133],
+    [56,  88, 140],
+    [45, 112, 142],
+    [37, 133, 142],
+    [30, 155, 138],
+    [42, 176, 127],
+    [82, 197, 105],
+    [34, 213,  73],
+    [194, 223,  35],
+    [253, 231,  37]
+]
+VIRIDIS = [(i/float(len(VIRIDIS_COLORS)-1), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIRIDIS_COLORS)]
+BASE_COLOR_STR = VIRIDIS[0][1]
+VIR_NEG_COLORS = [
+    [68,   1,  84],
+    [150,   3,  62],
+    [230,  5, 40],
+    [255,  153, 51],
+    [255,  200, 100],
+]
+VIR_NEG = [(i/float(len(VIR_NEG_COLORS)-1), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIR_NEG_COLORS)]
+
+
+def diverging_vir(center):
+    pos_float = lambda i: center + (1 - center) * i / float(len(VIRIDIS_COLORS)-1)
+    pos = [(pos_float(i), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIRIDIS_COLORS)]
+    neg_float = lambda i: center * i / float(len(VIR_NEG_COLORS)-1)
+    neg = [(neg_float(i), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIR_NEG_COLORS[1:][::-1])]
+    return neg + pos
+
+
 def heatmap(data, settings):
     assert isinstance(data, (StaggeredGrid, CenteredGrid))
     assert data.rank == 2
@@ -59,18 +93,29 @@ def heatmap(data, settings):
     z = reduce_component(z, component)
     y = data.points.data[0, :, 0, 0]
     x = data.points.data[0, 0, :, 1]
-    zmin, zmax = settings['minmax']
-    zmin = zmin[0]
-    zmax = zmax[0]
-    colorsettings = {'colorscale': [(0, 'rgb(240,240,240)'), (1, 'rgb(210,0,0)')],
-                     'zauto': 'false', 'zmin': str(zmin), 'zmax': str(zmax)}
-    if zmin < 0:
-        center = abs(zmin/(zmax-zmin))
-        colorsettings['colorscale'] = [(0, 'rgb(0,0,170)'), (center, 'rgb(240,240,240)'), (1, 'rgb(210,0,0)')]
-    return {'data': [{'x': x, 'y': y, 'z': z, 'type': 'heatmap',
-                      **colorsettings,
-                      #'colorbar': {'title': settings.units,  }  # TODO: Implement units into PhiFlow
-           }]}
+    z_min, z_max = settings['minmax']
+    z_min = z_min
+    z_max = z_max
+
+    if z_min == z_max:
+        color_scale = [(0, BASE_COLOR_STR), (1, BASE_COLOR_STR)]
+    elif z_min >= 0 or component == 'length':  # Linear colormap
+        color_scale = VIRIDIS
+    else:  # Divergent colormap
+        center = abs(z_min/(z_max-z_min))
+        color_scale = diverging_vir(center)
+        # color_scale = [(0, 'rgb(0,0,170)'), (center, BASE_COLOR_STR), (1, 'rgb(210,0,0)')]
+    return {'data': [{
+        'x': x,
+        'y': y,
+        'z': z,
+        'zauto': 'false',
+        'zmin': str(z_min),
+        'zmax': str(z_max),
+        'type': 'heatmap',
+        'colorscale': color_scale,
+        # 'colorbar': {'title': settings.units,  }  # TODO: Implement units into PhiFlow
+    }]}
 
 
 def slice_2d(field3d, settings):
