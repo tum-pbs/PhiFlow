@@ -49,7 +49,7 @@ class DashGui(AppDisplay):
             build_description(dash_app),
             build_view_selection(dash_app),
             html.Div(style={'width': 1000, 'height': 800, 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
-                build_viewer(dash_app, id='home', initial_field_name=collapsed_gather_nd(self.config.get('display', None), [0])),
+                build_viewer(dash_app, id='home', initial_field_name=collapsed_gather_nd(self.config.get('display', None), [0]), config=self.config),
             ]),
             status_bar,
             player_controls,
@@ -73,10 +73,10 @@ class DashGui(AppDisplay):
         layout = html.Div([
             build_view_selection(dash_app),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='left', initial_field_name=sbs_fieldnames[0]),
+                build_viewer(dash_app, id='left', initial_field_name=sbs_fieldnames[0], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='right', initial_field_name=sbs_fieldnames[1]),
+                build_viewer(dash_app, id='right', initial_field_name=sbs_fieldnames[1], config=self.config),
             ]),
             status_bar,
             player_controls,

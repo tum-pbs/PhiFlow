@@ -20,17 +20,20 @@ VIEW_SETTINGS = (VIEWED_BATCH, VIEWED_DEPTH, PROJECTION_AXIS, VIEWED_COMPONENT, 
 REFRESH_RATE = Input('refresh-rate-slider', 'value')
 
 
-def parse_view_settings(*args):
+def parse_view_settings(config, *args):
     batch = args[0]
     depth = args[1]
     projection = args[2]  # type: str
     component = _COMPONENTS[args[3]]  # type: str
-    return {
+    user_settings = {
         'batch': batch,
         'depth': depth,
         'projection': projection,
         'component': component,
     }
+    all_settings = {} if config is None else dict(config)
+    all_settings.update(user_settings)
+    return all_settings
 
 
 def refresh_rate_ms(refresh_value):

@@ -125,7 +125,7 @@ def reduce_component(tensor, component):
         return tensor[...,-2:]
 
 
-def vector_field(field2d, settings, draw_arrows_backward=True, max_resolution=40, max_lines=300, full_arrows=False):
+def vector_field(field2d, settings):
     assert isinstance(field2d, (CenteredGrid, StaggeredGrid))
     if isinstance(field2d, StaggeredGrid):
         field2d = field2d.at_centers()
@@ -134,6 +134,12 @@ def vector_field(field2d, settings, draw_arrows_backward=True, max_resolution=40
 
     batch = settings.get('batch', 0)
     batch = min(batch, field2d.data.shape[0])
+
+    arrow_origin = settings.get('arrow_origin', 'tip')
+    assert arrow_origin in ('base', 'center', 'tip')
+    max_resolution = settings.get('max_arrow_resolution', 40)
+    max_arrows = settings.get('max_arrows', 300)
+    draw_full_arrows = settings.get('draw_full_arrows', False)
 
     y, x = math.unstack(field2d.points.data[0,...,-2:], axis=-1)
     data_y, data_x = math.unstack(field2d.data[batch,...], -1)[-2:]
@@ -149,9 +155,9 @@ def vector_field(field2d, settings, draw_arrows_backward=True, max_resolution=40
     data_y = data_y.flatten()
     data_x = data_x.flatten()
 
-    if max_lines is not None and len(x) > max_lines:
+    if max_arrows is not None and len(x) > max_arrows:
         length = numpy.sqrt(data_y**2 + data_x**2)
-        keep_indices = numpy.argsort(length)[-max_lines:]
+        keep_indices = numpy.argsort(length)[-max_arrows:]
         # size = numpy.max(field2d.box.size)
         # threshold = size * negligeable_threshold
         # keep_condition = (numpy.abs(data_x) > threshold) | (numpy.abs(data_y) > threshold)
@@ -161,11 +167,14 @@ def vector_field(field2d, settings, draw_arrows_backward=True, max_resolution=40
         data_y = data_y[keep_indices]
         data_x = data_x[keep_indices]
 
-    if draw_arrows_backward:
+    if arrow_origin == 'tip':
         x -= data_x
         y -= data_y
+    elif arrow_origin == 'center':
+        x -= 0.5 * data_x
+        y -= 0.5 * data_y
 
-    if full_arrows:
+    if draw_full_arrows:
         result = plotly_figures.create_quiver(x, y, data_x, data_y, scale=1.0)  # 7 points per arrow
         result.update_xaxes(range=[field2d.box.get_lower(1), field2d.box.get_upper(1)])
         result.update_yaxes(range=[field2d.box.get_lower(0), field2d.box.get_upper(0)])

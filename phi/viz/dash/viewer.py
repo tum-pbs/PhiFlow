@@ -1,21 +1,18 @@
-
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
-from dash.exceptions import PreventUpdate
 
 from phi.viz.dash import viewsettings
 from phi.viz.dash.dash_plotting import dash_graph_plot, EMPTY_FIGURE
 from phi.viz.dash.player_controls import STEP_COMPLETE, REFRESH_INTERVAL
-from phi.viz.dash.webgl_util import EMPTY_GRID, webgl_prepare_data, load_sky
-from .viewsettings import parse_view_settings, REFRESH_RATE, refresh_rate_ms
+import webglviewer
+from .viewsettings import parse_view_settings
+from .webgl_util import default_sky, EMPTY_GRID, webgl_prepare_data
 
 
 # --- Viewer ---
 
-def build_viewer(dashapp, initial_field_name=None, id='viewer'):
-    import webglviewer
-    from .webgl_util import default_sky
+def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
 
     field_options = [{'label': item, 'value': item} for item in dashapp.app.fieldnames] + [{'label': '<None>', 'value': 'None'}]
     if initial_field_name is None:
@@ -50,7 +47,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer'):
         data = dashapp.app.get_field(field)
         if data is None:
             return EMPTY_FIGURE
-        settings_dict = parse_view_settings(*settings)
+        settings_dict = parse_view_settings(config, *settings)
         return dash_graph_plot(data, settings_dict)
 
     @dashapp.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS)
@@ -60,7 +57,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer'):
         data = dashapp.app.get_field(field)
         if data is None:
             return EMPTY_GRID
-        settings_dict = parse_view_settings(*settings)
+        settings_dict = parse_view_settings(config, *settings)
         return webgl_prepare_data(data, settings_dict)
 
     return layout
