@@ -46,15 +46,6 @@ class TestData(TestCase):
             self.assertEqual(value2, i+1)
             i += 2
 
-    def test_modify_database(self):
-        build_test_database()
-        dataset = Dataset('data')
-        reader = BatchReader(dataset, FRAME)
-        self.assertEqual(len(reader), 0)
-        dataset += Dataset.load('data')
-        self.assertEqual(len(reader), 8)
-        _a = reader[0]
-
     def test_get_frames(self):
         build_test_database()
         reader = BatchReader(Dataset.load('data'), FRAME)
