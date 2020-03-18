@@ -44,7 +44,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
     def update_figure(field, _0, _1, *settings):
         if field is None or field == 'None':
             return EMPTY_FIGURE
-        data = dashapp.app.get_field(field)
+        data = dashapp.get_field(field)
         if data is None:
             return EMPTY_FIGURE
         settings_dict = parse_view_settings(config, *settings)
@@ -54,7 +54,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
     def update_data(field, _0, _1, _2, *settings):
         if field is None or field == 'None':
             return EMPTY_GRID
-        data = dashapp.app.get_field(field)
+        data = dashapp.get_field(field)
         if data is None:
             return EMPTY_GRID
         settings_dict = parse_view_settings(config, *settings)
