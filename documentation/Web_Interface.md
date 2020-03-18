@@ -139,6 +139,10 @@ Controls can also be configured by creating an instance of `EditableValue`. In t
 
 The `show` method supports additional keyword arguments to configure how the App contents are displayed.
 
+The `display` parameter defines which fields are displayed initially, e.g. `display='Density'` or `display=('Density', 'Velocity')`.
+
+### Further configuration parameters
+
 | Parameter            | Description                                                                                       | Default |
 |----------------------|---------------------------------------------------------------------------------------------------|---------|
 | arrow_origin         | Which part of the arrow is centered at the position of the field. One of 'base', 'center', 'tip'. | 'tip'   |

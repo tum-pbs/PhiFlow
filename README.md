@@ -18,7 +18,7 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 - Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) (experimental) allowing for straightforward neural network training with fully differentiable simulations that run on the GPU.
 - Object-oriented architecture enabling concise and expressive code, designed for ease of use and extensibility.
 - Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
-- Flexible, easy-to-use web interface featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
+- Flexible, easy-to-use [web interface](documentation/Web_Interface.md) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 
 ## Installation
 
