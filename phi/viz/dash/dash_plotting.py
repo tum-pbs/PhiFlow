@@ -57,7 +57,6 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
     :param colormap: colormap defined as list of [fraction_val, red_frac, green_frac, blue_frac]
     :type colormap: list or array
     """
-    # TODO: zmin > 0?
     # Ensure slicing
     cm_arr = np.array(colormap).astype(np.float)
     # Centeral color
@@ -69,6 +68,8 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
     if zmin == zmax:
         return [("0", "rgb({},{},{})".format(*central_color)), ("1", "rgb({},{},{})".format(*central_color))]
     center = abs(zmin / (zmax - zmin))
+    if zmin > 0:
+        center = 0
     # Rescaling
     if not equal_scale:
         # Full range, Zero-centered
@@ -78,7 +79,7 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
         cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0]-0.5)*2*(1-center)+center  # Scale (0.5, 1) -> (center, 0.5)
         # Drop duplicate zeros. Allow for not center value in original map.
         if zmin == 0:
-            cm_arr = cm_arr[np.max(np.arange(len(cm_arr))[cm_arr[:, 0] == 0]):]    
+            cm_arr = cm_arr[np.max(np.arange(len(cm_arr))[cm_arr[:, 0] == 0]):]
     else:
         cm_arr[:, 0] = cm_arr[:, 0]-0.5  # center at zero (-0.5, 0.5)
         # Scale desired range
