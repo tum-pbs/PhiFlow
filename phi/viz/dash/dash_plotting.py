@@ -134,7 +134,7 @@ def heatmap(data, settings):
     y = data.points.data[0, :, 0, 0]
     x = data.points.data[0, 0, :, 1]
     z_min, z_max = settings['minmax']
-    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=VIRIDIS)
+    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=ORANGE_WHITE_BLUE)
     return {'data': [{
         'x': x,
         'y': y,
