@@ -10,3 +10,9 @@ from .noise import Noise
 from . import advect
 from . import manta
 from .util import diffuse, data_bounds
+from .field_math import SymbolicFieldBackend
+
+
+from phi import math
+
+math.DYNAMIC_BACKEND.add_backend(SymbolicFieldBackend(), priority=True)
