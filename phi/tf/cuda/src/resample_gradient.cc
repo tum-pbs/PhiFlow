@@ -157,12 +157,6 @@ public:
 		const unsigned int outputElementsPerBatch = outputSize / outputBatchSize;
 
 		// Do the computation.
-		/*OP_REQUIRES(
-			context,
-			data.NumElements() <= tensorflow::kint32max,
-			errors::InvalidArgument("Too many elements in tensor.")
-		);*/
-
 		ResampleGradientFunctor<Device, T>()(
 			context->eigen_device<Device>(),
 			dataBatchSize,
