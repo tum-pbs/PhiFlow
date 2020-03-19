@@ -93,7 +93,7 @@ Supports obstacles, density effects, velocity effects, global gravity.
             velocity, fluid.solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
-        velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
+        velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
         if self.conserve_density and np.all(Material.solid(fluid.domain.boundaries)):
             density = density.normalized(fluid.density)
         # --- Effects ---
@@ -102,9 +102,12 @@ Supports obstacles, density effects, velocity effects, global gravity.
         for effect in velocity_effects:
             velocity = effect_applied(effect, velocity, dt)
         velocity += (density * -gravity * fluid.buoyancy_factor * dt).at(velocity)
+        divergent_velocity = velocity
         # --- Pressure solve ---
         if self.make_output_divfree:
             velocity, fluid.solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
+        fluid.solve_info['advected_velocity'] = advected_velocity
+        fluid.solve_info['divergent_velocity'] = divergent_velocity
         return fluid.copied_with(density=density, velocity=velocity, age=fluid.age + dt)
 
 
