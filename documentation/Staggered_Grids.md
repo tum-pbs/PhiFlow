@@ -49,7 +49,7 @@ from phi.flow import *
 centered_field = CenteredGrid(np.ones([1, 64, 64, 1]), 1)
 
 staggered_gradient = StaggeredGrid.gradient(centered_field)
-staggered_field_x = StaggeredGrid.from_scalar(centered_field, [1, 2])
+staggered_field = StaggeredGrid.sample(centered_field * [1, 2], domain)
 ```
 
 `StaggeredGrid`s can hold both TensorFlow `Tensor`'s and NumPy `ndarray`s.

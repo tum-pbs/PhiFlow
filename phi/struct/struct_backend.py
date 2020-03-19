@@ -34,7 +34,12 @@ class StructBroadcastBackend(Backend):
             args, kwargs = build_arguments(values)
             result = backend_func(*args, **kwargs)
             return result
-        return functions.map(f, obj, content_type=self.target_content_type)
+        target_content_type = {
+            'staticshape': functions.staticshape,
+            'shape': functions.shape,
+            'dtype': functions.dtype,
+        }.get(func, self.target_content_type)
+        return functions.map(f, obj, content_type=target_content_type)
 
 
 def argument_assembler(args, kwargs):

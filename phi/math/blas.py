@@ -14,12 +14,13 @@ def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations
     :param max_iterations: maximum number of CG iterations to perform
     :return: Pair containing the result for x and the number of iterations performed
     """
+    k = math.copy(k, only_mutable=True)
     # Get momentum = k - Ax
     if initial_x is None:
         x = math.zeros_like(k)
         momentum = k
     else:
-        x = initial_x
+        x = math.copy(initial_x, only_mutable=True)
         momentum = k - apply_A(x)
     # Further Variables
     residual = momentum  # residual is previous momentum
@@ -30,7 +31,7 @@ def conjugate_gradient(k, apply_A, initial_x=None, accuracy=1e-5, max_iterations
     # Ensure to run until desired accuracy is achieved
     if accuracy is not None:
         def loop_condition(_1, _2, _3, residual, _i):
-            '''continue if the maximum deviation from zero is bigger than desired accuracy'''
+            """continue if the maximum deviation from zero is bigger than desired accuracy"""
             return math.max(math.abs(residual)) >= accuracy
     else:
         def loop_condition(*_args):

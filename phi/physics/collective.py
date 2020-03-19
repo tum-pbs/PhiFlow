@@ -1,10 +1,7 @@
 import warnings
-
 import six
-from phi.struct.context import skip_validate
-from phi.struct.structdef import Item
 
-from .physics import Physics, State, struct
+from .physics import Physics, State, struct, _ChainedPhysics
 
 
 class StateCollection(dict):
@@ -191,6 +188,9 @@ class CollectivePhysics(Physics):
         return self.physics[state.name] if state.name in self.physics else state.default_physics()
 
     def add(self, name, physics):
+        if isinstance(physics, (tuple, list)):
+            physics = _ChainedPhysics(physics)
+        assert isinstance(physics, Physics)
         self.physics[name] = physics
 
     def remove(self, name):

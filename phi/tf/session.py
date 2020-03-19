@@ -32,7 +32,7 @@ class Session(object):
         self._session.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver(max_to_keep=100, allow_empty=True)
 
-    def run(self, fetches, feed_dict=None, summary_key=None, time=None, merged_summary=None):
+    def run(self, fetches, feed_dict=None, summary_key=None, time=None, merged_summary=None, item_condition=struct.ALL_ITEMS):
         if isinstance(fetches, np.ndarray):
             return fetches
         if fetches is None:
@@ -42,15 +42,15 @@ class Session(object):
         if feed_dict is not None:
             tensor_feed_dict = {}
             for (key, value) in feed_dict.items():
-                pairs = struct.zip([key, value], item_condition=struct.ALL_ITEMS, zip_parents_if_incompatible=True)
+                pairs = struct.zip([key, value], item_condition=item_condition, zip_parents_if_incompatible=True)
 
                 def add_to_dict(key_tensor, value_tensor):
                     if isplaceholder(key_tensor):
                         tensor_feed_dict[key_tensor] = value_tensor
                     return None
-                struct.map(add_to_dict, pairs, item_condition=struct.ALL_ITEMS, content_type=struct.INVALID)
+                struct.map(add_to_dict, pairs, item_condition=item_condition, content_type=struct.INVALID)
 
-        tensor_fetches = struct.flatten(fetches, item_condition=struct.ALL_ITEMS)
+        tensor_fetches = struct.flatten(fetches, item_condition=item_condition)
         if isinstance(fetches, (tuple, list)):
             def is_fetch(x): return istensor(x) or _identity_in(x, fetches)
         else:
@@ -84,6 +84,7 @@ class Session(object):
             summary_writer.add_summary(summary_buffer, time)
             summary_writer.flush()
 
+
         if trace:
             trace.timeliner.add_run()
 
@@ -95,7 +96,7 @@ class Session(object):
                     return fetch
             except TypeError:  # not hashable
                 return fetch
-        result = struct.map(replace_tensor_with_value, fetches, item_condition=struct.ALL_ITEMS)
+        result = struct.map(replace_tensor_with_value, fetches, item_condition=item_condition)
         return result
 
     def profiler(self):

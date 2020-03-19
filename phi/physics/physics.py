@@ -92,10 +92,12 @@ Define a StateDependency.
             assert single_state
 
     def __repr__(self):
+        blocking_str = 'updated' if self.blocking else 'previous'
+        single_str = 'single' if self.single_state else 'all'
         if self.state_name is not None:
-            return '[key=%s, blocking=%s]' % (self.state_name, self.blocking)
+            return "'%s' referencing %s %s '%s'" % (self.parameter_name, single_str, blocking_str, self.state_name)
         else:
-            return '[tag=%s, blocking=%s]' % (self.tag, self.blocking)
+            return "'%s' containing %s %s %s" % (self.parameter_name, single_str, blocking_str, self.tag)
 
 
 class Physics(object):
@@ -129,6 +131,10 @@ class Physics(object):
         # pylint: disable-msg = missing-function-docstring
         return filter(lambda d: not d.blocking, self.dependencies)
 
+    @property
+    def dependency_names(self):
+        return [dep.parameter_name for dep in self.dependencies]
+
 
 class Static(Physics):
     """
@@ -143,3 +149,17 @@ Does not alter the state except for increasing its age.
 
 
 STATIC = Static()
+
+
+class _ChainedPhysics(Physics):
+
+    def __init__(self, physics_list):
+        Physics.__init__(self, dependencies=sum([phys.dependencies for phys in physics_list], ()))
+        self.physics_list = physics_list
+        assert len(set(self.dependency_names)) == len(self.dependencies), 'Duplicate dependency parameter names: %s' % self.dependencies
+
+    def step(self, state, dt=1.0, **dependent_states):
+        for physics in self.physics_list:
+            deps = {key: value for key, value in dependent_states.items() if key in physics.dependency_names}
+            state = physics.step(state, dt=dt, **deps)
+        return state.map_item(State.age, lambda age: age + dt)

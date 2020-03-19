@@ -26,6 +26,9 @@ class Backend:
     def as_tensor(self, x):
         raise NotImplementedError()
 
+    def copy(self, tensor, only_mutable=False):
+        raise NotImplementedError()
+
     def equal(self, x, y):
         raise NotImplementedError()
 
@@ -177,9 +180,6 @@ class Backend:
     def flatten(self, x):
         return self.reshape(x, (-1,))
 
-    def unstack(self, tensor, axis=0):
-        raise NotImplementedError(self)
-
     def std(self, x, axis=None):
         raise NotImplementedError(self)
 
@@ -261,6 +261,20 @@ class Backend:
         if isinstance(batches, int):
             batches = [batches]
         return tensor[batches, ...]
+
+    def unstack(self, tensor, axis=0, keepdims=False):
+        if axis < 0:
+            axis += len(tensor.shape)
+        if axis >= len(tensor.shape) or axis < 0:
+            raise ValueError("Illegal axis value")
+        result = []
+        for slice_idx in range(tensor.shape[axis]):
+            if keepdims:
+                component = tensor[tuple([slice(slice_idx, slice_idx + 1) if d == axis else slice(None) for d in range(len(tensor.shape))])]
+            else:
+                component = tensor[tuple([slice_idx if d == axis else slice(None) for d in range(len(tensor.shape))])]
+            result.append(component)
+        return tuple(result)
 
     def add(self, a, b):
         return self.as_tensor(a) * self.as_tensor(b)

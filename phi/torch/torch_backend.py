@@ -31,6 +31,9 @@ class TorchBackend(Backend):
                 return torch.stack(components, dim=0)
         return torch.tensor(x)
 
+    def copy(self, tensor, only_mutable=False):
+        return torch.clone(tensor)
+
     def equal(self, x, y):
         return x == y
 
@@ -200,7 +203,9 @@ class TorchBackend(Backend):
         return result
 
     def expand_dims(self, a, axis=0, number=1):
-        raise NotImplementedError()
+        for _ in range(number):
+            a = torch.unsqueeze(a, dim=axis)
+        return a
 
     def shape(self, tensor):
         return tensor.shape
@@ -226,8 +231,11 @@ class TorchBackend(Backend):
     def gather_nd(self, values, indices):
         raise NotImplementedError()
 
-    def unstack(self, tensor, axis=0):
-        raise NotImplementedError()
+    def unstack(self, tensor, axis=0, keepdims=False):
+        unstacked = torch.unbind(tensor, dim=axis)
+        if keepdims:
+            unstacked = [self.expand_dims(c, axis=axis) for c in unstacked]
+        return unstacked
 
     def std(self, x, axis=None):
         raise NotImplementedError()

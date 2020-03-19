@@ -26,9 +26,17 @@ class TFBackend(Backend):
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
     def as_tensor(self, x):
+        if self.is_tensor(x):
+            return x
         if isinstance(x, np.ndarray) and x.dtype == np.float64:
             return tf.convert_to_tensor(x, dtype=tf.float32)
         return tf.convert_to_tensor(x)
+
+    def copy(self, tensor, only_mutable=False):
+        if not only_mutable or tf.executing_eagerly():
+            return tf.identity(tensor)
+        else:
+            return tensor
 
     def equal(self, x, y):
         return tf.equal(x, y)
@@ -168,7 +176,9 @@ class TFBackend(Backend):
     def matmul(self, A, b):
         if isinstance(A, tf.SparseTensor):
             result = tf.sparse_tensor_dense_matmul(A, tf.transpose(b))
-            return tf.transpose(result)
+            result = tf.transpose(result)
+            result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
+            return result
         else:
             return tf.matmul(A, b)
 
@@ -278,8 +288,11 @@ class TFBackend(Backend):
     def gather_nd(self, values, indices):
         return tf.gather_nd(values, indices)
 
-    def unstack(self, tensor, axis=0):
-        return tf.unstack(tensor, axis=axis)
+    def unstack(self, tensor, axis=0, keepdims=False):
+        unstacked = tf.unstack(tensor, axis=axis)
+        if keepdims:
+            unstacked = [self.expand_dims(c, axis=axis) for c in unstacked]
+        return unstacked
 
     def std(self, x, axis=None):
         _mean, var = tf.nn.moments(x, axis)
@@ -402,10 +415,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
 
     if sample_coords.shape[0] != inputs.shape[0]:
         sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
-
-    if in_spatial_rank == 2 and boundary.upper() == 'ZERO':
-        inputs = tf.transpose(inputs, [0, 2, 1, 3])
-        return tf.contrib.resampler.resampler(inputs, sample_coords)
 
     xy = tf.unstack(sample_coords, axis=-1)
     base_coords = [tf.floor(coords) for coords in xy]

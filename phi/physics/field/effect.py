@@ -1,5 +1,7 @@
 import warnings
 
+import six
+
 from phi.geom import Geometry
 from phi.physics.field import Field, GeometryMask, ConstantField
 from phi import math, struct
@@ -14,12 +16,14 @@ FIX = 'fix'
 class FieldEffect(State):
 
     def __init__(self, field, targets, mode=GROW, bounds=None, tags=('effect',), **kwargs):
+        if isinstance(targets, six.string_types):
+            targets = [targets]
         tags = tuple(tags) + tuple('%s_effect' % target for target in targets)
         State.__init__(self, **struct.kwargs(locals()))
 
     @struct.variable()
     def field(self, field):
-        assert isinstance(field, Field)
+        assert isinstance(field, Field) or field is None, field
         return field
 
     @struct.constant()
@@ -55,7 +59,7 @@ def effect_applied(effect, field, dt):
 
 
 # pylint: disable-msg = invalid-name
-Inflow = lambda geometry, rate=1.0: FieldEffect(GeometryMask([geometry], value=rate, name='inflow'), ('density',), GROW, tags=('inflow', 'effect'))
+Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(GeometryMask([geometry], value=rate, name='inflow'), target, GROW, tags=('inflow', 'effect'))
 Accelerator = lambda geometry, acceleration: FieldEffect(GeometryMask([geometry], value=acceleration, name='fan'), ('velocity',), GROW, tags=('fan', 'effect'))
 ConstantVelocity = lambda geometry, velocity: FieldEffect(ConstantField(velocity), bounds=geometry, targets=('velocity',), mode=FIX, tags=('effect',))
 HeatSource = lambda geometry, rate: FieldEffect(GeometryMask([geometry], value=rate, name='heat-source'), ('temperature',), GROW)
@@ -116,4 +120,4 @@ class FieldPhysics(Physics):
     def step(self, field, dt=1.0, effects=()):
         for effect in effects:
             field = effect_applied(effect, field, dt)
-        return field.copied_with(age = field.age + dt)
+        return field.copied_with(age=field.age + dt)

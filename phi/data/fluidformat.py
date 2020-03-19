@@ -12,7 +12,7 @@ import six
 import numpy as np
 from os.path import join, isfile, isdir
 
-from phi import struct
+from phi import struct, math
 from phi.physics import field
 
 
@@ -44,7 +44,7 @@ def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
     if isinstance(fieldnames, six.string_types):
         fieldnames = [fieldnames]
     for fieldname in fieldnames:
-        filename = join(simpath, "%s_%06i.npz" % (fieldname, frame))
+        filename = _filename(simpath, fieldname, frame)
         if os.path.isfile(filename):
             yield read_zipped_array(filename)
         else:
@@ -61,10 +61,14 @@ def write_sim_frame(simpath, arrays, fieldnames, frame, check_same_dimensions=Fa
     if not isinstance(fieldnames, (tuple, list)) and not isinstance(arrays, (tuple, list)):
         fieldnames = [fieldnames]
         arrays = [arrays]
-    filenames = [join(simpath, "%s_%06i.npz" % (name, frame)) for name in fieldnames]
+    filenames = [_filename(simpath, name, frame) for name in fieldnames]
     for i in range(len(arrays)):
         write_zipped_array(filenames[i], arrays[i])
     return filenames
+
+
+def _filename(simpath, name, frame):
+    return join(simpath, "%s_%06i.npz" % (name, frame))
 
 
 def read_sim_frames(simpath, fieldnames=None, frames=None):
@@ -252,10 +256,18 @@ class Scene(object):
         if isdir(self.path):
             shutil.rmtree(self.path)
 
+    def data_paths(self, frames, field_names):
+        for frame in frames:
+            yield tuple([_filename(self.path, name, frame) for name in field_names])
+
+
     @staticmethod
-    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True):
+    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True, calling_script_level=0):
         if count > 1:
-            return SceneBatch([Scene.create(directory, category, 1, mkdir, copy_calling_script) for i in range(count)])
+            scenes = []
+            for _ in range(count):
+                scenes.append(Scene.create(directory, category, 1, mkdir, copy_calling_script, calling_script_level + 1))
+            return SceneBatch(scenes)
         # Single scene
         directory = os.path.expanduser(directory)
         if category is None:
@@ -278,8 +290,11 @@ class Scene(object):
         if mkdir:
             scene.mkdir()
         if copy_calling_script:
-            assert mkdir
-            scene.copy_calling_script(2)
+            try:
+                assert mkdir
+                scene.copy_calling_script(2 + calling_script_level)
+            except IOError as err:
+                warnings.warn('Failed to copy calling script to scene during Scene.create().')
         return scene
 
     @staticmethod
@@ -352,6 +367,19 @@ def _transform_for_writing(obj):
         else:
             return value
     data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)), content_type='format')
+    return data
+
+
+def _writing_staticshape(obj):
+    def f(value):
+        if isinstance(value, field.StaggeredGrid):
+            shape = math.staticshape(value.staggered_tensor())
+            return (value._batch_size,) + shape[1:]
+        if isinstance(value, field.CenteredGrid):
+            return value.staticshape.data
+        else:
+            return value
+    data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)), content_type='format_staticshape')
     return data
 
 
