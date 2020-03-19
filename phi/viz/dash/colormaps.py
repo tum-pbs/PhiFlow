@@ -1,5 +1,19 @@
 # Scivis Colormaps
 # https://sciviscolor.org/
+from matplotlib import cm
+import numpy as np
+
+def create_colormap(name):
+    return np.hstack([np.linspace(0, 1, len(cm.get_cmap(name).colors))[:,np.newaxis], np.array(cm.get_cmap(name).colors)*255])
+
+VIRIDIS = create_colormap('viridis')
+CIVIDIS = create_colormap('cividis')
+MAGMA = create_colormap('magma')
+INFERNO = create_colormap('inferno')
+PLASMA = create_colormap('plasma')
+TWILIGHT = create_colormap('twilight')
+TWILIGHT_SHIFTED = create_colormap('twilight_shifted')
+
 
 ORANGE_WHITE_BLUE = [
     [0.      ,  22.00000005,   1.00000035,  76.0000011 ],
