@@ -28,6 +28,7 @@ class CudaCommand(distutils.cmd.Command):
             tf.disable_eager_execution()
         tf_cflags = tf.sysconfig.get_compile_flags()
         tf_lflags = tf.sysconfig.get_link_flags()
+        print('lib: ' + tf.sysconfig.get_lib())
 
         # Remove old build files
         if os.path.isdir(build_path):
