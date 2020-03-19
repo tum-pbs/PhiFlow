@@ -119,17 +119,22 @@ def _active_extrapolation(boundaries):
     return 'periodic' if boundaries == 'periodic' else 'constant'
 
 
-def poisson_solve(input_field, poisson_domain, solver=None):
+def poisson_solve(input_field, poisson_domain, solver=None, guess=None):
     """
 Solves the Poisson equation Δp = input_field for p.
     :param input_field: CenteredGrid
     :param poisson_domain: PoissonDomain instance
     :param solver: PoissonSolver to use, None for default
+    :param guess: CenteredGrid with same size and resolution as input_field
     :return: p as CenteredGrid, iteration count as int or None if not available
     :rtype: CenteredGrid, int
     """
     from .sparse import SparseSciPy, SparseCG
     assert isinstance(input_field, CenteredGrid)
+    if guess is not None:
+        assert isinstance(guess, CenteredGrid)
+        assert guess.compatible(input_field)
+        guess = guess.data
     if isinstance(poisson_domain, Domain):
         poisson_domain = PoissonDomain(poisson_domain)
     if solver is None:
@@ -137,6 +142,6 @@ Solves the Poisson equation Δp = input_field for p.
             solver = SparseSciPy()
         else:
             solver = SparseCG()
-    pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=None)
+    pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=guess)
     pressure = CenteredGrid(pressure, input_field.box, name='pressure')
     return pressure, iteration
