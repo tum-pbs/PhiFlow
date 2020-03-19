@@ -47,7 +47,7 @@ class CenteredGrid(Field):
             if isinstance(value, CenteredGrid) and value.box == domain.box and np.all(value.resolution == domain.resolution):
                 data = value.data
             else:
-                data = value.sample_at(CenteredGrid.getpoints(domain.box, domain.resolution).data)
+                data = value.at(CenteredGrid.getpoints(domain.box, domain.resolution)).data
         else:  # value is constant
             components = math.staticshape(value)[-1] if math.ndims(value) > 0 else 1
             data = math.zeros((batch_size,) + tuple(domain.resolution) + (components,)) + value

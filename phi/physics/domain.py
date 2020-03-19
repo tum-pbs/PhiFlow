@@ -138,7 +138,7 @@ class Domain(struct.Struct):
                 grid._age = 0.0
         else:
             grid = CenteredGrid.sample(data, self, batch_size=batch_size)
-        assert grid.component_count == components
+        assert grid.component_count == components, "Field has %d components but %d are required for '%s'" % (grid.component_count, components, name)
         if math.dtype(grid.data) != dtype:
             grid = grid.copied_with(data=math.cast(grid.data, dtype))
         if name is not None:
