@@ -6,6 +6,7 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
+// Op registration
 namespace tensorflow {
 REGISTER_OP("Resample")
 	.Attr("T: {bfloat16, float, double}")
@@ -126,12 +127,6 @@ public:
 		const unsigned int outputElementsPerBatch = output->NumElements() / outputBatchSize;
 
 		// Do the computation.
-		/*OP_REQUIRES(
-			context,
-			data.NumElements() <= tensorflow::kint32max,
-			errors::InvalidArgument("Too many elements in tensor.")
-		);*/
-
 		ResampleFunctor<Device, T>()(
 			context->eigen_device<Device>(),
 			dataBatchSize,

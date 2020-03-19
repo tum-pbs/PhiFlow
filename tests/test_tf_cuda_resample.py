@@ -14,7 +14,7 @@ from phi.tf.tf_cuda_resample import resample_cuda
 
 class TestTfCudaResample(TestCase):
     N = 25
-    MAX_DIFFERENCE = 0.01
+    MAX_DIFFERENCE = 0.1
     MIN_VALUE = -10
     MAX_VALUE = 10
     BOUNDARIES = ['replicate', 'circular', 'symmetric', 'reflect']

@@ -16,33 +16,7 @@ namespace tensorflow {
 typedef Eigen::GpuDevice GPUDevice;
 
 
-/*static void HandleError( cudaError_t err,
-                         const char *file,
-                         int line ) {
-    if (err != cudaSuccess) {
-        printf( "%s in %s at line %d\n", cudaGetErrorString( err ),
-                file, line );
-        exit( EXIT_FAILURE );
-    }
-}
-#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))*/
-
-
-/*template<typename T>
-__device__
-void atomicAdd(T* __restrict__ dataGradient, const unsigned int dataBatch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components, T toAdd) {
-	for (int dim = 0; dim < dims; dim++) {
-		if (q[dim] > dimSizes[dim] - 1) {
-			return;
-		} else if (q[dim] < 0) {
-			q[dim] = 0;
-		}
-	}
-	atomicAdd(dataGradient + getDataIndex(dataBatch, q, component, dims, dimSizes, components), toAdd);
-}*/
-
-
-// Define the CUDA kernel.
+// Naive CUDA kernel
 template <typename T>
 __global__
 void ResampleGradientCudaKernel(
@@ -109,6 +83,8 @@ void ResampleGradientCudaKernel(
 	}
 }
 
+
+// Texture memory kernel for 1D
 template <typename T, typename V>
 __global__
 void ResampleGradient1DCudaKernel(
@@ -166,6 +142,7 @@ void ResampleGradient1DCudaKernel(
 }
 
 
+// Texture memory kernel for 2D
 template <typename T, typename V>
 __global__
 void ResampleGradient2DCudaKernel (
@@ -257,6 +234,7 @@ void ResampleGradient2DCudaKernel (
 }
 
 
+// Texture memory kernel for 3D
 template <typename T, typename V>
 __global__
 void ResampleGradient3DCudaKernel (
@@ -401,6 +379,7 @@ void ResampleGradient3DCudaKernel (
 }
 
 
+// Select kernel according to spatial rank and number of components
 template<typename T>
 void runResampleGradientTextureMemoryKernel(
 	const int dims,
@@ -483,6 +462,7 @@ void runResampleGradientTextureMemoryKernel(
 }
 
 
+// Prepare and run texture memory kernel
 template <typename T>
 void ResampleGradientTextureMemory (
 	const GPUDevice &d,

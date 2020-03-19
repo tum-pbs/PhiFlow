@@ -447,7 +447,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     return _pyramid_combination(samples, weight_0, weight_1)
 
 
-def resample_tf(inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
+'''def resample_tf(inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
     """
 Resamples an N-dimensional tensor at the locations provided by sample_coords
     :param inputs: grid with dimensions (batch_size, spatial dimensions..., element_size)
@@ -463,7 +463,7 @@ Resamples an N-dimensional tensor at the locations provided by sample_coords
     if use_cuda(inputs):
         return resample_cuda(inputs, sample_coords, boundary)
 
-    return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
+    return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)'''
 
 
 def _boundary_snap(sample_coords, spatial_shape):

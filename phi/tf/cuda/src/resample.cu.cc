@@ -17,7 +17,7 @@ typedef Eigen::GpuDevice GPUDevice;
 
 
 
-// Define the CUDA kernel.
+// Naive CUDA kernel.
 template <typename T>
 __global__
 void ResampleCudaKernel(
@@ -58,6 +58,7 @@ void ResampleCudaKernel(
 }
 
 
+// https://devblogs.nvidia.com/lerp-faster-cuda/
 __device__
 inline float lerp (float a, float b, float x) {
 	return fma(x, b, fma(-x, a, a));
@@ -94,6 +95,7 @@ inline float4 lerp (float4 a, float4 b, float x) {
 }
 
 
+// Texture memory kernel for 1D
 template <typename T, typename V>
 __global__
 void Resample1DCudaKernel(
@@ -108,9 +110,7 @@ void Resample1DCudaKernel(
 	T* __restrict__ output,
 	const Boundary* __restrict__ boundaries
 ) {
-	//printf("batch: %ld, outputElementsPerBatch: %ld, outputSize: %ld\n", batch, outputElementsPerBatch, outputSize);
 	for (unsigned int i = batch * outputElementsPerBatch / components + blockIdx.x * blockDim.x + threadIdx.x; i < (batch * outputElementsPerBatch + outputElementsPerBatch) / components; i += blockDim.x * gridDim.x){
-		//printf("pointsIndex: %d\n", getPointsIndex(i, 0, 1, pointsSize, batch, outputElementsPerBatch));
 		T x = ldg(points + getPointsIndex(i, 0, 1, pointsSize)); // / xSize;
 		T px = floor(x);
 		T fx = x - px; // fractional position
@@ -120,6 +120,7 @@ void Resample1DCudaKernel(
 }
 
 
+// Texture memory kernel for 2D
 template <typename T, typename V>
 __global__
 void Resample2DCudaKernel (
@@ -152,6 +153,7 @@ void Resample2DCudaKernel (
 }
 
 
+// Texture memory kernel for 3D
 template <typename T, typename V>
 __global__
 void Resample3DCudaKernel (
@@ -196,6 +198,7 @@ void Resample3DCudaKernel (
 }
 
 
+// Select kernel according to spatial rank and number of components
 template<typename T>
 void runResampleTextureMemoryKernel(
 	const int dims,
@@ -274,6 +277,7 @@ void runResampleTextureMemoryKernel(
 }
 
 
+// Prepare and run texture memory kernel
 template<typename T>
 void ResampleTextureMemory (
 	const GPUDevice &d,
@@ -325,7 +329,6 @@ void ResampleTextureMemory (
 
 		// Run Kernel
 		runResampleTextureMemoryKernel(dims, batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output,  d, boundaries);
-		//std::cout << "Device synchronize." << std::endl;
 		HANDLE_ERROR(cudaDeviceSynchronize());
 	}
 	// Destroy texture object and free memory
