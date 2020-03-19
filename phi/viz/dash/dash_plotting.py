@@ -1,12 +1,13 @@
 import warnings
 
-import numpy
+import numpy as np
 
 import plotly.figure_factory as plotly_figures
 
 from phi import math
 from phi.physics.field import CenteredGrid, StaggeredGrid
 from phi.viz.plot import FRONT, RIGHT, TOP
+from .colormaps import blue_orange, test
 
 EMPTY_FIGURE = {'data': [{'z': None, 'type': 'heatmap'}]}
 
@@ -16,7 +17,7 @@ def dash_graph_plot(data, settings):
     if data is None:
         return EMPTY_FIGURE
 
-    if isinstance(data, numpy.ndarray):
+    if isinstance(data, np.ndarray):
         data = CenteredGrid(data)
 
     if isinstance(data, (CenteredGrid, StaggeredGrid)):
@@ -38,38 +39,83 @@ def dash_graph_plot(data, settings):
     return EMPTY_FIGURE
 
 
-VIRIDIS_COLORS = [
-    [68,   1,  84],
-    [72,  33, 115],
-    [67,  62, 133],
-    [56,  88, 140],
-    [45, 112, 142],
-    [37, 133, 142],
-    [30, 155, 138],
-    [42, 176, 127],
-    [82, 197, 105],
-    [34, 213,  73],
-    [194, 223,  35],
-    [253, 231,  37]
-]
-VIRIDIS = [(i/float(len(VIRIDIS_COLORS)-1), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIRIDIS_COLORS)]
-BASE_COLOR_STR = VIRIDIS[0][1]
-VIR_NEG_COLORS = [
-    [68,   1,  84],
-    [150,   3,  62],
-    [230,  5, 40],
-    [255,  153, 51],
-    [255,  200, 100],
-]
-VIR_NEG = [(i/float(len(VIR_NEG_COLORS)-1), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIR_NEG_COLORS)]
+def get_point(val, cm_arr):
+    """Weighted average between point smaller and larger than it"""
+    if 0 in cm_arr[:, 0]-val:
+        center = cm_arr[cm_arr[:, 0] == val][-1]
+    else:
+        row1 = cm_arr[np.argmax((cm_arr[:, 0]-val)[cm_arr[:, 0]-val < 0])]
+        row2 = cm_arr[np.argmin((cm_arr[:, 0]-val)[cm_arr[:, 0]-val > 0])]
+        center = (row1*row1[0]+row2*row2[0])/(row1[0]+row2[0])
+    center[0] = val
+    return center
 
 
-def diverging_vir(center):
-    pos_float = lambda i: center + (1 - center) * i / float(len(VIRIDIS_COLORS)-1)
-    pos = [(pos_float(i), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIRIDIS_COLORS)]
-    neg_float = lambda i: center * i / float(len(VIR_NEG_COLORS)-1)
-    neg = [(neg_float(i), 'rgb%s' % (tuple(col),)) for i, col in enumerate(VIR_NEG_COLORS[1:][::-1])]
-    return neg + pos
+def get_div_map(zmin, zmax, equal_scale=False, colormap=blue_orange):
+    """
+    :param colormap: colormap defined as list of [fraction_val, red_frac, green_frac, blue_frac]
+    :type colormap: list or array
+    """
+    # TODO: zmin > 0 ?
+    # Ensure slicing
+    cm_arr = np.array(colormap).astype(np.float)
+    # Centeral color
+    if 0.5 not in cm_arr[:, 0]:
+        central_color = get_point(0.5, cm_arr)[1:]
+    else:
+        central_color = cm_arr[cm_arr[:, 0] == 0.5][-1][1:]
+    # Return base
+    if zmin == zmax:
+        return [("0", "rgb({},{},{})".format(*central_color)), ("1", "rgb({},{},{})".format(*central_color))]
+    center = abs(zmin / (zmax - zmin))
+    # Rescaling
+    if not equal_scale:
+        # Full range, Zero-centered
+        neg_flag = cm_arr[:, 0] < 0.5
+        pos_flag = cm_arr[:, 0] >= 0.5
+        cm_arr[neg_flag, 0] = cm_arr[neg_flag, 0]*2*center
+        cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0]-0.5)*2*(1-center)+center
+    else:
+        cm_arr[:, 0] = cm_arr[:, 0]-0.5  # center at zero
+        # Scale desired range to (0, 1)
+        if zmax > abs(zmin):
+            # Scale the maximum to +1 when centered
+            cm_arr[:, 0] *= (1-center)/(np.max(cm_arr[:, 0]))
+            cm_arr[:, 0] += center  # center
+            # Add zero if it doesn't exist
+            if 0 not in cm_arr[:, 0]:
+                new_min = get_point(0, cm_arr)
+                cm_arr = np.vstack([new_min, cm_arr])
+            # Compare center
+            new_center = get_point(center, cm_arr)
+            if not all(new_center == [center, *central_color]):
+                print("Failed center comparison.")
+                print("Center: {}".format(new_center))
+                print("Center should be: {}".format([center, *central_color]))
+                raise
+        elif zmax < abs(zmin):
+            # Scale the minimum to -1 when centered
+            cm_arr[:, 0] *= center/(np.max(cm_arr[:, 0]))
+            cm_arr[:, 0] += center  # center
+            # Add one if it doesn't exist
+            if 1 not in cm_arr[:, 0]:
+                new_max = get_point(1, cm_arr)
+                cm_arr = np.vstack([cm_arr, new_max])
+            # Compare center
+            new_center = get_point(center, cm_arr)
+            if not all(new_center == [center, *central_color]):
+                print("Failed center comparison.")
+                print("Center: {}".format(new_center))
+                print("Center should be: {}".format([center, *central_color]))
+                raise
+        # Cut to (0, 1)
+        cm_arr = cm_arr[cm_arr[:, 0] >= 0]
+        cm_arr = cm_arr[cm_arr[:, 0] <= 1]
+    # Drop duplicate zeros. Allow for not center value in original map.
+    if zmin == 0:
+        cm_arr = cm_arr[np.max(np.arange(len(cm_arr))[cm_arr[:, 0] == 0]):]
+    cm_str = [("{}".format(val), "rgb({:.0f},{:.0f},{:.0f})".format(*colors)) for val, colors in zip(cm_arr[:,0], cm_arr[:,1:])]
+    return cm_str
 
 
 def heatmap(data, settings):
@@ -94,17 +140,7 @@ def heatmap(data, settings):
     y = data.points.data[0, :, 0, 0]
     x = data.points.data[0, 0, :, 1]
     z_min, z_max = settings['minmax']
-    z_min = z_min
-    z_max = z_max
-
-    if z_min == z_max:
-        color_scale = [(0, BASE_COLOR_STR), (1, BASE_COLOR_STR)]
-    elif z_min >= 0 or component == 'length':  # Linear colormap
-        color_scale = VIRIDIS
-    else:  # Divergent colormap
-        center = abs(z_min/(z_max-z_min))
-        color_scale = diverging_vir(center)
-        # color_scale = [(0, 'rgb(0,0,170)'), (center, BASE_COLOR_STR), (1, 'rgb(210,0,0)')]
+    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=blue_orange)
     return {'data': [{
         'x': x,
         'y': y,
@@ -119,7 +155,7 @@ def heatmap(data, settings):
 
 
 def slice_2d(field3d, settings):
-    if isinstance(field3d, numpy.ndarray):
+    if isinstance(field3d, np.ndarray):
         field3d = CenteredGrid(field3d)
     if isinstance(field3d, StaggeredGrid):
         component = settings.get('component', 'length')
@@ -138,7 +174,7 @@ def slice_2d(field3d, settings):
     elif projection == RIGHT:
         # Remove X axis
         data = field3d.data[:, :, min(depth, field3d.resolution[2]), :, :]
-        data = numpy.transpose(data, axes=(0, 2, 1, 3))
+        data = np.transpose(data, axes=(0, 2, 1, 3))
         field2d = CenteredGrid(data, box=field3d.box.without_axis(2))
     elif projection == TOP:
         # Remove Z axis
@@ -174,9 +210,9 @@ def reduce_component(tensor, component):
         if clen >= 3:
             return tensor[..., -3]
         else:
-            return numpy.zeros_like(tensor[..., 0])
+            return np.zeros_like(tensor[..., 0])
     if component == 'length':
-        return numpy.sqrt(numpy.sum(tensor**2, axis=-1, keepdims=False))
+        return np.sqrt(np.sum(tensor**2, axis=-1, keepdims=False))
     if component == 'vec2':
         return tensor[..., -2:]
 
@@ -200,7 +236,7 @@ def vector_field(field2d, settings):
     y, x = math.unstack(field2d.points.data[0, ..., -2:], axis=-1)
     data_y, data_x = math.unstack(field2d.data[batch, ...], -1)[-2:]
 
-    while numpy.prod(x.shape) > max_resolution ** 2:
+    while np.prod(x.shape) > max_resolution ** 2:
         y = y[::2, ::2]
         x = x[::2, ::2]
         data_y = data_y[::2, ::2]
@@ -212,12 +248,12 @@ def vector_field(field2d, settings):
     data_x = data_x.flatten()
 
     if max_arrows is not None and len(x) > max_arrows:
-        length = numpy.sqrt(data_y**2 + data_x**2)
-        keep_indices = numpy.argsort(length)[-max_arrows:]
-        # size = numpy.max(field2d.box.size)
+        length = np.sqrt(data_y**2 + data_x**2)
+        keep_indices = np.argsort(length)[-max_arrows:]
+        # size = np.max(field2d.box.size)
         # threshold = size * negligible_threshold
-        # keep_condition = (numpy.abs(data_x) > threshold) | (numpy.abs(data_y) > threshold)
-        # keep_indices = numpy.where(keep_condition)
+        # keep_condition = (np.abs(data_x) > threshold) | (np.abs(data_y) > threshold)
+        # keep_indices = np.where(keep_condition)
         y = y[keep_indices]
         x = x[keep_indices]
         data_y = data_y[keep_indices]
@@ -236,8 +272,8 @@ def vector_field(field2d, settings):
         result.update_yaxes(range=[field2d.box.get_lower(0), field2d.box.get_upper(0)])
         return result
     else:
-        lines_y = numpy.stack([y, y + data_y, [None] * len(x)], -1).flatten()  # 3 points per arrow
-        lines_x = numpy.stack([x, x + data_x, [None] * len(x)], -1).flatten()
+        lines_y = np.stack([y, y + data_y, [None] * len(x)], -1).flatten()  # 3 points per arrow
+        lines_x = np.stack([x, x + data_x, [None] * len(x)], -1).flatten()
         return {
             'data': [
                 {
