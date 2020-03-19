@@ -7,7 +7,7 @@ import plotly.figure_factory as plotly_figures
 from phi import math
 from phi.physics.field import CenteredGrid, StaggeredGrid
 from phi.viz.plot import FRONT, RIGHT, TOP
-from .colormaps import orange_white_blue, blue_white_red
+from .colormaps import ORANGE_WHITE_BLUE, BLUE_WHITE_RED
 
 EMPTY_FIGURE = {'data': [{'z': None, 'type': 'heatmap'}]}
 
@@ -51,7 +51,7 @@ def get_point(val, cm_arr):
     return center
 
 
-def get_div_map(zmin, zmax, equal_scale=False, colormap=orange_white_blue):
+def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
     """
     :param colormap: colormap defined as list of [fraction_val, red_frac, green_frac, blue_frac]
     :type colormap: list or array
