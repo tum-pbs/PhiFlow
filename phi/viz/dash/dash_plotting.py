@@ -39,14 +39,15 @@ def dash_graph_plot(data, settings):
     return EMPTY_FIGURE
 
 
-def get_point(val, cm_arr):
+def get_color_interpolation(val, cm_arr):
     """Weighted average between point smaller and larger than it"""
     if 0 in cm_arr[:, 0]-val:
         center = cm_arr[cm_arr[:, 0] == val][-1]
     else:
-        row1 = cm_arr[np.argmax((cm_arr[:, 0]-val)[cm_arr[:, 0]-val < 0])]
-        row2 = cm_arr[np.argmin((cm_arr[:, 0]-val)[cm_arr[:, 0]-val > 0])]
-        center = (row1*row1[0]+row2*row2[0])/(row1[0]+row2[0])
+        zero_centered = (cm_arr[:, 0]-val)
+        row1 = cm_arr[np.argmax(zero_centered[zero_centered < 0])]  # largest value smaller than val
+        row2 = cm_arr[np.argmin(zero_centered[zero_centered > 0])]  # smallest value larger than val
+        center = row1 * (1-(val-row1[0])/(row2[0]-row1[0])) + row2 * (val-row1[0])/(row2[0]-row1[0])  # Interpolate
     center[0] = val
     return center
 
@@ -56,12 +57,12 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
     :param colormap: colormap defined as list of [fraction_val, red_frac, green_frac, blue_frac]
     :type colormap: list or array
     """
-    # TODO: zmin > 0 ?
+    # TODO: zmin > 0?
     # Ensure slicing
     cm_arr = np.array(colormap).astype(np.float)
     # Centeral color
     if 0.5 not in cm_arr[:, 0]:
-        central_color = get_point(0.5, cm_arr)[1:]
+        central_color = get_color_interpolation(0.5, cm_arr)[1:]
     else:
         central_color = cm_arr[cm_arr[:, 0] == 0.5][-1][1:]
     # Return base
@@ -73,48 +74,40 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
         # Full range, Zero-centered
         neg_flag = cm_arr[:, 0] < 0.5
         pos_flag = cm_arr[:, 0] >= 0.5
-        cm_arr[neg_flag, 0] = cm_arr[neg_flag, 0]*2*center
-        cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0]-0.5)*2*(1-center)+center
+        cm_arr[neg_flag, 0] = cm_arr[neg_flag, 0]*2*center  # Scale (0, 0.5) -> (0, center)
+        cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0]-0.5)*2*(1-center)+center  # Scale (0.5, 1) -> (center, 0.5)
+        # Drop duplicate zeros. Allow for not center value in original map.
+        if zmin == 0:
+            cm_arr = cm_arr[np.max(np.arange(len(cm_arr))[cm_arr[:, 0] == 0]):]    
     else:
-        cm_arr[:, 0] = cm_arr[:, 0]-0.5  # center at zero
-        # Scale desired range to (0, 1)
+        cm_arr[:, 0] = cm_arr[:, 0]-0.5  # center at zero (-0.5, 0.5)
+        # Scale desired range
         if zmax > abs(zmin):
-            # Scale the maximum to +1 when centered
-            cm_arr[:, 0] *= (1-center)/(np.max(cm_arr[:, 0]))
-            cm_arr[:, 0] += center  # center
-            # Add zero if it doesn't exist
-            if 0 not in cm_arr[:, 0]:
-                new_min = get_point(0, cm_arr)
-                cm_arr = np.vstack([new_min, cm_arr])
-            # Compare center
-            new_center = get_point(center, cm_arr)
-            if not all(new_center == [center, *central_color]):
-                print("Failed center comparison.")
-                print("Center: {}".format(new_center))
-                print("Center should be: {}".format([center, *central_color]))
-                raise
-        elif zmax < abs(zmin):
-            # Scale the minimum to -1 when centered
-            cm_arr[:, 0] *= center/(np.max(cm_arr[:, 0]))
-            cm_arr[:, 0] += center  # center
-            # Add one if it doesn't exist
-            if 1 not in cm_arr[:, 0]:
-                new_max = get_point(1, cm_arr)
-                cm_arr = np.vstack([cm_arr, new_max])
-            # Compare center
-            new_center = get_point(center, cm_arr)
-            if not all(new_center == [center, *central_color]):
-                print("Failed center comparison.")
-                print("Center: {}".format(new_center))
-                print("Center should be: {}".format([center, *central_color]))
-                raise
+            cm_scale = (1-center)/(np.max(cm_arr[:, 0]))  # scale by plositives
+        else:
+            cm_scale = center/(np.max(cm_arr[:, 0]))  # scale by negatives
+        # Scale the maximum to +1 when centered
+        cm_arr[:, 0] *= cm_scale
+        cm_arr[:, 0] += center  # center
+        # Add zero if it doesn't exist
+        if 0 not in cm_arr[:, 0]:
+            new_min = get_color_interpolation(0, cm_arr)
+            cm_arr = np.vstack([new_min, cm_arr])
+        # Add one if it doesn't exist
+        if 1 not in cm_arr[:, 0]:
+            new_max = get_color_interpolation(1, cm_arr)
+            cm_arr = np.vstack([cm_arr, new_max])
+        # Compare center
+        new_center = get_color_interpolation(center, cm_arr)
+        if not all(new_center == [center, *central_color]):
+            print("Failed center comparison.")
+            print("Center: {}".format(new_center))
+            print("Center should be: {}".format([center, *central_color]))
+            assert False
         # Cut to (0, 1)
         cm_arr = cm_arr[cm_arr[:, 0] >= 0]
         cm_arr = cm_arr[cm_arr[:, 0] <= 1]
-    # Drop duplicate zeros. Allow for not center value in original map.
-    if zmin == 0:
-        cm_arr = cm_arr[np.max(np.arange(len(cm_arr))[cm_arr[:, 0] == 0]):]
-    cm_str = [("{}".format(val), "rgb({:.0f},{:.0f},{:.0f})".format(*colors)) for val, colors in zip(cm_arr[:,0], cm_arr[:,1:])]
+    cm_str = [("{}".format(val), "rgb({:.0f},{:.0f},{:.0f})".format(*colors)) for val, colors in zip(cm_arr[:, 0], cm_arr[:, 1:])]
     return cm_str
 
 
@@ -140,7 +133,7 @@ def heatmap(data, settings):
     y = data.points.data[0, :, 0, 0]
     x = data.points.data[0, 0, :, 1]
     z_min, z_max = settings['minmax']
-    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=orange_white_blue)
+    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=ORANGE_WHITE_BLUE)
     return {'data': [{
         'x': x,
         'y': y,
