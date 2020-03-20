@@ -1,4 +1,4 @@
-from phi.flow import *
+from phi.tf.flow import *
 
 
 class Simpleplume(App):
@@ -9,4 +9,4 @@ class Simpleplume(App):
         world.add(Inflow(Sphere(center=(10, 32), radius=5), rate=0.2))
 
 
-show()
+show(Simpleplume())
