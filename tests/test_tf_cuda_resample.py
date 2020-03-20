@@ -14,8 +14,8 @@ from phi.tf.tf_cuda_resample import resample_cuda
 
 
 class TestTfCudaResample(TestCase):
-    N = 5
-    MAX_DIFFERENCE = 0.1
+    N = 10
+    MAX_DIFFERENCE = 0.15
     MIN_VALUE = -10
     MAX_VALUE = 10
     BOUNDARIES = ['replicate', 'circular', 'symmetric', 'reflect']
@@ -81,14 +81,12 @@ class TestTfCudaResample(TestCase):
                 nifty_data_gradient = (tf.gradients(nifty_resampled, data_placeholder, gradient_placeholder))[0]
                 nifty_points_gradient = (tf.gradients(nifty_resampled, points_placeholder, gradient_placeholder))[0]
                 with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-                    try:
-                        result = sess.run([cuda_resampled, nifty_resampled, cuda_data_gradient, nifty_data_gradient,
-                                           cuda_points_gradient, nifty_points_gradient],
-                                           feed_dict={data_placeholder: data, points_placeholder: points,
-                                                      gradient_placeholder: gradient})
-                    # tf.gather_nd sometimes causes problems in the reference implementation
-                    except InvalidArgumentError:
-                        continue
+                    result = sess.run([cuda_resampled, nifty_resampled, cuda_data_gradient, nifty_data_gradient,
+                                       cuda_points_gradient, nifty_points_gradient], feed_dict={data_placeholder: data,
+                                                                                                points_placeholder:
+                                                                                                    points,
+                                                                                                gradient_placeholder:
+                                                                                                    gradient})
                 for k in range(3):
                     difference = result[2 * k + 1] - result[2 * k]
                     for j in range(difference.size):
@@ -96,7 +94,6 @@ class TestTfCudaResample(TestCase):
 
     def test_global_boundaries(self):
         self.global_boundaries('/device:GPU:0')
-        self.global_boundaries('/device:CPU:0')
 
     def mixed_boundaries(self, device):
         with tf.device(device):
@@ -131,7 +128,6 @@ class TestTfCudaResample(TestCase):
             assert result.flat[3] == 8.5
 
     def test_mixed_boundaries(self):
-        self.mixed_boundaries('/device:CPU:0')
         self.mixed_boundaries('/device:GPU:0')
 
     def batch_sizes(self, device):
@@ -221,5 +217,4 @@ class TestTfCudaResample(TestCase):
                         assert abs(reference.flat[j] - result[i].flat[j]) < self.MAX_DIFFERENCE
 
     def test_batch_sizes(self):
-        self.batch_sizes('/device:CPU:0')
         self.batch_sizes('/device:GPU:0')

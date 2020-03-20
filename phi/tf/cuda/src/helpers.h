@@ -39,11 +39,16 @@ T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int ba
 // Function definitions - parsed only by NVCC
 #ifdef __CUDACC__
 
-#include "tensorflow/core/util/gpu_kernel_helper.h"
+template<typename T>
+__device__ __forceinline__ T ldg(const T* ptr) {
+#if __CUDA_ARCH__ >= 350
+    return __ldg(ptr);
+#else
+    return *ptr;
+#endif
+}
 
 namespace tensorflow {
-
-typedef Eigen::GpuDevice GPUDevice;
 
 } // Namespace tensorflow
 
@@ -96,11 +101,6 @@ unsigned int getDataIndex(const unsigned int batch, const T* q, const unsigned i
 template
 __host__ __device__
 unsigned int getDataIndex(const unsigned int, const float*, const unsigned int, const int, const unsigned int*, const unsigned int);
-
-template
-__host__
-unsigned int getDataIndex(const unsigned int, const double*, const unsigned int, const int, const unsigned int*, const unsigned int);
-
 
 enum Boundary : unsigned int {ZERO, REPLICATE, CIRCULAR, SYMMETRIC, REFLECT};
 
@@ -182,37 +182,12 @@ template
 __host__ __device__
 bool applyBoundaries(const Boundary*, float*, const int, const unsigned int*);
 
-template
-__host__
-bool applyBoundaries(const Boundary*, double*, const int, const unsigned int*);
-
-
-// Retrieve data from host array according to position and boundary condition
-template<typename T>
-__host__
-T fetchDataHost(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
-	if(applyBoundaries(boundaries, q, dims, dimSizes)) {
-		return data[getDataIndex(batch, q, component, dims, dimSizes, components)];
-	} else {
-		return 0.0;
-	}
-}
-
-template
-__host__
-float fetchDataHost(const float*, const Boundary*, const unsigned int, float*, const unsigned int, const int, const unsigned int*, const unsigned int);
-
-template
-__host__
-double fetchDataHost(const double*, const Boundary*, const unsigned int, double*, const unsigned int, const int, const unsigned int*, const unsigned int);
-
-
 // Retrieve data from device array according to position and boundary condition
 template<typename T>
 __device__
 T fetchDataDevice(const T* data, const Boundary* boundaries, const unsigned int batch, T* q, const unsigned int component, const int dims, const unsigned int* dimSizes, const unsigned int components) {
 	if(applyBoundaries(boundaries, q, dims, dimSizes)){
-		return tensorflow::ldg(data + getDataIndex(batch, q, component, dims, dimSizes, components));
+		return ldg(data + getDataIndex(batch, q, component, dims, dimSizes, components));
 	} else {
 		return 0.0;
 	}
@@ -318,9 +293,9 @@ void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims,
 		unsigned int y = (index / xSize) % ySize;
 		unsigned int z = index / (xSize * ySize);
 		float4 element;
-		element.x = tensorflow::ldg(data + 3 * i);
-		element.y = tensorflow::ldg(data + 3 * i + 1);
-		element.z = tensorflow::ldg(data + 3 * i + 2);
+		element.x = ldg(data + 3 * i);
+		element.y = ldg(data + 3 * i + 1);
+		element.z = ldg(data + 3 * i + 2);
 		element.w = 0;
 		if (dims == 1) {
 			surf1Dwrite(element, surfaceObject, x * sizeof(float4));
@@ -334,7 +309,7 @@ void CopyKernel (const float* data, cudaSurfaceObject_t surfaceObject, int dims,
 
 // Copy data to texture array according to spatial rank and numer of components
 template<typename T>
-void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components, tensorflow::GPUDevice d) {
+void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurfaceObject_t surfaceObject, cudaMemcpy3DParms copyParams, const int dims, const unsigned int xSize, const unsigned int ySize, const unsigned int zSize, const unsigned int batch, const unsigned int components) {
 	if (components == 3) {
 		// Use Surface to write to texture array
 		int blockSize;
@@ -342,7 +317,7 @@ void copyDataToArray(const T* __restrict__ data, cudaArray* cuArray, cudaSurface
 		int gridSize;
 		cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, CopyKernel, 0, 0);
 		gridSize = (xSize * ySize * zSize + blockSize - 1) / blockSize;
-		CopyKernel<<<gridSize, blockSize, 0, d.stream()>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
+		CopyKernel<<<gridSize, blockSize>>>(data, surfaceObject, dims, xSize, ySize, zSize, batch);
 		HANDLE_ERROR(cudaDeviceSynchronize());
 	} else if (dims <= 2) {
 		cudaMemcpyToArray(cuArray, 0, 0, data + batch * xSize * ySize * zSize * components, xSize * ySize * zSize * components * sizeof(T), cudaMemcpyDeviceToDevice);
