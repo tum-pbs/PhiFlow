@@ -19,7 +19,10 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
 
     def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
         if isinstance(other_field, CenteredGrid):
-            array = self.grid_sample(other_field.resolution, other_field.box.size, batch_size=math.shape(other_field.data)[0], dtype=other_field.data.dtype)
+            batch_size = other_field._batch_size
+            if batch_size is None:
+                batch_size = math.shape(other_field.data)[0]
+            array = self.grid_sample(other_field.resolution, other_field.box.size, batch_size=batch_size, dtype=other_field.data.dtype)
             return other_field.with_data(array)
         if isinstance(other_field, StaggeredGrid):
             assert self.channels is None or self.channels == other_field.rank
@@ -42,7 +45,7 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         # --- Compute 1/k ---
         k[(0,) * len(k.shape)] = np.inf
         inv_k = 1 / k
-        inv_k[(0,) * len(k.shape)] = self.mean
+        inv_k[(0,) * len(k.shape)] = 0
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft)).astype(dtype)
@@ -54,11 +57,6 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     def channels(self, channels):
         """ Number of independent random scalar fields this Field consists of """
         return channels
-
-    @struct.constant(default=0.0)
-    def mean(self, mean):
-        """ Mean value of generated arrays """
-        return mean
 
     @struct.constant(default=100)
     def scale(self, scale):

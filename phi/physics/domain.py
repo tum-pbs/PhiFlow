@@ -191,10 +191,10 @@ class Domain(struct.Struct):
         from phi.physics.field import Field
         if isinstance(data, Field):
             from phi.physics.field import StaggeredGrid
-            assert isinstance(data, StaggeredGrid)
-            assert np.all(data.resolution == self.resolution)
-            assert data.box == self.box
-            grid = data
+            if isinstance(data, StaggeredGrid) and np.all(data.resolution == self.resolution) and data.box == self.box:
+                grid = data
+            else:
+                grid = data.at(StaggeredGrid.sample(0, self, batch_size=batch_size))  # ToDo this is not ideal
         elif isinstance(data, (int, float)):
             shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation)
             from phi.physics.field import DIVERGENCE_FREE
