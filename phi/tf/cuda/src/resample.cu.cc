@@ -1,20 +1,8 @@
-#if GOOGLE_CUDA
-
-#define EIGEN_USE_GPU
-
 #include <iostream>
 
-#include "resample.h"
-#include "tensorflow/core/util/gpu_kernel_helper.h"
-
+#include "helpers.h"
 
 namespace tensorflow {
-
-
-typedef Eigen::GpuDevice GPUDevice;
-
-
-
 
 
 // Naive CUDA kernel.
@@ -213,7 +201,6 @@ void runResampleTextureMemoryKernel(
 	cudaTextureObject_t dataTexture,
 	const T* __restrict__ points,
 	T* __restrict__ output,
-	GPUDevice d,
 	const Boundary* __restrict__ boundaries
 ) {
     int blockSize;
@@ -223,55 +210,55 @@ void runResampleTextureMemoryKernel(
 		if (components == 1) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample1DCudaKernel<float,float>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample1DCudaKernel<float, float><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample1DCudaKernel<float, float><<<gridSize, blockSize>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else if (components == 2) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample1DCudaKernel<float,float2>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample1DCudaKernel<float, float2><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample1DCudaKernel<float, float2><<<gridSize, blockSize>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else if (components == 3) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample1DCudaKernel<float,float3>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample1DCudaKernel<float, float3><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample1DCudaKernel<float, float3><<<gridSize, blockSize>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample1DCudaKernel<float,float4>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample1DCudaKernel<float, float4><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample1DCudaKernel<float, float4><<<gridSize, blockSize>>>(batch, xSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		}
 	} else if (dims == 2) {
 		if (components == 1){
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample2DCudaKernel<float,float>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample2DCudaKernel<float, float><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample2DCudaKernel<float, float><<<gridSize, blockSize>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else if (components == 2) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample2DCudaKernel<float,float2>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample2DCudaKernel<float, float2><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample2DCudaKernel<float, float2><<<gridSize, blockSize>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else if (components == 3) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample2DCudaKernel<float,float3>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample2DCudaKernel<float, float3><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample2DCudaKernel<float, float3><<<gridSize, blockSize>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample2DCudaKernel<float,float4>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample2DCudaKernel<float, float4><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample2DCudaKernel<float, float4><<<gridSize, blockSize>>>(batch, xSize, ySize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		}
 	} else {
 		if (components == 1) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample3DCudaKernel<float,float>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample3DCudaKernel<float, float><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample3DCudaKernel<float, float><<<gridSize, blockSize>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else if (components == 2) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample3DCudaKernel<float,float2>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample3DCudaKernel<float, float2><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample3DCudaKernel<float, float2><<<gridSize, blockSize>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else if (components == 3) {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample3DCudaKernel<float,float3>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample3DCudaKernel<float, float3><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample3DCudaKernel<float, float3><<<gridSize, blockSize>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		} else {
 		    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, Resample3DCudaKernel<float,float4>, 0, 0);
 		    gridSize = (elementsPerKernelCall / components + blockSize - 1) / blockSize;
-			Resample3DCudaKernel<float, float4><<<gridSize, blockSize,  0, d.stream()>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
+			Resample3DCudaKernel<float, float4><<<gridSize, blockSize>>>(batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		}
 	}
 }
@@ -280,7 +267,6 @@ void runResampleTextureMemoryKernel(
 // Prepare and run texture memory kernel
 template<typename T>
 void ResampleTextureMemory (
-	const GPUDevice &d,
 	const unsigned int dataBatchSize,
 	const int dims,
 	const unsigned int* __restrict__ dimSizes,
@@ -325,10 +311,10 @@ void ResampleTextureMemory (
 
 	for (unsigned int batch = 0; batch < dataBatchSize; batch++) {
 		// Copy data to array
-		copyDataToArray<T>(data, cuArray, surfaceObject, copyParams, dims, xSize, ySize, zSize, batch, components, d);
+		copyDataToArray<T>(data, cuArray, surfaceObject, copyParams, dims, xSize, ySize, zSize, batch, components);
 
 		// Run Kernel
-		runResampleTextureMemoryKernel(dims, batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output,  d, boundaries);
+		runResampleTextureMemoryKernel(dims, batch, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, dataTexture, points, output, boundaries);
 		HANDLE_ERROR(cudaDeviceSynchronize());
 	}
 	// Destroy texture object and free memory
@@ -339,91 +325,78 @@ void ResampleTextureMemory (
 
 
 // Define the GPU implementation that launches the CUDA kernel.
-template <typename T>
-struct ResampleFunctor<GPUDevice, T> {
-	void operator()(
-		const GPUDevice &d,
-		const unsigned int dataBatchSize,
-		const int dims,
-		const unsigned int* __restrict__ dimSizes,
-		const unsigned int components,
-		const unsigned int pointsSize,
-		const unsigned int outputElementsPerBatch,
-		const unsigned int outputSize,
-		const T* __restrict__ data,
-		const T* __restrict__ points,
-		T* __restrict__ output,
-		const Boundary* __restrict__ boundaries
-	) {
-		std::cout << "GPU" << std::endl;
+void LaunchResampleKernel(
+	const unsigned int dataBatchSize,
+	const int dims,
+	const unsigned int* __restrict__ dimSizes,
+	const unsigned int components,
+	const unsigned int pointsSize,
+	const unsigned int outputElementsPerBatch,
+	const unsigned int outputSize,
+	const float* __restrict__ data,
+	const float* __restrict__ points,
+	float* __restrict__ output,
+	const Boundary* __restrict__ boundaries
+) {
+	std::cout << "GPU" << std::endl;
 
-		// Run kernel with texture memory
-		if (dims <= 3 && components <= 4){
-		    if((dims == 1 && dimSizes[0] <= 8192)||
-		       (dims == 2 && dimSizes[0] <= 32768 && dimSizes[1] <= 65536)||
-		       (dims == 3 && dimSizes[0] <= 2048 && dimSizes[1] <= 2048 && dimSizes[2] <= 2048))
-		    {
-                ResampleTextureMemory<T>(
-                    d,
-                    dataBatchSize,
-                    dims,
-                    dimSizes,
-                    components,
-                    pointsSize,
-                    outputElementsPerBatch,
-                    outputSize,
-                    data,
-                    points,
-                    output,
-                    boundaries
-                );
-                return;
-			}
+	// Run kernel with texture memory
+	if (dims <= 3 && components <= 4){
+	    if((dims == 1 && dimSizes[0] <= 8192)||
+	       (dims == 2 && dimSizes[0] <= 32768 && dimSizes[1] <= 65536)||
+	       (dims == 3 && dimSizes[0] <= 2048 && dimSizes[1] <= 2048 && dimSizes[2] <= 2048))
+	    {
+            ResampleTextureMemory<float>(
+                dataBatchSize,
+                dims,
+                dimSizes,
+                components,
+                pointsSize,
+                outputElementsPerBatch,
+                outputSize,
+                data,
+                points,
+                output,
+                boundaries
+            );
+            return;
 		}
-
-		// Set output field to zero
-		cudaMemset(output, 0, outputSize * sizeof(T));
-
-		int blockSize;
-		int minGridSize;
-		int gridSize;
-		cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleCudaKernel<T>, 0, 0);
-		gridSize = (outputSize / components + blockSize - 1) / blockSize;
-
-		unsigned int* dimSizesDevice;
-		cudaMalloc(&dimSizesDevice, dims * sizeof(unsigned int));
-		cudaMemcpy(dimSizesDevice, dimSizes, dims * sizeof(unsigned int), cudaMemcpyHostToDevice);
-
-		T* q;
-		cudaMalloc(&q, gridSize * blockSize * dims * sizeof(T));
-
-		ResampleCudaKernel<T><<<gridSize, blockSize, 0, d.stream()>>>(
-			dataBatchSize,
-			dims,
-			dimSizesDevice,
-			components,
-			pointsSize,
-			outputElementsPerBatch,
-			outputSize,
-			data,
-			points,
-			output,
-			boundaries,
-			q
-		);
-
-		HANDLE_ERROR(cudaDeviceSynchronize());
-		HANDLE_ERROR(cudaFree(dimSizesDevice));
-		HANDLE_ERROR(cudaFree(q));
 	}
-};
 
+	// Set output field to zero
+	cudaMemset(output, 0, outputSize * sizeof(float));
 
-// Explicitly instantiate functors for the types of OpKernels registered.
-//template struct ResampleFunctor<GPUDevice, bfloat16>;
-template struct ResampleFunctor<GPUDevice, float>;
-//template struct ResampleFunctor<GPUDevice, double>;
+	int blockSize;
+	int minGridSize;
+	int gridSize;
+	cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, ResampleCudaKernel<float>, 0, 0);
+	gridSize = (outputSize / components + blockSize - 1) / blockSize;
+
+	unsigned int* dimSizesDevice;
+	cudaMalloc(&dimSizesDevice, dims * sizeof(unsigned int));
+	cudaMemcpy(dimSizesDevice, dimSizes, dims * sizeof(unsigned int), cudaMemcpyHostToDevice);
+
+	float* q;
+	cudaMalloc(&q, gridSize * blockSize * dims * sizeof(float));
+
+	ResampleCudaKernel<float><<<gridSize, blockSize>>>(
+		dataBatchSize,
+		dims,
+		dimSizesDevice,
+		components,
+		pointsSize,
+		outputElementsPerBatch,
+		outputSize,
+		data,
+		points,
+		output,
+		boundaries,
+		q
+	);
+
+	HANDLE_ERROR(cudaDeviceSynchronize());
+	HANDLE_ERROR(cudaFree(dimSizesDevice));
+	HANDLE_ERROR(cudaFree(q));
+}
 
 }  // end namespace tensorflow
-
-#endif  // GOOGLE_CUDA

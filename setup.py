@@ -141,8 +141,6 @@ class CudaCommand(distutils.cmd.Command):
                     os.path.join(build_path, 'resample.cu.o'),
                     '-fPIC',
                     '-lcudart',
-                    '-D GOOGLE_CUDA=1',
-                    '-I/usr/local/cuda-10.0/include',
                     '-O3'
                 ]
                 + tf_cflags
@@ -188,8 +186,6 @@ class CudaCommand(distutils.cmd.Command):
                     os.path.join(build_path, 'resample_gradient.cu.o'),
                     '-fPIC',
                     '-lcudart',
-                    '-D GOOGLE_CUDA=1',
-                    '-I/usr/local/cuda-10.0/include',
                     '-O3'
                 ]
                 + tf_cflags

@@ -1,8 +1,4 @@
-#if GOOGLE_CUDA
-#define EIGEN_USE_GPU
-#endif // GOOGLE_CUDA
-
-#include "resample_gradient.h"
+#include "helpers.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
@@ -21,85 +17,27 @@ REGISTER_OP("ResampleGradient")
 		return Status::OK();
 	});
 
-typedef Eigen::ThreadPoolDevice CPUDevice;
-typedef Eigen::GpuDevice GPUDevice;
 
-
-// CPU specialization of actual computation.
-template<typename T>
-struct ResampleGradientFunctor<CPUDevice, T> {
-	void operator()(
-		const CPUDevice &d,
-		const unsigned int dataBatchSize,
-		const int dims,
-		const unsigned int* __restrict__ dimSizes,
-		const unsigned int components,
-		const unsigned int pointsSize,
-		const unsigned int outputElementsPerBatch,
-		const unsigned int outputSize,
-		const unsigned int outputGradientSize,
-		const T* __restrict__ outputGradient,
-		const T* __restrict__ data,
-		const T* __restrict__ points,
-		T* __restrict__ dataGradient,
-		T* __restrict__ pointsGradient,
-		const Boundary* __restrict__ boundaries
-	) {
-		std::cout << "Gradient CPU" << std::endl;
-		unsigned int dataSize = dataBatchSize * components;
-		for (int dim = 0; dim < dims; dim++){
-			dataSize *= dimSizes[dim];
-		}
-		memset(dataGradient, 0, dataSize * sizeof(T));
-		memset(pointsGradient, 0, pointsSize * sizeof(T));
-		for (unsigned int i = 0; i < outputSize / components; i++){
-			unsigned int dataBatch = (i * components / outputElementsPerBatch) % dataBatchSize;
-			T p[dims];
-			for (int dim = 0; dim < dims; dim++){
-				p[dim] = points[getPointsIndex(i, dim, dims, pointsSize)];
-			}
-			int n = pow2(dims);
-			for (int j = 0; j < n; j++) {
-				T q[dims];
-				T weights[dims + 1];
-				std::fill(weights, weights + dims + 1, 1);
-				for (int dim = 0; dim < dims; dim++){
-					T weight = 1;
-					if (checkBit(j, dim)) {
-						q[dim] = floor(p[dim]) + 1;
-						weight = 1 - (q[dim] - p[dim]);
-					} else {
-						q[dim] = floor(p[dim]);
-						weight = 1 - (p[dim] - q[dim]);
-					}
-					for (int otherDim = 0; otherDim <= dims; otherDim++){
-						if(otherDim != dim) {
-							weights[otherDim] *= weight;
-						}
-					}
-				}
-				for (unsigned int component = 0; component < components; component++) {
-					T dataValue = 0;
-					T outputGradientValue = outputGradient[(i * components + component) % outputGradientSize];
-					if (applyBoundaries(boundaries, q, dims, dimSizes)) {
-						unsigned int dataIndex = getDataIndex(dataBatch, q, component, dims, dimSizes, components);
-						dataGradient[dataIndex] += weights[dims] * outputGradientValue;
-						dataValue = data[dataIndex];
-					}
-					for (int dim = 0; dim < dims; dim++) {
-						int factor = checkBit(j, dim) ? 1 : -1;
-						pointsGradient[getPointsIndex(i, dim, dims, pointsSize)] += factor * weights[dim] * dataValue * outputGradientValue;
-					}
-				}
-			}
-		}
-	}
-};
+void LaunchResampleGradientKernel(
+	const unsigned int dataBatchSize,
+	const int dims,
+	const unsigned int* __restrict__ dimSizes,
+	const unsigned int components,
+	const unsigned int pointsSize,
+	const unsigned int outputElementsPerBatch,
+	const unsigned int outputSize,
+	const unsigned int outputGradientSize,
+	const float* __restrict__ outputGradient,
+	const float* __restrict__ data,
+	const float* __restrict__ points,
+	float* __restrict__ dataGradient,
+	float* __restrict__ pointsGradient,
+	const Boundary* __restrict__ boundaries
+);
 
 
 // OpKernel definition.
 // template parameter <T> is the datatype of the tensors.
-template<typename Device, typename T>
 class ResampleGradientOp: public OpKernel {
 public:
 	explicit ResampleGradientOp(OpKernelConstruction *context) : OpKernel(context) {}
@@ -157,8 +95,7 @@ public:
 		const unsigned int outputElementsPerBatch = outputSize / outputBatchSize;
 
 		// Do the computation.
-		ResampleGradientFunctor<Device, T>()(
-			context->eigen_device<Device>(),
+		LaunchResampleGradientKernel(
 			dataBatchSize,
 			dims,
 			dimSizes,
@@ -167,42 +104,18 @@ public:
 			outputElementsPerBatch,
 			outputSize,
 			outputGradient.NumElements(),
-			outputGradient.flat<T>().data(),
-			data.flat<T>().data(),
-			points.flat<T>().data(),
-			dataGradient->flat<T>().data(),
-			pointsGradient->flat<T>().data(),
+			outputGradient.flat<float>().data(),
+			data.flat<float>().data(),
+			points.flat<float>().data(),
+			dataGradient->flat<float>().data(),
+			pointsGradient->flat<float>().data(),
 			(Boundary*) boundaries.flat<unsigned int>().data()
 		);
 	}
 };
 
 
-// Register the CPU kernels.
-#define REGISTER_CPU(T)												\
-	REGISTER_KERNEL_BUILDER(										\
-		Name("ResampleGradient").Device(DEVICE_CPU).TypeConstraint<T>("T"),	\
-		ResampleGradientOp<CPUDevice, T>									\
-	);
-
-//REGISTER_CPU(bfloat16);
-REGISTER_CPU(float);
-REGISTER_CPU(double);
-
-
 // Register the GPU kernels.
-#ifdef GOOGLE_CUDA
-#define REGISTER_GPU(T)												\
-	extern template struct ResampleGradientFunctor<GPUDevice, T>;           \
-	REGISTER_KERNEL_BUILDER(										\
-		Name("ResampleGradient").Device(DEVICE_GPU).TypeConstraint<T>("T"),	\
-		ResampleGradientOp<GPUDevice, T>									\
-	);
-
-//REGISTER_GPU(bfloat16);
-REGISTER_GPU(float);
-//REGISTER_GPU(double);
-
-#endif  // GOOGLE_CUDA
+REGISTER_KERNEL_BUILDER(Name("ResampleGradient").Device(DEVICE_GPU), ResampleGradientOp);
 
 } // namespace tensorflow
