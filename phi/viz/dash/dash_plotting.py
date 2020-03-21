@@ -7,7 +7,7 @@ import plotly.figure_factory as plotly_figures
 from phi import math
 from phi.physics.field import CenteredGrid, StaggeredGrid
 from phi.viz.plot import FRONT, RIGHT, TOP
-from .colormaps import ORANGE_WHITE_BLUE, BLUE_WHITE_RED, VIRIDIS, CIVIDIS, MAGMA, INFERNO, PLASMA, TWILIGHT
+from .colormaps import COLORMAPS
 
 EMPTY_FIGURE = {'data': [{'z': None, 'type': 'heatmap'}]}
 
@@ -44,19 +44,24 @@ def get_color_interpolation(val, cm_arr):
     if 0 in cm_arr[:, 0]-val:
         center = cm_arr[cm_arr[:, 0] == val][-1]
     else:
-        zero_centered = (cm_arr[:, 0]-val)
-        row1 = cm_arr[np.argmax(zero_centered[zero_centered < 0])]  # largest value smaller than val
-        row2 = cm_arr[np.argmin(zero_centered[zero_centered > 0])]  # smallest value larger than val
-        center = row1 * (1-(val-row1[0])/(row2[0]-row1[0])) + row2 * (val-row1[0])/(row2[0]-row1[0])  # Interpolate
+        offset_positions = cm_arr[:, 0] - val
+        color1 = cm_arr[np.argmax(offset_positions[offset_positions < 0])]  # largest value smaller than val
+        color2 = cm_arr[np.argmin(offset_positions[offset_positions > 0])]  # smallest value larger than val
+        if color1[0] == color2[0]:
+            center = color1
+        else:
+            x = (val-color1[0]) / (color2[0]-color1[0])  # weight of row2
+            center = color1 * (1-x) + color2 * x
     center[0] = val
     return center
 
 
-def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
+def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
     """
     :param colormap: colormap defined as list of [fraction_val, red_frac, green_frac, blue_frac]
     :type colormap: list or array
     """
+    colormap = COLORMAPS[colormap]
     # Ensure slicing
     cm_arr = np.array(colormap).astype(np.float64)
     # Centeral color
@@ -66,7 +71,8 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=ORANGE_WHITE_BLUE):
         central_color = cm_arr[cm_arr[:, 0] == 0.5][-1][1:]
     # Return base
     if zmin == zmax:
-        return [("0", "rgb({},{},{})".format(*central_color)), ("1", "rgb({},{},{})".format(*central_color))]
+        central_color = np.round(central_color).astype(np.int32)
+        return [(0, "rgb({},{},{})".format(*central_color)), (1, "rgb({},{},{})".format(*central_color))]
     center = abs(zmin / (zmax - zmin))
     if zmin > 0:
         center = 0
@@ -134,7 +140,7 @@ def heatmap(data, settings):
     y = data.points.data[0, :, 0, 0]
     x = data.points.data[0, 0, :, 1]
     z_min, z_max = settings['minmax']
-    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=ORANGE_WHITE_BLUE)
+    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=settings.get('colormap', None))
     return {'data': [{
         'x': x,
         'y': y,
