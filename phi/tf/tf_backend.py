@@ -158,6 +158,7 @@ class TFBackend(Backend):
             boundary = 'zero'
         boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
         assert interpolation.lower() == 'linear'
+        # return _resample_no_pack(inputs, sample_coords, boundary_func)
         return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 
     def zeros_like(self, tensor):
@@ -396,6 +397,36 @@ def unit_direction(dim, spatial_rank):  # ordered like z,y,x
     for _i in range(spatial_rank):
         direction = tf.expand_dims(direction, axis=0)
     return direction
+
+
+def _resample_no_pack(grid, coords, boundary_func):
+    resolution = np.array([int(d) for d in grid.shape[1:-1]])
+    sp_rank = tensor_spatial_rank(grid)
+
+    floor = boundary_func(tf.floor(coords), resolution)
+    up_weights = coords - floor
+    lo_weights = TFBackend().unstack(1 - up_weights, axis=-1, keepdims=True)
+    up_weights = TFBackend().unstack(up_weights, axis=-1, keepdims=True)
+    base_coords = tf.cast(floor, tf.int32)
+
+    def interpolate_nd(coords, axis):
+        direction = np.array([1 if ax == axis else 0 for ax in range(sp_rank)])
+        print(direction.shape)
+        with tf.variable_scope('coord_plus_one'):
+            up_coords = coords + direction  # This is extremely slow for some reason - ToDo tile direction array to have same dimensions before calling interpolate_nd?
+        if axis == sp_rank - 1:
+            # up_coords = boundary_func(up_coords, resolution)
+            lo_values = tf.gather_nd(grid, coords, batch_dims=1)
+            up_values = tf.gather_nd(grid, up_coords, batch_dims=1)
+        else:
+            lo_values = interpolate_nd(coords, axis + 1)
+            up_values = interpolate_nd(up_coords, axis + 1)
+        with tf.variable_scope('weighted_sum_axis_%d' % axis):
+            return lo_values * lo_weights[axis] + up_values * up_weights[axis]
+
+    with tf.variable_scope('interpolate_nd'):
+        result = interpolate_nd(base_coords, 0)
+    return result
 
 
 def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
