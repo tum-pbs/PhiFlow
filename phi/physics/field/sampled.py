@@ -17,10 +17,10 @@ class SampledField(Field):
         Field.__init__(self, **struct.kwargs(locals(), ignore=['point_count']))
         self._point_count = point_count
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         raise NotImplementedError()
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
+    def at(self, other_field):
         if isinstance(other_field, SampledField) and other_field.sample_points is self.sample_points:
             return self
         elif isinstance(other_field, (CenteredGrid, Domain)):

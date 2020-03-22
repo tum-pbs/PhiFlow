@@ -94,7 +94,7 @@ class CenteredGrid(Field):
         assert interpolation == 'linear'
         return interpolation
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         if not isinstance(self.extrapolation, six.string_types):
             return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
@@ -102,8 +102,8 @@ class CenteredGrid(Field):
         resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation)
         return resampled
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
-        if self.compatible(other_field):  # and return_self_if_compatible: not applicable for fields with Points
+    def at(self, other_field):
+        if self.compatible(other_field):
             return self
         if isinstance(other_field, CenteredGrid) and np.allclose(self.dx, other_field.dx):
             paddings = _required_paddings_transposed(self.box, self.dx, other_field.box)
@@ -116,8 +116,8 @@ class CenteredGrid(Field):
                 return CenteredGrid(data, other_field.box, name=self.name, batch_size=self._batch_size)
             elif math.sum(paddings) < 16:
                 padded = self.padded(np.transpose(paddings).tolist())
-                return padded.at(other_field, collapse_dimensions, force_optimization)
-        return Field.at(self, other_field, force_optimization=force_optimization)
+                return padded.at(other_field)
+        return Field.at(self, other_field)
 
     @property
     def component_count(self):

@@ -80,17 +80,17 @@ class _SymbolicOpField(AnalyticField):
         self.function = function
         self.channels = _determine_component_count(function_args)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
+    def at(self, other_field):
         args = []
         for arg in self.function_args:
             if isinstance(arg, Field):
-                arg = arg.at(other_field, collapse_dimensions, force_optimization, return_self_if_compatible)
+                arg = arg.at(other_field)
             args.append(arg)
         applied = self.function(*args)
         return applied
 
-    def sample_at(self, points, collapse_dimensions=True):
-        pass
+    def sample_at(self, points):
+        raise NotImplementedError()
 
     @property
     def component_count(self):

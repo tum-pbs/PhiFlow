@@ -17,9 +17,9 @@ class GeometryMask(AnalyticField):
     def geometries(self, geometries):
         return tuple(geometries)
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         if len(self.geometries) == 0:
-            return _expand_axes(math.zeros([1,1]), points, collapse_dimensions=collapse_dimensions)
+            return _expand_axes(math.zeros([1,1]), points)
         if len(self.geometries) == 1:
             result = self.geometries[0].value_at(points)
         else:

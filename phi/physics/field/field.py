@@ -49,34 +49,27 @@ class Field(State):
                     raise ValueError('Flag "%s" is not applicable to field %s' % (flag, self))
             return flags
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         """
         Resample this field at the given points.
             :param points: tensor or rank >= 2 containing world-space vectors
-            :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
             :return: tensor of shape location.shape[:-1]+[components]
         """
         raise NotImplementedError(self)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
+    def at(self, other_field):
         """
         Resample this field at the same points as other_field.
         The returned Field is compatible with other_field.
-            :param location: Field
-            :param collapse_dimensions: if True, collapses dimensions to 1 along which all values would be equal.
-            :param force_optimization: If true, this algorithm either uses an optimized implementation
+            :param other_field: Field
             :return: a new Field which samples all components of this field at the points of other_field
         """
-        if force_optimization:
-            raise ValueError('No optimized resample algorithm found for fields %s, %s' % (self, other_field))
-        if self.compatible(other_field) and (return_self_if_compatible or not other_field.has_points):
-            return self
         try:
-            resampled = self.sample_at(other_field.points.data, collapse_dimensions=collapse_dimensions)
+            resampled = self.sample_at(other_field.points.data)
             result = other_field.copied_with(data=resampled, flags=propagate_flags_resample(self, other_field.flags, other_field.rank))
             return result
         except StaggeredSamplePoints:  # other_field is staggered
-            return broadcast_at(self, other_field, collapse_dimensions=False)
+            return broadcast_at(self, other_field)
 
     @property
     def rank(self):
@@ -220,11 +213,11 @@ def propagate_flags_operation(flags, is_linear, result_rank, result_components):
     return tuple(result)
 
 
-def broadcast_at(field1, field2, collapse_dimensions=True):
+def broadcast_at(field1, field2):
     if field1.component_count != field2.component_count and field1.component_count != 1:
         raise IncompatibleFieldTypes('Can only resample to staggered fields with same number of components.\n%s\n%s' % (field1, field2))
     if field1.component_count == 1:
         new_components = [field1.at(f2) for f2 in field2.unstack()]
     else:
-        new_components = [f1.at(f2, collapse_dimensions=collapse_dimensions) for f1, f2 in zip(field1.unstack(), field2.unstack())]
+        new_components = [f1.at(f2) for f1, f2 in zip(field1.unstack(), field2.unstack())]
     return field2.copied_with(data=tuple(new_components), flags=propagate_flags_resample(field1, field2.flags, field2.rank))

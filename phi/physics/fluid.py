@@ -230,7 +230,7 @@ Projects the given velocity field by solving for and subtracting the pressure.
         domain = Domain(velocity.resolution, OPEN)
     obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles])
     if obstacle_mask is not None:
-        obstacle_grid = obstacle_mask.at(velocity.center_points, collapse_dimensions=False).copied_with(extrapolation='constant')
+        obstacle_grid = obstacle_mask.at(velocity.center_points).copied_with(extrapolation='constant')
         active_mask = 1 - obstacle_grid
     else:
         active_mask = math.ones(domain.centered_shape(name='active', extrapolation='constant'))

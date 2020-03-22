@@ -2,7 +2,6 @@
 import warnings
 from numbers import Number
 import numpy as np
-import six
 
 from phi import math, struct
 from phi.geom import AABox
@@ -116,10 +115,10 @@ class StaggeredGrid(Field):
         assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
         return collapse(extrapolation)
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
+    def at(self, other_field):
         if isinstance(other_field, StaggeredGrid) and other_field.box == self.box and np.allclose(other_field.resolution, self.resolution):
             return self
         try:

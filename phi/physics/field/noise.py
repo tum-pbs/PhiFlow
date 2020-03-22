@@ -17,7 +17,7 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     def __init__(self, **kwargs):
         AnalyticField.__init__(self, None, **struct.kwargs(locals()))
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
+    def at(self, other_field):
         if isinstance(other_field, CenteredGrid):
             batch_size = other_field._batch_size
             if batch_size is None:
@@ -26,12 +26,12 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
             return other_field.with_data(array)
         if isinstance(other_field, StaggeredGrid):
             assert self.channels is None or self.channels == other_field.rank
-            return other_field.with_data([self.at(grid, collapse_dimensions, force_optimization, return_self_if_compatible) for grid in other_field.unstack()])
+            return other_field.with_data([self.at(grid) for grid in other_field.unstack()])
         if isinstance(other_field, Domain):
             array = self.grid_sample(other_field.resolution, other_field.box.size)
             return CenteredGrid(array, box=other_field.box, extrapolation='boundary')
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         raise NotImplementedError()
 
     def grid_sample(self, resolution, size, batch_size=1, dtype=np.float32):
