@@ -22,7 +22,9 @@ class App(base_app.App):
 
     def __init__(self, *args, **kwargs):
         base_app.App.__init__(self, *args, **kwargs)
-        self.session = Session(self.scene)
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        self.session = Session(self.scene, session=tf.Session(config=config))
         self.scalars = []
         self.scalar_names = []
         self.editable_placeholders = {}  # placeholder -> attribute name
