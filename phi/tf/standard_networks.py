@@ -40,9 +40,9 @@ Restrictions:
     resolutions = [y]
     for level in range(levels):
         level_filters = filters if isinstance(filters, int) else filters[level]
-        y = conv_layer(resolutions[0], level_filters, 2, strides=2, activation=tf.nn.relu, padding='valid', name='downconv_%d' % level, trainable=trainable, reuse=reuse)
+        y = conv_layer(resolutions[0], level_filters, 2, strides=2, activation=tf.nn.relu, padding='valid', name='down_convolution_%d' % level, trainable=trainable, reuse=reuse)
         for i in range(blocks_per_level):
-            y = residual_block(y, level_filters, name="downrb_%d_%d" % (level, i), training=training, trainable=trainable, reuse=reuse)
+            y = residual_block(y, level_filters, name='down_res_block_%d_%d' % (level, i), training=training, trainable=trainable, reuse=reuse)
         resolutions.insert(0, y)
 
     y = resolutions.pop(0)
@@ -60,11 +60,10 @@ Restrictions:
         y = y.padded([[0, 1], [0, 1]])
         if resolutions:
             level_filters = filters if isinstance(filters, int) else reversed(filters)[level]
-            y = conv_layer(y, level_filters, kernel_size=2, activation=tf.nn.relu, padding="valid", name="upconv_%d" % level, trainable=trainable, reuse=reuse)
+            y = conv_layer(y, level_filters, kernel_size=2, activation=tf.nn.relu, padding='valid', name='up_convolution_%d' % level, trainable=trainable, reuse=reuse)
             for i in range(blocks_per_level):
-                y = residual_block(y, level_filters, name="uprb_%d_%d" % (level, i), training=training, trainable=trainable, reuse=reuse)
+                y = residual_block(y, level_filters, name='up_res_block_%d_%d' % (level, i), training=training, trainable=trainable, reuse=reuse)
         else:  # Last iteration
-            y = conv_layer(y, output_field.component_count, kernel_size=2, activation=None, padding='valid', name="upconv_%d" % level, trainable=trainable, reuse=reuse)
-            print(y)
+            y = conv_layer(y, output_field.component_count, kernel_size=2, activation=None, padding='valid', name='up_convolution_%d' % level, trainable=trainable, reuse=reuse)
     result = y.at(output_field)
     return result
