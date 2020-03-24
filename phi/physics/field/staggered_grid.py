@@ -204,6 +204,14 @@ class StaggeredGrid(Field):
         data = math.sum(components, 0)
         return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
 
+    def padded(self, widths):
+        new_grids = [grid.padded(widths) for grid in self.unstack()]
+        if isinstance(widths, int):
+            widths = [[widths, widths]] * self.rank
+        w_lower, w_upper = np.transpose(widths)
+        box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
+        return self.copied_with(data=new_grids, box=box)
+
     @staticmethod
     def gradient(scalar_field, padding_mode='replicate'):
         assert isinstance(scalar_field, CenteredGrid)
