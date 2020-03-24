@@ -69,6 +69,7 @@ class CudaCommand(distutils.cmd.Command):
             ]
             + tf_cflags
             + tf_lflags
+            + ['-L/usr/local/cuda/lib64/','-lcudart']
         )
 
         # Build the Pressure Solver CUDA Kernels
@@ -103,14 +104,15 @@ class CudaCommand(distutils.cmd.Command):
             ]
             + tf_cflags
             + tf_lflags
+            + ['-L/usr/local/cuda/lib64/','-lcudart']
         )
 
     def initialize_options(self):
-        self.gcc = 'gcc'
+        self.gcc = 'gcc-4.8'
         self.nvcc = 'nvcc'
 
     def finalize_options(self):
-        assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
+        assert os.path.isfile(self.gcc) or self.gcc == 'gcc-4.8'
         assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
 
 
