@@ -57,13 +57,13 @@ This force is scaled with the buoyancy_factor (float).
         return "Fluid[density: %s, velocity: %s]" % (self.density, self.velocity)
 
 
-def create_smoke(domain, density=0.0, velocity=0.0, buoyancy_factor=0.0):
+def create_smoke(domain, density=0.0, velocity=0.0, buoyancy_factor=0.1):
     velocity_field = StaggeredGrid.sample(velocity, domain, name='velocity')
     velocity_physics = IncompressibleVFlow(domain.boundaries)
     density_field = CenteredGrid.sample(density, domain, name='density')
     density_physics = [Drift(), FieldPhysics('density')]
     buoyancy_state = FieldEffect(None, targets='velocity')
-    buoyancy_physics = _ComputeBuoyancy('density', buoyancy_factor)
+    buoyancy_physics = ProportionalGForce('density', -buoyancy_factor)
     return (velocity_field, density_field, buoyancy_state), (velocity_physics, density_physics, buoyancy_physics)
 
 
@@ -141,8 +141,8 @@ This Physics can be applied to all built-in Fields.
 The fields will then be advected with the velocity field each time step.
     """
 
-    def __init__(self, use_updated_velocity=False, conserve=True):
-        Physics.__init__(self, dependencies=[StateDependency('velocity', 'velocity', single_state=True, blocking=use_updated_velocity)])
+    def __init__(self, use_updated_velocity=False, conserve=True, velocity_field_name='velocity'):
+        Physics.__init__(self, dependencies=[StateDependency('velocity', velocity_field_name, single_state=True, blocking=use_updated_velocity)])
         self.conserve = conserve
 
     def step(self, field, dt=1.0, velocity=None):
@@ -169,17 +169,11 @@ Computes the buoyancy force proportional to the density.
     return result
 
 
-def create_buoyancy(source, target='velocity', factor=0.1):
-    assert isinstance(source, six.string_types)
-    assert isinstance(target, six.string_types)
-    return {
-        'state': FieldEffect(None, targets=target),
-        'physics': _ComputeBuoyancy(source, factor)
-    }
-
-
-class _ComputeBuoyancy(Physics):
-
+class ProportionalGForce(Physics):
+    """
+Computes a force field proportional to the scalar `source` field that points in the direction of gravity.
+A ProportionalGForce object must be accompanied by a FieldEffect state object.
+    """
     def __init__(self, source, factor):
         Physics.__init__(self, dependencies=[
             StateDependency('source_field', source, single_state=True, blocking=True),
@@ -189,7 +183,7 @@ class _ComputeBuoyancy(Physics):
 
     def step(self, effect, dt=1.0, source_field=None, gravity=Gravity()):
         gravity = gravity_tensor(gravity, source_field.rank)
-        return effect.copied_with(field=source_field * -gravity * self.factor)
+        return effect.copied_with(field=source_field * gravity * self.factor)
 
 
 def _is_div_free(velocity, is_div_free):
