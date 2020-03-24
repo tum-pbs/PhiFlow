@@ -85,9 +85,10 @@ class StaggeredGrid(Field):
             assert grid.box == box
             if grid.extrapolation != self.extrapolation:
                 grid = grid.copied_with(extrapolation=self.extrapolation)
+            if grid.extrapolation_value != self.extrapolation_value:
+                grid = grid.copied_with(extrapolation_value=self.extrapolation_value)
         else:
-            grid = CenteredGrid(data=grid, box=box, extrapolation=self.extrapolation, name=_subname(self.name, axis),
-                                batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
+            grid = CenteredGrid(grid, box=box, extrapolation=self.extrapolation, extrapolation_value=self.extrapolation_value, name=_subname(self.name, axis), batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
         return grid
 
     @property
@@ -114,6 +115,10 @@ class StaggeredGrid(Field):
             return 'boundary'
         assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
         return collapse(extrapolation)
+
+    @struct.constant(default=0.0)
+    def extrapolation_value(self, value):
+        return collapse(value)
 
     def sample_at(self, points):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)

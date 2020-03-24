@@ -89,13 +89,17 @@ class CenteredGrid(Field):
         assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
         return collapse(extrapolation)
 
+    @struct.constant(default=0.0)
+    def extrapolation_value(self, value):
+        return collapse(value)
+
     @struct.constant(default='linear')
     def interpolation(self, interpolation):
         assert interpolation == 'linear'
         return interpolation
 
     def sample_at(self, points):
-        if not isinstance(self.extrapolation, six.string_types):
+        if not isinstance(self.extrapolation, six.string_types) or self.extrapolation_value != 0:
             return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
         local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
@@ -158,7 +162,9 @@ class CenteredGrid(Field):
             return struct.Struct.__repr__(self)
 
     def padded(self, widths):
-        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(self.extrapolation))
+        if isinstance(widths, int):
+            widths = [[widths, widths]] * self.rank
+        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(self.extrapolation), constant_values=_pad_value(self.extrapolation_value))
         w_lower, w_upper = np.transpose(widths)
         box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
         return self.copied_with(data=data, box=box)
@@ -221,6 +227,13 @@ def _pad_mode(extrapolation):
         return _pad_mode_str(extrapolation)
     else:
         return _pad_mode_str(['constant'] + list(extrapolation) + ['constant'])
+
+
+def _pad_value(value):
+    if math.is_tensor(value):
+        return value
+    else:
+        return [0] + list(value) + [0]
 
 @mappable()
 def _pad_mode_str(extrapolation):
