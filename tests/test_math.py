@@ -8,11 +8,6 @@ from phi.tf import tf
 # pylint: disable-msg = redefined-builtin, redefined-outer-name, unused-wildcard-import, wildcard-import
 from phi.math import *
 
-if tf.__version__[0] == '2':
-    print('Adjusting for tensorflow 2.0')
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
-
 
 # placeholder, variable tested in test_tensorflow.py
 

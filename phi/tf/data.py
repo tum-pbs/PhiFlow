@@ -1,8 +1,6 @@
 import warnings
 
-import numpy as np
-import tensorflow as tf
-
+from . import tf
 from phi import struct, math
 from phi.data.fluidformat import _transform_for_writing, _writing_staticshape, read_zipped_array, _slugify_filename
 from phi.math import is_static_shape

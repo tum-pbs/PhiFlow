@@ -1,17 +1,13 @@
-import warnings
-
 import numpy as np
 import phi.app.app as base_app
 import six
-import tensorflow as tf
 
-from phi import math
+from . import tf
 from phi.app.app import EditableFloat, EditableInt, EditableValue
 from phi.data.dataset import Dataset
 from phi.data.reader import BatchReader
-from phi.data.source import SceneSource
 from phi.physics.field import Field, StaggeredGrid
-from phi.tf.data import create_dataset, Dataset as TFDataset
+from phi.tf.data import Dataset as TFDataset
 
 from . import TF_BACKEND
 from .session import Session

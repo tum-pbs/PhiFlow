@@ -1,19 +1,13 @@
-import logging
 import uuid
 import warnings
+from packaging import version
+import six
 
 import numpy as np
-import six
-import tensorflow as tf
-from packaging import version
+from . import tf
 
 from phi.backend.backend import Backend
 from phi.backend.tensorop import expand, collapsed_gather_nd
-
-if tf.__version__[0] == '2':
-    logging.info('Adjusting for tensorflow 2.0')
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
 
 
 class TFBackend(Backend):

@@ -1,16 +1,11 @@
 import logging
 import os
 import numpy as np
-import tensorflow as tf
 from numbers import Number
 
+from . import tf
 from phi import math
 from phi.physics.pressuresolver.solver_api import PoissonSolver
-
-if tf.__version__[0] == '2':
-    logging.info('Adjusting for tensorflow 2.0')
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
 
 
 # --- Load Custom Ops ---
