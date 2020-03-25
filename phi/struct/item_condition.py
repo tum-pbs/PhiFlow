@@ -1,4 +1,7 @@
+import six
+
 from .context import _struct_context, _STRUCT_CONTEXT_STACK
+from .structdef import Item
 
 
 class ItemCondition(object):
@@ -37,6 +40,14 @@ This module provides some standard conditions like ALL_ITEMS, DATA, VARIABLES, C
     def __repr__(self):
         return self.name
 
+    def __and__(self, other):
+        assert isinstance(other, ItemCondition)
+        return ItemCondition(lambda item: self(item) and other(item), name='%s and %s' % (self.name, other.name))
+
+    def __or__(self, other):
+        assert isinstance(other, ItemCondition)
+        return ItemCondition(lambda item: self(item) or other(item), name='%s or %s' % (self.name, other.name))
+
 
 CONSTANTS = ItemCondition(lambda item: not item.is_variable, 'CONSTANTS')
 VARIABLES = ItemCondition(lambda item: item.is_variable, 'VARIABLES')
@@ -62,3 +73,21 @@ If no condition was specified, this function defaults to testing whether the ite
         return True
     else:
         return item.holds_data  # default condition if none specified
+
+
+def ignore(items):
+    if not isinstance(items, (tuple, list)):
+        items = (items,)
+    for ignored_item in items:
+        assert isinstance(ignored_item, Item) or isinstance(ignored_item, six.string_types)
+
+    def is_ignored(item):
+        for ignored in items:
+            if item is ignored:
+                return True
+            if item.name == ignored:
+                return True
+        return False
+
+    condition = ItemCondition(lambda item: not is_ignored(item), 'ignore %s' % items)
+    return condition
