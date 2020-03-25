@@ -309,13 +309,23 @@ class TFBackend(Backend):
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
-        z = tf.zeros(shape, dtype=values.dtype)
+        buffer = tf.zeros(shape, dtype=values.dtype)
+
+        repetitions = []
+        for dim in range(len(indices.shape) - 1):
+            if values.shape[dim] == 1:
+                repetitions.append(indices.shape[dim])
+            else:
+                assert indices.shape[dim] == values.shape[dim]
+                repetitions.append(1)
+        repetitions.append(1)
+        values = self.tile(values, repetitions)
 
         if duplicates_handling == 'add':
             #Only for Tensorflow with custom gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
-                result = tf.tensor_scatter_add(z, indices, values)
+                result = tf.tensor_scatter_add(buffer, indices, values)
 
                 def grad(dr):
                     return self.resample(gradient(dr, difference='central'), points), None, None
@@ -325,13 +335,17 @@ class TFBackend(Backend):
             return scatter_density(points, indices, values)
         elif duplicates_handling == 'mean':
             # Won't entirely work with out of bounds particles (still counted in mean)
-            count = tf.tensor_scatter_add(z, indices, tf.ones_like(values))
-            total = tf.tensor_scatter_add(z, indices, values)
-            return (total / tf.maximum(1.0, count))
-        else: # last, any, undefined
-            st = tf.SparseTensor(indices, values, shape)
-            st = tf.sparse.reorder(st)   # only needed if not ordered
-            return tf.sparse.to_dense(st)
+            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
+            total = tf.tensor_scatter_add(buffer, indices, values)
+            return total / tf.maximum(1.0, count)
+        else:  # last, any, undefined
+            # indices = self.to_int(indices, int64=True)
+            # st = tf.SparseTensor(indices, values, shape)  # ToDo this only supports 2D shapes
+            # st = tf.sparse.reorder(st)   # only needed if not ordered
+            # return tf.sparse.to_dense(st)
+            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
+            total = tf.tensor_scatter_add(buffer, indices, values)
+            return total / tf.maximum(1.0, count)
 
     def fft(self, x):
         rank = len(x.shape) - 2

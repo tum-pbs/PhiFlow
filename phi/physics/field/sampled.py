@@ -42,7 +42,7 @@ class SampledField(Field):
         sample_indices_nd = math.minimum(math.maximum(0, sample_indices_nd), resolution - 1)  # Snap outside points to edges, otherwise scatter raises an error
         # Correct format for math.scatter
         valid_indices = _batch_indices(sample_indices_nd)
-        shape = (math.shape(self.data)[0],) + tuple(resolution) + (self.data.shape[-1],)
+        shape = (self._batch_size,) + tuple(resolution) + (self.data.shape[-1],)
         scattered = math.scatter(self.sample_points, valid_indices, self.data, shape, duplicates_handling=self.mode)
         return CenteredGrid(data=scattered, box=box, extrapolation='constant', name=self.name+'_centered')
 
@@ -105,7 +105,7 @@ class SampledField(Field):
         if rank < 3:
             assert rank in (0, 1)  # Scalar field / vector field
             data = math.expand_dims(data, 0, 3 - rank)
-        return data
+        return math.to_float(data)
     data.override(struct.staticshape, lambda self, data: (self._batch_size, self._point_count, self.component_count) if math.ndims(self.data) > 0 else ())
 
     @struct.constant(default='mean')

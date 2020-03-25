@@ -181,7 +181,7 @@ class Scene(object):
                 names = struct.names(obj)
             values = struct.flatten(obj)
             names = struct.flatten(names)
-            names = [self._filename(name) for name in names]
+            names = [_slugify_filename(name) for name in names]
             self.write_sim_frame(values, names, frame)
         else:
             name = str(names) if names is not None else 'unnamed'
@@ -193,16 +193,10 @@ class Scene(object):
             names = struct.flatten(obj)
             if not np.all([isinstance(n, six.string_types) for n in names]):
                 names = struct.names(obj)
-            data = struct.map(lambda name: self.read_array(self._filename(name), frame), names)
+            data = struct.map(lambda name: self.read_array(_slugify_filename(name), frame), names)
             return data
         else:
             return self.read_array('unnamed', frame)
-
-    def _filename(self, structname):
-        structname = structname.replace('._', '.').replace('.', '_')
-        if structname.startswith('_'):
-            structname = structname[1:]
-        return structname
 
     @property
     def fieldnames(self):
@@ -378,9 +372,16 @@ def _writing_staticshape(obj):
         if isinstance(value, field.CenteredGrid):
             return value.staticshape.data
         else:
-            return value
+            return math.staticshape(value)
     data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)), content_type='format_staticshape')
     return data
+
+
+def _slugify_filename(struct_name):
+    struct_name = struct_name.replace('._', '.').replace('.', '_')
+    if struct_name.startswith('_'):
+        struct_name = struct_name[1:]
+    return struct_name
 
 
 def slugify(value):

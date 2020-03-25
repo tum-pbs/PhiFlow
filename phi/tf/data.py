@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 from phi import struct, math
-from phi.data.fluidformat import _transform_for_writing, _writing_staticshape, read_zipped_array
+from phi.data.fluidformat import _transform_for_writing, _writing_staticshape, read_zipped_array, _slugify_filename
 from phi.math import is_static_shape
 from phi.physics.world import StateProxy
 from phi.struct.context import _unsafe
@@ -30,6 +30,7 @@ Create placeholders for tensors in the supplied state.
     writable_obj = _transform_for_writing(obj)
     shape = _writing_staticshape(obj)
     names = struct.names(writable_obj)
+    names = struct.map(_slugify_filename, names, content_type=struct.names)
     if input_type == 'placeholder':
         if frames is not None: raise NotImplementedError()
         with _unsafe():
@@ -127,8 +128,8 @@ Extends phi.data.Datset by TensorFlow data pipeline functions.
         self.iterator_handle = None
 
     @staticmethod
-    def load(directory, indices=None, name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
-        base = BaseDataset.load(directory, indices=indices, name=name, max_scenes=max_scenes, assume_same_frames=assume_same_frames, assume_same_shapes=assume_same_shapes)
+    def load(directory, indices=None, name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True, frames=None):
+        base = BaseDataset.load(directory, indices=indices, name=name, max_scenes=max_scenes, assume_same_frames=assume_same_frames, assume_same_shapes=assume_same_shapes, frames=frames)
         return Dataset(base.name, base.sources)
 
     def shuffle(self):

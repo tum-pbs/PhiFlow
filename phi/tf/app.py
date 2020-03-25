@@ -169,7 +169,7 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         :type val: Dataset
         """
         assert isinstance(train, Dataset) or train is None
-        assert isinstance(val, Dataset) or train is None
+        assert isinstance(val, Dataset) or val is None
         if train is not None or val is not None:
             assert dict is not None
         if train is not None and val is not None:
