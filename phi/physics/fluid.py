@@ -26,7 +26,6 @@ class Fluid(DomainState):
 
     def __init__(self, domain, density=0.0, velocity=0.0, buoyancy_factor=0.0, tags=('fluid', 'velocityfield', 'velocity'), name='fluid', **kwargs):
         DomainState.__init__(self, **struct.kwargs(locals()))
-        self.solve_info = {}
 
     def default_physics(self): return INCOMPRESSIBLE_FLOW
 
@@ -52,6 +51,10 @@ The default fluid physics can apply Boussinesq buoyancy as an upward force, prop
 This force is scaled with the buoyancy_factor (float).
         """
         return fac
+
+    @struct.variable(default={}, holds_data=False)
+    def solve_info(self, solve_info):
+        return dict(solve_info)
 
     def __repr__(self):
         return "Fluid[density: %s, velocity: %s]" % (self.density, self.velocity)
@@ -90,7 +93,7 @@ Supports obstacles, density effects, velocity effects, global gravity.
         velocity = fluid.velocity
         density = fluid.density
         if self.make_input_divfree:
-            velocity, fluid.solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
+            velocity, solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
@@ -105,10 +108,10 @@ Supports obstacles, density effects, velocity effects, global gravity.
         divergent_velocity = velocity
         # --- Pressure solve ---
         if self.make_output_divfree:
-            velocity, fluid.solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
-        fluid.solve_info['advected_velocity'] = advected_velocity
-        fluid.solve_info['divergent_velocity'] = divergent_velocity
-        return fluid.copied_with(density=density, velocity=velocity, age=fluid.age + dt)
+            velocity, solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
+        solve_info['advected_velocity'] = advected_velocity
+        solve_info['divergent_velocity'] = divergent_velocity
+        return fluid.copied_with(density=density, velocity=velocity, age=fluid.age + dt, solve_info=solve_info)
 
 
 class IncompressibleVFlow(Physics):
