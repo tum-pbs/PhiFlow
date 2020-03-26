@@ -230,7 +230,8 @@ def vector_field(field2d, settings):
     arrow_origin = settings.get('arrow_origin', 'tip')
     assert arrow_origin in ('base', 'center', 'tip')
     max_resolution = settings.get('max_arrow_resolution', 40)
-    max_arrows = settings.get('max_arrows', 300)
+    max_arrows = settings.get('max_arrows', 2000)
+    min_arrow_length = settings.get('min_arrow_length', 0.005) * np.max(field2d.box.size)
     draw_full_arrows = settings.get('draw_full_arrows', False)
 
     y, x = math.unstack(field2d.points.data[0, ..., -2:], axis=-1)
@@ -247,17 +248,19 @@ def vector_field(field2d, settings):
     data_y = data_y.flatten()
     data_x = data_x.flatten()
 
-    if max_arrows is not None and len(x) > max_arrows:
+    if max_arrows is not None or min_arrow_length > 0:
         length = np.sqrt(data_y**2 + data_x**2)
-        keep_indices = np.argsort(length)[-max_arrows:]
-        # size = np.max(field2d.box.size)
-        # threshold = size * negligible_threshold
-        # keep_condition = (np.abs(data_x) > threshold) | (np.abs(data_y) > threshold)
-        # keep_indices = np.where(keep_condition)
+        keep_indices = np.argsort(length)
+        keep_indices = keep_indices[length[keep_indices] > min_arrow_length]
+        if len(keep_indices) > max_arrows:
+            keep_indices = keep_indices[-max_arrows:]
         y = y[keep_indices]
         x = x[keep_indices]
         data_y = data_y[keep_indices]
         data_x = data_x[keep_indices]
+
+    if len(x) == 0:
+        return EMPTY_FIGURE
 
     if arrow_origin == 'tip':
         x -= data_x

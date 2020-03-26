@@ -147,6 +147,7 @@ The `display` parameter defines which fields are displayed initially, e.g. `disp
 |----------------------|---------------------------------------------------------------------------------------------------|---------|
 | arrow_origin         | Which part of the arrow is centered at the position of the field. One of 'base', 'center', 'tip'. | 'tip'   |
 | max_arrow_resolution | Downscale grids to have no more than resolution**2 cells before drawing arrows.                   | 40      |
-| max_arrows           | Maximum number of arrows to draw. Arrows are sorted by length.                                    | 300     |
+| min_arrow_length     | Fraction of figure size. Smaller arrows are not drawn.                                            | 0.005   |
+| max_arrows           | Maximum number of arrows to draw. Arrows are sorted by length.                                    | 2000    |
 | draw_full_arrows     | Whether to draw the tips of arrows. If False, draws arrows as lines.                              | False   |
 | colormap             | Built-in: 'viridisx', 'OrWhBl'. Additional colormaps can be used if matplotlib is installed.      | 'viridisx'|
