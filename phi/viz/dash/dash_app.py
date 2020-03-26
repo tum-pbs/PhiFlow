@@ -70,18 +70,23 @@ class DashApp:
 
     def get_field(self, name):
         data = self.app.get_field(name)
-        tensors = struct.flatten(data)
-        minimum = min([numpy.min(tensor) for tensor in tensors])
-        maximum = max([numpy.max(tensor) for tensor in tensors])
-        if name in self.field_minmax:
-            midpoint = (self.field_minmax[name][1] + self.field_minmax[name][0])/2
-            minimum = min(minimum, self.field_minmax[name][0]*self.minmax_decay + midpoint * (1-self.minmax_decay))
-            maximum = max(maximum, self.field_minmax[name][1]*self.minmax_decay + midpoint * (1-self.minmax_decay))
-        self.field_minmax[name] = (minimum, maximum)
+        if data is not None:
+            tensors = struct.flatten(data)
+            if tensors:
+                minimum = min([numpy.min(tensor) for tensor in tensors])
+                maximum = max([numpy.max(tensor) for tensor in tensors])
+                if name in self.field_minmax:
+                    midpoint = (self.field_minmax[name][1] + self.field_minmax[name][0])/2
+                    minimum = min(minimum, self.field_minmax[name][0]*self.minmax_decay + midpoint * (1-self.minmax_decay))
+                    maximum = max(maximum, self.field_minmax[name][1]*self.minmax_decay + midpoint * (1-self.minmax_decay))
+                self.field_minmax[name] = (minimum, maximum)
         return data
 
     def reset_field_summary(self):
         self.field_minmax = {}
 
     def get_minmax(self, field):
-        return self.field_minmax[field]
+        if field in self.field_minmax:
+            return self.field_minmax[field]
+        else:
+            return 0, 0
