@@ -17,6 +17,21 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     def __init__(self, **kwargs):
         AnalyticField.__init__(self, None, **struct.kwargs(locals()))
 
+    @struct.constant()
+    def channels(self, channels):
+        """ Number of independent random scalar fields this Field consists of """
+        return channels
+
+    @struct.constant(default=10)
+    def scale(self, scale):
+        """ Size of noise fluctuations """
+        return scale
+
+    @struct.constant(default=1.0)
+    def smoothness(self, smoothness):
+        """ Determines how quickly high frequencies die out """
+        return smoothness
+
     def at(self, other_field):
         if isinstance(other_field, CenteredGrid):
             batch_size = other_field._batch_size
@@ -37,9 +52,8 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     def grid_sample(self, resolution, size, batch_size=1, dtype=np.float32):
         shape = (batch_size,) + tuple(resolution) + (self.channels,)
         rndj = math.randn(shape, dtype) + 1j * math.randn(shape, dtype)
-        k = math.fftfreq(resolution) * resolution / size  # in physical units
+        k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
         k = math.sum(k ** 2, axis=-1, keepdims=True)
-        k *= self.scale
         lowest_frequency = 0.1
         weight_mask = 1 / (1 + math.exp((lowest_frequency - k) * 1e3))  # High pass filter
         # --- Compute 1/k ---
@@ -49,21 +63,6 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft)).astype(dtype)
-        array /= math.std(array)
-        array -= math.mean(array)
+        array /= math.std(array, axis=tuple(range(1, math.ndims(array))), keepdims=True)
+        array -= math.mean(array, axis=tuple(range(1, math.ndims(array))), keepdims=True)
         return array
-
-    @struct.constant()
-    def channels(self, channels):
-        """ Number of independent random scalar fields this Field consists of """
-        return channels
-
-    @struct.constant(default=100)
-    def scale(self, scale):
-        """ Size of noise fluctuations """
-        return scale
-
-    @struct.constant(default=1.0)
-    def smoothness(self, smoothness):
-        """ Determines how quickly high frequencies die out """
-        return smoothness
