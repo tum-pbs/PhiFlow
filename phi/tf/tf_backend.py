@@ -285,8 +285,8 @@ class TFBackend(Backend):
             unstacked = [self.expand_dims(c, axis=axis) for c in unstacked]
         return unstacked
 
-    def std(self, x, axis=None):
-        _mean, var = tf.nn.moments(x, axis)
+    def std(self, x, axis=None, keepdims=False):
+        _mean, var = tf.nn.moments(x, axis, keepdims=keepdims)
         return tf.sqrt(var)
 
     def boolean_mask(self, x, mask):

@@ -180,7 +180,7 @@ class Backend:
     def flatten(self, x):
         return self.reshape(x, (-1,))
 
-    def std(self, x, axis=None):
+    def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
     def boolean_mask(self, x, mask):

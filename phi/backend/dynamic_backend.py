@@ -179,8 +179,8 @@ class DynamicBackend(Backend):
     def unstack(self, tensor, axis=0, keepdims=False):
         return self.choose_backend(tensor).unstack(tensor, axis, keepdims=keepdims)
 
-    def std(self, x, axis=None):
-        return self.choose_backend(x).std(x, axis)
+    def std(self, x, axis=None, keepdims=False):
+        return self.choose_backend(x).std(x, axis, keepdims=keepdims)
 
     def boolean_mask(self, x, mask):
         return self.choose_backend((x, mask)).boolean_mask(x, mask)

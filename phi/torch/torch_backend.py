@@ -237,7 +237,7 @@ class TorchBackend(Backend):
             unstacked = [self.expand_dims(c, axis=axis) for c in unstacked]
         return unstacked
 
-    def std(self, x, axis=None):
+    def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError()
 
     def boolean_mask(self, x, mask):
