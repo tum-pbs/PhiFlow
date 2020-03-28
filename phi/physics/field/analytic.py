@@ -27,10 +27,11 @@ class AnalyticField(Field):
             return None
 
     def unstack(self):
+        assert self.component_count is not None, 'The component_count of %s is unknown' % self
         if self.component_count == 1:
             return [self]
         else:
-            raise NotImplementedError()
+            return [_SymbolicOpField(lambda x: x.unstack()[i], [self]) for i in range(self.component_count)]
 
     @property
     def points(self):
