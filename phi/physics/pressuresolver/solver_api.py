@@ -137,7 +137,6 @@ Solves the Poisson equation Δp = input_field for p.
     :return: p as CenteredGrid, iteration count as int or None if not available
     :rtype: CenteredGrid, int
     """
-    from .sparse import SparseSciPy, SparseCG
     assert isinstance(input_field, CenteredGrid)
     if guess is not None:
         assert isinstance(guess, CenteredGrid)
@@ -146,10 +145,12 @@ Solves the Poisson equation Δp = input_field for p.
     if isinstance(poisson_domain, Domain):
         poisson_domain = PoissonDomain(poisson_domain)
     if solver is None:
+        from .sparse import SparseSciPy, SparseCG
         if math.choose_backend([input_field.data, poisson_domain.active.data, poisson_domain.accessible.data]).matches_name('SciPy'):
             solver = SparseSciPy()
         else:
-            solver = SparseCG()
+            from phi.physics.pressuresolver.fourier import Fourier
+            solver = Fourier() & SparseCG()
     pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=guess)
     pressure = CenteredGrid(pressure, input_field.box, extrapolation=input_field.extrapolation, name='pressure')
     return pressure, iteration
