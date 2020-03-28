@@ -6,13 +6,14 @@ import os
 import os.path
 import re
 import shutil
+import sys
 import warnings
 
 import six
 import numpy as np
 from os.path import join, isfile, isdir
 
-from phi import struct, math
+from phi import struct, math, __version__ as phi_version
 from phi.physics import field
 
 
@@ -223,12 +224,18 @@ class Scene(object):
     def __repr__(self):
         return self.path
 
-    def copy_calling_script(self, full_trace=False):
+    def copy_calling_script(self, full_trace=False, include_context_information=True):
         script_paths = [frame[1] for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
         for script_path in script_paths:
             _copy_file(script_path, join(self.subpath('src', create=True), os.path.basename(script_path)))
+        if include_context_information:
+            with open(join(self.subpath('src', create=True), 'context.json'), 'w') as context_file:
+                json.dump({
+                    'phi_version': phi_version,
+                    'argv': sys.argv
+                }, context_file)
 
     def copy_src(self, path, only_external=True):
         if not only_external or not _is_phi_file(path):
