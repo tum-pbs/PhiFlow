@@ -115,6 +115,7 @@ def test_reconstruction_first_order(in_field, solve_func, laplace_func, set_accu
     reconst1 = laplace_func(solved_field) + mean  # Reconstruct Input
     error = (in_field - reconst1)/in_field
     max_error = np.max(np.abs(error.data))
+    print("{:.2g}/{:.2g}".format(max_error, first_order_tolerance*set_accuracy))
     assert max_error < first_order_tolerance*set_accuracy, "{} reconstruction not within set accuracy. {:.2g} vs. {:.2g}".format(name, max_error, first_order_tolerance*set_accuracy)
 
 def test_reconstruction_second_order(in_field, solve_func, laplace_func, set_accuracy, name, second_order_tolerance=20):
@@ -151,9 +152,9 @@ class TestReconstruction(TestCase):
             sloped_data = (np.array([np.arange(shape[1]) for _ in range(shape[0])]).reshape(1, *shape, 1)/10+1)
             in_data = in_data.copied_with(data=sloped_data)
             for name, solver, laplace in solver_list:
-                print('Testing {} boundary with {} solver'.format(boundary, name))
+                print('Testing {} boundary with {} solver... '.format(boundary, name), end='')
                 test_reconstruction_first_order(in_data, solver, laplace, set_accuracy, name, first_order_tolerance=first_order_tolerance)
-                test_reconstruction_second_order(in_data, solver, laplace, set_accuracy, name, second_order_tolerance=second_order_tolerance)
-            print('Testing {} boundary with {} solver'.format(boundary, 'higher order FFT'))
-            run_second_order_fft_reconstruction(in_data, set_accuracy, second_order_tolerance=second_order_tolerance)
+                #test_reconstruction_second_order(in_data, solver, laplace, set_accuracy, name, second_order_tolerance=second_order_tolerance)
+            #print('Testing {} boundary with {} solver'.format(boundary, 'higher order FFT'))
+            #run_second_order_fft_reconstruction(in_data, set_accuracy, second_order_tolerance=second_order_tolerance)
 
