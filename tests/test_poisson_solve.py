@@ -165,8 +165,8 @@ class TestReconstruction(TestCase):
             sloped_data = (np.array([np.arange(shape[1]) for _ in range(shape[0])]).reshape(1, *shape, 1) / 10 + 1)
             in_data = in_data.copied_with(data=sloped_data)
             for name, solver, laplace in solver_list:
-                print('Testing {} boundary with {} solver... '.format(boundary, name), end='')
+                print('Testing {} boundary with {} solver... '.format(boundary, name)),
                 _test_reconstruction_first_order(in_data, solver, laplace, set_accuracy, name, first_order_tolerance=first_order_tolerance)
                 _test_reconstruction_second_order(in_data, solver, laplace, set_accuracy, name, second_order_tolerance=second_order_tolerance)
-            print('Testing {} boundary with {} solver... '.format(boundary, 'higher order FFT'), end='')
+            print('Testing {} boundary with {} solver... '.format(boundary, 'higher order FFT')),
             _run_higher_order_fft_reconstruction(in_data, set_accuracy, order=2, tolerance=second_order_tolerance)
