@@ -131,6 +131,11 @@ class Field(State):
 
     __rmul__ = __mul__
 
+    def __div__(self, other):
+        return self.__dataop__(other, True, lambda d1, d2: d1 / d2)
+
+    __truediv__ = __div__
+
     def __sub__(self, other):
         return self.__dataop__(other, False, lambda d1, d2: d1 - d2)
 
