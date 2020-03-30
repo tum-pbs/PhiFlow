@@ -16,7 +16,7 @@ from .flag import SAMPLE_POINTS
 
 def _crop_for_interpolation(data, offset_float, window_resolution):
     offset = math.to_int(offset_float)
-    slices = [slice(o, o+res+1) for o, res in zip(offset, window_resolution)]
+    slices = [slice(o, o + res + 1) for o, res in zip(offset, window_resolution)]
     data = data[tuple([slice(None)] + slices + [slice(None)])]
     return data
 
@@ -26,7 +26,7 @@ class CenteredGrid(Field):
 
     def __init__(self, data, box=None, extrapolation='boundary', name=None, **kwargs):
         """Create new CenteredGrid from array like data
-        
+
         :param data: numerical values to be set as values of CenteredGrid (immutable)
         :type data: array-like
         :param box: numerical values describing the surrounding area of the CenteredGrid, defaults to None
@@ -35,7 +35,7 @@ class CenteredGrid(Field):
         :type extrapolation: str, optional
         :param name: give CenteredGrid a custom name (immutable), defaults to None
         :type name: string, optional
-        """                
+        """
         Field.__init__(self, **struct.kwargs(locals()))
         self._sample_points = None
 
@@ -115,7 +115,7 @@ class CenteredGrid(Field):
                 origin_in_local = self.box.global_to_local(other_field.box.lower) * self.resolution
                 data = _crop_for_interpolation(self.data, origin_in_local, other_field.resolution)
                 dimensions = self.resolution != other_field.resolution
-                dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d-1]]
+                dimensions = [d for d in math.spatial_dimensions(data) if dimensions[d - 1]]
                 data = math.interpolate_linear(data, origin_in_local % 1.0, dimensions)
                 return CenteredGrid(data, other_field.box, name=self.name, batch_size=self._batch_size)
             elif math.sum(paddings) < 16:
@@ -164,7 +164,7 @@ class CenteredGrid(Field):
     def padded(self, widths):
         if isinstance(widths, int):
             widths = [[widths, widths]] * self.rank
-        data = math.pad(self.data, [[0, 0]]+widths+[[0, 0]], _pad_mode(self.extrapolation), constant_values=_pad_value(self.extrapolation_value))
+        data = math.pad(self.data, [[0, 0]] + widths + [[0, 0]], _pad_mode(self.extrapolation), constant_values=_pad_value(self.extrapolation_value))
         w_lower, w_upper = np.transpose(widths)
         box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
         return self.copied_with(data=data, box=box)
@@ -184,7 +184,8 @@ class CenteredGrid(Field):
         if not physical_units:
             data = math.laplace(self.data, padding=_pad_mode(self.extrapolation), axes=axes)
         else:
-            if not self.has_cubic_cells: raise NotImplementedError('Only cubic cells supported.')
+            if not self.has_cubic_cells:
+                raise NotImplementedError('Only cubic cells supported.')
             laplace = math.laplace(self.data, padding=_pad_mode(self.extrapolation), axes=axes)
             data = laplace / self.dx[0] ** 2
         extrapolation = map_for_axes(_gradient_extrapolation, self.extrapolation, axes, self.rank)
@@ -234,6 +235,7 @@ def _pad_value(value):
         return value
     else:
         return [0] + list(value) + [0]
+
 
 @mappable()
 def _pad_mode_str(extrapolation):

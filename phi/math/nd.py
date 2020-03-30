@@ -308,10 +308,10 @@ def fourier_poisson(tensor, times=1):
     frequencies = math.fft(math.to_complex(tensor))
     k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
     fft_laplace = -(2 * np.pi)**2 * k
-    fft_laplace[(0,)*math.ndims(k)] = np.inf
+    fft_laplace[(0,) * math.ndims(k)] = np.inf
     inv_fft_laplace = 1 / fft_laplace
-    inv_fft_laplace[(0,)*math.ndims(k)] = 0
-    return math.real(math.ifft(frequencies * inv_fft_laplace ** times))
+    inv_fft_laplace[(0,) * math.ndims(k)] = 0
+    return math.real(math.ifft(frequencies * inv_fft_laplace**times))
 
 
 def fftfreq(resolution, mode='vector', dtype=np.float32):
