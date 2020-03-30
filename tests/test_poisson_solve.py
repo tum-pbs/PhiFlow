@@ -94,7 +94,7 @@ class TestPoissonSolve(TestCase):
         _test_all(GeometricCG())
 
 
-def run_higher_order_fft_reconstruction(in_field, set_accuracy, tolerance=20, order=2):
+def _run_higher_order_fft_reconstruction(in_field, set_accuracy, tolerance=20, order=2):
     # Higher Order FFT test
     mean = math.mean(in_field).data
     centered_field = in_field - mean
@@ -107,11 +107,10 @@ def run_higher_order_fft_reconstruction(in_field, set_accuracy, tolerance=20, or
     max_error = np.max(np.abs(error.data))
     passed = max_error < tolerance * set_accuracy
     print("{:.2g} vs. {:.2g}".format(max_error, tolerance * set_accuracy))
-    #print("{}^2 reconstruction {}within set accuracy. {:.2g} vs. {:.2g}".format('FFT*2', 'NOT ' if not passed else '', max_error, tolerance * set_accuracy))
     #assert passed, "{}^2 reconstruction not within set accuracy. {:.2g} vs. {:.2g}".format('FFT*2', max_error, tolerance * set_accuracy)
 
 
-def test_reconstruction_first_order(in_field, solve_func, laplace_func, set_accuracy, name, first_order_tolerance=2):
+def _test_reconstruction_first_order(in_field, solve_func, laplace_func, set_accuracy, name, first_order_tolerance=2):
     # Test Reconstruction
     mean = math.mean(in_field).data
     centered_field = in_field - mean
@@ -127,7 +126,7 @@ def test_reconstruction_first_order(in_field, solve_func, laplace_func, set_accu
     assert max_error < first_order_tolerance * set_accuracy, "{} reconstruction not within set accuracy. {:.2g} vs. {:.2g}".format(name, max_error, first_order_tolerance * set_accuracy)
 
 
-def test_reconstruction_second_order(in_field, solve_func, laplace_func, set_accuracy, name, second_order_tolerance=20):
+def _test_reconstruction_second_order(in_field, solve_func, laplace_func, set_accuracy, name, second_order_tolerance=20):
     # Calculate 1st order
     mean = math.mean(in_field).data
     centered_field = in_field - mean
@@ -167,7 +166,7 @@ class TestReconstruction(TestCase):
             in_data = in_data.copied_with(data=sloped_data)
             for name, solver, laplace in solver_list:
                 print('Testing {} boundary with {} solver... '.format(boundary, name), end='')
-                test_reconstruction_first_order(in_data, solver, laplace, set_accuracy, name, first_order_tolerance=first_order_tolerance)
-                test_reconstruction_second_order(in_data, solver, laplace, set_accuracy, name, second_order_tolerance=second_order_tolerance)
+                _test_reconstruction_first_order(in_data, solver, laplace, set_accuracy, name, first_order_tolerance=first_order_tolerance)
+                _test_reconstruction_second_order(in_data, solver, laplace, set_accuracy, name, second_order_tolerance=second_order_tolerance)
             print('Testing {} boundary with {} solver... '.format(boundary, 'higher order FFT'), end='')
-            run_higher_order_fft_reconstruction(in_data, set_accuracy, order=2, tolerance=second_order_tolerance)
+            _run_higher_order_fft_reconstruction(in_data, set_accuracy, order=2, tolerance=second_order_tolerance)
