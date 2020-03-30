@@ -162,7 +162,7 @@ class TestReconstruction(TestCase):
                 # ('Fourier', lambda field: poisson_solve(field, domain, Fourier()))]  # TODO: poisson_solve() causes resolution to be empty
                 ('FFT', math.fourier_poisson, math.fourier_laplace)]
             in_data = CenteredGrid.sample(Noise(), domain)
-            sloped_data = (np.array([np.arange(shape[1]) for _ in range(shape[0])]).reshape(1, *shape, 1) / 10 + 1)
+            sloped_data = (np.array([np.arange(shape[1]) for _ in range(shape[0])]).reshape([1] + shape + [1]) / 10 + 1)
             in_data = in_data.copied_with(data=sloped_data)
             for name, solver, laplace in solver_list:
                 print('Testing {} boundary with {} solver... '.format(boundary, name)),
