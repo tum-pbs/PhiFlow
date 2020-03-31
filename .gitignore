@@ -7,3 +7,5 @@ phi/local/hostname.py
 *.npz
 images/*
 data/*
+.cache
+run_tests.sh
