@@ -52,4 +52,4 @@ class TestFieldMath(TestCase):
             centered_grid = CenteredGrid.sample(Noise(), domain)
             centered_grid = centered_grid.copied_with(data=2*np.ones([1] + shape + [1]))
             result_array = (centered_grid / centered_grid.copied_with(data=4*np.ones([1] + shape + [1]))).data
-            np.testing.assert_array_equal(result_array, 1/2)
+            np.testing.assert_array_equal(result_array, 1./2)
