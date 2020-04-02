@@ -292,6 +292,10 @@ class TorchBackend(Backend):
             return self.as_tensor(complex)
 
     def cast(self, x, dtype):
+        if isinstance(dtype, torch.dtype):
+            x = self.as_tensor(x)
+            return x.to(dtype)
+        # --- NumPy Types ---
         if dtype == np.float32:
             return self.to_float(x)
         if dtype == np.int32:
