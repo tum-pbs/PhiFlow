@@ -139,7 +139,10 @@ def heatmap(data, settings):
     z = reduce_component(z, component)
     y = data.points.data[0, :, 0, 0]
     x = data.points.data[0, 0, :, 1]
-    z_min, z_max = settings['minmax']
+    if settings.get('slow_colorbar', False):
+        z_min, z_max = settings['minmax']
+    else:
+        z_min, z_max = np.min(z), np.max(z)
     color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=settings.get('colormap', None))
     return {'data': [{
         'x': x,

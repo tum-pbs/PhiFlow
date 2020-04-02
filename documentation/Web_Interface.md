@@ -151,3 +151,4 @@ The `display` parameter defines which fields are displayed initially, e.g. `disp
 | max_arrows           | Maximum number of arrows to draw. Arrows are sorted by length.                                    | 2000    |
 | draw_full_arrows     | Whether to draw the tips of arrows. If False, draws arrows as lines.                              | False   |
 | colormap             | Built-in: 'viridisx', 'OrWhBl'. Additional colormaps can be used if matplotlib is installed.      | 'viridisx'|
+| slow_colorbar        | If True, keeps colorbar similar to previous frame if possible.                                    | False   |
