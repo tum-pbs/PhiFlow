@@ -12,6 +12,7 @@ class CudaCommand(distutils.cmd.Command):
         ('gcc=', None, 'Path to the gcc compiler.'),
         ('gcc-4-8=', None, 'Path to gcc-4.8 compiler.'),
         ('nvcc=', None, 'Path to the Nvidia nvcc compiler.'),
+        ('cuda-lib=', None, 'Path to the CUDA libraries.'),
     ]
 
     def run(self):
@@ -28,7 +29,13 @@ class CudaCommand(distutils.cmd.Command):
             tf.disable_eager_execution()
         tf_cflags = tf.sysconfig.get_compile_flags()
         tf_lflags = tf.sysconfig.get_link_flags()
-        print('lib: ' + tf.sysconfig.get_lib())
+        # print(tf_cflags)
+        # print(tf_lflags)
+        # print('lib: ' + tf.sysconfig.get_lib())
+
+        link_cuda_lib = '-L' + self.cuda_lib
+
+        # print(link_cuda_lib)
 
         # Remove old build files
         if os.path.isdir(build_path):
@@ -141,7 +148,8 @@ class CudaCommand(distutils.cmd.Command):
                     os.path.join(build_path, 'resample.cu.o'),
                     '-fPIC',
                     '-lcudart',
-                    '-O3'
+                    '-O3',
+                    link_cuda_lib
                 ]
                 + tf_cflags
                 + tf_lflags
@@ -186,7 +194,8 @@ class CudaCommand(distutils.cmd.Command):
                     os.path.join(build_path, 'resample_gradient.cu.o'),
                     '-fPIC',
                     '-lcudart',
-                    '-O3'
+                    '-O3',
+                    link_cuda_lib
                 ]
                 + tf_cflags
                 + tf_lflags
@@ -202,6 +211,8 @@ class CudaCommand(distutils.cmd.Command):
         self.gcc = 'gcc'
         self.gcc_4_8 = 'g++-4.8'
         self.nvcc = 'nvcc'
+        self.cuda_lib = '/usr/local/cuda/lib64/'
+
 
     def finalize_options(self):
         assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
