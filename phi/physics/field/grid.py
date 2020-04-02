@@ -52,7 +52,7 @@ class CenteredGrid(Field):
                 data = value.at(point_field).data
         else:  # value is constant
             components = math.staticshape(value)[-1] if math.ndims(value) > 0 else 1
-            data = math.zeros((batch_size,) + tuple(domain.resolution) + (components,)) + value
+            data = math.add(math.zeros((batch_size,) + tuple(domain.resolution) + (components,)), value)
         return CenteredGrid(data, box=domain.box, extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
 
     @struct.variable()
