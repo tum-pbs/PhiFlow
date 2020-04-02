@@ -3,7 +3,7 @@
 import warnings
 
 import numpy as np
-
+from matplotlib.colors import ListedColormap
 
 ORANGE_WHITE_BLUE = [
     [0.      ,  22.00000005,   1.00000035,  76.0000011 ],
@@ -87,20 +87,13 @@ COLORMAPS = {
 }
 
 
+# --- Load available Matplotlib color maps ---
 try:
     from matplotlib import cm
-
-
-    def create_matplotlib_colormap(name):
-        # ToDo, these should be optional as matplotlib is not a requirement
-        return np.hstack([np.linspace(0, 1, len(cm.get_cmap(name).colors))[:,np.newaxis], np.array(cm.get_cmap(name).colors)*255])
-
-    COLORMAPS['viridis'] = VIRIDIS = create_matplotlib_colormap('viridis')
-    COLORMAPS['cividis'] = CIVIDIS = create_matplotlib_colormap('cividis')
-    COLORMAPS['magma'] = MAGMA = create_matplotlib_colormap('magma')
-    COLORMAPS['inferno'] = INFERNO = create_matplotlib_colormap('inferno')
-    COLORMAPS['plasma'] = PLASMA = create_matplotlib_colormap('plasma')
-    COLORMAPS['twilight'] = TWILIGHT = create_matplotlib_colormap('twilight')
-    COLORMAPS['twilight_shifted'] = TWILIGHT_SHIFTED = create_matplotlib_colormap('twilight_shifted')
+    for name, colormap in cm.cmap_d.items():
+        if isinstance(colormap, ListedColormap):
+            pos = np.expand_dims(np.linspace(0, 1, len(cm.get_cmap(name).colors)), axis=-1)
+            cols = np.array(cm.get_cmap(name).colors) * 255
+            COLORMAPS[name] = np.concatenate([pos, cols], axis=-1)
 except ImportError:
     warnings.warn('matplotlib is not installed. Corresponding colormaps are not available.')
