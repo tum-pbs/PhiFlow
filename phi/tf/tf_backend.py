@@ -456,44 +456,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     return _pyramid_combination(samples, weight_0, weight_1)
 
 
-'''def resample_tf(inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
-    """
-Resamples an N-dimensional tensor at the locations provided by sample_coords
-    :param inputs: grid with dimensions (batch_size, spatial dimensions..., element_size)
-    :param sample_coords: sample coords (batch_size, output_shape, input_dimension)
-    :param interpolation: LINEAR, BSPLINE, IDW (default is LINEAR)
-    :param boundary: ZERO, REPLICATE, CIRCULAR, SYMMETRIC (default is ZERO)
-    :return:
-    """
-    boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
-    assert interpolation.upper() == "LINEAR"
-
-    # Check if CUDA can be used benefitially
-    if use_cuda(inputs):
-        return resample_cuda(inputs, sample_coords, boundary)
-
-    return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)'''
-
-
-'''def resample_tf(inputs, sample_coords, interpolation="LINEAR", boundary="zero"):
-    """
-Resamples an N-dimensional tensor at the locations provided by sample_coords
-    :param inputs: grid with dimensions (batch_size, spatial dimensions..., element_size)
-    :param sample_coords: sample coords (batch_size, output_shape, input_dimension)
-    :param interpolation: LINEAR, BSPLINE, IDW (default is LINEAR)
-    :param boundary: ZERO, REPLICATE, CIRCULAR, SYMMETRIC (default is ZERO)
-    :return:
-    """
-    boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
-    assert interpolation.upper() == "LINEAR"
-
-    # Check if CUDA can be used benefitially
-    if use_cuda(inputs):
-        return resample_cuda(inputs, sample_coords, boundary)
-
-    return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)'''
-
-
 def _boundary_snap(sample_coords, spatial_shape):
     max_indices = [l-1 for l in spatial_shape]
     for _i in range(len(spatial_shape)):
