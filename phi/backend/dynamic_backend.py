@@ -239,5 +239,8 @@ class DynamicBackend(Backend):
     def pow(self, base, exp):
         return self.choose_backend([base, exp]).pow(base, exp)
 
+    def mod(self, dividend, divisor):
+        return self.choose_backend([dividend, divisor]).mod(dividend, divisor)
+
 
 DYNAMIC_BACKEND = DynamicBackend()

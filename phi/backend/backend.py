@@ -290,3 +290,6 @@ class Backend:
 
     def pow(self, base, exp):
         return self.as_tensor(base) ** self.as_tensor(exp)
+
+    def mod(self, dividend, divisor):
+        return self.as_tensor(dividend) % self.as_tensor(divisor)
