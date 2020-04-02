@@ -277,7 +277,7 @@ class Backend:
         return tuple(result)
 
     def add(self, a, b):
-        return self.as_tensor(a) * self.as_tensor(b)
+        return self.as_tensor(a) + self.as_tensor(b)
 
     def sub(self, a, b):
         return self.as_tensor(a) - self.as_tensor(b)
