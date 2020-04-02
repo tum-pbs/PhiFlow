@@ -70,7 +70,7 @@ class TorchBackend(Backend):
     def sum(self, value, axis=None, keepdims=False):
         value = self.as_tensor(value)
         if axis is None:
-            axis = range(len(value.shape))
+            axis = tuple(range(len(value.shape)))
         return torch.sum(value, dim=axis, keepdim=keepdims)
 
     def prod(self, value, axis=None):
