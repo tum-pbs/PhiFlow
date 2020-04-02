@@ -22,11 +22,14 @@ class DynamicBackend(Backend):
                 return backend
         raise NoBackendFound('No backend found for values %s; registered backends are %s' % (values, self.backends))
 
-    def add_backend(self, backend):
+    def add_backend(self, backend, priority=None):
         for existing in self.backends:
             if existing.name == backend.name:
                 return False
-        self.backends.append(backend)
+        if priority is None:
+            self.backends.append(backend)
+        else:
+            self.backends.insert(0, backend)
         return True
 
     def is_applicable(self, values):
@@ -176,8 +179,8 @@ class DynamicBackend(Backend):
     def unstack(self, tensor, axis=0, keepdims=False):
         return self.choose_backend(tensor).unstack(tensor, axis, keepdims=keepdims)
 
-    def std(self, x, axis=None):
-        return self.choose_backend(x).std(x, axis)
+    def std(self, x, axis=None, keepdims=False):
+        return self.choose_backend(x).std(x, axis, keepdims=keepdims)
 
     def boolean_mask(self, x, mask):
         return self.choose_backend((x, mask)).boolean_mask(x, mask)
@@ -186,7 +189,7 @@ class DynamicBackend(Backend):
         return self.choose_backend(x).isfinite(x)
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
-        return self.choose_backend(points).scatter(points, indices, values, shape, duplicates_handling=duplicates_handling)
+        return self.choose_backend([points, indices, values]).scatter(points, indices, values, shape, duplicates_handling=duplicates_handling)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         return self.choose_backend(boolean_tensor).any(boolean_tensor, axis=axis, keepdims=keepdims)

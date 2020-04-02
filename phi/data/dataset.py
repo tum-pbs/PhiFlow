@@ -51,7 +51,7 @@ class Dataset(object):
         return newset
 
     @staticmethod
-    def load(directory, indices=None, name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
+    def load(directory, indices=None, name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True, frames=None):
         if name is None:
             name = os.path.basename(directory)
         # --- Discover scene directories ---
@@ -60,7 +60,6 @@ class Dataset(object):
         sources = []
         # --- Discover frame count and  array shapes ---
         shapes = dict() if assume_same_shapes else None
-        frames = None
         for scene in scenes:
             if assume_same_frames and frames is None:
                 frames = scene.frames

@@ -166,7 +166,7 @@ class _Union(Geometry):
     def __init__(self, geometries, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    def value_at(self, points, collapse_dimensions=True):
+    def value_at(self, points):
         if len(self.geometries) == 1:
             result = self.geometries[0].value_at(points)
         else:

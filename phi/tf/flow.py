@@ -6,4 +6,4 @@ from .session import *
 from .world import *
 from .data import *
 from .util import *
-import tensorflow as tf
+from . import TF_BACKEND, tensorflow, tf

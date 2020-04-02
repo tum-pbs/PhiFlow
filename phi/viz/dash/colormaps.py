@@ -1,19 +1,9 @@
 # Scivis Colormaps
 # https://sciviscolor.org/
-from matplotlib import cm
+import warnings
+
 import numpy as np
-
-def create_colormap(name):
-    return np.hstack([np.linspace(0, 1, len(cm.get_cmap(name).colors))[:,np.newaxis], np.array(cm.get_cmap(name).colors)*255])
-
-VIRIDIS = create_colormap('viridis')
-CIVIDIS = create_colormap('cividis')
-MAGMA = create_colormap('magma')
-INFERNO = create_colormap('inferno')
-PLASMA = create_colormap('plasma')
-TWILIGHT = create_colormap('twilight')
-TWILIGHT_SHIFTED = create_colormap('twilight_shifted')
-
+from matplotlib.colors import ListedColormap
 
 ORANGE_WHITE_BLUE = [
     [0.      ,  22.00000005,   1.00000035,  76.0000011 ],
@@ -68,3 +58,42 @@ ORANGE_WHITE_BLUE = [
 BLUE_WHITE_RED = [[0, 0, 0, 220],
                   [0.5, 220, 220, 220],
                   [1,   220,   0,   0]]
+
+
+VIRIDIS_EXTENDED = [
+    [0.0, 255, 200,100],
+    [.13, 255, 153, 51],
+    [.25, 230,  5,  40],
+    [.38, 150,  3,  62],
+    [0.5, 68,   1,  84],
+    [.55, 72,  33, 115],
+    [.59, 67,  62, 133],
+    [.64, 56,  88, 140],
+    [.68, 45, 112, 142],
+    [.73, 37, 133, 142],
+    [.77, 30, 155, 138],
+    [.82, 42, 176, 127],
+    [.86, 82, 197, 105],
+    [.90, 34,  213, 73],
+    [.95, 194, 223, 35],
+    [1.0, 253, 231, 37]
+]
+
+
+COLORMAPS = {
+    None: VIRIDIS_EXTENDED,
+    'OrWhBl': ORANGE_WHITE_BLUE,
+    'viridisx': VIRIDIS_EXTENDED,
+}
+
+
+# --- Load available Matplotlib color maps ---
+try:
+    from matplotlib import cm
+    for name, colormap in cm.cmap_d.items():
+        if isinstance(colormap, ListedColormap):
+            pos = np.expand_dims(np.linspace(0, 1, len(cm.get_cmap(name).colors)), axis=-1)
+            cols = np.array(cm.get_cmap(name).colors) * 255
+            COLORMAPS[name] = np.concatenate([pos, cols], axis=-1)
+except ImportError:
+    warnings.warn('matplotlib is not installed. Corresponding colormaps are not available.')

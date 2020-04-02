@@ -17,6 +17,7 @@ class App(base_app.App):
         base_app.App.prepare(self)
         if self.auto_convert:
             self.world.state = torch_from_numpy(self.world.state)
+        return self
 
     def add_scalar(self, name, node):
         pass

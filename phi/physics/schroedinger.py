@@ -106,7 +106,7 @@ class WavePacket(AnalyticField):
             wave_vector = math.expand_dims(wave_vector, 0)
         return wave_vector
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         envelope = math.exp(-0.5 * math.sum((points - self.center) ** 2, axis=-1, keepdims=True) / self.size ** 2)
         envelope = math.to_float(envelope)
         wave = math.exp(1j * math.to_float(math.expand_dims(np.dot(points, self.wave_vector), -1))) * envelope
@@ -129,7 +129,7 @@ class HarmonicPotential(AnalyticField):
     @struct.constant()
     def maximum_value(self, maximum_value): return maximum_value
 
-    def sample_at(self, points, collapse_dimensions=True):
+    def sample_at(self, points):
         x = (points - self.center) / self.unit_distance
         pot = math.sum(x ** 2, -1, keepdims=True) * self.data
         if self.maximum_value is not None:
@@ -154,7 +154,7 @@ class SinPotential(AnalyticField):
     def dtype(self, dtype):
         return dtype
 
-    def sample_at(self, x, collapse_dimensions=True):
+    def sample_at(self, x):
         phase_offset = math.batch_align_scalar(self.phase_offset, 0, x)
         k = math.batch_align(self.k, 1, x)
         data = math.batch_align_scalar(self.data, 0, x)

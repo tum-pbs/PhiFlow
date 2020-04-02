@@ -27,6 +27,8 @@ class DashGui(AppDisplay):
                 ' - ',
                 dcc.Link('Side-by-Side', href='/side-by-side'),
                 ' - ',
+                dcc.Link('Quad', href='/quad'),
+                ' - ',
                 dcc.Link('Info', href='/info'),
                 ' - ',
                 dcc.Link('Log', href='/log'),
@@ -83,6 +85,27 @@ class DashGui(AppDisplay):
             model_controls,
         ])
         dash_app.add_page('/side-by-side', layout)
+
+        # --- Quad ---
+        layout = html.Div([
+            build_view_selection(dash_app),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='top-left', initial_field_name=sbs_fieldnames[0], config=self.config),
+            ]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='top-right', initial_field_name=sbs_fieldnames[1], config=self.config),
+            ]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='bottom-left', initial_field_name=sbs_fieldnames[0], config=self.config),
+            ]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='bottom-right', initial_field_name=sbs_fieldnames[1], config=self.config),
+            ]),
+            status_bar,
+            player_controls,
+            model_controls,
+        ])
+        dash_app.add_page('/quad', layout)
 
         # --- Log ---
         layout = html.Div([

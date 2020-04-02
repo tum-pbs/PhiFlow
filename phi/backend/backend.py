@@ -180,7 +180,7 @@ class Backend:
     def flatten(self, x):
         return self.reshape(x, (-1,))
 
-    def std(self, x, axis=None):
+    def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
     def boolean_mask(self, x, mask):
@@ -277,7 +277,7 @@ class Backend:
         return tuple(result)
 
     def add(self, a, b):
-        return self.as_tensor(a) * self.as_tensor(b)
+        return self.as_tensor(a) + self.as_tensor(b)
 
     def sub(self, a, b):
         return self.as_tensor(a) - self.as_tensor(b)

@@ -273,8 +273,8 @@ class SciPyBackend(Backend):
         index, = indices
         return values[index]
 
-    def std(self, x, axis=None):
-        return np.std(x, axis)
+    def std(self, x, axis=None, keepdims=False):
+        return np.std(x, axis, keepdims=keepdims)
 
     def boolean_mask(self, x, mask):
         return x[mask]

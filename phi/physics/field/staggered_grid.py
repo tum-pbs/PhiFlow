@@ -2,7 +2,6 @@
 import warnings
 from numbers import Number
 import numpy as np
-import six
 
 from phi import math, struct
 from phi.geom import AABox
@@ -86,9 +85,10 @@ class StaggeredGrid(Field):
             assert grid.box == box
             if grid.extrapolation != self.extrapolation:
                 grid = grid.copied_with(extrapolation=self.extrapolation)
+            if grid.extrapolation_value != self.extrapolation_value:
+                grid = grid.copied_with(extrapolation_value=self.extrapolation_value)
         else:
-            grid = CenteredGrid(data=grid, box=box, extrapolation=self.extrapolation, name=_subname(self.name, axis),
-                                batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
+            grid = CenteredGrid(grid, box=box, extrapolation=self.extrapolation, extrapolation_value=self.extrapolation_value, name=_subname(self.name, axis), batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
         return grid
 
     @property
@@ -116,10 +116,14 @@ class StaggeredGrid(Field):
         assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
         return collapse(extrapolation)
 
-    def sample_at(self, points, collapse_dimensions=True):
+    @struct.constant(default=0.0)
+    def extrapolation_value(self, value):
+        return collapse(value)
+
+    def sample_at(self, points):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
+    def at(self, other_field):
         if isinstance(other_field, StaggeredGrid) and other_field.box == self.box and np.allclose(other_field.resolution, self.resolution):
             return self
         try:
@@ -199,6 +203,14 @@ class StaggeredGrid(Field):
             components.append(grad)
         data = math.sum(components, 0)
         return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
+
+    def padded(self, widths):
+        new_grids = [grid.padded(widths) for grid in self.unstack()]
+        if isinstance(widths, int):
+            widths = [[widths, widths]] * self.rank
+        w_lower, w_upper = np.transpose(widths)
+        box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
+        return self.copied_with(data=new_grids, box=box)
 
     @staticmethod
     def gradient(scalar_field, padding_mode='replicate'):

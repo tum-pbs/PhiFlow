@@ -31,9 +31,7 @@ class WavePacketDemo(App):
 
     def action_reset(self):
         self.steps = 0
-        self.wave.amplitude = WavePacket(center=[50, 50],
-                                         size=self.value_size,
-                                         wave_vector=[1 * self.value_frequency, 0.6 * self.value_frequency])
+        self.wave.amplitude = WavePacket(center=[50, 50], size=self.value_size, wave_vector=[1 * self.value_frequency, 0.6 * self.value_frequency])
 
 
 show(WavePacketDemo)

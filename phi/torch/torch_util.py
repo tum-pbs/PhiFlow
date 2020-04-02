@@ -1,11 +1,6 @@
-import numpy as np
-
 import torch
 
-from phi import math, struct
-from .torch_backend import TorchBackend
-
-math.DYNAMIC_BACKEND.add_backend(TorchBackend())
+from phi import struct
 
 
 def variable(initial_value, dtype=torch.float32, requires_grad=True, device=None, item_condition=struct.VARIABLES):

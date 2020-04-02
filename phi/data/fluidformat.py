@@ -6,13 +6,14 @@ import os
 import os.path
 import re
 import shutil
+import sys
 import warnings
 
 import six
 import numpy as np
 from os.path import join, isfile, isdir
 
-from phi import struct, math
+from phi import struct, math, __version__ as phi_version
 from phi.physics import field
 
 
@@ -118,6 +119,14 @@ def get_frames(simpath, fieldname=None, mode="intersect"):
             return sorted(union)
 
 
+def _copy_file(source, target):
+    shutil.copy(source, target)
+    try:
+        shutil.copystat(source, target)
+    except:
+        warnings.warn('Could not copy file metadata to %s' % target)
+
+
 class Scene(object):
 
     def __init__(self, dir, category, index):
@@ -181,7 +190,7 @@ class Scene(object):
                 names = struct.names(obj)
             values = struct.flatten(obj)
             names = struct.flatten(names)
-            names = [self._filename(name) for name in names]
+            names = [_slugify_filename(name) for name in names]
             self.write_sim_frame(values, names, frame)
         else:
             name = str(names) if names is not None else 'unnamed'
@@ -193,16 +202,10 @@ class Scene(object):
             names = struct.flatten(obj)
             if not np.all([isinstance(n, six.string_types) for n in names]):
                 names = struct.names(obj)
-            data = struct.map(lambda name: self.read_array(self._filename(name), frame), names)
+            data = struct.map(lambda name: self.read_array(_slugify_filename(name), frame), names)
             return data
         else:
             return self.read_array('unnamed', frame)
-
-    def _filename(self, structname):
-        structname = structname.replace('._', '.').replace('.', '_')
-        if structname.startswith('_'):
-            structname = structname[1:]
-        return structname
 
     @property
     def fieldnames(self):
@@ -221,29 +224,22 @@ class Scene(object):
     def __repr__(self):
         return self.path
 
-    def copy_calling_script(self, stack_level=1):
-        script_path = inspect.stack()[stack_level][1]
-        script_name = os.path.basename(script_path)
-        src_path = os.path.join(self.path, "src")
-        os.path.isdir(src_path) or os.mkdir(src_path)
-        target = os.path.join(self.path, "src", script_name)
-        shutil.copy(script_path, target)
-        try:
-            shutil.copystat(script_path, target)
-        except:
-            warnings.warn('Could not copy file metadata to %s' % target)
+    def copy_calling_script(self, full_trace=False, include_context_information=True):
+        script_paths = [frame[1] for frame in inspect.stack()]
+        script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
+        script_paths = set(script_paths) if full_trace else [script_paths[0]]
+        for script_path in script_paths:
+            _copy_file(script_path, join(self.subpath('src', create=True), os.path.basename(script_path)))
+        if include_context_information:
+            with open(join(self.subpath('src', create=True), 'context.json'), 'w') as context_file:
+                json.dump({
+                    'phi_version': phi_version,
+                    'argv': sys.argv
+                }, context_file)
 
-    def copy_src(self, path):
-        file_name = os.path.basename(path)
-        src_dir = os.path.dirname(path)
-        target_dir = join(self.path, "src")
-        # Create directory and copy
-        isdir(target_dir) or os.mkdir(target_dir)
-        shutil.copy(path, join(target_dir, file_name))
-        try:
-            shutil.copystat(path, join(target_dir, file_name))
-        except:
-            warnings.warn('Could not copy file metadata to %s' % join(target_dir, file_name))
+    def copy_src(self, path, only_external=True):
+        if not only_external or not _is_phi_file(path):
+            _copy_file(path, join(self.subpath('src', create=True), os.path.basename(path)))
 
     def mkdir(self, subdir=None):
         path = self.path
@@ -260,13 +256,12 @@ class Scene(object):
         for frame in frames:
             yield tuple([_filename(self.path, name, frame) for name in field_names])
 
-
     @staticmethod
-    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True, calling_script_level=0):
+    def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True):
         if count > 1:
             scenes = []
             for _ in range(count):
-                scenes.append(Scene.create(directory, category, 1, mkdir, copy_calling_script, calling_script_level + 1))
+                scenes.append(Scene.create(directory, category, 1, mkdir, copy_calling_script))
             return SceneBatch(scenes)
         # Single scene
         directory = os.path.expanduser(directory)
@@ -292,9 +287,9 @@ class Scene(object):
         if copy_calling_script:
             try:
                 assert mkdir
-                scene.copy_calling_script(2 + calling_script_level)
+                scene.copy_calling_script()
             except IOError as err:
-                warnings.warn('Failed to copy calling script to scene during Scene.create().')
+                warnings.warn('Failed to copy calling script to scene during Scene.create().\nCause: %s' % err)
         return scene
 
     @staticmethod
@@ -378,9 +373,16 @@ def _writing_staticshape(obj):
         if isinstance(value, field.CenteredGrid):
             return value.staticshape.data
         else:
-            return value
+            return math.staticshape(value)
     data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)), content_type='format_staticshape')
     return data
+
+
+def _slugify_filename(struct_name):
+    struct_name = struct_name.replace('._', '.').replace('.', '_')
+    if struct_name.startswith('_'):
+        struct_name = struct_name[1:]
+    return struct_name
 
 
 def slugify(value):
@@ -421,3 +423,13 @@ greek = {
     u'Ψ': 'Psi',        u'ψ': 'psi',
     u'Ω': 'Omega',      u'ω': 'omega',
 }
+
+
+def _is_phi_file(path):
+    path, name = os.path.split(path)
+    if name == 'phi':
+        return True
+    elif path == '' or name == '':
+        return False
+    else:
+        return _is_phi_file(path)

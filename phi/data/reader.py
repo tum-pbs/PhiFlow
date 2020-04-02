@@ -1,5 +1,8 @@
 import math
 from bisect import bisect_left
+
+import six
+
 try:
     # Python 3
     from collections.abc import Iterable
@@ -25,12 +28,15 @@ class BatchReader(object):
         self._index = 0
         self._streams = []
         self._fields = fields
-        self.streams = struct.flatten(fields)
+        self.streams = tuple(filter(lambda x: isinstance(x, DataStream) or isinstance(x, six.string_types), struct.flatten(fields)))
+        self.stream_mask = struct.map(lambda x: x in self.streams, self._fields, content_type='stream_mask')
         for stream in self.streams:
             if isinstance(stream, DataStream):
                 self._streams.append(stream)
-            else:
+            elif isinstance(stream, six.string_types):
                 self._streams.append(SourceStream(stream))
+            else:
+                assert False
         self._cache = _BatchCache()
         self.indexcache = None
         self._dataset_changed()
@@ -43,7 +49,7 @@ class BatchReader(object):
         data_list = self._cache.get(indices, self._load, add_to_cache=True)
         data = list_swap_axes(data_list)
         data_map = {self.streams[i]: data[i] for i in range(len(self._streams))}
-        return struct.map(lambda stream: data_map[stream], self._fields, content_type=struct.INVALID)
+        return struct.map(lambda x, is_stream: data_map[x] if is_stream else x, struct.zip([self._fields, self.stream_mask]), content_type=struct.INVALID)
 
     def _load(self, indices):
         result = []

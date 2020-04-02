@@ -165,7 +165,8 @@ void LaunchPressureKernel(const int* dimensions, const int dim_product, const in
 
         for(int i = 0; i < batch_size; i++) {
             if(threshold_reached_cpu[i]) continue;
-            alpha[i] = p_r[i] / p_z[i];
+            alpha[i] = 0.;
+            if(fabs(p_z[i])>0.) alpha[i] = p_r[i] / p_z[i];
             cublasSaxpy_v2(blasHandle, dim_product, alpha + i, p + i * dim_product, 1, x + i * dim_product, 1);
 
             alpha[i] = -alpha[i];

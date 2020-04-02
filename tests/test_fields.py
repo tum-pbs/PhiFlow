@@ -25,7 +25,7 @@ class TestFields(TestCase):
         f = CenteredGrid(data, box[0:2, 0:3])
         g = CenteredGrid(math.zeros([1, 2, 2, 1]), box[0:2, 0.5:2.5])
         # Resample optimized
-        resampled = f.at(g, force_optimization=True)
+        resampled = f.at(g)
         self.assertTrue(resampled.compatible(g))
         np.testing.assert_equal(resampled.data[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
         # Resample unoptimized
@@ -103,7 +103,7 @@ class TestFields(TestCase):
         field = ConstantField([0, 1])
         self.assertEqual(field.component_count, 2)
         # --- Resample to CenteredGrid ---
-        at_cgrid = field.at(CenteredGrid(np.zeros([1, 4, 4, 1])), collapse_dimensions=False)
+        at_cgrid = field.at(CenteredGrid(np.zeros([1, 4, 4, 1])))
         np.testing.assert_equal(at_cgrid.data.shape, [1, 4, 4, 2])
         # --- Resample to StaggeredGrid ---
         at_sgrid = field.at(Fluid([4, 4]).velocity)

@@ -1,17 +1,13 @@
-import warnings
-
 import numpy as np
 import phi.app.app as base_app
 import six
-import tensorflow as tf
 
-from phi import math
+from . import tf
 from phi.app.app import EditableFloat, EditableInt, EditableValue
 from phi.data.dataset import Dataset
 from phi.data.reader import BatchReader
-from phi.data.source import SceneSource
 from phi.physics.field import Field, StaggeredGrid
-from phi.tf.data import create_dataset, Dataset as TFDataset
+from phi.tf.data import Dataset as TFDataset
 
 from . import TF_BACKEND
 from .session import Session
@@ -22,7 +18,9 @@ class App(base_app.App):
 
     def __init__(self, *args, **kwargs):
         base_app.App.__init__(self, *args, **kwargs)
-        self.session = Session(self.scene)
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        self.session = Session(self.scene, session=tf.Session(config=config))
         self.scalars = []
         self.scalar_names = []
         self.editable_placeholders = {}  # placeholder -> attribute name
@@ -167,7 +165,7 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         :type val: Dataset
         """
         assert isinstance(train, Dataset) or train is None
-        assert isinstance(val, Dataset) or train is None
+        assert isinstance(val, Dataset) or val is None
         if train is not None or val is not None:
             assert dict is not None
         if train is not None and val is not None:

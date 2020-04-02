@@ -5,6 +5,7 @@ import numpy as np
 
 from phi import struct
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
+from phi.struct.functions import mappable
 from .helper import _get_pad_width_axes, _get_pad_width, spatial_rank, _dim_shifted, _contains_axis, spatial_dimensions, all_dimensions
 
 
@@ -200,11 +201,12 @@ def axis_gradient(tensor, spatial_axis):
 
 # Laplace
 
-def laplace(tensor, padding='replicate', axes=None):
+def laplace(tensor, padding='replicate', axes=None, use_fft_for_periodic=False):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
 
+    :param use_fft_for_periodic: If True and padding='circular', uses FFT to compute laplace
     :param tensor: n-dimensional field of shape (batch, spacial dimensions..., components)
     :param padding: 'valid', 'constant', 'reflect', 'replicate', 'circular'
     :param axes: The second derivative along these axes is summed over
@@ -214,7 +216,7 @@ def laplace(tensor, padding='replicate', axes=None):
     rank = spatial_rank(tensor)
     if padding is None or padding == 'valid':
         pass  # do not pad tensor
-    elif padding in ['circular', 'wrap']:
+    elif padding in ('circular', 'wrap') and use_fft_for_periodic:
         return fourier_laplace(tensor)
     else:
         tensor = math.pad(tensor, _get_pad_width_axes(rank, axes, val_true=[1, 1], val_false=[0, 0]), padding)
@@ -281,11 +283,35 @@ def _sliced_laplace_nd(tensor, axes=None):
     return math.sum(components, 0)
 
 
-def fourier_laplace(tensor):
+@mappable()
+def fourier_laplace(tensor, times=1):
+    """
+Applies the spatial laplce operator to the given tensor with periodic boundary conditions.
+
+*Note:* The results of `fourier_laplace` and `laplace` are close but not identical.
+
+This implementation computes the laplace operator in Fourier space.
+The result for periodic fields is exact, i.e. no numerical instabilities can occur, even for higher-order derivatives.
+    :param tensor: tensor, assumed to have periodic boundary conditions
+    :param times: number of times the laplace operator is applied. The computational cost is independent of this parameter.
+    :return: tensor of same shape as `tensor`
+    """
     frequencies = math.fft(math.to_complex(tensor))
     k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
     fft_laplace = -(2 * np.pi)**2 * k
-    return math.real(math.ifft(frequencies * fft_laplace))
+    return math.real(math.ifft(frequencies * fft_laplace ** times))
+
+
+@mappable()
+def fourier_poisson(tensor, times=1):
+    """ Inverse operation to `fourier_laplace`. """
+    frequencies = math.fft(math.to_complex(tensor))
+    k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
+    fft_laplace = -(2 * np.pi)**2 * k
+    fft_laplace[(0,) * math.ndims(k)] = np.inf
+    inv_fft_laplace = 1 / fft_laplace
+    inv_fft_laplace[(0,) * math.ndims(k)] = 0
+    return math.real(math.ifft(frequencies * inv_fft_laplace**times))
 
 
 def fftfreq(resolution, mode='vector', dtype=np.float32):

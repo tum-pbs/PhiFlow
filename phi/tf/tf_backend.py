@@ -1,20 +1,17 @@
-import logging
 import uuid
 import warnings
+from packaging import version
+import six
 
 import numpy as np
 import six
 import tensorflow as tf
 from packaging import version
 from phi.tf.tf_cuda_resample import *
+from . import tf
 
 from phi.backend.backend import Backend
 from phi.backend.tensorop import expand, collapsed_gather_nd
-
-if tf.__version__[0] == '2':
-    logging.info('Adjusting for tensorflow 2.0')
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
 
 
 class TFBackend(Backend):
@@ -162,6 +159,7 @@ class TFBackend(Backend):
         # Check if CUDA can be used benefitially
         if use_cuda(inputs):
             return resample_cuda(inputs, sample_coords, boundary)
+        # return _resample_no_pack(inputs, sample_coords, boundary_func)
         return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
 
     def zeros_like(self, tensor):
@@ -294,8 +292,8 @@ class TFBackend(Backend):
             unstacked = [self.expand_dims(c, axis=axis) for c in unstacked]
         return unstacked
 
-    def std(self, x, axis=None):
-        _mean, var = tf.nn.moments(x, axis)
+    def std(self, x, axis=None, keepdims=False):
+        _mean, var = tf.nn.moments(x, axis, keepdims=keepdims)
         return tf.sqrt(var)
 
     def boolean_mask(self, x, mask):
@@ -312,13 +310,23 @@ class TFBackend(Backend):
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
-        z = tf.zeros(shape, dtype=values.dtype)
+        buffer = tf.zeros(shape, dtype=values.dtype)
+
+        repetitions = []
+        for dim in range(len(indices.shape) - 1):
+            if values.shape[dim] == 1:
+                repetitions.append(indices.shape[dim])
+            else:
+                assert indices.shape[dim] == values.shape[dim]
+                repetitions.append(1)
+        repetitions.append(1)
+        values = self.tile(values, repetitions)
 
         if duplicates_handling == 'add':
             #Only for Tensorflow with custom gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
-                result = tf.tensor_scatter_add(z, indices, values)
+                result = tf.tensor_scatter_add(buffer, indices, values)
 
                 def grad(dr):
                     return self.resample(gradient(dr, difference='central'), points), None, None
@@ -328,13 +336,17 @@ class TFBackend(Backend):
             return scatter_density(points, indices, values)
         elif duplicates_handling == 'mean':
             # Won't entirely work with out of bounds particles (still counted in mean)
-            count = tf.tensor_scatter_add(z, indices, tf.ones_like(values))
-            total = tf.tensor_scatter_add(z, indices, values)
-            return (total / tf.maximum(1.0, count))
-        else: # last, any, undefined
-            st = tf.SparseTensor(indices, values, shape)
-            st = tf.sparse.reorder(st)   # only needed if not ordered
-            return tf.sparse.to_dense(st)
+            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
+            total = tf.tensor_scatter_add(buffer, indices, values)
+            return total / tf.maximum(1.0, count)
+        else:  # last, any, undefined
+            # indices = self.to_int(indices, int64=True)
+            # st = tf.SparseTensor(indices, values, shape)  # ToDo this only supports 2D shapes
+            # st = tf.sparse.reorder(st)   # only needed if not ordered
+            # return tf.sparse.to_dense(st)
+            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
+            total = tf.tensor_scatter_add(buffer, indices, values)
+            return total / tf.maximum(1.0, count)
 
     def fft(self, x):
         rank = len(x.shape) - 2
@@ -400,6 +412,36 @@ def unit_direction(dim, spatial_rank):  # ordered like z,y,x
     for _i in range(spatial_rank):
         direction = tf.expand_dims(direction, axis=0)
     return direction
+
+
+def _resample_no_pack(grid, coords, boundary_func):
+    resolution = np.array([int(d) for d in grid.shape[1:-1]])
+    sp_rank = tensor_spatial_rank(grid)
+
+    floor = boundary_func(tf.floor(coords), resolution)
+    up_weights = coords - floor
+    lo_weights = TFBackend().unstack(1 - up_weights, axis=-1, keepdims=True)
+    up_weights = TFBackend().unstack(up_weights, axis=-1, keepdims=True)
+    base_coords = tf.cast(floor, tf.int32)
+
+    def interpolate_nd(coords, axis):
+        direction = np.array([1 if ax == axis else 0 for ax in range(sp_rank)])
+        print(direction.shape)
+        with tf.variable_scope('coord_plus_one'):
+            up_coords = coords + direction  # This is extremely slow for some reason - ToDo tile direction array to have same dimensions before calling interpolate_nd?
+        if axis == sp_rank - 1:
+            # up_coords = boundary_func(up_coords, resolution)
+            lo_values = tf.gather_nd(grid, coords, batch_dims=1)
+            up_values = tf.gather_nd(grid, up_coords, batch_dims=1)
+        else:
+            lo_values = interpolate_nd(coords, axis + 1)
+            up_values = interpolate_nd(up_coords, axis + 1)
+        with tf.variable_scope('weighted_sum_axis_%d' % axis):
+            return lo_values * lo_weights[axis] + up_values * up_weights[axis]
+
+    with tf.variable_scope('interpolate_nd'):
+        result = interpolate_nd(base_coords, 0)
+    return result
 
 
 def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):

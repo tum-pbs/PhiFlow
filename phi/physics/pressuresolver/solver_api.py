@@ -36,6 +36,14 @@ class PoissonSolver(object):
         """representation = name"""
         return self.name
 
+    def __and__(self, other):
+        if isinstance(self, _PoissonSolverChain):
+            return _PoissonSolverChain(self.solvers + (other,))
+        if isinstance(other, _PoissonSolverChain):
+            return _PoissonSolverChain((self,) + other.solvers)
+        else:
+            return _PoissonSolverChain([self, other])
+
 
 PressureSolver = PoissonSolver
 
@@ -129,7 +137,6 @@ Solves the Poisson equation Δp = input_field for p.
     :return: p as CenteredGrid, iteration count as int or None if not available
     :rtype: CenteredGrid, int
     """
-    from .sparse import SparseSciPy, SparseCG
     assert isinstance(input_field, CenteredGrid)
     if guess is not None:
         assert isinstance(guess, CenteredGrid)
@@ -138,10 +145,28 @@ Solves the Poisson equation Δp = input_field for p.
     if isinstance(poisson_domain, Domain):
         poisson_domain = PoissonDomain(poisson_domain)
     if solver is None:
+        from .sparse import SparseSciPy, SparseCG
         if math.choose_backend([input_field.data, poisson_domain.active.data, poisson_domain.accessible.data]).matches_name('SciPy'):
             solver = SparseSciPy()
         else:
-            solver = SparseCG()
+            from phi.physics.pressuresolver.fourier import Fourier
+            solver = Fourier() & SparseCG()
     pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=guess)
-    pressure = CenteredGrid(pressure, input_field.box, name='pressure')
+    pressure = CenteredGrid(pressure, input_field.box, extrapolation=input_field.extrapolation, name='pressure')
     return pressure, iteration
+
+
+class _PoissonSolverChain(PoissonSolver):
+
+    def __init__(self, solvers):
+        PoissonSolver.__init__(self, 'chain%s' % solvers, supported_devices=(), supports_guess=solvers[0].supports_guess, supports_loop_counter=solvers[-1].supports_loop_counter, supports_continuous_masks=False)
+        self.solvers = tuple(solvers)
+        for solver in solvers[1:]:
+            assert isinstance(solver, PoissonSolver)
+            assert solver.supports_guess
+
+    def solve(self, field, domain, guess):
+        iterations = None
+        for solver in self.solvers:
+            guess, iterations = solver.solve(field, domain, guess)
+        return guess, iterations

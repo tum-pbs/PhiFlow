@@ -1,11 +1,6 @@
-from phi.tf.flow import *
+from phi.flow import *
 
+domain = Domain([64, 64], boundaries=PERIODIC)
+world.add(BurgersVelocity(domain, velocity=lambda s: math.randfreq(s) * 2), physics=Burgers())
 
-class BurgersEquation(App):
-
-    def __init__(self, domain=Domain([2560, 256], boundaries=CLOSED)):
-        App.__init__(self, framerate=5)
-        world.add(BurgersVelocity(domain, velocity=lambda s: math.randfreq(s) * 2), physics=Burgers())
-
-
-show()
+show(App('Burgers Equation in %dD' % len(domain.resolution), framerate=5))

@@ -1,10 +1,8 @@
 import warnings
 
-import numpy as np
-import tensorflow as tf
-
+from . import tf
 from phi import struct, math
-from phi.data.fluidformat import _transform_for_writing, _writing_staticshape, read_zipped_array
+from phi.data.fluidformat import _transform_for_writing, _writing_staticshape, read_zipped_array, _slugify_filename
 from phi.math import is_static_shape
 from phi.physics.world import StateProxy
 from phi.struct.context import _unsafe
@@ -30,6 +28,7 @@ Create placeholders for tensors in the supplied state.
     writable_obj = _transform_for_writing(obj)
     shape = _writing_staticshape(obj)
     names = struct.names(writable_obj)
+    names = struct.map(_slugify_filename, names, content_type=struct.names)
     if input_type == 'placeholder':
         if frames is not None: raise NotImplementedError()
         with _unsafe():
@@ -96,13 +95,17 @@ All windows have the same number of elements.
 
 
 def concat_datasets(datasets):
-    concat_dataset = None
-    for scene_dataset in datasets:
-        if concat_dataset is None:
-            concat_dataset = scene_dataset
-        else:
-            concat_dataset = tf.data.Dataset.concatenate(concat_dataset, scene_dataset)
-    return concat_dataset
+    """ Creates a TensorFlow Dataset from the given ordered list of TensorFlow Datasets """
+    # n-1 concatenations will lead to overflow (RecursionError) if list is too long
+    # Instead, concatenate them hierarchically
+    assert len(datasets) > 0
+    if len(datasets) == 1:
+        return datasets[0]
+    else:
+        center = len(datasets) // 2
+        dataset_1 = concat_datasets(datasets[:center])
+        dataset_2 = concat_datasets(datasets[center:])
+        return tf.data.Dataset.concatenate(dataset_1, dataset_2)
 
 
 def _example_count(length, frames, inner_stride, outer_stride):
@@ -127,8 +130,8 @@ Extends phi.data.Datset by TensorFlow data pipeline functions.
         self.iterator_handle = None
 
     @staticmethod
-    def load(directory, indices=None, name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True):
-        base = BaseDataset.load(directory, indices=indices, name=name, max_scenes=max_scenes, assume_same_frames=assume_same_frames, assume_same_shapes=assume_same_shapes)
+    def load(directory, indices=None, name=None, max_scenes=None, assume_same_frames=True, assume_same_shapes=True, frames=None):
+        base = BaseDataset.load(directory, indices=indices, name=name, max_scenes=max_scenes, assume_same_frames=assume_same_frames, assume_same_shapes=assume_same_shapes, frames=frames)
         return Dataset(base.name, base.sources)
 
     def shuffle(self):
