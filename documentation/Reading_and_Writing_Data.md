@@ -1,11 +1,11 @@
 # Reading and writing simulation data
 
-This document describes how simulation data can be written and read using Φ<sub>*Flow*</sub>.
+This document describes how simulation data can be written and read using Φ<sub>Flow</sub>.
 The data format itself is described in the [data format specification](Scene_Format_Specification.md).
 
 ## Referencing a scene object
 
-The fluid I/O functionality of Φ<sub>*Flow*</sub> is located in [phi.data.fluidformat](../phi/data/fluidformat.py).
+The fluid I/O functionality of Φ<sub>Flow</sub> is located in [phi.data.fluidformat](../phi/data/fluidformat.py).
 
 There are two possibilities to reference existing scenes:
 
@@ -57,7 +57,7 @@ densities, velocities = scene.read_sim_frames(fieldnames=['density', 'velocity']
 fluid = scene.read(Fluid(...), frame=0)
 ```
 
-The last call makes use of Φ<sub>*Flow*</sub>'s [`struct` system](Structs.ipynb).
+The last call makes use of Φ<sub>Flow</sub>'s [`struct` system](Structs.ipynb).
 
 ## Writing to a scene
 
@@ -88,7 +88,7 @@ scene.copy_src(path)
 ## Reading from a set of scenes
 
 Machine learning applications usually iterate over a large number of scenes while training models.
-Φ<sub>*Flow*</sub> provides a data management system to simplify data handling.
+Φ<sub>Flow</sub> provides a data management system to simplify data handling.
 
 ```python
 from phi.flow import *

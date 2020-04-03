@@ -54,7 +54,7 @@ Next, a fluid simulation state for a 64x64 2D flow is initialized with placehold
 The following three lines create input fields for TensorFlow's graph. We allow the true_force tensor to be scaled by a user-defined value which can be set in the GUI.
 
 Now that the network inputs are set up, the network can be built. The use of `with self.model_scope()` ensures that the network parameters can be saved and loaded automatically from the GUI.
-The `l2_loss` is part of Φ<sub>*Flow*</sub>'s n-d math package, but a regular TensorFlow loss can also be used.
+The `l2_loss` is part of Φ<sub>Flow</sub>'s n-d math package, but a regular TensorFlow loss can also be used.
 The inherited method `add_objective()` sets up the optimizer (ADAM by default). This optimizer will be used in the default `step()` implementation.
 
 The following block sets up the data by registering the required fields (the placeholders), and by adding several sims from a data directory as training and validation data (see [the data documentation](Reading_and_Writing_Data.md) for more details).
