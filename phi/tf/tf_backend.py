@@ -276,8 +276,18 @@ class TFBackend(Backend):
             return values[indices]
         return tf.gather(values, indices)
 
-    def gather_nd(self, values, indices):
-        return tf.gather_nd(values, indices)
+    def gather_nd(self, values, indices, batch_dims=0):
+        if batch_dims == 0:
+            return tf.gather_nd(values, indices)
+        elif version.parse(tf.__version__) >= version.parse('1.14.0'):
+            return tf.gather_nd(values, indices, batch_dims=batch_dims)
+        else:
+            if batch_dims > 1: raise NotImplementedError('batch_dims > 1 only supported on TensorFlow >= 1.14')
+            batch_size = self.shape(values)[0]
+            batch_ids = tf.reshape(tf.range(batch_size), [batch_size] + [1] * (self.ndims(indices) - 1))
+            batch_ids = tf.tile(batch_ids, [1] + self.shape(indices)[1:-1] + [1])
+            indices = tf.concat([batch_ids, indices], -1)
+            return tf.gather_nd(values, indices)
 
     def unstack(self, tensor, axis=0, keepdims=False):
         unstacked = tf.unstack(tensor, axis=axis)

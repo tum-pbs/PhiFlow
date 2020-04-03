@@ -173,8 +173,8 @@ class DynamicBackend(Backend):
     def gather(self, values, indices):
         return self.choose_backend([values]).gather(values, indices)
 
-    def gather_nd(self, values, indices):
-        return self.choose_backend([values]).gather_nd(values, indices)
+    def gather_nd(self, values, indices, batch_dims=0):
+        return self.choose_backend([values]).gather_nd(values, indices, batch_dims=batch_dims)
 
     def unstack(self, tensor, axis=0, keepdims=False):
         return self.choose_backend(tensor).unstack(tensor, axis, keepdims=keepdims)
@@ -183,7 +183,7 @@ class DynamicBackend(Backend):
         return self.choose_backend(x).std(x, axis, keepdims=keepdims)
 
     def boolean_mask(self, x, mask):
-        return self.choose_backend((x, mask)).boolean_mask(x, mask)
+        return self.choose_backend([x, mask]).boolean_mask(x, mask)
 
     def isfinite(self, x):
         return self.choose_backend(x).isfinite(x)

@@ -159,7 +159,7 @@ class Backend:
     def staticshape(self, tensor):
         raise NotImplementedError(self)
 
-    def to_float(self, x):
+    def to_float(self, x, float64=False):
         raise NotImplementedError(self)
 
     def to_int(self, x, int64=False):
@@ -174,7 +174,7 @@ class Backend:
     def gather(self, values, indices):
         raise NotImplementedError(self)
 
-    def gather_nd(self, values, indices):
+    def gather_nd(self, values, indices, batch_dims=0):
         raise NotImplementedError(self)
 
     def flatten(self, x):

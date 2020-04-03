@@ -213,9 +213,12 @@ class TorchBackend(Backend):
     def staticshape(self, tensor):
         return tuple(tensor.shape)
 
-    def to_float(self, x):
+    def to_float(self, x, float64=False):
         x = self.as_tensor(x)
-        return x.float()
+        if float64:
+            return x.double()
+        else:
+            return x.float()
 
     def to_int(self, x, int64=False):
         x = self.as_tensor(x)
@@ -228,7 +231,7 @@ class TorchBackend(Backend):
     def gather(self, values, indices):
         raise NotImplementedError()
 
-    def gather_nd(self, values, indices):
+    def gather_nd(self, values, indices, batch_dims=0):
         raise NotImplementedError()
 
     def unstack(self, tensor, axis=0, keepdims=False):
