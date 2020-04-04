@@ -141,9 +141,7 @@ class CenteredGrid(Field):
         return self._sample_points
 
     def compatible(self, other_field):
-        if not other_field.has_points:
-            return True
-        if isinstance(other_field, CenteredGrid):
+        if isinstance(other_field, (Domain, CenteredGrid)):
             if self.box != other_field.box:
                 return False
             if self.rank != other_field.rank:
@@ -152,6 +150,8 @@ class CenteredGrid(Field):
                 if r1 != r2 and r2 != 1 and r1 != 1:
                     return False
             return True
+        if not other_field.has_points:
+            return other_field.compatible(self)
         else:
             return False
 
