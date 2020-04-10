@@ -31,9 +31,10 @@ class App(base_app.App):
         if self.prepared:
             return
         base_app.App.prepare(self)
-        self.info('Initializing variables')
         if self.auto_bake:
+            self.info("Baking static TensorFlow graph (disable by setting 'app.auto_bake = False'")
             tf_bake_graph(self.world, self.session)
+        self.info('Initializing variables')
         self.session.initialize_variables()
         return self
 
