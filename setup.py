@@ -68,7 +68,7 @@ class CudaCommand(distutils.cmd.Command):
         # This is only needed for the Laplace Matrix Generation Benchmark
         subprocess.check_call(
             [
-                self.gcc,
+                self.gcc_4_8,
                 '-std=c++11',
                 '-shared',
                 '-o',
@@ -102,7 +102,7 @@ class CudaCommand(distutils.cmd.Command):
         # Build the Pressure Solver Custom Op
         subprocess.check_call(
             [
-                self.gcc,
+                self.gcc_4_8,
                 '-std=c++11',
                 '-shared',
                 '-o',
