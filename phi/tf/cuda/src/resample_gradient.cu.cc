@@ -471,7 +471,6 @@ void ResampleGradientTextureMemory (
 	T* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ){
-	std::cout << "Gradient texture memory" << std::endl;
 	unsigned int xSize = dimSizes[dims - 1];
 		unsigned int ySize = dims >= 2 ? dimSizes[dims - 2] : 0;
 		unsigned int zSize = dims == 3 ? dimSizes[0] : 0;
@@ -507,7 +506,6 @@ void ResampleGradientTextureMemory (
 
 			// Run Kernel
 			runResampleGradientTextureMemoryKernel(dims, batch, dataBatchSize, xSize, ySize, zSize, components, pointsSize, elementsPerKernelCall, outputSize, outputGradientSize, outputGradient, dataTexture, points, dataGradient, pointsGradient, boundaries);
-			//std::cout << "Device synchronize." << std::endl;
 			HANDLE_ERROR(cudaDeviceSynchronize());
 		}
 		// Destroy texture object and free memory
@@ -534,7 +532,6 @@ void LaunchResampleGradientKernel(
 	float* __restrict__ pointsGradient,
 	const Boundary* __restrict__ boundaries
 ) {
-	std::cout << "Gradient GPU" << std::endl;
 
 	unsigned int dataSize = dataBatchSize * components;
 	for (int dim = 0; dim < dims; dim++){

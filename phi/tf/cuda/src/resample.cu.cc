@@ -279,7 +279,6 @@ void ResampleTextureMemory (
 	T* __restrict__ output,
 	const Boundary* __restrict__ boundaries
 ) {
-	std::cout << "Texture Memory used" << std::endl;
 	unsigned int xSize = dimSizes[dims - 1];
 	unsigned int ySize = dims >= 2 ? dimSizes[dims - 2] : 0;
 	unsigned int zSize = dims == 3 ? dimSizes[0] : 0;
@@ -338,7 +337,6 @@ void LaunchResampleKernel(
 	float* __restrict__ output,
 	const Boundary* __restrict__ boundaries
 ) {
-	std::cout << "GPU" << std::endl;
 
 	// Run kernel with texture memory
 	if (dims <= 3 && components <= 4){
