@@ -9,7 +9,7 @@ from .mask import GeometryMask, mask, union_mask
 from .noise import Noise
 from . import advect
 from . import manta
-from .util import diffuse, data_bounds
+from .util import diffuse, data_bounds, staggered_curl_2d
 
 
 from phi import math

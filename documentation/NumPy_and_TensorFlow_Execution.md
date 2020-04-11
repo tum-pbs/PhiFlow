@@ -1,11 +1,11 @@
 # NumPy / TensorFlow Execution
 
-Φ<sub>*Flow*</sub> supports two backends for executing the simulation code:
+Φ<sub>Flow</sub> supports two backends for executing the simulation code:
 
 - NumPy executes operations when the corresponding method is called. The operations return nd-arrays which reference data in memory.
 - TensorFlow has an equivalent set of operations. Unless eager execution is enabled, these do not compute the result right away. Instead, they create a node (TF `Tensor`) in the computational graph. The actual execution happens when `Session.run()` is invoked.
 
-Φ<sub>*Flow*</sub> provides an abstraction layer in [its math package](../phi/math) which dynamically decides which backend to use depending on the inputs.
+Φ<sub>Flow</sub> provides an abstraction layer in [its math package](../phi/math) which dynamically decides which backend to use depending on the inputs.
 All available methods are listed [here](../phi/math/base.py) and support any [structs](Structs.ipynb) as input..
 
 If any input to a math method is a `Tensor`, the TensorFlow version of the method will be called which returns a `Tensor`. Only if all inputs are arrays or numbers will the output be a NumPy array.

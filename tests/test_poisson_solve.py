@@ -6,7 +6,7 @@ from phi import math
 from phi.flow import CLOSED, PERIODIC, OPEN, Domain, poisson_solve, Noise
 from phi.physics.pressuresolver.geom import GeometricCG
 from phi.physics.pressuresolver.sparse import SparseCG, SparseSciPy
-from phi.physics.pressuresolver.fourier import Fourier
+from phi.physics.pressuresolver.fourier import FourierSolver
 from phi.physics.field import CenteredGrid
 from phi.geom.geometry import AABox
 

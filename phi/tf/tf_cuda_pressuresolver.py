@@ -11,7 +11,8 @@ from phi.physics.pressuresolver.solver_api import PoissonSolver
 # --- Load Custom Ops ---
 current_dir = os.path.dirname(os.path.realpath(__file__))
 kernel_path = os.path.join(current_dir, 'cuda/build/pressure_solve_op.so')
-assert os.path.isfile(kernel_path), 'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to compile them' % kernel_path
+if not os.path.isfile(kernel_path):
+    raise ImportError('CUDA binaries not found at %s. Run "python setup.py tf_cuda" to compile them' % kernel_path)
 pressure_op = tf.load_op_library(kernel_path)
 
 

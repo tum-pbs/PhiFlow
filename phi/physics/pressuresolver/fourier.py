@@ -2,7 +2,7 @@ from phi import math
 from .solver_api import PoissonSolver
 
 
-class Fourier(PoissonSolver):
+class FourierSolver(PoissonSolver):
 
     def __init__(self):
         """

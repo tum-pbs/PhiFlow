@@ -1,6 +1,6 @@
 # Simulation architecture
 
-This document discusses the code design of simulations and solvers within Φ<sub>*Flow*</sub>.
+This document discusses the code design of simulations and solvers within Φ<sub>Flow</sub>.
 If you are interested in how specific simulations work, check out their respective documentations, e.g.
 [Fluid](Fluid_Simulation.md).
 

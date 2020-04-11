@@ -1,4 +1,4 @@
-# Φ<sub>*Flow*</sub> Installation
+# Φ<sub>Flow</sub> Installation
 
 ## Dependencies
 
@@ -18,13 +18,13 @@ $ pip install tensorflow_gpu==1.14.0
 ```
 
 The browser-based GUI depends on [Plotly / Dash](https://dash.plot.ly/installation).
-These packages can be installed together with Φ<sub>*Flow*</sub> (see next section).
+These packages can be installed together with Φ<sub>Flow</sub> (see next section).
 
-## Installing a pre-built Φ<sub>*Flow*</sub> version
+## Installing a pre-built Φ<sub>Flow</sub> version
 
-*Note*: If you want to use the Φ<sub>*Flow*</sub> CUDA operations with TensorFlow, you have to build Φ<sub>*Flow*</sub> from sources instead.
+*Note*: If you want to use the Φ<sub>Flow</sub> CUDA operations with TensorFlow, you have to build Φ<sub>Flow</sub> from sources instead.
 
-The following code  installs Φ<sub>*Flow*</sub> with GUI dependencies using pip.
+The following code  installs Φ<sub>Flow</sub> with GUI dependencies using pip.
 
 ```bash
 $ pip install phiflow[gui]
@@ -32,7 +32,7 @@ $ pip install phiflow[gui]
 
 If you do not require the web interface, leave out the optional dependency `[gui]`.
 
-## Installing Φ<sub>*Flow*</sub> from sources
+## Installing Φ<sub>Flow</sub> from sources
 
 Clone the git repository by running
 
@@ -42,30 +42,30 @@ $ git clone https://github.com/tum-pbs/PhiFlow.git
 
 See the section *Optional features* below on how to configure the installation to add CUDA operators.
 
-Φ<sub>*Flow*</sub> is built as a Python package.
-If you run a program that uses Φ<sub>*Flow*</sub> from the command line, it is recommended to install Φ<sub>*Flow*</sub> using pip.
-For installing Φ<sub>*Flow*</sub> with GUI dependencies, run:
+Φ<sub>Flow</sub> is built as a Python package.
+If you run a program that uses Φ<sub>Flow</sub> from the command line, it is recommended to install Φ<sub>Flow</sub> using pip.
+For installing Φ<sub>Flow</sub> with GUI dependencies, run:
 
 ```bash
 $ pip install phiflow/[gui]
 ```
 
-To update the Φ<sub>*Flow*</sub> installation (because the sources changed), simply run
+To update the Φ<sub>Flow</sub> installation (because the sources changed), simply run
 `$ pip install phiflow/` (or `$ pip install .` inside the phiflow directory).
 
-Installing Φ<sub>*Flow*</sub> as a package is not required if your Python PATH points to it (as is the case when executing code from within most IDEs).
+Installing Φ<sub>Flow</sub> as a package is not required if your Python PATH points to it (as is the case when executing code from within most IDEs).
 
 ## Verifying the installation
 
 ### Testing with GUI
 
-To verify your Φ<sub>*Flow*</sub> installation (including TensorFlow), run `fluid_logo.py` using the following command:
+To verify your Φ<sub>Flow</sub> installation (including TensorFlow), run `fluid_logo.py` using the following command:
 
 ```bash
 $ python phiflow/demos/fluid_logo.py 64 tf
 ```
 
-To test Φ<sub>*Flow*</sub> without TensorFlow, leave out the `tf` at the end.
+To test Φ<sub>Flow</sub> without TensorFlow, leave out the `tf` at the end.
 
 The application should output a URL which you can open in your browser to use the GUI.
 At the top of the page, the app displays if it is using TensorFlow or NumPy.
@@ -91,7 +91,7 @@ If everything works correctly, all test should pass.
 There are some custom TensorFlow operations, written in CUDA.
 To use these, you must have a TensorFlow compatible CUDA SDK installed.
 
-To install Φ<sub>*Flow*</sub> with CUDA operators, run:
+To install Φ<sub>Flow</sub> with CUDA operators, run:
 
 ```bash
 $ cd phiflow/

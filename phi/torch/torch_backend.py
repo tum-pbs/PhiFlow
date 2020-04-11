@@ -119,7 +119,9 @@ class TorchBackend(Backend):
         return result
 
     def range(self, start, limit=None, delta=1, dtype=None):
-        raise NotImplementedError()
+        if limit is None:
+            start, limit = 0, start
+        return torch.range(start, limit, delta, dtype=dtype)
 
     def zeros_like(self, tensor):
         return torch.zeros_like(tensor)
@@ -128,7 +130,7 @@ class TorchBackend(Backend):
         return torch.ones_like(tensor)
 
     def dot(self, a, b, axes):
-        raise NotImplementedError()
+        return torch.tensordot(a, b, axes)
 
     def matmul(self, A, b):
         if isinstance(A, torch.sparse.FloatTensor):
@@ -213,9 +215,12 @@ class TorchBackend(Backend):
     def staticshape(self, tensor):
         return tuple(tensor.shape)
 
-    def to_float(self, x):
+    def to_float(self, x, float64=False):
         x = self.as_tensor(x)
-        return x.float()
+        if float64:
+            return x.double()
+        else:
+            return x.float()
 
     def to_int(self, x, int64=False):
         x = self.as_tensor(x)
@@ -226,9 +231,10 @@ class TorchBackend(Backend):
         return ComplexTensor(self.stack([x, torch.zeros_like(x)], -1))
 
     def gather(self, values, indices):
+        # return torch.gather(values, dim=0, index=indices)
         raise NotImplementedError()
 
-    def gather_nd(self, values, indices):
+    def gather_nd(self, values, indices, batch_dims=0):
         raise NotImplementedError()
 
     def unstack(self, tensor, axis=0, keepdims=False):
@@ -238,22 +244,22 @@ class TorchBackend(Backend):
         return unstacked
 
     def std(self, x, axis=None, keepdims=False):
-        raise NotImplementedError()
+        torch.std(x, dim=axis, keepdim=keepdims)
 
     def boolean_mask(self, x, mask):
-        raise NotImplementedError()
+        return torch.masked_select(x, mask)
 
     def isfinite(self, x):
-        raise NotImplementedError()
+        return torch.isfinite(x)
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         raise NotImplementedError()
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
-        raise NotImplementedError()
+        return torch.any(boolean_tensor, dim=axis, keepdim=keepdims)
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
-        raise NotImplementedError()
+        return torch.all(boolean_tensor, dim=axis, keepdim=keepdims)
 
     def fft(self, x):
         if not isinstance(x, ComplexTensor):
@@ -316,7 +322,7 @@ class TorchBackend(Backend):
         return array.dtype
 
     def tile(self, value, multiples):
-        raise NotImplementedError()
+        return self.as_tensor(value).repeat(multiples)
 
     def sparse_tensor(self, indices, values, shape):
         indices_ = torch.transpose(torch.LongTensor(indices), 0, 1)

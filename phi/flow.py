@@ -15,7 +15,7 @@ from .physics.field.effect import *
 from .physics.pressuresolver.solver_api import PoissonDomain, PoissonSolver
 from .physics.pressuresolver.sparse import SparseCG, SparseSciPy
 from .physics.pressuresolver.geom import GeometricCG
-from .physics.pressuresolver.fourier import Fourier
+from .physics.pressuresolver.fourier import FourierSolver
 
 from .data.fluidformat import *
 from .data.dataset import *

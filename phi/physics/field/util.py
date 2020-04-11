@@ -57,6 +57,16 @@ def data_bounds(field):
     return AABox(min_vec, max_vec)
 
 
+def staggered_curl_2d(grid):
+    assert isinstance(grid, CenteredGrid)
+    kernel = np.zeros((3, 3, 1, 2), np.float32)
+    kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
+    kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
+    scalar_potential = grid.padded(1).data
+    vector_field = math.conv(scalar_potential, kernel, padding='valid')
+    return StaggeredGrid(vector_field, box=grid.box)
+
+
 def extrapolate(input_field, valid_mask, voxel_distance=10):
     """
     Create a signed distance field for the grid, where negative signs are fluid cells and positive signs are empty cells. The fluid surface is located at the points where the interpolated value is zero. Then extrapolate the input field into the air cells.

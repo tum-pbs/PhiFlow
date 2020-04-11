@@ -1,6 +1,6 @@
 # Fluid simulation
 
-The default fluid simulation in Φ<sub>*Flow*</sub> describes a single-phase flow such as air or a filled tank of water.
+The default fluid simulation in Φ<sub>Flow</sub> describes a single-phase flow such as air or a filled tank of water.
 It tracks the fluid's velocity field as well as a marker density which can optionally be used to produce a buoyancy force.
 The physical behaviour can be computed using the following steps
 
@@ -8,7 +8,7 @@ The physical behaviour can be computed using the following steps
 - The marker may create a buoyancy force, proportional to its density.
 - The velocity field is made divergence-free to enforce incompressibility.
 
-In Φ<sub>*Flow*</sub>, a fluid simulation can be initiated by creating a `Fluid` state.
+In Φ<sub>Flow</sub>, a fluid simulation can be initiated by creating a `Fluid` state.
 
 ```python
 from phi.flow import *

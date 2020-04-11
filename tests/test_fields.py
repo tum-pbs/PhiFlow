@@ -3,8 +3,9 @@ from unittest import TestCase
 import numpy as np
 
 from phi import struct, math
+from phi.physics.domain import Domain
 from phi.geom import box, AABox
-from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, data_bounds, ConstantField
+from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, data_bounds, ConstantField, Noise, staggered_curl_2d
 from phi.physics.field.flag import SAMPLE_POINTS
 from phi.physics.field.staggered_grid import stack_staggered_components
 from phi.physics.fluid import Fluid
@@ -109,3 +110,10 @@ class TestFields(TestCase):
         at_sgrid = field.at(Fluid([4, 4]).velocity)
         np.testing.assert_equal(at_sgrid.unstack()[0].data.shape, [1, 5, 4, 1])
         np.testing.assert_equal(at_sgrid.unstack()[1].data.shape, [1, 4, 5, 1])
+
+    def test_staggered_curl2d(self):
+        domain = Domain([32, 32])
+        pot = CenteredGrid.sample(Noise(), domain)
+        vel = staggered_curl_2d(pot)
+        div = vel.divergence()
+        np.testing.assert_almost_equal(div.data, 0, decimal=5)

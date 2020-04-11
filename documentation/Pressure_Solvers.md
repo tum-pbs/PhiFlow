@@ -1,7 +1,7 @@
 # Pressure Solvers
 
 A vital step of Eulerian fluid simulations is the pressure solve.
-Φ<sub>*Flow*</sub> provides two low-level functions to compute the pressure: `solve_pressure` and `divergence_free`.
+Φ<sub>Flow</sub> provides two low-level functions to compute the pressure: `solve_pressure` and `divergence_free`.
 `solve_pressure` computes and returns the pressure from a velocity or divergence field while
 `divergence_free` also updates the velocity field and returns a divergence-free field.
 Which algorithm is used to compute the pressure can be specified using the `pressure_solver` argument which
@@ -19,7 +19,7 @@ INCOMPRESSIBLE_FLOW.pressure_solver = SparseCG(accuracy=1e-4, max_iterations=200
 world.add(Fluid([32, 32]), physics=IncompressibleFlow(pressure_solver=...))
 ```
 
-Here is an overview of the pressure solvers implemented in Φ<sub>*Flow*</sub>:
+Here is an overview of the pressure solvers implemented in Φ<sub>Flow</sub>:
 
 | Solver        | Package                                             | Device       | Dependencies    | Status                                             |
 | --------------|-----------------------------------------------------|--------------|-----------------|----------------------------------------------------|
@@ -33,7 +33,7 @@ All solvers provide a gradient function for TensorFlow, needed to back-propagate
 
 *Which solver should I use?*
 
-Φ<sub>*Flow*</sub> auto-selects an appropriate solver if you don't specify one manually.
+Φ<sub>Flow</sub> auto-selects an appropriate solver if you don't specify one manually.
 If you have no special requirements, that selection should be fine.
 Nevertheless, here are some recommendations:
 

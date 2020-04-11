@@ -149,8 +149,8 @@ Solves the Poisson equation Δp = input_field for p.
         if math.choose_backend([input_field.data, poisson_domain.active.data, poisson_domain.accessible.data]).matches_name('SciPy'):
             solver = SparseSciPy()
         else:
-            from phi.physics.pressuresolver.fourier import Fourier
-            solver = Fourier() & SparseCG()
+            from phi.physics.pressuresolver.fourier import FourierSolver
+            solver = FourierSolver() & SparseCG()
     pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=guess)
     pressure = CenteredGrid(pressure, input_field.box, extrapolation=input_field.extrapolation, name='pressure')
     return pressure, iteration
