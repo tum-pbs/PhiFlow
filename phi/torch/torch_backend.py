@@ -161,15 +161,15 @@ class TorchBackend(Backend):
     def floor(self, x):
         return torch.floor(x)
 
-    def max(self, x, axis=None):
+    def max(self, x, axis=None, keepdims=False):
         if axis is None:
-            return torch.max(x)
-        return torch.max(x, dim=axis)
+            return torch.max(x, keepdim=keepdims)
+        return torch.max(x, dim=axis, keepdim=keepdims)
 
-    def min(self, x, axis=None):
+    def min(self, x, axis=None, keepdims=False):
         if axis is None:
-            return torch.min(x)
-        return torch.min(x, dim=axis)
+            return torch.min(x, keepdim=keepdims)
+        return torch.min(x, dim=axis, keepdim=keepdims)
 
     def maximum(self, a, b):
         b = self.as_tensor(b)

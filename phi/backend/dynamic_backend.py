@@ -128,11 +128,11 @@ class DynamicBackend(Backend):
     def floor(self, x):
         return self.choose_backend(x).floor(x)
 
-    def max(self, x, axis=None):
-        return self.choose_backend(x).max(x, axis)
+    def max(self, x, axis=None, keepdims=False):
+        return self.choose_backend(x).max(x, axis=axis, keepdims=keepdims)
 
-    def min(self, x, axis=None):
-        return self.choose_backend(x).min(x, axis)
+    def min(self, x, axis=None, keepdims=False):
+        return self.choose_backend(x).min(x, axis=axis, keepdims=keepdims)
 
     def maximum(self, a, b):
         return self.choose_backend([a,b]).maximum(a, b)

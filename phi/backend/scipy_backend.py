@@ -204,11 +204,11 @@ class SciPyBackend(Backend):
     def floor(self, x):
         return np.floor(x)
 
-    def max(self, x, axis=None):
-        return np.max(x, axis)
+    def max(self, x, axis=None, keepdims=False):
+        return np.max(x, axis, keepdims=keepdims)
 
-    def min(self, x, axis=None):
-        return np.min(x, axis)
+    def min(self, x, axis=None, keepdims=False):
+        return np.min(x, axis, keepdims=keepdims)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
         return function(*inputs)

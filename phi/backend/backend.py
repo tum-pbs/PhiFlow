@@ -126,10 +126,10 @@ class Backend:
     def floor(self, x):
         raise NotImplementedError(self)
 
-    def max(self, x, axis=None):
+    def max(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def min(self, x, axis=None):
+    def min(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
     def maximum(self, a, b):
