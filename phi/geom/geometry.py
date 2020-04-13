@@ -10,14 +10,54 @@ class Geometry(struct.Struct):
     def value_at(self, location):
         """
 Samples the geometry at the given locations and returns a binary mask, labelling the points as inside=1, outside=0.
-        :param location: tensor of the shape (batch_size, ..., rank)
-        :return: float tensor of same shape as location but with shape[-1]=1
+        :param location: tensor of shape (batch_size, ..., rank)
+        :return: float tensor of shape (*location.shape[:-1], 1).
+        """
+        return math.to_float(self.lies_inside(location))
+
+    def lies_inside(self, location):
+        """
+Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.
+        :param location: float tensor of shape (batch_size, ..., rank)
+        :return: bool tensor of shape (*location.shape[:-1], 1).
         """
         raise NotImplementedError(self.__class__)
 
+    def approximate_signed_distance(self, location):
+        """
+Computes the approximate distance from location to the surface of the geometry.
+Locations outside return positive values, inside negative values and zero exactly at the boundary.
+
+The exact distance metric used depends on the geometry.
+The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
+The distance metric is differentiable and its gradients are bounded at every point in space.
+        :param location: float tensor of shape (batch_size, ..., rank)
+        :return: float tensor of shape (*location.shape[:-1], 1).
+        """
+        raise NotImplementedError(self.__class__)
+
+    def approximate_fraction_inside(self, location, cell_size):
+        """
+Computes the approximate overlap between the geometry and small cells.
+Cells that lie completely inside the geometry return 1.0, those that lie completely outside return 0.0.
+Close to the geometry surface, the fraction filled is differentiable w.r.t. the cell location and size.
+
+No specific cell shape is assumed. Cells may be approximated as spheres or axis-aligned cubes.
+
+Cell sizes should rather be overestimated than underestimated to avoid zero gradients.
+        :param location: float tensor of shape (batch_size, ..., rank)
+        :param cell_size: length or diameter of each cell
+        :return: fraction of cell volume lying inside the geometry. float tensor of shape (*location.shape[:-1], 1).
+        """
+        radius = 0.707 * cell_size
+        distance = self.approximate_signed_distance(location)
+        inside_fraction = 0.5 - distance / radius
+        inside_fraction = math.maximum(0, math.minimum(inside_fraction, 1))
+        return inside_fraction
+
     @property
     def rank(self):
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
 
 @struct.definition(traits=[math.BATCHED])
@@ -70,11 +110,24 @@ class AABox(Geometry):
         size, lower = math.batch_align([self.size, self.lower], 1, local_position)
         return local_position * size + lower
 
-    def value_at(self, global_position):
-        lower, upper = math.batch_align([self.lower, self.upper], 1, global_position)
-        bool_inside = (global_position >= lower) & (global_position <= upper)
-        bool_inside = math.all(bool_inside, axis=-1, keepdims=True)
-        return math.to_float(bool_inside)
+    def lies_inside(self, location):
+        lower, upper = math.batch_align([self.lower, self.upper], 1, location)
+        bool_inside = (location >= lower) & (location <= upper)
+        return math.all(bool_inside, axis=-1, keepdims=True)
+
+    def approximate_signed_distance(self, location):
+        """
+Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
+For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
+For inside locations it is `-max(abs(l - s))`.
+        :param location: float tensor of shape (batch_size, ..., rank)
+        :return: float tensor of shape (*location.shape[:-1], 1).
+        """
+        lower, upper = math.batch_align([self.lower, self.upper], 1, location)
+        center = 0.5 * (lower + upper)
+        extent = upper - lower
+        distance = math.abs(location - center) - extent * 0.5
+        return math.max(distance, axis=-1, keepdims=True)
 
     def contains(self, other):
         if isinstance(other, AABox):
@@ -148,16 +201,29 @@ class Sphere(Geometry):
     def center(self, center):
         return center
 
-    def value_at(self, location):
-        center = math.batch_align(self.center, 1, location)
-        radius = math.batch_align(self.radius, 0, location)
-        distance_squared = math.sum((location - center)**2, axis=-1, keepdims=True)
-        bool_inside = distance_squared <= radius**2
-        return math.to_float(bool_inside)
-
     @property
     def rank(self):
         return len(self.center)
+
+    def lies_inside(self, location):
+        center = math.batch_align(self.center, 1, location)
+        radius = math.batch_align(self.radius, 0, location)
+        distance_squared = math.sum((location - center) ** 2, axis=-1, keepdims=True)
+        return distance_squared <= radius ** 2
+
+    def approximate_signed_distance(self, location):
+        """
+Computes the exact distance from location to the closest point on the sphere.
+Very close to the sphere center, the distance takes a constant value.
+        :param location: float tensor of shape (batch_size, ..., rank)
+        :return: float tensor of shape (*location.shape[:-1], 1).
+        """
+        center = math.batch_align(self.center, 1, location)
+        radius = math.batch_align(self.radius, 0, location)
+        distance_squared = math.sum((location - center)**2, axis=-1, keepdims=True)
+        distance_squared = math.maximum(distance_squared, radius * 1e-2)  # Prevent infinite gradient at sphere center
+        distance = math.sqrt(distance_squared)
+        return distance - radius
 
 
 @struct.definition()
@@ -166,20 +232,6 @@ class _Union(Geometry):
     def __init__(self, geometries, **kwargs):
         Geometry.__init__(self, **struct.kwargs(locals()))
 
-    def value_at(self, points):
-        if len(self.geometries) == 1:
-            result = self.geometries[0].value_at(points)
-        else:
-            result = math.max([geometry.value_at(points) for geometry in self.geometries], axis=0)
-        return result
-
-    @property
-    def rank(self):
-        if len(self.geometries) == 0:
-            return None
-        else:
-            return self.geometries[0].rank
-
     @struct.constant()
     def geometries(self, geometries):
         assert len(geometries) > 0
@@ -187,6 +239,19 @@ class _Union(Geometry):
         for g in geometries[1:]:
             assert g.rank == rank or g.rank is None or rank is None
         return tuple(geometries)
+
+    @property
+    def rank(self):
+        return self.geometries[0].rank
+
+    def lies_inside(self, location):
+        return math.any([geometry.lies_inside(location) for geometry in self.geometries], axis=0)
+
+    def value_at(self, location):
+        return math.max([geometry.value_at(location) for geometry in self.geometries], axis=0)
+
+    def approximate_signed_distance(self, location):
+        return math.min([geometry.approximate_signed_distance(location) for geometry in self.geometries], axis=0)
 
 
 def union(geometries):
