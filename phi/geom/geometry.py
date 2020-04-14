@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 
 from phi import struct
@@ -13,6 +15,7 @@ Samples the geometry at the given locations and returns a binary mask, labelling
         :param location: tensor of shape (batch_size, ..., rank)
         :return: float tensor of shape (*location.shape[:-1], 1).
         """
+        warnings.warn("Geometry.value_at() is deprecated. Use lies_inside or approximate_fraction_inside instead.", DeprecationWarning)
         return math.to_float(self.lies_inside(location))
 
     def lies_inside(self, location):
@@ -46,18 +49,23 @@ No specific cell shape is assumed. Cells may be approximated as spheres or axis-
 
 Cell sizes should rather be overestimated than underestimated to avoid zero gradients.
         :param location: float tensor of shape (batch_size, ..., rank)
-        :param cell_size: length or diameter of each cell
+        :param cell_size: length or diameter of each cell. Scalar or tensor of shape compatible with location.
         :return: fraction of cell volume lying inside the geometry. float tensor of shape (*location.shape[:-1], 1).
         """
         radius = 0.707 * cell_size
         distance = self.approximate_signed_distance(location)
         inside_fraction = 0.5 - distance / radius
-        inside_fraction = math.maximum(0, math.minimum(inside_fraction, 1))
+        inside_fraction = math.clip(inside_fraction, 0, 1)
         return inside_fraction
 
     @property
     def rank(self):
         raise NotImplementedError(self.__class__)
+
+    def __add__(self, other):
+        if isinstance(other, _Union):
+            return other.__add__(self)
+        return union(self, other)
 
 
 @struct.definition(traits=[math.BATCHED])
@@ -247,14 +255,17 @@ class _Union(Geometry):
     def lies_inside(self, location):
         return math.any([geometry.lies_inside(location) for geometry in self.geometries], axis=0)
 
-    def value_at(self, location):
-        return math.max([geometry.value_at(location) for geometry in self.geometries], axis=0)
-
     def approximate_signed_distance(self, location):
         return math.min([geometry.approximate_signed_distance(location) for geometry in self.geometries], axis=0)
 
+    def __add__(self, other):
+        other_geometries = other.geometries if not isinstance(other, _Union) else (other,)
+        return _Union(self.geometries + other_geometries)
 
-def union(geometries):
+
+def union(*geometries):
+    if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)):
+        geometries = geometries[0]
     if len(geometries) == 0:
         return NO_GEOMETRY
     else:
@@ -267,8 +278,14 @@ class _NoGeometry(Geometry):
     def rank(self):
         return None
 
-    def value_at(self, location):
-        return 0
+    def approximate_signed_distance(self, location):
+        return math.tile(np.inf, list(math.shape(location)[:-1]) + [1])
+
+    def lies_inside(self, location):
+        return math.tile(False, list(math.shape(location)[:-1]) + [1])
+
+    def approximate_fraction_inside(self, location, cell_size):
+        return math.tile(math.to_float(0), list(math.shape(location)[:-1]) + [1])
 
 
 NO_GEOMETRY = _NoGeometry()
