@@ -8,7 +8,7 @@ from .field import Field
 @struct.definition()
 class AnalyticField(Field):
 
-    def __init__(self, rank, data=1.0, name=None, **kwargs):
+    def __init__(self, rank, data=None, name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals(), ignore='rank'))
         self._rank = rank
 
@@ -42,6 +42,10 @@ class AnalyticField(Field):
 
     def __dataop__(self, other, linear_if_scalar, data_operator):
         return _SymbolicOpField(data_operator, [self, other])
+
+    @struct.constant(default=None)
+    def data(self, data):
+        return data
 
 
 class SymbolicFieldBackend(Backend):

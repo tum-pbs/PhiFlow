@@ -70,10 +70,10 @@ class StaggeredGrid(Field):
             components = unstack_staggered_tensor(data)
         else:
             components = data
-        data = []
+        result = []
         for cmp_idx, grid in enumerate(components):
-            data.append(self._component_grid(grid, cmp_idx))
-        return tuple(data)
+            result.append(self._component_grid(grid, cmp_idx))
+        return tuple(result)
 
     def _component_grid(self, grid, axis):
         resolution = list(grid.resolution if isinstance(grid, CenteredGrid) else math.staticshape(grid)[1:-1])

@@ -84,7 +84,7 @@ SCHROEDINGER = Schroedinger()
 
 
 def StepPotential(geometry, height):
-    return FieldEffect(GeometryMask([geometry], height, 'potential'), ['potential'], mode=ADD)
+    return FieldEffect(GeometryMask(geometry, name='potential') * height, ['potential'], mode=ADD)
 
 
 @struct.definition()

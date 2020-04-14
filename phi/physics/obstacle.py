@@ -43,5 +43,4 @@ class GeometryMovement(Physics):
         if isinstance(obj, FieldEffect):
             field = obj.field
             assert isinstance(field, GeometryMask)
-            assert len(field.geometries) == 1
-            return obj.copied_with(field=obj.field.copied_with(geometries=(next_geometry,)), age=obj.age + dt)
+            return obj.copied_with(field=obj.field.copied_with(geometries=next_geometry), age=obj.age + dt)

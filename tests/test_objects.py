@@ -38,5 +38,5 @@ class TestObjects(TestCase):
         self.assertAlmostEqual(obstacle.age, 1.0)
         self.assertAlmostEqual(obstacle.geometry.center[0], 1.0)
         self.assertAlmostEqual(inflow.age, 1.0)
-        self.assertAlmostEqual(inflow.field.geometries[0].center[0], 1.0)
+        self.assertAlmostEqual(inflow.field.geometry.center[0], 1.0)
         self.assertAlmostEqual(static_obstacle.age, 1.0)
