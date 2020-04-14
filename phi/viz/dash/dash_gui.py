@@ -155,10 +155,10 @@ class DashGui(AppDisplay):
         return self.dash_app.dash
 
     def show(self, caller_is_main):
-        if caller_is_main or self.config.get('force_launch', False):
+        if not caller_is_main and self.config.get('external_web_server', False):
+            return self.dash_app.server
+        else:
             port = self.config.get('port', 8051)
             print('Starting Dash server on http://localhost:%d/' % port)
             self.dash_app.dash.run_server(debug=True, host='0.0.0.0', port=port, use_reloader=False)
             return self
-        else:
-            return self.dash_app.server
