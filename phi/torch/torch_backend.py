@@ -178,6 +178,9 @@ class TorchBackend(Backend):
     def minimum(self, a, b):
         return torch.min(a, other=b)
 
+    def clip(self, x, minimum, maximum):
+        return torch.clamp(x, minimum, maximum)
+
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         return function(*inputs)  # ToDo
 

@@ -55,6 +55,8 @@ class TFBackend(Backend):
         return tf.range(start, limit, delta, dtype)
 
     def tile(self, value, multiples):
+        if self.ndims(value) < len(multiples):
+            value = self.expand_dims(value, axis=0, number=len(multiples) - self.ndims(value))
         return tf.tile(value, multiples)
 
     def stack(self, values, axis=0):
@@ -235,6 +237,9 @@ class TFBackend(Backend):
 
     def minimum(self, a, b):
         return tf.minimum(a, b)
+
+    def clip(self, x, minimum, maximum):
+        return tf.clip_by_value(x, minimum, maximum)
 
     def sqrt(self, x):
         return tf.sqrt(x)

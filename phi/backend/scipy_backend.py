@@ -219,6 +219,9 @@ class SciPyBackend(Backend):
     def minimum(self, a, b):
         return np.minimum(a, b)
 
+    def clip(self, x, minimum, maximum):
+        return np.clip(x, minimum, maximum)
+
     def sqrt(self, x):
         return np.sqrt(x)
 

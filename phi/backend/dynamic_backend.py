@@ -140,6 +140,9 @@ class DynamicBackend(Backend):
     def minimum(self, a, b):
         return self.choose_backend([a,b]).minimum(a, b)
 
+    def clip(self, x, minimum, maximum):
+        return self.choose_backend([x, minimum, maximum]).clip(x, minimum, maximum)
+
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         return self.choose_backend(inputs[0]).with_custom_gradient(function, inputs, gradient, input_index, output_index, name_base)
 

@@ -138,6 +138,9 @@ class Backend:
     def minimum(self, a, b):
         raise NotImplementedError(self)
 
+    def clip(self, x, minimum, maximum):
+        raise NotImplementedError(self)
+
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         raise NotImplementedError(self)
 
@@ -244,6 +247,13 @@ class Backend:
         raise NotImplementedError(self)
 
     def tile(self, value, multiples):
+        """
+Repeats the tensor along each axis the number of times given by multiples.
+If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
+        :param value: tensor
+        :param multiples: tuple or list of integers
+        :return: tile tensor
+        """
         raise NotImplementedError(self)
 
     def sparse_tensor(self, indices, values, shape):
