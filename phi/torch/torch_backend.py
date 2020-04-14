@@ -163,12 +163,18 @@ class TorchBackend(Backend):
 
     def max(self, x, axis=None, keepdims=False):
         if axis is None:
-            return torch.max(x, keepdim=keepdims)
+            result = torch.max(x)
+            if keepdims:
+                result = self.expand_dims(result, axis=0, number=self.ndims(x))
+            return result
         return torch.max(x, dim=axis, keepdim=keepdims)
 
     def min(self, x, axis=None, keepdims=False):
         if axis is None:
-            return torch.min(x, keepdim=keepdims)
+            result = torch.min(x, keepdim=keepdims)
+            if keepdims:
+                result = self.expand_dims(result, axis=0, number=self.ndims(x))
+            return result
         return torch.min(x, dim=axis, keepdim=keepdims)
 
     def maximum(self, a, b):

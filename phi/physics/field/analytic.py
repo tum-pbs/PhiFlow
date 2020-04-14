@@ -77,13 +77,19 @@ class SymbolicFieldBackend(Backend):
 @struct.definition()
 class _SymbolicOpField(AnalyticField):
 
-    def __init__(self, function, function_args):
+    def __init__(self, function, function_args, **kwargs):
         fields = filter(lambda arg: isinstance(arg, Field), function_args)
-        AnalyticField.__init__(self, _determine_rank(fields), name=function.__name__)
+        AnalyticField.__init__(self, _determine_rank(fields), name=function.__name__, **struct.kwargs(locals(), ignore='fields'))
         self.fields = tuple(fields)
-        self.function_args = function_args
-        self.function = function
         self.channels = _determine_component_count(function_args)
+
+    @struct.constant()
+    def function_args(self, args):
+        return args
+
+    @struct.constant()
+    def function(self, function):
+        return function
 
     def at(self, other_field):
         args = []

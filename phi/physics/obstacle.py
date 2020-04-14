@@ -41,6 +41,6 @@ class GeometryMovement(Physics):
         if isinstance(obj, Obstacle):
             return obj.copied_with(geometry=next_geometry, velocity=velocity, age=obj.age + dt)
         if isinstance(obj, FieldEffect):
-            field = obj.field
-            assert isinstance(field, GeometryMask)
-            return obj.copied_with(field=obj.field.copied_with(geometries=next_geometry), age=obj.age + dt)
+            with struct.ALL_ITEMS:
+                next_field = struct.map(lambda x: x.copied_with(geometries=next_geometry) if isinstance(x, GeometryMask) else x, obj.field, leaf_condition=lambda x: isinstance(x, GeometryMask))
+            return obj.copied_with(field=next_field, age=obj.age + dt)

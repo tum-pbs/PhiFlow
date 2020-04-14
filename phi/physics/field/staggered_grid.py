@@ -185,9 +185,13 @@ class StaggeredGrid(Field):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
             data = [data_operator(c1, c2) for c1, c2 in zip(self.data, other.data)]
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
+        elif math.ndims(other) > 0 and math.staticshape(other)[-1] > 1:
+            other_components = math.unstack(math.as_tensor(other), axis=-1, keepdims=True)
+            data = [data_operator(c1, c2) for c1, c2 in zip(self.data, other_components)]
+            flags = propagate_flags_operation(self.flags, False, self.rank, self.component_count)
         else:
-            flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
             data = [data_operator(c1, other) for c1 in self.data]
+            flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
         return self.copied_with(data=np.array(data, dtype=np.object), flags=flags)
 
     def staggered_tensor(self):

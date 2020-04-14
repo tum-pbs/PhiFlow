@@ -60,11 +60,11 @@ def effect_applied(effect, field, dt):
 
 
 # pylint: disable-msg = invalid-name
-Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(GeometryMask([geometry], value=rate, name='inflow'), target, GROW, tags=('inflow', 'effect'))
-Accelerator = lambda geometry, acceleration: FieldEffect(GeometryMask([geometry], value=acceleration, name='fan'), ('velocity',), GROW, tags=('fan', 'effect'))
+Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(GeometryMask(geometry, name='inflow') * rate, target, GROW, tags=('inflow', 'effect'))
+Accelerator = lambda geometry, acceleration: FieldEffect(GeometryMask(geometry, name='fan') * acceleration, ('velocity',), GROW, tags=('fan', 'effect'))
 ConstantVelocity = lambda geometry, velocity: FieldEffect(ConstantField(velocity), bounds=geometry, targets=('velocity',), mode=FIX, tags=('effect',))
-HeatSource = lambda geometry, rate: FieldEffect(GeometryMask([geometry], value=rate, name='heat-source'), ('temperature',), GROW)
-ColdSource = lambda geometry, rate: FieldEffect(GeometryMask([geometry], value=-rate, name='heat-source'), ('temperature',), GROW)
+HeatSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry, name='heat-source') * rate, ('temperature',), GROW, name=name)
+ColdSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry, name='heat-source') * -rate, ('temperature',), GROW, name=name)
 
 
 def Fan(*args, **kwargs):
