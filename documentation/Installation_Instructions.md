@@ -88,7 +88,7 @@ If everything works correctly, all test should pass.
 
 ### CUDA operations
 
-There are some custom TensorFlow operations, written in CUDA.
+There are several custom TensorFlow operations, written in CUDA.
 To use these, you must have a TensorFlow compatible CUDA SDK installed.
 
 To install Φ<sub>Flow</sub> with CUDA operators, run:
@@ -98,3 +98,18 @@ $ cd phiflow/
 $ python setup.py tf_cuda
 $ pip install .
 ```
+
+If you do not compile TensorFlow from scratch (i.e. install it using pip), it is crucial to 
+use the correct versions for all components (e.g., linux with gcc-4.8 for compilation). 
+Before compiling and installing phiflow as explained above we recommend the following steps via anaconda:
+
+```bash
+apt-get install gcc-4.8
+conda create -n tf python=3.6
+conda activate tf
+pip install tensorflow-gpu==1.14.0
+```
+
+This assumes that CUDA 10.0 is already installed.
+Note that tensorflow also requires the *cudnn* libraries, but its version is less critical (e.g. 7.6.5 should work).
+

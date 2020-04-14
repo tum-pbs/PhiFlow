@@ -7,15 +7,16 @@ Requirements
 - [TensorFlow](https://www.tensorflow.org/) with GPU support or [PyTorch](https://pytorch.org/) with GPU support
 - CUDA, cuDNN (matching TensorFlow / PyTorch distribution)
 
-The preferred way to run simulations on the GPU is using TensorFlow 1.14 or 1.15.
+The preferred way to run simulations on the GPU is using TensorFlow 1.14 or 1.15 with Python 3.6.
 
 
 ## Native CUDA Kernels
 
-Φ<sub>Flow</sub> comes with a number of CUDA kernels that accelerate specific operations such as the pressure / Poisson solve.
-To use these, you have to download the Φ<sub>Flow</sub> sources and compile the kernels, following the [installations instructions](Installation_Instructions.md).
+Φ<sub>Flow</sub> comes with a number of TensorFlow CUDA kernels that accelerate specific operations such as the pressure / Poisson solve and the advection step.
+These GPU operators yield the best overall performance, and are highly recommended for larger scale simulations or training runs in 3D.
+To use them, download the Φ<sub>Flow</sub> sources and compile the kernels, following the [installations instructions](Installation_Instructions.md).
 
-To use the CUDA solver, pass `pressure_solver=CUDASolver()` when creating `IncompressibleFlow` or pass the solver directly to a function that requires a solve, such as `poisson_solve()`, `solve_pressure()` or `divergence_free()`.
+To use the CUDA pressure solver, pass `pressure_solver=CUDASolver()` when creating `IncompressibleFlow` or pass the solver directly to a function that requires a solve, such as `poisson_solve()`, `solve_pressure()` or `divergence_free()`.
 
 
 ## Running the demos on the GPU
