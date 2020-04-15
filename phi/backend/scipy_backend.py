@@ -7,6 +7,7 @@ import scipy.signal
 import scipy.sparse
 import six
 
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
 from .backend import Backend
 from .tensorop import collapsed_gather_nd, expand
 
@@ -90,16 +91,10 @@ class SciPyBackend(Backend):
         return np.concatenate(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        dims = range(len(self.shape(value)))
-        constant_values = expand(constant_values, shape=(len(dims), 2))
-        if isinstance(mode, six.string_types):
-            return self._single_mode_pad(value, pad_width, mode, constant_values)
-        else:
-            mode = expand(mode, shape=(len(dims), 2))
-            for single_mode in ('wrap', 'circular', 'replicate', 'symmetric', 'reflect', 'constant'):  # order matters! circular first
-                widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode else 0 for upper in (False, True)] for d in dims]
-                value = self._single_mode_pad(value, widths, single_mode, constant_values)
-            return value
+        passes = split_multi_mode_pad(self.ndims(value), PadSettings(pad_width, mode, constant_values), split_by_constant_value=False)
+        for pad_pass in passes:
+            value = self._single_mode_pad(value, *pad_pass)
+        return value
 
     def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
         if np.sum(np.array(pad_width)) == 0:

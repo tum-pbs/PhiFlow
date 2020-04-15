@@ -7,6 +7,8 @@ import numpy as np
 import six
 import tensorflow as tf
 from packaging import version
+
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
 from phi.tf.tf_cuda_resample import *
 from . import tf
 
@@ -66,23 +68,10 @@ class TFBackend(Backend):
         return tf.concat(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        dims = range(len(self.staticshape(value)))
-        if isinstance(mode, six.string_types) and len(self.staticshape(constant_values)) == 0:
-            return self._single_mode_single_constant_pad(value, pad_width, mode, constant_values)
-        else:
-            mode = expand(mode, shape=(len(dims), 2))
-            passes = [('circular', 0), ('wrap', 0), ('replicate', 0), ('symmetric', 0), ('reflect', 0)]
-            constant_values = expand(constant_values, shape=(len(dims), 2))
-            constant_value_set = set()
-            for d in dims:
-                for upper in (False, True):
-                    constant_value_set.add(constant_values[d][upper])
-            for const in constant_value_set:
-                passes.append(('constant', const))
-            for single_mode, constant_value in passes:  # order matters! wrap first
-                widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode and constant_values[d][upper] == constant_value else 0 for upper in (False, True)] for d in dims]
-                value = self._single_mode_single_constant_pad(value, widths, single_mode, constant_value)
-            return value
+        passes = split_multi_mode_pad(self.ndims(value), PadSettings(pad_width, mode, constant_values), split_by_constant_value=True)
+        for pad_pass in passes:
+            value = self._single_mode_single_constant_pad(value, *pad_pass)
+        return value
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
         single_mode = single_mode.lower()

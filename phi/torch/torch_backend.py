@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
 
 
 class TorchBackend(Backend):
@@ -47,20 +48,26 @@ class TorchBackend(Backend):
         return torch.cat(values, dim=axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        mode = mode.lower()
+        passes = split_multi_mode_pad(self.ndims(value), PadSettings(pad_width, mode, constant_values), split_by_constant_value=True)
+        for pad_pass in passes:
+            value = self._single_mode_single_constant_pad(value, *pad_pass)
+        return value
+
+    def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
+        mode = single_mode.lower()
         if mode == 'wrap':
             warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
             mode = 'circular'
         if mode == 'constant':
             pad = sum(pad_width[::-1], [] if isinstance(pad_width, list) else ())
-            return torchf.pad(value, pad, mode=mode, value=constant_values)  # constant, reflect, replicate, circular
+            return torchf.pad(value, pad, mode=mode, value=constant_value)  # constant, reflect, replicate, circular
         if mode == 'symmetric':
             warnings.warn("mode 'symmetric' is not supported by PyTorch. Defaults to 'replicate'.")
             mode = 'replicate'
         value = channels_first(value)
         reversed_axis_pad = pad_width[1:-1][::-1]
         pad = sum(reversed_axis_pad, [] if isinstance(pad_width, list) else ())
-        result = torchf.pad(value, pad, mode=mode, value=constant_values)  # constant, reflect, replicate, circular
+        result = torchf.pad(value, pad, mode=mode, value=constant_value)  # constant, reflect, replicate, circular
         result = channels_last(result)
         return result
 
@@ -114,7 +121,7 @@ class TorchBackend(Backend):
         resolution = torch.Tensor(self.staticshape(inputs)[2:])
         sample_coords = 2 * sample_coords / (resolution-1) - 1
         sample_coords = torch.flip(sample_coords, dims=[-1])
-        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary)  # can cause segmentation violation if NaN or inf are present
+        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
         return result
 
