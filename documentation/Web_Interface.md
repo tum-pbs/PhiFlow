@@ -145,6 +145,7 @@ The `display` parameter defines which fields are displayed initially, e.g. `disp
 
 | Parameter            | Description                                                                                       | Default |
 |----------------------|---------------------------------------------------------------------------------------------------|---------|
+| external_web_server  | Whether an external tool is used to host the Dash server. If False, launches a new web server.    | False   |
 | arrow_origin         | Which part of the arrow is centered at the position of the field. One of 'base', 'center', 'tip'. | 'tip'   |
 | max_arrow_resolution | Downscale grids to have no more than resolution**2 cells before drawing arrows.                   | 40      |
 | min_arrow_length     | Fraction of figure size. Smaller arrows are not drawn.                                            | 0.005   |
