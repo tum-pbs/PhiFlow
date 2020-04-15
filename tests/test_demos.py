@@ -83,3 +83,6 @@ class TestDemos(TestCase):
 
     def test_wavepacket(self):
         demo_run('wavepacket')
+
+    def test_pipe(self):
+        demo_run('pipe')

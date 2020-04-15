@@ -6,7 +6,4 @@ world.add(ConstantVelocity(box[:1, :], velocity=(1, 0)))
 
 app = App('Streamline Profile', 'Vertical Pipe')
 app.add_field('Velocity', lambda: world.fluid.velocity.padded(1))
-app.add_field('Pressure', lambda: world.fluid.solve_info['pressure'])
-app.prepare().step()
-
 show(app)

@@ -19,7 +19,7 @@ class TestFluidTF(TestCase):
         tf.reset_default_graph()
         world = World()
         fluid = Fluid(Domain([16, 16]))
-        world.add(fluid)
+        world.add(fluid, physics=IncompressibleFlow())
         world.add(Inflow(Sphere((8, 8), radius=4)))
         world.add(Obstacle(box[4:16, 0:8]))
         fluid_in = fluid.copied_with(density=placeholder, velocity=placeholder)
@@ -33,7 +33,7 @@ class TestFluidTF(TestCase):
     def test_tf_subgraph(self):
         tf.reset_default_graph()
         world = World()
-        fluid = world.add(Fluid(Domain([16, 16])))
+        fluid = world.add(Fluid(Domain([16, 16])), physics=IncompressibleFlow())
         tf_bake_subgraph(fluid, Session(Scene.create('data', copy_calling_script=False)))
         world.step()
         self.assertIsInstance(fluid.state, Fluid)
@@ -42,7 +42,7 @@ class TestFluidTF(TestCase):
     def test_tf_worldgraph(self):
         tf.reset_default_graph()
         world = World()
-        fluid = world.add(Fluid(Domain([16, 16])))
+        fluid = world.add(Fluid(Domain([16, 16])), physics=IncompressibleFlow())
         tf_bake_graph(world, Session(Scene.create('data', copy_calling_script=False)))
         world.step()
         self.assertIsInstance(fluid.state, Fluid)

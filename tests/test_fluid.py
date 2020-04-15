@@ -27,7 +27,7 @@ class TestFluid(TestCase):
     def test_simpleplume(self):
         world = World()
         world.batch_size = 3
-        fluid = world.add(Fluid(Domain([16, 16])))
+        fluid = world.add(Fluid(Domain([16, 16])), physics=IncompressibleFlow())
         inflow = world.add(Inflow(Sphere((8, 8), radius=4)))
         world.step()
         world.step(fluid)
@@ -55,7 +55,7 @@ class TestFluid(TestCase):
 
     def test_effects(self):
         world = World()
-        fluid = world.add(Fluid(Domain([16, 16])))
+        fluid = world.add(Fluid(Domain([16, 16])), physics=IncompressibleFlow())
         fan = world.add(Fan(Sphere((10, 8), 5), [-1, 0]))
         obstacle = world.add(Obstacle(box[0:1, 0:1]))
         world.step(dt=1)
@@ -64,7 +64,7 @@ class TestFluid(TestCase):
 
     def test_properties_dict(self):
         world = World()
-        world.add(Fluid(Domain([16, 16])))
+        world.add(Fluid(Domain([16, 16])), physics=IncompressibleFlow())
         world.add(Inflow(Sphere((8, 8), radius=4)))
         # world.add(ConstantDensity(box[0:2, 6:10], 1.0))
         world.add(Fan(Sphere((10, 8), 5), [-1, 0]))
