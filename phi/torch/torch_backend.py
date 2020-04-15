@@ -88,6 +88,9 @@ class TorchBackend(Backend):
         return torch.where(y == 0, torch.zeros_like(result), result)
 
     def where(self, condition, x=None, y=None):
+        condition = self.as_tensor(condition).bool()
+        x = self.as_tensor(x)
+        y = self.as_tensor(y)
         return torch.where(condition, x, y)
 
     def mean(self, value, axis=None, keepdims=False):
