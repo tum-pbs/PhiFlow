@@ -154,6 +154,7 @@ STATIC = Static()
 class _ChainedPhysics(Physics):
 
     def __init__(self, physics_list):
+        physics_list = [_as_physics(physics) for physics in physics_list]
         Physics.__init__(self, dependencies=sum([phys.dependencies for phys in physics_list], ()))
         self.physics_list = physics_list
         assert len(set(self.dependency_names)) == len(self.dependencies), 'Duplicate dependency parameter names: %s' % self.dependencies
@@ -163,3 +164,24 @@ class _ChainedPhysics(Physics):
             deps = {key: value for key, value in dependent_states.items() if key in physics.dependency_names}
             state = physics.step(state, dt=dt, **deps)
         return state.map_item(State.age, lambda age: age + dt)
+
+
+class _WrapPhysics(Physics):
+
+    def __init__(self, function):
+        Physics.__init__(self, dependencies=())
+        self.function = function
+
+    def step(self, state, dt=1.0, **dependent_states):
+        result = self.function(state, dt)
+        return result
+
+
+def _as_physics(physics_like):
+    if isinstance(physics_like, Physics):
+        return physics_like
+    if isinstance(physics_like, (tuple, list)):
+        return _ChainedPhysics(physics_like)
+    if callable(physics_like):
+        return _WrapPhysics(physics_like)
+    raise ValueError("Cannot convert '%s' to Physics" % physics_like)

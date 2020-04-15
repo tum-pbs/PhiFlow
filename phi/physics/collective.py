@@ -1,7 +1,7 @@
 import warnings
 import six
 
-from .physics import Physics, State, struct, _ChainedPhysics
+from .physics import Physics, State, struct, _ChainedPhysics, _as_physics
 
 
 class StateCollection(dict):
@@ -188,10 +188,7 @@ class CollectivePhysics(Physics):
         return self.physics[state.name] if state.name in self.physics else state.default_physics()
 
     def add(self, name, physics):
-        if isinstance(physics, (tuple, list)):
-            physics = _ChainedPhysics(physics)
-        assert isinstance(physics, Physics)
-        self.physics[name] = physics
+        self.physics[name] = _as_physics(physics)
 
     def remove(self, name):
         if name in self.physics:
