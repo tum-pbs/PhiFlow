@@ -62,7 +62,7 @@ def staggered_curl_2d(grid):
     kernel = np.zeros((3, 3, 1, 2), np.float32)
     kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
     kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
-    scalar_potential = grid.padded(1).data
+    scalar_potential = grid.padded([[1, 2], [1, 2]]).data
     vector_field = math.conv(scalar_potential, kernel, padding='valid')
     return StaggeredGrid(vector_field, box=grid.box)
 
