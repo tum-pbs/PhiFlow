@@ -1,7 +1,25 @@
 class Backend:
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, name, precision=32):
+        self._name = name
+        self.precision = precision
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def precision(self):
+        return self._precision
+
+    @precision.setter
+    def precision(self, precision):
+        assert precision in (None, 16, 32, 64)
+        self._precision = precision
+
+    @property
+    def has_fixed_precision(self):
+        return self.precision is not None
 
     def __str__(self):
         return self.name
@@ -24,6 +42,13 @@ class Backend:
         raise NotImplementedError()
 
     def as_tensor(self, x):
+        """
+Converts the input to a single tensor object compatible with this backend.
+If this backend has a fixed precision and the input is floating point, it will be converted to that precision.
+This conversion will also be performed if the input is already a tensor.
+        :param x: tensor-like object or tensor
+        :return: backend-dependent tensor instance
+        """
         raise NotImplementedError()
 
     def copy(self, tensor, only_mutable=False):
@@ -163,6 +188,15 @@ class Backend:
         raise NotImplementedError(self)
 
     def to_float(self, x, float64=False):
+        """
+Converts a tensor to floating point values.
+If this Backend uses a fixed precision, the tensor will be converted to that precision.
+Otherwise, non-float inputs are converted to float32 (unless `float64=True`).
+
+To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
+        :param x: tensor
+        :param float64: deprecated. Set Backend.precision = 64 to use 64 bit operations.
+        """
         raise NotImplementedError(self)
 
     def to_int(self, x, int64=False):

@@ -18,8 +18,12 @@ class SciPyBackend(Backend):
     Core Python Backend using NumPy & SciPy
     """
 
-    def __init__(self):
-        Backend.__init__(self, "SciPy")
+    def __init__(self, precision=32):
+        Backend.__init__(self, "SciPy", precision=precision)
+
+    @property
+    def precision_dtype(self):
+        return {16: np.float16, 32: np.float32, 64: np.float64, None: None}[self.precision]
 
     def is_applicable(self, values):
         if values is None:
@@ -46,7 +50,14 @@ class SciPyBackend(Backend):
 
     def as_tensor(self, x):
         """ as array """
-        return np.array(x)
+        if isinstance(x, np.ndarray) and x.dtype != np.object:
+            array = x
+        else:
+            array = np.array(x)
+        # --- Enforce Precision ---
+        if array.dtype in (np.float16, np.float32, np.float64, np.longdouble) and self.has_fixed_precision:
+            array = self.to_float(array)
+        return array
 
     def is_tensor(self, x):
         """ is array """
@@ -252,7 +263,11 @@ class SciPyBackend(Backend):
         return np.shape(tensor)
 
     def to_float(self, x, float64=False):
-        return np.array(x).astype(np.float64 if float64 else np.float32)
+        if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
+            return np.array(x).astype(np.float64)
+        else:
+            return np.array(x).astype(self.precision_dtype if self.has_fixed_precision else np.float32)
 
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)

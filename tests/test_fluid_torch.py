@@ -3,9 +3,9 @@ from unittest import TestCase
 from phi.torch.flow import torch_from_numpy, World, Fluid, IncompressibleFlow, Obstacle, CLOSED, Inflow, Domain, Sphere, box
 
 
-class TestFluidTF(TestCase):
+class TestFluidTorch(TestCase):
 
-    def test_fluid_tf(self):
+    def test_fluid_torch(self):
         world = World()
         fluid = Fluid(Domain([16, 16], boundaries=CLOSED))
         fluid = torch_from_numpy(fluid)

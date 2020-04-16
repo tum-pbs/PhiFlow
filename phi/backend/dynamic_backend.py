@@ -1,3 +1,5 @@
+import warnings
+
 from .backend import Backend
 
 
@@ -10,8 +12,18 @@ class NoBackendFound(Exception):
 class DynamicBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, 'Dynamic')
         self.backends = []
+        Backend.__init__(self, 'Dynamic')
+
+    @property
+    def precision(self):
+        return self._precision
+
+    @precision.setter
+    def precision(self, precision):
+        self._precision = precision
+        for backend in self.backends:
+            backend.precision = precision
 
     def choose_backend(self, values):
         # type: (list) -> Backend
@@ -26,6 +38,7 @@ class DynamicBackend(Backend):
         for existing in self.backends:
             if existing.name == backend.name:
                 return False
+        backend.precision = self.precision
         if priority is None:
             self.backends.append(backend)
         else:
@@ -162,6 +175,7 @@ class DynamicBackend(Backend):
         return self.choose_backend(tensor).shape(tensor)
 
     def to_float(self, x, float64=False):
+        if float64: warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
         return self.choose_backend(x).to_float(x, float64=float64)
 
     def staticshape(self, tensor):

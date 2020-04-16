@@ -21,6 +21,15 @@ from .batched import BATCHED, ShapeMismatch
 DYNAMIC_BACKEND.add_backend(SciPyBackend())
 DYNAMIC_BACKEND.add_backend(StructBroadcastBackend(DYNAMIC_BACKEND))
 
+
+def set_precision(floating_point_bits):
+    """
+Sets the floating point precision of DYNAMIC_BACKEND which affects all registered backends.
+    :param floating_point_bits: one of (16, 32, 64)
+    """
+    DYNAMIC_BACKEND.precision = floating_point_bits
+
+
 # Enable importing methods directly from math
 choose_backend = DYNAMIC_BACKEND.choose_backend
 

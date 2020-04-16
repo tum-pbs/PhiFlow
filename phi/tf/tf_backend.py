@@ -1,19 +1,13 @@
 import uuid
 import warnings
 from packaging import version
-import six
-
-import numpy as np
-import six
-import tensorflow as tf
-from packaging import version
 
 from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
+from phi.backend.scipy_backend import SciPyBackend
 from phi.tf.tf_cuda_resample import *
 from . import tf
 
 from phi.backend.backend import Backend
-from phi.backend.tensorop import expand, collapsed_gather_nd
 
 
 class TFBackend(Backend):
@@ -21,15 +15,24 @@ class TFBackend(Backend):
     def __init__(self):
         Backend.__init__(self, "TensorFlow")
 
+    @property
+    def precision_dtype(self):
+        return {16: np.float16, 32: np.float32, 64: np.float64, None: None}[self.precision]
+
     def is_tensor(self, x):
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
     def as_tensor(self, x):
         if self.is_tensor(x):
-            return x
-        if isinstance(x, np.ndarray) and x.dtype == np.float64:
-            return tf.convert_to_tensor(x, dtype=tf.float32)
-        return tf.convert_to_tensor(x)
+            tensor = x
+        elif isinstance(x, np.ndarray):
+            tensor = tf.convert_to_tensor(SciPyBackend().as_tensor(x))
+        else:
+            tensor = tf.convert_to_tensor(x)
+        # --- Enforce Precision ---
+        if tensor.dtype.is_floating and self.has_fixed_precision:
+            tensor = self.to_float(tensor)
+        return tensor
 
     def copy(self, tensor, only_mutable=False):
         if not only_mutable or tf.executing_eagerly():
@@ -151,7 +154,7 @@ class TFBackend(Backend):
         if use_cuda(inputs):
             return resample_cuda(inputs, sample_coords, boundary)
         # return _resample_no_pack(inputs, sample_coords, boundary_func)
-        return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
+        return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, self.precision_dtype if self.has_fixed_precision else tf.float32)
 
     def zeros_like(self, tensor):
         return tf.zeros_like(tensor)
@@ -258,7 +261,11 @@ class TFBackend(Backend):
         return tf.shape(tensor)
 
     def to_float(self, x, float64=False):
-        return tf.cast(x, tf.float64) if float64 else tf.cast(x, tf.float32)
+        if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
+            return tf.cast(x, tf.float64)
+        else:
+            return tf.cast(x, self.precision_dtype if self.has_fixed_precision else tf.float32)
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor):
@@ -448,7 +455,7 @@ def _resample_no_pack(grid, coords, boundary_func):
     return result
 
 
-def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
+def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, float_type):
     inputs = tf.convert_to_tensor(inputs)
     sample_coords = tf.convert_to_tensor(sample_coords)
 
@@ -468,8 +475,8 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     ceil_coords = [tf.cast(boundary_func(x + 1.0, in_spatial_size[idx]), COORDINATES_TYPE) for (idx, x) in enumerate(base_coords)]
 
     if boundary.upper() == 'ZERO':
-        weight_0 = [tf.expand_dims(x - tf.cast(i, tf.float32), -1) for (x, i) in zip(xy, floor_coords)]
-        weight_1 = [tf.expand_dims(tf.cast(i, tf.float32) - x, -1) for (x, i) in zip(xy, ceil_coords)]
+        weight_0 = [tf.expand_dims(x - tf.cast(i, float_type), -1) for (x, i) in zip(xy, floor_coords)]
+        weight_1 = [tf.expand_dims(tf.cast(i, float_type) - x, -1) for (x, i) in zip(xy, ceil_coords)]
     else:
         weight_0 = [tf.expand_dims(x - i, -1) for (x, i) in zip(xy, base_coords)]
         weight_1 = [1.0 - w for w in weight_0]
