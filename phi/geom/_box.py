@@ -1,3 +1,5 @@
+from abc import ABC
+
 import numpy as np
 
 from phi import struct, math
@@ -5,47 +7,30 @@ from ._geom_util import assert_same_rank
 from ._geom import Geometry
 
 
-@struct.definition(traits=[math.BATCHED])
-class AABox(Geometry):
-    """
-    Axis-aligned box, defined by lower and upper corner.
-    AABoxes can be created using the shorthand notation box[slices], (e.g. box[:,0:1] to create an inifinite-height box from x=0 to x=1).
-    """
-
-    def __init__(self, lower, upper, **kwargs):
-        Geometry.__init__(self, **struct.kwargs(locals()))
-
-    @struct.constant(min_rank=1)
-    def lower(self, lower):
-        return math.to_float(lower)
-
-    @struct.constant(min_rank=1)
-    def upper(self, upper):
-        return math.to_float(upper)
-
-    def get_lower(self, axis):
-        return self._get(self.lower, axis)
-
-    def get_upper(self, axis):
-        return self._get(self.upper, axis)
-
-    @staticmethod
-    def _get(vector, axis):
-        if vector.shape[-1] == 1:
-            return vector[...,0]
-        else:
-            return vector[...,axis]
-
-    @struct.derived()
-    def size(self):
-        return self.upper - self.lower
+@struct.definition()
+class AbstractBox(Geometry):
 
     @property
-    def rank(self):
-        if math.ndims(self.size) > 0:
-            return self.size.shape[-1]
-        else:
-            return None
+    def size(self):
+        raise NotImplementedError(self)
+
+    @property
+    def half_size(self):
+        raise NotImplementedError(self)
+
+    @property
+    def lower(self):
+        raise NotImplementedError(self)
+
+    @property
+    def upper(self):
+        raise NotImplementedError(self)
+
+    def bounding_radius(self):
+        return math.max(self.size, axis=-1, keepdims=True) * 1.414214
+
+    def bounding_half_extent(self):
+        return self.size * 0.5
 
     def global_to_local(self, global_position):
         size, lower = math.batch_align([self.size, self.lower], 1, global_position)
@@ -74,11 +59,68 @@ For inside locations it is `-max(abs(l - s))`.
         distance = math.abs(location - center) - extent * 0.5
         return math.max(distance, axis=-1, keepdims=True)
 
+    @property
+    def rank(self):
+        if math.ndims(self.size) > 0:
+            return self.size.shape[-1]
+        else:
+            return None
+
+    def get_lower(self, axis):
+        return self._get(self.lower, axis)
+
+    def get_upper(self, axis):
+        return self._get(self.upper, axis)
+
+    @staticmethod
+    def _get(vector, axis):
+        if vector.shape[-1] == 1:
+            return vector[...,0]
+        else:
+            return vector[...,axis]
+
+    def corner_representation(self):
+        return AABox(self.lower, self.upper)
+
+    def center_representation(self):
+        return Cuboid(self.center, self.half_size)
+
     def contains(self, other):
-        if isinstance(other, AABox):
+        if isinstance(other, Box):
             return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
         else:
             raise NotImplementedError()
+
+
+@struct.definition(traits=[math.BATCHED])
+class AABox(AbstractBox):
+    """
+    Axis-aligned box, defined by lower and upper corner.
+    AABoxes can be created using the shorthand notation box[slices], (e.g. box[:,0:1] to create an inifinite-height box from x=0 to x=1).
+    """
+
+    def __init__(self, lower, upper, **kwargs):
+        AbstractBox.__init__(self, **struct.kwargs(locals()))
+
+    @struct.constant(min_rank=1)
+    def lower(self, lower):
+        return math.to_float(lower)
+
+    @struct.constant(min_rank=1)
+    def upper(self, upper):
+        return math.to_float(upper)
+
+    @struct.derived()
+    def size(self):
+        return self.upper - self.lower
+
+    @struct.derived()
+    def center(self):
+        return 0.5 * (self.lower + self.upper)
+
+    @struct.derived()
+    def half_size(self):
+        return self.size * 0.5
 
     def without_axis(self, axis):
         lower = []
@@ -117,7 +159,34 @@ For inside locations it is `-max(abs(l - s))`.
         return result
 
 
-class AABoxGenerator(object):
+@struct.definition(traits=[math.BATCHED])
+class Cuboid(AbstractBox):
+
+    def __init__(self, center, half_size, **kwargs):
+        AbstractBox.__init__(self, **struct.kwargs(locals()))
+
+    @struct.constant(min_rank=1)
+    def center(self, center):
+        return math.to_float(center)
+
+    @struct.constant(min_rank=1)
+    def half_size(self, half_size):
+        return math.to_float(half_size)
+
+    @struct.derived()
+    def size(self):
+        return 2 * self.half_size
+
+    @struct.derived()
+    def lower(self):
+        return self.center - self.size
+
+    @struct.derived()
+    def upper(self):
+        return 0.5 * (self.lower + self.upper)
+
+
+class BoxGenerator(object):
 
     def __getitem__(self, item):
         if not isinstance(item, (tuple, list)):
@@ -131,5 +200,18 @@ class AABoxGenerator(object):
             upper.append(dim.stop if dim.stop is not None else np.inf)
         return AABox(lower, upper)
 
-
-box = AABoxGenerator()  # Instantiate an AABox using the syntax box[slices]
+    def __call__(self, *args, **kwargs):
+        if len(args) == 2 and len(kwargs) == 0:
+            lower, upper = args
+            return AABox(lower, upper)
+        elif len(args) == 1 and 'size' in kwargs:
+            center, = args
+            size = kwargs['size']
+            return Cuboid(center, 0.5 * math.to_float(size))
+        elif 'size' in kwargs and 'center' in kwargs:
+            center, size = kwargs['center'], kwargs['size']
+            return Cuboid(center, 0.5 * math.to_float(size))
+        elif len(args) == 1 and len(kwargs) == 0:
+            return AABox(0, args[0])
+        else:
+            raise ValueError('Cannot create box from args=%s, kwargs=%s' % (args, kwargs))

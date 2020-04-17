@@ -40,3 +40,9 @@ Very close to the sphere center, the distance takes a constant value.
         distance_squared = math.maximum(distance_squared, radius * 1e-2)  # Prevent infinite gradient at sphere center
         distance = math.sqrt(distance_squared)
         return distance - radius
+
+    def bounding_radius(self):
+        return self.radius
+
+    def bounding_half_extent(self):
+        return self.radius
