@@ -1,6 +1,7 @@
 import numpy as np
 
 from phi import struct, math
+from phi.geom import Sphere
 from phi.physics.domain import Domain
 
 from .field import Field
@@ -138,6 +139,10 @@ class SampledField(Field):
         if SAMPLE_POINTS in self.flags or self.sample_points is self.data:
             return self
         return SampledField(self.sample_points, self.sample_points, flags=[SAMPLE_POINTS])
+
+    @property
+    def elements(self):
+        return Sphere(self.sample_points, radius=0.0)
 
     def mask(self):
         return self.copied_with(data=1, mode='any', flags=())

@@ -2,7 +2,7 @@ import numpy as np
 import six
 
 from phi import math, struct
-from phi.geom import AABox
+from phi.geom import AABox, box
 from phi.geom.geometry import assert_same_rank
 from phi.math.helper import map_for_axes
 from phi.physics.domain import Domain
@@ -139,6 +139,10 @@ class CenteredGrid(Field):
         if self._sample_points is None:
             self._sample_points = CenteredGrid.getpoints(self.box, self.resolution)
         return self._sample_points
+
+    @property
+    def elements(self):
+        return box(center=self.points.data, size=self.dx)
 
     def compatible(self, other_field):
         if isinstance(other_field, (Domain, CenteredGrid)):

@@ -1,29 +1,26 @@
 import warnings
 
-from phi import struct, math
-from phi.geom import Geometry, union
+from phi import struct, math, geom
 
 from .field import Field
-from .grid import CenteredGrid
-from .staggered_grid import StaggeredGrid
 from .analytic import AnalyticField
 
 
 @struct.definition()
 class GeometryMask(AnalyticField):
 
-    def __init__(self, geometries, value=None, **kwargs):
+    def __init__(self, geometries, antialias=False, value=None, **kwargs):
         if value is not None:
             warnings.warn('Passing a value to GeometryMask has no effect.')
-        rank = geometries.rank if isinstance(geometries, Geometry) else geometries[0].rank
+        rank = geometries.rank if isinstance(geometries, geom.Geometry) else geometries[0].rank
         AnalyticField.__init__(self, rank, **struct.kwargs(locals(), ignore=['value', 'rank']))
 
     @struct.constant()
     def geometries(self, geometry):
         """ Alias for `geometry`. """
         if isinstance(geometry, (tuple, list)):
-            geometry = union(geometry)
-        assert isinstance(geometry, Geometry)
+            geometry = geom.union(geometry)
+        assert isinstance(geometry, geom.Geometry)
         return geometry
 
     geometry = geometries
@@ -37,21 +34,14 @@ If True, field values smoothly go from 0 to 1 at the surface and the field is di
         assert antialias in (True, False)
         return antialias
 
-    @struct.constant(default=1)
-    def default_cell_size(self, size):
-        return math.to_float(size)
+    def approximate_mean_value_in(self, geometry):
+        if not self.antialias:
+            return Field.approximate_mean_value_in(self, geometry)
+        else:
+            return self.geometry.approximate_fraction_inside(geometry)
 
     def sample_at(self, points):
-        if not self.antialias:
-            return math.to_float(self.geometry.lies_inside(points))
-        else:
-            return self.geometry.approximate_fraction_inside(points, self.default_cell_size)
-
-    def at(self, other_field):
-        geometry_mask = self
-        if isinstance(other_field, (CenteredGrid, StaggeredGrid)):
-            geometry_mask = self.copied_with(default_cell_size=math.mean(other_field.dx))
-        return Field.at(geometry_mask, other_field)
+        return math.to_float(self.geometry.lies_inside(points))
 
     @property
     def component_count(self):
@@ -63,4 +53,4 @@ mask = GeometryMask
 
 def union_mask(geometries):
     warnings.warn("union_mask() is deprecated, use mask(union()) instead.", DeprecationWarning)
-    return mask(union(*geometries))
+    return mask(geom.union(*geometries))
