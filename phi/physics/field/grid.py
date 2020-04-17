@@ -61,14 +61,22 @@ class CenteredGrid(Field):
             return None
         if isinstance(data, (tuple, list)):
             data = np.array(data)  # numbers or objects
-        while math.ndims(data) < 2:
-            data = math.expand_dims(data)
+        if self.content_type in (struct.shape, struct.staticshape):
+            assert math.ndims(data) == 1
+        else:
+            if math.ndims(data) < 2:
+                data = math.expand_dims(data, 0, number=2 - math.ndims(data))
         return data
     data.override(struct.staticshape, lambda self, data: (self._batch_size,) + math.staticshape(data)[1:])
 
     @property
     def resolution(self):
-        return math.as_tensor(math.staticshape(self.data)[1:-1])
+        if self.content_type in (struct.VALID, struct.INVALID):
+            return math.as_tensor(math.staticshape(self.data)[1:-1])
+        elif self.content_type in (struct.shape, struct.staticshape):
+            return self.data[1:-1]
+        else:
+            raise AssertionError('Cannot compute resolution of invalid CenteredGrid (content type = %s)' % self.content_type)
 
     @struct.constant(dependencies=Field.data)
     def box(self, box):
@@ -80,7 +88,7 @@ class CenteredGrid(Field):
 
     @property
     def rank(self):
-        return math.spatial_rank(self.data)
+        return len(self.resolution)
 
     @struct.constant(default='boundary')
     def extrapolation(self, extrapolation):
@@ -125,7 +133,10 @@ class CenteredGrid(Field):
 
     @property
     def component_count(self):
-        return self.data.shape[-1]
+        if self.content_type in (struct.shape, struct.staticshape):
+            return self.data[-1]
+        else:
+            return self.data.shape[-1]
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
@@ -134,7 +145,7 @@ class CenteredGrid(Field):
 
     @property
     def points(self):
-        if SAMPLE_POINTS in self.flags:
+        if self.is_valid and SAMPLE_POINTS in self.flags:
             return self
         if self._sample_points is None:
             self._sample_points = CenteredGrid.getpoints(self.box, self.resolution)
@@ -159,6 +170,9 @@ class CenteredGrid(Field):
         else:
             return False
 
+    def __can_validate__(self):
+        return self.content_type in (struct.INVALID, struct.shape, struct.staticshape)
+
     def __repr__(self):
         if self.is_valid:
             return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
@@ -180,7 +194,7 @@ class CenteredGrid(Field):
     @staticmethod
     def getpoints(box, resolution):
         idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in resolution], indexing="ij")
-        local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0).astype(np.float32)
+        local_coords = math.to_float(math.expand_dims(math.stack(idx_zyx, axis=-1), 0))
         points = box.local_to_global(local_coords)
         return CenteredGrid(points, box, name='grid_centers(%s, %s)' % (box, resolution), flags=[SAMPLE_POINTS])
 
