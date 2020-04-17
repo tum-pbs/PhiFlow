@@ -7,6 +7,7 @@ from phi.tf import tf
 
 # pylint: disable-msg = redefined-builtin, redefined-outer-name, unused-wildcard-import, wildcard-import
 from phi.math import *
+from phi.backend.backend_helper import general_grid_sample_nd as helper_resample
 
 
 # placeholder, variable tested in test_tensorflow.py
@@ -146,3 +147,18 @@ class TestMath(TestCase):
             np.testing.assert_equal(tensor, concat(components, axis=dim).eval())
             components = unstack(tf.constant(tensor), dim, keepdims=False)
             np.testing.assert_equal(tensor, stack(components, axis=dim).eval())
+
+    def test_resample(self):
+        _resample_test('replicate', None, (1, 1, 1.5, 2, 2, 3.5, 4.5))
+        _resample_test('circular', None, (1.5, 1, 1.5, 2, 1.5, 2.5, 1.5))
+        _resample_test('constant', 0, (0.5, 1, 1.5, 2, 1, 0, 0))
+        _resample_test('constant', -1, (0, 1, 1.5, 2, 0.5, -1, -1))
+        _resample_test('constant', [0, -1, 0, 0], (0.5, 1, 1.5, 2, 1, 0, -1))
+
+
+def _resample_test(mode, constant_values, expected):
+    grid = np.tile(np.reshape(np.array([[1,2], [4,5]]), [1,2,2,1]), [1, 1, 1, 2])
+    coords = np.array([[(0, -0.5), (0, 0), (0, 0.5), (0, 1), (0, 1.5), (0.5, 2), (2, 0.5)]])
+    resampled = helper_resample(grid, coords, mode, constant_values, SciPyBackend())
+    np.testing.assert_equal(resampled[..., 0], resampled[..., 1])
+    np.testing.assert_almost_equal(expected, resampled[0, :, 0], decimal=5)

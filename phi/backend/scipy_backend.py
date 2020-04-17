@@ -5,11 +5,9 @@ import warnings
 import numpy as np
 import scipy.signal
 import scipy.sparse
-import six
 
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd
 from .backend import Backend
-from .tensorop import collapsed_gather_nd, expand
 
 
 class SciPyBackend(Backend):
@@ -134,30 +132,8 @@ class SciPyBackend(Backend):
         return result
 
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        """ resample input array at certain coordinates """
-        if boundary.lower() in ('zero', 'constant'):
-            pass  # default
-        elif boundary.lower() == 'replicate':
-            sample_coords = clamp(sample_coords, inputs.shape[1:-1])
-        elif boundary.lower() == 'circular':
-            resolution = self.staticshape(inputs)[1:-1]
-            inputs = self.pad(inputs, [[0, 0]] + [[0, 1]] * tensor_spatial_rank(inputs) + [[0, 0]], mode='circular')
-            sample_coords = sample_coords % self.to_float(resolution)
-        else:
-            raise ValueError("Unsupported boundary: %s" % boundary)
-        # Interpolate
-        import scipy.interpolate
-        points = [np.arange(dim) for dim in inputs.shape[1:-1]]
-        result = []
-        for batch in range(sample_coords.shape[0]):
-            components = []
-            for dim in range(inputs.shape[-1]):
-                resampled = scipy.interpolate.interpn(points,inputs[batch, ..., dim], sample_coords[batch, ...],
-                                                      method=interpolation.lower(), bounds_error=False, fill_value=0)
-                components.append(resampled)
-            result.append(np.stack(components, -1))
-        result = np.stack(result).astype(inputs.dtype)
-        return result
+        assert interpolation == 'linear'
+        return general_grid_sample_nd(inputs, sample_coords, boundary, 0, self)
 
     def zeros_like(self, tensor):
         return np.zeros_like(tensor)
