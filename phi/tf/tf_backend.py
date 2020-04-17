@@ -26,7 +26,7 @@ class TFBackend(Backend):
         if self.is_tensor(x):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = tf.convert_to_tensor(SciPyBackend().as_tensor(x))
+            tensor = tf.convert_to_tensor(SciPyBackend(precision=self.precision).as_tensor(x))
         else:
             tensor = tf.convert_to_tensor(x)
         # --- Enforce Precision ---

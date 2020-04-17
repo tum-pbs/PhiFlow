@@ -26,7 +26,7 @@ class TorchBackend(Backend):
         if self.is_tensor(x):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = torch.from_numpy(SciPyBackend().as_tensor(x))
+            tensor = torch.from_numpy(SciPyBackend(precision=self.precision).as_tensor(x))
         elif isinstance(x, (tuple, list)):
             try:
                 tensor = torch.tensor(x)
