@@ -123,8 +123,9 @@ class TFBackend(Backend):
         return tf.reduce_prod(value, axis=axis)
 
     def where(self, condition, x=None, y=None):
-        condition, x, y = equalize_shapes([condition, x, y], self, ignore_outer_dims=1)  # Required since TF1 has an inconsistent broadcasting rule for where
-        return tf.where(condition, x, y)
+        c = self.cast(condition, self.dtype(x))
+        return c * x + (1 - c) * y
+        # return tf.where(condition, x, y)  # TF1 has an inconsistent broadcasting rule for where
 
     def mean(self, value, axis=None, keepdims=False):
         if axis is not None:
