@@ -133,9 +133,9 @@ class SciPyBackend(Backend):
         assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
         assert interpolation == 'linear'
-        return general_grid_sample_nd(inputs, sample_coords, boundary, 0, self)
+        return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
 
     def zeros_like(self, tensor):
         return np.zeros_like(tensor)

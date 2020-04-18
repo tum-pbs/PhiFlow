@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd
 
 
 class TorchBackend(Backend):
@@ -33,6 +33,8 @@ class TorchBackend(Backend):
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
                 return torch.stack(components, dim=0)
+        if isinstance(x, int):
+            return torch.tensor(x, dtype=torch.int32)
         return torch.tensor(x)
 
     def copy(self, tensor, only_mutable=False):
@@ -55,6 +57,41 @@ class TorchBackend(Backend):
         for pad_pass in passes:
             value = self._single_mode_single_constant_pad(value, *pad_pass)
         return value
+
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        assert interpolation == 'linear'
+        assert constant_values == 0
+        # return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
+        return self.native_resample(inputs, sample_coords, interpolation, boundary)
+
+    def native_resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        inputs = channels_first(self.as_tensor(inputs))
+        sample_coords = self.as_tensor(sample_coords)
+        # --- Interpolation ---
+        if interpolation.lower() == 'linear':
+            interpolation = 'bilinear'
+        elif interpolation.lower() == 'nearest':
+            interpolation = 'nearest'
+        else:
+            raise NotImplementedError(interpolation)
+        # --- Boundary ---
+        if boundary == 'zero' or boundary == 'constant':
+            boundary = 'zeros'
+        elif boundary == 'replicate':
+            boundary = 'border'
+        elif boundary == 'circular':
+            shape = self.to_float(inputs.shape[2:])
+            sample_coords = torch.fmod(sample_coords, shape)
+            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape)-2), mode='circular')
+            boundary = 'zeros'
+        else:
+            raise NotImplementedError(boundary)
+        resolution = torch.Tensor(self.staticshape(inputs)[2:])
+        sample_coords = 2 * sample_coords / (resolution-1) - 1
+        sample_coords = torch.flip(sample_coords, dims=[-1])
+        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
+        result = channels_last(result)
+        return result
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
         mode = single_mode.lower()
@@ -101,35 +138,6 @@ class TorchBackend(Backend):
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError()
-
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        inputs = channels_first(self.as_tensor(inputs))
-        sample_coords = self.as_tensor(sample_coords)
-        # --- Interpolation ---
-        if interpolation.lower() == 'linear':
-            interpolation = 'bilinear'
-        elif interpolation.lower() == 'nearest':
-            interpolation = 'nearest'
-        else:
-            raise NotImplementedError(interpolation)
-        # --- Boundary ---
-        if boundary == 'zero' or boundary == 'constant':
-            boundary = 'zeros'
-        elif boundary == 'replicate':
-            boundary = 'border'
-        elif boundary == 'circular':
-            shape = self.to_float(inputs.shape[2:])
-            sample_coords = torch.fmod(sample_coords, shape)
-            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape)-2), mode='circular')
-            boundary = 'zeros'
-        else:
-            raise NotImplementedError(boundary)
-        resolution = torch.Tensor(self.staticshape(inputs)[2:])
-        sample_coords = 2 * sample_coords / (resolution-1) - 1
-        sample_coords = torch.flip(sample_coords, dims=[-1])
-        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
-        result = channels_last(result)
-        return result
 
     def range(self, start, limit=None, delta=1, dtype=None):
         if limit is None:
@@ -191,11 +199,10 @@ class TorchBackend(Backend):
         return torch.min(x, dim=axis, keepdim=keepdims)
 
     def maximum(self, a, b):
-        b = self.as_tensor(b)
-        return torch.max(a, other=b)
+        return torch.max(self.as_tensor(a), other=self.as_tensor(b))
 
     def minimum(self, a, b):
-        return torch.min(a, other=b)
+        return torch.min(self.as_tensor(a), other=self.as_tensor(b))
 
     def clip(self, x, minimum, maximum):
         return torch.clamp(x, minimum, maximum)

@@ -1,3 +1,4 @@
+import numbers
 import uuid
 import warnings
 from packaging import version
@@ -146,16 +147,12 @@ class TFBackend(Backend):
             result.set_shape(shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        if boundary.lower() == 'constant':
-            boundary = 'zero'
-        boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
-        assert interpolation.lower() == 'linear'
-        # Check if CUDA can be used benefitially
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        assert interpolation == 'linear'
         if use_cuda(inputs):
             return resample_cuda(inputs, sample_coords, boundary)
-        # return _resample_no_pack(inputs, sample_coords, boundary_func)
-        return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
+        else:
+            return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)  # while this is a bit slower than niftynet, it give consisten results at the boundaries
 
     def zeros_like(self, tensor):
         return tf.zeros_like(tensor)
@@ -254,6 +251,8 @@ class TFBackend(Backend):
         return result
 
     def expand_dims(self, a, axis=0, number=1):
+        if number == 0:
+            return a
         for _i in range(number):
             a = tf.expand_dims(a, axis)
         return a
