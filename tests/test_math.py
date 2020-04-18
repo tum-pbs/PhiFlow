@@ -154,6 +154,7 @@ class TestMath(TestCase):
         _resample_test('constant', 0, (0.5, 1, 1.5, 2, 1, 0, 0))
         _resample_test('constant', -1, (0, 1, 1.5, 2, 0.5, -1, -1))
         _resample_test('constant', [0, -1, 0, 0], (0.5, 1, 1.5, 2, 1, 0, -1))
+        _resample_test(['constant', 'circular', ['symmetric', 'reflect'], 'constant'], None, (1, 1, 1.5, 2, 1.5, 2.5, 1.5))
 
 
 def _resample_test(mode, constant_values, expected):

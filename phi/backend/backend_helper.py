@@ -3,7 +3,7 @@ from collections import namedtuple
 
 import numpy as np
 
-from .tensorop import expand, collapsed_gather_nd, CollapsedTensor as T, collapse
+from .tensorop import expand, collapsed_gather_nd, CollapsedTensor as CT, collapse
 
 
 PadSettings = namedtuple('PadSettings', ['pad_width', 'mode', 'constant_values'])
@@ -48,9 +48,9 @@ def general_grid_sample_nd(grid, coords, boundary, constant_values, math):
     :param boundary: 'zero'/'constant', 'replicate', 'circular', 'symmetric', 'reflect'
     :param constant_values: extrapolation values (same options as in pad)
     :param math: backend
-    :return: resampled tensor
+    :return: tensor of sampled values from the grid
     """
-    grid, coords, boundary = _pad_constant_boundaries(grid, coords, boundary, constant_values, math)
+    grid, coords, boundary = pad_constant_boundaries(grid, coords, boundary, constant_values, math)
 
     resolution = np.array([int(d) for d in grid.shape[1:-1]])
     sp_rank = math.ndims(grid) - 2
@@ -59,9 +59,9 @@ def general_grid_sample_nd(grid, coords, boundary, constant_values, math):
     up_weights = coords - floor
     lo_weights = math.unstack(1 - up_weights, axis=-1, keepdims=True)
     up_weights = math.unstack(up_weights, axis=-1, keepdims=True)
-    lo_coords = math.cast(floor, np.int32)
-    hi_coords = _apply_boundary(boundary, lo_coords + 1, resolution, math)
-    lo_coords = _apply_boundary(boundary, lo_coords, resolution, math)
+    lo_coords = math.to_int(floor)
+    hi_coords = apply_boundary(boundary, lo_coords + 1, resolution, math)
+    lo_coords = apply_boundary(boundary, lo_coords, resolution, math)
 
     def interpolate_nd(is_hi_by_axis, axis):
         is_hi_by_axis_2 = is_hi_by_axis | np.array([ax == axis for ax in range(sp_rank)])
@@ -78,8 +78,8 @@ def general_grid_sample_nd(grid, coords, boundary, constant_values, math):
     return result
 
 
-def _pad_constant_boundaries(grid, coords, boundary, constant_values, math):
-    boundary = T(boundary)
+def pad_constant_boundaries(grid, coords, boundary, constant_values, math):
+    boundary = CT(boundary)
     spatial_rank = math.staticshape(coords)[-1]
     pad_widths = [[1 if boundary[dim, upper] in ('zero', 'constant') else 0 for upper in (False, True)] for dim in range(-spatial_rank-1, -1)]
     boundary = [['replicate' if boundary[dim, upper] in ('zero', 'constant') else boundary[dim, upper] for upper in (False, True)] for dim in range(-spatial_rank-1, -1)]
@@ -91,22 +91,39 @@ def _pad_constant_boundaries(grid, coords, boundary, constant_values, math):
     return grid, coords, boundary
 
 
-def _circular(coords, input_size, math):
-    return math.mod(math.mod(coords, input_size) + input_size, input_size)
+def apply_boundary(boundary, coords, input_size, math):
+    if isinstance(boundary, six.string_types):
+        return _apply_single_boundary(boundary, coords, input_size, math)
+    coords = math.unstack(coords, axis=-1)
+    assert len(boundary) == len(input_size) == len(coords)
+    boundary = CT(boundary)
+    result = []
+    for dim, dim_coords in enumerate(coords):
+        if boundary[dim, 0] == boundary[dim, 1]:
+            result.append(_apply_single_boundary(boundary[dim, 0], dim_coords, input_size[dim], math))
+        else:  # separate boundary for lower and upper face
+            lower = _apply_single_boundary(boundary[dim, 0], dim_coords, input_size[dim], math)
+            upper = _apply_single_boundary(boundary[dim, 1], dim_coords, input_size[dim], math)
+            result.append(math.where(dim_coords <= 0, lower, upper))
+    return math.stack(result, axis=-1)
 
 
-def _apply_boundary(boundary, coords, input_size, math):
+def _apply_single_boundary(boundary, coords, input_size, math):
     if boundary == 'zero' or boundary == 'constant':
         raise ValueError("boundary 'zero' cannot be applied to coordinates")
     elif boundary == 'replicate':
         return math.maximum(math.minimum(coords, input_size - 1), 0)
     elif boundary == 'circular':
-        return _circular(coords, input_size, math)
+        return _wrap(coords, input_size, math)
     elif boundary == 'symmetric':
-        coords = _circular(coords, 2 * input_size, math)
+        coords = _wrap(coords, 2 * input_size, math)
         return ((2 * input_size - 1) - math.abs((2 * input_size - 1) - 2 * coords)) // 2
     elif boundary == 'reflect':
-        coords = _circular(coords, 2 * input_size - 2, math)
+        coords = _wrap(coords, 2 * input_size - 2, math)
         return (input_size - 1) - math.abs((input_size - 1) - coords)
     else:
-        raise ValueError('Invalid boundary: %s' % boundary)
+        raise ValueError('Invalid boundary: %s' % (boundary,))
+
+
+def _wrap(coords, input_size, math):
+    return math.mod(math.mod(coords, input_size) + input_size, input_size)
