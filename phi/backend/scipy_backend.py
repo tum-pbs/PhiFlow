@@ -42,16 +42,18 @@ class SciPyBackend(Backend):
 
     # --- Abstract math functions ---
 
-    def as_tensor(self, x):
-        """ as array """
+    def as_tensor(self, x, convert_external=True):
+        if self.is_tensor(x, only_native=convert_external):
+            return x
         return np.array(x)
 
-    def is_tensor(self, x):
-        """ is array """
+    def is_tensor(self, x, only_native=False):
+        if not only_native and isinstance(x, numbers.Number):
+            return True
         if isinstance(x, np.ndarray):
             return x.dtype != np.object
         else:
-            return isinstance(x, (int, float))
+            return False
 
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)

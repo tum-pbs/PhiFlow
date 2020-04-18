@@ -40,14 +40,14 @@ class DynamicBackend(Backend):
                 return True
         return False
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
         try:
-            return self.choose_backend(x).is_tensor(x)
+            return self.choose_backend(x).is_tensor(x, only_native=only_native)
         except NoBackendFound:
             return False
 
-    def as_tensor(self, x):
-        return self.choose_backend(x).as_tensor(x)
+    def as_tensor(self, x, convert_external=True):
+        return self.choose_backend(x).as_tensor(x, convert_external=convert_external)
 
     def copy(self, tensor, only_mutable=False):
         return self.choose_backend(tensor).copy(tensor, only_mutable=only_mutable)

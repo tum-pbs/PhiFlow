@@ -20,10 +20,30 @@ class Backend:
 
     # --- Abstract math functions ---
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
+        """
+        An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
+        An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
+
+        :param x: object to check
+        :param only_native: If True, only accepts true native tensor representations, not Python numbers or others that are also supported as tensors
+        :return: whether `x` is considered a tensor by this backend
+        :rtype: bool
+        """
         raise NotImplementedError()
 
-    def as_tensor(self, x):
+    def as_tensor(self, x, convert_external=True):
+        """
+        Converts a tensor-like object to the native tensor representation of this backend.
+        If x is a native tensor of this backend, it is returned without modification.
+        If x is a Python number (numbers.Number instance), `convert_numbers` decides whether to convert it unless the backend cannot handle Python numbers.
+
+        *Note:* There may be objects that are considered tensors by this backend but are not native and thus, will be converted by this method.
+        
+        :param x: tensor-like, e.g. list, tuple, Python number, tensor
+        :param convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64.
+        :return: tensor representation of `x`
+        """
         raise NotImplementedError()
 
     def copy(self, tensor, only_mutable=False):

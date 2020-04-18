@@ -1,3 +1,4 @@
+import numbers
 import warnings
 
 import numpy as np
@@ -14,11 +15,13 @@ class TorchBackend(Backend):
     def __init__(self):
         Backend.__init__(self, 'PyTorch')
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
+        if not only_native and isinstance(x, numbers.Number):
+            return True
         return isinstance(x, (torch.Tensor, ComplexTensor))
 
-    def as_tensor(self, x):
-        if self.is_tensor(x):
+    def as_tensor(self, x, convert_external=True):
+        if self.is_tensor(x, only_native=convert_external):
             return x
         if isinstance(x, np.ndarray):
             if x.dtype == np.float64:

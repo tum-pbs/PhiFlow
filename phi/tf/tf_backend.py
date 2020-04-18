@@ -8,7 +8,8 @@ import six
 import tensorflow as tf
 from packaging import version
 
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, equalize_shapes
+from phi.backend.scipy_backend import SciPyBackend
 from phi.tf.tf_cuda_resample import *
 from . import tf
 
@@ -21,11 +22,13 @@ class TFBackend(Backend):
     def __init__(self):
         Backend.__init__(self, "TensorFlow")
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
+        if not only_native and SciPyBackend().is_tensor(x, only_native=False):
+            return True
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
-    def as_tensor(self, x):
-        if self.is_tensor(x):
+    def as_tensor(self, x, convert_external=True):
+        if self.is_tensor(x, only_native=convert_external):
             return x
         if isinstance(x, np.ndarray) and x.dtype == np.float64:
             return tf.convert_to_tensor(x, dtype=tf.float32)
@@ -262,7 +265,7 @@ class TFBackend(Backend):
         return tf.cast(x, tf.float64) if float64 else tf.cast(x, tf.float32)
 
     def staticshape(self, tensor):
-        if self.is_tensor(tensor):
+        if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape.as_list())
         else:
             return np.shape(tensor)
