@@ -107,11 +107,9 @@ class CenteredGrid(Field):
         return interpolation
 
     def sample_at(self, points):
-        if not isinstance(self.extrapolation, six.string_types) or self.extrapolation_value != 0:
-            return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
         local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
-        resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation)
+        resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation, constant_values=_pad_value(self.extrapolation_value))
         return resampled
 
     def at(self, other_field):
@@ -225,13 +223,6 @@ class CenteredGrid(Field):
             total = total.data
         normalize_data = math.normalize_to(self.data, total, epsilon)
         return self.with_data(normalize_data)
-
-    def _padded_resample(self, points):
-        data = self.padded([[1,1]] * self.rank).data
-        local_points = self.box.global_to_local(points)
-        local_points = local_points * math.to_float(self.resolution) + 0.5  # depends on amount of padding
-        resampled = math.resample(data, local_points, boundary='replicate', interpolation=self.interpolation)
-        return resampled
 
 
 def _required_paddings_transposed(box, dx, target):
