@@ -127,3 +127,43 @@ def _apply_single_boundary(boundary, coords, input_size, math):
 
 def _wrap(coords, input_size, math):
     return math.mod(math.mod(coords, input_size) + input_size, input_size)
+
+
+def equalize_ranks(tensors, math):
+    rank = max([math.ndims(tensor) for tensor in tensors])
+    return [math.expand_dims(tensor, 0, number=rank - math.ndims(tensor)) for tensor in tensors]
+
+
+def equalize_shapes(tensors, math, ignore_outer_dims=0):
+    tensors = equalize_ranks(tensors, math)
+    shape = _combined_shape([math.staticshape(t) for t in tensors], ignore_outer_dims)
+    result = []
+    for tensor in tensors:
+        tensor_shape = math.staticshape(tensor)
+        multiples = [1] * ignore_outer_dims
+        for dim in range(ignore_outer_dims, len(tensor_shape)):
+            multiples.append(shape[dim] // tensor_shape[dim])
+        result.append(math.tile(tensor, multiples))
+    return result
+
+
+def _combined_shape(shapes, ignore_outer_dims):
+    rank = len(shapes[0])  # assume all shapes have same rank
+    resulting_shape = [None] * ignore_outer_dims
+    for dim in range(ignore_outer_dims, rank):
+        dim_value = None
+        for shape in shapes:
+            dim_value = combined_dim(dim_value, shape[dim])
+        resulting_shape.append(dim_value)
+    return tuple(resulting_shape)
+
+
+def combined_dim(dim1, dim2):
+    if dim1 is None and dim2 is None:
+        return None
+    if dim1 is None or dim1 == 1:
+        return dim2
+    if dim2 is None or dim2 == 1:
+        return dim1
+    assert dim1 == dim2, "Cannot bring shapes together because dimensions are incompatible: %d and %d" % (dim1, dim2)
+    return dim1
