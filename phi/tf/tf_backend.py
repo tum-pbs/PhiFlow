@@ -9,7 +9,7 @@ import six
 import tensorflow as tf
 from packaging import version
 
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, equalize_shapes
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, equalize_shapes, circular_pad, replicate_pad
 from phi.backend.scipy_backend import SciPyBackend
 from phi.tf.tf_cuda_resample import *
 from . import tf
@@ -78,32 +78,15 @@ class TFBackend(Backend):
         return value
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
-        single_mode = single_mode.lower()
-        if single_mode == 'wrap':
-            warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
-            single_mode = 'circular'
         assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
-        if np.sum(np.array(pad_width)) == 0:
-            return value
         if single_mode == 'circular':
-            dims = range(len(value.shape))
-            for dim in dims:
-                s = value.shape[dim]
-                pad_lower, pad_upper = pad_width[dim]
-                if pad_lower is 0 and pad_upper is 0:
-                    continue  # Nothing to pad
-                lower_slices = [slice(s-pad_lower, None) if d == dim else slice(None) for d in dims]
-                upper_slices = [slice(None, pad_upper) if d == dim else slice(None) for d in dims]
-                lower = value[lower_slices]
-                upper = value[upper_slices]
-                value = tf.concat([lower, value, upper], axis=dim)
-            return value
+            return circular_pad(value, pad_width, self)
         if single_mode == 'replicate':
             if np.any(np.array(pad_width) > 1):
-                raise NotImplementedError()  # ToDo: manual padding with slices
+                return replicate_pad(value, pad_width, self)
             else:
                 single_mode = 'symmetric'
-        return tf.pad(value, pad_width, single_mode.upper(), constant_values=constant_value)
+        return tf.pad(value, pad_width, single_mode.upper(), constant_values=constant_value)  # constant, symmetric, reflect
 
     def reshape(self, value, shape):
         return tf.reshape(value, shape)

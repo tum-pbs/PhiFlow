@@ -97,17 +97,13 @@ class SciPyBackend(Backend):
         return value
 
     def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
-        if np.sum(np.array(pad_width)) == 0:
-            return value
-        if single_mode.lower() == 'wrap':
-            warnings.warn("padding mode 'wrap' is deprecated. Use 'circular' instead.", DeprecationWarning, stacklevel=2)
-        elif single_mode.lower() == 'constant':
+        assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
+        if single_mode.lower() == 'constant':
             return np.pad(value, pad_width, 'constant', constant_values=constant_values)
-        elif single_mode.lower() == 'circular':
-            single_mode = 'wrap'
-        elif single_mode.lower() == 'replicate':
-            single_mode = 'edge'
-        return np.pad(value, pad_width, single_mode.lower())
+        else:
+            if single_mode in ('circular', 'replicate'):
+                single_mode = {'circular': 'wrap', 'replicate': 'edge'}[single_mode]
+            return np.pad(value, pad_width, single_mode)
 
     def reshape(self, value, shape):
         return np.reshape(value, shape)

@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim, symmetric_pad
 
 
 class TorchBackend(Backend):
@@ -58,6 +58,23 @@ class TorchBackend(Backend):
             value = self._single_mode_single_constant_pad(value, *pad_pass)
         return value
 
+    def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
+        assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
+        if single_mode == 'constant':
+            pad = sum(pad_width[::-1], [] if isinstance(pad_width, list) else ())
+            return torchf.pad(value, pad, mode='constant', value=constant_value)
+        if single_mode == 'symmetric':
+            if np.any(np.array(pad_width) > 1):
+                return symmetric_pad(value, pad_width, self)
+            else:
+                single_mode = 'replicate'
+        value = channels_first(value)
+        reversed_axis_pad = pad_width[1:-1][::-1]
+        pad = sum(reversed_axis_pad, [] if isinstance(pad_width, list) else ())
+        result = torchf.pad(value, pad, mode=single_mode, value=constant_value)  # reflect, replicate, circular (constant handled above)
+        result = channels_last(result)
+        return result
+
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
         assert interpolation == 'linear'
         assert constant_values == 0
@@ -91,24 +108,6 @@ class TorchBackend(Backend):
         sample_coords = 2 * sample_coords / (resolution-1) - 1
         sample_coords = torch.flip(sample_coords, dims=[-1])
         result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
-        result = channels_last(result)
-        return result
-
-    def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
-        mode = single_mode.lower()
-        if mode == 'wrap':
-            warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
-            mode = 'circular'
-        if mode == 'constant':
-            pad = sum(pad_width[::-1], [] if isinstance(pad_width, list) else ())
-            return torchf.pad(value, pad, mode=mode, value=constant_value)  # constant, reflect, replicate, circular
-        if mode == 'symmetric':
-            warnings.warn("mode 'symmetric' is not supported by PyTorch. Defaults to 'replicate'.")
-            mode = 'replicate'
-        value = channels_first(value)
-        reversed_axis_pad = pad_width[1:-1][::-1]
-        pad = sum(reversed_axis_pad, [] if isinstance(pad_width, list) else ())
-        result = torchf.pad(value, pad, mode=mode, value=constant_value)  # constant, reflect, replicate, circular
         result = channels_last(result)
         return result
 

@@ -167,3 +167,42 @@ def combined_dim(dim1, dim2):
         return dim1
     assert dim1 == dim2, "Cannot bring shapes together because dimensions are incompatible: %d and %d" % (dim1, dim2)
     return dim1
+
+
+def circular_pad(value, pad_width, math):
+    dims = range(math.ndims(value))
+    for dim in dims:
+        pad_lower, pad_upper = pad_width[dim]
+        if pad_lower == 0 and pad_upper == 0:
+            continue  # Nothing to pad
+        lower = value[tuple([slice(value.shape[dim] - pad_lower, None) if d == dim else slice(None) for d in dims])]
+        upper = value[tuple([slice(None, pad_upper) if d == dim else slice(None) for d in dims])]
+        value = math.concat([lower, value, upper], axis=dim)
+    return value
+
+
+def replicate_pad(value, pad_width, math):
+    dims = range(math.ndims(value))
+    for dim in dims:
+        pad_lower, pad_upper = pad_width[dim]
+        if pad_lower == 0 and pad_upper == 0:
+            continue  # Nothing to pad
+        bottom_row = value[(slice(None),) + tuple([slice(1) if d == dim else slice(None) for d in dims]) + (slice(None),)]
+        top_row = value[(slice(None),) + tuple([slice(-1, None) if d == dim else slice(None) for d in dims]) + (slice(None),)]
+        value = math.concat([bottom_row] * pad_lower + [value] + [top_row] * pad_upper)
+    return value
+
+
+def symmetric_pad(value, pad_width, math):
+    raise NotImplementedError()  # only used by PyTorch which does not support ::-1 axis flips
+    dims = range(math.ndims(value))
+    for dim in dims:
+        pad_lower, pad_upper = pad_width[dim]
+        if pad_lower == 0 and pad_upper == 0:
+            continue  # Nothing to pad
+        top_rows = value[tuple([slice(value.shape[dim] - pad_upper, None) if d == dim else slice(None) for d in dims])]
+        bottom_rows = value[tuple([slice(None, pad_lower) if d == dim else slice(None) for d in dims])]
+        top_rows = math.flip_axis(top_rows, dim)
+        bottom_rows = math.flip_axis(bottom_rows, dim)
+        value = math.concat([bottom_rows, value, top_rows], axis=dim)
+    return value
