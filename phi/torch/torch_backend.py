@@ -264,7 +264,21 @@ class TorchBackend(Backend):
         raise NotImplementedError()
 
     def gather_nd(self, values, indices, batch_dims=0):
-        raise NotImplementedError()
+        values = self.as_tensor(values)
+        indices = self.as_tensor(indices).long()
+        if batch_dims == 0:
+            dim_indices = self.unstack(indices, axis=-1)
+            result = values[list(dim_indices)]
+        elif batch_dims == 1:
+            batch_size = combined_dim(self.staticshape(values)[0], self.staticshape(indices)[0])
+            result = []
+            for i in range(batch_size):
+                dim_indices = self.unstack(indices[i], axis=-1)
+                result.append(values[[i] + list(dim_indices)])
+            result = self.stack(result, axis=0)
+        else:
+            raise NotImplementedError("Only batch_dims <= 1 are supported.")
+        return result
 
     def unstack(self, tensor, axis=0, keepdims=False):
         unstacked = torch.unbind(tensor, dim=axis)
@@ -327,19 +341,10 @@ class TorchBackend(Backend):
             return self.as_tensor(complex)
 
     def cast(self, x, dtype):
-        if isinstance(dtype, torch.dtype):
-            x = self.as_tensor(x)
-            return x.to(dtype)
-        # --- NumPy Types ---
-        if dtype == np.float32:
-            return self.to_float(x)
-        if dtype == np.int32:
-            return self.to_int(x)
-        if dtype == np.int64:
-            return self.to_int(x, int64=True)
-        if dtype == np.complex64:
-            return self.to_complex(x)
-        raise NotImplementedError()
+        if not isinstance(dtype, torch.dtype):
+            dtype = {np.float16: torch.float16, np.float32: torch.float32, np.float64: torch.float64, np.bool: torch.bool, np.int8: torch.int8, np.int16: torch.int16, np.int32: torch.int32, np.int64: torch.int64}[dtype]
+        x = self.as_tensor(x)
+        return x.to(dtype)
 
     def sin(self, x):
         return torch.sin(x)
