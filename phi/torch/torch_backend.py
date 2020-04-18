@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim
 
 
 class TorchBackend(Backend):
@@ -61,10 +61,11 @@ class TorchBackend(Backend):
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
         assert interpolation == 'linear'
         assert constant_values == 0
-        # return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
-        return self.native_resample(inputs, sample_coords, interpolation, boundary)
+        return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
+        # return self._native_resample(inputs, sample_coords, interpolation, boundary)
 
-    def native_resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+    def _native_resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        """ Around 5% faster than general_grid_sample_nd on the CPU. Does not support multi-boundary resampling or constant values. """
         inputs = channels_first(self.as_tensor(inputs))
         sample_coords = self.as_tensor(sample_coords)
         # --- Interpolation ---
