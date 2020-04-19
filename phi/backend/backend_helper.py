@@ -86,7 +86,7 @@ def pad_constant_boundaries(grid, coords, boundary, constant_values, math):
     lower_pads = [lu[0] for lu in pad_widths]
     grid = math.pad(grid, [[0, 0]] + pad_widths + [[0, 0]], mode='constant', constant_values=constant_values)
     if sum(lower_pads) > 0:
-        coords += lower_pads
+        coords = math.add(coords, lower_pads)
     boundary = collapse(boundary)
     return grid, coords, boundary
 
@@ -126,7 +126,7 @@ def _apply_single_boundary(boundary, coords, input_size, math):
 
 
 def _wrap(coords, input_size, math):
-    return math.mod(math.mod(coords, input_size) + input_size, input_size)
+    return math.mod(math.add(math.mod(coords, input_size), input_size), input_size)
 
 
 def equalize_ranks(tensors, math):
