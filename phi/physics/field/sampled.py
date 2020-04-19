@@ -24,15 +24,17 @@ class SampledField(Field):
     def at(self, other_field):
         if isinstance(other_field, SampledField) and other_field.sample_points is self.sample_points:
             return self
-        elif isinstance(other_field, (CenteredGrid, Domain)):
-            return self._grid_sample(other_field.box, other_field.resolution)
+        elif isinstance(other_field, Domain):
+            return self._grid_sample(other_field.box, other_field.resolution, 1)
+        elif isinstance(other_field, CenteredGrid):
+            return self._grid_sample(other_field.box, other_field.resolution, other_field._batch_size)
         elif isinstance(other_field, StaggeredGrid):
             return self._stagger_sample(other_field.box, other_field.resolution)
 
         else:
             return self
 
-    def _grid_sample(self, box, resolution):
+    def _grid_sample(self, box, resolution, batch_size):
         """
     Samples this field on a regular grid.
         :param box: physical dimensions of the grid
@@ -43,7 +45,11 @@ class SampledField(Field):
         sample_indices_nd = math.minimum(math.maximum(0, sample_indices_nd), resolution - 1)  # Snap outside points to edges, otherwise scatter raises an error
         # Correct format for math.scatter
         valid_indices = _batch_indices(sample_indices_nd)
-        shape = (self._batch_size,) + tuple(resolution) + (self.data.shape[-1],)
+        if batch_size is None:
+            batch_size = self._batch_size
+        if batch_size is None:
+            batch_size = 1
+        shape = (batch_size,) + tuple(resolution) + (self.data.shape[-1],)
         scattered = math.scatter(self.sample_points, valid_indices, self.data, shape, duplicates_handling=self.mode)
         return CenteredGrid(data=scattered, box=box, extrapolation='constant', name=self.name+'_centered')
 

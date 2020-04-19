@@ -6,6 +6,7 @@ import os
 import inspect
 
 import webglviewer
+from phi.physics import physics_config
 from phi.physics.field import CenteredGrid, StaggeredGrid
 from phi.viz.dash.dash_plotting import reduce_component
 
@@ -126,18 +127,22 @@ def webgl_prepare_data(field, settings):
             data = field.at_centers().data
             component = 'length'
         else:
-            data = field.unstack()[('z', 'y', 'x').index(component)].data
+            data = field.unstack()[{'z': physics_config.Z, 'y': physics_config.Y, 'x': physics_config.X}[component]].data
 
     if data is None:
         return EMPTY_GRID
     if not isinstance(data, np.ndarray):
+        warnings.warn("WebGL plotting failed. Expected NumPy array but found '%s'" % data)
         return EMPTY_GRID
 
     if data.ndim == 4:
-        data = np.stack([data] * 2, axis=1)
+        data = np.stack([data] * 2, axis=1 if not physics_config.X_FIRST else -2)
 
     data = data[min(batch, data.shape[0] - 1), ...]
     data = reduce_component(data, component)
-    data = np.transpose(data, axes=(1, 0, 2))
+    if not physics_config.X_FIRST:
+        data = np.transpose(data, axes=(1, 0, 2))
+    else:
+        data = np.transpose(data, axes=(1, 2, 0))
     data = np.abs(data) * 2
     return data

@@ -4,7 +4,7 @@ import six
 
 from phi.geom import Geometry
 from phi.physics.physics_config import up_vector
-from phi.physics.field import Field, GeometryMask, ConstantField
+from phi.physics.field import Field, mask, ConstantField
 from phi import math, struct
 from phi.physics import State, Physics, StateDependency
 
@@ -53,18 +53,18 @@ def effect_applied(effect, field, dt):
         return field + effect_field
     elif effect._mode == FIX:
         assert effect.bounds is not None
-        mask = GeometryMask([effect.bounds]).at(field)
-        return math.where(mask, effect_field, field)
+        inside = mask([effect.bounds]).at(field)
+        return math.where(inside, effect_field, field)
     else:
         raise ValueError('Invalid mode: %s' % effect.mode)
 
 
 # pylint: disable-msg = invalid-name
-Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(GeometryMask(geometry, name='inflow') * rate, target, GROW, tags=('inflow', 'effect'))
-Accelerator = lambda geometry, acceleration: FieldEffect(GeometryMask(geometry, name='fan') * acceleration, ('velocity',), GROW, tags=('fan', 'effect'))
+Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(mask(geometry, antialias=True) * rate, target, GROW, tags=('inflow', 'effect'))
+Accelerator = lambda geometry, acceleration: FieldEffect(mask(geometry, antialias=True) * acceleration, ('velocity',), GROW, tags=('fan', 'effect'))
 ConstantVelocity = lambda geometry, velocity: FieldEffect(ConstantField(velocity), bounds=geometry, targets=('velocity',), mode=FIX, tags=('effect',))
-HeatSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry, name='heat-source') * rate, ('temperature',), GROW, name=name)
-ColdSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry, name='heat-source') * -rate, ('temperature',), GROW, name=name)
+HeatSource = lambda geometry, rate, name=None: FieldEffect(mask(geometry, antialias=True) * rate, ('temperature',), GROW, name=name)
+ColdSource = lambda geometry, rate, name=None: FieldEffect(mask(geometry, antialias=True) * -rate, ('temperature',), GROW, name=name)
 
 
 def Fan(*args, **kwargs):
