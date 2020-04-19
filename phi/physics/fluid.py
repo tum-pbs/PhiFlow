@@ -236,6 +236,8 @@ Projects the given velocity field by solving for and subtracting the pressure.
     # --- Boundary Conditions, Pressure Solve ---
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)
     divergence_field = velocity.divergence(physical_units=False)
+    if not struct.any(Material.open(domain.boundaries)):  # has no open boundary
+        divergence_field = divergence_field - math.mean(divergence_field.data, axis=tuple(range(1, 1 + divergence_field.rank)), keepdims=True)  # Subtract mean divergence
     pressure, iterations = solve_pressure(divergence_field, fluiddomain, pressure_solver=pressure_solver)
     pressure *= velocity.dx[0]
     gradp = StaggeredGrid.gradient(pressure)
