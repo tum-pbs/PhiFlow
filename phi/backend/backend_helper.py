@@ -86,7 +86,7 @@ def pad_constant_boundaries(grid, coords, boundary, constant_values, math):
     lower_pads = [lu[0] for lu in pad_widths]
     grid = math.pad(grid, [[0, 0]] + pad_widths + [[0, 0]], mode='constant', constant_values=constant_values)
     if sum(lower_pads) > 0:
-        coords = math.add(coords, lower_pads)
+        coords = math.add(coords, math.cast(lower_pads, math.dtype(coords)))
     boundary = collapse(boundary)
     return grid, coords, boundary
 
