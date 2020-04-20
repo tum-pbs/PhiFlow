@@ -299,19 +299,19 @@ If `multiples` has more dimensions than `value`, these dimensions are added to `
         return tuple(result)
 
     def add(self, a, b):
-        return self.as_tensor(a) + self.as_tensor(b)
+        return self.as_tensor(a, convert_external=False) + self.as_tensor(b, convert_external=False)
 
     def sub(self, a, b):
-        return self.as_tensor(a) - self.as_tensor(b)
+        return self.as_tensor(a, convert_external=False) - self.as_tensor(b, convert_external=False)
 
     def mul(self, a, b):
-        return self.as_tensor(a) * self.as_tensor(b)
+        return self.as_tensor(a, convert_external=False) * self.as_tensor(b, convert_external=False)
 
     def div(self, numerator, denominator):
-        return self.as_tensor(numerator) / self.as_tensor(denominator)
+        return self.as_tensor(numerator, convert_external=False) / self.as_tensor(denominator, convert_external=False)
 
     def pow(self, base, exp):
-        return self.as_tensor(base) ** self.as_tensor(exp)
+        return self.as_tensor(base, convert_external=False) ** self.as_tensor(exp, convert_external=False)
 
     def mod(self, dividend, divisor):
-        return self.as_tensor(dividend) % self.as_tensor(divisor)
+        return self.as_tensor(dividend, convert_external=False) % self.as_tensor(divisor, convert_external=False)
