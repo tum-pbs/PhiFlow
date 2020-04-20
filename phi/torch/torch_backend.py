@@ -205,7 +205,7 @@ class TorchBackend(Backend):
         return torch.min(self.as_tensor(a), other=self.as_tensor(b, convert_external=False))
 
     def clip(self, x, minimum, maximum):
-        return torch.clamp(self.as_tensor(x), self.as_tensor(minimum, convert_external=False), self.as_tensor(maximum, convert_external=False))
+        return torch.clamp(self.as_tensor(x), minimum, maximum)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         return function(*inputs)  # ToDo
