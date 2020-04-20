@@ -314,4 +314,5 @@ If `multiples` has more dimensions than `value`, these dimensions are added to `
         return self.as_tensor(base, convert_external=False) ** self.as_tensor(exp, convert_external=False)
 
     def mod(self, dividend, divisor):
-        return self.as_tensor(dividend, convert_external=False) % self.as_tensor(divisor, convert_external=False)
+        dividend_tensor = self.as_tensor(dividend, convert_external=False)
+        return dividend_tensor % self.cast(self.as_tensor(divisor, convert_external=False), self.dtype(dividend_tensor))
