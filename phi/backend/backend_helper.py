@@ -114,19 +114,15 @@ def _apply_single_boundary(boundary, coords, input_size, math):
     elif boundary == 'replicate':
         return math.maximum(math.minimum(coords, input_size - 1), 0)
     elif boundary == 'circular':
-        return _wrap(coords, input_size, math)
+        return math.mod(coords, input_size)
     elif boundary == 'symmetric':
-        coords = _wrap(coords, 2 * input_size, math)
+        coords = math.mod(coords, 2 * input_size)
         return ((2 * input_size - 1) - math.abs((2 * input_size - 1) - 2 * coords)) // 2
     elif boundary == 'reflect':
-        coords = _wrap(coords, 2 * input_size - 2, math)
+        coords = math.mod(coords, 2 * input_size - 2)
         return (input_size - 1) - math.abs((input_size - 1) - coords)
     else:
         raise ValueError('Invalid boundary: %s' % (boundary,))
-
-
-def _wrap(coords, input_size, math):
-    return math.mod(math.add(math.mod(coords, input_size), input_size), input_size)
 
 
 def equalize_ranks(tensors, math):
