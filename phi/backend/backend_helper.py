@@ -43,6 +43,14 @@ def split_multi_mode_pad(tensor_rank, pad_settings, split_by_constant_value=True
 def general_grid_sample_nd(grid, coords, boundary, constant_values, math):
     """
     Backend-independent grid sampling with linear interpolation.
+    Supports boundary conditions per face: 'constant' , 'replicate', 'circular', 'symmetric', 'reflect'.
+
+    Interpolation at the boundaries works according to the following principle:
+    The boundary mode determines the value at virtual grid points outside the grid bounds.
+    This is exact, even for far-away points.
+    Then, linear interpolation is used to determine the point between grid points.
+    Consequently, for constant boundaries, the value linearly approaches the constant value over the distance of one cell at the boundary.
+
     :param grid: tensor of shape (batch_dim, spatial dims..., channels)
     :param coords: tensor of shape (batch_dim, ..., spatial_rank)
     :param boundary: 'zero'/'constant', 'replicate', 'circular', 'symmetric', 'reflect'
