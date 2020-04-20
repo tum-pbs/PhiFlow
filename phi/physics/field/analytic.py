@@ -70,7 +70,7 @@ class SymbolicFieldBackend(Backend):
         backend_func = getattr(self.backend, func)
         return _SymbolicOpField(backend_func, args)
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
         return isinstance(x, AnalyticField)
 
 

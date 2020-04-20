@@ -14,7 +14,7 @@ class Backend:
 
     def is_applicable(self, values):
         for value in values:
-            if self.is_tensor(value):
+            if self.is_tensor(value, only_native=True):
                 return True
         return False
 
