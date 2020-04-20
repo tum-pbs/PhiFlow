@@ -8,7 +8,9 @@ import numpy as np
 import six
 
 from phi import math, struct
-from phi.physics.field import Field
+from phi.geom import union
+from phi.physics.field import Field, mask
+from phi.physics.field.angular_velocity import AngularVelocity
 
 from .domain import Domain, DomainState
 from .field import CenteredGrid, StaggeredGrid, advect, union_mask
@@ -78,7 +80,7 @@ Supports obstacles, density effects, velocity effects, global gravity.
     """
 
     def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True, conserve_density=True):
-        Physics.__init__(self, [StateDependency('obstacles', 'obstacle'),
+        Physics.__init__(self, [StateDependency('obstacles', 'obstacle', blocking=True),
                                 StateDependency('gravity', 'gravity', single_state=True),
                                 StateDependency('density_effects', 'density_effect', blocking=True),
                                 StateDependency('velocity_effects', 'velocity_effect', blocking=True)])
@@ -225,7 +227,7 @@ Projects the given velocity field by solving for and subtracting the pressure.
     # --- Set up FluidDomain ---
     if domain is None:
         domain = Domain(velocity.resolution, OPEN)
-    obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles])
+    obstacle_mask = mask(union([obstacle.geometry for obstacle in obstacles]), antialias=False)
     if obstacle_mask is not None:
         obstacle_grid = obstacle_mask.at(velocity.center_points).copied_with(extrapolation='constant')
         active_mask = 1 - obstacle_grid
@@ -235,6 +237,11 @@ Projects the given velocity field by solving for and subtracting the pressure.
     fluiddomain = FluidDomain(domain, active=active_mask, accessible=accessible_mask)
     # --- Boundary Conditions, Pressure Solve ---
     velocity = fluiddomain.with_hard_boundary_conditions(velocity)
+    for obstacle in obstacles:
+        if not obstacle.is_stationary:
+            obs_mask = mask(obstacle.geometry, antialias=True)
+            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None)
+            velocity = ((1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)).at(velocity)
     divergence_field = velocity.divergence(physical_units=False)
     if not struct.any(Material.open(domain.boundaries)):  # has no open boundary
         divergence_field = divergence_field - math.mean(divergence_field.data, axis=tuple(range(1, 1 + divergence_field.rank)), keepdims=True)  # Subtract mean divergence

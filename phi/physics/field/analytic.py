@@ -31,7 +31,12 @@ class AnalyticField(Field):
         if self.component_count == 1:
             return [self]
         else:
-            return [_SymbolicOpField(lambda x: x.unstack()[i], [self]) for i in range(self.component_count)]
+            components = []
+            for i in range(self.component_count):
+                def _context(index=i):
+                    return lambda x: x.unstack()[index]
+                components.append(_SymbolicOpField(_context(i), [self]))
+            return components
 
     @property
     def points(self):
@@ -172,6 +177,8 @@ def _determine_component_count(args):
         elif math.is_tensor(arg) and math.ndims(arg) > 0:
             arg_channels = arg.shape[-1]
         if result is None:
+            result = arg_channels
+        elif result == 1 and arg_channels is not None:
             result = arg_channels
         else:
             assert result == arg_channels or arg_channels is None
