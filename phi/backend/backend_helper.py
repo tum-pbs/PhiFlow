@@ -112,7 +112,7 @@ def _apply_single_boundary(boundary, coords, input_size, math):
     if boundary == 'zero' or boundary == 'constant':
         raise ValueError("boundary 'zero' cannot be applied to coordinates")
     elif boundary == 'replicate':
-        return math.maximum(math.minimum(coords, input_size - 1), 0)
+        return math.clip(coords, 0, input_size - 1)
     elif boundary == 'circular':
         return math.mod(coords, input_size)
     elif boundary == 'symmetric':
