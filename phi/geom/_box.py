@@ -3,6 +3,7 @@ import numpy as np
 from phi import struct, math
 from ._geom_util import assert_same_rank
 from ._geom import Geometry
+from ._transform import rotate
 
 
 @struct.definition()
@@ -60,7 +61,7 @@ For inside locations it is `-max(abs(l - s))`.
     @property
     def rank(self):
         if math.ndims(self.size) > 0:
-            return self.size.shape[-1]
+            return math.staticshape(self.size)[-1]
         else:
             return None
 
@@ -84,10 +85,13 @@ For inside locations it is `-max(abs(l - s))`.
         return Cuboid(self.center, self.half_size)
 
     def contains(self, other):
-        if isinstance(other, Box):
+        if isinstance(other, AbstractBox):
             return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
         else:
             raise NotImplementedError()
+
+    def rotated(self, angle):
+        return rotate(self, angle)
 
 
 @struct.definition(traits=[math.BATCHED])
@@ -128,6 +132,9 @@ class AABox(AbstractBox):
                 lower.append(self.get_lower(ax))
                 upper.append(self.get_upper(ax))
         return self.copied_with(lower=lower, upper=upper)
+
+    def shifted(self, delta):
+        return self.copied_with(lower=self.lower + delta, upper=self.upper + delta)
 
     def __repr__(self):
         if self.is_valid:
@@ -183,6 +190,9 @@ class Cuboid(AbstractBox):
     def upper(self):
         return 0.5 * (self.lower + self.upper)
 
+    def shifted(self, delta):
+        return self.copied_with(center=self.center + delta)
+
 
 class BoxGenerator(object):
 
@@ -213,3 +223,9 @@ class BoxGenerator(object):
             return AABox(0, args[0])
         else:
             raise ValueError('Cannot create box from args=%s, kwargs=%s' % (args, kwargs))
+
+
+def bounding_box(geometry):
+    center = geometry.center
+    extent = geometry.bounding_half_extent()
+    return AABox(lower=center - extent, upper=center + extent)

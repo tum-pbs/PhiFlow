@@ -1,6 +1,8 @@
 from phi import struct, math
 from ._geom import Geometry
 from ._empty import NO_GEOMETRY
+from ._transform import rotate
+from ._box import bounding_box, AABox
 
 
 @struct.definition()
@@ -26,6 +28,28 @@ class Union(Geometry):
 
     def approximate_signed_distance(self, location):
         return math.min([geometry.approximate_signed_distance(location) for geometry in self.geometries], axis=0)
+
+    @property
+    def center(self):
+        return self._bounding_box().center
+
+    def bounding_radius(self):
+        return self._bounding_box().bounding_radius()
+
+    def bounding_half_extent(self):
+        return self._bounding_box().bounding_half_extent()
+
+    def _bounding_box(self):
+        boxes = [bounding_box(g) for g in self.geometries]
+        lower = math.min([b.lower for b in boxes], axis=0)
+        upper = math.max([b.upper for b in boxes], axis=0)
+        return AABox(lower, upper)
+
+    def shifted(self, delta):
+        return Union([geometry.shifted(delta) for geometry in self.geometries])
+
+    def rotated(self, angle):
+        return rotate(self, angle)
 
 
 def union(*geometries):

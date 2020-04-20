@@ -1,3 +1,4 @@
+import warnings
 
 from phi import struct, math
 from ._geom import Geometry
@@ -7,15 +8,18 @@ from ._sphere import Sphere
 @struct.definition()
 class RotatedGeometry(Geometry):
 
-    def __init__(self, geometry, rotation, **kwargs):
-        Geometry.__init__(self, struct.kwargs(locals()))
+    def __init__(self, geometry, angle, **kwargs):
+        Geometry.__init__(self, **struct.kwargs(locals()))
 
     @struct.constant()
     def geometry(self, geometry):
+        assert isinstance(geometry, Geometry)
+        if isinstance(geometry, RotatedGeometry):
+            warnings.warn('Using RotatedGeometry of RotatedGeometry. Consider simplifying your setup.')
         return geometry
 
     @struct.constant()
-    def rotation(self, rotation):
+    def angle(self, rotation):
         return rotation
 
     @property
@@ -24,9 +28,20 @@ class RotatedGeometry(Geometry):
 
     def global_to_child(self, location):
         delta = location - self.center
-        rotated = delta  # ToDo apply rotation
+        if math.staticshape(location)[-1] == 2:
+            angle = math.batch_align(self.angle, 0, location)
+            sin = math.sin(angle)
+            cos = math.cos(angle)
+            y, x = math.unstack(delta, axis=-1)
+            rot_x = cos * x - sin * y
+            rot_y = sin * x + cos * y
+            rotated = math.stack([rot_y, rot_x], axis=-1)
+        elif math.staticshape(location)[-1] == 3:
+            angle = math.batch_align(self.angle, 1, location)
+            raise NotImplementedError('not yet implemented')  # ToDo apply angle
+        else:
+            raise NotImplementedError('Rotation only supported in 2D and 3D')
         final = rotated + self.center
-        raise NotImplementedError(self)
         return final
 
     def lies_inside(self, location):
@@ -46,11 +61,18 @@ class RotatedGeometry(Geometry):
     def rank(self):
         return self.geometry.rank
 
+    def shifted(self, delta):
+        return self.copied_with(geometry=self.geometry.shifted(delta))
 
-def rotate(geometry, rotation):
+    def rotated(self, angle):
+        return self.copied_with(angle=self.angle + angle)
+
+
+def rotate(geometry, angle):
+    """ package-internal rotation function. Users should use Geometry.rotated() instead. """
     assert isinstance(geometry, Geometry)
     if isinstance(geometry, RotatedGeometry):
-        total_rotation = geometry.rotation + rotation  # ToDo concatenate rotations
+        total_rotation = geometry.angle + angle  # ToDo concatenate rotations
         return RotatedGeometry(geometry.geometry, total_rotation)
     else:
-        return RotatedGeometry(geometry, rotation)
+        return RotatedGeometry(geometry, angle)
