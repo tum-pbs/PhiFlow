@@ -199,13 +199,20 @@ class TorchBackend(Backend):
         return torch.min(x, dim=axis, keepdim=keepdims)
 
     def maximum(self, a, b):
-        return torch.max(self.as_tensor(a), other=self.as_tensor(b, convert_external=False))
+        a_ = self.as_tensor(a)
+        b_ = self.as_tensor(b).to(a_.dtype)
+        return torch.max(a_, other=b_)
 
     def minimum(self, a, b):
-        return torch.min(self.as_tensor(a), other=self.as_tensor(b, convert_external=False))
+        a_ = self.as_tensor(a)
+        b_ = self.as_tensor(b).to(a_.dtype)
+        return torch.min(a_, other=b_)
 
     def clip(self, x, minimum, maximum):
-        return torch.clamp(self.as_tensor(x), minimum, maximum)
+        if isinstance(minimum, numbers.Number) and isinstance(maximum, numbers.Number):
+            return torch.clamp(self.as_tensor(x), minimum, maximum)
+        else:
+            return self.maximum(minimum, self.minimum(x, maximum))
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         return function(*inputs)  # ToDo
