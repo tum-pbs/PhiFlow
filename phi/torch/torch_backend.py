@@ -1,3 +1,4 @@
+import numbers
 import warnings
 
 import numpy as np
@@ -6,7 +7,7 @@ import torch
 import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim, symmetric_pad
 
 
 class TorchBackend(Backend):
@@ -14,11 +15,13 @@ class TorchBackend(Backend):
     def __init__(self):
         Backend.__init__(self, 'PyTorch')
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
+        if not only_native and isinstance(x, numbers.Number):
+            return True
         return isinstance(x, (torch.Tensor, ComplexTensor))
 
-    def as_tensor(self, x):
-        if self.is_tensor(x):
+    def as_tensor(self, x, convert_external=True):
+        if self.is_tensor(x, only_native=convert_external):
             return x
         if isinstance(x, np.ndarray):
             if x.dtype == np.float64:
@@ -30,6 +33,8 @@ class TorchBackend(Backend):
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
                 return torch.stack(components, dim=0)
+        if isinstance(x, int):
+            return torch.tensor(x, dtype=torch.int32)
         return torch.tensor(x)
 
     def copy(self, tensor, only_mutable=False):
@@ -54,20 +59,55 @@ class TorchBackend(Backend):
         return value
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
-        mode = single_mode.lower()
-        if mode == 'wrap':
-            warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
-            mode = 'circular'
-        if mode == 'constant':
+        assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
+        if single_mode == 'constant':
             pad = sum(pad_width[::-1], [] if isinstance(pad_width, list) else ())
-            return torchf.pad(value, pad, mode=mode, value=constant_value)  # constant, reflect, replicate, circular
-        if mode == 'symmetric':
-            warnings.warn("mode 'symmetric' is not supported by PyTorch. Defaults to 'replicate'.")
-            mode = 'replicate'
+            return torchf.pad(value, pad, mode='constant', value=constant_value)
+        if single_mode == 'symmetric':
+            if np.any(np.array(pad_width) > 1):
+                return symmetric_pad(value, pad_width, self)
+            else:
+                single_mode = 'replicate'
         value = channels_first(value)
         reversed_axis_pad = pad_width[1:-1][::-1]
         pad = sum(reversed_axis_pad, [] if isinstance(pad_width, list) else ())
-        result = torchf.pad(value, pad, mode=mode, value=constant_value)  # constant, reflect, replicate, circular
+        result = torchf.pad(value, pad, mode=single_mode, value=constant_value)  # reflect, replicate, circular (constant handled above)
+        result = channels_last(result)
+        return result
+
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        assert interpolation == 'linear'
+        assert constant_values == 0
+        return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
+        # return self._native_resample(inputs, sample_coords, interpolation, boundary)
+
+    def _native_resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
+        """ Around 5% faster than general_grid_sample_nd on the CPU. Does not support multi-boundary resampling or constant values. """
+        inputs = channels_first(self.as_tensor(inputs))
+        sample_coords = self.as_tensor(sample_coords)
+        # --- Interpolation ---
+        if interpolation.lower() == 'linear':
+            interpolation = 'bilinear'
+        elif interpolation.lower() == 'nearest':
+            interpolation = 'nearest'
+        else:
+            raise NotImplementedError(interpolation)
+        # --- Boundary ---
+        if boundary == 'zero' or boundary == 'constant':
+            boundary = 'zeros'
+        elif boundary == 'replicate':
+            boundary = 'border'
+        elif boundary == 'circular':
+            shape = self.to_float(inputs.shape[2:])
+            sample_coords = torch.fmod(sample_coords, shape)
+            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape)-2), mode='circular')
+            boundary = 'zeros'
+        else:
+            raise NotImplementedError(boundary)
+        resolution = torch.Tensor(self.staticshape(inputs)[2:])
+        sample_coords = 2 * sample_coords / (resolution-1) - 1
+        sample_coords = torch.flip(sample_coords, dims=[-1])
+        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
         return result
 
@@ -98,35 +138,6 @@ class TorchBackend(Backend):
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError()
-
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        inputs = channels_first(self.as_tensor(inputs))
-        sample_coords = self.as_tensor(sample_coords)
-        # --- Interpolation ---
-        if interpolation.lower() == 'linear':
-            interpolation = 'bilinear'
-        elif interpolation.lower() == 'nearest':
-            interpolation = 'nearest'
-        else:
-            raise NotImplementedError(interpolation)
-        # --- Boundary ---
-        if boundary == 'zero' or boundary == 'constant':
-            boundary = 'zeros'
-        elif boundary == 'replicate':
-            boundary = 'border'
-        elif boundary == 'circular':
-            shape = self.to_float(inputs.shape[2:])
-            sample_coords = torch.fmod(sample_coords, shape)
-            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape)-2), mode='circular')
-            boundary = 'zeros'
-        else:
-            raise NotImplementedError(boundary)
-        resolution = torch.Tensor(self.staticshape(inputs)[2:])
-        sample_coords = 2 * sample_coords / (resolution-1) - 1
-        sample_coords = torch.flip(sample_coords, dims=[-1])
-        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
-        result = channels_last(result)
-        return result
 
     def range(self, start, limit=None, delta=1, dtype=None):
         if limit is None:
@@ -188,14 +199,20 @@ class TorchBackend(Backend):
         return torch.min(x, dim=axis, keepdim=keepdims)
 
     def maximum(self, a, b):
-        b = self.as_tensor(b)
-        return torch.max(a, other=b)
+        a_ = self.as_tensor(a)
+        b_ = self.as_tensor(b).to(a_.dtype)
+        return torch.max(a_, other=b_)
 
     def minimum(self, a, b):
-        return torch.min(a, other=b)
+        a_ = self.as_tensor(a)
+        b_ = self.as_tensor(b).to(a_.dtype)
+        return torch.min(a_, other=b_)
 
     def clip(self, x, minimum, maximum):
-        return torch.clamp(x, minimum, maximum)
+        if isinstance(minimum, numbers.Number) and isinstance(maximum, numbers.Number):
+            return torch.clamp(self.as_tensor(x), minimum, maximum)
+        else:
+            return self.maximum(minimum, self.minimum(x, maximum))
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         return function(*inputs)  # ToDo
@@ -254,7 +271,21 @@ class TorchBackend(Backend):
         raise NotImplementedError()
 
     def gather_nd(self, values, indices, batch_dims=0):
-        raise NotImplementedError()
+        values = self.as_tensor(values)
+        indices = self.as_tensor(indices).long()
+        if batch_dims == 0:
+            dim_indices = self.unstack(indices, axis=-1)
+            result = values[list(dim_indices)]
+        elif batch_dims == 1:
+            batch_size = combined_dim(self.staticshape(values)[0], self.staticshape(indices)[0])
+            result = []
+            for i in range(batch_size):
+                dim_indices = self.unstack(indices[i], axis=-1)
+                result.append(values[[i] + list(dim_indices)])
+            result = self.stack(result, axis=0)
+        else:
+            raise NotImplementedError("Only batch_dims <= 1 are supported.")
+        return result
 
     def unstack(self, tensor, axis=0, keepdims=False):
         unstacked = torch.unbind(tensor, dim=axis)
@@ -317,19 +348,10 @@ class TorchBackend(Backend):
             return self.as_tensor(complex)
 
     def cast(self, x, dtype):
-        if isinstance(dtype, torch.dtype):
-            x = self.as_tensor(x)
-            return x.to(dtype)
-        # --- NumPy Types ---
-        if dtype == np.float32:
-            return self.to_float(x)
-        if dtype == np.int32:
-            return self.to_int(x)
-        if dtype == np.int64:
-            return self.to_int(x, int64=True)
-        if dtype == np.complex64:
-            return self.to_complex(x)
-        raise NotImplementedError()
+        if not isinstance(dtype, torch.dtype):
+            dtype = {np.float16: torch.float16, np.float32: torch.float32, np.float64: torch.float64, np.bool: torch.bool, np.int8: torch.int8, np.int16: torch.int16, np.int32: torch.int32, np.int64: torch.int64}[dtype]
+        x = self.as_tensor(x)
+        return x.to(dtype)
 
     def sin(self, x):
         return torch.sin(x)

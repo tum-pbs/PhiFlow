@@ -40,14 +40,14 @@ class DynamicBackend(Backend):
                 return True
         return False
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
         try:
-            return self.choose_backend(x).is_tensor(x)
+            return self.choose_backend(x).is_tensor(x, only_native=only_native)
         except NoBackendFound:
             return False
 
-    def as_tensor(self, x):
-        return self.choose_backend(x).as_tensor(x)
+    def as_tensor(self, x, convert_external=True):
+        return self.choose_backend(x).as_tensor(x, convert_external=convert_external)
 
     def copy(self, tensor, only_mutable=False):
         return self.choose_backend(tensor).copy(tensor, only_mutable=only_mutable)
@@ -80,11 +80,11 @@ class DynamicBackend(Backend):
         return self.choose_backend(value).prod(value, axis)
 
     def divide_no_nan(self, x, y):
-        return self.choose_backend((x,y)).divide_no_nan(x, y)
+        return self.choose_backend([x, y]).divide_no_nan(x, y)
 
     def where(self, condition, x=None, y=None):
         # For Tensorflow x,y the condition can be a Numpy array, but not the other way around. If possible, choose backend based on first input, otherwise based on condition.
-        return self.choose_backend((condition, x, y)).where(condition, x, y)
+        return self.choose_backend([condition, x, y]).where(condition, x, y)
 
     def mean(self, value, axis=None, keepdims=False):
         return self.choose_backend(value).mean(value, axis, keepdims=keepdims)
@@ -92,11 +92,11 @@ class DynamicBackend(Backend):
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         return self.choose_backend(inputs).py_func(func, inputs, Tout, shape_out, stateful, name, grad)
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        return self.choose_backend((inputs, sample_coords)).resample(inputs, sample_coords, interpolation, boundary)
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        return self.choose_backend([inputs, sample_coords]).resample(inputs, sample_coords, interpolation=interpolation, boundary=boundary, constant_values=constant_values)
 
     def range(self, start, limit=None, delta=1, dtype=None):
-        return self.choose_backend((start, limit, delta)).range(start, limit, delta, dtype)
+        return self.choose_backend([start, limit, delta]).range(start, limit, delta, dtype)
 
     def zeros_like(self, tensor):
         return self.choose_backend(tensor).zeros_like(tensor)
@@ -105,10 +105,10 @@ class DynamicBackend(Backend):
         return self.choose_backend(tensor).ones_like(tensor)
 
     def dot(self, a, b, axes):
-        return self.choose_backend((a, b)).dot(a, b, axes)
+        return self.choose_backend([a, b]).dot(a, b, axes)
 
     def matmul(self, A, b):
-        return self.choose_backend((A, b)).matmul(A, b)
+        return self.choose_backend([A, b]).matmul(A, b)
 
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None):
         return self.choose_backend(loop_vars).while_loop(cond, body, loop_vars, shape_invariants, parallel_iterations, back_prop, swap_memory, name, maximum_iterations)

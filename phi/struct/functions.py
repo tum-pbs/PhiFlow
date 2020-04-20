@@ -312,3 +312,19 @@ To specify custom dtypes, add an override with key struct.dtype to the Item.
         if not skip_validate():
             assert obj.content_type is VALID or obj.content_type is INVALID, "dtype can only be accessed on data structs but '%s' has content type '%s'" % (type(obj).__name__, obj.content_type)
     return map(get_dtype, obj, leaf_condition=leaf_condition, item_condition=item_condition, content_type=dtype)
+
+
+def any(condition_struct):
+    values = flatten(condition_struct)
+    for value in values:
+        if value:
+            return True
+    return False
+
+
+def all(condition_struct):
+    values = flatten(condition_struct)
+    for value in values:
+        if not value:
+            return False
+    return True

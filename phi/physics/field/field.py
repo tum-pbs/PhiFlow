@@ -157,29 +157,29 @@ class Field(State):
         return self.copied_with(data=data, flags=())
 
     def __mul__(self, other):
-        return self.__dataop__(other, True, lambda d1, d2: d1 * d2)
+        return self.__dataop__(other, True, lambda d1, d2: math.mul(d1, d2))
 
     __rmul__ = __mul__
 
     def __div__(self, other):
-        return self.__dataop__(other, True, lambda d1, d2: d1 / d2)
+        return self.__dataop__(other, True, lambda d1, d2: math.div(d1, d2))
 
     def __truediv__(self, other):
-        return self.__dataop__(other, True, lambda d1, d2: d1 / d2)
+        return self.__dataop__(other, True, lambda d1, d2: math.div(d1, d2))
 
     def __sub__(self, other):
-        return self.__dataop__(other, False, lambda d1, d2: d1 - d2)
+        return self.__dataop__(other, False, lambda d1, d2: math.sub(d1, d2))
 
     def __rsub__(self, other):
-        return self.__dataop__(other, False, lambda d1, d2: d2 - d1)
+        return self.__dataop__(other, False, lambda d1, d2: math.sub(d2, d1))
 
     def __add__(self, other):
-        return self.__dataop__(other, False, lambda d1, d2: d1 + d2)
+        return self.__dataop__(other, False, lambda d1, d2: math.add(d1, d2))
 
     __radd__ = __add__
 
     def __pow__(self, power, modulo=None):
-        return self.__dataop__(power, False, lambda f, p: f ** p)
+        return self.__dataop__(power, False, lambda f, p: math.pow(f, p))
 
     def __dataop__(self, other, linear_if_scalar, data_operator):
         if isinstance(other, Field):
@@ -187,10 +187,7 @@ class Field(State):
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
             self_data = self.data if self.has_points else self.at(other).data
             other_data = other.data if other.has_points else other.at(self).data
-            backend = math.choose_backend([self_data, other_data])
-            self_data_tensor = backend.as_tensor(self_data)
-            other_data_tensor = backend.as_tensor(other_data)
-            data = data_operator(self_data_tensor, other_data_tensor)
+            data = data_operator(self_data, other_data)
         else:
             flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
             data = data_operator(self.data, other)

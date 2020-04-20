@@ -5,11 +5,9 @@ import warnings
 import numpy as np
 import scipy.signal
 import scipy.sparse
-import six
 
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd
 from .backend import Backend
-from .tensorop import collapsed_gather_nd, expand
 
 
 class SciPyBackend(Backend):
@@ -44,16 +42,18 @@ class SciPyBackend(Backend):
 
     # --- Abstract math functions ---
 
-    def as_tensor(self, x):
-        """ as array """
+    def as_tensor(self, x, convert_external=True):
+        if self.is_tensor(x, only_native=convert_external):
+            return x
         return np.array(x)
 
-    def is_tensor(self, x):
-        """ is array """
+    def is_tensor(self, x, only_native=False):
+        if not only_native and isinstance(x, numbers.Number):
+            return True
         if isinstance(x, np.ndarray):
             return x.dtype != np.object
         else:
-            return isinstance(x, (int, float))
+            return False
 
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
@@ -97,17 +97,13 @@ class SciPyBackend(Backend):
         return value
 
     def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
-        if np.sum(np.array(pad_width)) == 0:
-            return value
-        if single_mode.lower() == 'wrap':
-            warnings.warn("padding mode 'wrap' is deprecated. Use 'circular' instead.", DeprecationWarning, stacklevel=2)
-        elif single_mode.lower() == 'constant':
+        assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
+        if single_mode.lower() == 'constant':
             return np.pad(value, pad_width, 'constant', constant_values=constant_values)
-        elif single_mode.lower() == 'circular':
-            single_mode = 'wrap'
-        elif single_mode.lower() == 'replicate':
-            single_mode = 'edge'
-        return np.pad(value, pad_width, single_mode.lower())
+        else:
+            if single_mode in ('circular', 'replicate'):
+                single_mode = {'circular': 'wrap', 'replicate': 'edge'}[single_mode]
+            return np.pad(value, pad_width, single_mode)
 
     def reshape(self, value, shape):
         return np.reshape(value, shape)
@@ -133,31 +129,9 @@ class SciPyBackend(Backend):
         assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        """ resample input array at certain coordinates """
-        if boundary.lower() in ('zero', 'constant'):
-            pass  # default
-        elif boundary.lower() == 'replicate':
-            sample_coords = clamp(sample_coords, inputs.shape[1:-1])
-        elif boundary.lower() == 'circular':
-            resolution = self.staticshape(inputs)[1:-1]
-            inputs = self.pad(inputs, [[0, 0]] + [[0, 1]] * tensor_spatial_rank(inputs) + [[0, 0]], mode='circular')
-            sample_coords = sample_coords % self.to_float(resolution)
-        else:
-            raise ValueError("Unsupported boundary: %s" % boundary)
-        # Interpolate
-        import scipy.interpolate
-        points = [np.arange(dim) for dim in inputs.shape[1:-1]]
-        result = []
-        for batch in range(sample_coords.shape[0]):
-            components = []
-            for dim in range(inputs.shape[-1]):
-                resampled = scipy.interpolate.interpn(points,inputs[batch, ..., dim], sample_coords[batch, ...],
-                                                      method=interpolation.lower(), bounds_error=False, fill_value=0)
-                components.append(resampled)
-            result.append(np.stack(components, -1))
-        result = np.stack(result).astype(inputs.dtype)
-        return result
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        assert interpolation == 'linear'
+        return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
 
     def zeros_like(self, tensor):
         return np.zeros_like(tensor)

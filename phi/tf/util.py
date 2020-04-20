@@ -51,8 +51,16 @@ def variable_generator(initializer, dtype=np.float32, basename='Variable', train
     return create_variable
 
 
-def isplaceholder(obj):
+def constant(value, dtype=np.float32, basename='const'):
+    def f(trace): return tf.constant(trace.value, dtype=dtype, name=_tf_name(trace, basename))
+    return struct.map(f, value, trace=True)
+
+
+def is_placeholder(obj):
     return isinstance(obj, tf.Tensor) and obj.op.type == 'Placeholder'
+
+
+isplaceholder = is_placeholder
 
 
 def dataset_handle(shape, dtype, frames=None):

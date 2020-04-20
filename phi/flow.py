@@ -29,3 +29,7 @@ from phi import math, struct
 from .viz import display
 from .viz.display import show
 from .app import *
+
+import numpy
+
+np = numpy

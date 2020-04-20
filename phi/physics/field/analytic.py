@@ -40,6 +40,31 @@ class AnalyticField(Field):
     def compatible(self, other_field):
         return True
 
+    def __mul__(self, other):
+        return _SymbolicOpField(lambda x1, x2: x1 * x2, [self, other])
+
+    __rmul__ = __mul__
+
+    def __div__(self, other):
+        return _SymbolicOpField(lambda x1, x2: x1 / x2, [self, other])
+
+    def __truediv__(self, other):
+        return _SymbolicOpField(lambda x1, x2: x1 / x2, [self, other])
+
+    def __sub__(self, other):
+        return _SymbolicOpField(lambda x1, x2: x1 - x2, [self, other])
+
+    def __rsub__(self, other):
+        return _SymbolicOpField(lambda x1, x2: x2 - x1, [self, other])
+
+    def __add__(self, other):
+        return _SymbolicOpField(lambda x1, x2: x1 + x2, [self, other])
+
+    __radd__ = __add__
+
+    def __pow__(self, power, modulo=None):
+        return _SymbolicOpField(lambda x1, x2: x1 ** x2, [self, power])
+
     def __dataop__(self, other, linear_if_scalar, data_operator):
         return _SymbolicOpField(data_operator, [self, other])
 
@@ -70,7 +95,7 @@ class SymbolicFieldBackend(Backend):
         backend_func = getattr(self.backend, func)
         return _SymbolicOpField(backend_func, args)
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
         return isinstance(x, AnalyticField)
 
 
