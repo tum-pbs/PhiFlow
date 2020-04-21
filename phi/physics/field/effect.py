@@ -2,8 +2,7 @@ import warnings
 
 import six
 
-from phi.geom import Geometry
-from phi.physics.physics_config import up_vector
+from phi.geom import Geometry, GLOBAL_AXIS_ORDER
 from phi.physics.field import Field, mask, ConstantField
 from phi import math, struct
 from phi.physics import State, Physics, StateDependency
@@ -107,7 +106,7 @@ def gravity_tensor(gravity, rank):
     if isinstance(gravity, Gravity):
         gravity = gravity.gravity
     if math.is_scalar(gravity):
-        gravity = gravity * up_vector(rank)
+        gravity = gravity * GLOBAL_AXIS_ORDER.up_vector(rank)
     assert math.staticshape(gravity)[-1] == rank
     return math.to_float(math.expand_dims(gravity, 0, rank+2-len(math.staticshape(gravity))))
 

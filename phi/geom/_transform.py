@@ -1,6 +1,7 @@
 import warnings
 
 from phi import struct, math
+from phi.geom import GLOBAL_AXIS_ORDER
 from ._geom import Geometry
 from ._sphere import Sphere
 
@@ -27,12 +28,15 @@ class RotatedGeometry(Geometry):
         return self.geometry.center
 
     def global_to_child(self, location):
+        """ Inverse transform """
         delta = location - self.center
         if math.staticshape(location)[-1] == 2:
-            angle = math.batch_align(self.angle, 0, location)
+            angle = -math.batch_align(self.angle, 0, location)
             sin = math.sin(angle)
             cos = math.cos(angle)
             y, x = math.unstack(delta, axis=-1)
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                x, y = y, x
             rot_x = cos * x - sin * y
             rot_y = sin * x + cos * y
             rotated = math.stack([rot_y, rot_x], axis=-1)

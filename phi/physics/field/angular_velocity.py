@@ -1,4 +1,5 @@
 from phi import math, struct
+from phi.geom import GLOBAL_AXIS_ORDER
 
 from .analytic import AnalyticField
 
@@ -30,7 +31,11 @@ class AngularVelocity(AnalyticField):
             strength = src_strength
         # --- Compute velocities ---
         if math.staticshape(points)[-1] == 2:  # Curl in 2D
-            velocity = strength * math.stack([-distances[...,1], distances[...,0]], axis=-1)
+            dist_1, dist_2 = math.unstack(distances, axis=-1)
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                velocity = strength * math.stack([-dist_2, dist_1], axis=-1)
+            else:
+                velocity = strength * math.stack([dist_2, -dist_1], axis=-1)
         elif math.staticshape(points)[-1] == 3:  # Curl in 3D
             raise NotImplementedError('not yet implemented')
         else:

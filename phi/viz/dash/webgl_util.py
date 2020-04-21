@@ -6,7 +6,7 @@ import os
 import inspect
 
 import webglviewer
-from phi.physics import physics_config
+from phi.geom import GLOBAL_AXIS_ORDER as physics_config
 from phi.physics.field import CenteredGrid, StaggeredGrid
 from phi.viz.dash.dash_plotting import reduce_component
 
@@ -127,7 +127,7 @@ def webgl_prepare_data(field, settings):
             data = field.at_centers().data
             component = 'length'
         else:
-            data = field.unstack()[{'z': physics_config.Z, 'y': physics_config.Y, 'x': physics_config.X}[component]].data
+            data = field.unstack()[{'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component]].data
 
     if data is None:
         return EMPTY_GRID
@@ -136,11 +136,11 @@ def webgl_prepare_data(field, settings):
         return EMPTY_GRID
 
     if data.ndim == 4:
-        data = np.stack([data] * 2, axis=1 if not physics_config.X_FIRST else -2)
+        data = np.stack([data] * 2, axis=1 if not physics_config.is_x_first else -2)
 
     data = data[min(batch, data.shape[0] - 1), ...]
     data = reduce_component(data, component)
-    if not physics_config.X_FIRST:
+    if not physics_config.is_x_first:
         data = np.transpose(data, axes=(1, 0, 2))
     else:
         data = np.transpose(data, axes=(1, 2, 0))
