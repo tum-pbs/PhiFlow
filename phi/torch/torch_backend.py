@@ -142,7 +142,9 @@ class TorchBackend(Backend):
     def range(self, start, limit=None, delta=1, dtype=None):
         if limit is None:
             start, limit = 0, start
-        return torch.range(start, limit, delta, dtype=dtype)
+        if dtype is None:
+            dtype = torch.int32
+        return torch.arange(start, limit, delta, dtype=dtype)
 
     def zeros_like(self, tensor):
         return torch.zeros_like(tensor)
@@ -363,6 +365,8 @@ class TorchBackend(Backend):
         return array.dtype
 
     def tile(self, value, multiples):
+        if isinstance(multiples, np.ndarray):
+            multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
     def sparse_tensor(self, indices, values, shape):
