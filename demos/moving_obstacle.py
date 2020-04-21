@@ -7,6 +7,7 @@ def obstacle_at(time):
 
 smoke = world.add(Fluid(Domain([64, 64], CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
 world.add(Obstacle(obstacle_at(0)), physics=GeometryMovement(obstacle_at))
+world.step(dt=0.0)
 
 app = App('Moving Objects Demo', dt=0.5, framerate=10)
 app.add_field('Velocity', lambda: smoke.velocity)
