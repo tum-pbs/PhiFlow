@@ -7,9 +7,9 @@ from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
 from phi.struct.tensorop import collapse
-from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, \
-    propagate_flags_resample, propagate_flags_operation
+from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, propagate_flags_resample, propagate_flags_operation
 from .grid import CenteredGrid
+from ..domain import Domain
 
 
 _SUBSCRIPTS = ['x', 'y', 'z', 'w']
@@ -61,6 +61,17 @@ class StaggeredGrid(Field):
 
     @staticmethod
     def sample(value, domain, batch_size=None, name=None):
+        """
+        Sampmles the value to a staggered grid.
+
+        :param value: Either constant, staggered tensor, or Field
+        :param domain: the domain defines resolution and physical size of the grid
+        :type domain: Domain
+        :param batch_size: batch size
+        :param name: field name
+        :return: Sampled values in staggered grid form matching domain resolution
+        :rtype: StaggeredGrid
+        """
         return domain.staggered_grid(value, batch_size=batch_size, name=name)
 
     @struct.variable(dependencies=[Field.name, Field.flags])
@@ -215,6 +226,15 @@ class StaggeredGrid(Field):
         w_lower, w_upper = np.transpose(widths)
         box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
         return self.copied_with(data=new_grids, box=box)
+
+    def downsample2x(self):
+        data = []
+        for axis in range(self.rank):
+            grid = self.unstack()[axis].data
+            grid = grid[tuple([slice(None, None, 2) if d - 1 == axis else slice(None) for d in range(self.rank + 2)])]  # Discard even indices along axis
+            grid = math.downsample2x(grid, axes=tuple(filter(lambda ax2: ax2 != axis, range(self.rank))))  # Interpolate values along other axes
+            data.append(grid)
+        return self.with_data(data)
 
     @staticmethod
     def gradient(scalar_field, padding_mode='replicate'):

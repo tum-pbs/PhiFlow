@@ -330,21 +330,23 @@ def fftfreq(resolution, mode='vector', dtype=np.float32):
 
 # Downsample / Upsample
 
-def downsample2x(tensor, interpolation='linear'):
+def downsample2x(tensor, interpolation='linear', axes=None):
     if struct.isstruct(tensor):
-        return struct.map(lambda s: downsample2x(s, interpolation),
+        return struct.map(lambda s: downsample2x(s, interpolation, axes),
                           tensor, recursive=False)
 
     if interpolation.lower() != 'linear':
         raise ValueError('Only linear interpolation supported')
-    dims = range(spatial_rank(tensor))
+    rank = spatial_rank(tensor)
+    if axes is None:
+        axes = range(rank)
     tensor = math.pad(tensor,
                       [[0, 0]]
-                      + [([0, 1] if (dim % 2) != 0 else [0, 0]) for dim in tensor.shape[1:-1]]
+                      + [([0, 1] if (dim % 2) != 0 and _contains_axis(axes, ax, rank) else [0, 0]) for ax, dim in enumerate(tensor.shape[1:-1])]
                       + [[0, 0]], 'replicate')
-    for dimension in dims:
-        upper_slices = tuple([(slice(1, None, 2) if i == dimension else slice(None)) for i in dims])
-        lower_slices = tuple([(slice(0, None, 2) if i == dimension else slice(None)) for i in dims])
+    for axis in axes:
+        upper_slices = tuple([(slice(1, None, 2) if i == axis else slice(None)) for i in range(rank)])
+        lower_slices = tuple([(slice(0, None, 2) if i == axis else slice(None)) for i in range(rank)])
         tensor_sum = tensor[(slice(None),) + upper_slices + (slice(None),)] + tensor[(slice(None),) + lower_slices + (slice(None),)]
         tensor = tensor_sum / 2
     return tensor
