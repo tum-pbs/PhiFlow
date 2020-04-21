@@ -24,8 +24,8 @@ domain = Domain([160, 126], CLOSED)
 smoke = world.add(Fluid(domain, buoyancy_factor=0.1), physics=IncompressibleFlow())
 world.add(Inflow(Sphere((18, 64), 10), rate=0.2))
 # --- Markers ---
-dense_marker = world.add(CenteredGrid(checkerboard(domain.resolution), box=domain.box, extrapolation='constant'), physics=lambda state, dt: advect.advect(state, smoke.velocity, dt))
-sparse_marker = world.add(SampledField(regular_locations(domain.box)), physics=lambda state, dt: advect.advect(state, smoke.velocity, dt))
+dense_marker = world.add(CenteredGrid(checkerboard(domain.resolution), box=domain.box, extrapolation='constant'), physics=Drift())
+sparse_marker = world.add(SampledField(regular_locations(domain.box)), physics=Drift())
 
 app = App('Passive Markers', DESCRIPTION, framerate=10, dt=0.2)
 app.add_field('Density', lambda: smoke.density)

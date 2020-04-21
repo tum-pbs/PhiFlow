@@ -1,12 +1,15 @@
 from phi.flow import *
 
 
-def obstacle_at(time):
-    return Sphere([32, (time + 20) % 64], radius=5)
+def update_obstacle(obstacle, dt, velocity=(0, 1)):
+    geometry = obstacle.geometry.shifted(math.as_tensor(velocity) * dt)
+    if geometry.center[1] > 70:
+        geometry = geometry.shifted([0, -80])
+    return obstacle.copied_with(geometry=geometry, velocity=velocity)
 
 
-smoke = world.add(Fluid(Domain([64, 64], CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
-world.add(Obstacle(obstacle_at(0)), physics=GeometryMovement(obstacle_at))
+smoke = world.add(Fluid(Domain([64, 64], OPEN), buoyancy_factor=0.1), physics=IncompressibleFlow())
+world.add(Obstacle(Sphere([32, 20], radius=5)), physics=update_obstacle)
 world.step(dt=0.0)
 
 app = App('Moving Objects Demo', dt=0.5, framerate=10)
