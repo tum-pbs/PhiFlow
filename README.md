@@ -20,6 +20,10 @@ Having all functionality of a fluid simulation running in TensorFlow opens up th
 - Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
 - Flexible, easy-to-use [web interface](documentation/Web_Interface.md) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 
+## Publications
+
+- [Learning to Control PDEs with Differentiable Physics](https://ge.in.tum.de/publications/2020-iclr-holl/), *Philipp Holl, Vladlen Koltun, Nils Thuerey*, ICLR 2020.
+
 ## Installation
 
 To install Φ<sub>Flow</sub> with web interface, run:
