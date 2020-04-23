@@ -35,26 +35,40 @@ def _none_to_one(shape):
 
 
 @mappable(leaf_condition=is_static_shape)
-def zeros(shape, dtype=np.float32):
-    return np.zeros(_none_to_one(shape), dtype=dtype)
+def zeros(shape, dtype=None):
+    if dtype is not None:
+        return np.zeros(_none_to_one(shape), dtype=dtype)
+    else:
+        return math.to_float(np.zeros(_none_to_one(shape), np.int8))
 
 
 @mappable(leaf_condition=is_static_shape)
-def ones(shape, dtype=np.float32):
-    return np.ones(_none_to_one(shape), dtype)
+def ones(shape, dtype=None):
+    if dtype is not None:
+        return np.ones(_none_to_one(shape), dtype)
+    else:
+        return math.to_float(np.ones(_none_to_one(shape), np.int8))
 
 
 @mappable(leaf_condition=is_static_shape)
-def randn(shape, dtype=np.float32):
-    return np.random.randn(*_none_to_one(shape)).astype(dtype)
+def randn(shape, dtype=None):
+    array = np.random.randn(*_none_to_one(shape))
+    if dtype is not None:
+        return array.astype(dtype)
+    else:
+        return math.to_float(array)
 
 
-def randfreq(shape, dtype=np.float32, power=8):
+def randfreq(shape, dtype=None, power=8):
+    warnings.warn('randfreq() is deprecated. Use Noise() instead.')
     def genarray(shape):
         fft = randn(shape, dtype) + 1j * randn(shape, dtype)
         k = fftfreq(shape[1:-1], mode='absolute')
         shape_fac = math.sqrt(math.mean(shape[1:-1]))  # 16: 4, 64: 8, 256: 24,
         fft *= (1 / (k + 1)) ** power * power * shape_fac
-        array = math.real(math.ifft(fft)).astype(dtype)
-        return array
+        array = math.real(math.ifft(fft))
+        if dtype is not None:
+            return array.astype(dtype)
+        else:
+            return math.to_float(array)
     return struct.map(genarray, shape, leaf_condition=is_static_shape)

@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi.torch.flow import torch_from_numpy, World, Fluid, IncompressibleFlow, Obstacle, CLOSED, Inflow, Domain, Sphere, box, OPEN, STICKY, SLIPPERY, PERIODIC, Noise, struct, numpy, math
+from phi.torch.flow import torch, torch_from_numpy, World, Fluid, IncompressibleFlow, Obstacle, CLOSED, Inflow, Domain, Sphere, box, OPEN, STICKY, SLIPPERY, PERIODIC, Noise, struct, numpy, math
 
 
 class TestFluidPyTorch(TestCase):
@@ -34,3 +34,28 @@ class TestFluidPyTorch(TestCase):
                     torch_eval = torch_tensor.numpy()
                     numpy.testing.assert_almost_equal(np_tensor, torch_eval, decimal=5)
 
+    def test_precision_64(self):
+        try:
+            math.set_precision(64)
+            fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
+            fluid = torch_from_numpy(fluid)
+            self.assertEqual(fluid.density.data.dtype, torch.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float64)
+            fluid = IncompressibleFlow().step(fluid, dt=1.0)
+            self.assertEqual(fluid.density.data.dtype, torch.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float64)
+        finally:
+            math.set_precision(32)  # Reset environment
+
+    # def test_precision_16(self):  # float16 CPU computation not supported by PyTorch as of April 2020
+    #     try:
+    #         math.set_precision(16)
+    #         fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
+    #         fluid = torch_from_numpy(fluid)
+    #         self.assertEqual(fluid.density.data.dtype, torch.float16)
+    #         self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float16)
+    #         fluid = IncompressibleFlow().step(fluid, dt=1.0)
+    #         self.assertEqual(fluid.density.data.dtype, torch.float16)
+    #         self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float16)
+    #     finally:
+    #         math.set_precision(32)  # Reset environment

@@ -179,7 +179,7 @@ class StaggeredGrid(Field):
 
     def __repr__(self):
         if self.is_valid:
-            return 'StaggeredGrid[%s, size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size)
+            return 'StaggeredGrid[%s, size=%s, %s]' % ('x'.join([str(r) for r in self.resolution]), self.box.size, self.unstack()[0].dtype.data)
         else:
             return struct.Struct.__repr__(self)
 

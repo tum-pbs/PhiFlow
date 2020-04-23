@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy
 
-from phi.tf.flow import tf, Session, placeholder, variable, tf_bake_subgraph, tf_bake_graph, Noise, constant, struct, OPEN, PERIODIC, STICKY, SLIPPERY, World, Fluid, IncompressibleFlow, Obstacle, CLOSED, Inflow, Domain, Sphere, box, Scene
+from phi.tf.flow import tf, Session, placeholder, variable, tf_bake_subgraph, tf_bake_graph, Noise, constant, struct, OPEN, PERIODIC, STICKY, SLIPPERY, World, Fluid, IncompressibleFlow, Obstacle, CLOSED, Inflow, Domain, Sphere, box, Scene, math
 
 
 class TestFluidTF(TestCase):
@@ -89,3 +89,29 @@ class TestFluidTF(TestCase):
         staggered_velocity = session.run(initial_state.velocity).staggered_tensor()
         numpy.testing.assert_equal(staggered_velocity[0, ...], 0)
         assert numpy.all(~numpy.isnan(staggered_velocity))
+
+    def test_precision_64(self):
+        try:
+            math.set_precision(64)
+            fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
+            fluid = variable(fluid)
+            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float64)
+            fluid = IncompressibleFlow().step(fluid, dt=1.0)
+            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float64)
+        finally:
+            math.set_precision(32)  # Reset environment
+
+    def test_precision_16(self):
+        try:
+            math.set_precision(16)
+            fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
+            fluid = variable(fluid)
+            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float16)
+            fluid = IncompressibleFlow().step(fluid, dt=1.0)
+            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float16)
+        finally:
+            math.set_precision(32)  # Reset environment

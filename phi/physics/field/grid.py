@@ -173,7 +173,7 @@ class CenteredGrid(Field):
 
     def __repr__(self):
         if self.is_valid:
-            return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
+            return 'Grid[%s(%d), size=%s, %s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size, self.dtype.data)
         else:
             return struct.Struct.__repr__(self)
 

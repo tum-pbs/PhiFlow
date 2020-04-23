@@ -10,10 +10,22 @@ class Backend:
 
     @property
     def precision(self):
+        """
+        If `precision` is an integer, any Backend method may convert floating point values to this precision, even if the input had a different precision.
+
+        If `precision` is `None`, the output of math operations has the same precision as its inputs.
+        """
         return self._precision
 
     @precision.setter
     def precision(self, precision):
+        """
+        If `precision` is an integer, any Backend method may convert floating point values to this precision, even if the input had a different precision.
+
+        If `precision` is `None`, the output of math operations has the same precision as its inputs.
+
+        :param precision: one of (16, 32, 64, None)
+        """
         assert precision in (None, 16, 32, 64)
         self._precision = precision
 

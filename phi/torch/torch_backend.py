@@ -18,7 +18,7 @@ class TorchBackend(Backend):
 
     @property
     def precision_dtype(self):
-        return {16: torch.float16, 32: torch.float32, 64: torch.float64, None: None}[self.precision]
+        return {16: torch.float16, 32: torch.float32, 64: torch.float64, None: torch.float32}[self.precision]
 
     def is_tensor(self, x, only_native=False):
         if not only_native and isinstance(x, numbers.Number):

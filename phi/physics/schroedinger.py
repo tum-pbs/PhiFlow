@@ -134,13 +134,13 @@ class HarmonicPotential(AnalyticField):
         pot = math.sum(x ** 2, -1, keepdims=True) * self.data
         if self.maximum_value is not None:
             pot = math.minimum(pot, self.maximum_value)
-        return math.cast(pot, np.float32)
+        return math.to_float(pot)
 
 
 @struct.definition()
 class SinPotential(AnalyticField):
 
-    def __init__(self, k, phase_offset=0, data=1.0, name='harmonic', dtype=np.float32, **kwargs):
+    def __init__(self, k, phase_offset=0, data=1.0, name='harmonic', dtype=None, **kwargs):
         rank = math.size(k)
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
@@ -160,7 +160,7 @@ class SinPotential(AnalyticField):
         data = math.batch_align_scalar(self.data, 0, x)
         spatial_phase = math.sum(k * x, -1, keepdims=True)
         wave = math.sin(spatial_phase + phase_offset) * data
-        return math.cast(wave, self.dtype)
+        return math.cast(wave, self.dtype) if self.dtype is not None else math.to_float(wave)
 
     def __repr__(self):
         return 'Sin(x*%s)' % self.k

@@ -21,7 +21,7 @@ class SciPyBackend(Backend):
 
     @property
     def precision_dtype(self):
-        return {16: np.float16, 32: np.float32, 64: np.float64, None: None}[self.precision]
+        return {16: np.float16, 32: np.float32, 64: np.float64, None: np.float32}[self.precision]
 
     def is_applicable(self, values):
         if values is None:
@@ -212,10 +212,10 @@ class SciPyBackend(Backend):
         assert tensor.shape[-1] == kernel.shape[-2]
         # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
         if padding.lower() == "same":
-            result = np.zeros(tensor.shape[:-1] + (kernel.shape[-1],), np.float32)
+            result = np.zeros(tensor.shape[:-1] + (kernel.shape[-1],), dtype=self.precision_dtype)
         elif padding.lower() == "valid":
             valid = [tensor.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(tensor))]
-            result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], np.float32)
+            result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], dtype=self.precision_dtype)
         else:
             raise ValueError("Illegal padding: %s" % padding)
         for batch in range(tensor.shape[0]):
@@ -240,7 +240,7 @@ class SciPyBackend(Backend):
             warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
             return np.array(x).astype(np.float64)
         else:
-            return np.array(x).astype(self.precision_dtype if self.has_fixed_precision else np.float32)
+            return np.array(x).astype(self.precision_dtype)
 
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)
@@ -294,7 +294,7 @@ class SciPyBackend(Backend):
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         indices = self.unstack(indices, axis=-1)
-        array = np.zeros(shape, np.float32)
+        array = np.zeros(shape, self.precision_dtype if self.has_fixed_precision else values.dtype)
         if duplicates_handling == 'add':
             np.add.at(array, tuple(indices), values)
         elif duplicates_handling == 'mean':
@@ -340,6 +340,8 @@ class SciPyBackend(Backend):
         return np.cos(x)
 
     def dtype(self, array):
+        if isinstance(array, float):
+            return self.precision_dtype
         if not isinstance(array, np.ndarray):
             array = np.array(array)
         return array.dtype

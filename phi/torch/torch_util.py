@@ -1,10 +1,11 @@
 import torch
 
 from phi import struct
+from phi.torch import TORCH_BACKEND
 
 
-def variable(initial_value, dtype=torch.float32, requires_grad=True, device=None, item_condition=struct.VARIABLES):
-    def f(attr): return torch.tensor(attr.value, dtype=dtype, requires_grad=requires_grad, device=device)
+def variable(initial_value, dtype=None, requires_grad=True, device=None, item_condition=struct.VARIABLES):
+    def f(attr): return torch.tensor(attr.value, dtype=dtype if dtype is not None else TORCH_BACKEND.precision_dtype, requires_grad=requires_grad, device=device)
     return struct.map(f, initial_value, trace=True, item_condition=item_condition)
 
 

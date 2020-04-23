@@ -25,7 +25,7 @@ class TFBackend(Backend):
 
     @property
     def precision_dtype(self):
-        return {16: np.float16, 32: np.float32, 64: np.float64, None: None}[self.precision]
+        return {16: np.float16, 32: np.float32, 64: np.float64, None: np.float32}[self.precision]
 
     def is_tensor(self, x, only_native=False):
         if not only_native and SciPyBackend().is_tensor(x, only_native=False):
@@ -261,7 +261,7 @@ class TFBackend(Backend):
             warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
             return tf.cast(x, tf.float64)
         else:
-            return tf.cast(x, self.precision_dtype if self.has_fixed_precision else tf.float32)
+            return tf.cast(x, self.precision_dtype)
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
@@ -273,7 +273,12 @@ class TFBackend(Backend):
         return tf.cast(x, tf.int64) if int64 else tf.cast(x, tf.int32)
 
     def to_complex(self, x):
-        return tf.to_complex64(x)
+        if self.dtype(x) in (np.complex64, np.complex128):
+            return x
+        if self.dtype(x) == np.float64:
+            return tf.to_complex128(x)
+        else:
+            return tf.to_complex64(x)
 
     def gather(self, values, indices):
         if isinstance(indices, slice):
