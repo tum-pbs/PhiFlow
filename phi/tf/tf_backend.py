@@ -32,7 +32,7 @@ class TFBackend(Backend):
             return True
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
-    def as_tensor(self, x):
+    def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
@@ -40,8 +40,11 @@ class TFBackend(Backend):
         else:
             tensor = tf.convert_to_tensor(x)
         # --- Enforce Precision ---
-        if tensor.dtype.is_floating and self.has_fixed_precision:
-            tensor = self.to_float(tensor)
+        if not isinstance(tensor, numbers.Number):
+            if isinstance(tensor, np.ndarray):
+                tensor = SciPyBackend(precision=self.precision).as_tensor(tensor)
+            elif tensor.dtype.is_floating and self.has_fixed_precision:
+                tensor = self.to_float(tensor)
         return tensor
 
     def copy(self, tensor, only_mutable=False):

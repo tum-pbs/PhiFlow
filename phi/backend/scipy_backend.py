@@ -52,8 +52,9 @@ class SciPyBackend(Backend):
         else:
             array = np.array(x)
         # --- Enforce Precision ---
-        if array.dtype in (np.float16, np.float32, np.float64, np.longdouble) and self.has_fixed_precision:
-            array = self.to_float(array)
+        if not isinstance(array, numbers.Number):
+            if array.dtype in (np.float16, np.float32, np.float64, np.longdouble) and self.has_fixed_precision:
+                array = self.to_float(array)
         return array
 
     def is_tensor(self, x, only_native=False):

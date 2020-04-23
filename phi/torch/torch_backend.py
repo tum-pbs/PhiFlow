@@ -8,6 +8,7 @@ import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
 from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim, symmetric_pad
+from phi.backend.scipy_backend import SciPyBackend
 
 
 class TorchBackend(Backend):
@@ -22,14 +23,12 @@ class TorchBackend(Backend):
     def is_tensor(self, x, only_native=False):
         if not only_native and isinstance(x, numbers.Number):
             return True
-
-    def is_tensor(self, x):
         return isinstance(x, (torch.Tensor, ComplexTensor))
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
-            elif isinstance(x, np.ndarray):
+        elif isinstance(x, np.ndarray):
             tensor = torch.from_numpy(SciPyBackend(precision=self.precision).as_tensor(x))
         elif isinstance(x, (tuple, list)):
             try:
@@ -40,8 +39,9 @@ class TorchBackend(Backend):
         else:
             tensor = torch.tensor(x)
         # --- Enforce Precision ---
-        if tensor.dtype.is_floating_point and self.has_fixed_precision:
-            tensor = self.to_float(tensor)
+        if self.is_tensor(tensor, only_native=True):
+            if tensor.dtype.is_floating_point and self.has_fixed_precision:
+                tensor = self.to_float(tensor)
         return tensor
 
     def copy(self, tensor, only_mutable=False):
