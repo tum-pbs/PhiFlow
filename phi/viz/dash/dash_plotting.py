@@ -4,7 +4,7 @@ import numpy as np
 
 import plotly.figure_factory as plotly_figures
 
-from phi.physics import physics_config
+from phi.geom import GLOBAL_AXIS_ORDER as physics_config
 from phi.physics.field import CenteredGrid, StaggeredGrid
 from phi.viz.plot import FRONT, RIGHT, TOP
 from .colormaps import COLORMAPS
@@ -126,9 +126,9 @@ def heatmap(data, settings):
 
     if isinstance(data, StaggeredGrid):
         if component == 'x':
-            data = data.unstack()[physics_config.X]
+            data = data.unstack()[physics_config.x]
         elif component == 'y':
-            data = data.unstack()[physics_config.Y]
+            data = data.unstack()[physics_config.y]
         elif component == 'z':
             return EMPTY_FIGURE
         elif component == 'length':
@@ -137,7 +137,7 @@ def heatmap(data, settings):
             raise ValueError(component)
     z = data.data[batch, ...]
     z = reduce_component(z, component)
-    if physics_config.X_FIRST:
+    if physics_config.is_x_first:
         z = np.transpose(z)
         x = data.points.data[0, :, 0, 0]
         y = data.points.data[0, 0, :, 1]
@@ -168,17 +168,17 @@ def slice_2d(field3d, settings):
     if isinstance(field3d, StaggeredGrid):
         component = settings.get('component', 'length')
         if component in ('z', 'y', 'x'):
-            field3d = field3d.unstack()[{'z': physics_config.Z, 'y': physics_config.Y, 'x': physics_config.X}[component] % 3]
+            field3d = field3d.unstack()[{'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component] % 3]
         else:
             field3d = field3d.at_centers()
     assert isinstance(field3d, CenteredGrid) and field3d.rank == 3
     depth = settings.get('depth', 0)
     projection = settings.get('projection', FRONT)
 
-    removed_axis = {FRONT: physics_config.Y, RIGHT: physics_config.X, TOP: physics_config.Z}[projection] % 3
+    removed_axis = {FRONT: physics_config.y, RIGHT: physics_config.x, TOP: physics_config.z}[projection] % 3
 
     data = field3d.data[(slice(None),) + tuple([min(depth, field3d.resolution[i]) if i == removed_axis else slice(None) for i in range(3)]) + (slice(None),)]
-    if projection == RIGHT and not physics_config.X_FIRST:
+    if projection == RIGHT and not physics_config.is_x_first:
         data = np.transpose(data, axes=(0, 2, 1, 3))
 
     return CenteredGrid(data, box=field3d.box.without_axis(removed_axis))
@@ -202,18 +202,18 @@ def reduce_component(tensor, component):
     if clen == 1:
         return tensor[..., 0]
     if component == 'x':
-        return tensor[..., physics_config.X]
+        return tensor[..., physics_config.x]
     if component == 'y':
-        return tensor[..., physics_config.Y]
+        return tensor[..., physics_config.y]
     if component == 'z':
         if clen >= 3:
-            return tensor[..., physics_config.Z]
+            return tensor[..., physics_config.z]
         else:
             return np.zeros_like(tensor[..., 0])
     if component == 'length':
         return np.sqrt(np.sum(tensor**2, axis=-1, keepdims=False))
     if component == 'vec2':
-        return tensor[..., (physics_config.Y, physics_config.X)]
+        return tensor[..., (physics_config.y, physics_config.x)]
 
 
 def vector_field(field2d, settings):
@@ -233,8 +233,8 @@ def vector_field(field2d, settings):
     min_arrow_length = settings.get('min_arrow_length', 0.005) * np.max(field2d.box.size)
     draw_full_arrows = settings.get('draw_full_arrows', False)
 
-    y, x = field2d.points.data[0, ..., (physics_config.Y, physics_config.X)]
-    data_y, data_x = field2d.data[batch, ..., (physics_config.Y, physics_config.X)]
+    y, x = field2d.points.data[0, ..., (physics_config.y, physics_config.x)]
+    data_y, data_x = field2d.data[batch, ..., (physics_config.y, physics_config.x)]
 
     while np.prod(x.shape) > max_resolution ** 2:
         y = y[::2, ::2]
@@ -269,7 +269,7 @@ def vector_field(field2d, settings):
         y -= 0.5 * data_y
 
     x_range, y_range = [field2d.box.get_lower(1), field2d.box.get_upper(1)], [field2d.box.get_lower(0), field2d.box.get_upper(0)]
-    if physics_config.X_FIRST:
+    if physics_config.is_x_first:
         x_range, y_range = y_range, x_range
 
     if draw_full_arrows:

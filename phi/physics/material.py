@@ -31,6 +31,10 @@ Fluid can only enter non-solid cells or pass through non-solid boundaries.
         assert isinstance(solid, bool)
         return solid
 
+    @struct.derived()
+    def open(self):
+        return not self.solid and not self.periodic
+
     @struct.constant(default=0.0)
     def friction(self, friction):
         """

@@ -1,13 +1,21 @@
+import numbers
 import uuid
 import warnings
 from packaging import version
+import six
 
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings
+import numpy as np
+import six
+import tensorflow as tf
+from packaging import version
+
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, equalize_shapes, circular_pad, replicate_pad
 from phi.backend.scipy_backend import SciPyBackend
 from phi.tf.tf_cuda_resample import *
 from . import tf
 
 from phi.backend.backend import Backend
+from phi.backend.tensorop import expand, collapsed_gather_nd
 
 
 class TFBackend(Backend):
@@ -19,11 +27,13 @@ class TFBackend(Backend):
     def precision_dtype(self):
         return {16: np.float16, 32: np.float32, 64: np.float64, None: None}[self.precision]
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
+        if not only_native and SciPyBackend().is_tensor(x, only_native=False):
+            return True
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
     def as_tensor(self, x):
-        if self.is_tensor(x):
+        if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
             tensor = tf.convert_to_tensor(SciPyBackend(precision=self.precision).as_tensor(x))
@@ -77,32 +87,15 @@ class TFBackend(Backend):
         return value
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
-        single_mode = single_mode.lower()
-        if single_mode == 'wrap':
-            warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
-            single_mode = 'circular'
         assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
-        if np.sum(np.array(pad_width)) == 0:
-            return value
         if single_mode == 'circular':
-            dims = range(len(value.shape))
-            for dim in dims:
-                s = value.shape[dim]
-                pad_lower, pad_upper = pad_width[dim]
-                if pad_lower is 0 and pad_upper is 0:
-                    continue  # Nothing to pad
-                lower_slices = [slice(s-pad_lower, None) if d == dim else slice(None) for d in dims]
-                upper_slices = [slice(None, pad_upper) if d == dim else slice(None) for d in dims]
-                lower = value[lower_slices]
-                upper = value[upper_slices]
-                value = tf.concat([lower, value, upper], axis=dim)
-            return value
+            return circular_pad(value, pad_width, self)
         if single_mode == 'replicate':
             if np.any(np.array(pad_width) > 1):
-                raise NotImplementedError()  # ToDo: manual padding with slices
+                return replicate_pad(value, pad_width, self)
             else:
                 single_mode = 'symmetric'
-        return tf.pad(value, pad_width, single_mode.upper(), constant_values=constant_value)
+        return tf.pad(value, pad_width, single_mode.upper(), constant_values=constant_value)  # constant, symmetric, reflect
 
     def reshape(self, value, shape):
         return tf.reshape(value, shape)
@@ -122,7 +115,9 @@ class TFBackend(Backend):
         return tf.reduce_prod(value, axis=axis)
 
     def where(self, condition, x=None, y=None):
-        return tf.where(condition, x, y)
+        c = self.cast(condition, self.dtype(x))
+        return c * x + (1 - c) * y
+        # return tf.where(condition, x, y)  # TF1 has an inconsistent broadcasting rule for where
 
     def mean(self, value, axis=None, keepdims=False):
         if axis is not None:
@@ -145,16 +140,12 @@ class TFBackend(Backend):
             result.set_shape(shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        if boundary.lower() == 'constant':
-            boundary = 'zero'
-        boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
-        assert interpolation.lower() == 'linear'
-        # Check if CUDA can be used benefitially
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        assert interpolation == 'linear'
         if use_cuda(inputs):
             return resample_cuda(inputs, sample_coords, boundary)
-        # return _resample_no_pack(inputs, sample_coords, boundary_func)
-        return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, self.precision_dtype if self.has_fixed_precision else tf.float32)
+        else:
+            return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)  # while this is a bit slower than niftynet, it give consisten results at the boundaries
 
     def zeros_like(self, tensor):
         return tf.zeros_like(tensor)
@@ -253,6 +244,8 @@ class TFBackend(Backend):
         return result
 
     def expand_dims(self, a, axis=0, number=1):
+        if number == 0:
+            return a
         for _i in range(number):
             a = tf.expand_dims(a, axis)
         return a
@@ -268,7 +261,7 @@ class TFBackend(Backend):
             return tf.cast(x, self.precision_dtype if self.has_fixed_precision else tf.float32)
 
     def staticshape(self, tensor):
-        if self.is_tensor(tensor):
+        if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape.as_list())
         else:
             return np.shape(tensor)

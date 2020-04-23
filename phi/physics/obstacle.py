@@ -1,7 +1,8 @@
 from phi import struct
 from phi.geom.geometry import Geometry
 
-from .field.effect import FieldEffect, GeometryMask
+from .field import GeometryMask
+from .field.effect import FieldEffect
 from .material import CLOSED, Material
 from .physics import Physics, State
 
@@ -25,6 +26,14 @@ class Obstacle(State):
     @struct.constant(default=0)
     def velocity(self, velocity):
         return velocity
+
+    @struct.constant(default=0)
+    def angular_velocity(self, av):
+        return av
+
+    @struct.derived()
+    def is_stationary(self):
+        return self.velocity is 0 and self.angular_velocity is 0
 
 
 class GeometryMovement(Physics):

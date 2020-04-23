@@ -14,7 +14,8 @@ import numpy as np
 from os.path import join, isfile, isdir
 
 from phi import struct, math, __version__ as phi_version
-from phi.physics import field, physics_config
+from phi.physics import field
+from phi.geom import GLOBAL_AXIS_ORDER as physics_config
 
 
 def read_zipped_array(filename):
@@ -22,7 +23,7 @@ def read_zipped_array(filename):
     array = file[file.files[-1]]  # last entry in npz file has to be data array
     if array.shape[0] != 1 or len(array.shape) == 1:
         array = np.expand_dims(array, axis=0)
-    if not physics_config.X_FIRST and array.shape[-1] != 1:
+    if not physics_config.is_x_first and array.shape[-1] != 1:
         array = array[..., ::-1]  # component order in stored files is always XYZ
     return array
 
@@ -30,7 +31,7 @@ def read_zipped_array(filename):
 def write_zipped_array(filename, array):
     if array.shape[0] == 1 and len(array.shape) > 1:
         array = array[0, ...]
-    if not physics_config.X_FIRST and array.shape[-1] != 1:
+    if not physics_config.is_x_first and array.shape[-1] != 1:
         array = array[..., ::-1]  # component order in stored files is always XYZ
     np.savez_compressed(filename, array)
 

@@ -57,6 +57,9 @@ class TestDemos(TestCase):
     def test_burgers_sim(self):
         demo_run('burgers_sim')
 
+    def test_fluid_logo(self):
+        demo_run('fluid_logo')
+
     def test_heat_equilibrium(self):
         demo_run('heat_equilibrium')
 
@@ -66,8 +69,20 @@ class TestDemos(TestCase):
     def test_marker(self):
         demo_run('marker')
 
+    def test_modular_simpleplume(self):
+        demo_run('modular_simpleplume')
+
     def test_moving_inflow(self):
         demo_run('moving_inflow')
+
+    def test_moving_obstacle(self):
+        demo_run('moving_obstacle')
+
+    def test_pipe(self):
+        demo_run('pipe')
+
+    def test_rotating_bar(self):
+        demo_run('rotating_bar')
 
     def test_simpleplume(self):
         demo_run('simpleplume')
@@ -78,11 +93,8 @@ class TestDemos(TestCase):
     def test_smoke_datagen_commandline(self):
         demo_run('smoke_datagen_commandline')
 
-    def test_fluid_logo(self):
-        demo_run('fluid_logo')
+    def test_smoke_datagen_interactive(self):
+        demo_run('smoke_datagen_interactive')
 
     def test_wavepacket(self):
         demo_run('wavepacket')
-
-    def test_pipe(self):
-        demo_run('pipe')

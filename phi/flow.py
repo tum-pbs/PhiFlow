@@ -1,6 +1,5 @@
 # pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 
-from .physics import physics_config
 from .physics.physics import *
 from .physics.world import *
 from .physics.schroedinger import *
@@ -29,3 +28,9 @@ from phi import math, struct
 from .viz import display
 from .viz.display import show
 from .app import *
+
+import numpy
+
+np = numpy
+
+physics_config = GLOBAL_AXIS_ORDER

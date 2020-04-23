@@ -2,7 +2,7 @@ import numpy as np
 import six
 
 from phi import math, struct
-from phi.geom import AABox
+from phi.geom import AABox, box
 from phi.geom.geometry import assert_same_rank
 from phi.math.helper import map_for_axes
 from phi.physics.domain import Domain
@@ -61,14 +61,22 @@ class CenteredGrid(Field):
             return None
         if isinstance(data, (tuple, list)):
             data = np.array(data)  # numbers or objects
-        while math.ndims(data) < 2:
-            data = math.expand_dims(data)
+        if self.content_type in (struct.shape, struct.staticshape):
+            assert math.ndims(data) == 1
+        else:
+            if math.ndims(data) < 2:
+                data = math.expand_dims(data, 0, number=2 - math.ndims(data))
         return data
     data.override(struct.staticshape, lambda self, data: (self._batch_size,) + math.staticshape(data)[1:])
 
     @property
     def resolution(self):
-        return math.as_tensor(math.staticshape(self.data)[1:-1])
+        if self.content_type in (struct.VALID, struct.INVALID):
+            return math.as_tensor(math.staticshape(self.data)[1:-1])
+        elif self.content_type in (struct.shape, struct.staticshape):
+            return self.data[1:-1]
+        else:
+            raise AssertionError('Cannot compute resolution of invalid CenteredGrid (content type = %s)' % self.content_type)
 
     @struct.constant(dependencies=Field.data)
     def box(self, box):
@@ -80,7 +88,7 @@ class CenteredGrid(Field):
 
     @property
     def rank(self):
-        return math.spatial_rank(self.data)
+        return len(self.resolution)
 
     @struct.constant(default='boundary')
     def extrapolation(self, extrapolation):
@@ -99,11 +107,9 @@ class CenteredGrid(Field):
         return interpolation
 
     def sample_at(self, points):
-        if not isinstance(self.extrapolation, six.string_types) or self.extrapolation_value != 0:
-            return self._padded_resample(points)
         local_points = self.box.global_to_local(points)
         local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
-        resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation)
+        resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation, constant_values=_pad_value(self.extrapolation_value))
         return resampled
 
     def at(self, other_field):
@@ -125,7 +131,10 @@ class CenteredGrid(Field):
 
     @property
     def component_count(self):
-        return self.data.shape[-1]
+        if self.content_type in (struct.shape, struct.staticshape):
+            return self.data[-1]
+        else:
+            return self.data.shape[-1]
 
     def unstack(self):
         flags = propagate_flags_children(self.flags, self.rank, 1)
@@ -134,11 +143,15 @@ class CenteredGrid(Field):
 
     @property
     def points(self):
-        if SAMPLE_POINTS in self.flags:
+        if self.is_valid and SAMPLE_POINTS in self.flags:
             return self
         if self._sample_points is None:
             self._sample_points = CenteredGrid.getpoints(self.box, self.resolution)
         return self._sample_points
+
+    @property
+    def elements(self):
+        return box(center=self.points.data, size=self.dx)
 
     def compatible(self, other_field):
         if isinstance(other_field, (Domain, CenteredGrid)):
@@ -154,6 +167,9 @@ class CenteredGrid(Field):
             return other_field.compatible(self)
         else:
             return False
+
+    def __can_validate__(self):
+        return self.content_type in (struct.INVALID, struct.shape, struct.staticshape)
 
     def __repr__(self):
         if self.is_valid:
@@ -176,7 +192,7 @@ class CenteredGrid(Field):
     @staticmethod
     def getpoints(box, resolution):
         idx_zyx = np.meshgrid(*[np.linspace(0.5 / dim, 1 - 0.5 / dim, dim) for dim in resolution], indexing="ij")
-        local_coords = math.expand_dims(math.stack(idx_zyx, axis=-1), 0).astype(np.float32)
+        local_coords = math.to_float(math.expand_dims(math.stack(idx_zyx, axis=-1), 0))
         points = box.local_to_global(local_coords)
         return CenteredGrid(points, box, name='grid_centers(%s, %s)' % (box, resolution), flags=[SAMPLE_POINTS])
 
@@ -207,13 +223,6 @@ class CenteredGrid(Field):
             total = total.data
         normalize_data = math.normalize_to(self.data, total, epsilon)
         return self.with_data(normalize_data)
-
-    def _padded_resample(self, points):
-        data = self.padded([[1,1]] * self.rank).data
-        local_points = self.box.global_to_local(points)
-        local_points = local_points * math.to_float(self.resolution) + 0.5  # depends on amount of padding
-        resampled = math.resample(data, local_points, boundary='replicate', interpolation=self.interpolation)
-        return resampled
 
 
 def _required_paddings_transposed(box, dx, target):

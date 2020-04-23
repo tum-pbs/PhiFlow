@@ -36,9 +36,11 @@ Otherwise, finite differencing is used to approximate the
         data = math.ifft(frequencies * diffuse_kernel)
         data = math.real(data)
     else:
+        data = field.data
         if isinstance(amount, Field):
             amount = amount.at(field).data
-        data = field.data
+        else:
+            amount = math.batch_align(amount, 0, data)
         for i in range(substeps):
             data += amount / substeps * field.laplace().data
     return field.with_data(data)

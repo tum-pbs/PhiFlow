@@ -17,10 +17,6 @@ class Sphere(Geometry):
     def center(self, center):
         return center
 
-    @property
-    def rank(self):
-        return len(self.center)
-
     def lies_inside(self, location):
         center = math.batch_align(self.center, 1, location)
         radius = math.batch_align(self.radius, 0, location)
@@ -40,3 +36,15 @@ Very close to the sphere center, the distance takes a constant value.
         distance_squared = math.maximum(distance_squared, radius * 1e-2)  # Prevent infinite gradient at sphere center
         distance = math.sqrt(distance_squared)
         return distance - radius
+
+    def bounding_radius(self):
+        return self.radius
+
+    def bounding_half_extent(self):
+        return self.radius
+
+    def shifted(self, delta):
+        return self.copied_with(center=self.center + delta)
+
+    def rotated(self, angle):
+        return self

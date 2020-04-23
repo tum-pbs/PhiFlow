@@ -93,12 +93,12 @@ class TestFields(TestCase):
         data = np.reshape([[1,2], [3,4]], (1,2,2,1))
         field = CenteredGrid(data, extrapolation=[('boundary', 'constant'), 'periodic'])
         print(data[0,...,0])
-        np.testing.assert_equal(field.sample_at([[0.5,0.5]]), [[[1]]])
-        np.testing.assert_equal(field.sample_at([[10,0.5]]), [[[0]]])
-        np.testing.assert_equal(field.sample_at([[0.5,2.5]]), [[[1]]])
-        np.testing.assert_equal(field.sample_at([[0.5,1.5]]), [[[2]]])
-        np.testing.assert_equal(field.sample_at([[-10,0.5]]), [[[1]]])
-        np.testing.assert_equal(field.sample_at([[-10,1.5]]), [[[2]]])
+        np.testing.assert_equal(field.sample_at([(0.5,0.5)]), [[1]])
+        np.testing.assert_equal(field.sample_at([[10,0.5]]), [[0]])
+        np.testing.assert_equal(field.sample_at([[0.5,2.5]]), [[1]])
+        np.testing.assert_equal(field.sample_at([[0.5,1.5]]), [[2]])
+        np.testing.assert_equal(field.sample_at([[-10,0.5]]), [[1]])
+        np.testing.assert_equal(field.sample_at([[-10,1.5]]), [[2]])
 
     def test_constant_resample(self):
         field = ConstantField([0, 1])

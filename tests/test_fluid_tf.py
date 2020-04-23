@@ -2,15 +2,7 @@ from unittest import TestCase
 
 import numpy
 
-from phi.data.fluidformat import Scene
-from phi.geom import Sphere, box
-from phi.physics.domain import Domain
-from phi.physics.field.effect import Inflow
-from phi.physics.material import CLOSED
-from phi.physics.obstacle import Obstacle
-from phi.physics.fluid import Fluid, IncompressibleFlow
-from phi.physics.world import World
-from phi.tf.flow import tf, Session, placeholder, variable, tf_bake_subgraph, tf_bake_graph
+from phi.tf.flow import tf, Session, placeholder, variable, tf_bake_subgraph, tf_bake_graph, Noise, constant, struct, OPEN, PERIODIC, STICKY, SLIPPERY, World, Fluid, IncompressibleFlow, Obstacle, CLOSED, Inflow, Domain, Sphere, box, Scene
 
 
 class TestFluidTF(TestCase):
@@ -29,6 +21,27 @@ class TestFluidTF(TestCase):
         fluid = session.run(fluid_out, {fluid_in: fluid})
         fluid = session.run(fluid_out, {fluid_in: fluid})
         self.assertIsInstance(fluid, Fluid)
+
+    def test_fluid_tf_equality(self):
+        tf.reset_default_graph()
+        _sess = tf.InteractiveSession()
+        for domain in [
+            Domain([8, 6], boundaries=OPEN),
+            Domain([8, 6], boundaries=STICKY),
+            Domain([8, 6], boundaries=SLIPPERY),
+            Domain([8, 6], boundaries=PERIODIC),
+            Domain([8, 6], boundaries=[PERIODIC, [OPEN, STICKY]])
+        ]:
+            print('Comparing on domain %s' % (domain.boundaries,))
+            np_fluid = Fluid(domain, density=Noise(), velocity=Noise(), batch_size=10)
+            tf_fluid = constant(np_fluid)
+            physics = IncompressibleFlow(conserve_density=False)
+            for _ in range(3):
+                np_fluid = physics.step(np_fluid, 1.0)
+                tf_fluid = physics.step(tf_fluid, 1.0)
+                for np_tensor, tf_tensor in zip(struct.flatten(np_fluid), struct.flatten(tf_fluid)):
+                    tf_eval = tf_tensor.eval()
+                    numpy.testing.assert_almost_equal(np_tensor, tf_eval, decimal=5)
 
     def test_tf_subgraph(self):
         tf.reset_default_graph()

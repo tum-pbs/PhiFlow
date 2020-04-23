@@ -36,8 +36,11 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         if isinstance(other_field, CenteredGrid):
             batch_size = other_field._batch_size
             if batch_size is None:
-                batch_size = math.shape(other_field.data)[0]
-            array = self.grid_sample(other_field.resolution, other_field.box.size, batch_size=batch_size, dtype=other_field.data.dtype)
+                if other_field.content_type in (struct.shape, struct.staticshape):
+                    batch_size = other_field.data[0]
+                else:
+                    batch_size = math.shape(other_field.data)[0]
+            array = self.grid_sample(other_field.resolution, other_field.box.size, batch_size=batch_size)
             return other_field.with_data(array)
         if isinstance(other_field, StaggeredGrid):
             assert self.channels is None or self.channels == other_field.rank
@@ -49,9 +52,9 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     def sample_at(self, points):
         raise NotImplementedError()
 
-    def grid_sample(self, resolution, size, batch_size=1, dtype=np.float32):
+    def grid_sample(self, resolution, size, batch_size=1):
         shape = (batch_size,) + tuple(resolution) + (self.channels,)
-        rndj = math.randn(shape, dtype) + 1j * math.randn(shape, dtype)
+        rndj = math.randn(shape) + 1j * math.randn(shape)
         k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
         k = math.sum(k ** 2, axis=-1, keepdims=True)
         lowest_frequency = 0.1
@@ -62,7 +65,7 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         inv_k[(0,) * len(k.shape)] = 0
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
-        array = math.real(math.ifft(fft)).astype(dtype)
+        array = math.real(math.ifft(fft))
         array /= math.std(array, axis=tuple(range(1, math.ndims(array))), keepdims=True)
         array -= math.mean(array, axis=tuple(range(1, math.ndims(array))), keepdims=True)
         return array
