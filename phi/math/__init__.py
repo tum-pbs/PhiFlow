@@ -9,7 +9,8 @@ from .nd import (spatial_rank, spatial_dimensions, all_dimensions,
                  batch_align, batch_align_scalar,
                  blur,
                  l1_loss, l2_loss, l_n_loss,
-                 divergence, gradient, axis_gradient, laplace, fourier_laplace,
+                 divergence, gradient, axis_gradient, laplace,
+                 fourier_laplace, fourier_poisson,
                  fftfreq,
                  downsample2x, upsample2x, interpolate_linear,
                  spatial_sum,)
@@ -32,6 +33,8 @@ batch_gather = DYNAMIC_BACKEND.batch_gather
 boolean_mask = DYNAMIC_BACKEND.boolean_mask
 cast = DYNAMIC_BACKEND.cast
 ceil = DYNAMIC_BACKEND.ceil
+clip = DYNAMIC_BACKEND.clip
+copy = DYNAMIC_BACKEND.copy
 cos = DYNAMIC_BACKEND.cos
 concat = DYNAMIC_BACKEND.concat
 conv = DYNAMIC_BACKEND.conv

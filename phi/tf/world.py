@@ -3,7 +3,7 @@ import numpy as np
 from phi import struct
 from phi.physics.world import World
 from phi.physics import Physics
-from phi.physics.collective import CollectivePhysics, StateCollection
+from phi.physics.collective import CollectivePhysics
 from phi.struct import VARIABLES
 from phi.struct.functions import mappable
 from .util import placeholder
@@ -18,7 +18,7 @@ def tf_bake_graph(world, session):
     dt = placeholder(())
     # --- Build graph ---
     state_out = world.physics.step(state_in, dt=dt)
-    world.physics = BakedWorldPhysics(world.physics, session, state_in, state_out, dt)
+    world.physics = BakedWorldPhysics(world.physics, session, state_in, state_out, dt, world=world)
     for name, sysstate in world.state.states.items():
         sysstate_in = state_in[name]
         sysstate_out = state_out[name]
@@ -58,17 +58,23 @@ class BakedPhysics(Physics):
 
 class BakedWorldPhysics(CollectivePhysics):
 
-    def __init__(self, physics, session, state_in, state_out, dt):
+    def __init__(self, physics, session, state_in, state_out, dt, world):
         CollectivePhysics.__init__(self)
         self._physics = physics.physics
         self.state_in = state_in
         self.state_out = state_out
         self.session = session
         self.dt = dt
+        self.world = world
 
-    def step(self, state_collection, dt=1.0, **dependent_states):
-        result = self.session.run(self.state_out, {self.state_in: state_collection, self.dt: dt})
-        return result
+    def step(self, world_state, dt=1.0, **dependent_states):
+        return self.run(self.state_out, dt, world_state)
+
+    def run(self, fetches, dt=1.0, world_state=None):
+        if world_state is None:
+            world_state = self.world.state
+        feed_dict = {self.state_in: world_state, self.dt: dt}
+        return self.session.run(fetches, feed_dict)
 
 
 @mappable(content_type=struct.dtype)

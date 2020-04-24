@@ -27,6 +27,8 @@ class DashGui(AppDisplay):
                 ' - ',
                 dcc.Link('Side-by-Side', href='/side-by-side'),
                 ' - ',
+                dcc.Link('Quad', href='/quad'),
+                ' - ',
                 dcc.Link('Info', href='/info'),
                 ' - ',
                 dcc.Link('Log', href='/log'),
@@ -49,7 +51,7 @@ class DashGui(AppDisplay):
             build_description(dash_app),
             build_view_selection(dash_app),
             html.Div(style={'width': 1000, 'height': 800, 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
-                build_viewer(dash_app, id='home', initial_field_name=collapsed_gather_nd(self.config.get('display', None), [0])),
+                build_viewer(dash_app, id='home', initial_field_name=collapsed_gather_nd(self.config.get('display', None), [0]), config=self.config),
             ]),
             status_bar,
             player_controls,
@@ -73,16 +75,37 @@ class DashGui(AppDisplay):
         layout = html.Div([
             build_view_selection(dash_app),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='left', initial_field_name=sbs_fieldnames[0]),
+                build_viewer(dash_app, id='left', initial_field_name=sbs_fieldnames[0], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='right', initial_field_name=sbs_fieldnames[1]),
+                build_viewer(dash_app, id='right', initial_field_name=sbs_fieldnames[1], config=self.config),
             ]),
             status_bar,
             player_controls,
             model_controls,
         ])
         dash_app.add_page('/side-by-side', layout)
+
+        # --- Quad ---
+        layout = html.Div([
+            build_view_selection(dash_app),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='top-left', initial_field_name=sbs_fieldnames[0], config=self.config),
+            ]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='top-right', initial_field_name=sbs_fieldnames[1], config=self.config),
+            ]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='bottom-left', initial_field_name=sbs_fieldnames[0], config=self.config),
+            ]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
+                build_viewer(dash_app, id='bottom-right', initial_field_name=sbs_fieldnames[1], config=self.config),
+            ]),
+            status_bar,
+            player_controls,
+            model_controls,
+        ])
+        dash_app.add_page('/quad', layout)
 
         # --- Log ---
         layout = html.Div([
@@ -132,10 +155,10 @@ class DashGui(AppDisplay):
         return self.dash_app.dash
 
     def show(self, caller_is_main):
-        if caller_is_main or self.config.get('force_launch', False):
+        if not caller_is_main and self.config.get('external_web_server', False):
+            return self.dash_app.server
+        else:
             port = self.config.get('port', 8051)
             print('Starting Dash server on http://localhost:%d/' % port)
             self.dash_app.dash.run_server(debug=True, host='0.0.0.0', port=port, use_reloader=False)
             return self
-        else:
-            return self.dash_app.server

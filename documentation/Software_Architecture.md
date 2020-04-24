@@ -1,4 +1,4 @@
-# # Φ<sub>*Flow*</sub> Architecture
+# # Φ<sub>Flow</sub> Architecture
 
 
 ## Context

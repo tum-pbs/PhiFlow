@@ -68,7 +68,8 @@ class App(object):
                  custom_properties=None,
                  target_scene=None,
                  objects_to_save=None,
-                 framerate=None):
+                 framerate=None,
+                 dt=1.0):
         self.start_time = time.time()
         self.name = name if name is not None else self.__class__.__name__
         self.subtitle = subtitle
@@ -88,6 +89,7 @@ class App(object):
         self._pause = False
         self.detect_fields = 'default'  # False, True, 'default'
         self.world = world
+        self.dt = dt
         # Setup directory & Logging
         self.objects_to_save = [self.__class__] if objects_to_save is None else list(objects_to_save)
         self.base_dir = os.path.expanduser(base_dir)
@@ -156,7 +158,7 @@ class App(object):
         self._invalidation_counter += 1
 
     def step(self):
-        world.step()
+        world.step(dt=self.dt)
 
     @property
     def fieldnames(self):
@@ -247,7 +249,10 @@ class App(object):
         self._update_scene_properties()
         source_files_to_save = set()
         for object in self.objects_to_save:
-            source_files_to_save.add(inspect.getabsfile(object))
+            try:
+                source_files_to_save.add(inspect.getabsfile(object))
+            except TypeError:
+                pass
         for source_file in source_files_to_save:
             self.scene.copy_src(source_file)
         # End
@@ -278,8 +283,11 @@ class App(object):
     def _update_scene_properties(self):
         if self.uses_existing_scene:
             return
-        app_name = os.path.basename(inspect.getfile(self.__class__))
-        app_path = inspect.getabsfile(self.__class__)
+        try:
+            app_name = os.path.basename(inspect.getfile(self.__class__))
+            app_path = inspect.getabsfile(self.__class__)
+        except TypeError:
+            app_name = app_path = ''
         properties = {
             'instigator': 'App',
             'traits': self.traits,

@@ -1,11 +1,11 @@
-# Contributing to Φ<sub>*Flow*</sub>
+# Contributing to Φ<sub>Flow</sub>
 
 All contributions are welcome!
 You can mail the developers to get in touch.
 
 ## Types of contributions we're looking for
 
-We're open to all kind of contributions that improve or extend the Φ<sub>*Flow*</sub> library.
+We're open to all kind of contributions that improve or extend the Φ<sub>Flow</sub> library.
 Have a look at the [roadmap](https://github.com/tum-pbs/PhiFlow/projects/1) to see what is planned and what's currently being done.
 
 We especially welcome
@@ -14,7 +14,7 @@ We especially welcome
 - Integrations with other computing libraries such as [PyTorch](https://pytorch.org/) or [Jax](https://github.com/google/jax).
 - Bug fixes
 
-Φ<sub>*Flow*</sub> is a framework, not an application collection.
+Φ<sub>Flow</sub> is a framework, not an application collection.
 While we list applications in the [demos](../demos) directory, these should be short and easy to understand.
 
 ## How to Contribute
@@ -23,7 +23,7 @@ We recommend you to contact the developers before starting your contribution.
 There may already be similar internal work or planned changes that would affect how to code the contribution.
 Also check the [roadmap](https://github.com/tum-pbs/PhiFlow/projects/1).
 
-To contribute code, fork Φ<sub>*Flow*</sub> on GitHub, make your changes, and submit a pull request.
+To contribute code, fork Φ<sub>Flow</sub> on GitHub, make your changes, and submit a pull request.
 Make sure that your contribution passes all tests.
 
 The code you contribute should be able to run in at least 1D, 2D and 3D without additional modifications required by the user.

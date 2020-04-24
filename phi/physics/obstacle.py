@@ -1,7 +1,8 @@
 from phi import struct
 from phi.geom.geometry import Geometry
 
-from .field.effect import FieldEffect, GeometryMask
+from .field import GeometryMask
+from .field.effect import FieldEffect
 from .material import CLOSED, Material
 from .physics import Physics, State
 
@@ -26,6 +27,14 @@ class Obstacle(State):
     def velocity(self, velocity):
         return velocity
 
+    @struct.constant(default=0)
+    def angular_velocity(self, av):
+        return av
+
+    @struct.derived()
+    def is_stationary(self):
+        return self.velocity is 0 and self.angular_velocity is 0
+
 
 class GeometryMovement(Physics):
 
@@ -41,7 +50,6 @@ class GeometryMovement(Physics):
         if isinstance(obj, Obstacle):
             return obj.copied_with(geometry=next_geometry, velocity=velocity, age=obj.age + dt)
         if isinstance(obj, FieldEffect):
-            field = obj.field
-            assert isinstance(field, GeometryMask)
-            assert len(field.geometries) == 1
-            return obj.copied_with(field=obj.field.copied_with(geometries=(next_geometry,)), age=obj.age + dt)
+            with struct.ALL_ITEMS:
+                next_field = struct.map(lambda x: x.copied_with(geometries=next_geometry) if isinstance(x, GeometryMask) else x, obj.field, leaf_condition=lambda x: isinstance(x, GeometryMask))
+            return obj.copied_with(field=next_field, age=obj.age + dt)

@@ -31,6 +31,10 @@ Fluid can only enter non-solid cells or pass through non-solid boundaries.
         assert isinstance(solid, bool)
         return solid
 
+    @struct.derived()
+    def open(self):
+        return not self.solid and not self.periodic
+
     @struct.constant(default=0.0)
     def friction(self, friction):
         """
@@ -66,7 +70,10 @@ Whether the boundary is periodic, i.e. seamlessly merges with the opposite end o
     @struct.derived()
     def extrapolation_mode(self):
         """
-Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').
+Extrapolation mode for regular non-vector fields.
+For vector fields that respect boundaries (e.g. velocity), use vector_extrapolation_mode.
+    :return: one of ('periodic', 'boundary', 'constant').
+    :rtype: str
         """
         if self.periodic:
             return 'periodic'
@@ -84,8 +91,18 @@ Returns the extrapolation mode, one of ('periodic', 'boundary', 'constant').
         else:
             return 'boundary'
 
+    @struct.derived()
+    def vector_extrapolation_mode(self):
+        if self.periodic:
+            return 'periodic'
+        if self.solid:
+            assert self.friction in (0, 1)
+            return 'boundary' if self.friction == 0 else 'constant'
+        else:
+            return 'constant'
+
 
 OPEN = Material('open', solid=False)
-CLOSED = NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0.0)
-# NO_SLIP = STICKY = Material('sticky', solid=True, friction=1.0)
+CLOSED = NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0)
+NO_SLIP = STICKY = Material('sticky', solid=True, friction=1)
 PERIODIC = Material('periodic', solid=False, periodic=True)

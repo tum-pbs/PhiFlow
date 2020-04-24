@@ -138,7 +138,7 @@ class Domain(struct.Struct):
                 grid._age = 0.0
         else:
             grid = CenteredGrid.sample(data, self, batch_size=batch_size)
-        assert grid.component_count == components
+        assert grid.component_count == components, "Field has %d components but %d are required for '%s'" % (grid.component_count, components, name)
         if math.dtype(grid.data) != dtype:
             grid = grid.copied_with(data=math.cast(grid.data, dtype))
         if name is not None:
@@ -191,10 +191,10 @@ class Domain(struct.Struct):
         from phi.physics.field import Field
         if isinstance(data, Field):
             from phi.physics.field import StaggeredGrid
-            assert isinstance(data, StaggeredGrid)
-            assert np.all(data.resolution == self.resolution)
-            assert data.box == self.box
-            grid = data
+            if isinstance(data, StaggeredGrid) and np.all(data.resolution == self.resolution) and data.box == self.box:
+                grid = data
+            else:
+                grid = data.at(StaggeredGrid.sample(0, self, batch_size=batch_size))  # ToDo this is not ideal
         elif isinstance(data, (int, float)):
             shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation)
             from phi.physics.field import DIVERGENCE_FREE
@@ -243,5 +243,5 @@ class DomainState(State):
         return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, extrapolation=extrapolation)
 
     def staggered_grid(self, name, value, dtype=np.float32):
-        extrapolation = Material.extrapolation_mode(self.domain.boundaries)
+        extrapolation = Material.vector_extrapolation_mode(self.domain.boundaries)
         return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, extrapolation=extrapolation)

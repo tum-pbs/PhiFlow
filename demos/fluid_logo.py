@@ -5,6 +5,7 @@ if 'tf' in sys.argv:
 else:
     from phi.flow import *  # Use NumPy
     MODE = 'NumPy'
+RESOLUTION = [int(sys.argv[1])] * 2 if len(sys.argv) > 1 and __name__ == '__main__' else [128] * 2
 
 
 DESCRIPTION = """
@@ -22,9 +23,9 @@ def create_tum_logo():
 
 class SmokeLogo(App):
 
-    def __init__(self, resolution):
-        App.__init__(self, 'Fluid Logo', DESCRIPTION, summary='fluid' + 'x'.join([str(d) for d in resolution]), framerate=20)
-        fluid = self.fluid = world.add(Fluid(Domain(resolution, box=box[0:100, 0:100], boundaries=CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
+    def __init__(self):
+        App.__init__(self, 'Fluid Logo', DESCRIPTION, summary='fluid' + 'x'.join([str(d) for d in RESOLUTION]), framerate=20)
+        fluid = self.fluid = world.add(Fluid(Domain(RESOLUTION, box=box[0:100, 0:100], boundaries=CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
         world.add_all(Inflow(box[6:10, 14:21], rate=1.0), Inflow(box[6:10, 79:86], 0.8), Inflow(box[49:50, 43:46], 0.1))
         create_tum_logo()
         # Add Fields
@@ -39,5 +40,4 @@ class SmokeLogo(App):
         self.fluid.density = self.fluid.velocity = 0
 
 
-show(SmokeLogo([int(sys.argv[1])] * 2 if len(sys.argv) > 1 and __name__ == '__main__' else [128] * 2),
-     display=('Density', 'Velocity'), framerate=2)
+show(SmokeLogo(), display=('Density', 'Velocity'), framerate=2)

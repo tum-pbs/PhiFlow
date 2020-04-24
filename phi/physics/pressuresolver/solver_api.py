@@ -36,6 +36,14 @@ class PoissonSolver(object):
         """representation = name"""
         return self.name
 
+    def __and__(self, other):
+        if isinstance(self, _PoissonSolverChain):
+            return _PoissonSolverChain(self.solvers + (other,))
+        if isinstance(other, _PoissonSolverChain):
+            return _PoissonSolverChain((self,) + other.solvers)
+        else:
+            return _PoissonSolverChain([self, other])
+
 
 PressureSolver = PoissonSolver
 
@@ -58,6 +66,7 @@ class PoissonDomain(struct.Struct):
         if active is not None:
             assert isinstance(active, CenteredGrid)
             assert active.rank == self.domain.rank
+            assert active.component_count == 1
             if active.extrapolation != extrapolation:
                 active = active.copied_with(extrapolation=extrapolation)
             return active
@@ -69,6 +78,7 @@ class PoissonDomain(struct.Struct):
         if accessible is not None:
             assert isinstance(accessible, CenteredGrid)
             assert accessible.rank == self.domain.rank
+            assert accessible.component_count == 1
             return accessible
         else:
             return self.domain.centered_grid(1, extrapolation=Material.extrapolation_mode(self.domain.boundaries))
@@ -119,24 +129,46 @@ def _active_extrapolation(boundaries):
     return 'periodic' if boundaries == 'periodic' else 'constant'
 
 
-def poisson_solve(input_field, poisson_domain, solver=None):
+def poisson_solve(input_field, poisson_domain, solver=None, guess=None):
     """
 Solves the Poisson equation Δp = input_field for p.
     :param input_field: CenteredGrid
     :param poisson_domain: PoissonDomain instance
     :param solver: PoissonSolver to use, None for default
+    :param guess: CenteredGrid with same size and resolution as input_field
     :return: p as CenteredGrid, iteration count as int or None if not available
     :rtype: CenteredGrid, int
     """
-    from .sparse import SparseSciPy, SparseCG
     assert isinstance(input_field, CenteredGrid)
+    if guess is not None:
+        assert isinstance(guess, CenteredGrid)
+        assert guess.compatible(input_field)
+        guess = guess.data
     if isinstance(poisson_domain, Domain):
         poisson_domain = PoissonDomain(poisson_domain)
     if solver is None:
+        from .sparse import SparseSciPy, SparseCG
         if math.choose_backend([input_field.data, poisson_domain.active.data, poisson_domain.accessible.data]).matches_name('SciPy'):
             solver = SparseSciPy()
         else:
-            solver = SparseCG()
-    pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=None)
-    pressure = CenteredGrid(pressure, input_field.box, name='pressure')
+            from phi.physics.pressuresolver.fourier import FourierSolver
+            solver = FourierSolver() & SparseCG()
+    pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=guess)
+    pressure = CenteredGrid(pressure, input_field.box, extrapolation=input_field.extrapolation, name='pressure')
     return pressure, iteration
+
+
+class _PoissonSolverChain(PoissonSolver):
+
+    def __init__(self, solvers):
+        PoissonSolver.__init__(self, 'chain%s' % solvers, supported_devices=(), supports_guess=solvers[0].supports_guess, supports_loop_counter=solvers[-1].supports_loop_counter, supports_continuous_masks=False)
+        self.solvers = tuple(solvers)
+        for solver in solvers[1:]:
+            assert isinstance(solver, PoissonSolver)
+            assert solver.supports_guess
+
+    def solve(self, field, domain, guess):
+        iterations = None
+        for solver in self.solvers:
+            guess, iterations = solver.solve(field, domain, guess)
+        return guess, iterations

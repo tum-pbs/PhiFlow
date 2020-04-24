@@ -1,15 +1,15 @@
 # coding=utf-8
+import warnings
 from numbers import Number
 import numpy as np
-import six
 
 from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
 from phi.struct.tensorop import collapse
-from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, \
-    propagate_flags_resample, propagate_flags_operation
+from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, propagate_flags_resample, propagate_flags_operation
 from .grid import CenteredGrid
+from ..domain import Domain
 
 
 _SUBSCRIPTS = ['x', 'y', 'z', 'w']
@@ -32,10 +32,11 @@ def _res(tensor, axis):
 
 def unstack_staggered_tensor(tensor):
     tensors = math.unstack(tensor, -1)
+    result = []
     for i, dim in enumerate(math.spatial_dimensions(tensor)):
         slices = [slice(None, -1) if d != dim else slice(None) for d in math.spatial_dimensions(tensor)]
-        tensors[i] = math.expand_dims(tensors[i][tuple([slice(None)]+slices)], -1)
-    return tensors
+        result.append(math.expand_dims(tensors[i][tuple([slice(None)]+slices)], -1))
+    return result
 
 
 def stack_staggered_components(tensors):
@@ -58,6 +59,21 @@ class StaggeredGrid(Field):
     def __init__(self, data, box=None, name=None, **kwargs):
         Field.__init__(self, **struct.kwargs(locals()))
 
+    @staticmethod
+    def sample(value, domain, batch_size=None, name=None):
+        """
+        Sampmles the value to a staggered grid.
+
+        :param value: Either constant, staggered tensor, or Field
+        :param domain: the domain defines resolution and physical size of the grid
+        :type domain: Domain
+        :param batch_size: batch size
+        :param name: field name
+        :return: Sampled values in staggered grid form matching domain resolution
+        :rtype: StaggeredGrid
+        """
+        return domain.staggered_grid(value, batch_size=batch_size, name=name)
+
     @struct.variable(dependencies=[Field.name, Field.flags])
     def data(self, data):
         assert data is not None
@@ -65,10 +81,10 @@ class StaggeredGrid(Field):
             components = unstack_staggered_tensor(data)
         else:
             components = data
-        data = []
+        result = []
         for cmp_idx, grid in enumerate(components):
-            data.append(self._component_grid(grid, cmp_idx))
-        return tuple(data)
+            result.append(self._component_grid(grid, cmp_idx))
+        return tuple(result)
 
     def _component_grid(self, grid, axis):
         resolution = list(grid.resolution if isinstance(grid, CenteredGrid) else math.staticshape(grid)[1:-1])
@@ -80,9 +96,10 @@ class StaggeredGrid(Field):
             assert grid.box == box
             if grid.extrapolation != self.extrapolation:
                 grid = grid.copied_with(extrapolation=self.extrapolation)
+            if grid.extrapolation_value != self.extrapolation_value:
+                grid = grid.copied_with(extrapolation_value=self.extrapolation_value)
         else:
-            grid = CenteredGrid(data=grid, box=box, extrapolation=self.extrapolation, name=_subname(self.name, axis),
-                                batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
+            grid = CenteredGrid(grid, box=box, extrapolation=self.extrapolation, extrapolation_value=self.extrapolation_value, name=_subname(self.name, axis), batch_size=self._batch_size, flags=propagate_flags_children(self.flags, box.rank, 1))
         return grid
 
     @property
@@ -110,11 +127,15 @@ class StaggeredGrid(Field):
         assert extrapolation in ('periodic', 'constant', 'boundary') or isinstance(extrapolation, (tuple, list)), extrapolation
         return collapse(extrapolation)
 
-    def sample_at(self, points, collapse_dimensions=True):
+    @struct.constant(default=0.0)
+    def extrapolation_value(self, value):
+        return collapse(value)
+
+    def sample_at(self, points):
         return math.concat([component.sample_at(points) for component in self.data], axis=-1)
 
-    def at(self, other_field, collapse_dimensions=True, force_optimization=False, return_self_if_compatible=False):
-        if isinstance(other_field, StaggeredGrid) and other_field.box == self.box:
+    def at(self, other_field):
+        if isinstance(other_field, StaggeredGrid) and other_field.box == self.box and np.allclose(other_field.resolution, self.resolution):
             return self
         try:
             points = other_field.points
@@ -175,9 +196,13 @@ class StaggeredGrid(Field):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
             data = [data_operator(c1, c2) for c1, c2 in zip(self.data, other.data)]
             flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
+        elif math.ndims(other) > 0 and math.staticshape(other)[-1] > 1:
+            other_components = math.unstack(math.as_tensor(other), axis=-1, keepdims=True)
+            data = [data_operator(c1, c2) for c1, c2 in zip(self.data, other_components)]
+            flags = propagate_flags_operation(self.flags, False, self.rank, self.component_count)
         else:
-            flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
             data = [data_operator(c1, other) for c1 in self.data]
+            flags = propagate_flags_operation(self.flags, linear_if_scalar, self.rank, self.component_count)
         return self.copied_with(data=np.array(data, dtype=np.object), flags=flags)
 
     def staggered_tensor(self):
@@ -193,6 +218,23 @@ class StaggeredGrid(Field):
             components.append(grad)
         data = math.sum(components, 0)
         return CenteredGrid(data, self.box, name='div(%s)' % self.name, batch_size=self._batch_size)
+
+    def padded(self, widths):
+        new_grids = [grid.padded(widths) for grid in self.unstack()]
+        if isinstance(widths, int):
+            widths = [[widths, widths]] * self.rank
+        w_lower, w_upper = np.transpose(widths)
+        box = AABox(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
+        return self.copied_with(data=new_grids, box=box)
+
+    def downsample2x(self):
+        data = []
+        for axis in range(self.rank):
+            grid = self.unstack()[axis].data
+            grid = grid[tuple([slice(None, None, 2) if d - 1 == axis else slice(None) for d in range(self.rank + 2)])]  # Discard odd indices along axis
+            grid = math.downsample2x(grid, axes=tuple(filter(lambda ax2: ax2 != axis, range(self.rank))))  # Interpolate values along other axes
+            data.append(grid)
+        return self.with_data(data)
 
     @staticmethod
     def gradient(scalar_field, padding_mode='replicate'):
@@ -210,6 +252,7 @@ class StaggeredGrid(Field):
 
     @staticmethod
     def from_scalar(scalar_field, axis_forces, name=None):
+        warnings.warn('StaggeredGrid.from_scalar() is deprecated. Use (scalar * axis_forces).at(staggered_grid) or StaggeredField.sample(scalar * axis_forces, domain) instead.', DeprecationWarning)
         assert isinstance(scalar_field, CenteredGrid)
         assert scalar_field.component_count == 1, 'channel must be scalar but has %d components' % scalar_field.component_count
         tensors = []

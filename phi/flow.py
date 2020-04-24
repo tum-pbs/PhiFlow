@@ -15,6 +15,7 @@ from .physics.field.effect import *
 from .physics.pressuresolver.solver_api import PoissonDomain, PoissonSolver
 from .physics.pressuresolver.sparse import SparseCG, SparseSciPy
 from .physics.pressuresolver.geom import GeometricCG
+from .physics.pressuresolver.fourier import FourierSolver
 
 from .data.fluidformat import *
 from .data.dataset import *
@@ -27,3 +28,9 @@ from phi import math, struct
 from .viz import display
 from .viz.display import show
 from .app import *
+
+import numpy
+
+np = numpy
+
+physics_config = GLOBAL_AXIS_ORDER

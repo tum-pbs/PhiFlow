@@ -3,8 +3,9 @@ from unittest import TestCase
 import numpy as np
 
 from phi import struct, math
+from phi.physics.domain import Domain
 from phi.geom import box, AABox
-from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, data_bounds, ConstantField
+from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, data_bounds, ConstantField, Noise, staggered_curl_2d
 from phi.physics.field.flag import SAMPLE_POINTS
 from phi.physics.field.staggered_grid import stack_staggered_components
 from phi.physics.fluid import Fluid
@@ -25,7 +26,7 @@ class TestFields(TestCase):
         f = CenteredGrid(data, box[0:2, 0:3])
         g = CenteredGrid(math.zeros([1, 2, 2, 1]), box[0:2, 0.5:2.5])
         # Resample optimized
-        resampled = f.at(g, force_optimization=True)
+        resampled = f.at(g)
         self.assertTrue(resampled.compatible(g))
         np.testing.assert_equal(resampled.data[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
         # Resample unoptimized
@@ -92,20 +93,27 @@ class TestFields(TestCase):
         data = np.reshape([[1,2], [3,4]], (1,2,2,1))
         field = CenteredGrid(data, extrapolation=[('boundary', 'constant'), 'periodic'])
         print(data[0,...,0])
-        np.testing.assert_equal(field.sample_at([[0.5,0.5]]), [[[1]]])
-        np.testing.assert_equal(field.sample_at([[10,0.5]]), [[[0]]])
-        np.testing.assert_equal(field.sample_at([[0.5,2.5]]), [[[1]]])
-        np.testing.assert_equal(field.sample_at([[0.5,1.5]]), [[[2]]])
-        np.testing.assert_equal(field.sample_at([[-10,0.5]]), [[[1]]])
-        np.testing.assert_equal(field.sample_at([[-10,1.5]]), [[[2]]])
+        np.testing.assert_equal(field.sample_at([(0.5,0.5)]), [[1]])
+        np.testing.assert_equal(field.sample_at([[10,0.5]]), [[0]])
+        np.testing.assert_equal(field.sample_at([[0.5,2.5]]), [[1]])
+        np.testing.assert_equal(field.sample_at([[0.5,1.5]]), [[2]])
+        np.testing.assert_equal(field.sample_at([[-10,0.5]]), [[1]])
+        np.testing.assert_equal(field.sample_at([[-10,1.5]]), [[2]])
 
     def test_constant_resample(self):
         field = ConstantField([0, 1])
         self.assertEqual(field.component_count, 2)
         # --- Resample to CenteredGrid ---
-        at_cgrid = field.at(CenteredGrid(np.zeros([1, 4, 4, 1])), collapse_dimensions=False)
+        at_cgrid = field.at(CenteredGrid(np.zeros([1, 4, 4, 1])))
         np.testing.assert_equal(at_cgrid.data.shape, [1, 4, 4, 2])
         # --- Resample to StaggeredGrid ---
         at_sgrid = field.at(Fluid([4, 4]).velocity)
         np.testing.assert_equal(at_sgrid.unstack()[0].data.shape, [1, 5, 4, 1])
         np.testing.assert_equal(at_sgrid.unstack()[1].data.shape, [1, 4, 5, 1])
+
+    def test_staggered_curl2d(self):
+        domain = Domain([32, 32])
+        pot = CenteredGrid.sample(Noise(), domain)
+        vel = staggered_curl_2d(pot)
+        div = vel.divergence()
+        np.testing.assert_almost_equal(div.data, 0, decimal=5)

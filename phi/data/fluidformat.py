@@ -6,14 +6,16 @@ import os
 import os.path
 import re
 import shutil
+import sys
 import warnings
 
 import six
 import numpy as np
 from os.path import join, isfile, isdir
 
-from phi import struct
+from phi import struct, math, __version__ as phi_version
 from phi.physics import field
+from phi.geom import GLOBAL_AXIS_ORDER as physics_config
 
 
 def read_zipped_array(filename):
@@ -21,16 +23,16 @@ def read_zipped_array(filename):
     array = file[file.files[-1]]  # last entry in npz file has to be data array
     if array.shape[0] != 1 or len(array.shape) == 1:
         array = np.expand_dims(array, axis=0)
-    if array.shape[-1] != 1:
-        array = array[..., ::-1]
+    if not physics_config.is_x_first and array.shape[-1] != 1:
+        array = array[..., ::-1]  # component order in stored files is always XYZ
     return array
 
 
 def write_zipped_array(filename, array):
     if array.shape[0] == 1 and len(array.shape) > 1:
         array = array[0, ...]
-    if array.shape[-1] != 1:
-        array = array[..., ::-1]
+    if not physics_config.is_x_first and array.shape[-1] != 1:
+        array = array[..., ::-1]  # component order in stored files is always XYZ
     np.savez_compressed(filename, array)
 
 
@@ -44,7 +46,7 @@ def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
     if isinstance(fieldnames, six.string_types):
         fieldnames = [fieldnames]
     for fieldname in fieldnames:
-        filename = join(simpath, "%s_%06i.npz" % (fieldname, frame))
+        filename = _filename(simpath, fieldname, frame)
         if os.path.isfile(filename):
             yield read_zipped_array(filename)
         else:
@@ -61,10 +63,14 @@ def write_sim_frame(simpath, arrays, fieldnames, frame, check_same_dimensions=Fa
     if not isinstance(fieldnames, (tuple, list)) and not isinstance(arrays, (tuple, list)):
         fieldnames = [fieldnames]
         arrays = [arrays]
-    filenames = [join(simpath, "%s_%06i.npz" % (name, frame)) for name in fieldnames]
+    filenames = [_filename(simpath, name, frame) for name in fieldnames]
     for i in range(len(arrays)):
         write_zipped_array(filenames[i], arrays[i])
     return filenames
+
+
+def _filename(simpath, name, frame):
+    return join(simpath, "%s_%06i.npz" % (name, frame))
 
 
 def read_sim_frames(simpath, fieldnames=None, frames=None):
@@ -112,6 +118,14 @@ def get_frames(simpath, fieldname=None, mode="intersect"):
                 return []
             union = set(frames_lists[0]).union(*frames_lists[1:])
             return sorted(union)
+
+
+def _copy_file(source, target):
+    shutil.copy(source, target)
+    try:
+        shutil.copystat(source, target)
+    except:
+        warnings.warn('Could not copy file metadata to %s' % target)
 
 
 class Scene(object):
@@ -177,7 +191,7 @@ class Scene(object):
                 names = struct.names(obj)
             values = struct.flatten(obj)
             names = struct.flatten(names)
-            names = [self._filename(name) for name in names]
+            names = [_slugify_filename(name) for name in names]
             self.write_sim_frame(values, names, frame)
         else:
             name = str(names) if names is not None else 'unnamed'
@@ -189,16 +203,10 @@ class Scene(object):
             names = struct.flatten(obj)
             if not np.all([isinstance(n, six.string_types) for n in names]):
                 names = struct.names(obj)
-            data = struct.map(lambda name: self.read_array(self._filename(name), frame), names)
+            data = struct.map(lambda name: self.read_array(_slugify_filename(name), frame), names)
             return data
         else:
             return self.read_array('unnamed', frame)
-
-    def _filename(self, structname):
-        structname = structname.replace('._', '.').replace('.', '_')
-        if structname.startswith('_'):
-            structname = structname[1:]
-        return structname
 
     @property
     def fieldnames(self):
@@ -217,29 +225,22 @@ class Scene(object):
     def __repr__(self):
         return self.path
 
-    def copy_calling_script(self, stack_level=1):
-        script_path = inspect.stack()[stack_level][1]
-        script_name = os.path.basename(script_path)
-        src_path = os.path.join(self.path, "src")
-        os.path.isdir(src_path) or os.mkdir(src_path)
-        target = os.path.join(self.path, "src", script_name)
-        shutil.copy(script_path, target)
-        try:
-            shutil.copystat(script_path, target)
-        except:
-            warnings.warn('Could not copy file metadata to %s' % target)
+    def copy_calling_script(self, full_trace=False, include_context_information=True):
+        script_paths = [frame[1] for frame in inspect.stack()]
+        script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
+        script_paths = set(script_paths) if full_trace else [script_paths[0]]
+        for script_path in script_paths:
+            _copy_file(script_path, join(self.subpath('src', create=True), os.path.basename(script_path)))
+        if include_context_information:
+            with open(join(self.subpath('src', create=True), 'context.json'), 'w') as context_file:
+                json.dump({
+                    'phi_version': phi_version,
+                    'argv': sys.argv
+                }, context_file)
 
-    def copy_src(self, path):
-        file_name = os.path.basename(path)
-        src_dir = os.path.dirname(path)
-        target_dir = join(self.path, "src")
-        # Create directory and copy
-        isdir(target_dir) or os.mkdir(target_dir)
-        shutil.copy(path, join(target_dir, file_name))
-        try:
-            shutil.copystat(path, join(target_dir, file_name))
-        except:
-            warnings.warn('Could not copy file metadata to %s' % join(target_dir, file_name))
+    def copy_src(self, path, only_external=True):
+        if not only_external or not _is_phi_file(path):
+            _copy_file(path, join(self.subpath('src', create=True), os.path.basename(path)))
 
     def mkdir(self, subdir=None):
         path = self.path
@@ -252,10 +253,17 @@ class Scene(object):
         if isdir(self.path):
             shutil.rmtree(self.path)
 
+    def data_paths(self, frames, field_names):
+        for frame in frames:
+            yield tuple([_filename(self.path, name, frame) for name in field_names])
+
     @staticmethod
     def create(directory, category=None, count=1, mkdir=True, copy_calling_script=True):
         if count > 1:
-            return SceneBatch([Scene.create(directory, category, 1, mkdir, copy_calling_script) for i in range(count)])
+            scenes = []
+            for _ in range(count):
+                scenes.append(Scene.create(directory, category, 1, mkdir, copy_calling_script))
+            return SceneBatch(scenes)
         # Single scene
         directory = os.path.expanduser(directory)
         if category is None:
@@ -278,8 +286,11 @@ class Scene(object):
         if mkdir:
             scene.mkdir()
         if copy_calling_script:
-            assert mkdir
-            scene.copy_calling_script(2)
+            try:
+                assert mkdir
+                scene.copy_calling_script()
+            except IOError as err:
+                warnings.warn('Failed to copy calling script to scene during Scene.create().\nCause: %s' % err)
         return scene
 
     @staticmethod
@@ -355,6 +366,26 @@ def _transform_for_writing(obj):
     return data
 
 
+def _writing_staticshape(obj):
+    def f(value):
+        if isinstance(value, field.StaggeredGrid):
+            shape = math.staticshape(value.staggered_tensor())
+            return (value._batch_size,) + shape[1:]
+        if isinstance(value, field.CenteredGrid):
+            return value.staticshape.data
+        else:
+            return math.staticshape(value)
+    data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)), content_type='format_staticshape')
+    return data
+
+
+def _slugify_filename(struct_name):
+    struct_name = struct_name.replace('._', '.').replace('.', '_')
+    if struct_name.startswith('_'):
+        struct_name = struct_name[1:]
+    return struct_name
+
+
 def slugify(value):
     """
     Normalizes string, converts to lowercase, removes non-alpha characters,
@@ -393,3 +424,13 @@ greek = {
     u'Ψ': 'Psi',        u'ψ': 'psi',
     u'Ω': 'Omega',      u'ω': 'omega',
 }
+
+
+def _is_phi_file(path):
+    path, name = os.path.split(path)
+    if name == 'phi':
+        return True
+    elif path == '' or name == '':
+        return False
+    else:
+        return _is_phi_file(path)

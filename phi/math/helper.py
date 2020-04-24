@@ -21,8 +21,8 @@ def all_dimensions(tensor):
     return range(len(math.staticshape(tensor)))
 
 
-def is_scalar(obj):
-    return len(math.staticshape(obj)) == 0
+def is_scalar(tensor):
+    return math.ndims(tensor) == 0
 
 
 def _get_pad_width_axes(rank, axes, val_true=(1, 1), val_false=(0, 0)):

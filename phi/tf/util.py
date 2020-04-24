@@ -2,18 +2,13 @@
 import logging
 import warnings
 import numpy as np
-import tensorflow as tf
 from tensorflow.python import pywrap_tensorflow
+from . import tf
 
 from phi import struct
 from phi.math.math_util import is_static_shape
 from phi.physics.field.staggered_grid import StaggeredGrid
 from phi.physics.field.grid import CenteredGrid
-
-if tf.__version__[0] == '2':
-    logging.info('Adjusting for tensorflow 2.0')
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
 
 
 def _tf_name(trace, basename):
@@ -21,7 +16,6 @@ def _tf_name(trace, basename):
     if basename is None and len(path) == 0:
         return None
     result = path if basename is None else basename + '/' + path
-    print(result)
     return result
 
 
@@ -57,8 +51,57 @@ def variable_generator(initializer, dtype=np.float32, basename='Variable', train
     return create_variable
 
 
-def isplaceholder(obj):
+def constant(value, dtype=np.float32, basename='const'):
+    def f(trace): return tf.constant(trace.value, dtype=dtype, name=_tf_name(trace, basename))
+    return struct.map(f, value, trace=True)
+
+
+def is_placeholder(obj):
     return isinstance(obj, tf.Tensor) and obj.op.type == 'Placeholder'
+
+
+isplaceholder = is_placeholder
+
+
+def dataset_handle(shape, dtype, frames=None):
+    """
+Creates a single virtual TensorFlow dataset (iterator_handle) for the given struct.
+The dataset is expected to hold contain all fields required for loading the obj given the current context item condition.
+From the dataset, graph input tensors are derived and arranged into a struct of the same shape as obj.
+If an integer is passed to frames, a list of such structs is created by unstacking the second-outer-most dimension of the dataset.
+    :param shape: tensor shape or struct of tensor shapes
+    :param dtype: data type of struct of data types matching shape
+    :param frames: Number of frames contained in each example of the dataset. Expects shape (batch_size, frames, ...)
+    :type frames: int or None
+    :return: list of struct and placeholder.
+     1. If frames=None: valid struct corresponding to obj. If frames>1: list thereof
+     2. placeholder for a TensorFlow dataset iterator handle (dtype=string)
+    :rtype: tuple
+    """
+    shapes = tuple(struct.flatten(shape, leaf_condition=is_static_shape))
+    if struct.isstruct(dtype):
+        dtypes = tuple(struct.flatten(dtype))
+        assert len(dtypes) == len(shapes)
+    else:
+        dtypes = [dtype] * len(shapes)
+    if frames is not None:
+        shapes = tuple([shape[0:1] + (frames,) + shape[1:] for shape in shapes])
+    # --- TF Dataset handle from string ---
+    iterator_handle = tf.placeholder(tf.string, shape=[], name='dataset_iterator_handle')
+    iterator = tf.data.Iterator.from_string_handle(iterator_handle, output_types=dtypes, output_shapes=shapes)
+    next_element = iterator.get_next()
+    # --- Create resulting struct by splitting `next_element`s ---
+    if frames is None:
+        next_element_list = list(next_element)
+        next_struct = struct.map(lambda _: next_element_list.pop(0), shape, leaf_condition=is_static_shape)
+    else:
+        # --- Remap structures -> to `frames` long list of structs ---
+        next_struct = []
+        for frame_idx in range(frames):
+            next_element_list = list(next_element)
+            frame_struct = struct.map(lambda _: next_element_list.pop(0)[:, frame_idx, ...], shape, leaf_condition=is_static_shape)
+            next_struct.append(frame_struct)
+    return next_struct, iterator_handle
 
 
 def group_normalization(x, group_count, eps=1e-5):
@@ -146,11 +189,14 @@ def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activatio
 
 
 def istensor(obj):
+    warnings.warn("istensor is deprecated, use phi.tf.app.is_tensorflow_field instead", DeprecationWarning)
     if isinstance(obj, CenteredGrid):
         return istensor(obj.data)
     if isinstance(obj, StaggeredGrid):
         return np.any([istensor(t) for t in obj.data])
     return isinstance(obj, (tf.Tensor, tf.Variable))
+
+
 
 
 def conv_function(scope, constants_file=None):

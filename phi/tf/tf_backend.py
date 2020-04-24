@@ -1,19 +1,21 @@
-import logging
+import numbers
 import uuid
 import warnings
+from packaging import version
+import six
 
 import numpy as np
 import six
 import tensorflow as tf
 from packaging import version
 
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, equalize_shapes, circular_pad, replicate_pad
+from phi.backend.scipy_backend import SciPyBackend
+from phi.tf.tf_cuda_resample import *
+from . import tf
+
 from phi.backend.backend import Backend
 from phi.backend.tensorop import expand, collapsed_gather_nd
-
-if tf.__version__[0] == '2':
-    logging.info('Adjusting for tensorflow 2.0')
-    tf = tf.compat.v1
-    tf.disable_eager_execution()
 
 
 class TFBackend(Backend):
@@ -21,13 +23,23 @@ class TFBackend(Backend):
     def __init__(self):
         Backend.__init__(self, "TensorFlow")
 
-    def is_tensor(self, x):
+    def is_tensor(self, x, only_native=False):
+        if not only_native and SciPyBackend().is_tensor(x, only_native=False):
+            return True
         return isinstance(x, (tf.Tensor, tf.Variable, tf.SparseTensor, tf.Operation))
 
-    def as_tensor(self, x):
+    def as_tensor(self, x, convert_external=True):
+        if self.is_tensor(x, only_native=convert_external):
+            return x
         if isinstance(x, np.ndarray) and x.dtype == np.float64:
             return tf.convert_to_tensor(x, dtype=tf.float32)
         return tf.convert_to_tensor(x)
+
+    def copy(self, tensor, only_mutable=False):
+        if not only_mutable or tf.executing_eagerly():
+            return tf.identity(tensor)
+        else:
+            return tensor
 
     def equal(self, x, y):
         return tf.equal(x, y)
@@ -49,6 +61,8 @@ class TFBackend(Backend):
         return tf.range(start, limit, delta, dtype)
 
     def tile(self, value, multiples):
+        if self.ndims(value) < len(multiples):
+            value = self.expand_dims(value, axis=0, number=len(multiples) - self.ndims(value))
         return tf.tile(value, multiples)
 
     def stack(self, values, axis=0):
@@ -58,51 +72,21 @@ class TFBackend(Backend):
         return tf.concat(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        dims = range(len(self.staticshape(value)))
-        if isinstance(mode, six.string_types) and len(self.staticshape(constant_values)) == 0:
-            return self._single_mode_single_constant_pad(value, pad_width, mode, constant_values)
-        else:
-            mode = expand(mode, shape=(len(dims), 2))
-            passes = [('circular', 0), ('wrap', 0), ('replicate', 0), ('symmetric', 0), ('reflect', 0)]
-            constant_values = expand(constant_values, shape=(len(dims), 2))
-            constant_value_set = set()
-            for d in dims:
-                for upper in (False, True):
-                    constant_value_set.add(constant_values[d][upper])
-            for const in constant_value_set:
-                passes.append(('constant', const))
-            for single_mode, constant_value in passes:  # order matters! wrap first
-                widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode and constant_values[d][upper] == constant_value else 0 for upper in (False, True)] for d in dims]
-                value = self._single_mode_single_constant_pad(value, widths, single_mode, constant_value)
-            return value
+        passes = split_multi_mode_pad(self.ndims(value), PadSettings(pad_width, mode, constant_values), split_by_constant_value=True)
+        for pad_pass in passes:
+            value = self._single_mode_single_constant_pad(value, *pad_pass)
+        return value
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
-        single_mode = single_mode.lower()
-        if single_mode == 'wrap':
-            warnings.warn("'wrap' is deprecated, use 'circular' instead", DeprecationWarning, stacklevel=2)
-            single_mode = 'circular'
         assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
-        if np.sum(np.array(pad_width)) == 0:
-            return value
         if single_mode == 'circular':
-            dims = range(len(value.shape))
-            for dim in dims:
-                s = value.shape[dim]
-                pad_lower, pad_upper = pad_width[dim]
-                if pad_lower is 0 and pad_upper is 0:
-                    continue  # Nothing to pad
-                lower_slices = [slice(s-pad_lower, None) if d == dim else slice(None) for d in dims]
-                upper_slices = [slice(None, pad_upper) if d == dim else slice(None) for d in dims]
-                lower = value[lower_slices]
-                upper = value[upper_slices]
-                value = tf.concat([lower, value, upper], axis=dim)
-            return value
+            return circular_pad(value, pad_width, self)
         if single_mode == 'replicate':
             if np.any(np.array(pad_width) > 1):
-                raise NotImplementedError()  # ToDo: manual padding with slices
+                return replicate_pad(value, pad_width, self)
             else:
                 single_mode = 'symmetric'
-        return tf.pad(value, pad_width, single_mode.upper(), constant_values=constant_value)
+        return tf.pad(value, pad_width, single_mode.upper(), constant_values=constant_value)  # constant, symmetric, reflect
 
     def reshape(self, value, shape):
         return tf.reshape(value, shape)
@@ -122,7 +106,9 @@ class TFBackend(Backend):
         return tf.reduce_prod(value, axis=axis)
 
     def where(self, condition, x=None, y=None):
-        return tf.where(condition, x, y)
+        c = self.cast(condition, self.dtype(x))
+        return c * x + (1 - c) * y
+        # return tf.where(condition, x, y)  # TF1 has an inconsistent broadcasting rule for where
 
     def mean(self, value, axis=None, keepdims=False):
         if axis is not None:
@@ -145,12 +131,12 @@ class TFBackend(Backend):
             result.set_shape(shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        if boundary.lower() == 'constant':
-            boundary = 'zero'
-        boundary_func = SUPPORTED_BOUNDARY[boundary.lower()]
-        assert interpolation.lower() == 'linear'
-        return _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func)
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        assert interpolation == 'linear'
+        if use_cuda(inputs):
+            return resample_cuda(inputs, sample_coords, boundary)
+        else:
+            return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)  # while this is a bit slower than niftynet, it give consisten results at the boundaries
 
     def zeros_like(self, tensor):
         return tf.zeros_like(tensor)
@@ -164,7 +150,9 @@ class TFBackend(Backend):
     def matmul(self, A, b):
         if isinstance(A, tf.SparseTensor):
             result = tf.sparse_tensor_dense_matmul(A, tf.transpose(b))
-            return tf.transpose(result)
+            result = tf.transpose(result)
+            result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
+            return result
         else:
             return tf.matmul(A, b)
 
@@ -193,11 +181,11 @@ class TFBackend(Backend):
     def floor(self, x):
         return tf.floor(x)
 
-    def max(self, x, axis=None):
-        return tf.reduce_max(x, axis=axis)
+    def max(self, x, axis=None, keepdims=False):
+        return tf.reduce_max(x, axis=axis, keepdims=keepdims)
 
-    def min(self, x, axis=None):
-        return tf.reduce_min(x, axis=axis)
+    def min(self, x, axis=None, keepdims=False):
+        return tf.reduce_min(x, axis=axis, keepdims=keepdims)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
         # Setup custom gradient
@@ -224,6 +212,9 @@ class TFBackend(Backend):
     def minimum(self, a, b):
         return tf.minimum(a, b)
 
+    def clip(self, x, minimum, maximum):
+        return tf.clip_by_value(x, minimum, maximum)
+
     def sqrt(self, x):
         return tf.sqrt(x)
 
@@ -244,6 +235,8 @@ class TFBackend(Backend):
         return result
 
     def expand_dims(self, a, axis=0, number=1):
+        if number == 0:
+            return a
         for _i in range(number):
             a = tf.expand_dims(a, axis)
         return a
@@ -255,7 +248,7 @@ class TFBackend(Backend):
         return tf.cast(x, tf.float64) if float64 else tf.cast(x, tf.float32)
 
     def staticshape(self, tensor):
-        if self.is_tensor(tensor):
+        if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape.as_list())
         else:
             return np.shape(tensor)
@@ -271,14 +264,27 @@ class TFBackend(Backend):
             return values[indices]
         return tf.gather(values, indices)
 
-    def gather_nd(self, values, indices):
-        return tf.gather_nd(values, indices)
+    def gather_nd(self, values, indices, batch_dims=0):
+        if batch_dims == 0:
+            return tf.gather_nd(values, indices)
+        elif version.parse(tf.__version__) >= version.parse('1.14.0'):
+            return tf.gather_nd(values, indices, batch_dims=batch_dims)
+        else:
+            if batch_dims > 1: raise NotImplementedError('batch_dims > 1 only supported on TensorFlow >= 1.14')
+            batch_size = self.shape(values)[0]
+            batch_ids = tf.reshape(tf.range(batch_size), [batch_size] + [1] * (self.ndims(indices) - 1))
+            batch_ids = tf.tile(batch_ids, [1] + self.shape(indices)[1:-1] + [1])
+            indices = tf.concat([batch_ids, indices], -1)
+            return tf.gather_nd(values, indices)
 
-    def unstack(self, tensor, axis=0):
-        return tf.unstack(tensor, axis=axis)
+    def unstack(self, tensor, axis=0, keepdims=False):
+        unstacked = tf.unstack(tensor, axis=axis)
+        if keepdims:
+            unstacked = [self.expand_dims(c, axis=axis) for c in unstacked]
+        return unstacked
 
-    def std(self, x, axis=None):
-        _mean, var = tf.nn.moments(x, axis)
+    def std(self, x, axis=None, keepdims=False):
+        _mean, var = tf.nn.moments(x, axis, keepdims=keepdims)
         return tf.sqrt(var)
 
     def boolean_mask(self, x, mask):
@@ -295,13 +301,23 @@ class TFBackend(Backend):
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
-        z = tf.zeros(shape, dtype=values.dtype)
+        buffer = tf.zeros(shape, dtype=values.dtype)
+
+        repetitions = []
+        for dim in range(len(indices.shape) - 1):
+            if values.shape[dim] == 1:
+                repetitions.append(indices.shape[dim])
+            else:
+                assert indices.shape[dim] == values.shape[dim]
+                repetitions.append(1)
+        repetitions.append(1)
+        values = self.tile(values, repetitions)
 
         if duplicates_handling == 'add':
             #Only for Tensorflow with custom gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
-                result = tf.tensor_scatter_add(z, indices, values)
+                result = tf.tensor_scatter_add(buffer, indices, values)
 
                 def grad(dr):
                     return self.resample(gradient(dr, difference='central'), points), None, None
@@ -311,13 +327,17 @@ class TFBackend(Backend):
             return scatter_density(points, indices, values)
         elif duplicates_handling == 'mean':
             # Won't entirely work with out of bounds particles (still counted in mean)
-            count = tf.tensor_scatter_add(z, indices, tf.ones_like(values))
-            total = tf.tensor_scatter_add(z, indices, values)
-            return (total / tf.maximum(1.0, count))
-        else: # last, any, undefined
-            st = tf.SparseTensor(indices, values, shape)
-            st = tf.sparse.reorder(st)   # only needed if not ordered
-            return tf.sparse.to_dense(st)
+            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
+            total = tf.tensor_scatter_add(buffer, indices, values)
+            return total / tf.maximum(1.0, count)
+        else:  # last, any, undefined
+            # indices = self.to_int(indices, int64=True)
+            # st = tf.SparseTensor(indices, values, shape)  # ToDo this only supports 2D shapes
+            # st = tf.sparse.reorder(st)   # only needed if not ordered
+            # return tf.sparse.to_dense(st)
+            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
+            total = tf.tensor_scatter_add(buffer, indices, values)
+            return total / tf.maximum(1.0, count)
 
     def fft(self, x):
         rank = len(x.shape) - 2
@@ -385,6 +405,36 @@ def unit_direction(dim, spatial_rank):  # ordered like z,y,x
     return direction
 
 
+def _resample_no_pack(grid, coords, boundary_func):
+    resolution = np.array([int(d) for d in grid.shape[1:-1]])
+    sp_rank = tensor_spatial_rank(grid)
+
+    floor = boundary_func(tf.floor(coords), resolution)
+    up_weights = coords - floor
+    lo_weights = TFBackend().unstack(1 - up_weights, axis=-1, keepdims=True)
+    up_weights = TFBackend().unstack(up_weights, axis=-1, keepdims=True)
+    base_coords = tf.cast(floor, tf.int32)
+
+    def interpolate_nd(coords, axis):
+        direction = np.array([1 if ax == axis else 0 for ax in range(sp_rank)])
+        print(direction.shape)
+        with tf.variable_scope('coord_plus_one'):
+            up_coords = coords + direction  # This is extremely slow for some reason - ToDo tile direction array to have same dimensions before calling interpolate_nd?
+        if axis == sp_rank - 1:
+            # up_coords = boundary_func(up_coords, resolution)
+            lo_values = tf.gather_nd(grid, coords, batch_dims=1)
+            up_values = tf.gather_nd(grid, up_coords, batch_dims=1)
+        else:
+            lo_values = interpolate_nd(coords, axis + 1)
+            up_values = interpolate_nd(up_coords, axis + 1)
+        with tf.variable_scope('weighted_sum_axis_%d' % axis):
+            return lo_values * lo_weights[axis] + up_values * up_weights[axis]
+
+    with tf.variable_scope('interpolate_nd'):
+        result = interpolate_nd(base_coords, 0)
+    return result
+
+
 def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     inputs = tf.convert_to_tensor(inputs)
     sample_coords = tf.convert_to_tensor(sample_coords)
@@ -398,10 +448,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
 
     if sample_coords.shape[0] != inputs.shape[0]:
         sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
-
-    if in_spatial_rank == 2 and boundary.upper() == 'ZERO':
-        inputs = tf.transpose(inputs, [0, 2, 1, 3])
-        return tf.contrib.resampler.resampler(inputs, sample_coords)
 
     xy = tf.unstack(sample_coords, axis=-1)
     base_coords = [tf.floor(coords) for coords in xy]

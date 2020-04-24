@@ -1,58 +1,56 @@
-from phi import struct, math
-from phi.geom import Geometry
-from .field import Field, propagate_flags_children
-from .constant import _convert_constant_to_data, _expand_axes
+import warnings
+
+from phi import struct, math, geom
+
+from .field import Field
+from .analytic import AnalyticField
 
 
 @struct.definition()
-class GeometryMask(Field):
+class GeometryMask(AnalyticField):
 
-    def __init__(self, geometries, value=1.0, name=None, flags=(), **kwargs):
-        data = _convert_constant_to_data(value)
-        Field.__init__(self, **struct.kwargs(locals(), ignore='value'))
+    def __init__(self, geometries, antialias=False, value=None, **kwargs):
+        if value is not None:
+            warnings.warn('Passing a value to GeometryMask has no effect.')
+        rank = geometries.rank if isinstance(geometries, geom.Geometry) else geometries[0].rank
+        AnalyticField.__init__(self, rank, **struct.kwargs(locals(), ignore=['value', 'rank']))
 
     @struct.constant()
-    def geometries(self, geometries):
-        return tuple(geometries)
+    def geometries(self, geometry):
+        """ Alias for `geometry`. """
+        if isinstance(geometry, (tuple, list)):
+            geometry = geom.union(geometry)
+        assert isinstance(geometry, geom.Geometry)
+        return geometry
 
-    def sample_at(self, points, collapse_dimensions=True):
-        if len(self.geometries) == 0:
-            return _expand_axes(math.zeros([1,1]), points, collapse_dimensions=collapse_dimensions)
-        if len(self.geometries) == 1:
-            result = self.geometries[0].value_at(points)
+    geometry = geometries
+
+    @struct.constant(default=False)
+    def antialias(self, antialias):
+        """
+If False, field values are either 0 (outside) or 1 (inside) and the field is not differentiable w.r.t. the geometry.
+If True, field values smoothly go from 0 to 1 at the surface and the field is differentiable w.r.t. the geometry.
+        """
+        assert antialias in (True, False)
+        return antialias
+
+    def approximate_mean_value_in(self, geometry):
+        if not self.antialias:
+            return Field.approximate_mean_value_in(self, geometry)
         else:
-            result = math.max([geometry.value_at(points) for geometry in self.geometries], axis=0)
-        return math.mul(result, self.data)
+            return self.geometry.approximate_fraction_inside(geometry)
 
-    @property
-    def rank(self):
-        return self.geometries[0].rank
+    def sample_at(self, points):
+        return math.to_float(self.geometry.lies_inside(points))
 
     @property
     def component_count(self):
-        return self.data.shape[-1]
-
-    def unstack(self):
-        flags = propagate_flags_children(self.flags, self.rank, 1)
-        return [GeometryMask(self.geometries, c, '%s[%d]' % (self.name, i), flags, batch_size=self._batch_size) for i, c in enumerate(math.unstack(self.data, -1))]
-
-    @property
-    def points(self):
-        return None
-
-    def compatible(self, other_field):
-        return True
-
-    def __repr__(self):
-        return 'Union{%s}' % ', '.join([repr(g) for g in self.geometries])
+        return 1
 
 
-def mask(geometry):
-    assert isinstance(geometry, Geometry)
-    return GeometryMask([geometry], name='mask')
+mask = GeometryMask
 
 
 def union_mask(geometries):
-    for geom in geometries:
-        assert isinstance(geom, Geometry)
-    return GeometryMask(geometries, name='union')
+    warnings.warn("union_mask() is deprecated, use mask(union()) instead.", DeprecationWarning)
+    return mask(geom.union(*geometries))

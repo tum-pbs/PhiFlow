@@ -1,8 +1,8 @@
-# Φ<sub>*Flow*</sub> Web Interface
+# Φ<sub>Flow</sub> Web Interface
 
 ![Gui](figures/WebInterface.png)
 
-Φ<sub>*Flow*</sub> contains an interactive web interface that can display 1D, 2D and 3D data.
+Φ<sub>Flow</sub> contains an interactive web interface that can display 1D, 2D and 3D data.
 The interface is displayed in the browser so it can be used remotely.
 
 *Note*:
@@ -133,3 +133,23 @@ Controls can also be configured by creating an instance of `EditableValue`. In t
     self.message = EditableString("Message", "It's too hot!")
     self.limit = EditableInt("Limit", 42, (20, 50))
 ```
+
+
+## Configuration
+
+The `show` method supports additional keyword arguments to configure how the App contents are displayed.
+
+The `display` parameter defines which fields are displayed initially, e.g. `display='Density'` or `display=('Density', 'Velocity')`.
+
+### Further configuration parameters
+
+| Parameter            | Description                                                                                       | Default |
+|----------------------|---------------------------------------------------------------------------------------------------|---------|
+| external_web_server  | Whether an external tool is used to host the Dash server. If False, launches a new web server.    | False   |
+| arrow_origin         | Which part of the arrow is centered at the position of the field. One of 'base', 'center', 'tip'. | 'tip'   |
+| max_arrow_resolution | Downscale grids to have no more than resolution**2 cells before drawing arrows.                   | 40      |
+| min_arrow_length     | Fraction of figure size. Smaller arrows are not drawn.                                            | 0.005   |
+| max_arrows           | Maximum number of arrows to draw. Arrows are sorted by length.                                    | 2000    |
+| draw_full_arrows     | Whether to draw the tips of arrows. If False, draws arrows as lines.                              | False   |
+| colormap             | Built-in: 'viridisx', 'OrWhBl'. Additional colormaps can be used if matplotlib is installed.      | 'viridisx'|
+| slow_colorbar        | If True, keeps colorbar similar to previous frame if possible.                                    | False   |

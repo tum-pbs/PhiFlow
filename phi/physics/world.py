@@ -200,22 +200,29 @@ Similar to step() but does not change the state of the world. Instead, the new s
         # type: (S, Physics) -> S
         """
 Adds a State to the world that will be stepped forward in time each time world.step() is invoked.
-        :param state: State
-        :param physics: optional Physics to use during world.step(). Defaults to state.default_physics()
+        :param state: State or list of States
+        :param physics: (optional) Physics to use during world.step(). If a list was provided for `state`, a matching list must be given for `state`.
         :return: StateProxy referencing the current state of the added system. If world.state is updated (e.g. because world.step() was called), the StateProxy will refer to the updated values.
         """
-        if physics is not None:
-            assert isinstance(physics, Physics)
-            self.physics.add(state.name, physics)
-        elif state.default_physics() is not None and not isinstance(state.default_physics(), Static):
-            warnings.warn('No physics provided to world.add(%s). In the future this will default to static physics' % state)
-        self.state = self.state.state_added(state)
-        return StateProxy(self, state.name)
+        if isinstance(state, dict):
+            raise ValueError('Cannot add dict to world. Maybe you meant world.add(**dict)?')
+        if isinstance(state, (tuple, list)):
+            assert isinstance(physics, (tuple, list))
+            assert len(state) == len(physics)
+            return [self.add(s, p) for s, p in zip(state, physics)]
+        else:
+            if physics is not None:
+                self.physics.add(state.name, physics)
+            elif state.default_physics() is not None and not isinstance(state.default_physics(), Static):
+                warnings.warn('No physics provided to world.add(%s). In the future this will default to static physics' % state)
+            self.state = self.state.state_added(state)
+            return StateProxy(self, state.name)
 
     def add_all(self, *states):
         """
 Add a collection of states to the system using world.add(state).
         """
+        warnings.warn('World.add_all() is deprecated. Use World.add(list_of_states) instead.', DeprecationWarning)
         for state in states:
             self.add(state)
 

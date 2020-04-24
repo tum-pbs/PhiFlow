@@ -1,5 +1,6 @@
 import distutils.cmd
 import distutils.log
+import errno
 import subprocess
 import os
 from setuptools import setup
@@ -9,7 +10,9 @@ class CudaCommand(distutils.cmd.Command):
     description = 'Compile CUDA sources'
     user_options = [
         ('gcc=', None, 'Path to the gcc compiler.'),
+        ('gcc-4-8=', None, 'Path to gcc-4.8 compiler.'),
         ('nvcc=', None, 'Path to the Nvidia nvcc compiler.'),
+        ('cuda-lib=', None, 'Path to the CUDA libraries.'),
     ]
 
     def run(self):
@@ -26,6 +29,13 @@ class CudaCommand(distutils.cmd.Command):
             tf.disable_eager_execution()
         tf_cflags = tf.sysconfig.get_compile_flags()
         tf_lflags = tf.sysconfig.get_link_flags()
+        # print(tf_cflags)
+        # print(tf_lflags)
+        # print('lib: ' + tf.sysconfig.get_lib())
+
+        link_cuda_lib = '-L' + self.cuda_lib
+
+        # print(link_cuda_lib)
 
         # Remove old build files
         if os.path.isdir(build_path):
@@ -58,7 +68,7 @@ class CudaCommand(distutils.cmd.Command):
         # This is only needed for the Laplace Matrix Generation Benchmark
         subprocess.check_call(
             [
-                self.gcc,
+                self.gcc_4_8,
                 '-std=c++11',
                 '-shared',
                 '-o',
@@ -69,6 +79,7 @@ class CudaCommand(distutils.cmd.Command):
             ]
             + tf_cflags
             + tf_lflags
+            + ['-L/usr/local/cuda/lib64/','-lcudart']
         )
 
         # Build the Pressure Solver CUDA Kernels
@@ -91,7 +102,7 @@ class CudaCommand(distutils.cmd.Command):
         # Build the Pressure Solver Custom Op
         subprocess.check_call(
             [
-                self.gcc,
+                self.gcc_4_8,
                 '-std=c++11',
                 '-shared',
                 '-o',
@@ -103,11 +114,107 @@ class CudaCommand(distutils.cmd.Command):
             ]
             + tf_cflags
             + tf_lflags
+            + ['-L/usr/local/cuda/lib64/','-lcudart']
         )
+
+        #Build the Resample CUDA Kernels
+        subprocess.check_call(
+            [
+                self.nvcc,
+                '-std=c++11',
+                '-c',
+                '-o',
+                os.path.join(build_path, 'resample.cu.o'),
+                os.path.join(src_path, 'resample.cu.cc'),
+                '-D GOOGLE_CUDA=1',
+                '-x', 'cu',
+                '-Xcompiler',
+                '-fPIC',
+                '--expt-relaxed-constexpr',
+                '-DNDEBUG',
+                '-O3'
+            ]
+            + tf_cflags
+        )
+
+        #Build the Resample Custom Op
+        try:
+            subprocess.check_call(
+                [
+                    self.gcc_4_8,
+                    '-std=c++11',
+                    '-shared',
+                    '-o',
+                    os.path.join(build_path, 'resample.so'),
+                    os.path.join(src_path, 'resample.cc'),
+                    os.path.join(build_path, 'resample.cu.o'),
+                    '-fPIC',
+                    '-lcudart',
+                    '-O3',
+                    link_cuda_lib
+                ]
+                + tf_cflags
+                + tf_lflags
+            )
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                print('Please install g++-4.8 as it is needed to compile the advection operator.')
+                # raise e
+            else:
+                raise e
+
+        #Build the Resample Gradient CUDA Kernels
+        subprocess.check_call(
+            [
+                self.nvcc,
+                '-std=c++11',
+                '-c',
+                '-o',
+                os.path.join(build_path, 'resample_gradient.cu.o'),
+                os.path.join(src_path, 'resample_gradient.cu.cc'),
+                '-D GOOGLE_CUDA=1',
+                '-x', 'cu',
+                '-Xcompiler',
+                '-fPIC',
+                '--expt-relaxed-constexpr',
+                '-DNDEBUG',
+                '-O3'
+            ]
+            + tf_cflags
+        )
+
+        #Build the Resample Gradient Custom Op
+        try:
+            subprocess.check_call(
+                [
+                    self.gcc_4_8,
+                    '-std=c++11',
+                    '-shared',
+                    '-o',
+                    os.path.join(build_path, 'resample_gradient.so'),
+                    os.path.join(src_path, 'resample_gradient.cc'),
+                    os.path.join(build_path, 'resample_gradient.cu.o'),
+                    '-fPIC',
+                    '-lcudart',
+                    '-O3',
+                    link_cuda_lib
+                ]
+                + tf_cflags
+                + tf_lflags
+            )
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                print('Please install g++-4.8 as it is needed to compile the advection operator.')
+                # raise e
+            else:
+                raise e
 
     def initialize_options(self):
         self.gcc = 'gcc'
+        self.gcc_4_8 = 'g++-4.8'
         self.nvcc = 'nvcc'
+        self.cuda_lib = '/usr/local/cuda/lib64/'
+
 
     def finalize_options(self):
         assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
@@ -120,11 +227,14 @@ try:
 except FileNotFoundError:
     pass
 
+with open(os.path.join(os.path.dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
+    version = version_file.read()
+
 
 setup(
     name='phiflow',
-    version='1.0.3',
-    download_url='https://github.com/tum-pbs/PhiFlow/archive/1.0.3.tar.gz',
+    version=version,
+    download_url='https://github.com/tum-pbs/PhiFlow/archive/%s.tar.gz' % version,
     packages=['phi',
               'phi.app',
               'phi.backend',

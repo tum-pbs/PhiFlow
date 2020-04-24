@@ -5,10 +5,9 @@ import warnings
 import numpy as np
 import scipy.signal
 import scipy.sparse
-import six
 
+from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd
 from .backend import Backend
-from .tensorop import collapsed_gather_nd, expand
 
 
 class SciPyBackend(Backend):
@@ -43,13 +42,21 @@ class SciPyBackend(Backend):
 
     # --- Abstract math functions ---
 
-    def as_tensor(self, x):
-        """ as array """
+    def as_tensor(self, x, convert_external=True):
+        if self.is_tensor(x, only_native=convert_external):
+            return x
         return np.array(x)
 
-    def is_tensor(self, x):
-        """ is array """
-        return isinstance(x, np.ndarray)
+    def is_tensor(self, x, only_native=False):
+        if not only_native and isinstance(x, numbers.Number):
+            return True
+        if isinstance(x, np.ndarray):
+            return x.dtype != np.object
+        else:
+            return False
+
+    def copy(self, tensor, only_mutable=False):
+        return np.copy(tensor)
 
     def equal(self, x, y):
         """ array equality comparison """
@@ -84,32 +91,22 @@ class SciPyBackend(Backend):
         return np.concatenate(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        dims = range(len(self.shape(value)))
-        constant_values = expand(constant_values, shape=(len(dims), 2))
-        if isinstance(mode, six.string_types):
-            return self._single_mode_pad(value, pad_width, mode, constant_values)
-        else:
-            mode = expand(mode, shape=(len(dims), 2))
-            for single_mode in ('wrap', 'circular', 'replicate', 'symmetric', 'reflect', 'constant'):  # order matters! circular first
-                widths = [[collapsed_gather_nd(pad_width, [d, upper]) if mode[d][upper] == single_mode else 0 for upper in (False, True)] for d in dims]
-                value = self._single_mode_pad(value, widths, single_mode, constant_values)
-            return value
+        passes = split_multi_mode_pad(self.ndims(value), PadSettings(pad_width, mode, constant_values), split_by_constant_value=False)
+        for pad_pass in passes:
+            value = self._single_mode_pad(value, *pad_pass)
+        return value
 
     def _single_mode_pad(self, value, pad_width, single_mode, constant_values=0):
-        if np.sum(np.array(pad_width)) == 0:
-            return value
-        if single_mode.lower() == 'wrap':
-            warnings.warn("padding mode 'wrap' is deprecated. Use 'circular' instead.", DeprecationWarning, stacklevel=2)
-        elif single_mode.lower() == 'constant':
+        assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
+        if single_mode.lower() == 'constant':
             return np.pad(value, pad_width, 'constant', constant_values=constant_values)
-        elif single_mode.lower() == 'circular':
-            single_mode = 'wrap'
-        elif single_mode.lower() == 'replicate':
-            single_mode = 'edge'
-        return np.pad(value, pad_width, single_mode.lower())
+        else:
+            if single_mode in ('circular', 'replicate'):
+                single_mode = {'circular': 'wrap', 'replicate': 'edge'}[single_mode]
+            return np.pad(value, pad_width, single_mode)
 
     def reshape(self, value, shape):
-        return value.reshape(shape)
+        return np.reshape(value, shape)
 
     def sum(self, value, axis=None, keepdims=False):
         return np.sum(value, axis=axis, keepdims=keepdims)
@@ -132,31 +129,9 @@ class SciPyBackend(Backend):
         assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        """ resample input array at certain coordinates """
-        if boundary.lower() in ('zero', 'constant'):
-            pass  # default
-        elif boundary.lower() == 'replicate':
-            sample_coords = clamp(sample_coords, inputs.shape[1:-1])
-        elif boundary.lower() == 'circular':
-            resolution = self.staticshape(inputs)[1:-1]
-            inputs = self.pad(inputs, [[0, 0]] + [[0, 1]] * tensor_spatial_rank(inputs) + [[0, 0]], mode='circular')
-            sample_coords = sample_coords % self.to_float(resolution)
-        else:
-            raise ValueError("Unsupported boundary: %s" % boundary)
-        # Interpolate
-        import scipy.interpolate
-        points = [np.arange(dim) for dim in inputs.shape[1:-1]]
-        result = []
-        for batch in range(sample_coords.shape[0]):
-            components = []
-            for dim in range(inputs.shape[-1]):
-                resampled = scipy.interpolate.interpn(points,inputs[batch, ..., dim], sample_coords[batch, ...],
-                                                      method=interpolation.lower(), bounds_error=False, fill_value=0)
-                components.append(resampled)
-            result.append(np.stack(components, -1))
-        result = np.stack(result).astype(inputs.dtype)
-        return result
+    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+        assert interpolation == 'linear'
+        return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
 
     def zeros_like(self, tensor):
         return np.zeros_like(tensor)
@@ -198,11 +173,11 @@ class SciPyBackend(Backend):
     def floor(self, x):
         return np.floor(x)
 
-    def max(self, x, axis=None):
-        return np.max(x, axis)
+    def max(self, x, axis=None, keepdims=False):
+        return np.max(x, axis, keepdims=keepdims)
 
-    def min(self, x, axis=None):
-        return np.min(x, axis)
+    def min(self, x, axis=None, keepdims=False):
+        return np.min(x, axis, keepdims=keepdims)
 
     def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
         return function(*inputs)
@@ -212,6 +187,9 @@ class SciPyBackend(Backend):
 
     def minimum(self, a, b):
         return np.minimum(a, b)
+
+    def clip(self, x, minimum, maximum):
+        return np.clip(x, minimum, maximum)
 
     def sqrt(self, x):
         return np.sqrt(x)
@@ -262,23 +240,31 @@ class SciPyBackend(Backend):
     def gather(self, values, indices):
         return values[indices]
 
-    def gather_nd(self, values, indices):
-        # Reduce rank of input indices, by convention it should be [index] so gather works for Tensorflow
-        index, = indices
-        return values[index]
+    def gather_nd(self, values, indices, batch_dims=0):
+        assert indices.shape[-1] == self.ndims(values) - batch_dims - 1
+        for dim in range(batch_dims):
+            assert indices.shape[dim] == values.shape[dim] or values.shape[dim] == 1 or indices.shape[dim] == 1, 'Batch dimension %d does not match: %s (values) and %s (indices)' % (dim, values.shape, indices.shape)
+        values_batch_max = np.array(values.shape[:batch_dims]) - 1
+        indices_batch_max = np.array(indices.shape[:batch_dims]) - 1
 
-    def unstack(self, tensor, axis=0):
-        if axis < 0:
-            axis += len(tensor.shape)
-        if axis >= len(tensor.shape) or axis < 0:
-            raise ValueError("Illegal axis value")
-        result = []
-        for i in range(tensor.shape[axis]):
-            result.append(tensor[tuple([i if d == axis else slice(None) for d in range(len(tensor.shape))])])
+        def inner_gather_nd(*pos):
+            batch_idx_values = tuple([np.minimum(pos[i], values_batch_max[i]) for i in range(len(pos))])
+            values_batch = values[batch_idx_values]
+            batch_idx_indices = tuple([np.minimum(pos[i], indices_batch_max[i]) for i in range(len(pos))])
+            indices_batch = indices[batch_idx_indices]
+            result = values_batch[self.unstack(indices_batch, axis=-1)]
+            return result
+        # --- Iterate over batch dimensions ---
+        batch_pos = np.meshgrid(*[range(dim) for dim in indices.shape[:batch_dims]], indexing='ij')
+        batch_pos = np.stack(batch_pos, axis=-1).reshape([-1, batch_dims])
+        result = np.empty(indices.shape[:-1] + (values.shape[-1],), values.dtype)
+        for i in range(batch_pos.shape[0]):
+            gathered = inner_gather_nd(*batch_pos[i])
+            result[tuple(batch_pos[i])] = gathered
         return result
 
-    def std(self, x, axis=None):
-        return np.std(x, axis)
+    def std(self, x, axis=None, keepdims=False):
+        return np.std(x, axis, keepdims=keepdims)
 
     def boolean_mask(self, x, mask):
         return x[mask]

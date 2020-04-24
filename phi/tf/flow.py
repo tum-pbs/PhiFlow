@@ -6,4 +6,9 @@ from .session import *
 from .world import *
 from .data import *
 from .util import *
-import tensorflow as tf
+from . import TF_BACKEND, tensorflow, tf
+
+try:
+    from .tf_cuda_pressuresolver import CUDASolver
+except ImportError as err:
+    warnings.warn("TensorFlow-CUDA solver is not available. To compile it, download phiflow sources and run\n$ python setup.py tf_cuda\nbefore reinstalling phiflow.")

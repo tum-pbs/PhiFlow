@@ -3,9 +3,12 @@ from unittest import TestCase
 import numpy as np
 from phi import math
 
-from phi.flow import CLOSED, PERIODIC, OPEN, Domain, poisson_solve
+from phi.flow import CLOSED, PERIODIC, OPEN, Domain, poisson_solve, Noise
 from phi.physics.pressuresolver.geom import GeometricCG
 from phi.physics.pressuresolver.sparse import SparseCG, SparseSciPy
+from phi.physics.pressuresolver.fourier import FourierSolver
+from phi.physics.field import CenteredGrid
+from phi.geom.geometry import AABox
 
 
 def _generate_examples():
@@ -24,7 +27,7 @@ def _test_solve_no_obstacles(domain, solver):
     print('Testing domain with boundaries: %s' % (domain.boundaries,))
     data_in = _generate_examples()
     p = poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0]
-    np.testing.assert_almost_equal(p.laplace().data[:, 1:-1, 1:-1, :], data_in[:, 1:-1, 1:-1, :], decimal=5)
+    np.testing.assert_almost_equal(p.laplace().data, data_in, decimal=5)
     if domain.boundaries is CLOSED:
         np.testing.assert_almost_equal(p.laplace().data, data_in, decimal=5)
     # rows = math.unstack(p.data, 1)
@@ -32,16 +35,42 @@ def _test_solve_no_obstacles(domain, solver):
     #     np.testing.assert_almost_equal(row, rows[0], decimal=5)
 
 
-DOMAINS = [
-            Domain([4, 5], boundaries=CLOSED),
-            Domain([4, 5], boundaries=OPEN),
-            Domain([4, 5], boundaries=PERIODIC),
-            Domain([4, 5], boundaries=[PERIODIC, CLOSED]),
-            Domain([4, 5], boundaries=[CLOSED, OPEN]),
-        ]
+def _test_random_closed(solver):
+    domain = Domain([40, 32], boundaries=CLOSED)
+    div = domain.centered_grid(Noise())
+    div_ = poisson_solve(div, domain, solver)[0].laplace()
+    np.testing.assert_almost_equal(div.data, div_.data, decimal=3)
 
-SOLVERS = [
-    SparseCG(), GeometricCG()
+
+def _test_random_open(solver):
+    domain = Domain([40, 32], boundaries=OPEN)
+    div = domain.centered_grid(Noise())
+    div_ = poisson_solve(div, domain, solver)[0].laplace()
+    np.testing.assert_almost_equal(div.data, div_.data, decimal=3)
+
+
+def _test_random_periodic(solver):
+    domain = Domain([40, 32], boundaries=PERIODIC)
+    div = domain.centered_grid(Noise())
+    div_ = poisson_solve(div, domain, solver)[0].laplace()
+    np.testing.assert_almost_equal(div.data, div_.data, decimal=3)
+
+
+def _test_all(solver):
+    for domain in DOMAINS:
+        _test_solve_no_obstacles(domain, solver)
+    _test_random_closed(solver)
+    _test_random_open(solver)
+    _test_random_periodic(solver)
+
+
+DOMAINS = [
+    Domain([4, 5], boundaries=CLOSED),
+    Domain([4, 5], boundaries=OPEN),
+    Domain([4, 5], boundaries=PERIODIC),
+    Domain([4, 5], boundaries=[CLOSED, PERIODIC]),
+    Domain([4, 5], boundaries=[CLOSED, OPEN]),
+    Domain([4, 5], boundaries=[PERIODIC, OPEN]),
 ]
 
 
@@ -50,21 +79,94 @@ class TestPoissonSolve(TestCase):
     def test_equal_results(self):
         data_in = _generate_examples()
         for domain in DOMAINS:
-            pressure_fields = [poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0].data for solver in SOLVERS]
+            pressure_fields = [poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0].data
+                               for solver in [SparseCG(), GeometricCG()]]
             for field in pressure_fields[1:]:
                 np.testing.assert_almost_equal(field, pressure_fields[0], decimal=4)
 
     def test_sparse_cg(self):
-        solver = SparseCG()
-        for domain in DOMAINS:
-            _test_solve_no_obstacles(domain, solver)
+        _test_all(SparseCG())
 
-    # def test_sparse_scipy(self):
-    #     solver = SparseSciPy()
-    #     for domain in DOMAINS:
-    #         _test_solve_no_obstacles(domain, solver)
+    def test_sparse_scipy(self):
+        _test_all(SparseSciPy())
 
     def test_geometric_cg(self):
-        solver = GeometricCG()
-        for domain in DOMAINS:
-            _test_solve_no_obstacles(domain, solver)
+        _test_all(GeometricCG())
+
+
+def _run_higher_order_fft_reconstruction(in_field, set_accuracy, tolerance=20, order=2):
+    # Higher Order FFT test
+    mean = math.mean(in_field).data
+    centered_field = in_field - mean
+    fft_poisson = math.fourier_poisson(in_field, times=order)
+    fft_poisson += mean
+    fft_reconst = math.fourier_laplace(fft_poisson)
+    for _ in range(order - 1):
+        fft_reconst = math.fourier_laplace(fft_reconst)
+    error = (in_field - fft_reconst) / in_field
+    max_error = np.max(np.abs(error.data))
+    passed = max_error < tolerance * set_accuracy
+    print("{:.2g} vs. {:.2g}".format(max_error, tolerance * set_accuracy))
+    #assert passed, "{}^2 reconstruction not within set accuracy. {:.2g} vs. {:.2g}".format('FFT*2', max_error, tolerance * set_accuracy)
+
+
+def _test_reconstruction_first_order(in_field, solve_func, laplace_func, set_accuracy, name, first_order_tolerance=2):
+    # Test Reconstruction
+    mean = math.mean(in_field).data
+    centered_field = in_field - mean
+    ret = solve_func(centered_field)
+    try:
+        solved_field, it = ret
+    except:
+        solved_field = ret
+    reconst1 = laplace_func(solved_field) + mean  # Reconstruct Input
+    error = (in_field - reconst1) / in_field
+    max_error = np.max(np.abs(error.data))
+    print("{:.2g}/{:.2g}".format(max_error, first_order_tolerance * set_accuracy))
+    assert max_error < first_order_tolerance * set_accuracy, "{} reconstruction not within set accuracy. {:.2g} vs. {:.2g}".format(name, max_error, first_order_tolerance * set_accuracy)
+
+
+def _test_reconstruction_second_order(in_field, solve_func, laplace_func, set_accuracy, name, second_order_tolerance=20):
+    # Calculate 1st order
+    mean = math.mean(in_field).data
+    centered_field = in_field - mean
+    ret = solve_func(centered_field)
+    try:
+        solved_field, it = ret
+    except:
+        solved_field = ret
+    # Calculate 2nd order
+    ret2 = solve_func(solved_field)
+    try:
+        solved_field2, it = ret2
+    except:
+        solved_field2 = ret2
+    reconst2 = laplace_func(laplace_func(solved_field2)) + mean
+    error2 = (in_field - reconst2) / in_field
+    max_error2 = np.max(np.abs(error2.data))
+    passed = max_error2 < second_order_tolerance*set_accuracy
+    print("{}^2 reconstruction {}within set accuracy: {:.2g} vs. {:.2g}".format(name, 'NOT ' if not passed else '', max_error2, second_order_tolerance * set_accuracy))
+    #assert max_error2 < second_order_tolerance*set_accuracy, "{}^2 reconstruction not within set accuracy. {:.2g} vs. {:.2g}".format(name, max_error2, second_order_tolerance*set_accuracy)
+
+
+class TestReconstruction(TestCase):
+
+    def test_reconst(self, set_accuracy=1e-5, shape=[40, 40], first_order_tolerance=3, second_order_tolerance=40,
+                     boundary_list=[PERIODIC, OPEN, CLOSED]):
+        for boundary in boundary_list:
+            domain = Domain(shape, boundaries=(boundary, boundary))
+            solver_list = [
+                ('SparseCG', lambda field: poisson_solve(field, domain, SparseCG(accuracy=set_accuracy)), lambda field: field.laplace()),
+                ('GeometricCG', lambda field: poisson_solve(field, domain, GeometricCG(accuracy=set_accuracy)), lambda field: field.laplace()),
+                #('SparseSciPy', lambda field: poisson_solve(field, domain, SparseSciPy()), lambda field: field.laplace()),
+                # ('Fourier', lambda field: poisson_solve(field, domain, Fourier()))]  # TODO: poisson_solve() causes resolution to be empty
+                ('FFT', math.fourier_poisson, math.fourier_laplace)]
+            in_data = CenteredGrid.sample(Noise(), domain)
+            sloped_data = (np.array([np.arange(shape[1]) for _ in range(shape[0])]).reshape([1] + shape + [1]) / 10 + 1)
+            in_data = in_data.copied_with(data=sloped_data)
+            for name, solver, laplace in solver_list:
+                print('Testing {} boundary with {} solver... '.format(boundary, name)),
+                _test_reconstruction_first_order(in_data, solver, laplace, set_accuracy, name, first_order_tolerance=first_order_tolerance)
+                _test_reconstruction_second_order(in_data, solver, laplace, set_accuracy, name, second_order_tolerance=second_order_tolerance)
+            print('Testing {} boundary with {} solver... '.format(boundary, 'higher order FFT')),
+            _run_higher_order_fft_reconstruction(in_data, set_accuracy, order=2, tolerance=second_order_tolerance)

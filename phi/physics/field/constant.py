@@ -14,8 +14,8 @@ class ConstantField(Field):
         data = _convert_constant_to_data(value)
         Field.__init__(self, **struct.kwargs(locals(), ignore='value'))
 
-    def sample_at(self, points, collapse_dimensions=True):
-        return _expand_axes(self.data, points, collapse_dimensions=collapse_dimensions)
+    def sample_at(self, points):
+        return _expand_axes(self.data, points)
 
     @property
     def rank(self):
@@ -50,16 +50,13 @@ def _convert_constant_to_data(value):
     return value
 
 
-def _expand_axes(data, points, collapse_dimensions=True):
+def _expand_axes(data, points):
     assert math.spatial_rank(data) >= 0
     data = math.expand_dims(data, 1, math.spatial_rank(points) - math.spatial_rank(data))
-    if collapse_dimensions:
-        return data
-    else:
-        points_axes = math.staticshape(points)[1:-1]
-        data_axes = math.staticshape(data)[1:-1]
-        for d_points, d_data in zip(points_axes, data_axes):
-            assert d_points % d_data == 0
-        tilings = [1] + [d_points // d_data for d_points, d_data in zip(math.staticshape(points)[1:-1], math.staticshape(data)[1:-1])] + [1]
-        data = math.tile(data, tilings)
-        return data
+    points_axes = math.staticshape(points)[1:-1]
+    data_axes = math.staticshape(data)[1:-1]
+    for d_points, d_data in zip(points_axes, data_axes):
+        assert d_points % d_data == 0
+    tilings = [1] + [d_points // d_data for d_points, d_data in zip(math.staticshape(points)[1:-1], math.staticshape(data)[1:-1])] + [1]
+    data = math.tile(data, tilings)
+    return data
