@@ -54,7 +54,7 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
 
     def grid_sample(self, resolution, size, batch_size=1):
         shape = (batch_size,) + tuple(resolution) + (self.channels,)
-        rndj = math.randn(shape) + 1j * math.randn(shape)
+        rndj = math.randn(shape) + 1j * math.randn(shape)  # Note: there is no complex32
         k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
         k = math.sum(k ** 2, axis=-1, keepdims=True)
         lowest_frequency = 0.1
@@ -68,6 +68,7 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         array = math.real(math.ifft(fft))
         array /= math.std(array, axis=tuple(range(1, math.ndims(array))), keepdims=True)
         array -= math.mean(array, axis=tuple(range(1, math.ndims(array))), keepdims=True)
+        array = math.to_float(array)
         return array
 
     @property

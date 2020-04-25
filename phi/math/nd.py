@@ -9,20 +9,23 @@ from phi.struct.functions import mappable
 from .helper import _get_pad_width_axes, _get_pad_width, spatial_rank, _dim_shifted, _contains_axis, spatial_dimensions, all_dimensions
 
 
-def indices_tensor(tensor, dtype=np.float32):
+def indices_tensor(tensor, dtype=None):
     """
     Returns an index tensor of the same spatial shape as the given tensor.
     Each index denotes the location within the tensor starting from zero.
     Indices are encoded as vectors in the index tensor.
 
     :param tensor: a tensor of shape (batch size, spatial dimensions..., component size)
-    :param dtype: a numpy data type (default float32)
+    :param dtype: NumPy data type or `None` for default
     :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
     """
     spatial_dimensions = list(tensor.shape[1:-1])
     idx_zyx = np.meshgrid(*[range(dim) for dim in spatial_dimensions], indexing='ij')
     idx = np.stack(idx_zyx, axis=-1).reshape([1, ] + spatial_dimensions + [len(spatial_dimensions)])
-    return idx.astype(dtype)
+    if dtype is not None:
+        return idx.astype(dtype)
+    else:
+        return math.to_float(idx)
 
 
 def normalize_to(target, source=1, epsilon=1e-5, batch_dims=1):
@@ -81,9 +84,9 @@ Runs a blur kernel over the given tensor.
         cutoff = min(int(round(radius * 3)), *field.shape[1:-1])
 
     xyz = np.meshgrid(*[range(-int(cutoff), (cutoff) + 1) for _ in field.shape[1:-1]])
-    d = np.float32(np.sqrt(np.sum([x**2 for x in xyz], axis=0)))
+    d = math.to_float(np.sqrt(np.sum([x**2 for x in xyz], axis=0)))
     if kernel == "1/1+x":
-        weights = np.float32(1) / (d / radius + 1)
+        weights = math.to_float(1) / (d / radius + 1)
     elif kernel.lower() == "gauss":
         weights = math.exp(- d / radius / 2)
     else:
@@ -232,7 +235,7 @@ def laplace(tensor, padding='replicate', axes=None, use_fft_for_periodic=False):
 
 
 def _conv_laplace_2d(tensor):
-    kernel = np.array([[0., 1., 0.], [1., -4., 1.], [0., 1., 0.]], dtype=np.float32)
+    kernel = math.to_float([[0., 1., 0.], [1., -4., 1.], [0., 1., 0.]])
     kernel = kernel.reshape((3, 3, 1, 1))
     if tensor.shape[-1] == 1:
         return math.conv(tensor, kernel, padding='VALID')
@@ -256,10 +259,9 @@ def _conv_laplace_3d(tensor):
 
     padding explicitly done in laplace(), hence here not needed
     """
-    kernel = np.array([[[0., 0., 0.], [0., 1., 0.], [0., 0., 0.]],
-                       [[0., 1., 0.], [1., -6., 1.], [0., 1., 0.]],
-                       [[0., 0., 0.], [0., 1., 0.], [0., 0., 0.]]],
-                      dtype=np.float32)
+    kernel = math.to_float([[[0., 0., 0.], [0., 1., 0.], [0., 0., 0.]],
+                            [[0., 1., 0.], [1., -6., 1.], [0., 1., 0.]],
+                            [[0., 0., 0.], [0., 1., 0.], [0., 0., 0.]]])
     kernel = kernel.reshape((3, 3, 3, 1, 1))
     if tensor.shape[-1] == 1:
         return math.conv(tensor, kernel, padding='VALID')
@@ -311,14 +313,17 @@ def fourier_poisson(tensor, times=1):
     fft_laplace[(0,) * math.ndims(k)] = np.inf
     inv_fft_laplace = 1 / fft_laplace
     inv_fft_laplace[(0,) * math.ndims(k)] = 0
-    return math.real(math.ifft(frequencies * inv_fft_laplace**times))
+    return math.cast(math.real(math.ifft(frequencies * inv_fft_laplace**times)), math.dtype(tensor))
 
 
-def fftfreq(resolution, mode='vector', dtype=np.float32):
+def fftfreq(resolution, mode='vector', dtype=None):
     assert mode in ('vector', 'absolute', 'square')
     k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution], indexing='ij')
     k = math.expand_dims(math.stack(k, -1), 0)
-    k = k.astype(dtype)
+    if dtype is not None:
+        k = k.astype(dtype)
+    else:
+        k = math.to_float(k)
     if mode == 'vector':
         return k
     k = math.sum(k**2, axis=-1, keepdims=True)

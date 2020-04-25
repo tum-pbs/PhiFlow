@@ -46,7 +46,7 @@ class App(base_app.App):
     def editable_float(self, name, initial_value, minmax=None, log_scale=None):
         val = EditableFloat(name, initial_value, minmax, None, log_scale)
         self.set_editable_value(name, val)
-        placeholder = tf.placeholder(tf.float32, (), name.lower().replace(' ', '_'))
+        placeholder = tf.placeholder(TF_BACKEND.precision_dtype, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
         self.editable_placeholders[placeholder] = name
         return placeholder

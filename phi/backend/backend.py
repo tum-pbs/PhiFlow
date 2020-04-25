@@ -1,7 +1,37 @@
 class Backend:
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, name, precision=32):
+        self._name = name
+        self.precision = precision
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def precision(self):
+        """
+        If `precision` is an integer, any Backend method may convert floating point values to this precision, even if the input had a different precision.
+
+        If `precision` is `None`, the output of math operations has the same precision as its inputs.
+        """
+        return self._precision
+
+    @precision.setter
+    def precision(self, precision):
+        """
+        If `precision` is an integer, any Backend method may convert floating point values to this precision, even if the input had a different precision.
+
+        If `precision` is `None`, the output of math operations has the same precision as its inputs.
+
+        :param precision: one of (16, 32, 64, None)
+        """
+        assert precision in (None, 16, 32, 64)
+        self._precision = precision
+
+    @property
+    def has_fixed_precision(self):
+        return self.precision is not None
 
     def __str__(self):
         return self.name
@@ -39,7 +69,7 @@ class Backend:
         If x is a Python number (numbers.Number instance), `convert_numbers` decides whether to convert it unless the backend cannot handle Python numbers.
 
         *Note:* There may be objects that are considered tensors by this backend but are not native and thus, will be converted by this method.
-        
+
         :param x: tensor-like, e.g. list, tuple, Python number, tensor
         :param convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64.
         :return: tensor representation of `x`
@@ -175,6 +205,15 @@ class Backend:
         raise NotImplementedError(self)
 
     def to_float(self, x, float64=False):
+        """
+Converts a tensor to floating point values.
+If this Backend uses a fixed precision, the tensor will be converted to that precision.
+Otherwise, non-float inputs are converted to float32 (unless `float64=True`).
+
+To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
+        :param x: tensor
+        :param float64: deprecated. Set Backend.precision = 64 to use 64 bit operations.
+        """
         raise NotImplementedError(self)
 
     def to_int(self, x, int64=False):

@@ -8,12 +8,17 @@ import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
 from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim, symmetric_pad
+from phi.backend.scipy_backend import SciPyBackend
 
 
 class TorchBackend(Backend):
 
     def __init__(self):
         Backend.__init__(self, 'PyTorch')
+
+    @property
+    def precision_dtype(self):
+        return {16: torch.float16, 32: torch.float32, 64: torch.float64, None: torch.float32}[self.precision]
 
     def is_tensor(self, x, only_native=False):
         if not only_native and isinstance(x, numbers.Number):
@@ -22,20 +27,22 @@ class TorchBackend(Backend):
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
-            return x
-        if isinstance(x, np.ndarray):
-            if x.dtype == np.float64:
-                x = x.astype(np.float32)
-            return torch.from_numpy(x)
-        if isinstance(x, (tuple, list)):
+            tensor = x
+        elif isinstance(x, np.ndarray):
+            tensor = torch.from_numpy(SciPyBackend(precision=self.precision).as_tensor(x))
+        elif isinstance(x, (tuple, list)):
             try:
-                return torch.tensor(x)
+                tensor = torch.tensor(x)
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
-                return torch.stack(components, dim=0)
-        if isinstance(x, int):
-            return torch.tensor(x, dtype=torch.int32)
-        return torch.tensor(x)
+                tensor = torch.stack(components, dim=0)
+        else:
+            tensor = torch.tensor(x)
+        # --- Enforce Precision ---
+        if self.is_tensor(tensor, only_native=True):
+            if tensor.dtype.is_floating_point and self.has_fixed_precision:
+                tensor = self.to_float(tensor)
+        return tensor
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
@@ -254,11 +261,22 @@ class TorchBackend(Backend):
         return tuple(tensor.shape)
 
     def to_float(self, x, float64=False):
-        x = self.as_tensor(x)
+        if not self.is_tensor(x):
+            x = self.as_tensor(x)
         if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
             return x.double()
         else:
-            return x.float()
+            if not self.has_fixed_precision:
+                return x if x.dtype.is_floating else x.float()
+            elif self.precision == 16:
+                return x.half()
+            elif self.precision == 32:
+                return x.float()
+            elif self.precision == 64:
+                return x.double()
+            else:
+                raise AssertionError(self.precision)
 
     def to_int(self, x, int64=False):
         x = self.as_tensor(x)

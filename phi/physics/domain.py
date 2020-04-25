@@ -125,7 +125,7 @@ class Domain(struct.Struct):
         from phi.physics.field import StaggeredGrid
         return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation, flags=(), content_type=struct.Struct.shape)
 
-    def centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
+    def centered_grid(self, data, components=1, dtype=None, name=None, batch_size=None, extrapolation=None):
         warnings.warn("Domain.centered_shape and Domain.centered_grid are deprecated. Use CenteredGrid.sample() instead.", DeprecationWarning)
         from phi.physics.field import CenteredGrid
         if callable(data):  # data is an initializer
@@ -139,7 +139,7 @@ class Domain(struct.Struct):
         else:
             grid = CenteredGrid.sample(data, self, batch_size=batch_size)
         assert grid.component_count == components, "Field has %d components but %d are required for '%s'" % (grid.component_count, components, name)
-        if math.dtype(grid.data) != dtype:
+        if dtype is not None and math.dtype(grid.data) != dtype:
             grid = grid.copied_with(data=math.cast(grid.data, dtype))
         if name is not None:
             grid = grid.copied_with(name=name, tags=(name,)+grid.tags)
@@ -147,7 +147,7 @@ class Domain(struct.Struct):
             grid = grid.copied_with(extrapolation=extrapolation)
         return grid
 
-    def _centered_grid(self, data, components=1, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
+    def _centered_grid(self, data, components=1, dtype=None, name=None, batch_size=None, extrapolation=None):
         warnings.warn("Domain.centered_shape and Domain.centered_grid are deprecated. Use CenteredGrid.sample() instead.", DeprecationWarning)
         from phi.physics.field import CenteredGrid
         if extrapolation is None:
@@ -175,7 +175,7 @@ class Domain(struct.Struct):
             grid = CenteredGrid(data, box=self.box, extrapolation=extrapolation, name=name)
         return grid
 
-    def staggered_grid(self, data, dtype=np.float32, name=None, batch_size=None, extrapolation=None):
+    def staggered_grid(self, data, dtype=None, name=None, batch_size=None, extrapolation=None):
         if extrapolation is None:
             extrapolation = Material.extrapolation_mode(self.boundaries)
         if callable(data):  # data is an initializer
@@ -238,10 +238,10 @@ class DomainState(State):
     def rank(self):
         return self.domain.rank
 
-    def centered_grid(self, name, value, components=1, dtype=np.float32):
+    def centered_grid(self, name, value, components=1, dtype=None):
         extrapolation = Material.extrapolation_mode(self.domain.boundaries)
         return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, extrapolation=extrapolation)
 
-    def staggered_grid(self, name, value, dtype=np.float32):
+    def staggered_grid(self, name, value, dtype=None):
         extrapolation = Material.vector_extrapolation_mode(self.domain.boundaries)
         return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, extrapolation=extrapolation)

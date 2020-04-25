@@ -116,4 +116,4 @@ class TestFields(TestCase):
         pot = CenteredGrid.sample(Noise(), domain)
         vel = staggered_curl_2d(pot)
         div = vel.divergence()
-        np.testing.assert_almost_equal(div.data, 0, decimal=5)
+        np.testing.assert_almost_equal(div.data, 0, decimal=3)

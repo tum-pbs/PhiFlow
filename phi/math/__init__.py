@@ -21,6 +21,22 @@ from .batched import BATCHED, ShapeMismatch
 DYNAMIC_BACKEND.add_backend(SciPyBackend())
 DYNAMIC_BACKEND.add_backend(StructBroadcastBackend(DYNAMIC_BACKEND))
 
+
+def set_precision(floating_point_bits):
+    """
+    Sets the floating point precision of DYNAMIC_BACKEND which affects all registered backends.
+
+    If `floating_point_bits` is an integer, all floating point tensors created henceforth will be of the corresponding data type, float16, float32 or float64.
+    Operations may also convert floating point values to this precision, even if the input had a different precision.
+
+    If `floating_point_bits` is None, new tensors will default to float32 unless specified otherwise.
+    The output of math operations has the same precision as its inputs.
+
+    :param floating_point_bits: one of (16, 32, 64, None)
+    """
+    DYNAMIC_BACKEND.precision = floating_point_bits
+
+
 # Enable importing methods directly from math
 choose_backend = DYNAMIC_BACKEND.choose_backend
 

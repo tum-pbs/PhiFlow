@@ -5,7 +5,7 @@ import numpy
 from phi import struct, math
 from phi.geom import Sphere, AABox, box
 from phi.physics.domain import Domain
-from phi.physics.field import StaggeredGrid
+from phi.physics.field import StaggeredGrid, Noise
 from phi.physics.field.effect import Fan, Inflow
 from phi.physics.material import CLOSED, OPEN
 from phi.physics.fluid import Fluid, INCOMPRESSIBLE_FLOW, IncompressibleFlow
@@ -98,3 +98,27 @@ class TestFluid(TestCase):
         numpy.testing.assert_equal(d1, d2)
         numpy.testing.assert_equal(vy1, vy2)
         numpy.testing.assert_equal(vx1, vx2)
+
+    def test_precision_64(self):
+        try:
+            math.set_precision(64)
+            fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
+            self.assertEqual(fluid.density.data.dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float64)
+            fluid = IncompressibleFlow().step(fluid, dt=1.0)
+            self.assertEqual(fluid.density.data.dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float64)
+        finally:
+            math.set_precision(32)  # Reset environment
+
+    def test_precision_16(self):
+        try:
+            math.set_precision(16)
+            fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
+            self.assertEqual(fluid.density.data.dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float16)
+            fluid = IncompressibleFlow().step(fluid, dt=1.0)
+            self.assertEqual(fluid.density.data.dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float16)
+        finally:
+            math.set_precision(32)  # Reset environment

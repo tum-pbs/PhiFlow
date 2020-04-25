@@ -12,9 +12,7 @@ from .util import placeholder
 def tf_bake_graph(world, session):
     # --- Build placeholder state ---
     with VARIABLES:
-        shape = world.state.staticshape
-        dtype = _32_bit(world.state.dtype)
-        state_in = placeholder(shape, dtype=dtype)
+        state_in = placeholder(world.state.staticshape, dtype=world.state.dtype)
     dt = placeholder(())
     # --- Build graph ---
     state_out = world.physics.step(state_in, dt=dt)
@@ -31,9 +29,7 @@ def tf_bake_subgraph(tracker, session):
     tfworld.add(tracker.state)
     # --- Build placeholder state ---
     with VARIABLES:
-        shape = tracker.state.staticshape
-        dtype = _32_bit(tracker.state.dtype)
-        state_in = placeholder(shape, dtype=dtype)
+        state_in = placeholder(tracker.state.staticshape, dtype=tracker.state.dtype)
     dt = placeholder(())
     # --- Build graph ---
     state_out = tracker.world.physics.substep(state_in, tracker.world.state, dt)
@@ -75,12 +71,3 @@ class BakedWorldPhysics(CollectivePhysics):
             world_state = self.world.state
         feed_dict = {self.state_in: world_state, self.dt: dt}
         return self.session.run(fetches, feed_dict)
-
-
-@mappable(content_type=struct.dtype)
-def _32_bit(dtype):
-    if dtype == np.float64:
-        return np.float32
-    if dtype == np.int64:
-        return np.int32
-    return dtype
