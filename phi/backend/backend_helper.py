@@ -40,7 +40,7 @@ def split_multi_mode_pad(tensor_rank, pad_settings, split_by_constant_value=True
     return result
 
 
-def general_grid_sample_nd(grid, coords, boundary, constant_values, math):
+def general_grid_sample_nd(grid, coords, boundary, constant_values, math, reduce='linear'):
     """
     Backend-independent grid sampling with linear interpolation.
     Supports boundary conditions per face: 'constant' , 'replicate', 'circular', 'symmetric', 'reflect'.
@@ -58,18 +58,20 @@ def general_grid_sample_nd(grid, coords, boundary, constant_values, math):
     :param math: backend
     :return: tensor of sampled values from the grid
     """
+    assert reduce in ('linear', 'min', 'max')
     grid, coords, boundary = pad_constant_boundaries(grid, coords, boundary, constant_values, math)
 
     resolution = np.array([int(d) for d in grid.shape[1:-1]])
     sp_rank = math.ndims(grid) - 2
     # --- Compute weights ---
     floor = math.floor(coords)
-    up_weights = coords - floor
-    lo_weights = math.unstack(1 - up_weights, axis=-1, keepdims=True)
-    up_weights = math.unstack(up_weights, axis=-1, keepdims=True)
     lo_coords = math.to_int(floor)
     hi_coords = apply_boundary(boundary, lo_coords + 1, resolution, math)
     lo_coords = apply_boundary(boundary, lo_coords, resolution, math)
+    if reduce == 'linear':
+        hi_weights = coords - floor
+        lo_weights = math.unstack(1 - hi_weights, axis=-1, keepdims=True)
+        hi_weights = math.unstack(hi_weights, axis=-1, keepdims=True)
 
     def interpolate_nd(is_hi_by_axis, axis):
         is_hi_by_axis_2 = is_hi_by_axis | np.array([ax == axis for ax in range(sp_rank)])
@@ -77,11 +79,16 @@ def general_grid_sample_nd(grid, coords, boundary, constant_values, math):
         coords2 = math.where(is_hi_by_axis_2, hi_coords, lo_coords)
         if axis == sp_rank - 1:
             lo_values = math.gather_nd(grid, coords1, batch_dims=1)
-            up_values = math.gather_nd(grid, coords2, batch_dims=1)
+            hi_values = math.gather_nd(grid, coords2, batch_dims=1)
         else:
             lo_values = interpolate_nd(is_hi_by_axis, axis + 1)
-            up_values = interpolate_nd(is_hi_by_axis_2, axis + 1)
-        return lo_values * lo_weights[axis] + up_values * up_weights[axis]
+            hi_values = interpolate_nd(is_hi_by_axis_2, axis + 1)
+        if reduce == 'linear':
+            return lo_values * lo_weights[axis] + hi_values * hi_weights[axis]
+        elif reduce == 'min':
+            return math.minimum(lo_values, hi_values)
+        elif reduce == 'max':
+            return math.maximum(lo_values, hi_values)
     result = interpolate_nd(np.array([False] * sp_rank), 0)
     return result
 
