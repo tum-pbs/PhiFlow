@@ -2,6 +2,7 @@ import numpy as np
 import six
 
 from phi import math, struct
+from phi.backend.backend_helper import general_grid_sample_nd
 from phi.geom import AABox, box
 from phi.geom.geometry import assert_same_rank
 from phi.math.helper import map_for_axes
@@ -111,6 +112,12 @@ class CenteredGrid(Field):
         local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
         resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation, constant_values=_pad_value(self.extrapolation_value))
         return resampled
+
+    def general_sample_at(self, points, reduce):
+        local_points = self.box.global_to_local(points)
+        local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
+        result = general_grid_sample_nd(self.data, local_points, boundary=_pad_mode(self.extrapolation), constant_values=_pad_value(self.extrapolation_value), math=math.choose_backend([self.data, points]), reduce=reduce)
+        return result
 
     def at(self, other_field):
         if self.compatible(other_field):
