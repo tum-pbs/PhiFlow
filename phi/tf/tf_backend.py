@@ -73,7 +73,7 @@ class TFBackend(Backend):
         return tf.range(start, limit, delta, dtype)
 
     def tile(self, value, multiples):
-        if self.ndims(value) < len(multiples):
+        if isinstance(multiples, (tuple, list)) and self.ndims(value) < len(multiples):
             value = self.expand_dims(value, axis=0, number=len(multiples) - self.ndims(value))
         return tf.tile(value, multiples)
 
