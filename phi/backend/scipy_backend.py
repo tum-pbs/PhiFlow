@@ -256,6 +256,9 @@ class SciPyBackend(Backend):
 
     def gather_nd(self, values, indices, batch_dims=0):
         assert indices.shape[-1] == self.ndims(values) - batch_dims - 1
+        if batch_dims == 0:
+            indices_list = self.unstack(indices, axis=-1)
+            return values[indices_list]
         for dim in range(batch_dims):
             assert indices.shape[dim] == values.shape[dim] or values.shape[dim] == 1 or indices.shape[dim] == 1, 'Batch dimension %d does not match: %s (values) and %s (indices)' % (dim, values.shape, indices.shape)
         values_batch_max = np.array(values.shape[:batch_dims]) - 1
