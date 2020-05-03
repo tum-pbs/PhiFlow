@@ -63,7 +63,7 @@ def batch_align(tensor, innate_dims, target, convert_to_same_backend=True):
 
 
 def batch_align_scalar(tensor, innate_spatial_dims, target):
-    if math.staticshape(tensor)[-1] != 1:
+    if math.staticshape(tensor)[-1] != 1 or math.ndims(tensor) <= 1:
         tensor = math.expand_dims(tensor, -1)
     result = batch_align(tensor, innate_spatial_dims + 1, target)
     return result
