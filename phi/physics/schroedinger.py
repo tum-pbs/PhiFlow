@@ -144,18 +144,18 @@ class SinPotential(AnalyticField):
         rank = math.size(k)
         AnalyticField.__init__(self, **struct.kwargs(locals()))
 
-    @struct.constant()
+    @struct.variable()
     def k(self, k):
         """ Wave vector. Determines wave length and direction. """
         return k
 
-    @struct.constant()
+    @struct.variable()
     def phase_offset(self, phase_offset): return phase_offset
 
     def sample_at(self, x):
         phase_offset = math.batch_align_scalar(self.phase_offset, 0, x)
         k = math.batch_align(self.k, 1, x)
-        data = math.batch_align_scalar(self.data, 0, x)
+        data = math.batch_align(self.data, 1, x)
         spatial_phase = math.sum(k * x, -1, keepdims=True)
         result = math.sin(math.to_float(spatial_phase + phase_offset)) * math.to_float(data)
         return result
@@ -165,4 +165,4 @@ class SinPotential(AnalyticField):
 
     @property
     def component_count(self):
-        return 1
+        return math.staticshape(self.data)[-1]
