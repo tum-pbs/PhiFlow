@@ -58,13 +58,6 @@ For inside locations it is `-max(abs(l - s))`.
         distance = math.abs(location - center) - extent * 0.5
         return math.max(distance, axis=-1, keepdims=True)
 
-    @property
-    def rank(self):
-        if math.ndims(self.size) > 0:
-            return math.staticshape(self.size)[-1]
-        else:
-            return None
-
     def get_lower(self, axis):
         return self._get(self.lower, axis)
 
@@ -111,6 +104,13 @@ class AABox(AbstractBox):
     @struct.constant(min_rank=1)
     def upper(self, upper):
         return math.to_float(upper)
+
+    @property
+    def rank(self):
+        if math.ndims(self.size) > 0:
+            return math.staticshape(self.size)[-1]
+        else:
+            return None
 
     @struct.derived()
     def size(self):
@@ -178,17 +178,24 @@ class Cuboid(AbstractBox):
     def half_size(self, half_size):
         return math.to_float(half_size)
 
+    @property
+    def rank(self):
+        if math.ndims(self.upper) > 0:
+            return math.staticshape(self.upper)[-1]
+        else:
+            return None
+
     @struct.derived()
     def size(self):
         return 2 * self.half_size
 
     @struct.derived()
     def lower(self):
-        return self.center - self.size
+        return self.center - self.half_size
 
     @struct.derived()
     def upper(self):
-        return 0.5 * (self.lower + self.upper)
+        return self.center + self.half_size
 
     def shifted(self, delta):
         return self.copied_with(center=self.center + delta)
