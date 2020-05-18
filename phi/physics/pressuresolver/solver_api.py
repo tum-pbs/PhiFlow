@@ -174,14 +174,14 @@ def _choose_solver(resolution, backend):
     if backend.precision == 64:
         from .fourier import FourierSolver
         from .geom import GeometricCG
-        return FourierSolver() & GeometricCG() if use_fourier else GeometricCG()
+        return FourierSolver() & GeometricCG(accuracy=1e-8) if use_fourier else GeometricCG(accuracy=1e-8)
     elif backend.precision == 32 and backend.matches_name('SciPy'):
         from .sparse import SparseSciPy
         return SparseSciPy()
     elif backend.precision == 32:
         from .fourier import FourierSolver
         from .sparse import SparseCG
-        return FourierSolver() & SparseCG() if use_fourier else SparseCG()
-    else:
+        return FourierSolver() & SparseCG(accuracy=1e-5) if use_fourier else SparseCG(accuracy=1e-5)
+    else:  # lower precision
         from .geom import GeometricCG
-        return GeometricCG()
+        return GeometricCG(accuracy=1e-2)
