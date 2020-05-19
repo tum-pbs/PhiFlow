@@ -15,6 +15,7 @@ from .nd import (spatial_rank, spatial_dimensions, all_dimensions,
                  downsample2x, upsample2x, interpolate_linear,
                  spatial_sum,)
 from .batched import BATCHED, ShapeMismatch
+from . import optim
 
 
 # Setup Backend
@@ -59,6 +60,7 @@ div = DYNAMIC_BACKEND.div
 divide_no_nan = DYNAMIC_BACKEND.divide_no_nan
 dot = DYNAMIC_BACKEND.dot
 dtype = DYNAMIC_BACKEND.dtype
+einsum = DYNAMIC_BACKEND.einsum
 equal = DYNAMIC_BACKEND.equal
 exp = DYNAMIC_BACKEND.exp
 expand_dims = DYNAMIC_BACKEND.expand_dims
