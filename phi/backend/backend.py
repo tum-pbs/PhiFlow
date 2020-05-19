@@ -149,6 +149,9 @@ class Backend:
     def matmul(self, A, b):
         raise NotImplementedError(self)
 
+    def einsum(self, equation, *tensors):
+        raise NotImplementedError(self)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
                    swap_memory=False, name=None, maximum_iterations=None):
         raise NotImplementedError(self)

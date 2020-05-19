@@ -158,6 +158,9 @@ class SciPyBackend(Backend):
     def matmul(self, A, b):
         return np.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
+    def einsum(self, equation, *tensors):
+        return np.einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
                    swap_memory=False, name=None, maximum_iterations=None):
         i = 0

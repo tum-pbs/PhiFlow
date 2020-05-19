@@ -168,6 +168,9 @@ class TorchBackend(Backend):
             return torch.transpose(result, 0, 1)
         raise NotImplementedError()
 
+    def einsum(self, equation, *tensors):
+        return torch.einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None):
         i = 0
         while cond(*loop_vars):

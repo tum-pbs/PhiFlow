@@ -123,6 +123,9 @@ class DynamicBackend(Backend):
     def matmul(self, A, b):
         return self.choose_backend([A, b]).matmul(A, b)
 
+    def einsum(self, equation, *tensors):
+        return self.choose_backend(tensors).einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None):
         return self.choose_backend(loop_vars).while_loop(cond, body, loop_vars, shape_invariants, parallel_iterations, back_prop, swap_memory, name, maximum_iterations)
 

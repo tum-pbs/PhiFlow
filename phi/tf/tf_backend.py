@@ -168,6 +168,9 @@ class TFBackend(Backend):
         else:
             return tf.matmul(A, b)
 
+    def einsum(self, equation, *tensors):
+        return tf.einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
                    swap_memory=False, name=None, maximum_iterations=None):
         return tf.while_loop(cond, body, loop_vars,
