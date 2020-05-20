@@ -213,6 +213,8 @@ Converts a tensor to floating point values.
 If this Backend uses a fixed precision, the tensor will be converted to that precision.
 Otherwise, non-float inputs are converted to float32 (unless `float64=True`).
 
+If `x` is mutable and of the correct floating type, returns a copy of `x`.
+
 To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
         :param x: tensor
         :param float64: deprecated. Set Backend.precision = 64 to use 64 bit operations.
