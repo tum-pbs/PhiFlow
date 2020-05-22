@@ -23,24 +23,24 @@ def broyden(function, x0, inv_J0, accuracy=1e-5, max_iterations=1000, back_prop=
     :rtype: SolveResult
     """
     x0 = math.to_float(x0)
-    f0 = function(x0)
+    y0 = function(x0)
     inv_J0 = math.to_float(inv_J0)
 
-    def broyden_loop(x, f, inv_J, iter):
+    def broyden_loop(x, y, inv_J, iterations):
         # --- Adjust our guess for x ---
-        dx = - math.einsum('bij,bj->bi', inv_J, f)  # - J^-1 * f
+        dx = - math.einsum('bij,bj->bi', inv_J, y)  # - J^-1 * y
         next_x = x + dx
-        next_f = function(next_x)
-        df = next_f - f
-        df_back_projected = math.einsum('bij,bj->bi', inv_J, df)
+        next_y = function(next_x)
+        df = next_y - y
+        dy_back_projected = math.einsum('bij,bj->bi', inv_J, df)
         # --- Approximate next inverted Jacobian ---
-        numerator = math.einsum('bi,bj,bjk->bik', dx - df_back_projected, dx, inv_J)  # (dx - J^-1 * df) * dx^T * J^-1
-        denominator = math.einsum('bi,bi->b', dx, df_back_projected)  # dx^T * J^-1 * df
+        numerator = math.einsum('bi,bj,bjk->bik', dx - dy_back_projected, dx, inv_J)  # (dx - J^-1 * df) * dx^T * J^-1
+        denominator = math.einsum('bi,bi->b', dx, dy_back_projected)  # dx^T * J^-1 * df
         next_inv_J = inv_J + numerator / denominator
-        return [next_x, next_f, next_inv_J, iter + 1]
+        return [next_x, next_y, next_inv_J, iterations + 1]
 
-    x, f, _, iterations = math.while_loop(_max_residual_condition(1, accuracy), broyden_loop, [x0, f0, inv_J0, 0], back_prop=back_prop, name='Broyden', maximum_iterations=max_iterations)
-    return SolveResult(iterations, x, f)
+    x_, y_, _, iterations = math.while_loop(_max_residual_condition(1, accuracy), broyden_loop, [x0, y0, inv_J0, 0], back_prop=back_prop, name='Broyden', maximum_iterations=max_iterations)
+    return SolveResult(iterations, x_, y_)
 
 
 def conjugate_gradient(function, y, x0, accuracy=1e-5, max_iterations=1000, back_prop=False):
@@ -62,21 +62,21 @@ def conjugate_gradient(function, y, x0, accuracy=1e-5, max_iterations=1000, back
     """
     y = math.to_float(y)
     x0 = math.to_float(x0)
-    residual0 = y - function(x0)  # this is also the initial momentum
-    laplace_momentum0 = function(residual0)  # = A*momentum
+    dx0 = residual0 = y - function(x0)
+    dy0 = function(dx0)
     non_batch_dims = tuple(range(1, len(y.shape)))
 
-    def cg_loop(pressure, momentum, A_times_momentum, residual, loop_index):
-        tmp = math.sum(momentum * A_times_momentum, axis=non_batch_dims, keepdims=True)  # t = sum(mAm)
-        a = math.divide_no_nan(math.sum(momentum * residual, axis=non_batch_dims, keepdims=True), tmp)  # a = sum(mr)/sum(mAm)
-        pressure += a * momentum  # p += am
-        residual -= a * A_times_momentum  # r -= aAm
-        momentum = residual - math.divide_no_nan(math.sum(residual * A_times_momentum, axis=non_batch_dims, keepdims=True) * momentum, tmp)  # m = r-sum(rAm)*m/t = r-sum(rAm)*m/sum(mAm)
-        A_times_momentum = function(momentum)  # Am = A*m
-        return [pressure, momentum, A_times_momentum, residual, loop_index + 1]
+    def cg_loop(x, dx, dy, residual, iterations):
+        dx_dy = math.sum(dx * dy, axis=non_batch_dims, keepdims=True)
+        step_size = math.divide_no_nan(math.sum(dx * residual, axis=non_batch_dims, keepdims=True), dx_dy)
+        x += step_size * dx
+        residual -= step_size * dy
+        dx = residual - math.divide_no_nan(math.sum(residual * dy, axis=non_batch_dims, keepdims=True) * dx, dx_dy)
+        dy = function(dx)
+        return [x, dx, dy, residual, iterations + 1]
 
-    x, _, _, residual, iterations = math.while_loop(_max_residual_condition(3, accuracy), cg_loop, [x0, residual0, laplace_momentum0, residual0, 0], back_prop=back_prop, name="ConjGrad", maximum_iterations=max_iterations)
-    return SolveResult(iterations, x, residual)
+    x_, _, _, residual_, iterations_ = math.while_loop(_max_residual_condition(3, accuracy), cg_loop, [x0, dx0, dy0, residual0, 0], back_prop=back_prop, name="ConjGrad", maximum_iterations=max_iterations)
+    return SolveResult(iterations_, x_, residual_)
 
 
 def _max_residual_condition(residual_index, accuracy):
