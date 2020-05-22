@@ -127,6 +127,28 @@ def l_n_loss(tensor, n, batch_norm=True):
         return total_loss
 
 
+def frequency_loss(tensor, frequency_falloff=100):
+    """
+    Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
+
+    :param tensor: typically actual - target
+    :param frequency_falloff: large values put more emphasis on lower frequencies
+    :return: scalar loss value
+    """
+    if struct.isstruct(tensor):
+        all_tensors = struct.flatten(tensor)
+        return sum(frequency_loss(tensor, frequency_falloff) for tensor in all_tensors)
+    diff_fft = abs_square(math.fft(tensor))
+    k = fftfreq(tensor.shape[1:-1], mode='absolute')
+    weights = math.exp(-0.5 * k ** 2 * frequency_falloff ** 2)
+    return l1_loss(diff_fft * weights)
+
+
+@mappable()
+def abs_square(complex):
+    return math.imag(complex) ** 2 + math.real(complex) ** 2
+
+
 # Divergence
 
 def divergence(tensor, dx=1, difference='central'):
@@ -317,6 +339,15 @@ def fourier_poisson(tensor, times=1):
 
 
 def fftfreq(resolution, mode='vector', dtype=None):
+    """
+    Returns the discrete Fourier transform sample frequencies.
+    These are the frequencies corresponding to the components of the result of `math.fft` on a tensor of shape `resolution`.
+
+    :param resolution: grid resolution measured in cells
+    :param mode: one of (None, 'vector', 'absolute', 'square')
+    :param dtype: data type of the returned tensor
+    :return: tensor holding the frequencies of the corresponding values computed by math.fft
+    """
     assert mode in ('vector', 'absolute', 'square')
     k = np.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution], indexing='ij')
     k = math.expand_dims(math.stack(k, -1), 0)

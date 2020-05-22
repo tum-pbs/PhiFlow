@@ -31,8 +31,7 @@ def normalize_probability(probability_amplitude):
     return probability_amplitude / math.to_complex(math.sqrt(P))
 
 
-def psquare(complex):
-    return math.imag(complex) ** 2 + math.real(complex) ** 2
+psquare = math.abs_square
 
 
 class Schroedinger(Physics):
