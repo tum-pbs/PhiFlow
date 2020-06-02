@@ -249,7 +249,11 @@ class SciPyBackend(Backend):
         return np.array(x).astype(np.int64 if int64 else np.int32)
 
     def to_complex(self, x):
-        return np.array(x).astype(np.complex64)
+        x = self.as_tensor(x)
+        if x.dtype == np.float64:
+            return x.astype(np.complex128)
+        else:
+            return x.astype(np.complex64)
 
     def cast(self, x, dtype):
         return np.array(x).astype(dtype)
