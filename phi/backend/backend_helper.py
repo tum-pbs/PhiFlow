@@ -16,6 +16,7 @@ def split_multi_mode_pad(tensor_rank, pad_settings, split_by_constant_value=True
         if not split_by_constant_value or not isinstance(constant_values, (tuple, list)):
             if isinstance(constant_values, (tuple, list)):
                 constant_values = expand(constant_values, shape=(len(dims), 2))
+            pad_width = expand(pad_width, [tensor_rank, 2])
             return [PadSettings(pad_width, mode, constant_values)]
     mode = expand(mode, shape=(len(dims), 2))
     constant_values = expand(constant_values, shape=(len(dims), 2))
