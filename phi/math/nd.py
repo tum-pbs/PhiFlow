@@ -127,21 +127,22 @@ def l_n_loss(tensor, n, batch_norm=True):
         return total_loss
 
 
-def frequency_loss(tensor, frequency_falloff=100):
+def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
     """
     Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
 
+    :param reduce_batches: whether to reduce the batch dimension of the loss by adding the losses along the first dimension
     :param tensor: typically actual - target
-    :param frequency_falloff: large values put more emphasis on lower frequencies
+    :param frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
     :return: scalar loss value
     """
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
-        return sum(frequency_loss(tensor, frequency_falloff) for tensor in all_tensors)
+        return sum(frequency_loss(tensor, frequency_falloff, reduce_batches) for tensor in all_tensors)
     diff_fft = abs_square(math.fft(tensor))
     k = fftfreq(tensor.shape[1:-1], mode='absolute')
     weights = math.exp(-0.5 * k ** 2 * frequency_falloff ** 2)
-    return l1_loss(diff_fft * weights)
+    return l1_loss(diff_fft * weights, reduce_batches=reduce_batches)
 
 
 @mappable()
