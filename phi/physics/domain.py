@@ -57,7 +57,7 @@ class Domain(struct.Struct):
 
     @struct.derived()
     def dx(self):
-        return self.resolution / self.box.size
+        return self.box.size / self.resolution
 
     @struct.constant(default=OPEN)
     def boundaries(self, boundaries):
