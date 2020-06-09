@@ -214,9 +214,9 @@ class CenteredGrid(Field):
         extrapolation = map_for_axes(_gradient_extrapolation, self.extrapolation, axes, self.rank)
         return self.copied_with(data=data, extrapolation=extrapolation, flags=())
 
-    def gradient(self, physical_units=True):
+    def gradient(self, physical_units=True, difference='central'):
         if not physical_units or self.has_cubic_cells:
-            data = math.gradient(self.data, dx=np.mean(self.dx), padding=_pad_mode(self.extrapolation))
+            data = math.gradient(self.data, dx=np.mean(self.dx), difference=difference, padding=_pad_mode(self.extrapolation))
             return self.copied_with(data=data, extrapolation=_gradient_extrapolation(self.extrapolation), flags=())
         else:
             raise NotImplementedError('Only cubic cells supported.')

@@ -14,7 +14,7 @@ Each call to at() or sample_at() generates a new noise field.
 Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
 """
 
-    def __init__(self, **kwargs):
+    def __init__(self, channels=None, scale=10, smoothness=1.0, **kwargs):
         AnalyticField.__init__(self, None, **struct.kwargs(locals()))
 
     @struct.constant()
@@ -22,12 +22,12 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         """ Number of independent random scalar fields this Field consists of """
         return channels
 
-    @struct.constant(default=10)
+    @struct.constant()
     def scale(self, scale):
         """ Size of noise fluctuations """
         return scale
 
-    @struct.constant(default=1.0)
+    @struct.constant()
     def smoothness(self, smoothness):
         """ Determines how quickly high frequencies die out """
         return smoothness

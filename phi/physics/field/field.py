@@ -181,6 +181,9 @@ class Field(State):
     def __pow__(self, power, modulo=None):
         return self.__dataop__(power, False, lambda f, p: math.pow(f, p))
 
+    def __neg__(self):
+        return self * -1
+
     def __dataop__(self, other, linear_if_scalar, data_operator):
         if isinstance(other, Field):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
