@@ -83,7 +83,7 @@ class CenteredGrid(Field):
     def box(self, box):
         return AABox.to_box(box, resolution_hint=self.resolution)
 
-    @property
+    @struct.derived()
     def dx(self):
         return self.box.size / self.resolution
 

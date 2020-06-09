@@ -116,7 +116,7 @@ class StaggeredGrid(Field):
         assert_same_rank(len(self.data), self.box, 'StaggeredGrid.data does not match box.')
         return box
 
-    @property
+    @struct.derived()
     def dx(self):
         return self.box.size / self.resolution
 

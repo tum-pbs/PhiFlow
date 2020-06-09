@@ -55,6 +55,10 @@ class Domain(struct.Struct):
     def box(self, box):
         return AABox.to_box(box, resolution_hint=self.resolution)
 
+    @struct.derived()
+    def dx(self):
+        return self.resolution / self.box.size
+
     @struct.constant(default=OPEN)
     def boundaries(self, boundaries):
         assert isinstance(boundaries, (Material, list, tuple))
