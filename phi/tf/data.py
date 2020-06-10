@@ -11,9 +11,10 @@ from phi.data import SceneSource, Dataset as BaseDataset
 from .util import placeholder, dataset_handle
 
 
-def build_graph_input(obj, input_type='placeholder', frames=None):
+def build_graph_input(obj, input_type='placeholder', frames=None, names=None):
     """
 Create placeholders for tensors in the supplied state.
+    :param names: structure compatible with `obj` holding the associated file names
     :param obj: struct or StateProxy
     :param input_type: 'placeholder' or 'dataset_handle'
     :param frames: Number of input frames. If not None, returns a list of input structs.
@@ -27,8 +28,9 @@ Create placeholders for tensors in the supplied state.
     # --- Shapes and names ---
     writable_obj = _transform_for_writing(obj)
     shape = _writing_staticshape(obj)
-    names = struct.names(writable_obj)
-    names = struct.map(_slugify_filename, names, content_type=struct.names)
+    if names is None:
+        names = struct.names(writable_obj)
+        names = struct.map(_slugify_filename, names, content_type=struct.names)
     if input_type == 'placeholder':
         if frames is not None: raise NotImplementedError()
         with _unsafe():
