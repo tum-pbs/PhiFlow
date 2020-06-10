@@ -52,6 +52,10 @@ class CenteredGrid(Field):
                 point_field._batch_size = batch_size
                 data = value.at(point_field).data
         else:  # value is constant
+            if callable(value):
+                x = CenteredGrid.getpoints(domain.box, domain.resolution).copied_with(extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
+                value = value(x)
+                return value
             components = math.staticshape(value)[-1] if math.ndims(value) > 0 else 1
             data = math.add(math.zeros((batch_size,) + tuple(domain.resolution) + (components,)), value)
         return CenteredGrid(data, box=domain.box, extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)

@@ -152,10 +152,16 @@ class _SymbolicOpField(AnalyticField):
 
     @property
     def points(self):
-        return self.fields[0].points
+        if len(self.fields) == 0:
+            return None
+        else:
+            return self.fields[0].points
 
     def compatible(self, other_field):
-        return self.fields[0].compatible(other_field)
+        if len(self.fields) == 0:
+            return True
+        else:
+            return self.fields[0].compatible(other_field)
 
 
 def _determine_rank(fields):
