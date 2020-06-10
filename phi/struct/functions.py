@@ -26,6 +26,21 @@ Generates a list of all leaves by recursively iterating over the given struct.
     return result
 
 
+def unflatten(flat, struct, leaf_condition=None, item_condition=None, content_type=None):
+    """
+    Undoes a `flatten` operation, restoring the contents of a struct from a list.
+
+    :param flat: list holding the flattened contents of a struct compatible with `struct`
+    :param struct: structure to restore data to
+    :param leaf_condition:  (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves.
+    :param item_condition:  (optional) ItemCondition or boolean function that filters which Items are accumulated.
+    :param content_type:  (optional) Type key to use for new Structs. Defaults to VALID. Item-specific overrides can be defined by calling Item.override using the content_type as key. Override functions must have the signature (parent_struct, value).
+    :return: struct compatible with `struct` holding the values from the `flat` list
+    """
+    flat = list(flat)
+    return map(lambda _: flat.pop(), struct, leaf_condition=leaf_condition, item_condition=item_condition, content_type=content_type)
+
+
 def names(struct, leaf_condition=None, full_path=True, basename=None, separator='.'):
     def to_name(trace):
         if not full_path:
