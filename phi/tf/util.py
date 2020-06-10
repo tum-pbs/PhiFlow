@@ -197,6 +197,18 @@ def istensor(obj):
     return isinstance(obj, (tf.Tensor, tf.Variable))
 
 
+def gradients(y, xs):
+    """
+    Compute the analytic gradients using TensorFlow's automatic differentiation.
+
+    :param y: tensor or struct of tensors. The contributions of all tensors in `y` are added up.
+    :param xs: struct of input tensors
+    :return: struct compatible with `xs` holding dy/dx
+    """
+    ys = struct.flatten(y)
+    xs_ = struct.flatten(xs)
+    grad = tf.gradients(ys, xs_)
+    return struct.unflatten(grad, xs)
 
 
 def conv_function(scope, constants_file=None):
