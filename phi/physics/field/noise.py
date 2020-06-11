@@ -4,6 +4,7 @@ from phi.physics.field import AnalyticField
 from .grid import CenteredGrid
 from .staggered_grid import StaggeredGrid
 from ..domain import Domain
+from ...backend.backend import Backend
 
 
 @struct.definition()
@@ -14,7 +15,7 @@ Each call to at() or sample_at() generates a new noise field.
 Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
 """
 
-    def __init__(self, channels=None, scale=10, smoothness=1.0, **kwargs):
+    def __init__(self, channels=None, scale=10, smoothness=1.0, math=math.DYNAMIC_BACKEND, **kwargs):
         AnalyticField.__init__(self, None, **struct.kwargs(locals()))
 
     @struct.constant()
@@ -53,8 +54,9 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         raise NotImplementedError()
 
     def grid_sample(self, resolution, size, batch_size=1):
-        shape = (batch_size,) + tuple(resolution) + (self.channels,)
-        rndj = math.randn(shape) + 1j * math.randn(shape)  # Note: there is no complex32
+        channels = self.channels or len(size)
+        shape = (batch_size,) + tuple(resolution) + (channels,)
+        rndj = math.to_complex(self.math.random_normal(shape)) + 1j * math.to_complex(self.math.random_normal(shape))  # Note: there is no complex32
         k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
         k = math.sum(k ** 2, axis=-1, keepdims=True)
         lowest_frequency = 0.1
@@ -74,3 +76,8 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     @property
     def component_count(self):
         return self.channels
+
+    @struct.constant()
+    def math(self, m):
+        assert isinstance(m, math.Backend)
+        return m
