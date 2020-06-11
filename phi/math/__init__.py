@@ -1,3 +1,4 @@
+from phi.backend.backend import Backend
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND
 from phi.backend.scipy_backend import SciPyBackend
 from phi.struct.struct_backend import StructBroadcastBackend

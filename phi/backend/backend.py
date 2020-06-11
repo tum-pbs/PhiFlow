@@ -85,6 +85,9 @@ class Backend:
     def random_uniform(self, shape):
         raise NotImplementedError(self)
 
+    def random_normal(self, shape):
+        raise NotImplementedError(self)
+
     def stack(self, values, axis=0):
         raise NotImplementedError(self)
 

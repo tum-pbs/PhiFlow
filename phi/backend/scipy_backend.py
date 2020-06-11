@@ -79,7 +79,10 @@ class SciPyBackend(Backend):
 
     def random_uniform(self, shape):
         """ random array [0.0, 1.0) """
-        return np.random.random(shape).astype('f')
+        return np.random.random(shape).astype(self.precision_dtype)
+
+    def random_normal(self, shape):
+        return np.random.standard_normal(shape).astype(self.precision_dtype)
 
     def rank(self, value):
         """ len(shape), number of dimensions """
