@@ -5,7 +5,7 @@ import numpy as np
 from tensorflow.python import pywrap_tensorflow
 from . import tf, TF_BACKEND
 
-from phi import struct
+from phi import struct, math
 from phi.math.math_util import is_static_shape
 from phi.physics.field.staggered_grid import StaggeredGrid
 from phi.physics.field.grid import CenteredGrid
@@ -197,7 +197,7 @@ def istensor(obj):
     return isinstance(obj, (tf.Tensor, tf.Variable))
 
 
-def gradients(y, xs):
+def gradients(y, xs, grad_y=None):
     """
     Compute the analytic gradients using TensorFlow's automatic differentiation.
 
@@ -206,9 +206,17 @@ def gradients(y, xs):
     :return: struct compatible with `xs` holding dy/dx
     """
     ys = struct.flatten(y)
+    if grad_y is not None:
+        grad_y = struct.flatten(grad_y)
+        for i in range(len(grad_y)):
+            grad_y[i] = math.cast(grad_y[i], math.dtype(ys[i]))
     xs_ = struct.flatten(xs)
-    grad = tf.gradients(ys, xs_)
+    grad = tf.gradients(ys, xs_, grad_ys=grad_y)
     return struct.unflatten(grad, xs)
+
+
+def stop_gradient(x):
+    return struct.map(tf.stop_gradient, x)
 
 
 def conv_function(scope, constants_file=None):
