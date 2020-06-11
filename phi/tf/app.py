@@ -12,6 +12,8 @@ from phi.tf.data import Dataset as TFDataset
 from . import TF_BACKEND
 from .session import Session
 from .world import tf_bake_graph
+from .. import math
+from ..app import EditableBool
 
 
 class App(base_app.App):
@@ -56,6 +58,15 @@ class App(base_app.App):
         self.set_editable_value(name, val)
         placeholder = tf.placeholder(tf.int32, (), name.lower().replace(' ', '_'))
         self.add_scalar(name, placeholder)
+        self.editable_placeholders[placeholder] = name
+        return placeholder
+
+    def editable_bool(self, name, initial_value, add_as_scalar=False):
+        val = EditableBool(name, initial_value)
+        self.set_editable_value(name, val)
+        placeholder = tf.placeholder(tf.bool, (), name.lower().replace(' ', '_'))
+        if add_as_scalar:
+            self.add_scalar(name, math.to_float(placeholder))
         self.editable_placeholders[placeholder] = name
         return placeholder
 
@@ -191,7 +202,7 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         # Train
         if self._training_set is not None:
             self._train_reader = BatchReader(self._training_set, self._channel_struct)
-            self._train_iterator = self._train_reader.all_batches(batch_size=self.training_batch_size, loop=True)
+            self._train_iterator = self._train_reader.all_batches(batch_size=self.world.batch_size or self.training_batch_size, loop=True)
         else:
             self._train_reader = None
             self._train_iterator = None
@@ -357,6 +368,9 @@ Assemble a complete feed dict for graph execution.
         dir = self.scene.subpath('checkpoint_%08d' % self.steps)
         self.session.save(dir)
         return dir
+
+    def action_save_model(self):
+        self.save_model()
 
     def load_model(self, checkpoint_dir):
         self.session.restore(checkpoint_dir, scope=self.model_scope_name)
