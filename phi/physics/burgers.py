@@ -22,6 +22,9 @@ class BurgersVelocity(DomainState):
     def viscosity(self, viscosity):
         return viscosity
 
+    def __add__(self, other):
+        return self.copied_with(velocity=self.velocity + other)
+
 
 class Burgers(Physics):
 
