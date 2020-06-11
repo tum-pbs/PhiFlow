@@ -253,7 +253,9 @@ class SciPyBackend(Backend):
 
     def to_complex(self, x):
         x = self.as_tensor(x)
-        if x.dtype == np.float64:
+        if x.dtype in (np.complex64, np.complex128):
+            return x
+        elif x.dtype == np.float64:
             return x.astype(np.complex128)
         else:
             return x.astype(np.complex64)

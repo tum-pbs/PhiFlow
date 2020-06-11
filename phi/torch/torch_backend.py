@@ -289,6 +289,8 @@ class TorchBackend(Backend):
         return x.int()
 
     def to_complex(self, x):
+        if isinstance(x, ComplexTensor):
+            return x
         x = self.as_tensor(x)
         return ComplexTensor(self.stack([x, torch.zeros_like(x)], -1))
 
