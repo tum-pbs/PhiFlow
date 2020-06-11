@@ -9,6 +9,7 @@ from phi.struct.context import _unsafe
 from phi.data import SceneSource, Dataset as BaseDataset
 
 from .util import placeholder, dataset_handle
+from ..data.stream import consecutive_frames, FrameSelect
 
 
 def build_graph_input(obj, input_type='placeholder', frames=None, names=None):
@@ -32,11 +33,18 @@ Create placeholders for tensors in the supplied state.
         names = struct.names(writable_obj)
         names = struct.map(_slugify_filename, names, content_type=struct.names)
     if input_type == 'placeholder':
-        if frames is not None: raise NotImplementedError()
-        with _unsafe():
-            placeholders = placeholder(shape)
-        graph_in = struct.map(lambda x: x, placeholders)  # validates fields, splits staggered tensors
-        return graph_in, {placeholders: names}
+        if frames is not None:
+            with _unsafe():
+                placeholders = [placeholder(shape, basename='Placeholder_frame_%d' % i) for i in range(frames)]
+            graph_in = [struct.map(lambda x: x, p) for p in placeholders]  # validates fields, splits staggered tensors
+            streams = struct.map(lambda x: consecutive_frames(x, frames), names, content_type='streams')
+            load_dict = {placeholders[i]: struct.map(lambda x: x[i], streams, leaf_condition=lambda x: isinstance(x, tuple) and isinstance(x[0], FrameSelect), content_type='streams') for i in range(frames)}
+            return graph_in, load_dict
+        else:
+            with _unsafe():
+                placeholders = placeholder(shape)
+            graph_in = struct.map(lambda x: x, placeholders)  # validates fields, splits staggered tensors
+            return graph_in, {placeholders: names}
     elif input_type == 'dataset_handle':
         with _unsafe():
             dtypes = struct.dtype(writable_obj)
