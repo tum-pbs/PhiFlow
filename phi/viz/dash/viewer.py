@@ -2,13 +2,12 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
-from phi.viz.dash import viewsettings
+from phi.viz.dash import viewsettings, model_controls
 from phi.viz.dash.dash_plotting import dash_graph_plot, EMPTY_FIGURE
 from phi.viz.dash.player_controls import STEP_COMPLETE, REFRESH_INTERVAL
 import webglviewer
 from .viewsettings import parse_view_settings
 from .webgl_util import default_sky, EMPTY_GRID, webgl_prepare_data
-
 
 # --- Viewer ---
 
@@ -40,7 +39,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
         else:
             return dcc.Graph(figure=EMPTY_FIGURE, id=id + '-graph', style={'height': '100%'})
 
-    @dashapp.dash.callback(Output(id+'-graph', 'figure'), (Input(id+'-field-select', 'value'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS)
+    @dashapp.dash.callback(Output(id+'-graph', 'figure'), (Input(id+'-field-select', 'value'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS + tuple(model_controls.MODEL_CONTROLS + model_controls.MODEL_ACTIONS))
     def update_figure(field, _0, _1, *settings):
         if field is None or field == 'None':
             return EMPTY_FIGURE
@@ -51,7 +50,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
         settings_dict['minmax'] = dashapp.get_minmax(field)
         return dash_graph_plot(data, settings_dict)
 
-    @dashapp.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS)
+    @dashapp.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS + tuple(model_controls.MODEL_CONTROLS + model_controls.MODEL_ACTIONS))
     def update_data(field, _0, _1, _2, *settings):
         if field is None or field == 'None':
             return EMPTY_GRID

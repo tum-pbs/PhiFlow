@@ -8,6 +8,10 @@ from dash.exceptions import PreventUpdate
 from .dash_app import DashApp
 
 
+MODEL_CONTROLS = []
+MODEL_ACTIONS = []
+
+
 def build_model_controls(dashapp):
     assert isinstance(dashapp, DashApp)
     controls = dashapp.app.controls
@@ -21,10 +25,13 @@ def build_model_controls(dashapp):
     model_ints = [control for control in controls if control.type == 'int']
     model_texts = [control for control in controls if control.type == 'text']
 
-    model_inputs = [Input(control.id, 'n_clicks') for control in actions]
-    model_inputs += [Input(control.id, 'value') for control in model_floats]
-    model_inputs += [Input(control.id, 'value') for control in model_ints]
-    model_inputs += [Input(control.id, 'value') for control in model_bools]
+    MODEL_CONTROLS.clear()
+    MODEL_CONTROLS.extend([Input(control.id, 'n_clicks') for control in actions])
+    MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_floats])
+    MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_ints])
+    MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_bools])
+    MODEL_ACTIONS.clear()
+    MODEL_ACTIONS.extend([Input(action.id, 'n_clicks') for action in actions])
 
     layout = html.Div(style={'width': '75%', 'margin-left': 'auto', 'margin-right': 'auto', 'background-color': '#F0F0F0'}, children=[
         html.Div(id='control-div', style={'width': '95%', 'height': '90%', 'margin-left': 'auto', 'margin-right': 'auto', 'margin-top': 15, 'margin-bottom': 'auto'}, children=[
@@ -44,16 +51,15 @@ def build_model_controls(dashapp):
 
         model_textfields = []
         for control in model_texts:
-            textarea = dcc.Textarea(placeholder=control.value, id=control.id, value=control.value, rows=1,
+            text_area = dcc.Textarea(placeholder=control.value, id=control.id, value=control.value, rows=1,
                                     style={'width': '600px', 'display': 'inline-block'})
-            model_textfields.append(html.Div([control.name + '  ', textarea]))
+            model_textfields.append(html.Div([control.name + '  ', text_area]))
         return [dcc.Markdown('### Model')] + model_sliders_float + model_sliders_int + model_buttons + model_textfields + model_checkboxes
-
 
     for action in actions:
         @dashapp.dash.callback(Output(action.id, 'disabled'), [Input(action.id, 'n_clicks')])
         def perform_action(n_clicks, action=action):
-            if (n_clicks is not None):
+            if n_clicks is not None:
                 dashapp.app.run_action(action)
             return False
 
