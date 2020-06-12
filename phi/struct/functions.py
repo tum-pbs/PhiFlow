@@ -38,7 +38,7 @@ def unflatten(flat, struct, leaf_condition=None, item_condition=None, content_ty
     :return: struct compatible with `struct` holding the values from the `flat` list
     """
     flat = list(flat)
-    return map(lambda _: flat.pop(), struct, leaf_condition=leaf_condition, item_condition=item_condition, content_type=content_type)
+    return map(lambda _: flat.pop(0), struct, leaf_condition=leaf_condition, item_condition=item_condition, content_type=content_type)
 
 
 def names(struct, leaf_condition=None, full_path=True, basename=None, separator='.'):

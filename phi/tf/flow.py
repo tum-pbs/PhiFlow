@@ -6,6 +6,7 @@ from .session import *
 from .world import *
 from .data import *
 from .util import *
+from .grid_layers import *
 from . import TF_BACKEND, tensorflow, tf
 
 try:
