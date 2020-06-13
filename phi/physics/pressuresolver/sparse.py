@@ -20,7 +20,7 @@ class SparseSciPy(PoissonSolver):
         """
         PoissonSolver.__init__(self, 'SciPy sparse solver', supported_devices=('CPU',), supports_guess=False, supports_loop_counter=False, supports_continuous_masks=True)
 
-    def solve(self, field, domain, guess):
+    def solve(self, field, domain, guess, enable_backprop):
         assert isinstance(domain, FluidDomain)
         dimensions = list(field.shape[1:-1])
         A = sparse_pressure_matrix(dimensions, domain.active_tensor(extend=1), domain.accessible_tensor(extend=1), Material.periodic(domain.domain.boundaries))
@@ -39,7 +39,7 @@ class SparseSciPy(PoissonSolver):
 
 class SparseCG(PoissonSolver):
 
-    def __init__(self, accuracy=1e-5, gradient_accuracy='same', max_iterations=2000, max_gradient_iterations='same', autodiff=False):
+    def __init__(self, accuracy=1e-5, max_iterations=2000):
         """
         Conjugate gradient solver using sparse matrix multiplications.
 
@@ -56,21 +56,10 @@ class SparseCG(PoissonSolver):
         """
         PoissonSolver.__init__(self, 'Sparse Conjugate Gradient', supported_devices=('CPU', 'GPU'), supports_guess=True, supports_loop_counter=True, supports_continuous_masks=True)
         assert math.is_scalar(accuracy), 'invalid accuracy: %s' % accuracy
-        assert gradient_accuracy == 'same' or math.is_scalar(gradient_accuracy), 'invalid gradient_accuracy: %s' % gradient_accuracy
-        assert max_gradient_iterations in ['same', 'mirror'] or isinstance(max_gradient_iterations, int), 'invalid max_gradient_iterations: %s' % max_gradient_iterations
         self.accuracy = accuracy
-        self.gradient_accuracy = accuracy if gradient_accuracy == 'same' else gradient_accuracy
         self.max_iterations = max_iterations
-        if max_gradient_iterations == 'same':
-            self.max_gradient_iterations = max_iterations
-        elif max_gradient_iterations == 'mirror':
-            self.max_gradient_iterations = 'mirror'
-        else:
-            self.max_gradient_iterations = max_gradient_iterations
-            assert not autodiff, 'Cannot specify max_gradient_iterations when autodiff=True'
-        self.autodiff = autodiff
 
-    def solve(self, field, domain, guess):
+    def solve(self, field, domain, guess, enable_backprop):
         assert isinstance(domain, FluidDomain)
         active_mask = domain.active_tensor(extend=1)
         fluid_mask = domain.accessible_tensor(extend=1)
@@ -87,28 +76,12 @@ class SparseCG(PoissonSolver):
             sval_data = backend.cast(sval_data, field.dtype)
             A = backend.sparse_tensor(indices=sidx, values=sval_data, shape=[N, N])
 
-        if self.autodiff:
-            return sparse_cg(field, A, self.max_iterations, guess, self.accuracy, back_prop=True)
-        else:
-            def pressure_gradient(op, grad):
-                return sparse_cg(grad, A, max_gradient_iterations, None, self.gradient_accuracy)[0]
-
-            pressure, iteration = math.with_custom_gradient(sparse_cg,
-                                                            [field, A, self.max_iterations, guess, self.accuracy],
-                                                            pressure_gradient, input_index=0, output_index=0,
-                                                            name_base='scg_pressure_solve')
-
-            max_gradient_iterations = iteration if self.max_gradient_iterations == 'mirror' else self.max_gradient_iterations
-            return pressure, iteration
-
-
-def sparse_cg(field, A, max_iterations, guess, accuracy, back_prop=False):
-    div_vec = math.reshape(field, [-1, int(np.prod(field.shape[1:]))])
-    if guess is not None:
-        guess = math.reshape(guess, [-1, int(np.prod(field.shape[1:]))])
-    apply_A = lambda pressure: math.matmul(A, pressure)
-    result_vec, iterations = conjugate_gradient(div_vec, apply_A, guess, accuracy, max_iterations, back_prop)
-    return math.reshape(result_vec, math.shape(field)), iterations
+        div_vec = math.reshape(field, [-1, int(np.prod(field.shape[1:]))])
+        if guess is not None:
+            guess = math.reshape(guess, [-1, int(np.prod(field.shape[1:]))])
+        apply_A = lambda pressure: math.matmul(A, pressure)
+        result_vec, iterations = conjugate_gradient(div_vec, apply_A, guess, self.accuracy, self.max_iterations, enable_backprop)
+        return math.reshape(result_vec, math.shape(field)), iterations
 
 
 def sparse_pressure_matrix(dimensions, extended_active_mask, extended_fluid_mask, periodic=False):

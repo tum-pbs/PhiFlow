@@ -14,5 +14,5 @@ class FourierSolver(PoissonSolver):
         """
         PoissonSolver.__init__(self, 'FFT', ('CPU', 'GPU'), supports_guess=False, supports_loop_counter=False, supports_continuous_masks=False)
 
-    def solve(self, field, domain, guess):
+    def solve(self, field, domain, guess, enable_backprop):
         return math.fourier_poisson(field), None
