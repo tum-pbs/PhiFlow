@@ -233,9 +233,9 @@ class CenteredGrid(Field):
         return self.with_data(normalize_data)
 
 
-def _required_paddings_transposed(box, dx, target):
-    lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx))
-    upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper) / dx))
+def _required_paddings_transposed(box, dx, target, threshold=1e-5):
+    lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx - threshold))
+    upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper) / dx - threshold))
     return [lower, upper]
 
 
