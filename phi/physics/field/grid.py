@@ -38,7 +38,6 @@ class CenteredGrid(Field):
         :type name: string, optional
         """
         Field.__init__(self, **struct.kwargs(locals()))
-        self._sample_points = None
 
     @staticmethod
     def sample(value, domain, batch_size=None, name=None):
@@ -156,9 +155,7 @@ class CenteredGrid(Field):
     def points(self):
         if self.is_valid and SAMPLE_POINTS in self.flags:
             return self
-        if self._sample_points is None:
-            self._sample_points = CenteredGrid.getpoints(self.box, self.resolution)
-        return self._sample_points
+        return CenteredGrid.getpoints(self.box, self.resolution)
 
     @property
     def elements(self):
