@@ -232,6 +232,21 @@ class CenteredGrid(Field):
         normalize_data = math.normalize_to(self.data, total, epsilon)
         return self.with_data(normalize_data)
 
+    @struct.derived()
+    def frequencies(self):
+        return self.with_data(math.fftfreq(self.resolution, mode='vector') / self.dx)
+
+    @struct.derived()
+    def squared_frequencies(self):
+        return self.with_data(math.sum(self.frequencies.data ** 2, axis=-1, keepdims=True))
+
+    def fft(self):
+        return self.with_data(math.fft(self.data))
+
+    @struct.derived()
+    def abs(self):
+        return self.with_data(math.abs(self.data))
+
 
 def _required_paddings_transposed(box, dx, target, threshold=1e-5):
     lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx - threshold))

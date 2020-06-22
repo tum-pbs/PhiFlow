@@ -28,13 +28,9 @@ Otherwise, finite differencing is used to approximate the
         return struct.map(lambda grid: diffuse(grid, amount, substeps=substeps), field, leaf_condition=lambda x: isinstance(x, CenteredGrid))
     assert isinstance(field, CenteredGrid), "Cannot diffuse field of type '%s'" % type(field)
     if field.extrapolation == 'periodic' and not isinstance(amount, Field):
-        frequencies = math.fft(field.data)
-        k = math.fftfreq(field.resolution) / field.dx
-        k = math.sum(k ** 2, axis=-1, keepdims=True)
-        fft_laplace = -(2 * pi) ** 2 * k
-        diffuse_kernel = math.to_complex(math.exp(fft_laplace * amount))
-        data = math.ifft(frequencies * diffuse_kernel)
-        data = math.real(data)
+        fft_laplace = -(2 * pi) ** 2 * field.squared_frequencies
+        diffuse_kernel = math.exp(fft_laplace * amount)
+        return math.real(math.ifft(field.fft() * math.to_complex(diffuse_kernel)))
     else:
         data = field.data
         if isinstance(amount, Field):
