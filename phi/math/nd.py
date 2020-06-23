@@ -6,7 +6,7 @@ import numpy as np
 from phi import struct
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 from phi.struct.functions import mappable
-from .helper import _get_pad_width_axes, _get_pad_width, spatial_rank, _dim_shifted, _contains_axis, spatial_dimensions, all_dimensions
+from .helper import _get_pad_width_axes, _get_pad_width, spatial_rank, _dim_shifted, _contains_axis, spatial_dimensions, all_dimensions, rank
 
 
 def indices_tensor(tensor, dtype=None):
@@ -63,6 +63,9 @@ def batch_align(tensor, innate_dims, target, convert_to_same_backend=True):
 
 
 def batch_align_scalar(tensor, innate_spatial_dims, target):
+    if rank(tensor) == 0:
+        assert innate_spatial_dims == 0
+        return math.expand_dims(tensor, 0, len(math.staticshape(target)))
     if math.staticshape(tensor)[-1] != 1 or math.ndims(tensor) <= 1:
         tensor = math.expand_dims(tensor, -1)
     result = batch_align(tensor, innate_spatial_dims + 1, target)

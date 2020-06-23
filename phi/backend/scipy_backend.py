@@ -84,10 +84,6 @@ class SciPyBackend(Backend):
     def random_normal(self, shape):
         return np.random.standard_normal(shape).astype(self.precision_dtype)
 
-    def rank(self, value):
-        """ len(shape), number of dimensions """
-        return len(value.shape)
-
     def range(self, start, limit=None, delta=1, dtype=None):
         """ range syntax to arange syntax """
         if limit is None:

@@ -3,6 +3,9 @@ from phi.struct.tensorop import collapsed_gather_nd
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 
 
+def rank(tensor):
+    return len(math.staticshape(tensor))
+
 
 def spatial_rank(tensor):
     """ The spatial rank of a tensor is ndims - 2. """
