@@ -33,7 +33,7 @@ class TestFluidTF(TestCase):
             Domain([8, 6], boundaries=[PERIODIC, [OPEN, STICKY]])
         ]:
             print('Comparing on domain %s' % (domain.boundaries,))
-            np_fluid = Fluid(domain, density=Noise(), velocity=Noise(), batch_size=10)
+            np_fluid = Fluid(domain, density=Noise(), velocity=Noise(2), batch_size=10)
             tf_fluid = constant(np_fluid)
             physics = IncompressibleFlow(conserve_density=False)
             for _ in range(3):
