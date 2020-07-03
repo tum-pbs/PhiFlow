@@ -82,7 +82,7 @@ class PoissonDomain(struct.Struct):
             assert accessible.component_count == 1
             return accessible
         else:
-            return self.domain.centered_grid(1, extrapolation=Material.extrapolation_mode(self.domain.boundaries))
+            return self.domain.centered_grid(1, extrapolation=Material.accessible_extrapolation_mode(self.domain.boundaries))
 
     @property
     def rank(self):
