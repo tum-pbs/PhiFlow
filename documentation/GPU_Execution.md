@@ -7,8 +7,6 @@ Requirements
 - [TensorFlow](https://www.tensorflow.org/) with GPU support or [PyTorch](https://pytorch.org/) with GPU support
 - CUDA, cuDNN (matching TensorFlow / PyTorch distribution)
 
-The preferred way to run simulations on the GPU is using TensorFlow 1.14 or 1.15 with Python 3.6.
-
 
 ## Native CUDA Kernels
 
@@ -16,8 +14,19 @@ The preferred way to run simulations on the GPU is using TensorFlow 1.14 or 1.15
 These GPU operators yield the best overall performance, and are highly recommended for larger scale simulations or training runs in 3D.
 To use them, download the Φ<sub>Flow</sub> sources and compile the kernels, following the [installations instructions](Installation_Instructions.md).
 
+**Warning:** If you are not compiling TensorFlow from scratch (i.e. using the pre-compiled pip packages), it is
+at the moment crucial to use exactly the following versions: TensorFlow 1.14, with Python 3.6 and gcc 4.8. 
+Other versions are very likely to produce linker errors or segfaults. In our experiments, the CUDA version is less 
+crucial (different 10.x versions seem to work), and cuDNN is unproblematic.
+
 To use the CUDA pressure solver, pass `pressure_solver=CUDASolver()` when creating `IncompressibleFlow` or pass the solver directly to a function that requires a solve, such as `poisson_solve()`, `solve_pressure()` or `divergence_free()`.
 
+
+*Example:* To create a fluid simulation with a GPU pressure solver
+```python
+from phi.tf.tf_cuda_pressuresolver import CUDASolver
+world.add(Fluid(Domain([64, 64])), physics=IncompressibleFlow(pressure_solver=CUDASolver()))
+```
 
 ## Running the demos on the GPU
 
