@@ -2,7 +2,7 @@ from phi.backend.backend import Backend
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND
 from phi.backend.scipy_backend import SciPyBackend
 from phi.struct.struct_backend import StructBroadcastBackend
-from .math_util import types, is_static_shape, zeros, ones, randn, randfreq
+from .math_util import types, is_static_shape, zeros, ones, randn, randfreq, interpolate
 from .helper import is_scalar, axes, rank
 from .nd import (spatial_rank, spatial_dimensions, all_dimensions,
                  indices_tensor,

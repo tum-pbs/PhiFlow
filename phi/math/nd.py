@@ -230,6 +230,7 @@ def axis_gradient(tensor, spatial_axis):
 
 # Laplace
 
+@mappable()
 def laplace(tensor, padding='replicate', axes=None, use_fft_for_periodic=False):
     """
     Spatial Laplace operator as defined for scalar fields.

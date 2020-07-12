@@ -72,3 +72,18 @@ def randfreq(shape, dtype=None, power=8):
         else:
             return math.to_float(array)
     return struct.map(genarray, shape, leaf_condition=is_static_shape)
+
+
+def interpolate(alpha, x, y, clip_alpha=True):
+    """
+    Linear interpolation between x and y according to the value of `alpha`
+
+    :param alpha: blending between `x` (`alpha=0`) and `y` (`alpha=1`)
+    :param x: value for `alpha=0`, must be compatible with y and alpha
+    :param y: value for `alpha=1`, must be compatible with x and alpha
+    :param clip_alpha:
+    :return:
+    """
+    if clip_alpha:
+        alpha = math.clip(alpha, 0, 1)
+    return x * (1 - alpha) + y * alpha
