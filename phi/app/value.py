@@ -19,6 +19,13 @@ class EditableValue(object):
     def max_value(self):
         return self.minmax[1]
 
+    @staticmethod
+    def value(value_or_editable_value):
+        if isinstance(value_or_editable_value, EditableValue):
+            return value_or_editable_value.initial_value
+        else:
+            return value_or_editable_value
+
 
 class EditableFloat(EditableValue):
 

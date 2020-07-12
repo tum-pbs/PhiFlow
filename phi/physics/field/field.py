@@ -196,6 +196,12 @@ class Field(State):
     def __le__(self, other):
         return self.__dataop__(other, False, lambda x, y: x <= y)
 
+    def __and__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x & y)
+
+    def __or__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x | y)
+
     def __dataop__(self, other, linear_if_scalar, data_operator):
         if isinstance(other, Field):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)

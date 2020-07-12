@@ -407,7 +407,10 @@ class TFBackend(Backend):
         return tf.cos(x)
 
     def dtype(self, array):
-        return array.dtype.as_numpy_dtype
+        if self.is_tensor(array, only_native=True):
+            return array.dtype.as_numpy_dtype
+        else:
+            return SciPyBackend().dtype(array)
 
     def sparse_tensor(self, indices, values, shape):
         return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
