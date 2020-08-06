@@ -8,7 +8,6 @@ from phi.geom import AABox
 from phi.physics.field import StaggeredGrid, ConstantField
 from .field import StaggeredSamplePoints, Field
 from .grid import CenteredGrid
-from ..gradients import with_physics_gradient
 
 
 def diffuse(field, amount, substeps=1):
@@ -29,11 +28,9 @@ Otherwise, finite differencing is used to approximate the
         return struct.map(lambda grid: diffuse(grid, amount, substeps=substeps), field, leaf_condition=lambda x: isinstance(x, CenteredGrid))
     assert isinstance(field, CenteredGrid), "Cannot diffuse field of type '%s'" % type(field)
     if field.extrapolation == 'periodic' and not isinstance(amount, Field):
-        def diffuse_fft(field):
-            fft_laplace = -(2 * pi) ** 2 * field.squared_frequencies
-            diffuse_kernel = math.exp(fft_laplace * amount)
-            return math.real(math.ifft(field.fft() * math.to_complex(diffuse_kernel)))
-        return with_physics_gradient(diffuse_fft, [field], None)
+        fft_laplace = -(2 * pi) ** 2 * field.squared_frequencies
+        diffuse_kernel = math.exp(fft_laplace * amount)
+        return math.real(math.ifft(field.fft() * math.to_complex(diffuse_kernel)))
     else:
         data = field.data
         if isinstance(amount, Field):
