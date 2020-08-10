@@ -60,6 +60,7 @@ def randn(shape, dtype=None):
 
 def randfreq(shape, dtype=None, power=8):
     warnings.warn('randfreq() is deprecated. Use Noise() instead.')
+
     def genarray(shape):
         fft = randn(shape, dtype) + 1j * randn(shape, dtype)
         k = fftfreq(shape[1:-1], mode='absolute')

@@ -41,7 +41,7 @@ def dash_graph_plot(data, settings):
 
 def get_color_interpolation(val, cm_arr):
     """Weighted average between point smaller and larger than it"""
-    if 0 in cm_arr[:, 0]-val:
+    if 0 in cm_arr[:, 0] - val:
         center = cm_arr[cm_arr[:, 0] == val][-1]
     else:
         offset_positions = cm_arr[:, 0] - val
@@ -50,8 +50,8 @@ def get_color_interpolation(val, cm_arr):
         if color1[0] == color2[0]:
             center = color1
         else:
-            x = (val-color1[0]) / (color2[0]-color1[0])  # weight of row2
-            center = color1 * (1-x) + color2 * x
+            x = (val - color1[0]) / (color2[0] - color1[0])  # weight of row2
+            center = color1 * (1 - x) + color2 * x
     center[0] = val
     return center
 
@@ -81,18 +81,18 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
         # Full range, Zero-centered
         neg_flag = cm_arr[:, 0] < 0.5
         pos_flag = cm_arr[:, 0] >= 0.5
-        cm_arr[neg_flag, 0] = cm_arr[neg_flag, 0]*2*center  # Scale (0, 0.5) -> (0, center)
-        cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0]-0.5)*2*(1-center)+center  # Scale (0.5, 1) -> (center, 0.5)
+        cm_arr[neg_flag, 0] = cm_arr[neg_flag, 0] * 2 * center  # Scale (0, 0.5) -> (0, center)
+        cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0] - 0.5) * 2 * (1 - center) + center  # Scale (0.5, 1) -> (center, 0.5)
         # Drop duplicate zeros. Allow for not center value in original map.
         if zmin == 0:
             cm_arr = cm_arr[np.max(np.arange(len(cm_arr))[cm_arr[:, 0] == 0]):]
     else:
-        cm_arr[:, 0] = cm_arr[:, 0]-0.5  # center at zero (-0.5, 0.5)
+        cm_arr[:, 0] = cm_arr[:, 0] - 0.5  # center at zero (-0.5, 0.5)
         # Scale desired range
         if zmax > abs(zmin):
-            cm_scale = (1-center)/(np.max(cm_arr[:, 0]))  # scale by plositives
+            cm_scale = (1 - center) / (np.max(cm_arr[:, 0]))  # scale by plositives
         else:
-            cm_scale = center/(np.max(cm_arr[:, 0]))  # scale by negatives
+            cm_scale = center / (np.max(cm_arr[:, 0]))  # scale by negatives
         # Scale the maximum to +1 when centered
         cm_arr[:, 0] *= cm_scale
         cm_arr[:, 0] += center  # center
@@ -106,7 +106,7 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
             cm_arr = np.vstack([cm_arr, new_max])
         # Compare center
         #new_center = get_color_interpolation(center, cm_arr)
-        #if not all(new_center == [center, *central_color]):
+        # if not all(new_center == [center, *central_color]):
         #    print("Failed center comparison.")
         #    print("Center: {}".format(new_center))
         #    print("Center should be: {}".format([center, *central_color]))

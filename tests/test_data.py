@@ -43,7 +43,7 @@ class TestData(TestCase):
         for batch in reader.all_batches(batch_size=2):
             value1, value2 = batch[:, 0, 0, 0]
             self.assertEqual(value1, i)
-            self.assertEqual(value2, i+1)
+            self.assertEqual(value2, i + 1)
             i += 2
 
     def test_get_frames(self):
@@ -89,5 +89,5 @@ class TestData(TestCase):
         reader = BatchReader(Dataset.load('data'), ['Density', SourceStream('Density') + 1, SourceStream('Density') * SourceStream('Density')])
         for batch in reader:
             d, d_1, d_2 = batch
-            np.testing.assert_equal(d+1, d_1)
+            np.testing.assert_equal(d + 1, d_1)
             np.testing.assert_equal(d**2, d_2)

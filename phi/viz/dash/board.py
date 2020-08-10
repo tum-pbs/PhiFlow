@@ -120,7 +120,7 @@ def build_tensorboard_launcher(dashapp):
 
 
 def build_system_controls(dashapp):
-    assert  isinstance(dashapp, DashApp)
+    assert isinstance(dashapp, DashApp)
 
     layout = html.Div([
         dcc.Markdown('## Application'),

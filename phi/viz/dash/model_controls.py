@@ -52,7 +52,7 @@ def build_model_controls(dashapp):
         model_textfields = []
         for control in model_texts:
             text_area = dcc.Textarea(placeholder=control.value, id=control.id, value=control.value, rows=1,
-                                    style={'width': '600px', 'display': 'inline-block'})
+                                     style={'width': '600px', 'display': 'inline-block'})
             model_textfields.append(html.Div([control.name + '  ', text_area]))
         return [dcc.Markdown('### Model')] + model_sliders_float + model_sliders_int + model_buttons + model_textfields + model_checkboxes
 
@@ -117,7 +117,7 @@ def create_sliders(controls):
                 step = 1
             else:
                 marks = {float(v): str(round(v, 4)) for v in np.linspace(lower, upper, 21)}
-                step = (upper-lower) / (len(marks)-1)
+                step = (upper - lower) / (len(marks) - 1)
             slider = dcc.Slider(min=lower, max=upper, value=val, id=control.id, step=step, marks=marks, updatemode='drag')
         slider_container = html.Div(style={'height': '50px', 'width': '100%', 'display': 'inline-block'}, children=[control.name, slider])
         sliders.append(slider_container)

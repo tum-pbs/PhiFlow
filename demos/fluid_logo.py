@@ -17,7 +17,7 @@ Currently %s is used for processing. This setting is set in the commandline by p
 
 def create_tum_logo():
     for x in range(1, 10, 2):
-        world.add(Obstacle(box[41:83, 15 + x * 7:15 + (x+1) * 7]))
+        world.add(Obstacle(box[41:83, 15 + x * 7:15 + (x + 1) * 7]))
     world.add_all(Obstacle(box[41:48, 43:50]), Obstacle(box[83:90, 15:43]), Obstacle(box[83:90, 50:85]))
 
 

@@ -128,6 +128,7 @@ class Dataset(BaseDataset):
     """
 Extends phi.data.Datset by TensorFlow data pipeline functions.
     """
+
     def __init__(self, name, sources):
         BaseDataset.__init__(self, name, sources)
         self.shuffled = False

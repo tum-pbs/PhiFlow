@@ -79,7 +79,8 @@ class SparseCG(PoissonSolver):
         div_vec = math.reshape(field, [-1, int(np.prod(field.shape[1:]))])
         if guess is not None:
             guess = math.reshape(guess, [-1, int(np.prod(field.shape[1:]))])
-        apply_A = lambda pressure: math.matmul(A, pressure)
+
+        def apply_A(pressure): return math.matmul(A, pressure)
         result_vec, iterations = conjugate_gradient(div_vec, apply_A, guess, self.accuracy, self.max_iterations, enable_backprop)
         return math.reshape(result_vec, math.shape(field)), iterations
 
@@ -132,7 +133,7 @@ def sparse_indices(dimensions, periodic=False):
     d = len(dimensions)
     dims = range(d)
     gridpoints_linear = np.arange(N)
-    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial frames
+    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions))  # d * (N^2) array mapping from linear to spatial frames
     indices_list = [np.stack([gridpoints_linear] * 2, axis=-1)]
     for dim in dims:
         dim_direction = math.expand_dims([1 if i == dim else 0 for i in range(d)], axis=-1)
@@ -167,7 +168,7 @@ def sparse_values(dimensions, extended_active_mask, extended_fluid_mask, sorting
     diagonal_entries = 0  # diagonal matrix entries
 
     gridpoints_linear = np.arange(N)
-    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions)) # d * (N^2) array mapping from linear to spatial frames
+    gridpoints = np.stack(np.unravel_index(gridpoints_linear, dimensions))  # d * (N^2) array mapping from linear to spatial frames
 
     for dim in dims:
         lower_active, self_active, upper_active = _dim_shifted(extended_active_mask, dim, (-1, 0, 1), diminish_others=(1, 1))

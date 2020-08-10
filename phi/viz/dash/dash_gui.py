@@ -23,22 +23,22 @@ class DashGui(AppDisplay):
 
     def setup(self):
         header_layout = html.Div([
-                dcc.Link('Home', href='/'),
-                ' - ',
-                dcc.Link('Side-by-Side', href='/side-by-side'),
-                ' - ',
-                dcc.Link('Quad', href='/quad'),
-                ' - ',
-                dcc.Link('Info', href='/info'),
-                ' - ',
-                dcc.Link('Log', href='/log'),
-                ' - ',
-                dcc.Link(u'Φ Board', href='/board'),
-                # ' - ',
-                # dcc.Link('Scripting', href='/scripting'),
-                ' - ',
-                html.A('Help', href='https://github.com/tum-pbs/PhiFlow/blob/master/documentation/Web_Interface.md', target='_blank'),
-            ])
+            dcc.Link('Home', href='/'),
+            ' - ',
+            dcc.Link('Side-by-Side', href='/side-by-side'),
+            ' - ',
+            dcc.Link('Quad', href='/quad'),
+            ' - ',
+            dcc.Link('Info', href='/info'),
+            ' - ',
+            dcc.Link('Log', href='/log'),
+            ' - ',
+            dcc.Link(u'Φ Board', href='/board'),
+            # ' - ',
+            # dcc.Link('Scripting', href='/scripting'),
+            ' - ',
+            html.A('Help', href='https://github.com/tum-pbs/PhiFlow/blob/master/documentation/Web_Interface.md', target='_blank'),
+        ])
         dash_app = self.dash_app = DashApp(self.app, self.config, header_layout)
 
         # --- Shared components ---

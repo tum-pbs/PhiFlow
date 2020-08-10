@@ -104,8 +104,8 @@ def general_grid_sample_nd(grid, coords, boundary, constant_values, math, reduce
 def pad_constant_boundaries(grid, coords, boundary, constant_values, math):
     boundary = CT(boundary)
     spatial_rank = math.staticshape(coords)[-1]
-    pad_widths = [[1 if boundary[dim, upper] in ('zero', 'constant') else 0 for upper in (False, True)] for dim in range(-spatial_rank-1, -1)]
-    boundary = [['replicate' if boundary[dim, upper] in ('zero', 'constant') else boundary[dim, upper] for upper in (False, True)] for dim in range(-spatial_rank-1, -1)]
+    pad_widths = [[1 if boundary[dim, upper] in ('zero', 'constant') else 0 for upper in (False, True)] for dim in range(-spatial_rank - 1, -1)]
+    boundary = [['replicate' if boundary[dim, upper] in ('zero', 'constant') else boundary[dim, upper] for upper in (False, True)] for dim in range(-spatial_rank - 1, -1)]
     lower_pads = [lu[0] for lu in pad_widths]
     grid = math.pad(grid, [[0, 0]] + pad_widths + [[0, 0]], mode='constant', constant_values=constant_values)
     if sum(lower_pads) > 0:

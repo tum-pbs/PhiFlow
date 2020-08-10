@@ -22,7 +22,6 @@ def run_notebook(path_from_root):
             print('Executed OK.\n\n')
 
 
-
 class TestNotebooks(TestCase):
 
     pass

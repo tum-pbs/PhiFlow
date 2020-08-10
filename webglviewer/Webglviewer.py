@@ -30,9 +30,9 @@ Possible types: DENSITY, SDF, PARTICLE
         self._prop_names = ['id', 'data', 'idx', 'sky', 'material_type', 'representation_type', 'scale']
         self._type = 'Webglviewer'
         self._namespace = 'webglviewer'
-        self._valid_wildcard_attributes =            []
+        self._valid_wildcard_attributes = []
         self.available_properties = ['id', 'data', 'idx', 'sky', 'material_type', 'representation_type', 'scale']
-        self.available_wildcard_properties =            []
+        self.available_wildcard_properties = []
 
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

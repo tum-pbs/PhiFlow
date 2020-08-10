@@ -23,6 +23,8 @@ except (RuntimeError, AssertionError) as e:
     librariesLoaded = False
 
 # Register gradient
+
+
 @ops.RegisterGradient("Resample")
 def _resample_gradient(op, gradient):
     gradients = resample_gradient_op.resample_gradient(gradient, op.inputs[0], op.inputs[1], op.inputs[2])
@@ -72,4 +74,3 @@ def resample_cuda(inputs, sample_coords, boundary):
                 boundary_array[i, j] = REFLECT
 
     return resample_op.resample(inputs, sample_coords, boundary_array)
-

@@ -9,10 +9,10 @@ The dense marker is sampled on a regular grid while the sparse marker is a colle
 
 
 def checkerboard(resolution, size=8, offset=2):
-    data = math.zeros([1]+list(resolution)+[1])
+    data = math.zeros([1] + list(resolution) + [1])
     for y in range(size):
         for x in range(size):
-            data[:, y+offset::size*2, x+offset::size*2, :] = 1
+            data[:, y + offset::size * 2, x + offset::size * 2, :] = 1
     return data
 
 

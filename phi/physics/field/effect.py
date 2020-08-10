@@ -59,11 +59,11 @@ def effect_applied(effect, field, dt):
 
 
 # pylint: disable-msg = invalid-name
-Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(mask(geometry, antialias=True) * rate, target, GROW, tags=('inflow', 'effect'))
-Accelerator = lambda geometry, acceleration: FieldEffect(mask(geometry, antialias=True) * acceleration, ('velocity',), GROW, tags=('fan', 'effect'))
-ConstantVelocity = lambda geometry, velocity: FieldEffect(ConstantField(velocity), bounds=geometry, targets=('velocity',), mode=FIX, tags=('effect',))
-HeatSource = lambda geometry, rate, name=None: FieldEffect(mask(geometry, antialias=True) * rate, ('temperature',), GROW, name=name)
-ColdSource = lambda geometry, rate, name=None: FieldEffect(mask(geometry, antialias=True) * -rate, ('temperature',), GROW, name=name)
+def Inflow(geometry, rate=1.0, target='density'): return FieldEffect(mask(geometry, antialias=True) * rate, target, GROW, tags=('inflow', 'effect'))
+def Accelerator(geometry, acceleration): return FieldEffect(mask(geometry, antialias=True) * acceleration, ('velocity',), GROW, tags=('fan', 'effect'))
+def ConstantVelocity(geometry, velocity): return FieldEffect(ConstantField(velocity), bounds=geometry, targets=('velocity',), mode=FIX, tags=('effect',))
+def HeatSource(geometry, rate, name=None): return FieldEffect(mask(geometry, antialias=True) * rate, ('temperature',), GROW, name=name)
+def ColdSource(geometry, rate, name=None): return FieldEffect(mask(geometry, antialias=True) * -rate, ('temperature',), GROW, name=name)
 
 
 def Fan(*args, **kwargs):
@@ -108,13 +108,13 @@ def gravity_tensor(gravity, rank):
     if math.is_scalar(gravity):
         gravity = gravity * GLOBAL_AXIS_ORDER.up_vector(rank)
     assert math.staticshape(gravity)[-1] == rank
-    return math.to_float(math.expand_dims(gravity, 0, rank+2-len(math.staticshape(gravity))))
+    return math.to_float(math.expand_dims(gravity, 0, rank + 2 - len(math.staticshape(gravity))))
 
 
 class FieldPhysics(Physics):
 
     def __init__(self, fieldname):
-        Physics.__init__(self, [StateDependency('effects', fieldname+'_effect', blocking=True)])
+        Physics.__init__(self, [StateDependency('effects', fieldname + '_effect', blocking=True)])
 
     def step(self, field, dt=1.0, effects=()):
         for effect in effects:

@@ -252,7 +252,7 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
         optimized = self.optimization_step(self.all_optimizers)
         if not optimized:
             self.steps -= 1
-        if self._pipeline == 'placeholder' and  self.steps % self.epoch_size == 0:
+        if self._pipeline == 'placeholder' and self.steps % self.epoch_size == 0:
             self.validation_step(create_checkpoint=True)
         return self
 
