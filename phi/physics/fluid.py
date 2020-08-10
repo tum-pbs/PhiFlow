@@ -123,7 +123,7 @@ class IncompressibleVFlow(Physics):
             StateDependency('obstacles', 'obstacle'),
             StateDependency('velocity_effects', 'velocity_effect', blocking=True),
         ])
-        self.boundaries =  boundaries
+        self.boundaries = boundaries
         self.pressure_solver = pressure_solver
 
     def step(self, velocity, dt=1.0, obstacles=(), velocity_effects=()):
@@ -179,6 +179,7 @@ class ProportionalGForce(Physics):
 Computes a force field proportional to the scalar `source` field that points in the direction of gravity.
 A ProportionalGForce object must be accompanied by a FieldEffect state object.
     """
+
     def __init__(self, source, factor):
         Physics.__init__(self, dependencies=[
             StateDependency('source_field', source, single_state=True, blocking=True),

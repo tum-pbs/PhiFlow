@@ -60,7 +60,7 @@ BATCHED = Batched(keywords=['min_rank'])
 def _combined_shape(shape1, shape2, prop, obj):
     rank = max(len(shape1), len(shape2))
     resulting_shape = []
-    for i in range(1, rank+1):
+    for i in range(1, rank + 1):
         dim1 = shape1[-i] if len(shape1) >= i else 1
         dim2 = shape2[-i] if len(shape2) >= i else 1
         try:
@@ -86,5 +86,6 @@ class ShapeMismatch(ValueError):
 Raised when a shape check fails, i.e. when tensors that require compatible shapes do not match.
 It is a subclass of `ValueError` because ValueErrors are often raised in this case.
     """
+
     def __init__(self, *args):
         ValueError.__init__(self, *args)

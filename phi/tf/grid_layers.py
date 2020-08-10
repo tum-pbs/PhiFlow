@@ -20,8 +20,6 @@ def conv_layer(grid, filters, kernel_size, strides=1, padding='valid', activatio
     return CenteredGrid(result, box=box, extrapolation=grid.extrapolation)
 
 
-
-
 def residual_block(grid, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activation=tf.nn.leaky_relu, _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
     y = grid.data
     shortcut = y

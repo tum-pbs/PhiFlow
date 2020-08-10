@@ -1,13 +1,12 @@
 import warnings
-
-import numpy as np
 from numbers import Number
+import numpy as np
 
 from phi import struct
-from phi.struct.functions import mappable
-
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 from phi.backend.dynamic_backend import NoBackendFound
+from phi.struct.functions import mappable
+
 from .nd import fftfreq
 
 

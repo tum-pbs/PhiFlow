@@ -1,6 +1,7 @@
 import numpy as np
 
 from phi import math, struct
+
 from . import Physics
 from .domain import DomainState
 from .field import AnalyticField

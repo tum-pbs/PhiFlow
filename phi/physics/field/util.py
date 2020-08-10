@@ -5,8 +5,9 @@ import numpy as np
 from numpy import pi
 from phi import math, struct
 from phi.geom import AABox
-from phi.physics.field import StaggeredGrid, ConstantField
-from .field import StaggeredSamplePoints, Field
+from phi.physics.field import ConstantField, StaggeredGrid
+
+from .field import Field, StaggeredSamplePoints
 from .grid import CenteredGrid
 
 
@@ -46,8 +47,8 @@ def data_bounds(field):
     assert field.has_points
     try:
         data = field.points.data
-        min_vec = math.min(data, axis=tuple(range(len(data.shape)-1)))
-        max_vec = math.max(data, axis=tuple(range(len(data.shape)-1)))
+        min_vec = math.min(data, axis=tuple(range(len(data.shape) - 1)))
+        max_vec = math.max(data, axis=tuple(range(len(data.shape) - 1)))
     except StaggeredSamplePoints:
         boxes = [data_bounds(c) for c in field.unstack()]
         min_vec = math.min([b.lower for b in boxes], axis=0)
@@ -193,6 +194,6 @@ A cell i is flagged 1 if liquid_mask[i] = 1 and it has a non-liquid neighbour.
         # Create inner contour of particles
         bc_d = math.maximum(mask[(slice(None),) + d_slice + (slice(None),)],
                             mask[(slice(None),) + center_slice + (slice(None),)]) - \
-               mask[(slice(None),) + d_slice + (slice(None),)]
+            mask[(slice(None),) + d_slice + (slice(None),)]
         bcs = math.maximum(bcs, bc_d)
     return bcs

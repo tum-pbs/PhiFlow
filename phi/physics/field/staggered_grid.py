@@ -1,16 +1,18 @@
 # coding=utf-8
 import warnings
 from numbers import Number
-import numpy as np
 
+import numpy as np
 from phi import math, struct
 from phi.geom import AABox
 from phi.geom.geometry import assert_same_rank
 from phi.struct.tensorop import collapse
-from .field import Field, propagate_flags_children, IncompatibleFieldTypes, broadcast_at, StaggeredSamplePoints, propagate_flags_resample, propagate_flags_operation
-from .grid import CenteredGrid
-from ..domain import Domain
 
+from ..domain import Domain
+from .field import (Field, IncompatibleFieldTypes, StaggeredSamplePoints,
+                    broadcast_at, propagate_flags_children,
+                    propagate_flags_operation, propagate_flags_resample)
+from .grid import CenteredGrid
 
 _SUBSCRIPTS = ['x', 'y', 'z', 'w']
 
@@ -35,7 +37,7 @@ def unstack_staggered_tensor(tensor):
     result = []
     for i, dim in enumerate(math.spatial_dimensions(tensor)):
         slices = [slice(None, -1) if d != dim else slice(None) for d in math.spatial_dimensions(tensor)]
-        result.append(math.expand_dims(tensors[i][tuple([slice(None)]+slices)], -1))
+        result.append(math.expand_dims(tensors[i][tuple([slice(None)] + slices)], -1))
     return result
 
 
@@ -195,7 +197,7 @@ class StaggeredGrid(Field):
         if isinstance(other, StaggeredGrid):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
             data = [data_operator(c1, c2) for c1, c2 in zip(self.data, other.data)]
-            flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
+            flags = propagate_flags_operation(self.flags + other.flags, False, self.rank, self.component_count)
         elif math.ndims(other) > 0 and math.staticshape(other)[-1] > 1:
             other_components = math.unstack(math.as_tensor(other), axis=-1, keepdims=True)
             data = [data_operator(c1, c2) for c1, c2 in zip(self.data, other_components)]
@@ -260,7 +262,7 @@ class StaggeredGrid(Field):
             force = axis_forces[axis] if isinstance(axis_forces, (list, tuple)) else axis_forces[...,axis]
             if isinstance(force, Number) and force == 0:
                 dims = list(math.staticshape(scalar_field.data))
-                dims[axis+1] += 1
+                dims[axis + 1] += 1
                 tensors.append(math.zeros(dims, math.dtype(scalar_field.data)))
             else:
                 upper = scalar_field.axis_padded(axis, 0, 1).data

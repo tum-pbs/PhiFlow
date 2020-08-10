@@ -189,4 +189,3 @@ def _determine_component_count(args):
         else:
             assert result == arg_channels or arg_channels is None
     return result
-
