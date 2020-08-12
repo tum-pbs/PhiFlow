@@ -20,11 +20,12 @@ class PoissonSolver(object):
         self.supports_loop_counter = supports_loop_counter
         self.supports_continuous_masks = supports_continuous_masks
 
-    def solve(self, field, domain, guess):
+    def solve(self, field, domain, guess, enable_backprop):
         """
         Solves the Poisson equation Δp = d for p for all active fluid cells where active cells are given by the active_mask.
         p is expected to fulfill (Δp-d) ≤ accuracy for every active cell.
 
+        :param enable_backprop: Whether automatic differentiation should be enabled. If False, the gradient of this operation is undefined.
         :param field: scalar input field to the solve, e.g. the divergence of the velocity channel, ∇·v
         :param domain: DomainState object specifying boundary conditions and active/fluid masks. The domain must be equal for all examples (batch dimension equal to 1).
         :param guess: (Optional) Pressure channel which can be used as an initial state for the solver
@@ -81,7 +82,7 @@ class PoissonDomain(struct.Struct):
             assert accessible.component_count == 1
             return accessible
         else:
-            return self.domain.centered_grid(1, extrapolation=Material.extrapolation_mode(self.domain.boundaries))
+            return self.domain.centered_grid(1, extrapolation=Material.accessible_extrapolation_mode(self.domain.boundaries))
 
     @property
     def rank(self):
@@ -129,9 +130,15 @@ def _active_extrapolation(boundaries):
     return 'periodic' if boundaries == 'periodic' else 'constant'
 
 
-def poisson_solve(input_field, poisson_domain, solver=None, guess=None):
+def poisson_solve(input_field, poisson_domain, solver=None, guess=None, gradient='implicit'):
     """
-Solves the Poisson equation Δp = input_field for p.
+    Solves the Poisson equation Δp = input_field for p.
+
+    :param gradient: one of ('implicit', 'autodiff', 'inverse')
+        If 'autodiff', use the built-in autodiff for backpropagation.
+        The intermediate results of each loop iteration will be permanently stored if backpropagation is used.
+        If 'implicit', computes a forward pressure solve in reverse accumulation backpropagation.
+        This requires less memory but is only accurate if the solution is fully converged.
     :param input_field: CenteredGrid
     :param poisson_domain: PoissonDomain instance
     :param solver: PoissonSolver to use, None for default
@@ -147,13 +154,22 @@ Solves the Poisson equation Δp = input_field for p.
     if isinstance(poisson_domain, Domain):
         poisson_domain = PoissonDomain(poisson_domain)
     if solver is None:
-        from .sparse import SparseSciPy, SparseCG
-        if math.choose_backend([input_field.data, poisson_domain.active.data, poisson_domain.accessible.data]).matches_name('SciPy'):
-            solver = SparseSciPy()
-        else:
-            from phi.physics.pressuresolver.fourier import FourierSolver
-            solver = FourierSolver() & SparseCG()
-    pressure, iteration = solver.solve(input_field.data, poisson_domain, guess=guess)
+        solver = _choose_solver(input_field.resolution, math.choose_backend([input_field.data, poisson_domain.active.data, poisson_domain.accessible.data]))
+    if not struct.any(Material.open(poisson_domain.domain.boundaries)):  # has no open boundary
+        input_field = input_field - math.mean(input_field.data, axis=tuple(range(1, 1 + input_field.rank)), keepdims=True)  # Subtract mean divergence
+
+    assert gradient in ('autodiff', 'implicit', 'inverse')
+    if gradient == 'autodiff':
+        pressure, iteration = solver.solve(input_field.data, poisson_domain, guess, enable_backprop=True)
+    else:
+        if gradient == 'implicit':
+            def poisson_gradient(_op, grad):
+                return poisson_solve(CenteredGrid.sample(grad, poisson_domain.domain), poisson_domain, solver, None, gradient=gradient)[0].data
+        else:  # gradient = 'inverse'
+            def poisson_gradient(_op, grad):
+                return CenteredGrid.sample(grad, poisson_domain.domain).laplace(physical_units=False).data
+        pressure, iteration = math.with_custom_gradient(solver.solve, [input_field.data, poisson_domain, guess, False], poisson_gradient, input_index=0, output_index=0, name_base='poisson_solve')
+
     pressure = CenteredGrid(pressure, input_field.box, extrapolation=input_field.extrapolation, name='pressure')
     return pressure, iteration
 
@@ -172,3 +188,21 @@ class _PoissonSolverChain(PoissonSolver):
         for solver in self.solvers:
             guess, iterations = solver.solve(field, domain, guess)
         return guess, iterations
+
+
+def _choose_solver(resolution, backend):
+    use_fourier = math.max(resolution) > 64
+    if backend.precision == 64:
+        from .fourier import FourierSolver
+        from .geom import GeometricCG
+        return FourierSolver() & GeometricCG(accuracy=1e-8) if use_fourier else GeometricCG(accuracy=1e-8)
+    elif backend.precision == 32 and backend.matches_name('SciPy'):
+        from .sparse import SparseSciPy
+        return SparseSciPy()
+    elif backend.precision == 32:
+        from .fourier import FourierSolver
+        from .sparse import SparseCG
+        return FourierSolver() & SparseCG(accuracy=1e-5) if use_fourier else SparseCG(accuracy=1e-5)
+    else:  # lower precision
+        from .geom import GeometricCG
+        return GeometricCG(accuracy=1e-2)

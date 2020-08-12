@@ -26,6 +26,21 @@ Generates a list of all leaves by recursively iterating over the given struct.
     return result
 
 
+def unflatten(flat, struct, leaf_condition=None, item_condition=None, content_type=None):
+    """
+    Undoes a `flatten` operation, restoring the contents of a struct from a list.
+
+    :param flat: list holding the flattened contents of a struct compatible with `struct`
+    :param struct: structure to restore data to
+    :param leaf_condition:  (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves.
+    :param item_condition:  (optional) ItemCondition or boolean function that filters which Items are accumulated.
+    :param content_type:  (optional) Type key to use for new Structs. Defaults to VALID. Item-specific overrides can be defined by calling Item.override using the content_type as key. Override functions must have the signature (parent_struct, value).
+    :return: struct compatible with `struct` holding the values from the `flat` list
+    """
+    flat = list(flat)
+    return map(lambda _: flat.pop(0), struct, leaf_condition=leaf_condition, item_condition=item_condition, content_type=content_type)
+
+
 def names(struct, leaf_condition=None, full_path=True, basename=None, separator='.'):
     def to_name(trace):
         if not full_path:
@@ -82,6 +97,7 @@ class LeafZip(object):
 Created by struct.zip to replace data.
 When a LeafZip is mapped using 'map', the values are passed as multiple arguments (*args).
     """
+
     def __init__(self, values):
         self.values = values
 
@@ -99,6 +115,7 @@ class IncompatibleStructs(Exception):
     """
 Thrown when two or more structs are required to have the same structure but do not, e.g. when trying to zip incompatible structs.
     """
+
     def __init__(self, *args):
         Exception.__init__(self, *args)
 
@@ -220,27 +237,28 @@ def print_differences(struct1, struct2, level=0):
     indent = '  ' * level
     if not isstruct(struct1) or not isstruct(struct2):
         if not equal(struct1, struct2):
-            print(indent+'Values not equal: "%s" and "%s".' % (struct1, struct2))
+            print(indent + 'Values not equal: "%s" and "%s".' % (struct1, struct2))
         return
     items1 = to_dict(struct1)
     items2 = to_dict(struct2)
     tested_keys = []
     for key1 in items1.keys():
         if key1 not in items2:
-            print(indent+'Item "%s" is missing from %s.' % (key1, struct2))
+            print(indent + 'Item "%s" is missing from %s.' % (key1, struct2))
         else:
             if not equal(items1[key1], items2[key1]):
                 print('Item "%s" differs between %s and %s.' % (key1, struct1, struct2))
-            print_differences(items1[key1], items2[key1], level+1)
+            print_differences(items1[key1], items2[key1], level + 1)
         tested_keys.append(key1)
     for key2 in items2.keys():
         if key2 not in tested_keys:
-            print(indent+'Item "%s" is missing from %s.' % (key2, struct1))
+            print(indent + 'Item "%s" is missing from %s.' % (key2, struct1))
 
 
 def mappable(leaf_condition=None, recursive=True, item_condition=None, unsafe_context=False, content_type=None):
     if unsafe_context:
         warnings.warn("unsafe_context is deprecated. Use content_type=INVALID instead.")
+
     def decorator(function):
         def broadcast_function(obj, *args, **kwargs):
             def function_with_args(x): return function(x, *args, **kwargs)

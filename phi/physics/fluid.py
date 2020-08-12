@@ -123,7 +123,7 @@ class IncompressibleVFlow(Physics):
             StateDependency('obstacles', 'obstacle'),
             StateDependency('velocity_effects', 'velocity_effect', blocking=True),
         ])
-        self.boundaries =  boundaries
+        self.boundaries = boundaries
         self.pressure_solver = pressure_solver
 
     def step(self, velocity, dt=1.0, obstacles=(), velocity_effects=()):
@@ -179,6 +179,7 @@ class ProportionalGForce(Physics):
 Computes a force field proportional to the scalar `source` field that points in the direction of gravity.
 A ProportionalGForce object must be accompanied by a FieldEffect state object.
     """
+
     def __init__(self, source, factor):
         Physics.__init__(self, dependencies=[
             StateDependency('source_field', source, single_state=True, blocking=True),
@@ -213,7 +214,7 @@ Computes the pressure from the given velocity divergence using the specified sol
     return poisson_solve(divergence, fluiddomain, solver=pressure_solver, guess=guess)
 
 
-def divergence_free(velocity, domain=None, obstacles=(), pressure_solver=None, return_info=False):
+def divergence_free(velocity, domain=None, obstacles=(), pressure_solver=None, return_info=False, gradient='implicit'):
     """
 Projects the given velocity field by solving for and subtracting the pressure.
     :param return_info: if True, returns a dict holding information about the solve as a second object
@@ -243,9 +244,7 @@ Projects the given velocity field by solving for and subtracting the pressure.
             angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None)
             velocity = ((1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)).at(velocity)
     divergence_field = velocity.divergence(physical_units=False)
-    if not struct.any(Material.open(domain.boundaries)):  # has no open boundary
-        divergence_field = divergence_field - math.mean(divergence_field.data, axis=tuple(range(1, 1 + divergence_field.rank)), keepdims=True)  # Subtract mean divergence
-    pressure, iterations = solve_pressure(divergence_field, fluiddomain, pressure_solver=pressure_solver)
+    pressure, iterations = poisson_solve(divergence_field, fluiddomain, solver=pressure_solver, gradient=gradient)
     pressure *= velocity.dx[0]
     gradp = StaggeredGrid.gradient(pressure)
     velocity -= fluiddomain.with_hard_boundary_conditions(gradp)

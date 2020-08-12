@@ -5,8 +5,9 @@ import numpy as np
 from numpy import pi
 from phi import math, struct
 from phi.geom import AABox
-from phi.physics.field import StaggeredGrid, ConstantField
-from .field import StaggeredSamplePoints, Field
+from phi.physics.field import ConstantField, StaggeredGrid
+
+from .field import Field, StaggeredSamplePoints
 from .grid import CenteredGrid
 
 
@@ -28,13 +29,9 @@ Otherwise, finite differencing is used to approximate the
         return struct.map(lambda grid: diffuse(grid, amount, substeps=substeps), field, leaf_condition=lambda x: isinstance(x, CenteredGrid))
     assert isinstance(field, CenteredGrid), "Cannot diffuse field of type '%s'" % type(field)
     if field.extrapolation == 'periodic' and not isinstance(amount, Field):
-        frequencies = math.fft(field.data)
-        k = math.fftfreq(field.resolution) / field.dx
-        k = math.sum(k ** 2, axis=-1, keepdims=True)
-        fft_laplace = -(2 * pi) ** 2 * k
-        diffuse_kernel = math.to_complex(math.exp(fft_laplace * amount))
-        data = math.ifft(frequencies * diffuse_kernel)
-        data = math.real(data)
+        fft_laplace = -(2 * pi) ** 2 * field.squared_frequencies
+        diffuse_kernel = math.exp(fft_laplace * amount)
+        return math.real(math.ifft(field.fft() * math.to_complex(diffuse_kernel)))
     else:
         data = field.data
         if isinstance(amount, Field):
@@ -50,8 +47,8 @@ def data_bounds(field):
     assert field.has_points
     try:
         data = field.points.data
-        min_vec = math.min(data, axis=tuple(range(len(data.shape)-1)))
-        max_vec = math.max(data, axis=tuple(range(len(data.shape)-1)))
+        min_vec = math.min(data, axis=tuple(range(len(data.shape) - 1)))
+        max_vec = math.max(data, axis=tuple(range(len(data.shape) - 1)))
     except StaggeredSamplePoints:
         boxes = [data_bounds(c) for c in field.unstack()]
         min_vec = math.min([b.lower for b in boxes], axis=0)
@@ -59,12 +56,12 @@ def data_bounds(field):
     return AABox(min_vec, max_vec)
 
 
-def staggered_curl_2d(grid):
+def staggered_curl_2d(grid, pad_width=(1, 2)):
     assert isinstance(grid, CenteredGrid)
-    kernel = np.zeros((3, 3, 1, 2), np.float32)
+    kernel = math.zeros((3, 3, 1, 2))
     kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
     kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
-    scalar_potential = grid.padded([[1, 2], [1, 2]]).data
+    scalar_potential = grid.padded([pad_width, pad_width]).data
     vector_field = math.conv(scalar_potential, kernel, padding='valid')
     return StaggeredGrid(vector_field, box=grid.box)
 
@@ -197,6 +194,6 @@ A cell i is flagged 1 if liquid_mask[i] = 1 and it has a non-liquid neighbour.
         # Create inner contour of particles
         bc_d = math.maximum(mask[(slice(None),) + d_slice + (slice(None),)],
                             mask[(slice(None),) + center_slice + (slice(None),)]) - \
-               mask[(slice(None),) + d_slice + (slice(None),)]
+            mask[(slice(None),) + d_slice + (slice(None),)]
         bcs = math.maximum(bcs, bc_d)
     return bcs

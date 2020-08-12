@@ -3,6 +3,9 @@ from phi.struct.tensorop import collapsed_gather_nd
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 
 
+def rank(tensor):
+    return len(math.staticshape(tensor))
+
 
 def spatial_rank(tensor):
     """ The spatial rank of a tensor is ndims - 2. """
@@ -51,7 +54,7 @@ def _dim_shifted(tensor, axis, relative_shifts, components=None, diminish_others
     if components is None:
         component_slice = slice(None)
     elif isinstance(components, int):
-        component_slice = slice(components, components+1)
+        component_slice = slice(components, components + 1)
     elif isinstance(components, slice):
         component_slice = components
     else:

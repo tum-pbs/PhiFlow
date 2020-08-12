@@ -18,7 +18,7 @@ class TestMath(TestCase):
     def test_fft(self):
         tf.InteractiveSession()
         for dims in range(1, 4):
-            shape = [2] + [4]*dims + [3]
+            shape = [2] + [4] * dims + [3]
             x_np = np.random.randn(*shape) + 1j * np.random.randn(*shape)
             x_np = x_np.astype(np.complex64)
             x_tf = tf.constant(x_np, tf.complex64)
@@ -36,7 +36,7 @@ class TestMath(TestCase):
     def test_laplace_padding(self):
         tf.InteractiveSession()
         for dims in range(1, 4):
-            shape = [2] + [4]*dims + [3]
+            shape = [2] + [4] * dims + [3]
             a = zeros(shape)
             l = laplace(a, padding='replicate')
             np.testing.assert_equal(l, 0)
@@ -49,7 +49,7 @@ class TestMath(TestCase):
             np.testing.assert_equal(l.shape, a.shape)
             l = laplace(a, padding='valid')
             np.testing.assert_equal(l, 0)
-            np.testing.assert_equal(l.shape, [2] + [2]*dims + [3])
+            np.testing.assert_equal(l.shape, [2] + [2] * dims + [3])
 
     def test_struct_broadcast(self):
         s = {'a': 0, 'b': 1}
@@ -94,7 +94,7 @@ class TestMath(TestCase):
 
     def test_div_no_nan(self):
         x = np.array([1, -1, 0, 1, -1], np.float32)
-        y = np.array([1,  2, 0, 0, 0], np.float32)
+        y = np.array([1, 2, 0, 0, 0], np.float32)
         result = divide_no_nan(x, y)
         np.testing.assert_equal(result, [1, -0.5, 0, 0, 0])
         sess = tf.InteractiveSession()

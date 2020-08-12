@@ -1,4 +1,6 @@
-import sys, inspect, os
+import sys
+import inspect
+import os
 import warnings
 
 from phi.app.app import App

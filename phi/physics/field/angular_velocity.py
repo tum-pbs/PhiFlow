@@ -15,18 +15,17 @@ class AngularVelocity(AnalyticField):
         src_rank = math.spatial_rank(self.location)
         # --- Expand shapes to format (batch_size, points_dims..., src_dims..., channels) ---
         points = math.expand_dims(points, axis=-2, number=src_rank)
-        src_points = math.expand_dims(self.location, axis=-2, number=points_rank)
+        src_location = math.expand_dims(self.location, axis=-3, number=points_rank)
         src_strength = math.expand_dims(self.strength, axis=-1)
-        src_strength = math.batch_align(src_strength, 0, self.location)
-        src_strength = math.expand_dims(src_strength, axis=-1, number=points_rank)
+        if math.ndims(src_strength) == 1:
+            src_strength = math.expand_dims(src_strength, axis=-2)
+        src_strength = math.expand_dims(src_strength, axis=-3, number=points_rank)
         src_axes = tuple(range(-2, -2 - src_rank, -1))
         # --- Compute distances and falloff ---
-        distances = points - src_points
+        distances = points - src_location
         if self.falloff is not None:
-            raise NotImplementedError()
-            # distances_squared = math.sum(distances ** 2, axis=-1, keepdims=True)
-            # unit_distances = distances / math.sqrt(distances_squared)
-            # strength = src_strength * math.exp(-distances_squared)
+            falloff_value = self.falloff(distances)
+            strength = src_strength * falloff_value
         else:
             strength = src_strength
         # --- Compute velocities ---

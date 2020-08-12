@@ -19,6 +19,13 @@ class EditableValue(object):
     def max_value(self):
         return self.minmax[1]
 
+    @staticmethod
+    def value(value_or_editable_value):
+        if isinstance(value_or_editable_value, EditableValue):
+            return value_or_editable_value.initial_value
+        else:
+            return value_or_editable_value
+
 
 class EditableFloat(EditableValue):
 
@@ -35,7 +42,7 @@ class EditableFloat(EditableValue):
         if not minmax:
             if log_scale:
                 magn = log10(initial_value)
-                minmax = (10.0**(magn-3.2), 10.0**(magn+2.2))
+                minmax = (10.0**(magn - 3.2), 10.0**(magn + 2.2))
             else:
                 if initial_value == 0.0:
                     minmax = (-10.0, 10.0)
@@ -59,7 +66,7 @@ class EditableInt(EditableValue):
             if initial_value == 0:
                 minmax = (-10, 10)
             elif initial_value > 0:
-                minmax = (0, 4*initial_value)
+                minmax = (0, 4 * initial_value)
             else:
                 minmax = (2 * initial_value, -2 * initial_value)
         EditableValue.__init__(self, name, 'int', initial_value, category, minmax, True)
@@ -74,7 +81,7 @@ class EditableBool(EditableValue):
 class EditableString(EditableValue):
 
     def __init__(self, name, initial_value, category=None, rows=20):
-        EditableValue.__init__(self, name, 'text', initial_value, category, ('', 'A'*rows), True)
+        EditableValue.__init__(self, name, 'text', initial_value, category, ('', 'A' * rows), True)
 
     @property
     def rows(self):

@@ -23,6 +23,10 @@ class TFBackend(Backend):
     def __init__(self):
         Backend.__init__(self, "TensorFlow")
 
+    @property
+    def precision_dtype(self):
+        return {16: np.float16, 32: np.float32, 64: np.float64, None: np.float32}[self.precision]
+
     def is_tensor(self, x, only_native=False):
         if not only_native and SciPyBackend().is_tensor(x, only_native=False):
             return True
@@ -30,10 +34,18 @@ class TFBackend(Backend):
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
-            return x
-        if isinstance(x, np.ndarray) and x.dtype == np.float64:
-            return tf.convert_to_tensor(x, dtype=tf.float32)
-        return tf.convert_to_tensor(x)
+            tensor = x
+        elif isinstance(x, np.ndarray):
+            tensor = tf.convert_to_tensor(SciPyBackend(precision=self.precision).as_tensor(x))
+        else:
+            tensor = tf.convert_to_tensor(x)
+        # --- Enforce Precision ---
+        if not isinstance(tensor, numbers.Number):
+            if isinstance(tensor, np.ndarray):
+                tensor = SciPyBackend(precision=self.precision).as_tensor(tensor)
+            elif tensor.dtype.is_floating and self.has_fixed_precision:
+                tensor = self.to_float(tensor)
+        return tensor
 
     def copy(self, tensor, only_mutable=False):
         if not only_mutable or tf.executing_eagerly():
@@ -52,7 +64,10 @@ class TFBackend(Backend):
             return tf.where(tf.is_finite(result), result, tf.zeros_like(result))
 
     def random_uniform(self, shape):
-        return tf.random.uniform(shape)
+        return tf.random.uniform(shape, dtype=self.precision_dtype)
+
+    def random_normal(self, shape):
+        return tf.random.normal(shape, dtype=self.precision_dtype)
 
     def rank(self, value):
         return len(value.shape)
@@ -61,7 +76,7 @@ class TFBackend(Backend):
         return tf.range(start, limit, delta, dtype)
 
     def tile(self, value, multiples):
-        if self.ndims(value) < len(multiples):
+        if isinstance(multiples, (tuple, list)) and self.ndims(value) < len(multiples):
             value = self.expand_dims(value, axis=0, number=len(multiples) - self.ndims(value))
         return tf.tile(value, multiples)
 
@@ -156,6 +171,9 @@ class TFBackend(Backend):
         else:
             return tf.matmul(A, b)
 
+    def einsum(self, equation, *tensors):
+        return tf.einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
                    swap_memory=False, name=None, maximum_iterations=None):
         return tf.while_loop(cond, body, loop_vars,
@@ -245,7 +263,11 @@ class TFBackend(Backend):
         return tf.shape(tensor)
 
     def to_float(self, x, float64=False):
-        return tf.cast(x, tf.float64) if float64 else tf.cast(x, tf.float32)
+        if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
+            return tf.cast(x, tf.float64)
+        else:
+            return tf.cast(x, self.precision_dtype)
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
@@ -257,7 +279,12 @@ class TFBackend(Backend):
         return tf.cast(x, tf.int64) if int64 else tf.cast(x, tf.int32)
 
     def to_complex(self, x):
-        return tf.to_complex64(x)
+        if self.dtype(x) in (np.complex64, np.complex128):
+            return x
+        if self.dtype(x) == np.float64:
+            return tf.to_complex128(x)
+        else:
+            return tf.to_complex64(x)
 
     def gather(self, values, indices):
         if isinstance(indices, slice):
@@ -270,7 +297,8 @@ class TFBackend(Backend):
         elif version.parse(tf.__version__) >= version.parse('1.14.0'):
             return tf.gather_nd(values, indices, batch_dims=batch_dims)
         else:
-            if batch_dims > 1: raise NotImplementedError('batch_dims > 1 only supported on TensorFlow >= 1.14')
+            if batch_dims > 1:
+                raise NotImplementedError('batch_dims > 1 only supported on TensorFlow >= 1.14')
             batch_size = self.shape(values)[0]
             batch_ids = tf.reshape(tf.range(batch_size), [batch_size] + [1] * (self.ndims(indices) - 1))
             batch_ids = tf.tile(batch_ids, [1] + self.shape(indices)[1:-1] + [1])
@@ -314,7 +342,7 @@ class TFBackend(Backend):
         values = self.tile(values, repetitions)
 
         if duplicates_handling == 'add':
-            #Only for Tensorflow with custom gradient
+            # Only for Tensorflow with custom gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
                 result = tf.tensor_scatter_add(buffer, indices, values)
@@ -380,7 +408,10 @@ class TFBackend(Backend):
         return tf.cos(x)
 
     def dtype(self, array):
-        return array.dtype.as_numpy_dtype
+        if self.is_tensor(array, only_native=True):
+            return array.dtype.as_numpy_dtype
+        else:
+            return SciPyBackend().dtype(array)
 
     def sparse_tensor(self, indices, values, shape):
         return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
@@ -435,7 +466,7 @@ def _resample_no_pack(grid, coords, boundary_func):
     return result
 
 
-def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
+def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, float_type):
     inputs = tf.convert_to_tensor(inputs)
     sample_coords = tf.convert_to_tensor(sample_coords)
 
@@ -447,7 +478,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     out_spatial_size = sample_coords.get_shape().as_list()[1:-1]
 
     if sample_coords.shape[0] != inputs.shape[0]:
-        sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
+        sample_coords = tf.tile(sample_coords, [batch_size] + [1] * (len(sample_coords.shape) - 1))
 
     xy = tf.unstack(sample_coords, axis=-1)
     base_coords = [tf.floor(coords) for coords in xy]
@@ -455,8 +486,8 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
     ceil_coords = [tf.cast(boundary_func(x + 1.0, in_spatial_size[idx]), COORDINATES_TYPE) for (idx, x) in enumerate(base_coords)]
 
     if boundary.upper() == 'ZERO':
-        weight_0 = [tf.expand_dims(x - tf.cast(i, tf.float32), -1) for (x, i) in zip(xy, floor_coords)]
-        weight_1 = [tf.expand_dims(tf.cast(i, tf.float32) - x, -1) for (x, i) in zip(xy, ceil_coords)]
+        weight_0 = [tf.expand_dims(x - tf.cast(i, float_type), -1) for (x, i) in zip(xy, floor_coords)]
+        weight_1 = [tf.expand_dims(tf.cast(i, float_type) - x, -1) for (x, i) in zip(xy, ceil_coords)]
     else:
         weight_0 = [tf.expand_dims(x - i, -1) for (x, i) in zip(xy, base_coords)]
         weight_1 = [1.0 - w for w in weight_0]
@@ -475,8 +506,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
             coord = tf.stack([batch_ids] + coord, -1)
             return tf.gather_nd(inputs, coord)  # NaN can cause negative integers here
 
-
-
     samples = [get_knot(bc) for bc in binary_neighbour_ids]
 
     def _pyramid_combination(samples, w_0, w_1):
@@ -490,7 +519,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func):
 
 
 def _boundary_snap(sample_coords, spatial_shape):
-    max_indices = [l-1 for l in spatial_shape]
+    max_indices = [l - 1 for l in spatial_shape]
     for _i in range(len(spatial_shape)):
         max_indices = tf.expand_dims(max_indices, 0)
     sample_coords = tf.minimum(sample_coords, max_indices)

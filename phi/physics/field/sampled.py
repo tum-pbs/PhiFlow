@@ -51,7 +51,7 @@ class SampledField(Field):
             batch_size = 1
         shape = (batch_size,) + tuple(resolution) + (self.data.shape[-1],)
         scattered = math.scatter(self.sample_points, valid_indices, self.data, shape, duplicates_handling=self.mode)
-        return CenteredGrid(data=scattered, box=box, extrapolation='constant', name=self.name+'_centered')
+        return CenteredGrid(data=scattered, box=box, extrapolation='constant', name=self.name + '_centered')
 
     def _stagger_sample(self, box, resolution):
         """
@@ -75,18 +75,18 @@ class SampledField(Field):
             values = math.zeros_like(self.sample_points) + self.data
         else:
             values = self.data
-        
+
         result = []
         ones_1d = math.unstack(math.ones_like(values), axis=-1)[0]
         staggered_shape = [i + 1 for i in resolution]
         dx = box.size / resolution
 
         dims = range(len(resolution))
-        for d in dims: 
+        for d in dims:
             staggered_offset = math.stack([(0.5 * dx[i] * ones_1d if i == d else 0.0 * ones_1d) for i in dims], axis=-1)
 
             indices = math.to_int(math.floor(self.sample_points + staggered_offset))
-            
+
             valid_indices = math.maximum(0, math.minimum(indices, resolution))
             valid_indices = _batch_indices(valid_indices)
 
@@ -97,7 +97,7 @@ class SampledField(Field):
             u_slice = tuple([(slice(2, None) if i == d else slice(1,-1)) for i in dims])
             active_mask = math.minimum(mask[(slice(None),) + d_slice + (slice(None),)], active_mask)
             active_mask = math.minimum(mask[(slice(None),) + u_slice + (slice(None),)], active_mask)
-        
+
         staggered_tensor_prep = unstack_staggered_tensor(math.concat(result, axis=-1))
         grid_values = StaggeredGrid(staggered_tensor_prep)
         # Fix values at boundary of liquids (using StaggeredGrid these might not receive a value, so we replace it with a value inside the liquid)
@@ -193,7 +193,7 @@ Distribute points according to the distribution specified in density.
     assert distribution in ('center', 'uniform')
     index_array = []
     batch_size = math.staticshape(density)[0] if math.staticshape(density)[0] is not None else 1
-    
+
     for batch in range(batch_size):
         indices = math.where(density[batch, ..., 0] > 0)
         indices = math.to_float(indices)

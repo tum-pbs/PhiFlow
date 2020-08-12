@@ -18,7 +18,7 @@ class SmokeDataGen(App):
 
     def __init__(self):
         App.__init__(self, 'Smoke Data Generation', HOW_TO, base_dir='~/phi/data', summary='smoke')
-        self.smoke = world.add(Fluid(Domain([64, 64]), density=math.maximum(0, Noise() * 0.3), velocity=Noise() * 0.5, batch_size=world.batch_size, buoyancy_factor=0.1), physics=IncompressibleFlow())
+        self.smoke = world.add(Fluid(Domain([64, 64]), density=math.maximum(0, Noise() * 0.3), velocity=Noise(2) * 0.5, batch_size=world.batch_size, buoyancy_factor=0.1), physics=IncompressibleFlow())
         self.value_frames_per_simulation = 16
 
     def step(self):

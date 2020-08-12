@@ -2,13 +2,13 @@ from phi.flow import *
 physics_config.x_first()
 
 
-def update_obstacle(obstacle, dt, angular_velocity=0.05):
+def update_obstacle(obstacle, dt, angular_velocity=0.1):
     geometry = obstacle.geometry.rotated(angular_velocity * dt)
     return obstacle.copied_with(geometry=geometry, angular_velocity=angular_velocity)
 
 
 world.add(Fluid(Domain([128, 128], CLOSED, box=box([100, 100]))), physics=IncompressibleFlow())
-world.add(Obstacle(box[20:80, 48:52], name='bar'), physics=update_obstacle)
+world.add(Obstacle(box[10:90, 48:52], name='bar'), physics=update_obstacle)
 world.step()
 
 app = App('Moving Objects Demo', framerate=10)

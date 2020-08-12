@@ -1,3 +1,5 @@
+import warnings
+
 from .backend import Backend
 
 
@@ -10,8 +12,18 @@ class NoBackendFound(Exception):
 class DynamicBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, 'Dynamic')
         self.backends = []
+        Backend.__init__(self, 'Dynamic')
+
+    @property
+    def precision(self):
+        return self._precision
+
+    @precision.setter
+    def precision(self, precision):
+        self._precision = precision
+        for backend in self.backends:
+            backend.precision = precision
 
     def choose_backend(self, values):
         # type: (list) -> Backend
@@ -26,6 +38,7 @@ class DynamicBackend(Backend):
         for existing in self.backends:
             if existing.name == backend.name:
                 return False
+        backend.precision = self.precision
         if priority is None:
             self.backends.append(backend)
         else:
@@ -57,6 +70,9 @@ class DynamicBackend(Backend):
 
     def random_uniform(self, shape):
         return self.choose_backend(shape).random_uniform(shape)
+
+    def random_normal(self, shape):
+        return self.choose_backend(shape).random_normal(shape)
 
     def stack(self, values, axis=0):
         return self.choose_backend(values).stack(values, axis)
@@ -110,6 +126,9 @@ class DynamicBackend(Backend):
     def matmul(self, A, b):
         return self.choose_backend([A, b]).matmul(A, b)
 
+    def einsum(self, equation, *tensors):
+        return self.choose_backend(tensors).einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None):
         return self.choose_backend(loop_vars).while_loop(cond, body, loop_vars, shape_invariants, parallel_iterations, back_prop, swap_memory, name, maximum_iterations)
 
@@ -162,6 +181,8 @@ class DynamicBackend(Backend):
         return self.choose_backend(tensor).shape(tensor)
 
     def to_float(self, x, float64=False):
+        if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
         return self.choose_backend(x).to_float(x, float64=float64)
 
     def staticshape(self, tensor):

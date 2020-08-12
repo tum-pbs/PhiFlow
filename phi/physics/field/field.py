@@ -161,11 +161,11 @@ class Field(State):
 
     __rmul__ = __mul__
 
-    def __div__(self, other):
-        return self.__dataop__(other, True, lambda d1, d2: math.div(d1, d2))
-
     def __truediv__(self, other):
         return self.__dataop__(other, True, lambda d1, d2: math.div(d1, d2))
+
+    def __rtruediv__(self, other):
+        return self.__dataop__(other, False, lambda d1, d2: math.div(d2, d1))
 
     def __sub__(self, other):
         return self.__dataop__(other, False, lambda d1, d2: math.sub(d1, d2))
@@ -181,10 +181,31 @@ class Field(State):
     def __pow__(self, power, modulo=None):
         return self.__dataop__(power, False, lambda f, p: math.pow(f, p))
 
+    def __neg__(self):
+        return self * -1
+
+    def __gt__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x > y)
+
+    def __ge__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x >= y)
+
+    def __lt__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x < y)
+
+    def __le__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x <= y)
+
+    def __and__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x & y)
+
+    def __or__(self, other):
+        return self.__dataop__(other, False, lambda x, y: x | y)
+
     def __dataop__(self, other, linear_if_scalar, data_operator):
         if isinstance(other, Field):
             assert self.compatible(other), 'Fields are not compatible: %s and %s' % (self, other)
-            flags = propagate_flags_operation(self.flags+other.flags, False, self.rank, self.component_count)
+            flags = propagate_flags_operation(self.flags + other.flags, False, self.rank, self.component_count)
             self_data = self.data if self.has_points else self.at(other).data
             other_data = other.data if other.has_points else other.at(self).data
             data = data_operator(self_data, other_data)

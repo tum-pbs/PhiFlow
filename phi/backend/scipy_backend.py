@@ -16,8 +16,12 @@ class SciPyBackend(Backend):
     Core Python Backend using NumPy & SciPy
     """
 
-    def __init__(self):
-        Backend.__init__(self, "SciPy")
+    def __init__(self, precision=32):
+        Backend.__init__(self, "SciPy", precision=precision)
+
+    @property
+    def precision_dtype(self):
+        return {16: np.float16, 32: np.float32, 64: np.float64, None: np.float32}[self.precision]
 
     def is_applicable(self, values):
         if values is None:
@@ -44,8 +48,14 @@ class SciPyBackend(Backend):
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
-            return x
-        return np.array(x)
+            array = x
+        else:
+            array = np.array(x)
+        # --- Enforce Precision ---
+        if not isinstance(array, numbers.Number):
+            if array.dtype in (np.float16, np.float32, np.float64, np.longdouble) and self.has_fixed_precision:
+                array = self.to_float(array)
+        return array
 
     def is_tensor(self, x, only_native=False):
         if not only_native and isinstance(x, numbers.Number):
@@ -69,11 +79,10 @@ class SciPyBackend(Backend):
 
     def random_uniform(self, shape):
         """ random array [0.0, 1.0) """
-        return np.random.random(shape).astype('f')
+        return np.random.random(shape).astype(self.precision_dtype)
 
-    def rank(self, value):
-        """ len(shape), number of dimensions """
-        return len(value.shape)
+    def random_normal(self, shape):
+        return np.random.standard_normal(shape).astype(self.precision_dtype)
 
     def range(self, start, limit=None, delta=1, dtype=None):
         """ range syntax to arange syntax """
@@ -148,6 +157,9 @@ class SciPyBackend(Backend):
     def matmul(self, A, b):
         return np.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
+    def einsum(self, equation, *tensors):
+        return np.einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
                    swap_memory=False, name=None, maximum_iterations=None):
         i = 0
@@ -202,10 +214,10 @@ class SciPyBackend(Backend):
         assert tensor.shape[-1] == kernel.shape[-2]
         # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
         if padding.lower() == "same":
-            result = np.zeros(tensor.shape[:-1] + (kernel.shape[-1],), np.float32)
+            result = np.zeros(tensor.shape[:-1] + (kernel.shape[-1],), dtype=self.precision_dtype)
         elif padding.lower() == "valid":
             valid = [tensor.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(tensor))]
-            result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], np.float32)
+            result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], dtype=self.precision_dtype)
         else:
             raise ValueError("Illegal padding: %s" % padding)
         for batch in range(tensor.shape[0]):
@@ -226,13 +238,23 @@ class SciPyBackend(Backend):
         return np.shape(tensor)
 
     def to_float(self, x, float64=False):
-        return np.array(x).astype(np.float64 if float64 else np.float32)
+        if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
+            return np.array(x).astype(np.float64)
+        else:
+            return np.array(x).astype(self.precision_dtype)
 
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)
 
     def to_complex(self, x):
-        return np.array(x).astype(np.complex64)
+        x = self.as_tensor(x)
+        if x.dtype in (np.complex64, np.complex128):
+            return x
+        elif x.dtype == np.float64:
+            return x.astype(np.complex128)
+        else:
+            return x.astype(np.complex64)
 
     def cast(self, x, dtype):
         return np.array(x).astype(dtype)
@@ -242,6 +264,9 @@ class SciPyBackend(Backend):
 
     def gather_nd(self, values, indices, batch_dims=0):
         assert indices.shape[-1] == self.ndims(values) - batch_dims - 1
+        if batch_dims == 0:
+            indices_list = self.unstack(indices, axis=-1)
+            return values[indices_list]
         for dim in range(batch_dims):
             assert indices.shape[dim] == values.shape[dim] or values.shape[dim] == 1 or indices.shape[dim] == 1, 'Batch dimension %d does not match: %s (values) and %s (indices)' % (dim, values.shape, indices.shape)
         values_batch_max = np.array(values.shape[:batch_dims]) - 1
@@ -280,7 +305,7 @@ class SciPyBackend(Backend):
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         indices = self.unstack(indices, axis=-1)
-        array = np.zeros(shape, np.float32)
+        array = np.zeros(shape, self.precision_dtype if self.has_fixed_precision else values.dtype)
         if duplicates_handling == 'add':
             np.add.at(array, tuple(indices), values)
         elif duplicates_handling == 'mean':
@@ -326,6 +351,8 @@ class SciPyBackend(Backend):
         return np.cos(x)
 
     def dtype(self, array):
+        if isinstance(array, float):
+            return self.precision_dtype
         if not isinstance(array, np.ndarray):
             array = np.array(array)
         return array.dtype

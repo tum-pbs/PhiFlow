@@ -18,15 +18,15 @@ class TestObjects(TestCase):
 
         obstacle = phys.step(obstacle, dt=2.0)
         self.assertIsInstance(obstacle, Obstacle)
-        self.assertAlmostEqual(obstacle.age, 2.0)
-        self.assertAlmostEqual(obstacle.geometry.center[0], 2.0)
-        self.assertAlmostEqual(obstacle.velocity[0], 1.0)
+        self.assertAlmostEqual(obstacle.age, 2.0, places=5)
+        self.assertAlmostEqual(obstacle.geometry.center[0], 2.0, places=5)
+        self.assertAlmostEqual(obstacle.velocity[0], 1.0, places=5)
 
         obstacle = phys.step(obstacle, dt=2.0)
         self.assertIsInstance(obstacle, Obstacle)
-        self.assertAlmostEqual(obstacle.age, 4.0)
-        self.assertAlmostEqual(obstacle.geometry.center[0], 4.0)
-        self.assertAlmostEqual(obstacle.velocity[0], 1.0)
+        self.assertAlmostEqual(obstacle.age, 4.0, places=5)
+        self.assertAlmostEqual(obstacle.geometry.center[0], 4.0, places=5)
+        self.assertAlmostEqual(obstacle.velocity[0], 1.0, places=5)
 
     def test_collective_step(self):
         world = World()

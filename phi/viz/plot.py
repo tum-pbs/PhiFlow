@@ -84,7 +84,6 @@ class PlotlyFigureBuilder(object):
         else:
             return data.shape
 
-
     def create_figure(self, data, same_scale_data=None, batch=None, depth=None, library='matplotlib'):
         shape = self.slice_dims(data)
         # Determine batch
@@ -110,12 +109,12 @@ class PlotlyFigureBuilder(object):
             if not self.antisymmetry:
                 data = data.staggered_tensor()
             else:
-                dims = len(data.data[0].data.shape) - 2 # any better way to get this?
+                dims = len(data.data[0].data.shape) - 2  # any better way to get this?
                 dataxyz = []
                 for i in range(dims):
                     c = data.data[i].data
-                    factor = -1. if i==(dims-1) else 1. # add (instead of subtract) for X dim
-                    cdiff = c[..., ::-1,0:1] - ( c[...,0:1] * factor ) 
+                    factor = -1. if i == (dims - 1) else 1.  # add (instead of subtract) for X dim
+                    cdiff = c[..., ::-1,0:1] - (c[...,0:1] * factor)
                     dataxyz.append(cdiff)
                 data = stack_staggered_components(dataxyz)
             shape = data.shape
@@ -170,7 +169,7 @@ class PlotlyFigureBuilder(object):
             if component >= shape[-1]:
                 data = np.zeros_like(data[..., 0:1])
             else:
-                data = data[..., shape[-1]-1-component:shape[-1]-component]
+                data = data[..., shape[-1] - 1 - component:shape[-1] - component]
 
         # Downsample
         while np.prod(data.shape[:-1]) > self.max_resolution ** 2:
@@ -194,7 +193,7 @@ class PlotlyFigureBuilder(object):
 
     def heatmap(self, z, library, minmax=None):
         if library == 'dash':
-            args = {'z' : z, 'type': 'heatmap'}
+            args = {'z': z, 'type': 'heatmap'}
             if minmax is not None:
                 args['zmin'] = minmax[0]
                 args['zmax'] = minmax[1]

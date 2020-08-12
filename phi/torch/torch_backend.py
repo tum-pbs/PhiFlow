@@ -8,12 +8,17 @@ import torch.nn.functional as torchf
 
 from phi.backend.backend import Backend
 from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim, symmetric_pad
+from phi.backend.scipy_backend import SciPyBackend
 
 
 class TorchBackend(Backend):
 
     def __init__(self):
         Backend.__init__(self, 'PyTorch')
+
+    @property
+    def precision_dtype(self):
+        return {16: torch.float16, 32: torch.float32, 64: torch.float64, None: torch.float32}[self.precision]
 
     def is_tensor(self, x, only_native=False):
         if not only_native and isinstance(x, numbers.Number):
@@ -22,20 +27,22 @@ class TorchBackend(Backend):
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
-            return x
-        if isinstance(x, np.ndarray):
-            if x.dtype == np.float64:
-                x = x.astype(np.float32)
-            return torch.from_numpy(x)
-        if isinstance(x, (tuple, list)):
+            tensor = x
+        elif isinstance(x, np.ndarray):
+            tensor = torch.from_numpy(SciPyBackend(precision=self.precision).as_tensor(x))
+        elif isinstance(x, (tuple, list)):
             try:
-                return torch.tensor(x)
+                tensor = torch.tensor(x)
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
-                return torch.stack(components, dim=0)
-        if isinstance(x, int):
-            return torch.tensor(x, dtype=torch.int32)
-        return torch.tensor(x)
+                tensor = torch.stack(components, dim=0)
+        else:
+            tensor = torch.tensor(x)
+        # --- Enforce Precision ---
+        if self.is_tensor(tensor, only_native=True):
+            if tensor.dtype.is_floating_point and self.has_fixed_precision:
+                tensor = self.to_float(tensor)
+        return tensor
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
@@ -44,7 +51,10 @@ class TorchBackend(Backend):
         return x == y
 
     def random_uniform(self, shape):
-        return torch.rand(shape)
+        return torch.rand(size=shape, dtype=self.precision_dtype)
+
+    def random_normal(self, shape):
+        return torch.randn(size=shape, dtype=self.precision_dtype)
 
     def stack(self, values, axis=0):
         return torch.stack(values, dim=axis)
@@ -100,12 +110,12 @@ class TorchBackend(Backend):
         elif boundary == 'circular':
             shape = self.to_float(inputs.shape[2:])
             sample_coords = torch.fmod(sample_coords, shape)
-            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape)-2), mode='circular')
+            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape) - 2), mode='circular')
             boundary = 'zeros'
         else:
             raise NotImplementedError(boundary)
         resolution = torch.Tensor(self.staticshape(inputs)[2:])
-        sample_coords = 2 * sample_coords / (resolution-1) - 1
+        sample_coords = 2 * sample_coords / (resolution - 1) - 1
         sample_coords = torch.flip(sample_coords, dims=[-1])
         result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
@@ -161,10 +171,14 @@ class TorchBackend(Backend):
             return torch.transpose(result, 0, 1)
         raise NotImplementedError()
 
+    def einsum(self, equation, *tensors):
+        return torch.einsum(equation, *tensors)
+
     def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None):
         i = 0
         while cond(*loop_vars):
-            if maximum_iterations is not None and i == maximum_iterations: break
+            if maximum_iterations is not None and i == maximum_iterations:
+                break
             loop_vars = body(*loop_vars)
             i += 1
         return loop_vars
@@ -232,11 +246,11 @@ class TorchBackend(Backend):
             padding = 0
         elif padding.lower() == 'same':
             shape = kernel.shape
-            padding = sum([[d//2, (d+1)//2] for d in shape], [])
+            padding = sum([[d // 2, (d + 1) // 2] for d in shape], [])
         else:
             raise ValueError(padding)
         tensor = channels_first(tensor)
-        kernel = kernel.permute((-2, -1) + tuple(range(len(kernel.shape)-2)))
+        kernel = kernel.permute((-2, -1) + tuple(range(len(kernel.shape) - 2)))
         convf = {3: torchf.conv1d, 4: torchf.conv2d, 5: torchf.conv3d}[len(tensor.shape)]
         result = convf(tensor, kernel, padding=padding)
         result = channels_last(result)
@@ -254,17 +268,30 @@ class TorchBackend(Backend):
         return tuple(tensor.shape)
 
     def to_float(self, x, float64=False):
-        x = self.as_tensor(x)
+        if not self.is_tensor(x):
+            x = self.as_tensor(x)
         if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
             return x.double()
         else:
-            return x.float()
+            if not self.has_fixed_precision:
+                return x if x.dtype.is_floating else x.float()
+            elif self.precision == 16:
+                return x.half()
+            elif self.precision == 32:
+                return x.float()
+            elif self.precision == 64:
+                return x.double()
+            else:
+                raise AssertionError(self.precision)
 
     def to_int(self, x, int64=False):
         x = self.as_tensor(x)
         return x.int()
 
     def to_complex(self, x):
+        if isinstance(x, ComplexTensor):
+            return x
         x = self.as_tensor(x)
         return ComplexTensor(self.stack([x, torch.zeros_like(x)], -1))
 
@@ -387,7 +414,7 @@ def channels_first(x):
 def channels_last(x):
     if isinstance(x, ComplexTensor):
         x = x.tensor
-        x = x.permute((0,) + tuple(range(2, len(x.shape)-1)) + (1, -1))
+        x = x.permute((0,) + tuple(range(2, len(x.shape) - 1)) + (1, -1))
         return ComplexTensor(x)
     else:
         return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))

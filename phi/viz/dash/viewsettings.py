@@ -73,7 +73,7 @@ def build_view_selection(dashapp, viewed_batch=0, viewed_depth=0, viewed_compone
             html.Div(style={'height': '50px', 'width': '100%', 'display': 'inline-block'}, children=[
                 'Batch',
                 dcc.Slider(min=0,
-                           max=0 if batch_size is None else batch_size-1,
+                           max=0 if batch_size is None else batch_size - 1,
                            step=1, value=viewed_batch,
                            marks={} if batch_size is None else _marks(batch_size),
                            id=VIEWED_BATCH.component_id,
@@ -83,7 +83,7 @@ def build_view_selection(dashapp, viewed_batch=0, viewed_depth=0, viewed_compone
             html.Div(style={'height': '50px', 'width': '100%', 'display': 'inline-block'}, children=[
                 'Depth',
                 dcc.Slider(min=0,
-                           max=0 if resolution3d is None else resolution3d[1]-1,
+                           max=0 if resolution3d is None else resolution3d[1] - 1,
                            step=1,
                            value=viewed_depth,
                            marks={} if resolution3d is None else _marks(resolution3d[1]),

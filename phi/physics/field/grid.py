@@ -2,6 +2,7 @@ import numpy as np
 import six
 
 from phi import math, struct
+from phi.backend.backend_helper import general_grid_sample_nd
 from phi.geom import AABox, box
 from phi.geom.geometry import assert_same_rank
 from phi.math.helper import map_for_axes
@@ -37,7 +38,6 @@ class CenteredGrid(Field):
         :type name: string, optional
         """
         Field.__init__(self, **struct.kwargs(locals()))
-        self._sample_points = None
 
     @staticmethod
     def sample(value, domain, batch_size=None, name=None):
@@ -51,6 +51,10 @@ class CenteredGrid(Field):
                 point_field._batch_size = batch_size
                 data = value.at(point_field).data
         else:  # value is constant
+            if callable(value):
+                x = CenteredGrid.getpoints(domain.box, domain.resolution).copied_with(extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
+                value = value(x)
+                return value
             components = math.staticshape(value)[-1] if math.ndims(value) > 0 else 1
             data = math.add(math.zeros((batch_size,) + tuple(domain.resolution) + (components,)), value)
         return CenteredGrid(data, box=domain.box, extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
@@ -82,7 +86,7 @@ class CenteredGrid(Field):
     def box(self, box):
         return AABox.to_box(box, resolution_hint=self.resolution)
 
-    @property
+    @struct.derived()
     def dx(self):
         return self.box.size / self.resolution
 
@@ -111,6 +115,12 @@ class CenteredGrid(Field):
         local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
         resampled = math.resample(self.data, local_points, boundary=_pad_mode(self.extrapolation), interpolation=self.interpolation, constant_values=_pad_value(self.extrapolation_value))
         return resampled
+
+    def general_sample_at(self, points, reduce):
+        local_points = self.box.global_to_local(points)
+        local_points = math.mul(local_points, math.to_float(self.resolution)) - 0.5
+        result = general_grid_sample_nd(self.data, local_points, boundary=_pad_mode(self.extrapolation), constant_values=_pad_value(self.extrapolation_value), math=math.choose_backend([self.data, points]), reduce=reduce)
+        return result
 
     def at(self, other_field):
         if self.compatible(other_field):
@@ -145,9 +155,7 @@ class CenteredGrid(Field):
     def points(self):
         if self.is_valid and SAMPLE_POINTS in self.flags:
             return self
-        if self._sample_points is None:
-            self._sample_points = CenteredGrid.getpoints(self.box, self.resolution)
-        return self._sample_points
+        return CenteredGrid.getpoints(self.box, self.resolution)
 
     @property
     def elements(self):
@@ -173,7 +181,7 @@ class CenteredGrid(Field):
 
     def __repr__(self):
         if self.is_valid:
-            return 'Grid[%s(%d), size=%s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size)
+            return 'Grid[%s(%d), size=%s, %s]' % ('x'.join([str(r) for r in self.resolution]), self.component_count, self.box.size, self.dtype.data)
         else:
             return struct.Struct.__repr__(self)
 
@@ -207,9 +215,9 @@ class CenteredGrid(Field):
         extrapolation = map_for_axes(_gradient_extrapolation, self.extrapolation, axes, self.rank)
         return self.copied_with(data=data, extrapolation=extrapolation, flags=())
 
-    def gradient(self, physical_units=True):
+    def gradient(self, physical_units=True, difference='central'):
         if not physical_units or self.has_cubic_cells:
-            data = math.gradient(self.data, dx=np.mean(self.dx), padding=_pad_mode(self.extrapolation))
+            data = math.gradient(self.data, dx=np.mean(self.dx), difference=difference, padding=_pad_mode(self.extrapolation))
             return self.copied_with(data=data, extrapolation=_gradient_extrapolation(self.extrapolation), flags=())
         else:
             raise NotImplementedError('Only cubic cells supported.')
@@ -224,10 +232,25 @@ class CenteredGrid(Field):
         normalize_data = math.normalize_to(self.data, total, epsilon)
         return self.with_data(normalize_data)
 
+    @struct.derived()
+    def frequencies(self):
+        return self.with_data(math.fftfreq(self.resolution, mode='vector') / self.dx)
 
-def _required_paddings_transposed(box, dx, target):
-    lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx))
-    upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper) / dx))
+    @struct.derived()
+    def squared_frequencies(self):
+        return self.with_data(math.sum(self.frequencies.data ** 2, axis=-1, keepdims=True))
+
+    def fft(self):
+        return self.with_data(math.fft(self.data))
+
+    @struct.derived()
+    def abs(self):
+        return self.with_data(math.abs(self.data))
+
+
+def _required_paddings_transposed(box, dx, target, threshold=1e-5):
+    lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx - threshold))
+    upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper) / dx - threshold))
     return [lower, upper]
 
 

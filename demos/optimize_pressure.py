@@ -22,7 +22,7 @@ class PressureOptimization(LearningApp):
         with self.model_scope():
             initial_velocity = randn(domain.staggered_grid(0).shape) * 0.2
             optimizable_velocity = variable(initial_velocity)
-        velocity = optimizable_velocity * mask(box[0:62, 0:31])
+        velocity = optimizable_velocity * mask(box[0:62, 0:31]).at(optimizable_velocity)
         velocity = divergence_free(velocity, domain)
         # --- Target ---
         y, x = np.meshgrid(*[np.arange(-0.5, dim + 0.5) for dim in domain.resolution])

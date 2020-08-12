@@ -1,25 +1,42 @@
+from phi.backend.backend import Backend
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND
 from phi.backend.scipy_backend import SciPyBackend
 from phi.struct.struct_backend import StructBroadcastBackend
-from .math_util import types, is_static_shape, zeros, ones, randn, randfreq
-from .helper import is_scalar, axes
+from .math_util import types, is_static_shape, zeros, ones, randn, randfreq, interpolate
+from .helper import is_scalar, axes, rank
 from .nd import (spatial_rank, spatial_dimensions, all_dimensions,
                  indices_tensor,
                  normalize_to,
                  batch_align, batch_align_scalar,
                  blur,
-                 l1_loss, l2_loss, l_n_loss,
+                 l1_loss, l2_loss, l_n_loss, frequency_loss,
                  divergence, gradient, axis_gradient, laplace,
-                 fourier_laplace, fourier_poisson,
-                 fftfreq,
+                 fourier_laplace, fourier_poisson, fftfreq, abs_square,
                  downsample2x, upsample2x, interpolate_linear,
                  spatial_sum,)
 from .batched import BATCHED, ShapeMismatch
+from . import optim
 
 
 # Setup Backend
 DYNAMIC_BACKEND.add_backend(SciPyBackend())
 DYNAMIC_BACKEND.add_backend(StructBroadcastBackend(DYNAMIC_BACKEND))
+
+
+def set_precision(floating_point_bits):
+    """
+    Sets the floating point precision of DYNAMIC_BACKEND which affects all registered backends.
+
+    If `floating_point_bits` is an integer, all floating point tensors created henceforth will be of the corresponding data type, float16, float32 or float64.
+    Operations may also convert floating point values to this precision, even if the input had a different precision.
+
+    If `floating_point_bits` is None, new tensors will default to float32 unless specified otherwise.
+    The output of math operations has the same precision as its inputs.
+
+    :param floating_point_bits: one of (16, 32, 64, None)
+    """
+    DYNAMIC_BACKEND.precision = floating_point_bits
+
 
 # Enable importing methods directly from math
 choose_backend = DYNAMIC_BACKEND.choose_backend
@@ -43,6 +60,7 @@ div = DYNAMIC_BACKEND.div
 divide_no_nan = DYNAMIC_BACKEND.divide_no_nan
 dot = DYNAMIC_BACKEND.dot
 dtype = DYNAMIC_BACKEND.dtype
+einsum = DYNAMIC_BACKEND.einsum
 equal = DYNAMIC_BACKEND.equal
 exp = DYNAMIC_BACKEND.exp
 expand_dims = DYNAMIC_BACKEND.expand_dims
