@@ -16,7 +16,7 @@ def get_undocumented_wildcards(modulename):
 
 class TestFlow(TestCase):
 
-    def check_phi_flow(self):
+    def test_phi_flow(self):
         modulename = "phi.flow"
         undocumented, loc_len = get_undocumented_wildcards(modulename)
         undocumented_fraction = len(undocumented) / loc_len
