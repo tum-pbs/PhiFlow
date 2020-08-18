@@ -20,4 +20,4 @@ class TestFlow(TestCase):
         modulename = "phi.flow"
         undocumented, loc_len = get_undocumented_wildcards(modulename)
         undocumented_fraction = len(undocumented) / loc_len
-        assert undocumented_fraction < 0.25, f"{len(undocumented)/loc_len:.2%} of {modulename} imports undocumented. Missing Docstrings in {len(undocumented)}/{loc_len}:\n- " + "\n- ".join(undocumented)
+        self.assertLess(undocumented_fraction, 0.25, f"{len(undocumented)/loc_len:.2%} of {modulename} imports undocumented. Missing Docstrings in {len(undocumented)}/{loc_len}:\n- " + "\n- ".join(undocumented))
