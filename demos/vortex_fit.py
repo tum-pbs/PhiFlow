@@ -16,7 +16,7 @@ def gaussian_falloff(distance, sigma):
 
 
 # --- Prepare reference state ---
-fluid = world.add(Fluid(Domain([80, 64], boundaries=CLOSED), velocity=Noise()), physics=IncompressibleFlow())
+fluid = world.add(Fluid(Domain([80, 64], boundaries=CLOSED), velocity=Noise(2)), physics=IncompressibleFlow())
 for _ in range(10):
     world.step()
 
