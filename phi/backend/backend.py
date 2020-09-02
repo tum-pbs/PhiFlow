@@ -82,7 +82,7 @@ class Backend:
     def equal(self, x, y):
         raise NotImplementedError()
 
-    def random_uniform(self, shape):
+    def random_uniform(self, shape, low=0, high=1):
         raise NotImplementedError(self)
 
     def random_normal(self, shape):
