@@ -256,7 +256,7 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
             self.validation_step(create_checkpoint=True)
         return self
 
-    def optimization_step(self, optim_nodes, log_loss=None):
+    def optimization_step(self, optim_nodes, log_loss=None, summary_key='train'):
         try:
             optim_nodes = list(optim_nodes)
         except:
@@ -269,7 +269,7 @@ Regardless of pipeline, the recommended way to obtain `dict` is through `build_g
             raise NotImplementedError('Pipeline %s' % self._pipeline)
         feed_dict = self._feed_dict(batch, True)
         try:
-            scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key='train', merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
+            scalar_values = self.session.run(optim_nodes + self.scalars, feed_dict, summary_key=summary_key, merged_summary=self.merged_scalars, time=self.steps)[len(optim_nodes):]
         except tf.errors.OutOfRangeError as error:
             if self._pipeline != 'dataset_handle':
                 raise error
