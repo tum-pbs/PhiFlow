@@ -36,7 +36,7 @@ class MultiscaleSolver(PressureSolver):
             return _mg_solve_forward(divergence, domain, pressure_guess, self.solvers)
 
         def pressure_gradient(op, grad):
-            return  _mg_solve_forward(grad, domain, None, self.solvers)[0]
+            return _mg_solve_forward(grad, domain, None, self.solvers)[0]
 
         return math.with_custom_gradient(_mg_solve_forward,
                                          [divergence, domain, pressure_guess, self.solvers],

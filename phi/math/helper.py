@@ -54,7 +54,7 @@ def _dim_shifted(tensor, axis, relative_shifts, components=None, diminish_others
     if components is None:
         component_slice = slice(None)
     elif isinstance(components, int):
-        component_slice = slice(components, components+1)
+        component_slice = slice(components, components + 1)
     elif isinstance(components, slice):
         component_slice = components
     else:

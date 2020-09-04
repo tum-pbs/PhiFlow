@@ -179,6 +179,7 @@ class App(object):
             generator = value
         else:
             assert isinstance(value, (np.ndarray, Field, float, int)), 'Unsupported type for field "%s": %s' % (name, type(value))
+
             def get_constant():
                 return value
             generator = get_constant
@@ -345,7 +346,7 @@ class App(object):
                 self.record_frame()
             if framerate is not None:
                 duration = time.time() - starttime
-                rest = 1.0/framerate - duration
+                rest = 1.0 / framerate - duration
                 if rest > 0:
                     self.current_action = 'Waiting'
                     time.sleep(rest)
@@ -358,6 +359,7 @@ class App(object):
     def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
         if framerate is None:
             framerate = self.framerate
+
         def target():
             self._pause = False
             step_count = 0
@@ -425,6 +427,6 @@ def display_name(python_name):
     for i in range(1, len(n)):
         if n[i] == '_':
             n[i] = ' '
-            if len(n) > i+1:
-                n[i+1] = n[i+1].upper()
+            if len(n) > i + 1:
+                n[i + 1] = n[i + 1].upper()
     return ''.join(n)

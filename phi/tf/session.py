@@ -80,7 +80,6 @@ class Session(object):
             summary_writer.add_summary(summary_buffer, time)
             summary_writer.flush()
 
-
         if trace:
             trace.timeliner.add_run()
 

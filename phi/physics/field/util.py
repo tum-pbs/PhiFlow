@@ -5,10 +5,10 @@ import numpy as np
 from numpy import pi
 from phi import math, struct
 from phi.geom import AABox
-from phi.physics.field import StaggeredGrid, ConstantField
-from .field import StaggeredSamplePoints, Field
+from phi.physics.field import ConstantField, StaggeredGrid
+
+from .field import Field, StaggeredSamplePoints
 from .grid import CenteredGrid
-from ..gradients import with_physics_gradient
 
 
 def diffuse(field, amount, substeps=1):
@@ -29,11 +29,9 @@ Otherwise, finite differencing is used to approximate the
         return struct.map(lambda grid: diffuse(grid, amount, substeps=substeps), field, leaf_condition=lambda x: isinstance(x, CenteredGrid))
     assert isinstance(field, CenteredGrid), "Cannot diffuse field of type '%s'" % type(field)
     if field.extrapolation == 'periodic' and not isinstance(amount, Field):
-        def diffuse_fft(field):
-            fft_laplace = -(2 * pi) ** 2 * field.squared_frequencies
-            diffuse_kernel = math.exp(fft_laplace * amount)
-            return math.real(math.ifft(field.fft() * math.to_complex(diffuse_kernel)))
-        return with_physics_gradient(diffuse_fft, [field], None)
+        fft_laplace = -(2 * pi) ** 2 * field.squared_frequencies
+        diffuse_kernel = math.exp(fft_laplace * amount)
+        return math.real(math.ifft(field.fft() * math.to_complex(diffuse_kernel)))
     else:
         data = field.data
         if isinstance(amount, Field):
@@ -49,8 +47,8 @@ def data_bounds(field):
     assert field.has_points
     try:
         data = field.points.data
-        min_vec = math.min(data, axis=tuple(range(len(data.shape)-1)))
-        max_vec = math.max(data, axis=tuple(range(len(data.shape)-1)))
+        min_vec = math.min(data, axis=tuple(range(len(data.shape) - 1)))
+        max_vec = math.max(data, axis=tuple(range(len(data.shape) - 1)))
     except StaggeredSamplePoints:
         boxes = [data_bounds(c) for c in field.unstack()]
         min_vec = math.min([b.lower for b in boxes], axis=0)
@@ -196,6 +194,6 @@ A cell i is flagged 1 if liquid_mask[i] = 1 and it has a non-liquid neighbour.
         # Create inner contour of particles
         bc_d = math.maximum(mask[(slice(None),) + d_slice + (slice(None),)],
                             mask[(slice(None),) + center_slice + (slice(None),)]) - \
-               mask[(slice(None),) + d_slice + (slice(None),)]
+            mask[(slice(None),) + d_slice + (slice(None),)]
         bcs = math.maximum(bcs, bc_d)
     return bcs

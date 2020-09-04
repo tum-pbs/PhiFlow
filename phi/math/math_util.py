@@ -1,13 +1,12 @@
 import warnings
-
-import numpy as np
 from numbers import Number
+import numpy as np
 
 from phi import struct
-from phi.struct.functions import mappable
-
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 from phi.backend.dynamic_backend import NoBackendFound
+from phi.struct.functions import mappable
+
 from .nd import fftfreq
 
 
@@ -61,6 +60,7 @@ def randn(shape, dtype=None):
 
 def randfreq(shape, dtype=None, power=8):
     warnings.warn('randfreq() is deprecated. Use Noise() instead.')
+
     def genarray(shape):
         fft = randn(shape, dtype) + 1j * randn(shape, dtype)
         k = fftfreq(shape[1:-1], mode='absolute')

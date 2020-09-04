@@ -146,7 +146,7 @@ class Domain(struct.Struct):
         if dtype is not None and math.dtype(grid.data) != dtype:
             grid = grid.copied_with(data=math.cast(grid.data, dtype))
         if name is not None:
-            grid = grid.copied_with(name=name, tags=(name,)+grid.tags)
+            grid = grid.copied_with(name=name, tags=(name,) + grid.tags)
         if extrapolation is not None:
             grid = grid.copied_with(extrapolation=extrapolation)
         return grid

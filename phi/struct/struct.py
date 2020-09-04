@@ -327,4 +327,3 @@ def equal(obj1, obj2):
             if obj1 is not obj2:
                 return False
     return True
-

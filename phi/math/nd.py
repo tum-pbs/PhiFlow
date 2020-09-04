@@ -6,7 +6,10 @@ import numpy as np
 from phi import struct
 from phi.backend.dynamic_backend import DYNAMIC_BACKEND as math
 from phi.struct.functions import mappable
-from .helper import _get_pad_width_axes, _get_pad_width, spatial_rank, _dim_shifted, _contains_axis, spatial_dimensions, all_dimensions, rank
+
+from .helper import (_contains_axis, _dim_shifted, _get_pad_width,
+                     _get_pad_width_axes, all_dimensions, rank,
+                     spatial_dimensions, spatial_rank)
 
 
 def indices_tensor(tensor, dtype=None):
@@ -338,9 +341,9 @@ def fourier_poisson(tensor, times=1):
     k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
     fft_laplace = -(2 * np.pi)**2 * k
     fft_laplace[(0,) * math.ndims(k)] = np.inf
-    return math.cast(math.real(math.ifft(math.divide_no_nan(frequencies, fft_laplace**times))), math.dtype(tensor))
-
-
+    inv_fft_laplace = 1 / fft_laplace
+    inv_fft_laplace[(0,) * math.ndims(k)] = 0
+    return math.cast(math.real(math.ifft(frequencies * inv_fft_laplace**times)), math.dtype(tensor))
 
 def fftfreq(resolution, mode='vector', dtype=None):
     """

@@ -16,8 +16,9 @@ def gaussian_falloff(distance, sigma):
 
 
 # --- Prepare reference state ---
-fluid = world.add(Fluid(Domain([80, 64], boundaries=CLOSED), velocity=Noise()), physics=IncompressibleFlow())
-for _ in range(10): world.step()
+fluid = world.add(Fluid(Domain([80, 64], boundaries=CLOSED), velocity=Noise(2)), physics=IncompressibleFlow())
+for _ in range(10):
+    world.step()
 
 # --- Set up optimization ---
 opt_velocity = variable(AngularVelocity(location=math.random_uniform((1, VORTEX_COUNT, 2)) * fluid.domain.resolution,

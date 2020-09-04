@@ -88,6 +88,6 @@ Lagrangian advection of particles.
     vel_k3 = velocity.at(points + 0.5 * dt * vel_k2)
     vel_k4 = velocity.at(points + dt * vel_k3)
     # --- Combine points with RK4 scheme ---
-    new_points = points + dt * (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
+    new_points = points + dt * (1 / 6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     result = SampledField(new_points.data, field.data, mode=field.mode, point_count=field._point_count, name=field.name)
     return result

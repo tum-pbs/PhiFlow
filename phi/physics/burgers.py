@@ -39,7 +39,7 @@ class Burgers(Physics):
 
     def step(self, v, dt=1.0, effects=()):
         if isinstance(v, BurgersVelocity):
-            return v.copied_with(velocity=self.step_velocity(v.velocity, v.viscosity, dt, effects, self.diffusion_substeps), age=v.age+dt)
+            return v.copied_with(velocity=self.step_velocity(v.velocity, v.viscosity, dt, effects, self.diffusion_substeps), age=v.age + dt)
         else:
             return self.step_velocity(v, self.default_viscosity, dt, effects, self.diffusion_substeps)
 

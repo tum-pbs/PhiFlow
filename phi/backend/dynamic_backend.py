@@ -181,7 +181,8 @@ class DynamicBackend(Backend):
         return self.choose_backend(tensor).shape(tensor)
 
     def to_float(self, x, float64=False):
-        if float64: warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
+        if float64:
+            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
         return self.choose_backend(x).to_float(x, float64=float64)
 
     def staticshape(self, tensor):

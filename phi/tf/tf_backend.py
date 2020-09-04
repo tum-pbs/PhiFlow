@@ -297,7 +297,8 @@ class TFBackend(Backend):
         elif version.parse(tf.__version__) >= version.parse('1.14.0'):
             return tf.gather_nd(values, indices, batch_dims=batch_dims)
         else:
-            if batch_dims > 1: raise NotImplementedError('batch_dims > 1 only supported on TensorFlow >= 1.14')
+            if batch_dims > 1:
+                raise NotImplementedError('batch_dims > 1 only supported on TensorFlow >= 1.14')
             batch_size = self.shape(values)[0]
             batch_ids = tf.reshape(tf.range(batch_size), [batch_size] + [1] * (self.ndims(indices) - 1))
             batch_ids = tf.tile(batch_ids, [1] + self.shape(indices)[1:-1] + [1])
@@ -341,7 +342,7 @@ class TFBackend(Backend):
         values = self.tile(values, repetitions)
 
         if duplicates_handling == 'add':
-            #Only for Tensorflow with custom gradient
+            # Only for Tensorflow with custom gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
                 result = tf.tensor_scatter_add(buffer, indices, values)
@@ -477,7 +478,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, fl
     out_spatial_size = sample_coords.get_shape().as_list()[1:-1]
 
     if sample_coords.shape[0] != inputs.shape[0]:
-        sample_coords = tf.tile(sample_coords, [batch_size]+[1]*(len(sample_coords.shape)-1))
+        sample_coords = tf.tile(sample_coords, [batch_size] + [1] * (len(sample_coords.shape) - 1))
 
     xy = tf.unstack(sample_coords, axis=-1)
     base_coords = [tf.floor(coords) for coords in xy]
@@ -505,8 +506,6 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, fl
             coord = tf.stack([batch_ids] + coord, -1)
             return tf.gather_nd(inputs, coord)  # NaN can cause negative integers here
 
-
-
     samples = [get_knot(bc) for bc in binary_neighbour_ids]
 
     def _pyramid_combination(samples, w_0, w_1):
@@ -520,7 +519,7 @@ def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, fl
 
 
 def _boundary_snap(sample_coords, spatial_shape):
-    max_indices = [l-1 for l in spatial_shape]
+    max_indices = [l - 1 for l in spatial_shape]
     for _i in range(len(spatial_shape)):
         max_indices = tf.expand_dims(max_indices, 0)
     sample_coords = tf.minimum(sample_coords, max_indices)

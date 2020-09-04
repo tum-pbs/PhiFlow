@@ -97,6 +97,7 @@ class LeafZip(object):
 Created by struct.zip to replace data.
 When a LeafZip is mapped using 'map', the values are passed as multiple arguments (*args).
     """
+
     def __init__(self, values):
         self.values = values
 
@@ -114,6 +115,7 @@ class IncompatibleStructs(Exception):
     """
 Thrown when two or more structs are required to have the same structure but do not, e.g. when trying to zip incompatible structs.
     """
+
     def __init__(self, *args):
         Exception.__init__(self, *args)
 
@@ -235,27 +237,28 @@ def print_differences(struct1, struct2, level=0):
     indent = '  ' * level
     if not isstruct(struct1) or not isstruct(struct2):
         if not equal(struct1, struct2):
-            print(indent+'Values not equal: "%s" and "%s".' % (struct1, struct2))
+            print(indent + 'Values not equal: "%s" and "%s".' % (struct1, struct2))
         return
     items1 = to_dict(struct1)
     items2 = to_dict(struct2)
     tested_keys = []
     for key1 in items1.keys():
         if key1 not in items2:
-            print(indent+'Item "%s" is missing from %s.' % (key1, struct2))
+            print(indent + 'Item "%s" is missing from %s.' % (key1, struct2))
         else:
             if not equal(items1[key1], items2[key1]):
                 print('Item "%s" differs between %s and %s.' % (key1, struct1, struct2))
-            print_differences(items1[key1], items2[key1], level+1)
+            print_differences(items1[key1], items2[key1], level + 1)
         tested_keys.append(key1)
     for key2 in items2.keys():
         if key2 not in tested_keys:
-            print(indent+'Item "%s" is missing from %s.' % (key2, struct1))
+            print(indent + 'Item "%s" is missing from %s.' % (key2, struct1))
 
 
 def mappable(leaf_condition=None, recursive=True, item_condition=None, unsafe_context=False, content_type=None):
     if unsafe_context:
         warnings.warn("unsafe_context is deprecated. Use content_type=INVALID instead.")
+
     def decorator(function):
         def broadcast_function(obj, *args, **kwargs):
             def function_with_args(x): return function(x, *args, **kwargs)

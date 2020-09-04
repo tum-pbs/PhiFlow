@@ -45,7 +45,7 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
             return other_field.with_data(array)
         if isinstance(other_field, StaggeredGrid):
             assert self.channels is None or self.channels == other_field.rank
-            return other_field.with_data([self.grid_sample(grid.resolution, grid.box.size, grid._batch_size, 1) for grid in other_field.unstack()])
+            return other_field.with_data([self.grid_sample(grid.resolution, grid.box.size, grid._batch_size or 1, 1) for grid in other_field.unstack()])
         if isinstance(other_field, Domain):
             array = self.grid_sample(other_field.resolution, other_field.box.size)
             return CenteredGrid(array, box=other_field.box, extrapolation='boundary')

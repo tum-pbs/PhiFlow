@@ -44,7 +44,6 @@ try:
 
     SAVE_IMAGES = True
 
-
     def save_img(array, scale, name, idx=0):
         if len(array.shape) <= 4:
             ima = np.reshape(array[idx], [array.shape[1], array.shape[2]])  # remove channel dimension , 2d
@@ -104,4 +103,3 @@ if MODE == 'TensorFlow':
 
         print("Step SESSION.run %04d done, DENSITY shape %s, means %s %s" %
               (i, FLOW.density.data.shape, np.mean(FLOW.density.data), np.mean(FLOW.velocity.staggered_tensor())))
-

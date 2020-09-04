@@ -13,7 +13,8 @@ class App(base_app.App):
         self.auto_convert = True
 
     def prepare(self):
-        if self.prepared: return
+        if self.prepared:
+            return
         base_app.App.prepare(self)
         if self.auto_convert:
             self.world.state = torch_from_numpy(self.world.state)
@@ -33,11 +34,10 @@ class App(base_app.App):
 
     def add_field(self, name, value):
         if callable(value):
-            wrapped = lambda: torch_to_numpy(value())
+            def wrapped(): return torch_to_numpy(value())
         else:
             wrapped = torch_to_numpy(value)
         base_app.App.add_field(self, name, wrapped)
-
 
 
 def EVERY_EPOCH(tfapp): return tfapp.steps % tfapp.epoch_size == 0
