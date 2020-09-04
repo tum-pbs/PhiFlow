@@ -24,8 +24,9 @@ class Session(object):
         self.saver = None
 
     def initialize_variables(self):
-        self._session.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver(max_to_keep=100, allow_empty=True)
+        with self.graph.as_default():
+            self._session.run(tf.global_variables_initializer())
+            self.saver = tf.train.Saver(max_to_keep=100, allow_empty=True)
 
     def run(self, fetches, feed_dict=None, summary_key=None, time=None, merged_summary=None, item_condition=struct.ALL_ITEMS):
         if isinstance(fetches, np.ndarray):
