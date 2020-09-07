@@ -59,19 +59,19 @@ except ImportError:
     # def save_img(array, scale, name, idx=0):
     print("(Skipping image output)")
 
+# prepare inflow region with a separate scalar grid
+INFLOW_DENSITY = math.zeros_like(FLOW.density)
+if DIM == 2:
+    # (batch, y, x, components)
+    INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
+else:
+    # (batch, z, y, x, components)
+    INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4 * 1):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
+
 # main , step 1: run FLOW sim (numpy), or only set up graph for TF
 
 for i in range(STEPS if (MODE == 'NumPy') else GRAPH_STEPS):
-    # simulation step; note that the core is only 3 lines for the actual simulation
-    # the RESt is setting up the inflow, and debug info afterwards
-
-    INFLOW_DENSITY = math.zeros_like(FLOW.density)
-    if DIM == 2:
-        # (batch, y, x, components)
-        INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
-    else:
-        # (batch, z, y, x, components)
-        INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4 * 1):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
+    # simulation step; the core are only the following 3 lines for the actual simulation (2x advection + div-free projection)
 
     DENSITY = advect.semi_lagrangian(DENSITY, VELOCITY, DT) + DT * INFLOW_DENSITY
     VELOCITY = advect.semi_lagrangian(VELOCITY, VELOCITY, DT) + buoyancy(DENSITY, 9.81, FLOW.buoyancy_factor) * DT
