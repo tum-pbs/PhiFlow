@@ -77,9 +77,8 @@ class SciPyBackend(Backend):
             result = x / y
         return np.where(y == 0, 0, result)
 
-    def random_uniform(self, shape):
-        """ random array [0.0, 1.0) """
-        return np.random.random(shape).astype(self.precision_dtype)
+    def random_uniform(self, shape, low=0, high=1):
+        return np.random.uniform(low, high, shape).astype(self.precision_dtype)
 
     def random_normal(self, shape):
         return np.random.standard_normal(shape).astype(self.precision_dtype)

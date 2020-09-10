@@ -341,8 +341,9 @@ def fourier_poisson(tensor, times=1):
     k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
     fft_laplace = -(2 * np.pi)**2 * k
     fft_laplace[(0,) * math.ndims(k)] = np.inf
-    return math.cast(math.real(math.ifft(math.divide_no_nan(frequencies, fft_laplace**times))), math.dtype(tensor))
-
+    inv_fft_laplace = 1 / fft_laplace
+    inv_fft_laplace[(0,) * math.ndims(k)] = 0
+    return math.cast(math.real(math.ifft(frequencies * inv_fft_laplace**times)), math.dtype(tensor))
 
 def fftfreq(resolution, mode='vector', dtype=None):
     """

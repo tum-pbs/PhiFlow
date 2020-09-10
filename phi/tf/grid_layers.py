@@ -20,7 +20,44 @@ def conv_layer(grid, filters, kernel_size, strides=1, padding='valid', activatio
     return CenteredGrid(result, box=box, extrapolation=grid.extrapolation)
 
 
-def residual_block(grid, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activation=tf.nn.leaky_relu, _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
+def residual_block(grid, nb_channels, kernel_size=3, stride=1, activation=tf.nn.leaky_relu, _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
+    if grid.rank == 2:
+        return _residual_block_2d(grid, nb_channels, kernel_size, stride, activation, _project_shortcut, padding, name, training, trainable, reuse)
+    if grid.rank == 1:
+        return _residual_block_1d(grid, nb_channels, kernel_size, stride, activation, _project_shortcut, padding, name, training, trainable, reuse)
+    raise NotImplementedError()
+
+
+def _residual_block_1d(grid, nb_channels, kernel_size=3, stride=1, activation=tf.nn.leaky_relu, _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
+    y = grid.data
+    shortcut = y
+
+    pad1 = [(kernel_size - 1) // 2, kernel_size // 2]
+
+    # down-sampling is performed with a stride of 2
+    y = tf.pad(y, [[0, 0], pad1, [0, 0]], mode=padding)
+    y = tf.layers.conv1d(y, nb_channels, kernel_size=kernel_size, strides=stride, padding='valid', name=None if name is None else name + "/conv1", trainable=trainable, reuse=reuse)
+    # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm1", training=training, trainable=trainable, reuse=reuse)
+    y = activation(y)
+
+    y = tf.pad(y, [[0, 0], pad1, [0, 0]], mode=padding)
+    y = tf.layers.conv1d(y, nb_channels, kernel_size=kernel_size, strides=1, padding='valid', name=None if name is None else name + "/conv2", trainable=trainable, reuse=reuse)
+    # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm2", training=training, trainable=trainable, reuse=reuse)
+
+    # identity shortcuts used directly when the input and output are of the same dimensions
+    if _project_shortcut or stride != 1:
+        # when the dimensions increase projection shortcut is used to match dimensions (done by 1×1 convolutions)
+        # when the shortcuts go across feature maps of two sizes, they are performed with a stride of 2
+        shortcut = tf.pad(shortcut, [[0, 0], pad1, [0, 0]], mode=padding)
+        shortcut = tf.layers.conv1d(shortcut, nb_channels, kernel_size=(1, 1), strides=stride, padding='valid', name=None if name is None else name + "/convid", trainable=trainable, reuse=reuse)
+        # shortcut = tf.layers.batch_normalization(shortcut, name=None if name is None else name+"/normid", training=training, trainable=trainable, reuse=reuse)
+
+    y += shortcut
+    y = activation(y)
+    return CenteredGrid(y, box=grid.box, extrapolation=grid.extrapolation)
+
+
+def _residual_block_2d(grid, nb_channels, kernel_size=(3, 3), stride=(1, 1), activation=tf.nn.leaky_relu, _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
     y = grid.data
     shortcut = y
 
@@ -32,7 +69,7 @@ def residual_block(grid, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activ
 
     # down-sampling is performed with a stride of 2
     y = tf.pad(y, [[0, 0], pad1, pad2, [0, 0]], mode=padding)
-    y = tf.layers.conv2d(y, nb_channels, kernel_size=kernel_size, strides=_strides, padding='valid', name=None if name is None else name + "/conv1", trainable=trainable, reuse=reuse)
+    y = tf.layers.conv2d(y, nb_channels, kernel_size=kernel_size, strides=stride, padding='valid', name=None if name is None else name + "/conv1", trainable=trainable, reuse=reuse)
     # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm1", training=training, trainable=trainable, reuse=reuse)
     y = activation(y)
 
@@ -41,11 +78,11 @@ def residual_block(grid, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activ
     # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm2", training=training, trainable=trainable, reuse=reuse)
 
     # identity shortcuts used directly when the input and output are of the same dimensions
-    if _project_shortcut or _strides != (1, 1):
+    if _project_shortcut or stride != (1, 1):
         # when the dimensions increase projection shortcut is used to match dimensions (done by 1×1 convolutions)
         # when the shortcuts go across feature maps of two sizes, they are performed with a stride of 2
         shortcut = tf.pad(shortcut, [[0, 0], pad1, pad2, [0, 0]], mode=padding)
-        shortcut = tf.layers.conv2d(shortcut, nb_channels, kernel_size=(1, 1), strides=_strides, padding='valid', name=None if name is None else name + "/convid", trainable=trainable, reuse=reuse)
+        shortcut = tf.layers.conv2d(shortcut, nb_channels, kernel_size=(1, 1), strides=stride, padding='valid', name=None if name is None else name + "/convid", trainable=trainable, reuse=reuse)
         # shortcut = tf.layers.batch_normalization(shortcut, name=None if name is None else name+"/normid", training=training, trainable=trainable, reuse=reuse)
 
     y += shortcut

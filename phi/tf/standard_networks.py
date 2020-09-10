@@ -57,7 +57,7 @@ Restrictions:
         else:
             raise NotImplementedError()
             y = y + res_in
-        y = y.padded([[0, 1], [0, 1]])
+        y = y.padded([[0, 1]] * y.rank)
         if resolutions:
             level_filters = filters if isinstance(filters, int) else reversed(filters)[level]
             y = conv_layer(y, level_filters, kernel_size=2, activation=tf.nn.relu, padding='valid', name='up_convolution_%d' % level, trainable=trainable, reuse=reuse)

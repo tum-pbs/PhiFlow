@@ -183,10 +183,10 @@ class _PoissonSolverChain(PoissonSolver):
             assert isinstance(solver, PoissonSolver)
             assert solver.supports_guess
 
-    def solve(self, field, domain, guess):
+    def solve(self, field, domain, guess, enable_backprop):
         iterations = None
         for solver in self.solvers:
-            guess, iterations = solver.solve(field, domain, guess)
+            guess, iterations = solver.solve(field, domain, guess, enable_backprop)
         return guess, iterations
 
 

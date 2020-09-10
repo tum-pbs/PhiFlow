@@ -63,8 +63,8 @@ class TFBackend(Backend):
             result = x / y
             return tf.where(tf.is_finite(result), result, tf.zeros_like(result))
 
-    def random_uniform(self, shape):
-        return tf.random.uniform(shape, dtype=self.precision_dtype)
+    def random_uniform(self, shape, low=0, high=1):
+        return tf.random.uniform(shape, minval=low, maxval=high, dtype=self.precision_dtype)
 
     def random_normal(self, shape):
         return tf.random.normal(shape, dtype=self.precision_dtype)

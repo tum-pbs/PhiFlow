@@ -50,8 +50,8 @@ class TorchBackend(Backend):
     def equal(self, x, y):
         return x == y
 
-    def random_uniform(self, shape):
-        return torch.rand(size=shape, dtype=self.precision_dtype)
+    def random_uniform(self, shape, low=0, high=1):
+        return torch.rand(size=shape, dtype=self.precision_dtype) * (high - low) + low
 
     def random_normal(self, shape):
         return torch.randn(size=shape, dtype=self.precision_dtype)
