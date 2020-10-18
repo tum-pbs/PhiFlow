@@ -19,7 +19,14 @@ from ._staggered_grid import StaggeredGrid, unstack_staggered_tensor, stack_stag
 from ._sampled import ArbitrarilySampledField
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
-from ._field_math import laplace, gradient, staggered_gradient, divergence, stagger, mean, staggered_curl_2d, pad, shift, normalize, expose_tensors, conjugate_gradient, divergence_free
+from ._field_math import (
+    laplace, gradient, staggered_gradient, divergence, stagger,staggered_curl_2d,
+    mean, pad, shift, normalize,
+    expose_tensors,
+    conjugate_gradient,
+    divergence_free,
+    diffuse,
+)
 from ._field_io import write, read
 
 from phi import math as _math

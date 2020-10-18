@@ -3,7 +3,7 @@ import warnings
 from phi.geom import Geometry
 from phi.field import Field, GeometryMask, ConstantField
 from phi import math, struct
-from .physics import State, Physics, StateDependency
+from ._physics import State, Physics, StateDependency
 
 GROW = 'grow'
 ADD = 'add'

@@ -4,10 +4,9 @@ import numpy
 import six
 
 from phi import struct
-from phi.physics.collective import StateCollection
-from phi.physics.domain import Domain
+from phi.physics._world import StateCollection, World
+from phi.physics._boundaries import Domain
 from phi.physics.fluid import Fluid
-from phi.physics.world import World
 
 
 class TestWorld(TestCase):

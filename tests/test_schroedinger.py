@@ -2,9 +2,9 @@ from unittest import TestCase
 
 import numpy
 
-from phi.geom import box
+from phi.geom import Box
 from phi.physics.domain import Domain
-from phi.physics.obstacle import Obstacle
+from phi.physics._boundaries import Obstacle
 from phi.physics.schroedinger import QuantumWave, SCHROEDINGER, WavePacket, StepPotential
 
 

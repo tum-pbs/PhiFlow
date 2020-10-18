@@ -24,11 +24,8 @@ from phi.geom import Geometry, Sphere, Box, union
 from phi import field
 from phi.field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, Noise
 
-from phi.physics import domain, fluid, advect
-from phi.physics.domain import Domain
-from phi.physics.material import Material, OPEN, CLOSED, PERIODIC, NO_SLIP, NO_STICK, STICKY, SLIPPERY
-from phi.physics.common_physics import diffuse
-from phi.physics.obstacle import Obstacle
+from phi.physics import _boundaries as boundaries, fluid, _advect as advect
+from phi.physics._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, NO_SLIP, NO_STICK, STICKY, SLIPPERY, Obstacle
 
 from phi.data.fluidformat import write_sim_frame
 

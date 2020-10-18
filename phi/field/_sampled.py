@@ -2,7 +2,6 @@ import numpy as np
 
 from phi import struct, math
 from phi.geom import Sphere
-from phi.physics.domain import Domain
 
 from ._field import Field
 from ._grid import CenteredGrid

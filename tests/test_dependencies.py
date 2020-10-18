@@ -4,8 +4,8 @@ import numpy
 
 from phi.geom import box
 from phi.field import Inflow, Fan
-from phi.physics.physics import STATIC, Physics, StateDependency
-from phi.physics.world import World
+from phi.physics._physics import STATIC, Physics, StateDependency
+from phi.physics._world import World
 
 
 class CustomPhys(Physics):

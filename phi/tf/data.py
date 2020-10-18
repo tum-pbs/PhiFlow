@@ -4,7 +4,7 @@ import tensorflow as tf
 
 from phi import struct, math
 from phi.data.fluidformat import _transform_for_writing, _writing_staticshape, read_zipped_array, _slugify_filename
-from phi.physics.world import StateProxy
+from phi.physics._world import StateProxy
 from phi.struct.context import _unsafe
 from phi.data import SceneSource, Dataset as BaseDataset
 

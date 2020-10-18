@@ -1,13 +1,13 @@
 from phi.flow import *
 
 
-domain = Domain([32, 40], boundaries=CLOSED, box=Box[0:100, 0:100])
+domain = Domain([128, 160], boundaries=CLOSED, box=Box[0:100, 0:100])
 dt = 1.0
 buoyancy_factor = 0.1
 
 velocity = domain.sgrid(0)
-density = domain.grid(0)
-inflow = domain.grid(Sphere(center=(50, 10), radius=5)) * 0.2
+density = domain.grid(Sphere(center=(50, 10), radius=5))
+inflow = density * 0.2
 pressure = domain.grid(0)
 divergence = domain.grid(0)
 
@@ -16,7 +16,7 @@ def step():
     global velocity, density, divergence, pressure
     density = advect.semi_lagrangian(density, velocity, dt) + inflow
     velocity = advect.semi_lagrangian(velocity, velocity, dt) + (density * (0, buoyancy_factor)).at(velocity)
-    velocity, pressure, iterations, divergence = field.divergence_free(velocity, bake=None)
+    velocity, pressure, iterations, divergence = field.divergence_free(velocity, bake=None, relative_tolerance=0.01)
 
 
 step()

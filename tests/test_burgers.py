@@ -7,7 +7,7 @@ from phi.physics import Physics
 from phi.physics.domain import Domain
 from phi.field import FieldEffect
 from phi.physics.schroedinger import SinPotential
-from phi.physics.world import World
+from phi.physics._world import World
 
 
 class ForcingPhysics(Physics):

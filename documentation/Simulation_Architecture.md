@@ -12,7 +12,7 @@ For each simulation type, there are two distinct entities:
 - `Physics` objects implement the actual solver functionality to progress a simulation forward.
 
 `State` and `Physics` objects can exist independently of each other.
-They only interact through the `step` method defined in [`phi.physics.physics.py`](../phi/physics/physics.py).
+They only interact through the `step` method defined in [`phi.physics.physics.py`](../phi/physics/_physics.py).
 
 ```python
 def step(self, state, dt=1.0, **dependent_states)
@@ -36,7 +36,7 @@ state0 = Fluid(Domain([64, 64]), density=0, velocity=0)
 state1 = INCOMPRESSIBLE_FLOW.step(state0, dt=1.0, inflows=[inflow])
 ```
 
-The first two lines after the import create immutable state objects. The last line executes a simulation step using the global [`Physics`](../phi/physics/physics.py) object INCOMPRESSIBLE_FLOW.
+The first two lines after the import create immutable state objects. The last line executes a simulation step using the global [`Physics`](../phi/physics/_physics.py) object INCOMPRESSIBLE_FLOW.
 
 We could also create our own physics object, e.g. to use a specific [pressure solver](Pressure_Solvers.md), or modify the default physics object:
 
@@ -57,7 +57,7 @@ The following table outlines the most important properties of `States` and `Phys
 |                 | States                                                                                                | Physics                                                                                  |
 |-----------------|-------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
 | Information     | States contain all information about a system at one point in time. The data can change over time.    | Physics objects describe the laws required to evolve one state in time.                  |
-| Base class      | [State](../phi/physics.physics.py)(extends [Struct](../phi/struct/stuct.py))                          | [Physics](../phi/physics/physics.py) [(phi.physics.physics)](../phi/physics/physics.py) |
+| Base class      | [State](../phi/physics.physics.py)(extends [Struct](../phi/struct/stuct.py))                          | [Physics](../phi/physics/_physics.py) [(phi.physics.physics)](../phi/physics/_physics.py) |
 | Mutability      | Immutable                                                                                             | Stateless                                                                                |
 | Serialization   | NumPy arrays                                                                                          |                                                                                          |
 | Example classes | `StaggeredGrid`, `Fluid`, `Obstacle`, `Inflow`,                                                  | `IncompressibleFlow`, `BurgersPhysics`, `Static`, `GeometryMovement`                            |
@@ -109,4 +109,4 @@ The returned state of any `Physics.step` call must always have the same `name` p
 Additionally, the world manages dependencies between simulations.
 The dependencies are stored in the `Physics` objects as either tags or names.
 Tags are unique identifier strings that allow simulations to find other simulations.
-The world (or more precisely the [CollectivePhysics](../phi/physics/collective.py)) then finds all states that match the dependencies and passes them to the `step` method.
+The world (or more precisely the [CollectivePhysics](../phi/physics/_world.py)) then finds all states that match the dependencies and passes them to the `step` method.

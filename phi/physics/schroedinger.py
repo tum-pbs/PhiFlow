@@ -4,7 +4,7 @@ from phi import math, struct
 from . import Physics, StateDependency
 from .domain import DomainState
 from phi.field import AnalyticField, GeometryMask
-from .effect import ADD, FieldEffect, effect_applied
+from ._effect import ADD, FieldEffect, effect_applied
 from ..geom import union
 
 

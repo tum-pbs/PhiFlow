@@ -1,12 +1,54 @@
-import warnings
+from __future__ import annotations
+
 from functools import partialmethod
 
 from phi import math, struct
-from phi.math import spatial_shape
-from phi.geom import Box, GridCell
 from phi.field import CenteredGrid, StaggeredGrid
-from .material import OPEN, Material
-from .physics import State
+from phi.field import GeometryMask
+from phi.geom import Box, GridCell
+from phi.geom import Geometry
+from phi.math import extrapolation
+from phi.math import spatial_shape
+from ._effect import FieldEffect
+from ._physics import Physics
+from ._physics import State
+
+
+class Material:
+    """
+    Defines the extrapolation modes / boundary conditions for a surface.
+    The surface can be an obstacle or the domain boundary.
+    """
+    def __init__(self, name, grid_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation):
+        self.name = name
+        self.grid_extrapolation = grid_extrapolation
+        self.vector_extrapolation = vector_extrapolation
+        self.active_extrapolation = active_extrapolation
+        self.accessible_extrapolation = accessible_extrapolation
+
+    def __repr__(self):
+        return self.name
+
+    @staticmethod
+    def as_material(obj: Material or tuple or list or dict) -> Material:
+        if isinstance(obj, Material):
+            return obj
+        if isinstance(obj, (tuple, list)):
+            axes = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
+            obj = {ax: mat for ax, mat in zip(axes, obj)}
+        if isinstance(obj, dict):
+            grid_extrapolation = {ax: mat.grid_extrapolation for ax, mat in obj.items()}
+            vector_extrapolation = {ax: mat.vector_extrapolation for ax, mat in obj.items()}
+            active_extrapolation = {ax: mat.active_extrapolation for ax, mat in obj.items()}
+            accessible_extrapolation = {ax: mat.accessible_extrapolation for ax, mat in obj.items()}
+            return Material('mixed', grid_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
+        raise NotImplementedError()
+
+
+OPEN = Material('open', extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ONE)
+CLOSED = NO_STICK = SLIPPERY = Material('slippery', extrapolation.BOUNDARY, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO)
+NO_SLIP = STICKY = Material('sticky', extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO)
+PERIODIC = Material('periodic', extrapolation.PERIODIC, extrapolation.PERIODIC, extrapolation.ONE, extrapolation.ONE)
 
 
 class Domain:
@@ -103,25 +145,52 @@ class Domain:
 
 
 @struct.definition()
-class DomainState(State):
+class Obstacle(State):
+    """
+    An obstacle defines boundary conditions inside a geometry.
+    It can also have a linear and angular velocity.
+    """
+
+    def __init__(self, geometry, material=CLOSED, velocity=0, tags=('obstacle',), **kwargs):
+        State.__init__(self, **struct.kwargs(locals()))
 
     @struct.constant()
-    def domain(self, domain: Domain) -> Domain:
-        assert isinstance(domain, Domain)
-        return domain
+    def geometry(self, geometry):
+        assert isinstance(geometry, Geometry)
+        return geometry
 
-    @property
-    def resolution(self):
-        return self.domain.resolution
+    @struct.constant(default=CLOSED)
+    def material(self, material):
+        assert isinstance(material, Material)
+        return material
 
-    @property
-    def rank(self):
-        return self.domain.rank
+    @struct.constant(default=0)
+    def velocity(self, velocity):
+        return velocity
 
-    def centered_grid(self, name, value, components=1, dtype=None):
-        warnings.warn("DomainState.centered_grid() is deprecated. The arguments 'name, components, dtype' were ignored.", DeprecationWarning)
-        return self.domain.grid(value, CenteredGrid)
+    @struct.constant(default=0)
+    def angular_velocity(self, av):
+        return av
 
-    def staggered_grid(self, name, value, dtype=None):
-        warnings.warn("DomainState.staggered_grid() is deprecated. The arguments 'name, components, dtype' were ignored.", DeprecationWarning)
-        return self.domain.vec_grid(value, StaggeredGrid)
+    @struct.derived()
+    def is_stationary(self):
+        return self.velocity is 0 and self.angular_velocity is 0
+
+
+class GeometryMovement(Physics):
+
+    def __init__(self, geometry_function):
+        Physics.__init__(self)
+        self.geometry_at = geometry_function
+
+    def step(self, obj, dt=1.0, **dependent_states):
+        next_geometry = self.geometry_at(obj.age + dt)
+        h = 1e-2 * dt if dt > 0 else 1e-2
+        perturbed_geometry = self.geometry_at(obj.age + dt + h)
+        velocity = (perturbed_geometry.center - next_geometry.center) / h
+        if isinstance(obj, Obstacle):
+            return obj.copied_with(geometry=next_geometry, velocity=velocity, age=obj.age + dt)
+        if isinstance(obj, FieldEffect):
+            with struct.ALL_ITEMS:
+                next_field = struct.map(lambda x: x.copied_with(geometries=next_geometry) if isinstance(x, GeometryMask) else x, obj.field, leaf_condition=lambda x: isinstance(x, GeometryMask))
+            return obj.copied_with(field=next_field, age=obj.age + dt)

@@ -8,13 +8,10 @@ import numpy as np
 from phi import math, struct, field
 from phi.field import GeometryMask, AngularVelocity, CenteredGrid, Grid, divergence
 from phi.geom import union, GridCell
-from . import advect
-from .domain import Domain, DomainState
-from .effect import Gravity, effect_applied, gravity_tensor
-from .material import Material
-from .obstacle import Obstacle
-from .physics import Physics, StateDependency
-from ..math._helper import _multi_roll
+from . import _advect
+from ._physics import Physics, StateDependency, State
+from ._effect import Gravity, effect_applied, gravity_tensor
+from ._boundaries import Domain, Material, Obstacle
 
 
 def build_masks(domain: Domain, obstacles=()):
@@ -89,18 +86,22 @@ def masked_laplace(pressure: CenteredGrid, active: CenteredGrid, accessible: Cen
 
 
 @struct.definition()
-class Fluid(DomainState):
+class Fluid(State):
     """
     A Fluid state consists of a density field (centered grid) and a velocity field (staggered grid).
     """
 
     def __init__(self, domain, density=0.0, velocity=0.0, buoyancy_factor=0.0, tags=('fluid', 'velocityfield', 'velocity'), name='fluid', **kwargs):
-        DomainState.__init__(self, **struct.kwargs(locals()))
+        State.__init__(self, **struct.kwargs(locals()))
 
     def default_physics(self):
         return IncompressibleFlow()
 
-    @struct.variable(default=0, dependencies=DomainState.domain)
+    @struct.constant()
+    def domain(self, domain):
+        return domain
+
+    @struct.variable(default=0, dependencies='domain')
     def density(self, density):
         """
 The marker density is stored in a CenteredGrid with dimensions matching the domain.
@@ -108,7 +109,7 @@ It describes the number of particles per physical volume.
         """
         return self.centered_grid('density', density)
 
-    @struct.variable(default=0, dependencies=DomainState.domain)
+    @struct.variable(default=0, dependencies='domain')
     def velocity(self, velocity):
         """
 The velocity is stored in a StaggeredGrid with dimensions matching the domain.
@@ -155,8 +156,8 @@ Supports obstacles, density effects, velocity effects, global gravity.
         if self.make_input_divfree:
             velocity, solve_info = divergence_free(velocity, obstacles, return_info=True)
         # --- Advection ---
-        density = advect.semi_lagrangian(density, velocity, dt=dt)
-        velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
+        density = _advect.semi_lagrangian(density, velocity, dt=dt)
+        velocity = advected_velocity = _advect.semi_lagrangian(velocity, velocity, dt=dt)
         if self.conserve_density and np.all(Material.solid(fluid.domain.boundaries)):
             density = field.normalize(density, fluid.density)
         # --- Effects ---

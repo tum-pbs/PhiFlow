@@ -1,5 +1,5 @@
 from phi.flow import *
-from phi.physics.world import world
+from phi.physics._world import world
 from phi.physics.fluid import Fluid, IncompressibleFlow
 
 

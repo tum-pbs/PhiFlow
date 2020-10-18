@@ -4,7 +4,7 @@ import numpy
 
 from phi import math
 from phi.geom import box
-from phi.physics.collective import StateCollection
+from phi.physics._world import StateCollection
 from phi.physics.domain import Domain
 from phi.field import CenteredGrid
 from phi import struct

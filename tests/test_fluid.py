@@ -7,11 +7,10 @@ from phi.geom import Sphere, Box, box
 from phi.physics.domain import Domain
 from phi.field import StaggeredGrid, Noise
 from phi.field import Fan, Inflow
-from phi.physics.material import CLOSED, OPEN
+from phi.physics._boundaries import CLOSED, OPEN, Obstacle
 from phi.physics.fluid import Fluid, INCOMPRESSIBLE_FLOW, IncompressibleFlow
-from phi.physics.obstacle import Obstacle
 from phi.physics.pressuresolver.sparse import SparseCG
-from phi.physics.world import World
+from phi.physics._world import World
 
 
 class TestFluid(TestCase):

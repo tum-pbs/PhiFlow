@@ -56,7 +56,7 @@ class StaggeredGrid(Grid):
             if isinstance(value, StaggeredGrid) and value.box == box and np.all(value.resolution == resolution):
                 return value
             else:
-                components = value.unstack('vector')  # if 'vector' in value.shape else [value] * box.rank
+                components = value.unstack('vector') if 'vector' in value.shape else [value] * box.rank
                 tensors = []
                 for dim, comp in zip(resolution.spatial.names, components):
                     comp_res, comp_box = extend_symmetric(resolution, box, dim)

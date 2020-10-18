@@ -2,7 +2,7 @@ import numpy as np
 from phi import math
 from . import tf
 from phi.field import Field, CenteredGrid
-from ..physics.domain import Domain
+from ..physics._boundaries import Domain
 from .grid_layers import conv_layer, residual_block
 
 
