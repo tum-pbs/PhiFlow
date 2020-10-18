@@ -8,9 +8,9 @@ from tensorflow.python.client import timeline
 
 class Timeliner:
 
-    _timeline_dict = None
-    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-    run_metadata = tf.RunMetadata()
+    # _timeline_dict = None
+    # options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+    # run_metadata = tf.RunMetadata()
 
     def update_timeline(self, chrome_trace):
         # convert chrome trace to python dict

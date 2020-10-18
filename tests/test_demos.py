@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 import phi.viz.display as display
-from phi.physics.field import Field
+from phi.field import Field
 
 
 class PerformModelTests(display.AppDisplay):

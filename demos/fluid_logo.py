@@ -1,4 +1,9 @@
 import sys
+from phi.physics.fluid import Fluid, IncompressibleFlow
+from phi.physics.effect import Inflow
+from phi.physics.world import world
+from phi.physics.worldutil import obstacle_mask
+
 if 'tf' in sys.argv:
     from phi.tf.flow import *  # Use TensorFlow
     MODE = 'TensorFlow'

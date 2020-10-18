@@ -1,6 +1,36 @@
 from phi.flow import *
 
-world.add(Fluid(Domain([80, 64], boundaries=CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
-world.add(Inflow(Sphere(center=(10, 32), radius=5), rate=0.2))
 
-show(App('Simple Plume', framerate=10))
+domain = Domain([32, 40], boundaries=CLOSED, box=Box[0:100, 0:100])
+dt = 1.0
+buoyancy_factor = 0.1
+
+velocity = domain.sgrid(0)
+density = domain.grid(0)
+inflow = domain.grid(Sphere(center=(50, 10), radius=5)) * 0.2
+pressure = domain.grid(0)
+divergence = domain.grid(0)
+
+
+def step():
+    global velocity, density, divergence, pressure
+    density = advect.semi_lagrangian(density, velocity, dt) + inflow
+    velocity = advect.semi_lagrangian(velocity, velocity, dt) + (density * (0, buoyancy_factor)).at(velocity)
+    velocity, pressure, iterations, divergence = field.divergence_free(velocity, bake=None)
+
+
+step()
+
+
+app = App('Simple Plume', framerate=10)
+app.add_field('Velocity', lambda: velocity)
+app.add_field('Density', lambda: density)
+app.add_field('Divergence', lambda: divergence)
+app.add_field('Pressure', lambda: pressure)
+app.add_field('Inflow', lambda: inflow)
+app.step = step
+show(app)
+
+# while True:
+#
+#     app.update({'velocity': velocity, 'density': density})

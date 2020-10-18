@@ -7,7 +7,7 @@ from phi.tf.util import placeholder
 
 from phi import math, struct
 from phi.geom import box
-from phi.physics.field import CenteredGrid
+from phi.field import CenteredGrid
 from phi.tf.util import variable
 
 

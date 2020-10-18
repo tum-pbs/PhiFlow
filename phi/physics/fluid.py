@@ -1,23 +1,91 @@
 """
 Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 """
-import warnings
-from numbers import Number
+from functools import partial
 
 import numpy as np
-import six
 
-from phi import math, struct
-from phi.geom import union
-from phi.physics.field import Field, mask
-from phi.physics.field.angular_velocity import AngularVelocity
-
+from phi import math, struct, field
+from phi.field import GeometryMask, AngularVelocity, CenteredGrid, Grid, divergence
+from phi.geom import union, GridCell
+from . import advect
 from .domain import Domain, DomainState
-from .field import CenteredGrid, StaggeredGrid, advect, union_mask
-from .field.effect import Gravity, effect_applied, gravity_tensor, FieldEffect, FieldPhysics
-from .material import OPEN, Material
+from .effect import Gravity, effect_applied, gravity_tensor
+from .material import Material
+from .obstacle import Obstacle
 from .physics import Physics, StateDependency
-from .pressuresolver.solver_api import FluidDomain, poisson_solve
+from ..math._helper import _multi_roll
+
+
+def build_masks(domain: Domain, obstacles=()):
+    obstacle_mask = union([obstacle.geometry for obstacle in obstacles])
+    active_mask = 1 - obstacle_mask.sample_at(GridCell(velocity.resolution, velocity.box).center)
+    active_extrapolation = math.extrapolation.PERIODIC if velocity.extrapolation == math.extrapolation.PERIODIC else math.extrapolation.ZERO
+    active_mask = CenteredGrid(active_mask, domain.box, active_extrapolation)
+    active_mask = domain.grid(active_mask, Material.active_extrapolation)
+    accessible_extrapolation = math.extrapolation.ONE if velocity.extrapolation in (math.extrapolation.PERIODIC, math.extrapolation.BOUNDARY) else math.extrapolation.ZERO
+    accessible_mask = CenteredGrid(active_mask.data, active_mask.box, accessible_extrapolation)
+    return active_mask, accessible_mask
+
+
+def layer_obstacle_velocities(velocity: Grid, *obstacles: Obstacle):
+    for obstacle in obstacles:
+        if not obstacle.is_stationary:
+            obs_mask = GeometryMask(obstacle.geometry).at(velocity)
+            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None).at(velocity)
+            obs_vel = (angular_velocity + obstacle.velocity).at(velocity)
+            velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
+    return velocity
+
+
+def solve_pressure(velocity, active_mask, accessible_mask):
+    divergence_field = field.divergence(velocity)
+    pressure_extrapolation = velocity.extrapolation
+    pressure_guess = CenteredGrid.sample(0, velocity.resolution, velocity.box, pressure_extrapolation)
+    laplace_fun = partial(masked_laplace, active=active_mask, accessible=accessible_mask)
+    converged, pressure, iterations = field.conjugate_gradient(laplace_fun, divergence_field, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, gradient)
+    if not math.all(converged):
+        raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,))
+    return pressure
+
+
+def divergence_free_obstacles(velocity: Grid, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, return_info=False):
+    """
+Projects the given velocity field by solving for and subtracting the pressure.
+    :param return_info: if True, returns a dict holding information about the solve as a second object
+    :param velocity: StaggeredGrid
+    :param obstacles: list of Obstacles
+    :return: divergence-free velocity as StaggeredGrid
+    """
+    active_mask, accessible_mask = build_masks(velocity)
+    hard_bcs = field.stagger(accessible_mask, math.minimum)
+    velocity *= hard_bcs
+    velocity = layer_obstacle_velocities(velocity, obstacles)
+    pressure = solve_pressure()
+    gradp = field.staggered_gradient(pressure)
+    gradp *= hard_bcs
+    velocity -= gradp
+    return velocity if not return_info else (velocity, {'pressure': pressure, 'iterations': iterations, 'divergence': divergence_field})
+
+
+def masked_laplace(pressure: CenteredGrid, active: CenteredGrid, accessible: CenteredGrid) -> CenteredGrid:
+    """
+    Compute the laplace of a pressure-like field in the presence of obstacles.
+
+    :param pressure: input field
+    :param active: Scalar field encoding active cells as ones and inactive (open/obstacle) as zero.
+        Active cells are those for which physical constants_dict such as pressure or velocity are calculated.
+    :param accessible: Scalar field encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
+    :return: laplace of pressure given the boundary conditions
+    """
+    # TODO active * pressure has extrapolation=0
+    left_act_pr, right_act_pr = field.shift(active * pressure, (-1, 1), 'vector')
+    left_access, right_access = field.shift(accessible, (-1, 1), 'vector')
+    left_right = (left_act_pr + right_act_pr) * active
+    center = (left_access + right_access) * pressure
+    result = (left_right - center) / pressure.dx ** 2
+    result = math.sum(result.data, axis='vector')
+    return CenteredGrid(result, pressure.box, pressure.extrapolation.gradient().gradient())
 
 
 @struct.definition()
@@ -29,7 +97,8 @@ class Fluid(DomainState):
     def __init__(self, domain, density=0.0, velocity=0.0, buoyancy_factor=0.0, tags=('fluid', 'velocityfield', 'velocity'), name='fluid', **kwargs):
         DomainState.__init__(self, **struct.kwargs(locals()))
 
-    def default_physics(self): return INCOMPRESSIBLE_FLOW
+    def default_physics(self):
+        return IncompressibleFlow()
 
     @struct.variable(default=0, dependencies=DomainState.domain)
     def density(self, density):
@@ -62,16 +131,6 @@ This force is scaled with the buoyancy_factor (float).
         return "Fluid[density: %s, velocity: %s]" % (self.density, self.velocity)
 
 
-def create_smoke(domain, density=0.0, velocity=0.0, buoyancy_factor=0.1):
-    velocity_field = StaggeredGrid.sample(velocity, domain, name='velocity')
-    velocity_physics = IncompressibleVFlow(domain.boundaries)
-    density_field = CenteredGrid.sample(density, domain, name='density')
-    density_physics = [Drift(), FieldPhysics('density')]
-    buoyancy_state = FieldEffect(None, targets='velocity')
-    buoyancy_physics = ProportionalGForce('density', -buoyancy_factor)
-    return (velocity_field, density_field, buoyancy_state), (velocity_physics, density_physics, buoyancy_physics)
-
-
 class IncompressibleFlow(Physics):
     """
 Physics modelling the incompressible Navier-Stokes equations.
@@ -79,12 +138,11 @@ Supports buoyancy proportional to the marker density.
 Supports obstacles, density effects, velocity effects, global gravity.
     """
 
-    def __init__(self, pressure_solver=None, make_input_divfree=False, make_output_divfree=True, conserve_density=True):
+    def __init__(self, make_input_divfree=False, make_output_divfree=True, conserve_density=True):
         Physics.__init__(self, [StateDependency('obstacles', 'obstacle', blocking=True),
                                 StateDependency('gravity', 'gravity', single_state=True),
                                 StateDependency('density_effects', 'density_effect', blocking=True),
                                 StateDependency('velocity_effects', 'velocity_effect', blocking=True)])
-        self.pressure_solver = pressure_solver
         self.make_input_divfree = make_input_divfree
         self.make_output_divfree = make_output_divfree
         self.conserve_density = conserve_density
@@ -95,12 +153,12 @@ Supports obstacles, density effects, velocity effects, global gravity.
         velocity = fluid.velocity
         density = fluid.density
         if self.make_input_divfree:
-            velocity, solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
+            velocity, solve_info = divergence_free(velocity, obstacles, return_info=True)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
         if self.conserve_density and np.all(Material.solid(fluid.domain.boundaries)):
-            density = density.normalized(fluid.density)
+            density = field.normalize(density, fluid.density)
         # --- Effects ---
         for effect in density_effects:
             density = effect_applied(effect, density, dt)
@@ -110,142 +168,9 @@ Supports obstacles, density effects, velocity effects, global gravity.
         divergent_velocity = velocity
         # --- Pressure solve ---
         if self.make_output_divfree:
-            velocity, solve_info = divergence_free(velocity, fluid.domain, obstacles, pressure_solver=self.pressure_solver, return_info=True)
+            velocity, solve_info = divergence_free(velocity, obstacles, return_info=True)
         solve_info['advected_velocity'] = advected_velocity
         solve_info['divergent_velocity'] = divergent_velocity
         return fluid.copied_with(density=density, velocity=velocity, age=fluid.age + dt, solve_info=solve_info)
 
 
-class IncompressibleVFlow(Physics):
-
-    def __init__(self, boundaries, pressure_solver=None):
-        Physics.__init__(self, dependencies=[
-            StateDependency('obstacles', 'obstacle'),
-            StateDependency('velocity_effects', 'velocity_effect', blocking=True),
-        ])
-        self.boundaries = boundaries
-        self.pressure_solver = pressure_solver
-
-    def step(self, velocity, dt=1.0, obstacles=(), velocity_effects=()):
-        velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
-        for effect in velocity_effects:  # this is where buoyancy is applied
-            velocity = effect_applied(effect, velocity, dt)
-        velocity, _solve_info = divergence_free(velocity, Domain(velocity.resolution, self.boundaries, velocity.box), obstacles, pressure_solver=self.pressure_solver, return_info=True)
-        return velocity.copied_with(age=velocity.age + dt)
-
-
-INCOMPRESSIBLE_FLOW = IncompressibleFlow()
-
-
-class Drift(Physics):
-    """
-Passive advection with external velocity field.
-This Physics requires the world to contain a single velocity field or velocity-carrying state such as Fluid.
-
-This Physics can be applied to all built-in Fields.
-The fields will then be advected with the velocity field each time step.
-    """
-
-    def __init__(self, use_updated_velocity=False, conserve=True, velocity_field_name='velocity'):
-        Physics.__init__(self, dependencies=[StateDependency('velocity', velocity_field_name, single_state=True, blocking=use_updated_velocity)])
-        self.conserve = conserve
-
-    def step(self, field, dt=1.0, velocity=None):
-        if not isinstance(velocity, Field):
-            velocity = velocity.velocity
-        advected = advect.advect(field, velocity, dt=dt).copied_with(age=field.age + dt)
-        if self.conserve and isinstance(field, (CenteredGrid, StaggeredGrid)) and np.all(~np.char.equal(struct.flatten(field.extrapolation), 'constant')):  # If field has zero extrapolation, it cannot be conserved
-            advected = advected.normalized(field)
-        return advected
-
-
-def buoyancy(density, gravity, buoyancy_factor):
-    """
-Computes the buoyancy force proportional to the density.
-    :param density: CenteredGrid
-    :param gravity: vector or float
-    :param buoyancy_factor: float
-    :return: StaggeredGrid for the domain of the density
-    """
-    warnings.warn('buoyancy() is deprecated. Use (density * -gravity * buoyancy_factor).at(target_grid) instead.', DeprecationWarning)
-    if isinstance(gravity, (int, float)):
-        gravity = math.to_float(math.as_tensor([gravity] + ([0] * (density.rank - 1))))
-    result = StaggeredGrid.from_scalar(density, -gravity * buoyancy_factor)
-    return result
-
-
-class ProportionalGForce(Physics):
-    """
-Computes a force field proportional to the scalar `source` field that points in the direction of gravity.
-A ProportionalGForce object must be accompanied by a FieldEffect state object.
-    """
-
-    def __init__(self, source, factor):
-        Physics.__init__(self, dependencies=[
-            StateDependency('source_field', source, single_state=True, blocking=True),
-            StateDependency('gravity', 'gravity', single_state=True)
-        ])
-        self.factor = factor
-
-    def step(self, effect, dt=1.0, source_field=None, gravity=Gravity()):
-        gravity = gravity_tensor(gravity, source_field.rank)
-        return effect.copied_with(field=source_field * gravity * self.factor)
-
-
-def _is_div_free(velocity, is_div_free):
-    assert is_div_free in (True, False, None)
-    if isinstance(is_div_free, bool):
-        return is_div_free
-    if isinstance(velocity, Number):
-        return True
-    return False
-
-
-def solve_pressure(divergence, fluiddomain, pressure_solver=None, guess=None):
-    """
-Computes the pressure from the given velocity divergence using the specified solver.
-    :param divergence: CenteredGrid
-    :param fluiddomain: FluidDomain instance
-    :param pressure_solver: PressureSolver to use, None for default
-    :param guess: CenteredGrid with same size and resolution as divergence
-    :return: pressure field, iteration count
-    :rtype: CenteredGrid, int
-    """
-    return poisson_solve(divergence, fluiddomain, solver=pressure_solver, guess=guess)
-
-
-def divergence_free(velocity, domain=None, obstacles=(), pressure_solver=None, return_info=False, gradient='implicit'):
-    """
-Projects the given velocity field by solving for and subtracting the pressure.
-    :param return_info: if True, returns a dict holding information about the solve as a second object
-    :param velocity: StaggeredGrid
-    :param domain: Domain matching the velocity field, used for boundary conditions
-    :param obstacles: list of Obstacles
-    :param pressure_solver: PressureSolver. Uses default solver if none provided.
-    :return: divergence-free velocity as StaggeredGrid
-    """
-    assert isinstance(velocity, StaggeredGrid)
-    # --- Set up FluidDomain ---
-    if domain is None:
-        domain = Domain(velocity.resolution, OPEN)
-    obstacle_mask = mask(union([obstacle.geometry for obstacle in obstacles]), antialias=False)
-    if obstacle_mask is not None:
-        obstacle_grid = obstacle_mask.at(velocity.center_points).copied_with(extrapolation='constant')
-        active_mask = 1 - obstacle_grid
-    else:
-        active_mask = math.ones(domain.centered_shape(name='active', extrapolation='constant'))
-    accessible_mask = active_mask.copied_with(extrapolation=Material.accessible_extrapolation_mode(domain.boundaries))
-    fluiddomain = FluidDomain(domain, active=active_mask, accessible=accessible_mask)
-    # --- Boundary Conditions, Pressure Solve ---
-    velocity = fluiddomain.with_hard_boundary_conditions(velocity)
-    for obstacle in obstacles:
-        if not obstacle.is_stationary:
-            obs_mask = mask(obstacle.geometry, antialias=True)
-            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None)
-            velocity = ((1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)).at(velocity)
-    divergence_field = velocity.divergence(physical_units=False)
-    pressure, iterations = poisson_solve(divergence_field, fluiddomain, solver=pressure_solver, gradient=gradient)
-    pressure *= velocity.dx[0]
-    gradp = StaggeredGrid.gradient(pressure)
-    velocity -= fluiddomain.with_hard_boundary_conditions(gradp)
-    return velocity if not return_info else (velocity, {'pressure': pressure, 'iterations': iterations, 'divergence': divergence_field})

@@ -1,27 +1,30 @@
 import warnings
 
-from phi import struct, math
-from phi.geom import GLOBAL_AXIS_ORDER
+from phi import math
+from phi.math import GLOBAL_AXIS_ORDER
 from ._geom import Geometry
 from ._sphere import Sphere
 
 
-@struct.definition()
 class RotatedGeometry(Geometry):
 
-    def __init__(self, geometry, angle, **kwargs):
-        Geometry.__init__(self, **struct.kwargs(locals()))
-
-    @struct.constant()
-    def geometry(self, geometry):
-        assert isinstance(geometry, Geometry)
+    def __init__(self, geometry: Geometry, angle):
         if isinstance(geometry, RotatedGeometry):
             warnings.warn('Using RotatedGeometry of RotatedGeometry. Consider simplifying your setup.')
-        return geometry
+        self._geometry = geometry
+        self._angle = angle
 
-    @struct.constant()
-    def angle(self, rotation):
-        return rotation
+    @property
+    def shape(self):
+        return self._geometry.shape
+
+    @property
+    def geometry(self):
+        return self._geometry
+
+    @property
+    def angle(self):
+        return self._angle
 
     @property
     def center(self):
@@ -30,18 +33,16 @@ class RotatedGeometry(Geometry):
     def global_to_child(self, location):
         """ Inverse transform """
         delta = location - self.center
-        if math.staticshape(location)[-1] == 2:
-            angle = -math.batch_align(self.angle, 0, location)
-            sin = math.sin(angle)
-            cos = math.cos(angle)
-            y, x = math.unstack(delta, axis=-1)
+        if location.shape.vector == 2:
+            sin = math.sin(self.angle)
+            cos = math.cos(self.angle)
+            y, x = delta.vector.unstack()
             if GLOBAL_AXIS_ORDER.is_x_first:
                 x, y = y, x
             rot_x = cos * x - sin * y
             rot_y = sin * x + cos * y
-            rotated = math.stack([rot_y, rot_x], axis=-1)
-        elif math.staticshape(location)[-1] == 3:
-            angle = math.batch_align(self.angle, 1, location)
+            rotated = math.channel_stack([rot_y, rot_x], 'vector')
+        elif location.shape.vector == 3:
             raise NotImplementedError('not yet implemented')  # ToDo apply angle
         else:
             raise NotImplementedError('Rotation only supported in 2D and 3D')
@@ -66,10 +67,10 @@ class RotatedGeometry(Geometry):
         return self.geometry.rank
 
     def shifted(self, delta):
-        return self.copied_with(geometry=self.geometry.shifted(delta))
+        return RotatedGeometry(self._geometry.shifted(delta), self._angle)
 
     def rotated(self, angle):
-        return self.copied_with(angle=self.angle + angle)
+        return RotatedGeometry(self._geometry, self._angle + angle)
 
 
 def rotate(geometry, angle):

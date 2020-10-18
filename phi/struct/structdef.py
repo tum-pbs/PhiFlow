@@ -1,7 +1,6 @@
 import copy
 
 import numpy
-import six
 
 from .trait import Trait
 
@@ -117,7 +116,7 @@ Represents an item type of a struct, a variable or a constant.
         for i, dependency in enumerate(self.dependencies):
             if isinstance(dependency, Item):
                 self.dependencies[i] = dependency.name
-            elif isinstance(dependency, six.string_types):
+            elif isinstance(dependency, str):
                 pass
             else:
                 raise ValueError('Illegal dependency: %s on item %s' % (dependency, name))
@@ -183,7 +182,7 @@ Example: to override the shape of an item, put the following just below its decl
             name = name_or_attribute.__name__
         else:
             name = name_or_attribute
-        assert isinstance(name, six.string_types), 'Not an attribute: %s' % name
+        assert isinstance(name, str), 'Not an attribute: %s' % name
         return name
 
     def __get__(self, instance, owner):
@@ -274,7 +273,7 @@ def _get_dependencies(item, item_dict, struct_cls):
 def _resolve_dependencies(dependency, item_dict, struct_cls):
     if dependency is None:
         return []
-    if isinstance(dependency, six.string_types):
+    if isinstance(dependency, str):
         try:
             return [item_dict[dependency]]
         except KeyError:

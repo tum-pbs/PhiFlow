@@ -1,27 +1,36 @@
 from phi import math, struct
 
 from ._geom import Geometry
+from ._geom_util import _fill_spatial_with_singleton
+from ..math import tensor, combined_shape
 
 
-@struct.definition(traits=[math.BATCHED])
 class Sphere(Geometry):
+    """
+    N-dimensional sphere.
+    Defined through center position and radius.
+    """
 
-    def __init__(self, center, radius, **kwargs):
-        Geometry.__init__(self, **struct.kwargs(locals()))
+    def __init__(self, center, radius):
+        self._center = tensor(center, names='..., vector', channel_dims=1, spatial_dims=0)
+        self._radius = tensor(radius, names='..., vector', channel_dims=0, spatial_dims=0)
+        self._shape = _fill_spatial_with_singleton(combined_shape(self._center, self._radius))
 
-    @struct.constant(min_rank=0)
-    def radius(self, radius):
-        return radius
+    @property
+    def shape(self):
+        return self._shape
 
-    @struct.constant(min_rank=1)
-    def center(self, center):
-        return center
+    @property
+    def radius(self):
+        return self._radius
+
+    @property
+    def center(self):
+        return self._center
 
     def lies_inside(self, location):
-        center = math.batch_align(self.center, 1, location)
-        radius = math.batch_align(self.radius, 0, location)
-        distance_squared = math.sum((location - center) ** 2, axis=-1, keepdims=True)
-        return distance_squared <= radius ** 2
+        distance_squared = math.sum((location - self.center) ** 2, axis=0)
+        return distance_squared <= self.radius ** 2
 
     def approximate_signed_distance(self, location):
         """
@@ -30,12 +39,10 @@ Very close to the sphere center, the distance takes a constant value.
         :param location: float tensor of shape (batch_size, ..., rank)
         :return: float tensor of shape (*location.shape[:-1], 1).
         """
-        center = math.batch_align(self.center, 1, location)
-        radius = math.batch_align(self.radius, 0, location)
-        distance_squared = math.sum((location - center)**2, axis=-1, keepdims=True)
-        distance_squared = math.maximum(distance_squared, radius * 1e-2)  # Prevent infinite gradient at sphere center
+        distance_squared = math.vec_squared(location - self.center)
+        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite gradient at sphere center
         distance = math.sqrt(distance_squared)
-        return distance - radius
+        return distance - self.radius
 
     def bounding_radius(self):
         return self.radius
@@ -44,7 +51,7 @@ Very close to the sphere center, the distance takes a constant value.
         return self.radius
 
     def shifted(self, delta):
-        return self.copied_with(center=self.center + delta)
+        return Sphere(self._center + delta, self._radius)
 
     def rotated(self, angle):
         return self

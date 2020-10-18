@@ -1,19 +1,17 @@
 import warnings
+from functools import partialmethod
 
-import numpy as np
 from phi import math, struct
-from phi.geom import AABox
-from phi.geom.geometry import assert_same_rank
-from phi.struct.tensorop import collapse, collapsed_gather_nd
-
-from . import State
+from phi.math import spatial_shape
+from phi.geom import Box, GridCell
+from phi.field import CenteredGrid, StaggeredGrid
 from .material import OPEN, Material
+from .physics import State
 
 
-@struct.definition()
-class Domain(struct.Struct):
+class Domain:
 
-    def __init__(self, resolution, boundaries=OPEN, box=None, **kwargs):
+    def __init__(self, resolution: math.Shape or tuple or list, boundaries: Material or tuple or list = OPEN, box=None):
         """
         Simulation domain that specifies size and boundary conditions.
 
@@ -29,210 +27,88 @@ class Domain(struct.Struct):
 
         DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain with an open top and otherwise solid boundaries
 
-        :param grid: Grid object or 1D tensor specifying the grid dimensions
+        :param resolution: 1D tensor specifying the grid dimensions
         :param boundaries: Material or list of Material/Pair of Material
+        :param box: physical size of the domain, box-like
         """
-        struct.Struct.__init__(self, **struct.kwargs(locals()))
+        self.resolution = spatial_shape(resolution)
+        self.boundaries = Material.as_material(boundaries)
+        self.box = Box.to_box(box, resolution_hint=self.resolution)
 
-    @staticmethod
-    def as_domain(domain_like):
-        assert domain_like is not None
-        if isinstance(domain_like, Domain):
-            return domain_like
-        if isinstance(domain_like, int):
-            return Domain([domain_like])
-        if isinstance(domain_like, (tuple, list)):
-            return Domain(domain_like)
-        raise ValueError('Not a valid domain: %s' % domain_like)
-
-    @struct.constant()
-    def resolution(self, resolution):
-        if len(math.staticshape(resolution)) == 0:
-            resolution = [resolution]
-        return np.array(resolution)
-
-    @struct.constant(dependencies='resolution')
-    def box(self, box):
-        return AABox.to_box(box, resolution_hint=self.resolution)
-
-    @struct.derived()
-    def dx(self):
-        return self.box.size / self.resolution
-
-    @struct.constant(default=OPEN)
-    def boundaries(self, boundaries):
-        assert isinstance(boundaries, (Material, list, tuple))
-        if isinstance(boundaries, (tuple, list)):
-            assert len(boundaries) == self.rank
-        return collapse(boundaries)
+    def __repr__(self):
+        return '(%s, size=%s)' % (self.resolution, self.box.size)
 
     @property
     def rank(self):
-        return len(self.resolution)
+        return self.resolution.rank
 
-    def __repr__(self):
-        if self.is_valid:
-            return '(%s, size=%s)' % (self.resolution, self.box.size)
-        else:
-            return struct.Struct.__repr__(self)
+    @property
+    def dx(self):
+        return self.box.size / self.resolution
 
-    def cell_index(self, global_position):
-        local_position = self.box.global_to_local(global_position) * self.resolution
-        position = math.to_int(local_position - 0.5)
-        position = math.maximum(0, position)
-        position = math.minimum(position, self.resolution - 1)
-        return position
+    @property
+    def cells(self):
+        return GridCell(self.resolution, self.box)
 
     def center_points(self):
-        from .field import CenteredGrid
-        warnings.warn("Domain.center_points is deprecated. Use CenteredGrid.getpoints().data instead.", DeprecationWarning)
-        return CenteredGrid.getpoints(self.box, self.resolution).data
-        # idx_zyx = np.meshgrid(*[np.arange(0.5, dim + 0.5, 1) for dim in self.resolution], indexing="ij")
-        # return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
+        return self.cells.center
 
-    def staggered_points(self, dimension):
-        idx_zyx = np.meshgrid(*[np.arange(0.5, dim + 1.5, 1) if dim != dimension else np.arange(0, dim + 1, 1) for dim in self.resolution], indexing="ij")
-        return math.expand_dims(math.stack(idx_zyx, axis=-1), 0)
-
-    def indices(self):
+    def grid(self, value, type: type = CenteredGrid, extrapolation: math.Extrapolation = None):
         """
-        Constructs a grid containing the index-location as components.
-        Each index denotes the location within the tensor starting from zero.
-        Indices are encoded as vectors in the index tensor.
+        Creates a grid matching the domain by sampling the given value.
 
-        :param dtype: a numpy data type (default float32)
-        :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
+        This method uses Material.extrapolation_mode of the domain's boundaries.
+
+        :param value: Field or tensor or tensor function
+        :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.vector_extrapolation
+        :return: Grid of specified type
         """
-        idx_zyx = np.meshgrid(*[range(dim) for dim in self.resolution], indexing="ij")
-        return math.expand_dims(np.stack(idx_zyx, axis=-1))
-
-    @staticmethod
-    def equal(grid1, grid2):
-        assert isinstance(grid1, Domain), 'Not a Domain: %s' % type(grid1)
-        assert isinstance(grid2, Domain), 'Not a Domain: %s' % type(grid2)
-        return np.all(grid1.resolution == grid2.resolution) and grid1.box == grid2.box
-
-    def centered_shape(self, components=1, batch_size=1, name=None, extrapolation=None, age=0.0):
-        warnings.warn("Domain.centered_shape and Domain.centered_grid are deprecated. Use CenteredGrid.sample() instead.", DeprecationWarning)
-        from phi.physics.field import CenteredGrid
-        return CenteredGrid(tensor_shape(batch_size, self.resolution, components), age=age, box=self.box, extrapolation=extrapolation, name=name, batch_size=batch_size, flags=(), content_type=struct.Struct.shape)
-
-    def staggered_shape(self, batch_size=1, name=None, extrapolation=None, age=0.0):
-        grids = []
-        for axis in range(self.rank):
-            shape = _extend1(tensor_shape(batch_size, self.resolution, 1), axis)
-            from phi.physics.field.staggered_grid import staggered_component_box
-            box = staggered_component_box(self.resolution, axis, self.box)
-            from phi.physics.field import CenteredGrid
-            grid = CenteredGrid(shape, box, age=age, extrapolation=extrapolation, name=None, batch_size=batch_size, flags=(), content_type=struct.Struct.shape)
-            grids.append(grid)
-        from phi.physics.field import StaggeredGrid
-        return StaggeredGrid(grids, age=age, box=self.box, name=name, batch_size=batch_size, extrapolation=extrapolation, flags=(), content_type=struct.Struct.shape)
-
-    def centered_grid(self, data, components=1, dtype=None, name=None, batch_size=None, extrapolation=None):
-        warnings.warn("Domain.centered_shape and Domain.centered_grid are deprecated. Use CenteredGrid.sample() instead.", DeprecationWarning)
-        from phi.physics.field import CenteredGrid
-        if callable(data):  # data is an initializer
-            shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
-            try:
-                grid = data(shape, dtype=dtype)
-            except TypeError:
-                grid = data(shape)
-            if grid.age == ():
-                grid._age = 0.0
+        extrapolation = extrapolation or self.boundaries.grid_extrapolation
+        if type is CenteredGrid:
+            return CenteredGrid.sample(value, self.resolution, self.box, extrapolation)
+        elif type is StaggeredGrid:
+            return StaggeredGrid.sample(value, self.resolution, self.box, extrapolation)
         else:
-            grid = CenteredGrid.sample(data, self, batch_size=batch_size)
-        assert grid.component_count == components, "Field has %d components but %d are required for '%s'" % (grid.component_count, components, name)
-        if dtype is not None and math.dtype(grid.data) != dtype:
-            grid = grid.copied_with(data=math.cast(grid.data, dtype))
-        if name is not None:
-            grid = grid.copied_with(name=name, tags=(name,) + grid.tags)
-        if extrapolation is not None:
-            grid = grid.copied_with(extrapolation=extrapolation)
-        return grid
+            raise ValueError('Unknown grid type: %s' % type)
 
-    def _centered_grid(self, data, components=1, dtype=None, name=None, batch_size=None, extrapolation=None):
-        warnings.warn("Domain.centered_shape and Domain.centered_grid are deprecated. Use CenteredGrid.sample() instead.", DeprecationWarning)
-        from phi.physics.field import CenteredGrid
-        if extrapolation is None:
-            extrapolation = Material.extrapolation_mode(self.boundaries)
-        if callable(data):  # data is an initializer
-            shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
-            try:
-                data = data(shape, dtype=dtype)
-            except TypeError:
-                data = data(shape)
-            if data.age == ():
-                data._age = 0.0
-        from phi.physics.field import Field
-        if isinstance(data, Field):
-            assert_same_rank(data.rank, self.rank, 'data does not match Domain')
-            data = data.at(CenteredGrid.getpoints(self.box, self.resolution))
-            if name is not None:
-                data = data.copied_with(name=name, extrapolation=extrapolation)
-                data._batch_size = batch_size
-            grid = data
-        elif isinstance(data, (int, float)):
-            shape = self.centered_shape(components, batch_size=batch_size, name=name, extrapolation=extrapolation, age=0.0)
-            grid = math.zeros(shape, dtype=dtype) + data
-        else:
-            grid = CenteredGrid(data, box=self.box, extrapolation=extrapolation, name=name)
-        return grid
+    def vector_grid(self, value, type: type = CenteredGrid, extrapolation: math.Extrapolation = None):
+        """
+        Creates a vector grid matching the domain by sampling the given value.
 
-    def staggered_grid(self, data, dtype=None, name=None, batch_size=None, extrapolation=None):
-        if extrapolation is None:
-            extrapolation = Material.extrapolation_mode(self.boundaries)
-        if callable(data):  # data is an initializer
-            shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation, age=())
-            try:
-                data = data(shape, dtype=dtype)
-            except TypeError:
-                data = data(shape)
-            if data.age == ():
-                data._age = 0.0
-                for field in data.data:
-                    field._age = 0.0
-        from phi.physics.field import Field
-        if isinstance(data, Field):
-            from phi.physics.field import StaggeredGrid
-            if isinstance(data, StaggeredGrid) and np.all(data.resolution == self.resolution) and data.box == self.box:
-                grid = data
+        This method uses Material.vector_extrapolation_mode of the domain's boundaries.
+
+        :param value: Field or tensor or tensor function
+        :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+        :return: Grid of specified type
+        """
+        extrapolation = extrapolation or self.boundaries.vector_extrapolation
+        if type is CenteredGrid:
+            grid = CenteredGrid.sample(value, self.resolution, self.box, extrapolation)
+            if grid.shape.channel.rank == 0:
+                grid = grid.with_data(math.expand_channel(grid.data, self.rank, 0))
             else:
-                grid = data.at(StaggeredGrid.sample(0, self, batch_size=batch_size))  # ToDo this is not ideal
-        elif isinstance(data, (int, float)):
-            shape = self.staggered_shape(batch_size=batch_size, name=name, extrapolation=extrapolation)
-            from phi.physics.field import DIVERGENCE_FREE
-            grid = (math.zeros(shape, dtype=dtype) + data).copied_with(flags=[DIVERGENCE_FREE])
+                assert grid.shape.channel.sizes[0] == self.rank
+            return grid
+        elif type is StaggeredGrid:
+            return StaggeredGrid.sample(value, self.resolution, self.box, extrapolation)
         else:
-            from .field import StaggeredGrid
-            grid = StaggeredGrid(data, self.box, name, batch_size=None, extrapolation=extrapolation)
-        return grid
+            raise ValueError('Unknown grid type: %s' % type)
 
-    def surface_material(self, axis=0, upper_boundary=False):
-        return collapsed_gather_nd(self.boundaries, axis, upper_boundary)
+    staggered_grid = partialmethod(vector_grid, type=StaggeredGrid)
 
-
-def _friction_mask(masks_and_multipliers):
-    for mask, multiplier in masks_and_multipliers:
-        return mask
-
-
-def tensor_shape(batch_size, resolution, components):
-    return np.concatenate([[batch_size], resolution, [components]])
-
-
-def _extend1(shape, axis):
-    shape = list(shape)
-    shape[axis + 1] += 1
-    return shape
+    vgrid = vector_grid
+    sgrid = staggered_grid
 
 
 @struct.definition()
 class DomainState(State):
 
     @struct.constant()
-    def domain(self, domain):
-        return Domain.as_domain(domain)
+    def domain(self, domain: Domain) -> Domain:
+        assert isinstance(domain, Domain)
+        return domain
 
     @property
     def resolution(self):
@@ -243,9 +119,9 @@ class DomainState(State):
         return self.domain.rank
 
     def centered_grid(self, name, value, components=1, dtype=None):
-        extrapolation = Material.extrapolation_mode(self.domain.boundaries)
-        return self.domain.centered_grid(value, dtype=dtype, name=name, components=components, batch_size=self._batch_size, extrapolation=extrapolation)
+        warnings.warn("DomainState.centered_grid() is deprecated. The arguments 'name, components, dtype' were ignored.", DeprecationWarning)
+        return self.domain.grid(value, CenteredGrid)
 
     def staggered_grid(self, name, value, dtype=None):
-        extrapolation = Material.vector_extrapolation_mode(self.domain.boundaries)
-        return self.domain.staggered_grid(value, dtype=dtype, name=name, batch_size=self._batch_size, extrapolation=extrapolation)
+        warnings.warn("DomainState.staggered_grid() is deprecated. The arguments 'name, components, dtype' were ignored.", DeprecationWarning)
+        return self.domain.vec_grid(value, StaggeredGrid)

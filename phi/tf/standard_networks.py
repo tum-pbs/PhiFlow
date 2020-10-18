@@ -1,7 +1,7 @@
 import numpy as np
 from phi import math
 from . import tf
-from ..physics.field import Field, CenteredGrid, StaggeredGrid
+from phi.field import Field, CenteredGrid
 from ..physics.domain import Domain
 from .grid_layers import conv_layer, residual_block
 

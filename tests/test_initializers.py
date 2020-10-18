@@ -4,7 +4,7 @@ import numpy as np
 
 from phi.geom import box
 from phi import math, struct
-from phi.physics.field import CenteredGrid
+from phi.field import CenteredGrid
 
 
 class TestInitializers(TestCase):

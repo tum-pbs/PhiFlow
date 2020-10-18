@@ -5,7 +5,7 @@ A central advantage of Staggered grids is that it makes operations such as compu
 
 ![image](./figures/Staggered.png)
 
-In Φ<sub>Flow</sub>, staggered grids are represented as instances of [StaggeredGrid](../phi/physics/field/staggered_grid.py) and implement the [Field API](Fields.md).
+In Φ<sub>Flow</sub>, staggered grids are represented as instances of [StaggeredGrid](../phi/field/_staggered_grid.py) and implement the [Field API](Fields.md).
 Since each voxel has two faces per dimension, staggered grids contain more values than the corresponding centered grids.
 In memory, each component of a staggered grid is held in a different array while on disk, a single array, called `staggered_tensor`, is stored.
 

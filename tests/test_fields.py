@@ -2,16 +2,30 @@ from unittest import TestCase
 
 import numpy as np
 
-from phi import struct, math
-from phi.physics.domain import Domain
-from phi.geom import box, AABox
-from phi.physics.field import CenteredGrid, Field, unstack_staggered_tensor, StaggeredGrid, data_bounds, ConstantField, Noise, staggered_curl_2d
-from phi.physics.field.flag import SAMPLE_POINTS
-from phi.physics.field.staggered_grid import stack_staggered_components
-from phi.physics.fluid import Fluid
+from phi.flow import *
+from phi import math
+from phi.geom import box
+from phi.field import *
+from phi.math._tensors import Tensor
 
 
 class TestFields(TestCase):
+
+    def test_centered_grid_properties(self):
+        physics_config.x_last()
+        f = CenteredGrid(math.zeros([1, 3, 4, 1]), box[0:30, 0:40])
+        print(repr(f))
+        self.assertIsInstance(f.box.lower, Tensor)
+        f.dx.assert_close(10)
+        self.assertEqual('(y=3, x=4, 2)', repr(f.elements.center.shape))
+
+    def test_staggered_grid_properties(self):
+        physics_config.x_first()
+        f = StaggeredGrid.from_staggered_tensor(math.zeros([1, 4, 5, 2]), box[0:30, 0:40])
+        x, y = f.x, f.y
+        self.assertIsInstance(x, CenteredGrid)
+        x.dx.assert_close(y.dx, 10)
+
 
     def test_compatibility(self):
         f = CenteredGrid(math.zeros([1, 3, 4, 1]), box[0:3, 0:4])
@@ -65,7 +79,7 @@ class TestFields(TestCase):
         tensor = math.zeros([1, 5, 5, 2])
         f = StaggeredGrid(tensor)
         bounds = data_bounds(f)
-        self.assertIsInstance(bounds, AABox)
+        self.assertIsInstance(bounds, Box)
         np.testing.assert_equal(bounds.lower, 0)
         np.testing.assert_equal(bounds.upper, [4, 4])
 

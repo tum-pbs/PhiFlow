@@ -84,7 +84,17 @@ AUTORUN = 'autorun' in sys.argv
 
 
 def show(app=None, **config):
+    """
+    Launch the registered GUI (web interface by default).
 
+    This method may block until the GUI is closed.
+
+    This method prepares the app before showing it. No more fields should be added to the app after this method is invoked.
+
+    :param app: the application to display
+    :param config: additional GUI configuration parameters, see the PhiFlow documentation
+    :return: reference to the GUI, depending on the implementaiton. For the web interface this may be the web server instance.
+    """
     frame_records = inspect.stack()[1]
     calling_module = inspect.getmodulename(frame_records[1])
     python_file = os.path.basename(sys.argv[0])[:-3]

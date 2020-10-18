@@ -1,14 +1,12 @@
-# coding=utf-8
-import logging
 import warnings
+
 import numpy as np
+import tensorflow as tf
 from tensorflow.python import pywrap_tensorflow
-from . import tf, TF_BACKEND
 
 from phi import struct, math
-from phi.math.math_util import is_static_shape
-from phi.physics.field.staggered_grid import StaggeredGrid
-from phi.physics.field.grid import CenteredGrid
+from phi.field import StaggeredGrid, CenteredGrid
+from . import TF_BACKEND
 
 
 def _tf_name(trace, basename):
@@ -17,26 +15,6 @@ def _tf_name(trace, basename):
         return None
     result = path if basename is None else basename + '/' + path
     return result
-
-
-def placeholder(shape, dtype=None, basename='Placeholder'):
-    if struct.isstruct(dtype):
-        def placeholder_map(trace):
-            shape, dtype = trace.value
-            return tf.placeholder(dtype, shape, _tf_name(trace, basename))
-        zipped = struct.zip([shape, dtype], leaf_condition=is_static_shape)
-        return struct.map(placeholder_map, zipped, leaf_condition=is_static_shape, trace=True)
-    else:
-        def f(trace): return tf.placeholder(TF_BACKEND.precision_dtype if dtype is None else dtype, trace.value, _tf_name(trace, basename))
-        return struct.map(f, shape, leaf_condition=is_static_shape, trace=True)
-
-
-def placeholder_like(obj, basename='Placeholder'):
-    warnings.warn("placeholder_like may not respect the batch dimension. "
-                  "For State objects, use placeholder(state.shape) instead.", DeprecationWarning, stacklevel=2)
-
-    def f(attr): return tf.placeholder(attr.value.dtype, attr.value.shape, _tf_name(attr, basename))
-    return struct.map(f, obj, leaf_condition=is_static_shape, trace=True)
 
 
 def variable(initial_value, dtype=None, basename='Variable', trainable=True):
@@ -61,131 +39,6 @@ def is_placeholder(obj):
 
 
 isplaceholder = is_placeholder
-
-
-def dataset_handle(shape, dtype, frames=None):
-    """
-Creates a single virtual TensorFlow dataset (iterator_handle) for the given struct.
-The dataset is expected to hold contain all fields required for loading the obj given the current context item condition.
-From the dataset, graph input tensors are derived and arranged into a struct of the same shape as obj.
-If an integer is passed to frames, a list of such structs is created by unstacking the second-outer-most dimension of the dataset.
-    :param shape: tensor shape or struct of tensor shapes
-    :param dtype: data type of struct of data types matching shape
-    :param frames: Number of frames contained in each example of the dataset. Expects shape (batch_size, frames, ...)
-    :type frames: int or None
-    :return: list of struct and placeholder.
-     1. If frames=None: valid struct corresponding to obj. If frames>1: list thereof
-     2. placeholder for a TensorFlow dataset iterator handle (dtype=string)
-    :rtype: tuple
-    """
-    shapes = tuple(struct.flatten(shape, leaf_condition=is_static_shape))
-    if struct.isstruct(dtype):
-        dtypes = tuple(struct.flatten(dtype))
-        assert len(dtypes) == len(shapes)
-    else:
-        dtypes = [dtype] * len(shapes)
-    if frames is not None:
-        shapes = tuple([shape[0:1] + (frames,) + shape[1:] for shape in shapes])
-    # --- TF Dataset handle from string ---
-    iterator_handle = tf.placeholder(tf.string, shape=[], name='dataset_iterator_handle')
-    iterator = tf.data.Iterator.from_string_handle(iterator_handle, output_types=dtypes, output_shapes=shapes)
-    next_element = iterator.get_next()
-    # --- Create resulting struct by splitting `next_element`s ---
-    if frames is None:
-        next_element_list = list(next_element)
-        next_struct = struct.map(lambda _: next_element_list.pop(0), shape, leaf_condition=is_static_shape)
-    else:
-        # --- Remap structures -> to `frames` long list of structs ---
-        next_struct = []
-        for frame_idx in range(frames):
-            next_element_list = list(next_element)
-            frame_struct = struct.map(lambda _: next_element_list.pop(0)[:, frame_idx, ...], shape, leaf_condition=is_static_shape)
-            next_struct.append(frame_struct)
-    return next_struct, iterator_handle
-
-
-def group_normalization(x, group_count, eps=1e-5):
-    batch_size, H, W, C = tf.shape(x)
-    gamma = tf.Variable(np.ones([1, 1, 1, C]), dtype=TF_BACKEND.precision_dtype, name="GN_gamma")
-    beta = tf.Variable(np.zeros([1, 1, 1, C]), dtype=TF_BACKEND.precision_dtype, name="GN_beta")
-    x = tf.reshape(x, [batch_size, group_count, H, W, C // group_count])
-    mean, var = tf.nn.moments(x, [2, 3, 4], keep_dims=True)
-    x = (x - mean) / tf.sqrt(var + eps)
-    x = tf.reshape(x, [batch_size, H, W, C])
-    return x * gamma + beta
-
-
-def residual_block(y, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activation=tf.nn.leaky_relu,
-                   _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
-    shortcut = y
-
-    if isinstance(kernel_size, int):
-        kernel_size = (kernel_size, kernel_size)
-
-    pad1 = [(kernel_size[0] - 1) // 2, kernel_size[0] // 2]
-    pad2 = [(kernel_size[1] - 1) // 2, kernel_size[1] // 2]
-
-    # down-sampling is performed with a stride of 2
-    y = tf.pad(y, [[0, 0], pad1, pad2, [0, 0]], mode=padding)
-    y = tf.layers.conv2d(y, nb_channels, kernel_size=kernel_size, strides=_strides, padding='valid',
-                         name=None if name is None else name + "/conv1", trainable=trainable, reuse=reuse)
-    # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm1", training=training, trainable=trainable, reuse=reuse)
-    y = activation(y)
-
-    y = tf.pad(y, [[0, 0], pad1, pad2, [0, 0]], mode=padding)
-    y = tf.layers.conv2d(y, nb_channels, kernel_size=kernel_size, strides=(1, 1), padding='valid',
-                         name=None if name is None else name + "/conv2", trainable=trainable, reuse=reuse)
-    # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm2", training=training, trainable=trainable, reuse=reuse)
-
-    # identity shortcuts used directly when the input and output are of the same dimensions
-    if _project_shortcut or _strides != (1, 1):
-        # when the dimensions increase projection shortcut is used to match dimensions (done by 1×1 convolutions)
-        # when the shortcuts go across feature maps of two sizes, they are performed with a stride of 2
-        shortcut = tf.pad(shortcut, [[0, 0], pad1, pad2, [0, 0]], mode=padding)
-        shortcut = tf.layers.conv2d(shortcut, nb_channels, kernel_size=(1, 1), strides=_strides, padding='valid',
-                                    name=None if name is None else name + "/convid", trainable=trainable, reuse=reuse)
-        # shortcut = tf.layers.batch_normalization(shortcut, name=None if name is None else name+"/normid", training=training, trainable=trainable, reuse=reuse)
-
-    y += shortcut
-    y = activation(y)
-
-    return y
-
-
-def residual_block_1d(y, nb_channels, kernel_size=(3,), _strides=(1,), activation=tf.nn.leaky_relu,
-                      _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
-    shortcut = y
-
-    if isinstance(kernel_size, int):
-        kernel_size = (kernel_size,)
-
-    pad1 = [(kernel_size[0] - 1) // 2, kernel_size[0] // 2]
-
-    # down-sampling is performed with a stride of 2
-    y = tf.pad(y, [[0, 0], pad1, [0, 0]], mode=padding)
-    y = tf.layers.conv1d(y, nb_channels, kernel_size=kernel_size, strides=_strides, padding='valid',
-                         name=None if name is None else name + "/conv1", trainable=trainable, reuse=reuse)
-    # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm1", training=training, trainable=trainable, reuse=reuse)
-    y = activation(y)
-
-    y = tf.pad(y, [[0, 0], pad1, [0, 0]], mode=padding)
-    y = tf.layers.conv1d(y, nb_channels, kernel_size=kernel_size, strides=(1,), padding='valid',
-                         name=None if name is None else name + "/conv2", trainable=trainable, reuse=reuse)
-    # y = tf.layers.batch_normalization(y, name=None if name is None else name+"/norm2", training=training, trainable=trainable, reuse=reuse)
-
-    # identity shortcuts used directly when the input and output are of the same dimensions
-    if _project_shortcut or _strides != (1,):
-        # when the dimensions increase projection shortcut is used to match dimensions (done by 1×1 convolutions)
-        # when the shortcuts go across feature maps of two sizes, they are performed with a stride of 2
-        shortcut = tf.pad(shortcut, [[0, 0], pad1, [0, 0]], mode=padding)
-        shortcut = tf.layers.conv1d(shortcut, nb_channels, kernel_size=(1, 1), strides=_strides, padding='valid',
-                                    name=None if name is None else name + "/convid", trainable=trainable, reuse=reuse)
-        # shortcut = tf.layers.batch_normalization(shortcut, name=None if name is None else name+"/normid", training=training, trainable=trainable, reuse=reuse)
-
-    y += shortcut
-    y = activation(y)
-
-    return y
 
 
 def istensor(obj):

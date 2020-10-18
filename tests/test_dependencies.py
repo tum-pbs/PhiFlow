@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy
 
 from phi.geom import box
-from phi.physics.field.effect import Inflow, Fan
+from phi.field import Inflow, Fan
 from phi.physics.physics import STATIC, Physics, StateDependency
 from phi.physics.world import World
 

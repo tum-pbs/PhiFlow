@@ -4,7 +4,8 @@ import os
 import threading
 
 import numpy as np
-from . import tf
+import tensorflow as tf
+
 from phi import struct
 from .profiling import Timeliner
 from .util import isplaceholder, istensor
@@ -78,6 +79,7 @@ class Session(object):
                 self.summary_writers[summary_key] = summary_writer
             summary_writer.add_summary(summary_buffer, time)
             summary_writer.flush()
+
 
         if trace:
             trace.timeliner.add_run()

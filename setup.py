@@ -117,7 +117,7 @@ class CudaCommand(distutils.cmd.Command):
             + ['-L/usr/local/cuda/lib64/','-lcudart']
         )
 
-        # Build the Resample CUDA Kernels
+        #Build the Resample CUDA Kernels
         subprocess.check_call(
             [
                 self.nvcc,
@@ -137,7 +137,7 @@ class CudaCommand(distutils.cmd.Command):
             + tf_cflags
         )
 
-        # Build the Resample Custom Op
+        #Build the Resample Custom Op
         try:
             subprocess.check_call(
                 [
@@ -163,7 +163,7 @@ class CudaCommand(distutils.cmd.Command):
             else:
                 raise e
 
-        # Build the Resample Gradient CUDA Kernels
+        #Build the Resample Gradient CUDA Kernels
         subprocess.check_call(
             [
                 self.nvcc,
@@ -183,7 +183,7 @@ class CudaCommand(distutils.cmd.Command):
             + tf_cflags
         )
 
-        # Build the Resample Gradient Custom Op
+        #Build the Resample Gradient Custom Op
         try:
             subprocess.check_call(
                 [
@@ -214,6 +214,7 @@ class CudaCommand(distutils.cmd.Command):
         self.gcc_4_8 = 'g++-4.8'
         self.nvcc = 'nvcc'
         self.cuda_lib = '/usr/local/cuda/lib64/'
+
 
     def finalize_options(self):
         assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
@@ -261,7 +262,7 @@ setup(
     author_email='philipp.holl@tum.de',
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
-    install_requires=['six', 'packaging', 'scipy'],
+    install_requires=['scipy', 'dash', 'plotly', 'imageio', 'matplotlib'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
@@ -272,12 +273,4 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
-    extras_require={
-        'gui': ['dash',
-                'dash-renderer',
-                'dash-html-components',
-                'dash-core-components',
-                'plotly',
-                'imageio'],
-    }
 )

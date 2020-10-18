@@ -3,8 +3,9 @@ from phi import math, struct
 
 from . import Physics, StateDependency
 from .domain import DomainState
-from .field import AnalyticField, GeometryMask, union_mask
-from .field.effect import ADD, FieldEffect, effect_applied
+from phi.field import AnalyticField, GeometryMask
+from .effect import ADD, FieldEffect, effect_applied
+from ..geom import union
 
 
 @struct.definition()
@@ -62,7 +63,7 @@ class Schroedinger(Physics):
         amplitude_fft *= math.exp(-1j * (2 * np.pi)**2 * math.to_complex(dt) * laplace / (2 * state.mass))
         amplitude = math.ifft(amplitude_fft)
 
-        obstacle_mask = union_mask([obstacle.geometry for obstacle in obstacles]).at(state.amplitude).data
+        obstacle_mask = GeometryMask(union([obstacle.geometry for obstacle in obstacles])).at(state.amplitude).data
         amplitude *= 1 - obstacle_mask
 
         normalized = False
@@ -86,7 +87,6 @@ def StepPotential(geometry, height):
     return FieldEffect(GeometryMask(geometry, name='potential') * height, ['potential'], mode=ADD)
 
 
-@struct.definition()
 class WavePacket(AnalyticField):
 
     def __init__(self, center, size, wave_vector, name='wave_packet', data=1.0, **kwargs):
@@ -112,7 +112,6 @@ class WavePacket(AnalyticField):
         return wave * self.data
 
 
-@struct.definition()
 class HarmonicPotential(AnalyticField):
 
     def __init__(self, center, unit_distance, maximum_value=1.0, data=1.0, name='harmonic', **kwargs):
@@ -136,7 +135,6 @@ class HarmonicPotential(AnalyticField):
         return math.to_float(pot)
 
 
-@struct.definition()
 class SinPotential(AnalyticField):
 
     def __init__(self, k, phase_offset=0, data=1.0, name='harmonic', **kwargs):

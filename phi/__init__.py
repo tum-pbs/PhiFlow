@@ -1,3 +1,10 @@
+"""
+Research-oriented differentiable simulation framework.
+
+Use the following import:
+from phi.flow import *
+"""
+
 import os
 
 

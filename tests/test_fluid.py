@@ -3,10 +3,10 @@ from unittest import TestCase
 import numpy
 
 from phi import struct, math
-from phi.geom import Sphere, AABox, box
+from phi.geom import Sphere, Box, box
 from phi.physics.domain import Domain
-from phi.physics.field import StaggeredGrid, Noise
-from phi.physics.field.effect import Fan, Inflow
+from phi.field import StaggeredGrid, Noise
+from phi.field import Fan, Inflow
 from phi.physics.material import CLOSED, OPEN
 from phi.physics.fluid import Fluid, INCOMPRESSIBLE_FLOW, IncompressibleFlow
 from phi.physics.obstacle import Obstacle
@@ -80,7 +80,7 @@ class TestFluid(TestCase):
     def test_batch_independence(self):
         def simulate(centers):
             world = World()
-            fluid = world.add(Fluid(Domain([5, 4], boundaries=CLOSED, box=AABox(0, [40, 32])),
+            fluid = world.add(Fluid(Domain([5, 4], boundaries=CLOSED, box=Box(0, [40, 32])),
                                     buoyancy_factor=0.1,
                                     batch_size=centers.shape[0]),
                               physics=IncompressibleFlow(pressure_solver=SparseCG(max_iterations=3)))

@@ -1,8 +1,8 @@
 import os
 import numpy as np
 
-from phi.physics.field import CenteredGrid, StaggeredGrid
-from phi.physics.field.staggered_grid import stack_staggered_components
+from phi.field import CenteredGrid, StaggeredGrid
+from phi.field import stack_staggered_components
 
 
 # Views

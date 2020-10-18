@@ -1,5 +1,3 @@
-import six
-
 from .context import _struct_context, _STRUCT_CONTEXT_STACK
 from .structdef import Item
 
@@ -79,7 +77,7 @@ def ignore(items):
     if not isinstance(items, (tuple, list)):
         items = (items,)
     for ignored_item in items:
-        assert isinstance(ignored_item, Item) or isinstance(ignored_item, six.string_types)
+        assert isinstance(ignored_item, Item) or isinstance(ignored_item, str)
 
     def is_ignored(item):
         for ignored in items:

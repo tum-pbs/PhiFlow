@@ -1,5 +1,5 @@
-from phi.backend.backend import Backend
-from . import context, struct, functions
+from phi.math.backend import Backend
+from . import struct, functions
 
 
 class StructBroadcastBackend(Backend):
@@ -11,7 +11,7 @@ class StructBroadcastBackend(Backend):
         self.backend = backend
         self.target_content_type = target_content_type
         for fname in dir(self):
-            if fname not in ('__init__', 'is_applicable', 'broadcast_function') and not fname.startswith('__'):
+            if fname not in ('__init__', 'is_tensor', 'broadcast_function', 'complex_type', 'float_type') and not fname.startswith('__'):
                 function = getattr(self, fname)
                 if callable(function):
                     def context(fname=fname):
@@ -20,11 +20,8 @@ class StructBroadcastBackend(Backend):
                         return proxy
                     setattr(self, fname, context())
 
-    def is_applicable(self, values):
-        for value in values:
-            if struct.isstruct(value):
-                return True
-        return False
+    def is_tensor(self, x, only_native=False):
+        return struct.isstruct(x)
 
     def broadcast_function(self, backend, func, args, kwargs):
         backend_func = getattr(backend, func)

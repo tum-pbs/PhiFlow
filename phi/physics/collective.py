@@ -1,7 +1,6 @@
 import warnings
-import six
 
-from .physics import Physics, State, struct, _ChainedPhysics, _as_physics
+from .physics import Physics, State, struct, _as_physics
 
 
 class StateCollection(dict):
@@ -40,7 +39,7 @@ Create a state collection from a dictionary of states.
         return StateCollection(new_states)
 
     def state_removed(self, state):
-        name = state if isinstance(state, six.string_types) else state.name
+        name = state if isinstance(state, str) else state.name
         new_states = dict(self)
         del new_states[name]
         return StateCollection(new_states)
@@ -52,7 +51,7 @@ Create a state collection from a dictionary of states.
     def __getitem__(self, item):
         if isinstance(item, State):
             return self[item.name]
-        if isinstance(item, six.string_types):
+        if isinstance(item, str):
             return dict.__getitem__(self, item)
         if struct.isstruct(item):
             return struct.map(lambda x: self[x], item, content_type=struct.INVALID)
@@ -75,7 +74,7 @@ Create a state collection from a dictionary of states.
     def __contains__(self, item):
         if isinstance(item, State):
             return item.name in self
-        if isinstance(item, six.string_types):
+        if isinstance(item, str):
             return dict.__contains__(self, item)
         raise ValueError('Illegal type: %s' % type(item))
 

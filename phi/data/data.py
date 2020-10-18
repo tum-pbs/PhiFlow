@@ -3,8 +3,6 @@ from __future__ import print_function
 import threading
 import time
 
-from phi.physics.field.staggered_grid import StaggeredGrid
-
 from .stream import DerivedStream
 
 

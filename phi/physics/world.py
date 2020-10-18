@@ -9,10 +9,8 @@ import inspect
 import warnings
 from typing import TypeVar
 
-import six
-
 from .collective import StateCollection
-from .field.effect import Gravity
+from phi.physics.effect import Gravity
 from .physics import Physics, State, Static
 
 
@@ -238,7 +236,7 @@ Remove a system or collection of systems from the world.
             for state in obj:
                 self.remove(state)
         else:
-            key = obj if isinstance(obj, six.string_types) else obj.name
+            key = obj if isinstance(obj, str) else obj.name
             self.state = self.state.state_removed(key)
             self.physics.remove(key)
 

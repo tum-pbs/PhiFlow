@@ -1,6 +1,6 @@
 from phi import math
 from . import Physics
-from .field import CenteredGrid
+from phi.field import CenteredGrid
 
 
 class KuramotoSivashinsky(Physics):

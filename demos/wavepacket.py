@@ -15,9 +15,9 @@ class WavePacketDemo(App):
         self.value_size = 6.0
         self.action_reset()
         self.value_dt = 1.0
-        glass_box = box[30 * SCALE:50 * SCALE, 0:1024]
-        world.add(StepPotential(glass_box, height=1 + 0j))
-        topbar = world.add(Obstacle(box[80 * SCALE:90 * SCALE, 0:1024]))
+        glass_box = box[30*SCALE:50*SCALE, 0:1024]
+        world.add(StepPotential(glass_box, height=1+0j))
+        topbar = world.add(Obstacle(box[80*SCALE:90*SCALE, 0:1024]))
 
         self.add_field('Real', lambda: math.real(wave.amplitude))
         self.add_field('Imag', lambda: math.imag(wave.amplitude))

@@ -6,8 +6,8 @@ import os
 import inspect
 
 import webglviewer
-from phi.geom import GLOBAL_AXIS_ORDER as physics_config
-from phi.physics.field import CenteredGrid, StaggeredGrid
+from phi.math import GLOBAL_AXIS_ORDER as physics_config
+from phi.field import CenteredGrid, StaggeredGrid
 from phi.viz.dash.dash_plotting import reduce_component
 
 
@@ -43,12 +43,12 @@ def detect_skybox_format(raw):
 def split_cubemap(raw, target_resolution):
     h, w = raw.shape[0] // 3, raw.shape[1] // 4
     assert w == h
-    right = raw[h:2 * h, 2 * w:3 * w]
-    left = raw[h:2 * h, :w]
-    top = raw[:h, w:2 * w]
-    bottom = raw[2 * h:, w:2 * w]
-    front = raw[h:2 * h, w:2 * w]
-    back = raw[h:2 * h, 3 * w:]
+    right = raw[h:2*h, 2*w:3*w]
+    left = raw[h:2*h, :w]
+    top = raw[:h, w:2*w]
+    bottom = raw[2*h:, w:2*w]
+    front = raw[h:2*h, w:2*w]
+    back = raw[h:2*h, 3*w:]
     return right, left, top, bottom, front, back
 
 
@@ -64,11 +64,11 @@ def equiangular_to_cubemap(equiangular, resolution=None):
         :param theta: [-pi, pi]
         :param phi: [0, 2 pi]
         """
-        flip = np.where((theta > np.pi / 2) | (theta < -np.pi / 2), -1, 1)
+        flip = np.where((theta > np.pi/2) | (theta < -np.pi/2), -1, 1)
         phi *= flip
-        theta = (theta * flip + np.pi / 2) % np.pi - np.pi / 2
+        theta = (theta * flip + np.pi/2) % np.pi - np.pi/2
         y = np.rint((-theta / np.pi + 0.5) * h).astype(np.int)
-        y = np.clip(y, 0, h - 1)
+        y = np.clip(y, 0, h-1)
         x = np.rint((phi / 2 / np.pi + 0.5) * w).astype(np.int)
         x = x % w
         return equiangular[y, x, :]
@@ -79,10 +79,10 @@ def equiangular_to_cubemap(equiangular, resolution=None):
         phi = np.arctan(x) + phi0
         return theta, phi
 
-    right = lookup(*face(0, np.pi / 2))
-    left = lookup(*face(0, -np.pi / 2))
-    top = lookup(*face(np.pi / 2, 0))
-    bottom = lookup(*face(-np.pi / 2, 0))
+    right = lookup(*face(0, np.pi/2))
+    left = lookup(*face(0, -np.pi/2))
+    top = lookup(*face(np.pi/2, 0))
+    bottom = lookup(*face(-np.pi/2, 0))
     front = lookup(*face(0, 0))
     back = lookup(*face(0, np.pi))
     images = right, left, top, bottom, front, back

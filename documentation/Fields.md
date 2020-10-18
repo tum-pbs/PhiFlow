@@ -12,21 +12,21 @@ All fields are subclasses of `Struct` (see the [documentation](Structs.ipynb)) a
 | `rank`            | -                    | Dimensions of the physical space (1=1D, 2=2D, 3=3D)                                                                                                                                                                                                                         |
 | `data`            | Attribute | Either the actual data as a tensor or a reference to the underlying data structure. In any case, this value supports all element-wise mathematical operators and works with all `phi.math` functions. Some subclasses of `Field` may redefine `data` as a property instead. |
 | `name`            | Property             | string                                                                                                                                                                                                                                                                      |
-| `flags`           | Property             | Tuple of [`Flag`](../phi/physics/field/flag.py) objects. Flags indicate certain properties about a field such as divergence-freeness and are propagated automatically in mathematical operations.                                                                                   |
+| `flags`           | Property             | Tuple of [`Flag`](../phi/field/_flag.py) objects. Flags indicate certain properties about a field such as divergence-freeness and are propagated automatically in mathematical operations.                                                                                   |
 | `points`          | -                    | Vector Field holding the sample points. If the Field is not sampled, `points=None`. If the Field is sampled but the sample points vary among the different components of the Field, accessing `Field.points` raises a `StaggeredSamplePoints` exception.                    |
 
 
 ## Build-in Fields
 
-[ConstantField](../phi/physics/field/constant.py): has the same value everywhere.
+[ConstantField](../phi/field/_constant.py): has the same value everywhere.
 Has no sample points.
 
-[GeometryMask](../phi/physics/field/mask.py): 1 inside the geometry, 0 outiside.
+[GeometryMask](../phi/field/_mask.py): 1 inside the geometry, 0 outiside.
 Has no sample points.
 
-[CenteredGrid](../phi/physics/field/grid.py): has regular sample points.
+[CenteredGrid](../phi/field/_grid.py): has regular sample points.
 
-[StaggeredGrid](../phi/physics/field/staggered_grid.py): has staggered sample points.
+[StaggeredGrid](../phi/field/_staggered_grid.py): has staggered sample points.
 
 
 ## Resampling Fields

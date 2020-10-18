@@ -6,18 +6,18 @@ from phi import math
 from phi.geom import box
 from phi.physics.collective import StateCollection
 from phi.physics.domain import Domain
-from phi.physics.field import CenteredGrid, manta
+from phi.field import CenteredGrid
 from phi import struct
 from phi.physics.fluid import Fluid
 from phi.struct import VARIABLES, CONSTANTS
 from phi.struct.functions import mappable
-from phi.struct.tensorop import collapse, collapsed_gather_nd, expand
+from phi.math.backend.tensorop import collapse, collapsed_gather_nd, expand
 
 
 def generate_test_structs():
-    return [manta.centered_grid(numpy.zeros([1,4,1])),
+    return [_manta.centered_grid(numpy.zeros([1, 4, 1])),
             [('Item',)],
-            {'A': 'Entry A', 'Vel': manta.staggered_grid(numpy.zeros([1,5,5,2]))},
+            {'A': 'Entry A', 'Vel': _manta.staggered_grid(numpy.zeros([1, 5, 5, 2]))},
             StateCollection((Fluid(Domain([4])),))]
 
 

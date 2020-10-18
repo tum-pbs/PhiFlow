@@ -1,5 +1,6 @@
 from phi import math
 from ._geom import Geometry
+from ..math import Shape, spatial_shape
 
 
 def assert_same_rank(rank1, rank2, error_message):
@@ -15,6 +16,16 @@ def _rank(rank):
         pass
     elif isinstance(rank, Geometry):
         rank = rank.rank
+    elif isinstance(rank, Shape):
+        rank = rank.spatial.rank
     else:
         rank = math.spatial_rank(rank)
     return None if rank == 0 else rank
+
+
+def _fill_spatial_with_singleton(shape):
+    if shape.spatial.rank == shape.channel.volume:
+        return shape
+    else:
+        assert shape.spatial.rank == 0
+        return shape.combined(spatial_shape([1] * shape.channel.volume))

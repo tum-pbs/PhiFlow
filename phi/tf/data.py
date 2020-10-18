@@ -1,14 +1,13 @@
 import warnings
 
-from . import tf
+import tensorflow as tf
+
 from phi import struct, math
 from phi.data.fluidformat import _transform_for_writing, _writing_staticshape, read_zipped_array, _slugify_filename
-from phi.math import is_static_shape
 from phi.physics.world import StateProxy
 from phi.struct.context import _unsafe
 from phi.data import SceneSource, Dataset as BaseDataset
 
-from .util import placeholder, dataset_handle
 from ..data.stream import consecutive_frames, FrameSelect
 
 
@@ -128,7 +127,6 @@ class Dataset(BaseDataset):
     """
 Extends phi.data.Datset by TensorFlow data pipeline functions.
     """
-
     def __init__(self, name, sources):
         BaseDataset.__init__(self, name, sources)
         self.shuffled = False
@@ -176,3 +174,76 @@ Extends phi.data.Datset by TensorFlow data pipeline functions.
     def get_reset_handle(self, session):
         self.reset_iterator(session)
         return self.iterator_handle
+
+
+
+class DataLoader:
+
+    def __init__(self):
+        pass
+
+    def set_data(self, dict, train=None, val=None):
+        """
+Specify what data to use for training and validation.
+
+The content of `dict` determines the data pipeline that is used.
+  - 'placeholder' pipline: the static TensorFlow graph uses placeholders as input. `dict` maps from placeholders to file names or Stream instances. Placeholders and corresponding streams may be placed inside structs.
+  - 'dataset_handle' pipeline: Use TensorFlow data pipeline. `dict` contains 'iterator_handle' and related properties as returned by `build_graph_input(...)[1]`.
+
+Regardless of pipeline, the recommended way to obtain `dict` is through `build_graph_input(...)[1]`.
+
+        :param dict: pipeline-dependent dict
+        :type dict: dict
+        :param train: (optional) Dataset used for training
+        :type train: Dataset
+        :param val: (optional) Dataset used for validation
+        :type val: Dataset
+        """
+        assert isinstance(train, Dataset) or train is None
+        assert isinstance(val, Dataset) or train is None
+        if train is not None or val is not None:
+            assert dict is not None
+        if train is not None and val is not None:
+            self.value_view_training_data = False
+        self._training_set = train
+        self._validation_set = val
+        if dict is not None and 'iterator_handle' in dict:
+            self._init_tf_pipeline(**dict)
+        else:
+            self._init_numpy_iterators(dict)
+
+    def _init_numpy_iterators(self, dict):
+        self._pipeline = 'placeholder'
+        self._placeholder_struct = []
+        self._channel_struct = []
+        if dict is not None:
+            for key, value in dict.items():
+                self._placeholder_struct.append(key)
+                self._channel_struct.append(value)
+        self._channel_struct = tuple(self._channel_struct)
+        self._placeholder_struct = tuple(self._placeholder_struct)
+        # Train
+        if self._training_set is not None:
+            self._train_reader = BatchReader(self._training_set, self._channel_struct)
+            self._train_iterator = self._train_reader.all_batches(batch_size=self.training_batch_size, loop=True)
+        else:
+            self._train_reader = None
+            self._train_iterator = None
+        # Val
+        if self._validation_set is not None:
+            self._val_reader = BatchReader(self._validation_set, self._channel_struct)
+        else:
+            self._val_reader = None
+
+    def _init_tf_pipeline(self, iterator_handle, names, shapes, dtypes, frames):
+        self._placeholder_struct = iterator_handle
+        self._pipeline = 'dataset_handle'
+        if self._training_set is not None:
+            train_dataset = create_dataset(self._training_set.sources, names, shapes, dtypes, batch_size=self.training_batch_size, shuffle=True, frames=frames)
+            self._train_iterator = train_dataset.make_initializable_iterator()
+            self._train_iterator_handle = self.session.run(self._train_iterator.string_handle())
+            self.session.run(self._train_iterator.initializer)
+        if self._validation_set is not None:
+            val_dataset = create_dataset(self._validation_set.sources, names, shapes, dtypes, batch_size=self.validation_batch_size, shuffle=True, frames=frames)
+            self._val_iterator = val_dataset.make_initializable_iterator()
+            self._val_iterator_handle = self.session.run(self._val_iterator.string_handle())

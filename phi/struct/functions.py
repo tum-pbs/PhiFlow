@@ -1,8 +1,6 @@
 import warnings
 
-import six
-
-from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
+from phi.math.backend import math, NoBackendFound
 from .context import _unsafe, skip_validate
 from .item_condition import ALL_ITEMS, context_item_condition
 from .structdef import Item
@@ -167,14 +165,22 @@ Preserves the hierarchical structure of struct, returning an object of the same 
 
 
 def map_item(item, function, struct, leaf_condition=None, recursive=True, content_type=None):
-    assert isinstance(item, Item) or isinstance(item, six.string_types)
+    assert isinstance(item, Item) or isinstance(item, str)
 
     def item_condition(item_):
-        if isinstance(item, six.string_types):
+        if isinstance(item, str):
             return item_.name == item
         else:
             return item_.name == item.name
     return map(function, struct, leaf_condition=leaf_condition, recursive=recursive, trace=False, item_condition=item_condition, content_type=content_type)
+
+
+def foreach(function, *structs, leaf_condition=None, recursive=True, trace=False, item_condition=None):
+    if len(structs) == 1:
+        map(function, structs[0], leaf_condition, recursive, trace, item_condition, content_type=INVALID)
+    else:
+        struct = zip(structs, leaf_condition, item_condition)
+        map(function, struct, leaf_condition, recursive, trace, item_condition, content_type=INVALID)
 
 
 class Trace(object):
@@ -192,7 +198,7 @@ Trace objects can be used to reference a specific item of a struct or sub-struct
     def name(self):
         if self.key is None:
             return None
-        if isinstance(self.key, six.string_types):
+        if isinstance(self.key, str):
             return self.key
         else:
             return str(self.key)

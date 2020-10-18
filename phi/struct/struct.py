@@ -3,9 +3,7 @@ import json
 from copy import copy
 
 import numpy as np
-import six
 
-from ..backend.dynamic_backend import DYNAMIC_BACKEND as math, NoBackendFound
 from .context import skip_validate
 from .item_condition import context_item_condition, VARIABLES, CONSTANTS
 from .structdef import Item, derived, _IndexItem
@@ -20,7 +18,7 @@ def kwargs(locals, include_self=False, ignore=()):
     locals.update(kwargs_in_locals)
     if not include_self and 'self' in locals:
         del locals['self']
-    if isinstance(ignore, six.string_types):
+    if isinstance(ignore, str):
         ignore = [ignore]
     for ignored_name in ignore:
         if ignored_name in locals:

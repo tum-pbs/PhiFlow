@@ -9,41 +9,14 @@ import shutil
 import sys
 import warnings
 
-import six
 import numpy as np
 from os.path import join, isfile, isdir
 
-from phi import struct, math, __version__ as phi_version
-from phi.physics import field
-from phi.geom import GLOBAL_AXIS_ORDER as physics_config
-
-
-def read_zipped_array(filename):
-    file = np.load(filename)
-    array = file[file.files[-1]]  # last entry in npz file has to be data array
-    if array.shape[0] != 1 or len(array.shape) == 1:
-        array = np.expand_dims(array, axis=0)
-    if not physics_config.is_x_first and array.shape[-1] != 1:
-        array = array[..., ::-1]  # component order in stored files is always XYZ
-    return array
-
-
-def write_zipped_array(filename, array):
-    if array.shape[0] == 1 and len(array.shape) > 1:
-        array = array[0, ...]
-    if not physics_config.is_x_first and array.shape[-1] != 1:
-        array = array[..., ::-1]  # component order in stored files is always XYZ
-    np.savez_compressed(filename, array)
-
-
-def _check_same_dimensions(arrays):
-    for array in arrays:
-        if array.shape[1:-1] != arrays[0].shape[1:-1]:
-            raise ValueError("All arrays should have the same spatial dimensions, but got %s and %s" % (array.shape, arrays[0].shape))
+from phi import struct, math, __version__ as phi_version, field
 
 
 def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
-    if isinstance(fieldnames, six.string_types):
+    if isinstance(fieldnames, str):
         fieldnames = [fieldnames]
     for fieldname in fieldnames:
         filename = _filename(simpath, fieldname, frame)
@@ -56,17 +29,45 @@ def read_sim_frame(simpath, fieldnames, frame, set_missing_to_none=True):
                 raise IOError("Missing data at frame %d: %s" % (frame, filename))
 
 
-def write_sim_frame(simpath, arrays, fieldnames, frame, check_same_dimensions=False):
-    if check_same_dimensions:
-        _check_same_dimensions(arrays)
-    os.path.isdir(simpath) or os.mkdir(simpath)
-    if not isinstance(fieldnames, (tuple, list)) and not isinstance(arrays, (tuple, list)):
-        fieldnames = [fieldnames]
-        arrays = [arrays]
-    filenames = [_filename(simpath, name, frame) for name in fieldnames]
-    for i in range(len(arrays)):
-        write_zipped_array(filenames[i], arrays[i])
-    return filenames
+def write_sim_frame(directory: str or tuple or list, fields: field.Field or tuple or list or struct.Struct, frame: int, names: str or tuple or list or struct.Struct or None = None, batch_dim: str = 'batch'):
+    """
+    Write a Field or structure of Fields to files.
+    The filenames are created from the provided names and the frame index in accordance with the scene format specification (see the PhiFlow documentation).
+
+    This method can be used in batch mode.
+    Batch mode is active if a list of directories is given instead of a single directory.
+    Then, all fields are unstacked along the batch_dim dimension and matched with the directories list.
+
+    :param directory: directory name or list of directories.
+      If a list is provided, all fields are unstacked along batch_dim and matched with their respective directory.
+    :param fields: single field or structure of Fields to save
+    :param frame: time step index
+    :param names: (optional) structure matching fields, holding the filename for each respective Field.
+      If not provided, names are automatically generated based on the structure of fields.
+    :param batch_dim: (optional) Only for batch write. Fields are unstacked along this dimension and matched with the list of directories.
+    """
+    if names is None:
+        names = struct.names(fields)
+    os.path.isdir(directory) or os.mkdir(directory)
+
+    def single_write(f, name):
+        if isinstance(f, field.SampledField):
+            name = _slugify_filename(name)
+            if isinstance(directory, str):
+                file = _filename(directory, name, frame)
+                field.write(f, file)
+            else:
+                fs = f.unstack(batch_dim)
+                assert len(fs) == len(directory), "The batch size '%s' of '%s' is %d and does not match the number of directories, %d" % (batch_dim, f, len(fs), len(directory))
+                for f_, dir_ in zip(fs, directory):
+                    file = _filename(dir_, name, frame)
+                    field.write(f_, file)
+        elif isinstance(f, field.Field):
+            warnings.warn("write_sim_frame: only SampledField instances are saved, other Fields are ignored.")
+        elif math.is_tensor(f):
+            warnings.warn("write_sim_frame: only SampledField instances are saved, tensors are ignored.")
+
+    struct.foreach(single_write, fields, names)
 
 
 def _filename(simpath, name, frame):
@@ -82,7 +83,7 @@ def read_sim_frames(simpath, fieldnames=None, frames=None):
         frames = get_frames(simpath, fieldnames[0])
     if isinstance(frames, int):
         frames = [frames]
-    single_fieldname = isinstance(fieldnames, six.string_types)
+    single_fieldname = isinstance(fieldnames, str)
     if single_fieldname:
         fieldnames = [fieldnames]
 
@@ -181,27 +182,17 @@ class Scene(object):
     def read_array(self, fieldname, frame):
         return next(read_sim_frame(self.path, [fieldname], frame, set_missing_to_none=False))
 
-    def write_sim_frame(self, arrays, fieldnames, frame, check_same_dimensions=False):
-        write_sim_frame(self.path, arrays, fieldnames, frame, check_same_dimensions=check_same_dimensions)
+    def write_sim_frame(self, arrays, fieldnames, frame):
+        write_sim_frame(self.path, arrays, fieldnames, frame)
 
     def write(self, obj, names=None, frame=0):
-        if struct.isstruct(obj):
-            obj = _transform_for_writing(obj)
-            if names is None:
-                names = struct.names(obj)
-            values = struct.flatten(obj)
-            names = struct.flatten(names)
-            names = [_slugify_filename(name) for name in names]
-            self.write_sim_frame(values, names, frame)
-        else:
-            name = str(names) if names is not None else 'unnamed'
-            self.write_sim_frame([obj], [name], frame)
+        write_sim_frame(self.path, obj, names, frame)
 
     def read(self, obj, frame=0):
         if struct.isstruct(obj):
             obj = _transform_for_writing(obj)
             names = struct.flatten(obj)
-            if not np.all([isinstance(n, six.string_types) for n in names]):
+            if not np.all([isinstance(n, str) for n in names]):
                 names = struct.names(obj)
             data = struct.map(lambda name: self.read_array(_slugify_filename(name), frame), names)
             return data
@@ -352,31 +343,6 @@ class SceneBatch(Scene):
 
     def read_array(self, fieldname, frame):
         return np.concatenate([scene.read_array(fieldname, frame) for scene in self.scenes])
-
-
-def _transform_for_writing(obj):
-    def f(value):
-        if isinstance(value, field.StaggeredGrid):
-            return value.staggered_tensor()
-        if isinstance(value, field.CenteredGrid):
-            return value.data
-        else:
-            return value
-    data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)), content_type='format')
-    return data
-
-
-def _writing_staticshape(obj):
-    def f(value):
-        if isinstance(value, field.StaggeredGrid):
-            shape = math.staticshape(value.staggered_tensor())
-            return (value._batch_size,) + shape[1:]
-        if isinstance(value, field.CenteredGrid):
-            return value.staticshape.data
-        else:
-            return math.staticshape(value)
-    data = struct.map(f, obj, lambda x: isinstance(x, (field.StaggeredGrid, field.CenteredGrid)), content_type='format_staticshape')
-    return data
 
 
 def _slugify_filename(struct_name):

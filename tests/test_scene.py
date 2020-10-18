@@ -6,7 +6,7 @@ import numpy as np
 from phi.data.fluidformat import Scene
 from phi import struct
 from phi.physics.domain import Domain
-from phi.physics.field import StaggeredGrid, CenteredGrid
+from phi.field import StaggeredGrid, CenteredGrid
 from phi.physics.fluid import Fluid
 from phi.struct.functions import print_differences
 

@@ -12,10 +12,9 @@ import warnings
 from os.path import isfile
 
 import numpy as np
-import six
 from phi import struct
 from phi.data.fluidformat import Scene, write_sim_frame
-from phi.physics.field import CenteredGrid, Field, StaggeredGrid
+from phi.field import CenteredGrid, Field, StaggeredGrid
 from phi.physics.world import StateProxy, world
 from phi.viz.plot import PlotlyFigureBuilder
 
@@ -55,6 +54,14 @@ class TimeDependentField(object):
 
 
 class App(object):
+    """
+    Main class for defining an application that can be displayed in the GUI.
+
+    To display data, call App.add_field().
+    All fields need to be registered before the app is prepared or shown.
+
+    To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
+    """
 
     def __init__(self,
                  name=None,
@@ -132,6 +139,10 @@ class App(object):
         self._custom_properties = custom_properties if custom_properties else {}
         self.figures = PlotlyFigureBuilder()
         self.info('App created. Scene directory is %s' % self.scene.path)
+
+    @property
+    def frame(self):
+        return self.steps
 
     def new_scene(self, count=None):
         if count is None:
@@ -235,7 +246,7 @@ class App(object):
                     editable_value = EditableInt(value_name, val)
                 elif isinstance(val, numbers.Number):  # Float
                     editable_value = EditableFloat(value_name, val)
-                elif isinstance(val, six.string_types):
+                elif isinstance(val, str):
                     editable_value = EditableString(value_name, val)
             if editable_value:
                 self._controls.append(Control(self, name, editable_value))

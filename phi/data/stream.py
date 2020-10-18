@@ -1,7 +1,4 @@
-import six
 import numpy as np
-
-from .source import DataSource
 
 
 class DataStream(object):
@@ -46,7 +43,7 @@ class DataStream(object):
 class SourceStream(DataStream):
 
     def __init__(self, name):
-        assert isinstance(name, six.string_types)
+        assert isinstance(name, str)
         self._name = name
 
     def shape(self, datasource):

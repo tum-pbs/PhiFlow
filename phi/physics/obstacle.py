@@ -1,14 +1,18 @@
 from phi import struct
-from phi.geom.geometry import Geometry
+from phi.geom import Geometry
 
-from .field import GeometryMask
-from .field.effect import FieldEffect
+from phi.field import GeometryMask
+from .effect import FieldEffect
 from .material import CLOSED, Material
 from .physics import Physics, State
 
 
 @struct.definition()
 class Obstacle(State):
+    """
+    An obstacle defines boundary conditions inside a geometry.
+    It can also have a linear and angular velocity.
+    """
 
     def __init__(self, geometry, material=CLOSED, velocity=0, tags=('obstacle',), **kwargs):
         State.__init__(self, **struct.kwargs(locals()))

@@ -25,7 +25,7 @@ The `step` method, defined in [`IncompressibleFlow`](../phi/physics/fluid.py), e
 When added to a `world`, it is called by `world.step()`.
 
 The velocity of a fluid state is sampled in [staggered form](Staggered_Grids.md), i.e. an instance of
-[`StaggeredGrid`](../phi/physics/field/staggered_grid.py) while the density is a [`CenteredGrid`](../phi/physics/field/grid.py).
+[`StaggeredGrid`](../phi/field/_staggered_grid.py) while the density is a [`CenteredGrid`](../phi/field/_grid.py).
 For more on [Fields, see here](Fields.md).
 
 For the pressure solve, a [`PressuresSolver`](../phi/physics/pressuresolver/base.py) object is managed by the `IncompressibleFlow`.

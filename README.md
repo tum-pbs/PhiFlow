@@ -7,10 +7,10 @@
 
 ![Gui](documentation/figures/WebInterface.png)
 
-Φ<sub>Flow</sub> is a research-oriented, open-source PDE solving toolkit that is fully differentiable.
-It is written mostly in Python and can use both NumPy, TensorFlow and PyTorch for execution.
+Φ<sub>Flow</sub> is a research-oriented, open-source fluid simulation toolkit.
+It is written mostly in Python and can use both NumPy and TensorFlow for execution.
 
-Having all functionality of a fluid simulation running in a deep learning framework opens up the possibility of back-propagating gradients through the simulation as well as running the simulation on GPUs.
+Having all functionality of a fluid simulation running in TensorFlow opens up the possibility of back-propagating gradients through the simulation as well as running the simulation on GPUs.
 
 ## Features
 
@@ -23,11 +23,10 @@ Having all functionality of a fluid simulation running in a deep learning framew
 ## Publications
 
 - [Learning to Control PDEs with Differentiable Physics](https://ge.in.tum.de/publications/2020-iclr-holl/), *Philipp Holl, Vladlen Koltun, Nils Thuerey*, ICLR 2020.
-- [Solver-in-the-Loop: Learning from Differentiable Physics to Interact with Iterative PDE-Solvers](https://ge.in.tum.de/publications/2020-um-solver-in-the-loop/), *Kiwon Um, Yun Fei, Robert Brand, Philipp Holl, Nils Thuerey*, pre-print 2020.
 
 ## Installation
 
-To install Φ<sub>Flow</sub> with its web interface, run:
+To install Φ<sub>Flow</sub> with web interface, run:
 
 ```bash
 $ pip install phiflow[gui]

@@ -1,4 +1,3 @@
-import six
 
 
 class Trait(object):
@@ -10,7 +9,7 @@ Inherited traits come before newly declared structs, unless explicitly re-declar
     def __init__(self, keywords=()):
         self.keywords = keywords
         for keyword in keywords:
-            assert isinstance(keyword, six.string_types)
+            assert isinstance(keyword, str)
 
     def check_argument(self, struct_class, item, keyword, value):
         """

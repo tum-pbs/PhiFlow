@@ -1,108 +1,41 @@
-"""
-Surface material definitions including constants.
-"""
+from __future__ import annotations
 
-import math
-
-from phi import struct
+from phi import math
+from phi.math import extrapolation
 
 
-@struct.definition()
-class Material(struct.Struct):
+class Material:
     """
-    Defines a surface material including the boundary conditions.
+    Defines the extrapolation modes / boundary conditions for a surface.
+    The surface can be an obstacle or the domain boundary.
     """
-
-    def __init__(self, name, **kwargs):
-        struct.Struct.__init__(self, **struct.kwargs(locals()))
-
-    @struct.constant()
-    def name(self, name):
-        """
-Material name.
-        """
-        return str(name)
-
-    @struct.constant(default=True)
-    def solid(self, solid):
-        """
-Fluid can only enter non-solid cells or pass through non-solid boundaries.
-        """
-        assert isinstance(solid, bool)
-        return solid
-
-    @struct.derived()
-    def open(self):
-        return not self.solid and not self.periodic
-
-    @struct.constant(default=0.0)
-    def friction(self, friction):
-        """
-(only for solid materials) velocity decay rate in units of 1/time.
-0: fluid can move parallell to the surface (no-stick),
-1: fluid cannot move parallel (no-slip)
-        """
-        return friction
-
-    def friction_multiplier(self, dt=1):
-        """
-Computes the velocity multiplication factor for fluid that moves along the surface for time dt.
-        :param dt: time spent near surface (float)
-        :return: factor (float)
-        """
-        if dt == 1 or self.friction == 1 or self.friction == 0:
-            return 1 - self.friction
-        else:
-            time_friction_exponent = math.log(1 / (1 - self.friction))
-            return math.exp(- dt * time_friction_exponent)
-
-    @struct.constant(default=False)
-    def periodic(self, periodic):
-        """
-Whether the boundary is periodic, i.e. seamlessly merges with the opposite end of the domain.
-        """
-        assert isinstance(periodic, bool)
-        return periodic
+    def __init__(self, name, grid_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation):
+        self.name = name
+        self.grid_extrapolation = grid_extrapolation
+        self.vector_extrapolation = vector_extrapolation
+        self.active_extrapolation = active_extrapolation
+        self.accessible_extrapolation = accessible_extrapolation
 
     def __repr__(self):
         return self.name
 
-    @struct.derived()
-    def extrapolation_mode(self):
-        """
-Extrapolation mode for regular non-vector fields.
-For vector fields that respect boundaries (e.g. velocity), use vector_extrapolation_mode.
-    :return: one of ('periodic', 'boundary', 'constant').
-    :rtype: str
-        """
-        if self.periodic:
-            return 'periodic'
-        if self.solid:
-            return 'boundary'
-        else:
-            return 'constant'
-
-    @struct.derived()
-    def accessible_extrapolation_mode(self):
-        if self.periodic:
-            return 'periodic'
-        if self.solid:
-            return 'constant'
-        else:
-            return 'boundary'
-
-    @struct.derived()
-    def vector_extrapolation_mode(self):
-        if self.periodic:
-            return 'periodic'
-        if self.solid:
-            assert self.friction in (0, 1)
-            return 'boundary' if self.friction == 0 else 'constant'
-        else:
-            return 'constant'
+    @staticmethod
+    def as_material(obj: Material or tuple or list or dict) -> Material:
+        if isinstance(obj, Material):
+            return obj
+        if isinstance(obj, (tuple, list)):
+            axes = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
+            obj = {ax: mat for ax, mat in zip(axes, obj)}
+        if isinstance(obj, dict):
+            grid_extrapolation = {ax: mat.grid_extrapolation for ax, mat in obj.items()}
+            vector_extrapolation = {ax: mat.vector_extrapolation for ax, mat in obj.items()}
+            active_extrapolation = {ax: mat.active_extrapolation for ax, mat in obj.items()}
+            accessible_extrapolation = {ax: mat.accessible_extrapolation for ax, mat in obj.items()}
+            return Material('mixed', grid_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
+        raise NotImplementedError()
 
 
-OPEN = Material('open', solid=False)
-CLOSED = NO_STICK = SLIPPERY = Material('slippery', solid=True, friction=0)
-NO_SLIP = STICKY = Material('sticky', solid=True, friction=1)
-PERIODIC = Material('periodic', solid=False, periodic=True)
+OPEN = Material('open', extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ONE)
+CLOSED = NO_STICK = SLIPPERY = Material('slippery', extrapolation.BOUNDARY, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO)
+NO_SLIP = STICKY = Material('sticky', extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO)
+PERIODIC = Material('periodic', extrapolation.PERIODIC, extrapolation.PERIODIC, extrapolation.ONE, extrapolation.ONE)
