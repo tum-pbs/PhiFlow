@@ -69,7 +69,7 @@ class TestStruct(TestCase):
         b = CenteredGrid('b', content_type='name')
         zipped = struct.zip([a, b])
         stacked = struct.map(lambda *x: x, zipped, content_type='name')
-        numpy.testing.assert_equal(stacked.data, ('a', 'b'))
+        numpy.testing.assert_equal(stacked.values, ('a', 'b'))
 
     def test_collapse(self):
         self.assertEqual(0, collapse(numpy.zeros([2, 2])))

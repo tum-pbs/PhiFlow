@@ -29,5 +29,5 @@ class TestPlaceholder(TestCase):
         tf.reset_default_graph()
         p = placeholder(obj)
         self.assertEqual('Placeholder/0:0', p[0].name)
-        self.assertEqual('Placeholder/1/data:0', p[1].data.name)
+        self.assertEqual('Placeholder/1/data:0', p[1].values.name)
         self.assertIsInstance(p, tuple)

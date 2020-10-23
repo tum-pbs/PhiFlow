@@ -11,7 +11,7 @@ world.add(Inflow(Sphere(INFLOW_LOCATIONS, radius=4), rate=0.5))
 
 for i in range(32):
     world.step()
-    print("Step %d done , stats: %s %s" % (i, np.mean(FLUID.density.data), np.mean(FLUID.velocity.staggered_tensor())))
+    print("Step %d done , stats: %s %s" % (i, np.mean(FLUID.density.values), np.mean(FLUID.velocity.staggered_tensor())))
     SCENE.write(FLUID.state, frame=i)
     # SCENE.write([FLUID.density, FLUID.velocity], names=["density", "velocity"], frame=i)  # same result
 

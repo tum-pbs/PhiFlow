@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from abc import ABC
 
 from phi import math
@@ -128,6 +129,21 @@ class Field:
 
 class SampledField(Field):
 
+    def __init__(self, elements: Geometry, values: Tensor or float or int, extrapolation: math.Extrapolation):
+        """
+        Base class for fields that are sampled at specific locations such as grids or point clouds.
+
+        :param elements: Geometry object specifying the sample points and sizes
+        :param values: values corresponding to elements
+        :param extrapolation: values outside elements
+        """
+        assert isinstance(extrapolation, (Extrapolation, tuple, list)), extrapolation
+        assert isinstance(elements, Geometry), elements
+        self._elements = elements
+        self._values = math.tensor(values)
+        self._extrapolation = extrapolation
+        self._shape = elements.shape.non_channel & self._values.shape.non_spatial
+
     @property
     def elements(self) -> Geometry:
         """
@@ -140,22 +156,58 @@ class SampledField(Field):
 
         :return: Geometry with all batch/spatial dimensions of this Field. Staggered sample points are modelled using extra batch dimensions.
         """
-        raise NotImplementedError(self)
+        return self._elements
 
     @property
     def points(self) -> Tensor:
         return self.elements.center
 
     @property
-    def data(self) -> Tensor:
-        raise NotImplementedError()
-
-    def with_data(self, data: Tensor):
-        raise NotImplementedError()
+    def values(self) -> Tensor:
+        return self._values
 
     @property
     def extrapolation(self) -> Extrapolation:
+        return self._extrapolation
+
+    @property
+    def shape(self) -> Shape:
+        return self._shape
+
+    def sample_at(self, points, reduce_channels=()) -> Tensor:
         raise NotImplementedError()
+
+    def unstack(self, dimension: str) -> tuple:
+        values = self._values.unstack(dimension)
+        return tuple(self._with(v) for i, v in enumerate(values))
+
+    def _op1(self, operator) -> Field:
+        values = operator(self.values)
+        extrapolation_ = operator(self._extrapolation)
+        return self._with(values=values, extrapolation=extrapolation_)
+
+    def _op2(self, other, operator) -> Field:
+        if isinstance(other, Field):
+            other_values = other.sample_at(self._elements)
+            values = operator(self._values, other_values)
+            extrapolation_ = operator(self._extrapolation, other.extrapolation)
+            return self._with(values, extrapolation_)
+        else:
+            other = math.as_tensor(other)
+            values = operator(self._values, other)
+            return self._with(values)
+
+    def __getitem__(self, item):
+        values = self._values[item]
+        return self._with(values)
+
+    def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
+        copied = copy.copy(self)
+        if values is not None:
+            copied._values = values
+        if extrapolation is not None:
+            copied._extrapolation = extrapolation
+        return copied
 
 
 class IncompatibleFieldTypes(Exception):

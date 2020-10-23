@@ -5,7 +5,7 @@ from phi import math
 from phi.geom import Box
 from . import StaggeredGrid, ConstantField
 from ._field import Field, SampledField
-from ._grid import CenteredGrid, Grid, _gradient_extrapolation
+from ._grid import CenteredGrid, Grid
 from ..math import tensor
 
 
@@ -16,14 +16,14 @@ def laplace(field: Grid, axes=None):
 
 def gradient(field: Grid, axes=None, difference='central'):
     if not physical_units or self.has_cubic_cells:
-        data = math.gradient(self.data, dx=np.mean(self.dx), difference=difference, padding=_pad_mode(self.extrapolation))
-        return self.copied_with(data=data, extrapolation=_gradient_extrapolation(self.extrapolation), flags=())
+        data = math.gradient(self.values, dx=np.mean(self.dx), difference=difference, padding=_pad_mode(self.extrapolation))
+        return self.copied_with(data=data, extrapolation=self.extrapolation.gradient(), flags=())
     else:
         raise NotImplementedError('Only cubic cells supported.')
 
 
 def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
-    data = math.shift(grid.data, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
+    data = math.shift(grid.values, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
 
 
@@ -35,8 +35,8 @@ def stagger(field: CenteredGrid, face_function=math.minimum):
     all_lower = []
     all_upper = []
     for dim in field.shape.spatial.names:
-        all_upper.append(math.pad(field.data, {dim: (0, 1)}, field.extrapolation))
-        all_lower.append(math.pad(field.data, {dim: (1, 0)}, field.extrapolation))
+        all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation))
+        all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation))
     all_upper = math.channel_stack(all_upper, 'vector')
     all_lower = math.channel_stack(all_lower, 'vector')
     result = face_function(all_lower, all_upper)
@@ -47,7 +47,7 @@ def divergence(field: Grid):
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.gradient(field.data.vector[i], dx=field.dx[i], difference='forward', padding=None, axes=[dim]).gradient[0]
+            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, axes=[dim]).gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
         return CenteredGrid(data, field.box, field.extrapolation.gradient())
@@ -88,21 +88,21 @@ def diffuse(field: Field, diffusivity, dt, substeps=1):
 def conjugate_gradient(function, y: Grid, x0: Grid, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None, bake='sparse'):
     if callback is not None:
         def field_callback(x):
-            x = x0.with_data(x)
+            x = x0.with_values(x)
             callback(x)
     else:
         field_callback = None
 
     data_function = expose_tensors(function, x0)
-    converged, x, iterations = math.conjugate_gradient(data_function, y.data, x0.data, relative_tolerance, absolute_tolerance, max_iterations, gradient, field_callback, bake)
-    return converged, x0.with_data(x), iterations
+    converged, x, iterations = math.conjugate_gradient(data_function, y.values, x0.values, relative_tolerance, absolute_tolerance, max_iterations, gradient, field_callback, bake)
+    return converged, x0.with_values(x), iterations
 
 
 def expose_tensors(field_function, *proto_fields):
     @wraps(field_function)
     def wrapper(*field_data):
-        fields = [proto.with_data(data) for data, proto in zip(field_data, proto_fields)]
-        return field_function(*fields).data
+        fields = [proto.with_values(data) for data, proto in zip(field_data, proto_fields)]
+        return field_function(*fields).values
     return wrapper
 
 
@@ -114,12 +114,12 @@ def data_bounds(field: SampledField):
 
 
 def mean(field: Grid):
-    return math.mean(field.data, field.shape.spatial)
+    return math.mean(field.values, field.shape.spatial)
 
 
 def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
-    data = math.normalize_to(field.data, norm.data, epsilon)
-    return field.with_data(data)
+    data = math.normalize_to(field.values, norm.values, epsilon)
+    return field.with_values(data)
 
 
 def pad(grid: Grid, widths):
@@ -131,7 +131,7 @@ def pad(grid: Grid, widths):
         assert isinstance(widths, dict)
     widths_list = [widths[axis] for axis in grid.shape.spatial.names]
     if isinstance(grid, CenteredGrid):
-        data = math.pad(grid.data, widths, grid.extrapolation)
+        data = math.pad(grid.values, widths, grid.extrapolation)
         w_lower = tensor([w[0] for w in widths_list])
         w_upper = tensor([w[1] for w in widths_list])
         box = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
@@ -189,6 +189,6 @@ def staggered_curl_2d(grid, pad_width=(1, 2)):
     kernel = math.zeros((3, 3, 1, 2))
     kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
     kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
-    scalar_potential = grid.padded([pad_width, pad_width]).data
+    scalar_potential = grid.padded([pad_width, pad_width]).values
     vector_field = math.conv(scalar_potential, kernel, padding='valid')
     return StaggeredGrid(vector_field, box=grid.box)

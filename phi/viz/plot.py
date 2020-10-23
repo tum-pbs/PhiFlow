@@ -78,9 +78,9 @@ class PlotlyFigureBuilder(object):
 
     def slice_dims(self, data):
         if isinstance(data, CenteredGrid):
-            return data.data.shape
+            return data.values.shape
         if isinstance(data, StaggeredGrid):
-            return data.data[0].data.shape
+            return data.values[0].values.shape
         else:
             return data.shape
 
@@ -109,10 +109,10 @@ class PlotlyFigureBuilder(object):
             if not self.antisymmetry:
                 data = data.staggered_tensor()
             else:
-                dims = len(data.data[0].data.shape) - 2  # any better way to get this?
+                dims = len(data.values[0].values.shape) - 2  # any better way to get this?
                 dataxyz = []
                 for i in range(dims):
-                    c = data.data[i].data
+                    c = data.values[i].values
                     factor = -1. if i == (dims - 1) else 1.  # add (instead of subtract) for X dim
                     cdiff = c[..., ::-1,0:1] - (c[...,0:1] * factor)
                     dataxyz.append(cdiff)
@@ -120,7 +120,7 @@ class PlotlyFigureBuilder(object):
             shape = data.shape
         else:
             if isinstance(data, CenteredGrid):
-                data = data.data
+                data = data.values
             if self.antisymmetry:
                 data = data - data[..., ::-1, :]
 

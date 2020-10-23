@@ -2,8 +2,8 @@ from phi.flow import *
 
 
 domain = Domain([64, 64], boundaries=PERIODIC, box=Box[0:100, 0:100])
-velocity = domain.vgrid(Noise(vector=2)) * 2
-# velocity = domain.sgrid(Noise(vector=2)) * 2
+# velocity = domain.vgrid(Noise(vector=2)) * 2
+velocity = domain.sgrid(Noise(vector=2)) * 2
 # velocity = domain.sgrid(Sphere([50, 50], radius=15)) * [2, 0] + [1, 0]
 
 

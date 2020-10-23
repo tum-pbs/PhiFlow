@@ -17,7 +17,7 @@ def checkerboard(resolution, size=8, offset=2):
 
 
 def regular_locations(box, count=16):
-    return np.reshape(CenteredGrid.getpoints(box, [count] * box.rank).data, (1, -1, box.rank))
+    return np.reshape(CenteredGrid.getpoints(box, [count] * box.rank).values, (1, -1, box.rank))
 
 
 domain = Domain([160, 126], CLOSED)

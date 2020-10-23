@@ -21,7 +21,7 @@ def build_masks(domain: Domain, obstacles=()):
     active_mask = CenteredGrid(active_mask, domain.box, active_extrapolation)
     active_mask = domain.grid(active_mask, Material.active_extrapolation)
     accessible_extrapolation = math.extrapolation.ONE if velocity.extrapolation in (math.extrapolation.PERIODIC, math.extrapolation.BOUNDARY) else math.extrapolation.ZERO
-    accessible_mask = CenteredGrid(active_mask.data, active_mask.box, accessible_extrapolation)
+    accessible_mask = CenteredGrid(active_mask.values, active_mask.box, accessible_extrapolation)
     return active_mask, accessible_mask
 
 
@@ -81,7 +81,7 @@ def masked_laplace(pressure: CenteredGrid, active: CenteredGrid, accessible: Cen
     left_right = (left_act_pr + right_act_pr) * active
     center = (left_access + right_access) * pressure
     result = (left_right - center) / pressure.dx ** 2
-    result = math.sum(result.data, axis='vector')
+    result = math.sum(result.values, axis='vector')
     return CenteredGrid(result, pressure.box, pressure.extrapolation.gradient().gradient())
 
 

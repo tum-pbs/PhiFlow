@@ -3,8 +3,7 @@ from __future__ import annotations
 from functools import partialmethod
 
 from phi import math, struct
-from phi.field import CenteredGrid, StaggeredGrid
-from phi.field import GeometryMask
+from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, Grid
 from phi.geom import Box, GridCell
 from phi.geom import Geometry
 from phi.math import extrapolation
@@ -114,7 +113,7 @@ class Domain:
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
-    def vector_grid(self, value, type: type = CenteredGrid, extrapolation: math.Extrapolation = None):
+    def vector_grid(self, value, type: type = CenteredGrid, extrapolation: math.Extrapolation = None) -> Grid:
         """
         Creates a vector grid matching the domain by sampling the given value.
 
@@ -129,7 +128,7 @@ class Domain:
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.box, extrapolation)
             if grid.shape.channel.rank == 0:
-                grid = grid.with_data(math.expand_channel(grid.data, self.rank, 0))
+                grid = grid.with_values(math.expand_channel(grid.values, self.rank, 0))
             else:
                 assert grid.shape.channel.sizes[0] == self.rank
             return grid

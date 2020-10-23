@@ -529,6 +529,7 @@ def gather(value: Tensor, indices: Tensor):
 
 def scatter(points, indices, values, shape, duplicates_handling='undefined'):
     raise NotImplementedError()
+    math.scatter()
 
 
 def fft(x):

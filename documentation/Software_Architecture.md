@@ -20,8 +20,8 @@
 |-------------------|-------------------------------------------------------------------------------------------------------|
 |    App            |    Allows setting up simulations and GUI                                                            |
 |    LearningApp    |    Trains neural networks, creates logs, visualizes results with UI                                 |
-|    Data           |    Writes and loads data from disc                                                                    |
-|    UI             |    Hosts web server to display data of Model                                                        |
+|    Data           |    Writes and loads values from disc                                                                    |
+|    UI             |    Hosts web server to display values of Model                                                        |
 |    Physics        |    Defines simulation classes,   implements built-in simulations like Navier-Stokes,   Schrödinger    |
 
 ## Module dependencies

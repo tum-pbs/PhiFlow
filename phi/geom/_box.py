@@ -255,6 +255,7 @@ def bounding_box(geometry):
 class GridCell(Cuboid):
 
     def __init__(self, resolution: math.Shape, bounds: AbstractBox):
+        assert resolution.spatial_rank == resolution.rank, 'resolution must be purely spatial but got %s' % (resolution,)
         local_coords = math.meshgrid(*[np.linspace(0.5 / size, 1 - 0.5 / size, size) for size in resolution.sizes])
         points = bounds.local_to_global(local_coords)
         Cuboid.__init__(self, points, half_size=bounds.size / resolution.sizes / 2)

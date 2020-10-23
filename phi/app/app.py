@@ -406,7 +406,7 @@ class App(object):
 
         if self.record_data:
             arrays = [self.get_field(field) for field in self.recorded_fields]
-            arrays = [a.staggered_tensor() if isinstance(a, StaggeredGrid) else a.data for a in arrays]
+            arrays = [a.staggered_tensor() if isinstance(a, StaggeredGrid) else a.values for a in arrays]
             names = [n.lower() for n in self.recorded_fields]
             files += write_sim_frame(self.directory, arrays, names, self.steps)
 

@@ -50,7 +50,7 @@ class TrainingTest(LearningApp):
         fluid_placeholders, load_dict = build_graph_input(Fluid(DOMAIN), input_type='dataset_handle')
         # --- Build neural network ---
         with self.model_scope():
-            pred_vel = network(fluid_placeholders.density.data)
+            pred_vel = network(fluid_placeholders.density.values)
         # --- Loss function ---
         target_vel = fluid_placeholders.velocity.staggered_tensor()[..., :-1, :-1, :]
         loss = math.l2_loss(pred_vel - target_vel)

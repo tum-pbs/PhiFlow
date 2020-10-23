@@ -14,9 +14,8 @@ from ._field import Field, IncompatibleFieldTypes, SampledField
 from ._analytic import AnalyticField, SymbolicFieldBackend
 from ._constant import ConstantField
 from ._mask import GeometryMask
-from ._grid import Grid, CenteredGrid
-from ._staggered_grid import StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
-from ._sampled import ArbitrarilySampledField
+from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
+from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (

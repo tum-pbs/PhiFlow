@@ -21,9 +21,9 @@ class WavePacketDemo(App):
 
         self.add_field('Real', lambda: math.real(wave.amplitude))
         self.add_field('Imag', lambda: math.imag(wave.amplitude))
-        self.add_field('Probability', lambda: psquare(wave.amplitude.data))
+        self.add_field('Probability', lambda: psquare(wave.amplitude.values))
         self.add_field('Domain', (mask(glass_box) * 0.5 + mask(topbar.geometry)).at(wave.amplitude))
-        self.add_field('Zoomed', lambda: math.real(wave.amplitude.data)[:, 0:128, 0:128, :])
+        self.add_field('Zoomed', lambda: math.real(wave.amplitude.values)[:, 0:128, 0:128, :])
 
     def step(self):
         self.wave.mass = self.value_mass

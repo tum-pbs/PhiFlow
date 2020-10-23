@@ -12,7 +12,7 @@ class State(struct.Struct):
 
     State objects are generally immutable, i.e. once created the state cannot be changed.
     Instead, new State objects are created when the state changes.
-    This guarantees that previously acquired states are not altered by other parts of the code which is convenient when working with sequence data.
+    This guarantees that previously acquired states are not altered by other parts of the code which is convenient when working with sequence values.
 
     States are identified by their unique name.
     """

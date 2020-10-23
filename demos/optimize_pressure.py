@@ -34,7 +34,7 @@ class PressureOptimization(LearningApp):
         loss = math.l2_loss(math.sub(velocity.staggered_tensor()[:, :, 31:, :], target_velocity[:, :, 31:, :]))
         self.add_objective(loss, 'Loss')
         # --- Display ---
-        gradient = StaggeredGrid(tf.gradients(loss, [component.data for component in optimizable_velocity.unstack()]))
+        gradient = StaggeredGrid(tf.gradients(loss, [component.values for component in optimizable_velocity.unstack()]))
         self.add_field('Initial Velocity (Optimizable)', optimizable_velocity)
         self.add_field('Gradient', gradient)
         self.add_field('Final Velocity', velocity)

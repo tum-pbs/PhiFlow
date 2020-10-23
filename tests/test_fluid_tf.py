@@ -50,7 +50,7 @@ class TestFluidTF(TestCase):
         tf_bake_subgraph(fluid, Session(Scene.create('data', copy_calling_script=False)))
         world.step()
         self.assertIsInstance(fluid.state, Fluid)
-        self.assertIsInstance(fluid.state.density.data, numpy.ndarray)
+        self.assertIsInstance(fluid.state.density.values, numpy.ndarray)
 
     def test_tf_worldgraph(self):
         tf.reset_default_graph()
@@ -59,7 +59,7 @@ class TestFluidTF(TestCase):
         tf_bake_graph(world, Session(Scene.create('data', copy_calling_script=False)))
         world.step()
         self.assertIsInstance(fluid.state, Fluid)
-        self.assertIsInstance(fluid.state.density.data, numpy.ndarray)
+        self.assertIsInstance(fluid.state.density.values, numpy.ndarray)
 
     def test_gradient_batch_independence(self):
         session = Session(None)  # Used to run the TensorFlow graph
@@ -75,10 +75,10 @@ class TestFluidTF(TestCase):
         for frame in range(3):
             world.step(dt=1.5)
 
-        target = session.run(fluid.density).data[0, ...]
+        target = session.run(fluid.density).values[0, ...]
 
-        loss = tf.nn.l2_loss(fluid.density.data[1, ...] - target)
-        self_loss = tf.nn.l2_loss(fluid.density.data[0, ...] - target)
+        loss = tf.nn.l2_loss(fluid.density.values[1, ...] - target)
+        self_loss = tf.nn.l2_loss(fluid.density.values[0, ...] - target)
         # loss = self_loss
         optim = tf.train.GradientDescentOptimizer(learning_rate=0.2).minimize(loss)
         session.initialize_variables()
@@ -95,11 +95,11 @@ class TestFluidTF(TestCase):
             math.set_precision(64)
             fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
             fluid = variable(fluid)
-            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float64)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float64)
+            self.assertEqual(fluid.density.values.dtype.as_numpy_dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype.as_numpy_dtype, numpy.float64)
             fluid = IncompressibleFlow().step(fluid, dt=1.0)
-            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float64)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float64)
+            self.assertEqual(fluid.density.values.dtype.as_numpy_dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype.as_numpy_dtype, numpy.float64)
         finally:
             math.set_precision(32)  # Reset environment
 
@@ -108,10 +108,10 @@ class TestFluidTF(TestCase):
             math.set_precision(16)
             fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
             fluid = variable(fluid)
-            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float16)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float16)
+            self.assertEqual(fluid.density.values.dtype.as_numpy_dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype.as_numpy_dtype, numpy.float16)
             fluid = IncompressibleFlow().step(fluid, dt=1.0)
-            self.assertEqual(fluid.density.data.dtype.as_numpy_dtype, numpy.float16)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype.as_numpy_dtype, numpy.float16)
+            self.assertEqual(fluid.density.values.dtype.as_numpy_dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype.as_numpy_dtype, numpy.float16)
         finally:
             math.set_precision(32)  # Reset environment

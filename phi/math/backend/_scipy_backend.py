@@ -382,7 +382,7 @@ class SciPyBackend(Backend):
     def coordinates(self, tensor, unstack_coordinates=False):
         if scipy.sparse.issparse(tensor):
             coo = tensor.tocoo()
-            return (coo.row, coo.col), coo.data
+            return (coo.row, coo.col), coo.values
         else:
             raise NotImplementedError()
 

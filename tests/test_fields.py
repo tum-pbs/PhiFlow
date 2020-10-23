@@ -42,11 +42,11 @@ class TestFields(TestCase):
         # Resample optimized
         resampled = f.at(g)
         self.assertTrue(resampled.compatible(g))
-        np.testing.assert_equal(resampled.data[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
+        np.testing.assert_equal(resampled.values[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
         # Resample unoptimized
         resampled2 = Field.at(f, g)
         self.assertTrue(resampled2.compatible(g))
-        np.testing.assert_equal(resampled2.data[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
+        np.testing.assert_equal(resampled2.values[0, ..., 0], [[1.5, 2.5], [4.5, 5.5]])
 
     def test_staggered_interpolation(self):
         # 2x2 cells
@@ -56,7 +56,7 @@ class TestFields(TestCase):
         data_y[0, :, :, 0] = [[-1, -2], [-3, -4], [-5, -6]]
         v = StaggeredGrid([data_y, data_x])
         centered = v.at_centers()
-        np.testing.assert_equal(centered.data.shape, [1, 2, 2, 2])
+        np.testing.assert_equal(centered.values.shape, [1, 2, 2, 2])
 
     def test_staggered_format_conversion(self):
         tensor = math.zeros([1, 5, 5, 2])
@@ -93,14 +93,14 @@ class TestFields(TestCase):
         # pylint: disable-msg = unsubscriptable-object
         tensor = math.zeros([1, 5, 5, 2])
         staggered = StaggeredGrid(tensor, name='')
-        assert len(staggered.data) == 2
-        assert isinstance(staggered.data[0], CenteredGrid)
-        assert staggered.data[0].component_count == 1
-        np.testing.assert_equal(staggered.data[0].box.lower, [-0.5, 0])
+        assert len(staggered.values) == 2
+        assert isinstance(staggered.values[0], CenteredGrid)
+        assert staggered.values[0].component_count == 1
+        np.testing.assert_equal(staggered.values[0].box.lower, [-0.5, 0])
         staggered2 = StaggeredGrid(unstack_staggered_tensor(tensor), name='')
         struct.print_differences(staggered, staggered2)
         self.assertEqual(staggered, staggered2)
-        staggered3 = StaggeredGrid([staggered.data[0], staggered2.data[1]], name='')
+        staggered3 = StaggeredGrid([staggered.values[0], staggered2.values[1]], name='')
         self.assertEqual(staggered3, staggered)
 
     def test_mixed_boundaries_resample(self):
@@ -119,15 +119,15 @@ class TestFields(TestCase):
         self.assertEqual(field.component_count, 2)
         # --- Resample to CenteredGrid ---
         at_cgrid = field.at(CenteredGrid(np.zeros([1, 4, 4, 1])))
-        np.testing.assert_equal(at_cgrid.data.shape, [1, 4, 4, 2])
+        np.testing.assert_equal(at_cgrid.values.shape, [1, 4, 4, 2])
         # --- Resample to StaggeredGrid ---
         at_sgrid = field.at(Fluid([4, 4]).velocity)
-        np.testing.assert_equal(at_sgrid.unstack()[0].data.shape, [1, 5, 4, 1])
-        np.testing.assert_equal(at_sgrid.unstack()[1].data.shape, [1, 4, 5, 1])
+        np.testing.assert_equal(at_sgrid.unstack()[0].values.shape, [1, 5, 4, 1])
+        np.testing.assert_equal(at_sgrid.unstack()[1].values.shape, [1, 4, 5, 1])
 
     def test_staggered_curl2d(self):
         domain = Domain([32, 32])
         pot = CenteredGrid.sample(Noise(), domain)
         vel = staggered_curl_2d(pot)
         div = vel.divergence()
-        np.testing.assert_almost_equal(div.data, 0, decimal=3)
+        np.testing.assert_almost_equal(div.values, 0, decimal=3)

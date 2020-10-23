@@ -43,7 +43,7 @@ class TestFluid(TestCase):
             self.assertIsInstance(fluid.velocity, StaggeredGrid)
             numpy.testing.assert_equal(fluid.density.data.shape, [1, 4, 4, 1])
             numpy.testing.assert_equal(fluid.velocity.resolution, [4, 4])
-            numpy.testing.assert_equal(fluid.velocity.data[0].resolution, [5, 4])
+            numpy.testing.assert_equal(fluid.velocity.values[0].resolution, [5, 4])
         typetest(Fluid(Domain([4, 4]), density=0.0, velocity=0.0))
         typetest(Fluid(Domain([4, 4]), density=1.0, velocity=1.0))
         typetest(Fluid(Domain([4, 4]), density=0, velocity=math.zeros))
@@ -72,9 +72,9 @@ class TestFluid(TestCase):
     def test_new_grids(self):
         fluid = Fluid(Domain([16, 16]), batch_size=3)
         centered_ones = fluid.centered_grid('f', 1)
-        numpy.testing.assert_equal(centered_ones.data, 1)
+        numpy.testing.assert_equal(centered_ones.values, 1)
         staggered_ones = fluid.staggered_grid('v', 1)
-        numpy.testing.assert_equal(staggered_ones.data[0].data, 1)
+        numpy.testing.assert_equal(staggered_ones.values[0].values, 1)
 
     def test_batch_independence(self):
         def simulate(centers):
@@ -89,7 +89,7 @@ class TestFluid(TestCase):
             world.step(dt=1.5)
             world.step(dt=1.5)
             print()
-            return fluid.density.data[0, ...], fluid.velocity.unstack()[0].data[0, ...], fluid.velocity.unstack()[1].data[0, ...]
+            return fluid.density.data[0, ...], fluid.velocity.unstack()[0].values[0, ...], fluid.velocity.unstack()[1].values[0, ...]
 
         d1, vy1, vx1 = simulate(numpy.array([[5, 16], [5, 4]]))
         d2, vy2, vx2 = simulate(numpy.array([[5, 16], [5, 16]]))
@@ -103,10 +103,10 @@ class TestFluid(TestCase):
             math.set_precision(64)
             fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
             self.assertEqual(fluid.density.data.dtype, numpy.float64)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype, numpy.float64)
             fluid = IncompressibleFlow().step(fluid, dt=1.0)
-            self.assertEqual(fluid.density.data.dtype, numpy.float64)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float64)
+            self.assertEqual(fluid.density.values.dtype, numpy.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype, numpy.float64)
         finally:
             math.set_precision(32)  # Reset environment
 
@@ -115,9 +115,9 @@ class TestFluid(TestCase):
             math.set_precision(16)
             fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
             self.assertEqual(fluid.density.data.dtype, numpy.float16)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype, numpy.float16)
             fluid = IncompressibleFlow().step(fluid, dt=1.0)
-            self.assertEqual(fluid.density.data.dtype, numpy.float16)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, numpy.float16)
+            self.assertEqual(fluid.density.values.dtype, numpy.float16)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype, numpy.float16)
         finally:
             math.set_precision(32)  # Reset environment

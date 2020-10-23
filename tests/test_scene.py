@@ -29,8 +29,8 @@ class TestScene(TestCase):
         self.assertIsInstance(loaded_state.density, CenteredGrid)
         _differences = struct.compare([loaded_state.density, state.density])
         self.assertEqual(loaded_state.density, state.density)
-        print_differences(loaded_state.velocity.data, state.velocity.data)
-        np.testing.assert_equal(loaded_state.velocity.data[0].data, state.velocity.data[0].data)
+        print_differences(loaded_state.velocity.values, state.velocity.data)
+        np.testing.assert_equal(loaded_state.velocity.values[0].values, state.velocity.data[0].values)
 
         scene.write(np.ones([1, 4, 4, 1]) * 2, frame=1)
         self.assertTrue(isfile(scene.subpath('unnamed_000001.npz')))

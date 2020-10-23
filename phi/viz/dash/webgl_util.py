@@ -118,13 +118,13 @@ def webgl_prepare_data(field, settings):
         if field.rank == 1:
             return EMPTY_GRID
         else:
-            data = field.data
+            data = field.values
 
     elif isinstance(field, StaggeredGrid):
         if field.rank == 1:
             return EMPTY_GRID
         if component == 'vec2' or component == 'length':
-            data = field.at_centers().data
+            data = field.at_centers().values
             component = 'length'
         else:
             data = field.unstack()[{'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component]].data

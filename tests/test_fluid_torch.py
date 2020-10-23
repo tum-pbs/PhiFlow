@@ -39,11 +39,11 @@ class TestFluidPyTorch(TestCase):
             math.set_precision(64)
             fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
             fluid = torch_from_numpy(fluid)
-            self.assertEqual(fluid.density.data.dtype, torch.float64)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float64)
+            self.assertEqual(fluid.density.values.dtype, torch.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype, torch.float64)
             fluid = IncompressibleFlow().step(fluid, dt=1.0)
-            self.assertEqual(fluid.density.data.dtype, torch.float64)
-            self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float64)
+            self.assertEqual(fluid.density.values.dtype, torch.float64)
+            self.assertEqual(fluid.velocity.unstack()[0].values.dtype, torch.float64)
         finally:
             math.set_precision(32)  # Reset environment
 
@@ -52,10 +52,10 @@ class TestFluidPyTorch(TestCase):
     #         math.set_precision(16)
     #         fluid = Fluid(Domain([16, 16]), density=math.maximum(0, Noise()))
     #         fluid = torch_from_numpy(fluid)
-    #         self.assertEqual(fluid.density.data.dtype, torch.float16)
-    #         self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float16)
+    #         self.assertEqual(fluid.density.values.dtype, torch.float16)
+    #         self.assertEqual(fluid.velocity.unstack()[0].values.dtype, torch.float16)
     #         fluid = IncompressibleFlow().step(fluid, dt=1.0)
-    #         self.assertEqual(fluid.density.data.dtype, torch.float16)
-    #         self.assertEqual(fluid.velocity.unstack()[0].data.dtype, torch.float16)
+    #         self.assertEqual(fluid.density.values.dtype, torch.float16)
+    #         self.assertEqual(fluid.velocity.unstack()[0].values.dtype, torch.float16)
     #     finally:
     #         math.set_precision(32)  # Reset environment

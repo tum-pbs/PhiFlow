@@ -44,9 +44,9 @@ isplaceholder = is_placeholder
 def istensor(obj):
     warnings.warn("istensor is deprecated, use phi.tf.app.is_tensorflow_field instead", DeprecationWarning)
     if isinstance(obj, CenteredGrid):
-        return istensor(obj.data)
+        return istensor(obj.values)
     if isinstance(obj, StaggeredGrid):
-        return np.any([istensor(t) for t in obj.data])
+        return np.any([istensor(t) for t in obj.values])
     return isinstance(obj, (tf.Tensor, tf.Variable))
 
 

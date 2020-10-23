@@ -38,7 +38,7 @@ class DataLoader(App):
             # could be modified here; warning - note uses pressure to density here...
             state = smoke.copied_with(density=batch[0], velocity=batch[1])
             # collect some statistics
-            m_list.append([np.mean(np.abs(state.density.data)), np.mean(np.abs(state.velocity.staggered_tensor()))])
+            m_list.append([np.mean(np.abs(state.density.values)), np.mean(np.abs(state.velocity.staggered_tensor()))])
             self.session.run(state_out, {state_in: state})  # pass to TF
             # self.session.run(state_out, {state_in: (batch[0], batch[1])}) # alternative, without state copy
             # now we have the tensor version in state_out

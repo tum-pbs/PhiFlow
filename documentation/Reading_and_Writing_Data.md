@@ -1,11 +1,11 @@
-# Reading and writing simulation data
+# Reading and writing simulation values
 
-This document describes how simulation data can be written and read using Φ<sub>Flow</sub>.
-The data format itself is described in the [data format specification](Scene_Format_Specification.md).
+This document describes how simulation values can be written and read using Φ<sub>Flow</sub>.
+The values format itself is described in the [values format specification](Scene_Format_Specification.md).
 
 ## Referencing a scene object
 
-The fluid I/O functionality of Φ<sub>Flow</sub> is located in [phi.data.fluidformat](../phi/data/fluidformat.py).
+The fluid I/O functionality of Φ<sub>Flow</sub> is located in [phi.values.fluidformat](../phi/data/fluidformat.py).
 
 There are two possibilities to reference existing scenes:
 
@@ -13,10 +13,10 @@ There are two possibilities to reference existing scenes:
 from phi.flow import *
 
 # reference a specific scene
-scene = Scene.at('~/phi/data/simpleplume/sim_000000')
+scene = Scene.at('~/phi/values/simpleplume/sim_000000')
 
 # list all scenes in a category
-scenes = Scene.list('~/phi/data/simpleplume')
+scenes = Scene.list('~/phi/values/simpleplume')
 ```
 
 New scenes can be created using the function `Scene.create` which appends a new scene to a category.
@@ -24,8 +24,8 @@ It also copies the python script that created that scene into the `src` folder u
 
 ## Reading from a specific scene
 
-The main simulation data is stored in individual files, one for each field and frame.
-Other properties are listed in the accompanying `description.json` (see the [data format specification](Scene_Format_Specification.md)).
+The main simulation values is stored in individual files, one for each field and frame.
+Other properties are listed in the accompanying `description.json` (see the [values format specification](Scene_Format_Specification.md)).
 
 The following table gives an overview of what information can be obtained from a `scene` object.
 
@@ -39,13 +39,13 @@ The following table gives an overview of what information can be obtained from a
 | `scene.frames`      | list of all frames contained in the scene              |
 | `scene.fieldnames`  | list of all fields contained in the scene              |
 
-The scene provides a couple of methods to read simulation data from a scene.
+The scene provides a couple of methods to read simulation values from a scene.
 
 ```python
 from phi.flow import *
 
 # Create Scene
-scene = Scene.at('~/phi/data/simpleplume/sim_000000')
+scene = Scene.at('~/phi/values/simpleplume/sim_000000')
 
 # Read a single NumPy array from the associated file
 density = scene.read_array(fieldname='density', frame=0)  
@@ -61,13 +61,13 @@ The last call makes use of Φ<sub>Flow</sub>'s [`struct` system](Structs.ipynb).
 
 ## Writing to a scene
 
-The following methods can be used to store simulation data in a scene.
+The following methods can be used to store simulation values in a scene.
 
 ```python
 from phi.flow import *
 
 # Create Scene
-scene = Scene.create('~/phi/data/simpleplume')
+scene = Scene.create('~/phi/values/simpleplume')
 
 # Write one frame with multiple fields
 scene.write_sim_frame([density, velocity], ['density', 'velocity'], frame=0)
@@ -88,13 +88,13 @@ scene.copy_src(path)
 ## Reading from a set of scenes
 
 Machine learning applications usually iterate over a large number of scenes while training models.
-Φ<sub>Flow</sub> provides a data management system to simplify data handling.
+Φ<sub>Flow</sub> provides a values management system to simplify values handling.
 
 ```python
 from phi.flow import *
 
-whole_dataset = Dataset.load('~/phi/data/simpleplume')
-training_data = Dataset.load('~/phi/data/simpleplume', range(1000), name='train')
+whole_dataset = Dataset.load('~/phi/values/simpleplume')
+training_data = Dataset.load('~/phi/values/simpleplume', range(1000), name='train')
 ```
 
 Classes that extend [`LearningApp`](../phi/tf/app.py) only need to call `self.set_data`, passing a training and validation dataset as well as a struct containing TensorFlow placeholders (see the [documentation](Interactive_Training_Apps.md)).
@@ -103,7 +103,7 @@ Classes that extend [`LearningApp`](../phi/tf/app.py) only need to call `self.se
 
 Registering and processing fields
 
-### Iterating over data
+### Iterating over values
 
 BatchReader
 

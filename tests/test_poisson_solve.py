@@ -27,9 +27,9 @@ def _test_solve_no_obstacles(domain, solver):
     print('Testing domain with boundaries: %s' % (domain.boundaries,))
     data_in = _generate_examples()
     p = poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0]
-    np.testing.assert_almost_equal(p.laplace().data, data_in, decimal=5)
+    np.testing.assert_almost_equal(p.laplace().values, data_in, decimal=5)
     if domain.boundaries is CLOSED:
-        np.testing.assert_almost_equal(p.laplace().data, data_in, decimal=5)
+        np.testing.assert_almost_equal(p.laplace().values, data_in, decimal=5)
     # rows = math.unstack(p.data, 1)
     # for row in rows[1:]:
     #     np.testing.assert_almost_equal(row, rows[0], decimal=5)
@@ -39,21 +39,21 @@ def _test_random_closed(solver):
     domain = Domain([40, 32], boundaries=CLOSED)
     div = domain.centered_grid(Noise())
     div_ = poisson_solve(div, domain, solver)[0].laplace()
-    np.testing.assert_almost_equal(div.data, div_.data, decimal=3)
+    np.testing.assert_almost_equal(div.values, div_.values, decimal=3)
 
 
 def _test_random_open(solver):
     domain = Domain([40, 32], boundaries=OPEN)
     div = domain.centered_grid(Noise())
     div_ = poisson_solve(div, domain, solver)[0].laplace()
-    np.testing.assert_almost_equal(div.data, div_.data, decimal=3)
+    np.testing.assert_almost_equal(div.values, div_.values, decimal=3)
 
 
 def _test_random_periodic(solver):
     domain = Domain([40, 32], boundaries=PERIODIC)
     div = domain.centered_grid(Noise())
     div_ = poisson_solve(div, domain, solver)[0].laplace()
-    np.testing.assert_almost_equal(div.data, div_.data, decimal=3)
+    np.testing.assert_almost_equal(div.values, div_.values, decimal=3)
 
 
 def _test_all(solver):
@@ -79,7 +79,7 @@ class TestPoissonSolve(TestCase):
     def test_equal_results(self):
         data_in = _generate_examples()
         for domain in DOMAINS:
-            pressure_fields = [poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0].data
+            pressure_fields = [poisson_solve(domain.centered_grid(data_in), domain, solver=solver)[0].values
                                for solver in [SparseCG(), GeometricCG()]]
             for field in pressure_fields[1:]:
                 np.testing.assert_almost_equal(field, pressure_fields[0], decimal=4)

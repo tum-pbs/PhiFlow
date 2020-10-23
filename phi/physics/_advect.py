@@ -41,7 +41,7 @@ def semi_lagrangian(field: Grid, velocity: Field, dt) -> Grid:
     v = velocity.sample_at(field.elements)
     x = field.points - v * dt
     interpolated = field.sample_at(x, reduce_channels=x.shape.non_channel.without(field.shape).names)
-    return field.with_data(interpolated)
+    return field._with(interpolated)
 
 
 def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.0) -> CenteredGrid:
@@ -60,10 +60,10 @@ def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.
     v = velocity.sample_at(field.elements)
     x_bwd = x0 - v * dt
     x_fwd = x0 + v * dt
-    field_semi_la = field.with_data(field.sample_at(x_bwd.data, reduce_channels='not yet implemented'))  # semi-Lagrangian advection
-    field_inv_semi_la = field.with_data(field_semi_la.sample_at(x_fwd.data, reduce_channels='not yet implemented'))  # inverse semi-Lagrangian advection
+    field_semi_la = field.with_values(field.sample_at(x_bwd.values, reduce_channels='not yet implemented'))  # semi-Lagrangian advection
+    field_inv_semi_la = field.with_values(field_semi_la.sample_at(x_fwd.values, reduce_channels='not yet implemented'))  # inverse semi-Lagrangian advection
     new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
-    field_clamped = math.clip(new_field, *field.general_sample_at(x_bwd.data, 'minmax'))  # Address overshoots
+    field_clamped = math.clip(new_field, *field.general_sample_at(x_bwd.values, 'minmax'))  # Address overshoots
     return field_clamped
 
 
@@ -87,5 +87,5 @@ Lagrangian advection of particles.
     vel_k4 = velocity.sample_at(points.shifted(dt * vel_k3))
     # --- Combine points with RK4 scheme ---
     new_points = points.shifted(dt * (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4))
-    result = SampledField(new_points.center, field.data, mode=field.mode, point_count=field._point_count, name=field.name)
+    result = SampledField(new_points.center, field.values, mode=field.mode, point_count=field._point_count, name=field.name)
     return result

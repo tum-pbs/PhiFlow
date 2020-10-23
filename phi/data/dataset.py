@@ -66,5 +66,5 @@ class Dataset(object):
             sources.append(SceneSource(scene, frames=frames, shape_map=shapes))
         # --- Create Dataset ---
         if len(sources) == 0:
-            raise ValueError("No data sets found in '%s' " % directory)
+            raise ValueError("No values sets found in '%s' " % directory)
         return Dataset(name, sources)

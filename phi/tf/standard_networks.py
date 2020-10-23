@@ -33,7 +33,7 @@ Restrictions:
         assert isinstance(input_field, Field)
         resampled = input_field.at(domain)
         net_inputs.append(resampled)
-    y = CenteredGrid.sample(math.concat([math.to_float(grid.data) for grid in net_inputs], axis=-1), domain)
+    y = CenteredGrid.sample(math.concat([math.to_float(grid.values) for grid in net_inputs], axis=-1), domain)
     # --- Execute network ---
     pad_width = sum([2 ** i for i in range(levels)])
     y = y.padded([[0, pad_width]] * domain.rank)
@@ -53,7 +53,7 @@ Restrictions:
         res_in = resolutions.pop(0)
         res_in = res_in.at(y)  # No resampling required, simply shaving off the top rows
         if skip_combine == 'concat':
-            y = y.with_data(math.concat([y.data, res_in.data], axis=-1))
+            y = y.with_values(math.concat([y.values, res_in.values], axis=-1))
         else:
             raise NotImplementedError()
             y = y + res_in

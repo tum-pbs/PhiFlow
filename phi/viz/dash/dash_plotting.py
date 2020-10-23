@@ -136,7 +136,7 @@ def heatmap(field, settings):
             field = field.at_centers()
         else:
             raise ValueError(component)
-    z = field.data
+    z = field.values
     if len(z.shape.batch) > 0:
         z = z.dimension(z.shape.batch.names[0])[batch]
     z = reduce_component(z, component)
@@ -182,7 +182,7 @@ def slice_2d(field3d, settings):
 
     removed_axis = {FRONT: physics_config.y, RIGHT: physics_config.x, TOP: physics_config.z}[projection] % 3
 
-    data = field3d.data[(slice(None),) + tuple([min(depth, field3d.resolution[i]) if i == removed_axis else slice(None) for i in range(3)]) + (slice(None),)]
+    data = field3d.values[(slice(None),) + tuple([min(depth, field3d.resolution[i]) if i == removed_axis else slice(None) for i in range(3)]) + (slice(None),)]
     if projection == RIGHT and not physics_config.is_x_first:
         data = np.transpose(data, axes=(0, 2, 1, 3))
 
@@ -197,7 +197,7 @@ def plot(field1d, settings):
         field1d = field1d.unstack()[0]
     assert isinstance(field1d, CenteredGrid)
     x = field1d.points.data[0, :, 0]
-    data = field1d.data[min(field1d.resolution[0], batch), :, :]
+    data = field1d.values[min(field1d.resolution[0], batch), :, :]
     data = reduce_component(data, component)
     return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
 
@@ -232,7 +232,7 @@ def vector_field(field2d, settings):
     assert field2d.rank == 2
 
     batch = settings.get('batch', 0)
-    batch = min(batch, field2d.data.shape.batch.volume)
+    batch = min(batch, field2d.values.shape.batch.volume)
 
     arrow_origin = settings.get('arrow_origin', 'tip')
     assert arrow_origin in ('base', 'center', 'tip')
@@ -242,7 +242,7 @@ def vector_field(field2d, settings):
     draw_full_arrows = settings.get('draw_full_arrows', False)
 
     y, x = field2d.points[0][..., (physics_config.y, physics_config.x)]
-    data = field2d.data
+    data = field2d.values
     if len(data.shape.batch) > 0:
         data = data.dimension(data.shape.batch.names[0])[batch]
     data_y, data_x = data[..., (physics_config.y, physics_config.x)]

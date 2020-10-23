@@ -21,8 +21,8 @@ class AnalyticField(Field):
     def _op2(self, other, operator):
         if isinstance(other, SampledField):
             self_sampled = self.at(other)
-            data = operator(self_sampled.data, other.data)
-            return other.with_data(data)
+            data = operator(self_sampled.values, other.values)
+            return other.with_values(data)
         new_shape = self.shape.combined(other.shape)
         return _SymbolicOpField(new_shape, operator, [self, other])
 

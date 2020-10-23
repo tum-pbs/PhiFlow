@@ -58,7 +58,7 @@ class Backend:
 
     def auto_cast(self, *tensors):
         """
-        Determins the appropriate data type resulting from operations involving the tensors as input.
+        Determins the appropriate values type resulting from operations involving the tensors as input.
 
         This method is called by the default implementations of basic operators.
         Backends can override this method to prevent unnecessary casting.
@@ -363,13 +363,13 @@ If `multiples` has more dimensions than `value`, these dimensions are added to `
 
     def coordinates(self, tensor, unstack_coordinates=False):
         """
-        Returns the coordinates and data of a tensor.
+        Returns the coordinates and values of a tensor.
 
         The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
         In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
         :param tensor: dense or sparse tensor
-        :return: indices (tensor or tuple), data
+        :return: indices (tensor or tuple), values
         """
         raise NotImplementedError(self)
 
@@ -396,8 +396,8 @@ If `multiples` has more dimensions than `value`, these dimensions are added to `
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
         """
         Interpolates a regular grid at the specified coordinates.
-        :param inputs: grid data
-        :param sample_coords: tensor of floating grid indices. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at data.shape[i]-1.
+        :param inputs: grid values
+        :param sample_coords: tensor of floating grid indices. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
         :param interpolation: only 'linear' is currently supported
         :param boundary: values to use for coordinates outside the grid, can be specified for each face, options are 'constant', 'boundary', 'periodic', 'symmetric', 'reflect'
         :param constant_values: Value used for constant boundaries, can be specified for each face

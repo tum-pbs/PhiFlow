@@ -6,9 +6,9 @@ from phi.field import CenteredGrid
 def conv_layer(grid, filters, kernel_size, strides=1, padding='valid', activation=None, use_bias=True, name=None, trainable=True, reuse=None):
     assert isinstance(grid, CenteredGrid)
     if grid.rank == 2:
-        result = tf.layers.conv2d(grid.data, filters, kernel_size, strides=strides, activation=activation, padding=padding, name=name, use_bias=use_bias, trainable=trainable, reuse=reuse)
+        result = tf.layers.conv2d(grid.values, filters, kernel_size, strides=strides, activation=activation, padding=padding, name=name, use_bias=use_bias, trainable=trainable, reuse=reuse)
     elif grid.rank == 1:
-        result = tf.layers.conv1d(grid.data, filters, kernel_size, strides=strides, activation=activation, padding=padding, name=name, use_bias=use_bias, trainable=trainable, reuse=reuse)
+        result = tf.layers.conv1d(grid.values, filters, kernel_size, strides=strides, activation=activation, padding=padding, name=name, use_bias=use_bias, trainable=trainable, reuse=reuse)
     else:
         raise NotImplementedError()
     if padding == 'valid':
@@ -23,7 +23,7 @@ def conv_layer(grid, filters, kernel_size, strides=1, padding='valid', activatio
 
 
 def residual_block(grid, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activation=tf.nn.leaky_relu, _project_shortcut=False, padding="SYMMETRIC", name=None, training=False, trainable=True, reuse=tf.AUTO_REUSE):
-    y = grid.data
+    y = grid.values
     shortcut = y
 
     if isinstance(kernel_size, int):

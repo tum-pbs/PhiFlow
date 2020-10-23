@@ -49,9 +49,9 @@ class Schroedinger(Physics):
             potential = math.zeros_like(math.real(state.amplitude))  # for the moment, allow only real potentials
             for pot in potentials:
                 potential = effect_applied(pot, potential, dt)
-            potential = potential.data
+            potential = potential.values
 
-        amplitude = state.amplitude.data
+        amplitude = state.amplitude.values
 
         # Rotate by potential
         rotation = math.exp(1j * math.to_complex(potential * dt))
@@ -63,13 +63,13 @@ class Schroedinger(Physics):
         amplitude_fft *= math.exp(-1j * (2 * np.pi)**2 * math.to_complex(dt) * laplace / (2 * state.mass))
         amplitude = math.ifft(amplitude_fft)
 
-        obstacle_mask = GeometryMask(union([obstacle.geometry for obstacle in obstacles])).at(state.amplitude).data
+        obstacle_mask = GeometryMask(union([obstacle.geometry for obstacle in obstacles])).at(state.amplitude).values
         amplitude *= 1 - obstacle_mask
 
         normalized = False
         symmetric = False
         if not symmetric:
-            boundary_mask = math.zeros(state.domain.centered_shape(1, batch_size=1)).data
+            boundary_mask = math.zeros(state.domain.centered_shape(1, batch_size=1)).values
             boundary_mask[[slice(None)] + [slice(self.margin,-self.margin) for i in math.spatial_dimensions(boundary_mask)] + [slice(None)]] = 1
             amplitude *= boundary_mask
 

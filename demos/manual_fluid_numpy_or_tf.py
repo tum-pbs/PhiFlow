@@ -63,10 +63,10 @@ except ImportError:
 INFLOW_DENSITY = math.zeros_like(FLOW.density)
 if DIM == 2:
     # (batch, y, x, components)
-    INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
+    INFLOW_DENSITY.values[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
 else:
     # (batch, z, y, x, components)
-    INFLOW_DENSITY.data[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4 * 1):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
+    INFLOW_DENSITY.values[..., (RES // 4 * 2):(RES // 4 * 3), (RES // 4 * 1):(RES // 4 * 3), (RES // 4):(RES // 4 * 3), 0] = 1.
 
 # main , step 1: run FLOW sim (numpy), or only set up graph for TF
 
@@ -99,7 +99,7 @@ if MODE == 'TensorFlow':
 
         # for TF, we only have RESults now after each GRAPH_STEPS iterations
         if SAVE_IMAGES:
-            save_img(FLOW.density.data, 10000., IMG_PATH + "/tf_%04d.png" % (GRAPH_STEPS * (i + 1) - 1))
+            save_img(FLOW.density.values, 10000., IMG_PATH + "/tf_%04d.png" % (GRAPH_STEPS * (i + 1) - 1))
 
         print("Step SESSION.run %04d done, DENSITY shape %s, means %s %s" %
-              (i, FLOW.density.data.shape, np.mean(FLOW.density.data), np.mean(FLOW.velocity.staggered_tensor())))
+              (i, FLOW.density.values.shape, np.mean(FLOW.density.values), np.mean(FLOW.velocity.staggered_tensor())))

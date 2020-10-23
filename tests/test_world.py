@@ -21,7 +21,7 @@ class TestWorld(TestCase):
         except AssertionError:
             pass
         c = c.state_replaced(Fluid(Domain([80])))
-        numpy.testing.assert_equal(c.fluid.density.data.shape, [1,80,1])
+        numpy.testing.assert_equal(c.fluid.density.values.shape, [1, 80, 1])
 
         world = World(add_default_objects=True)
         assert world.gravity.state is world.state.gravity
@@ -36,8 +36,8 @@ class TestWorld(TestCase):
         assert c1[fluid] is fluid
         assert isinstance(repr(c1), six.string_types)
         assert len(c1) == len(c1.shape) == len(c1.staticshape) == len(c1.dtype)
-        assert c1.shape.fluid.density.data == (1, 1, 1, 1)
-        self.assertIsInstance(c1.dtype.fluid.density.data, numpy.dtype)
+        assert c1.shape.fluid.density.values == (1, 1, 1, 1)
+        self.assertIsInstance(c1.dtype.fluid.density.values, numpy.dtype)
 
         c2 = StateCollection()
         assert len(c2) == 0
