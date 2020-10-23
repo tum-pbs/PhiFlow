@@ -276,7 +276,7 @@ class Tensor:
                 other_tensor = tensor(other, names=self.shape.channel.names, infer_dimension_types=False)
                 return other_tensor
             elif len(shape) == 1 and self.shape.channel.rank == 0:
-                return NativeTensor(other_tensor, Shape(shape, ['vector' if shape[0] == self.shape.spatial.rank else 'channel'], [CHANNEL_DIM]))
+                return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
             else:
                 raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (native_math.ndims(other), self.shape))
 
@@ -447,7 +447,7 @@ class CollapsedTensor(Tensor):
             return self._cache().native()
         else:
             native = self.tensor.native(order=order)
-            multiples = [1 if name in self.tensor.shape else size for size, name, _ in self.shape.dimensions]
+            multiples = [1 if name in self.tensor.shape else (self.shape.get_size(name) if name in self.shape else 1) for name in order]
             tiled = native_math.tile(native, multiples)
             return tiled
 
@@ -501,7 +501,7 @@ class TensorStack(Tensor):
 
     def _cache(self):
         if self._cached is None:
-            native = native_math.stack([t.native() for t in self.tensors], axis=self.shape.index(self.stack_dim_name))
+            native = native_math.concat([t.native(order=self._shape.names) for t in self.tensors], axis=self.shape.index(self.stack_dim_name))
             self._cached = NativeTensor(native, self._shape)
         return self._cached
 
@@ -613,7 +613,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
             return tensor
         else:
             if names is None:
-                names = ['channel%d' % i for i in range(len(obj.shape))]
+                names = ['vector %d' % i for i in range(len(obj.shape))] if obj.ndim > 1 else ['vector']
             else:
                 names = _shape.names(names, len(obj.shape))
             shape = Shape(obj.shape, names, [CHANNEL_DIM] * len(obj.shape))

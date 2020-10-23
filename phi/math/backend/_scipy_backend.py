@@ -280,7 +280,8 @@ class SciPyBackend(Backend):
         assert indices.shape[-1] == self.ndims(values) - batch_dims - 1
         if batch_dims == 0:
             indices_list = self.unstack(indices, axis=-1)
-            return values[indices_list]
+            result = values[indices_list]
+            return result
         for dim in range(batch_dims):
             assert indices.shape[dim] == values.shape[dim] or values.shape[dim] == 1 or indices.shape[dim] == 1, 'Batch dimension %d does not match: %s (values) and %s (indices)' % (dim, values.shape, indices.shape)
         values_batch_max = np.array(values.shape[:batch_dims]) - 1
@@ -317,9 +318,21 @@ class SciPyBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return np.all(boolean_tensor, axis=axis, keepdims=keepdims)
 
-    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
+    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
+        assert duplicates_handling in ('undefined', 'add', 'mean', 'any')
+        assert outside_handling in ('discard', 'clamp', 'undefined')
+        shape = np.array(shape, np.int32)
+        if outside_handling == 'clamp':
+            indices = np.maximum(0, np.minimum(indices, shape - 1))
+        elif outside_handling == 'discard':
+            indices_inside = (indices >= 0) & (indices < shape)
+            indices_inside = np.min(indices_inside, axis=-1)
+            filter_indices = np.argwhere(indices_inside)
+            indices = indices[filter_indices][..., 0, :]
+            if values.shape[0] > 1:
+                values = values[filter_indices]
+        array = np.zeros(tuple(shape) + values.shape[indices.ndim-1:], self.precision_dtype if self.has_fixed_precision else values.dtype)
         indices = self.unstack(indices, axis=-1)
-        array = np.zeros(shape, self.precision_dtype if self.has_fixed_precision else values.dtype)
         if duplicates_handling == 'add':
             np.add.at(array, tuple(indices), values)
         elif duplicates_handling == 'mean':

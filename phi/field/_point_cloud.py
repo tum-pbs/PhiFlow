@@ -8,12 +8,14 @@ from ._grid import CenteredGrid
 
 class PointCloud(SampledField):
 
-    def __init__(self, elements: Geometry, values: Any=1, extrapolation=math.extrapolation.ZERO, add_overlapping=False):
+    def __init__(self, elements: Geometry, values: Any = 1, extrapolation=math.extrapolation.ZERO, add_overlapping=False):
         """
         A point cloud consists of elements at arbitrary locations.
         A value or vector is associated with each element.
 
         Outside of elements, the value of the field is determined by the extrapolation.
+
+        All points belonging to one example must be listed in the 'points' dimension.
 
         :param elements: Geometry object specifying the sample points and sizes
         :param values: values corresponding to elements
@@ -24,7 +26,9 @@ class PointCloud(SampledField):
         self._add_overlapping = add_overlapping
 
     def sample_at(self, points, reduce_channels=()):
-        if isinstance(points, GridCell):
+        if points == self.elements:
+            return self.values
+        elif isinstance(points, GridCell):
             return self._grid_scatter(points.bounds, points.resolution)
         else:
             raise NotImplementedError()
@@ -38,14 +42,18 @@ class PointCloud(SampledField):
         :return: CenteredGrid
         """
         closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution))
-        scattered = math.scatter(self.sample_points, valid_indices, self.values, shape, duplicates_handling=self.mode)
-        return CenteredGrid(scattered, box, self.extrapolation)
-
-    def mask(self):
-        return PointCloud(self._elements, 1, math.extrapolation.ZERO, add_overlapping=False)
+        if self._add_overlapping:
+            duplicates_handling = 'add'
+        else:
+            if self.values.shape.spatial_rank > 0:
+                duplicates_handling = 'mean'
+            else:
+                duplicates_handling = 'any'  # constant value, no need for interpolation
+        scattered = math.scatter(closest_index, self.values, resolution, duplicates_handling=duplicates_handling, outside_handling='discard', scatter_dims=('points',))
+        return scattered
 
     def __repr__(self):
-        return "PointCloud[%s at %s]" % (self._values, self._elements)
+        return "PointCloud[%s]" % (self.shape,)
 
 
 def _distribute_points(density, particles_per_cell=1, distribution='uniform'):

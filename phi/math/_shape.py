@@ -264,7 +264,7 @@ class Shape:
             if len(same_type_dims) > 0:
                 pos = self.index(same_type_dims.names[0])
             else:
-                pos = {BATCH_DIM: 0, SPATIAL_DIM: self.batch.rank+1, CHANNEL_DIM: self.rank + 1}[dim_type]
+                pos = {BATCH_DIM: 0, SPATIAL_DIM: self.batch.rank, CHANNEL_DIM: self.rank + 1}[dim_type]
         elif pos < 0:
             pos += self.rank + 1
         sizes = list(self.sizes)
@@ -530,12 +530,12 @@ def define_shape(channels=(), names=None, batch=None, infer_types_if_not_given=F
     # --- Channel dimensions ---
     if isinstance(channels, int):
         sizes.append(channels)
-        names_.append('vector' if channels == len(spatial) else 'channel')
+        names_.append('vector')
         types.append(CHANNEL_DIM)
     else:
         for i, channel in enumerate(channels):
             sizes.append(channel)
-            names_.append('channel%d' % i)
+            names_.append('vector %d' % i)
             types.append(CHANNEL_DIM)
     if names is not None:
         names = get_names(names, len(sizes))
@@ -579,13 +579,11 @@ def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, chann
         # --- channel names ---
         if channel_dims == 0:
             pass
-        elif channel_dims == 1 and shape[-1] == spatial_dims:
-            dim_names.append('vector')
         elif channel_dims == 1:
-            dim_names.append('channel')
+            dim_names.append('vector')
         else:
             for i in range(channel_dims):
-                dim_names.append('channel%d' % i)
+                dim_names.append('vector %d' % i)
         if set_dim_names is not None:
             for i, set_name in enumerate(set_dim_names):
                 if set_name is not None:

@@ -301,8 +301,9 @@ def broadcast_op(operation, tensors):
         raise NotImplementedError()
 
 
-def reshape(value, shape):
-    raise NotImplementedError()
+def reshape(value: Tensor, shape: Shape):
+    native = value.native(shape.names)
+    return NativeTensor(native, shape)
 
 
 def prod(value, axis=None):
@@ -527,9 +528,23 @@ def gather(value: Tensor, indices: Tensor):
     return NativeTensor(result, new_shape)
 
 
-def scatter(points, indices, values, shape, duplicates_handling='undefined'):
-    raise NotImplementedError()
-    math.scatter()
+def scatter(indices: Tensor, values: Tensor, size: Shape, scatter_dims, duplicates_handling='undefined', outside_handling='discard'):
+    """
+    Create a dense tensor from sparse values.
+
+    :param indices: n-dimensional indices corresponding to values
+    :param values: values to scatter at indices
+    :param size: spatial size of dense tensor
+    :param scatter_dims: dimensions of values/indices to reduce during scattering
+    :param duplicates_handling: one of ('undefined', 'add', 'mean', 'any')
+    :param outside_handling: one of ('discard', 'clamp', 'undefined')
+    """
+    indices_ = indices.native()
+    values_ = values.native(values.shape.combined(indices.shape.non_channel).names)
+    result_ = math.scatter(indices_, values_, tuple(size), duplicates_handling=duplicates_handling, outside_handling=outside_handling)
+    result_shape = size & indices.shape.batch & values.shape.non_spatial
+    result_shape = result_shape.without(scatter_dims)
+    return NativeTensor(result_, result_shape)
 
 
 def fft(x):

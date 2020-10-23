@@ -203,10 +203,7 @@ class SampledField(Field):
 
     def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
         copied = copy.copy(self)
-        if values is not None:
-            copied._values = values
-        if extrapolation is not None:
-            copied._extrapolation = extrapolation
+        SampledField.__init__(copied, self._elements, values if values is not None else self._values, extrapolation if extrapolation is not None else self._extrapolation)
         return copied
 
 

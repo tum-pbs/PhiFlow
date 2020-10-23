@@ -288,17 +288,16 @@ To convert float tensors to the backend precision but leave non-float tensors un
     def isfinite(self, x):
         raise NotImplementedError(self)
 
-    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
+    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
         """
         This method expects the first dimension of indices and values to be the batch dimension.
         The batch dimension need not be specified in the indices array.
 
-        All indices must be non-negative and are expected to be within bounds. Otherwise the behaviour is undefined.
-
-        :param indices:
-        :param values:
-        :param shape:
-        :param duplicates_handling: one of ('undefined', 'add', 'mean', 'any', 'last', 'no duplicates')
+        :param indices: n-dimensional indices corresponding to values
+        :param values: values to scatter at indices
+        :param shape: spatial shape of the result tensor, 1D int array
+        :param duplicates_handling: one of ('undefined', 'add', 'mean', 'any')
+        :param outside_handling: one of ('discard', 'clamp', 'undefined')
         """
         raise NotImplementedError(self)
 

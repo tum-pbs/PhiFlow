@@ -237,8 +237,8 @@ class DynamicBackend(Backend):
     def isfinite(self, x):
         return self.choose_backend(x).isfinite(x)
 
-    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
-        return self.choose_backend([points, indices, values]).scatter(points, indices, values, shape, duplicates_handling=duplicates_handling)
+    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
+        return self.choose_backend([indices, values]).scatter(indices, values, shape, duplicates_handling=duplicates_handling, outside_handling=outside_handling)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         return self.choose_backend(boolean_tensor).any(boolean_tensor, axis=axis, keepdims=keepdims)

@@ -9,7 +9,7 @@ Esamples:
 """
 
 from phi import math
-from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Grid, Field
+from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Grid, Field, PointCloud
 
 
 def advect(field: Field, velocity: Field, dt):
@@ -67,7 +67,7 @@ def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.
     return field_clamped
 
 
-def runge_kutta_4(field: SampledField, velocity: Field, dt):
+def runge_kutta_4(field: PointCloud, velocity: Field, dt):
     """
 Lagrangian advection of particles.
     :param field: SampledField with any number of components
@@ -86,6 +86,6 @@ Lagrangian advection of particles.
     vel_k3 = velocity.sample_at(points.shifted(0.5 * dt * vel_k2))
     vel_k4 = velocity.sample_at(points.shifted(dt * vel_k3))
     # --- Combine points with RK4 scheme ---
-    new_points = points.shifted(dt * (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4))
-    result = SampledField(new_points.center, field.values, mode=field.mode, point_count=field._point_count, name=field.name)
-    return result
+    vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
+    new_points = points.shifted(dt * vel)
+    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)

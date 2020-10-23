@@ -6,7 +6,7 @@ from phi import math, struct
 from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, Grid
 from phi.geom import Box, GridCell
 from phi.geom import Geometry
-from phi.math import extrapolation
+from phi.math import extrapolation, Tensor
 from phi.math import spatial_shape
 from ._effect import FieldEffect
 from ._physics import Physics
@@ -94,7 +94,7 @@ class Domain:
     def center_points(self):
         return self.cells.center
 
-    def grid(self, value, type: type = CenteredGrid, extrapolation: math.Extrapolation = None):
+    def grid(self, value: Tensor or float or int = 0, type: type = CenteredGrid, extrapolation: math.Extrapolation = None):
         """
         Creates a grid matching the domain by sampling the given value.
 
@@ -113,7 +113,7 @@ class Domain:
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
-    def vector_grid(self, value, type: type = CenteredGrid, extrapolation: math.Extrapolation = None) -> Grid:
+    def vector_grid(self, value: Tensor or float or int = 0, type: type = CenteredGrid, extrapolation: math.Extrapolation = None) -> Grid:
         """
         Creates a vector grid matching the domain by sampling the given value.
 
