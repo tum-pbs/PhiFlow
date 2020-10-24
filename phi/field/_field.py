@@ -56,6 +56,15 @@ class Field:
         raise NotImplementedError(self)
 
     def at(self, representation: SampledField) -> SampledField:
+        """
+        Samples this field at the sample points of `representation`.
+        The result will approximate the values of this field on the data structure of `representation`.
+
+        Unlike Field.sample_at(), this method returns a Field object, not a Tensor.
+
+        :param representation: Field object defining the sample points. The values of `representation` are ignored.
+        :return: Field object of same type as `representation`
+        """
         elements = representation.elements
         resampled = self.sample_at(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation

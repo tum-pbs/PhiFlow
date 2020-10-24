@@ -17,6 +17,9 @@ class PointCloud(SampledField):
 
         All points belonging to one example must be listed in the 'points' dimension.
 
+        Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+        When sampling this field on a grid, scatter functions may be used.
+
         :param elements: Geometry object specifying the sample points and sizes
         :param values: values corresponding to elements
         :param extrapolation: values outside elements
@@ -24,6 +27,7 @@ class PointCloud(SampledField):
         """
         SampledField.__init__(self, elements, values, extrapolation)
         self._add_overlapping = add_overlapping
+        assert 'points' in self.shape
 
     def sample_at(self, points, reduce_channels=()):
         if points == self.elements:

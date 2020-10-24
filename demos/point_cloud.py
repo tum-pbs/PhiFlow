@@ -2,9 +2,8 @@ from phi.flow import *
 
 domain = Domain([64, 64], CLOSED, box=Box(0, (100, 100)))
 
-positions = math.tensor([(10, 10), (50, 50)], names=('points', 'vector'))  # , (10, 50), (200, -10)
+positions = math.tensor([(10, 10), (50, 50), (200, -10)], names='points,:')
 cloud = PointCloud(Sphere(positions, 0)) * [-1, 1]
-
 
 velocity = domain.grid([-1, 1])
 cloud = advect.runge_kutta_4(cloud, velocity, 10)

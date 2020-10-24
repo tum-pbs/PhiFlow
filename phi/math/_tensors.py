@@ -97,7 +97,7 @@ class Tensor:
 
     def __getitem__(self, item):
         if isinstance(item, Tensor):
-            from ._tensor_math import gather
+            from ._functions import gather
             return gather(self, item)
         if isinstance(item, (int, slice)):
             assert self.rank == 1
@@ -615,7 +615,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
             if names is None:
                 names = ['vector %d' % i for i in range(len(obj.shape))] if obj.ndim > 1 else ['vector']
             else:
-                names = _shape.names(names, len(obj.shape))
+                names = _shape.parse_dim_names(names, len(obj.shape))
             shape = Shape(obj.shape, names, [CHANNEL_DIM] * len(obj.shape))
             return NativeTensor(obj, shape)
     if isinstance(obj, numbers.Number):

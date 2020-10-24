@@ -6,7 +6,7 @@ from ._track import SparseLinearOperation
 from .backend import math as native_math
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
-from . import _tensor_math as math
+from . import _functions as math
 
 
 class IncompatibleExtrapolations(ValueError):

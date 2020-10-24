@@ -340,7 +340,7 @@ class Shape:
 
     def with_names(self, names):
         if isinstance(names, str):
-            names = get_names(names, self.rank)
+            names = parse_dim_names(names, self.rank)
             names = [n if n is not None else o for n, o in zip(names, self.names)]
         return Shape(self.sizes, names, self.types)
 
@@ -462,7 +462,7 @@ class IncompatibleShapes(ValueError):
         ValueError.__init__(self, shape1, shape2)
 
 
-def get_names(obj, count: int) -> tuple:
+def parse_dim_names(obj, count: int) -> tuple:
     if isinstance(obj, str):
         parts = obj.split(',')
         result = []
@@ -483,9 +483,6 @@ def get_names(obj, count: int) -> tuple:
         assert len(obj) == count
         return tuple(obj)
     raise ValueError(obj)
-
-
-names = get_names
 
 
 def define_shape(channels=(), names=None, batch=None, infer_types_if_not_given=False, **spatial):
@@ -538,7 +535,7 @@ def define_shape(channels=(), names=None, batch=None, infer_types_if_not_given=F
             names_.append('vector %d' % i)
             types.append(CHANNEL_DIM)
     if names is not None:
-        names = get_names(names, len(sizes))
+        names = parse_dim_names(names, len(sizes))
         names_ = [setn or detn for setn, detn in zip(names, names_)]
     return Shape(sizes, names_, types)
 
@@ -563,7 +560,7 @@ def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, chann
     from phi import geom
     types = [BATCH_DIM] * batch_dims + [SPATIAL_DIM] * spatial_dims + [CHANNEL_DIM] * channel_dims
     if dim_names is not None:
-        dim_names = names(dim_names, len(shape))
+        dim_names = parse_dim_names(dim_names, len(shape))
     if dim_names is None or None in dim_names:
         set_dim_names = dim_names
         dim_names = []
