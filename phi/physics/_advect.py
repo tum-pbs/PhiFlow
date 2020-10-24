@@ -20,7 +20,9 @@ Advect `field` along the `velocity` vectors using the default advection method.
     :param dt: time increment
     :return: Advected field of same type as `field`
     """
-    if isinstance(field, SampledField):
+    if isinstance(field, PointCloud):
+        if isinstance(velocity, PointCloud) and velocity.elements == field.elements:
+            return points(field, velocity, dt)
         return runge_kutta_4(field, velocity, dt=dt)
     if isinstance(field, ConstantField):
         return field
@@ -88,4 +90,10 @@ Lagrangian advection of particles.
     # --- Combine points with RK4 scheme ---
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     new_points = points.shifted(dt * vel)
+    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)
+
+
+def points(field: PointCloud, velocity: PointCloud, dt):
+    assert field.elements == velocity.elements
+    new_points = field.elements.shifted(dt * velocity.values)
     return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)

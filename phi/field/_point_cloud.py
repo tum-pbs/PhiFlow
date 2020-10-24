@@ -27,7 +27,7 @@ class PointCloud(SampledField):
         """
         SampledField.__init__(self, elements, values, extrapolation)
         self._add_overlapping = add_overlapping
-        assert 'points' in self.shape
+        assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
 
     def sample_at(self, points, reduce_channels=()):
         if points == self.elements:
