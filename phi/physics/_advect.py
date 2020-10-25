@@ -62,8 +62,8 @@ def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.
     v = velocity.sample_at(field.elements)
     x_bwd = x0 - v * dt
     x_fwd = x0 + v * dt
-    field_semi_la = field.with_values(field.sample_at(x_bwd.values, reduce_channels='not yet implemented'))  # semi-Lagrangian advection
-    field_inv_semi_la = field.with_values(field_semi_la.sample_at(x_fwd.values, reduce_channels='not yet implemented'))  # inverse semi-Lagrangian advection
+    field_semi_la = field._with(field.sample_at(x_bwd.values, reduce_channels='not yet implemented'))  # semi-Lagrangian advection
+    field_inv_semi_la = field._with(field_semi_la.sample_at(x_fwd.values, reduce_channels='not yet implemented'))  # inverse semi-Lagrangian advection
     new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
     field_clamped = math.clip(new_field, *field.general_sample_at(x_bwd.values, 'minmax'))  # Address overshoots
     return field_clamped

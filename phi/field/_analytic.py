@@ -22,7 +22,7 @@ class AnalyticField(Field):
         if isinstance(other, SampledField):
             self_sampled = self.at(other)
             data = operator(self_sampled.values, other.values)
-            return other.with_values(data)
+            return other._with(data)
         new_shape = self.shape.combined(other.shape)
         return _SymbolicOpField(new_shape, operator, [self, other])
 

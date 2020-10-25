@@ -53,7 +53,7 @@ Restrictions:
         res_in = resolutions.pop(0)
         res_in = res_in.at(y)  # No resampling required, simply shaving off the top rows
         if skip_combine == 'concat':
-            y = y.with_values(math.concat([y.values, res_in.values], axis=-1))
+            y = y._with(math.concat([y.values, res_in.values], axis=-1))
         else:
             raise NotImplementedError()
             y = y + res_in

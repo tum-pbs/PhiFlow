@@ -128,7 +128,7 @@ class Domain:
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.box, extrapolation)
             if grid.shape.channel.rank == 0:
-                grid = grid.with_values(math.expand_channel(grid.values, self.rank, 0))
+                grid = grid._with(math.expand_channel(grid.values, self.rank, 0))
             else:
                 assert grid.shape.channel.sizes[0] == self.rank
             return grid

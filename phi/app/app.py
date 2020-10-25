@@ -129,16 +129,34 @@ class App(object):
         consoleHandler.setLevel(logging.INFO)
         customLogger.addHandler(consoleHandler)
         self.logger = customLogger
-        # Recording
-        self.record_images = record_images
-        self.record_data = record_data
-        self.recorded_fields = recorded_fields if recorded_fields is not None else []
-        self.rec_all_slices = False
+        # Framerate
         self.sequence_stride = stride if stride is not None else 1
         self.framerate = framerate if framerate is not None else stride
         self._custom_properties = custom_properties if custom_properties else {}
-        self.figures = PlotlyFigureBuilder()
+        # State
+        self.state = None
+        self.step_function = None
+        # Initial log message
         self.info('App created. Scene directory is %s' % self.scene.path)
+
+    def set_state(self, initial_state, step_function=None, show=(), dt=None):
+        """
+        Specifies the current physics state of the app and optionally the solver step function.
+        The current physics state of the app is stored in `app.state`.
+
+        This method replaces `world.add()` calls from Φ-Flow 1.
+
+        :param initial_state: dict mapping names (str) to Fields or Tensors
+        :param step_function: function to progress the state. Called as step_function(dt=dt, **current_state)
+        :param show: list of names to expose to the user interface
+        :param dt: (optional) value of dt to be passed to step_function
+        """
+        self.state = initial_state
+        self.step_function = step_function
+        if dt is not None:
+            self.dt = dt
+        for field_name in show:
+            self.add_field(field_name, lambda n=field_name: self.state[n])
 
     @property
     def frame(self):
@@ -169,7 +187,13 @@ class App(object):
         self._invalidation_counter += 1
 
     def step(self):
-        world.step(dt=self.dt)
+        if self.step_function is None:
+            world.step(dt=self.dt)
+        else:
+            new_state = self.step_function(dt=self.dt, **self.state)
+            assert isinstance(self.state, dict), 'step_function must return a dict'
+            assert new_state.keys() == self.state.keys(), 'step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s' % (self.state.keys(), new_state.keys())
+            self.state = new_state
 
     @property
     def fieldnames(self):
@@ -353,8 +377,6 @@ class App(object):
         starttime = time.time()
         try:
             self.progress()
-            if allow_recording and self.steps % self.sequence_stride == 0:
-                self.record_frame()
             if framerate is not None:
                 duration = time.time() - starttime
                 rest = 1.0 / framerate - duration
@@ -393,26 +415,6 @@ class App(object):
     @property
     def running(self):
         return self.current_action is not None
-
-    def record_frame(self):
-        self.current_action = 'Recording'
-        files = []
-
-        if self.record_images:
-            os.path.isdir(self.image_dir) or os.makedirs(self.image_dir)
-            arrays = [self.get_field(field) for field in self.recorded_fields]
-            for name, array in zip(self.recorded_fields, arrays):
-                files += self.figures.save_figures(self.image_dir, name, self.steps, array)
-
-        if self.record_data:
-            arrays = [self.get_field(field) for field in self.recorded_fields]
-            arrays = [a.staggered_tensor() if isinstance(a, StaggeredGrid) else a.values for a in arrays]
-            names = [n.lower() for n in self.recorded_fields]
-            files += write_sim_frame(self.directory, arrays, names, self.steps)
-
-        if files:
-            self.message = 'Frame written to %s' % files
-        self.current_action = None
 
     def benchmark(self, sequence_count):
         self._pause = False

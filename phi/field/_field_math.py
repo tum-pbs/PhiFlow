@@ -88,20 +88,20 @@ def diffuse(field: Field, diffusivity, dt, substeps=1):
 def conjugate_gradient(function, y: Grid, x0: Grid, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None, bake='sparse'):
     if callback is not None:
         def field_callback(x):
-            x = x0.with_values(x)
+            x = x0._with(x)
             callback(x)
     else:
         field_callback = None
 
     data_function = expose_tensors(function, x0)
     converged, x, iterations = math.conjugate_gradient(data_function, y.values, x0.values, relative_tolerance, absolute_tolerance, max_iterations, gradient, field_callback, bake)
-    return converged, x0.with_values(x), iterations
+    return converged, x0._with(x), iterations
 
 
 def expose_tensors(field_function, *proto_fields):
     @wraps(field_function)
     def wrapper(*field_data):
-        fields = [proto.with_values(data) for data, proto in zip(field_data, proto_fields)]
+        fields = [proto._with(data) for data, proto in zip(field_data, proto_fields)]
         return field_function(*fields).values
     return wrapper
 
@@ -119,7 +119,7 @@ def mean(field: Grid):
 
 def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
     data = math.normalize_to(field.values, norm.values, epsilon)
-    return field.with_values(data)
+    return field._with(data)
 
 
 def pad(grid: Grid, widths):

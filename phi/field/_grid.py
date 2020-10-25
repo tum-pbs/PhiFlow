@@ -258,7 +258,7 @@ class StaggeredGrid(Grid):
     #         grid = grid[tuple([slice(None, None, 2) if d - 1 == axis else slice(None) for d in range(self.rank + 2)])]  # Discard odd indices along axis
     #         grid = math.downsample2x(grid, axes=tuple(filter(lambda ax2: ax2 != axis, range(self.rank))))  # Interpolate values along other axes
     #         values.append(grid)
-    #     return self.with_values(values)
+    #     return self._with(values)
 
 
 def unstack_staggered_tensor(data: Tensor) -> TensorStack:
