@@ -24,6 +24,7 @@ def gradient(field: Grid, axes=None, difference='central'):
 
 
 def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
+    """ Wraps :func:`math.shift` for CenteredGrid. """
     data = math.shift(grid.values, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
 

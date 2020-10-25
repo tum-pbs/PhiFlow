@@ -14,7 +14,7 @@ from ._effect import Gravity, effect_applied, gravity_tensor
 from ._physics import Physics, StateDependency, State
 
 
-def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake=None):
+def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse'):
     """
     Projects the given velocity field by solving for and subtracting the pressure.
 

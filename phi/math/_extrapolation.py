@@ -137,18 +137,18 @@ class ConstantExtrapolation(Extrapolation):
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type, value.keep_separate)
         elif isinstance(value, SparseLinearOperation):
-            (row, col), data = math.coordinates(tensor.dependency_matrix, unstack_coordinates=True)
-            assert len(tensor.shape) == 2  # TODO nd
-            y = row // tensor.shape[1]
-            dy0, dy1 = pad_widths[tensor.shape.names[0]]
-            dx0, dx1 = pad_widths[tensor.shape.names[1]]
-            padded_row = row + dy0 * (tensor.shape[1] + dx0 + dx1) + dx0 * (y + 1) + dx1 * y
-            new_sizes = list(tensor.shape.sizes)
-            for i, dim in enumerate(tensor.shape.names):
-                new_sizes[i] += sum(pad_widths[dim])
-            new_shape = tensor.shape.with_sizes(new_sizes)
-            padded_matrix = math.sparse_tensor((padded_row, col), data, shape=(new_shape.volume, tensor.dependency_matrix.shape[1]))
-            return SparseLinearOperation(tensor.source, padded_matrix, new_shape)
+            (row, col), data = native_math.coordinates(value.dependency_matrix, unstack_coordinates=True)
+            assert len(value.shape) == 2  # TODO nd
+            y = row // value.shape[1]
+            dy0, dy1 = widths[value.shape.names[0]]
+            dx0, dx1 = widths[value.shape.names[1]]
+            padded_row = row + dy0 * (value.shape[1] + dx0 + dx1) + dx0 * (y + 1) + dx1 * y
+            new_sizes = list(value.shape.sizes)
+            for i, dim in enumerate(value.shape.names):
+                new_sizes[i] += sum(widths[dim])
+            new_shape = value.shape.with_sizes(new_sizes)
+            padded_matrix = native_math.sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
+            return SparseLinearOperation(value.source, padded_matrix, new_shape)
         else:
             raise NotImplementedError()
 
