@@ -428,11 +428,6 @@ class App(object):
         time_elapsed = time.time() - starttime
         return step_count, time_elapsed
 
-    def config_recording(self, images, data, fields):
-        self.record_images = images
-        self.record_data = data
-        self.recorded_fields = fields
-
 
 def display_name(python_name):
     n = list(python_name)

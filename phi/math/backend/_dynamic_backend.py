@@ -15,6 +15,7 @@ class DynamicBackend(Backend):
         self.backends = []
         self.default_backend: Backend = None
         Backend.__init__(self, 'Dynamic')
+        self.invocation_counter = 0
 
     @property
     def precision(self):
@@ -30,25 +31,22 @@ class DynamicBackend(Backend):
         if not isinstance(values, (list, tuple)):
             values = [values]
 
-        def applicable(backend):
-            for value in values:
-                if not backend.is_tensor(value, only_native=False):
-                    return False
-            return True
+        self.invocation_counter += 1
 
         # --- Default Backend has priority ---
-        if creation and self.default_backend is not None and applicable(self.default_backend):
+        if self.default_backend is not None and _is_specific(self.default_backend, values):
+            return self.default_backend
+        if creation and self.default_backend is not None and _is_applicable(self.default_backend, values):
             return self.default_backend
         # --- Filter out non-applicable ---
-        backends = list(backend for backend in self.backends if applicable(backend))
+        backends = [backend for backend in self.backends if _is_applicable(backend, values)]
         if len(backends) == 0:
-            list(backend for backend in self.backends if applicable(backend))
+            list(backend for backend in self.backends if _is_applicable(backend, values))
             raise NoBackendFound('No backend found for values %s; registered backends are %s' % (values, self.backends))
         # --- Native tensors? ---
         for backend in backends:
-            for value in values:
-                if backend.is_tensor(value, only_native=True):
-                    return backend
+            if _is_specific(backend, values):
+                return backend
         else:
             return backends[0]
 
@@ -319,3 +317,17 @@ def set_precision(floating_point_bits):
     :param floating_point_bits: one of (16, 32, 64, None)
     """
     DYNAMIC_BACKEND.precision = floating_point_bits
+
+
+def _is_applicable(backend, values):
+    for value in values:
+        if not backend.is_tensor(value, only_native=False):
+            return False
+    return True
+
+
+def _is_specific(backend, values):
+    for value in values:
+        if backend.is_tensor(value, only_native=True):
+            return True
+    return False

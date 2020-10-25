@@ -40,8 +40,6 @@ def build_benchmark(dashapp):
         output = '### Benchmark Results\n'
         if step_count != step_count:
             output += 'The benchmark was stopped prematurely.  \n'
-        if dashapp.app.record_data or dashapp.app.record_images:
-            output += 'Recording was disabled during benchmark.  \n'
         output += 'Finished %d steps in %.03f seconds.' % (step_count, time_elapsed)
         output += '  \n*Average*: %.04f seconds per step, %.02f steps per second.' % (
             time_elapsed / step_count, step_count / time_elapsed)
@@ -75,8 +73,6 @@ def build_tf_profiler(dashapp):
         output = '### Profiling Results\n'
         if step_count != step_count:
             output += 'The profiling run was stopped prematurely.  \n'
-        if dashapp.app.record_data or dashapp.app.record_images:
-            output += 'Recording was disabled during benchmark.  \n'
         output += 'Finished %d steps in %.03f seconds.' % (step_count, time_elapsed)
         output += '  \n*Average*: %.04f seconds per step, %.02f steps per second.' % (time_elapsed / step_count, step_count / time_elapsed)
         output += '  \nProfile saved. Open  \n*chrome://tracing/*  \n and load file  \n *%s*' % timeline_file
