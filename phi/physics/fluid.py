@@ -7,25 +7,44 @@ import numpy as np
 
 from phi import math, struct, field
 from phi.field import GeometryMask, AngularVelocity, CenteredGrid, Grid, divergence
-from phi.geom import union, GridCell
+from phi.geom import union
 from . import _advect
-from ._physics import Physics, StateDependency, State
+from ._boundaries import Domain, Material
 from ._effect import Gravity, effect_applied, gravity_tensor
-from ._boundaries import Domain, Material, Obstacle
+from ._physics import Physics, StateDependency, State
 
 
-def build_masks(domain: Domain, obstacles=()):
-    obstacle_mask = union([obstacle.geometry for obstacle in obstacles])
-    active_mask = 1 - obstacle_mask.sample_at(GridCell(velocity.resolution, velocity.box).center)
-    active_extrapolation = math.extrapolation.PERIODIC if velocity.extrapolation == math.extrapolation.PERIODIC else math.extrapolation.ZERO
-    active_mask = CenteredGrid(active_mask, domain.box, active_extrapolation)
-    active_mask = domain.grid(active_mask, Material.active_extrapolation)
-    accessible_extrapolation = math.extrapolation.ONE if velocity.extrapolation in (math.extrapolation.PERIODIC, math.extrapolation.BOUNDARY) else math.extrapolation.ZERO
-    accessible_mask = CenteredGrid(active_mask.values, active_mask.box, accessible_extrapolation)
-    return active_mask, accessible_mask
+def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake=None):
+    """
+    Projects the given velocity field by solving for and subtracting the pressure.
+
+    This method is similar to `field.divergence_free()` but differs in how the boundary conditions are specified.
+
+    :param velocity: vector field sampled on a grid
+    :param domain: used to specify boundary conditions
+    :param obstacles: list of Obstacles to specify boundary conditions inside the domain
+    :return: divergence-free velocity, pressure, iterations, divergence of input velocity
+    """
+    active_mask = domain.grid(~union([obstacle.geometry for obstacle in obstacles]), extrapolation=domain.boundaries.active_extrapolation)
+    accessible_mask = domain.grid(active_mask, extrapolation=domain.boundaries.accessible_extrapolation)
+    hard_bcs = field.stagger(accessible_mask, math.minimum)
+    velocity *= hard_bcs
+    velocity = layer_obstacle_velocities(velocity, obstacles)
+    div = divergence(velocity)
+    div -= field.mean(div)
+    # Solve pressure
+    laplace = partial(masked_laplace, active=active_mask, accessible=accessible_mask)
+    converged, pressure, iterations = field.conjugate_gradient(laplace, div, domain.grid(0), relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
+    if not math.all(converged):
+        raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,))
+    # Subtract grad pressure
+    gradp = field.staggered_gradient(pressure)
+    gradp *= hard_bcs
+    velocity -= gradp
+    return velocity, pressure, iterations, div
 
 
-def layer_obstacle_velocities(velocity: Grid, *obstacles: Obstacle):
+def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
     for obstacle in obstacles:
         if not obstacle.is_stationary:
             obs_mask = GeometryMask(obstacle.geometry).at(velocity)
@@ -33,36 +52,6 @@ def layer_obstacle_velocities(velocity: Grid, *obstacles: Obstacle):
             obs_vel = (angular_velocity + obstacle.velocity).at(velocity)
             velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
     return velocity
-
-
-def solve_pressure(velocity, active_mask, accessible_mask):
-    divergence_field = field.divergence(velocity)
-    pressure_extrapolation = velocity.extrapolation
-    pressure_guess = CenteredGrid.sample(0, velocity.resolution, velocity.box, pressure_extrapolation)
-    laplace_fun = partial(masked_laplace, active=active_mask, accessible=accessible_mask)
-    converged, pressure, iterations = field.conjugate_gradient(laplace_fun, divergence_field, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, gradient)
-    if not math.all(converged):
-        raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,))
-    return pressure
-
-
-def divergence_free_obstacles(velocity: Grid, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, return_info=False):
-    """
-Projects the given velocity field by solving for and subtracting the pressure.
-    :param return_info: if True, returns a dict holding information about the solve as a second object
-    :param velocity: StaggeredGrid
-    :param obstacles: list of Obstacles
-    :return: divergence-free velocity as StaggeredGrid
-    """
-    active_mask, accessible_mask = build_masks(velocity)
-    hard_bcs = field.stagger(accessible_mask, math.minimum)
-    velocity *= hard_bcs
-    velocity = layer_obstacle_velocities(velocity, obstacles)
-    pressure = solve_pressure()
-    gradp = field.staggered_gradient(pressure)
-    gradp *= hard_bcs
-    velocity -= gradp
-    return velocity if not return_info else (velocity, {'pressure': pressure, 'iterations': iterations, 'divergence': divergence_field})
 
 
 def masked_laplace(pressure: CenteredGrid, active: CenteredGrid, accessible: CenteredGrid) -> CenteredGrid:

@@ -9,7 +9,7 @@ state = dict(velocity=domain.sgrid(0), density=domain.grid(0), pressure=domain.g
 def step(velocity, density, pressure, divergence, dt):
     density = advect.semi_lagrangian(density, velocity, dt) + inflow
     velocity = advect.semi_lagrangian(velocity, velocity, dt) + (density * (0, buoyancy_factor)).at(velocity)
-    velocity, pressure, iterations, divergence = field.divergence_free(velocity, bake=None, relative_tolerance=0.01)
+    velocity, pressure, iterations, divergence = fluid.make_incompressible(velocity, domain, relative_tolerance=0.01)
     return dict(velocity=velocity, density=density, pressure=pressure, divergence=divergence)
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from phi import math
-from phi.math import Tensor
+from phi.math import Tensor, Shape, spatial_shape
 
 
 class Geometry:
@@ -122,3 +122,71 @@ class Geometry:
         :rtype: Geometry
         """
         raise NotImplementedError(self.__class__)
+
+    def __invert__(self):
+        return _InvertedGeometry(self)
+
+
+class _InvertedGeometry(Geometry):
+
+    def __init__(self, geometry):
+        self.geometry = geometry
+
+    @property
+    def center(self):
+        raise NotImplementedError()
+
+    @property
+    def shape(self):
+        return self.geometry.shape
+
+    def lies_inside(self, location: Tensor) -> Tensor:
+        return ~self.geometry.lies_inside(location)
+
+    def approximate_signed_distance(self, location: Tensor) -> Tensor:
+        return -self.geometry.approximate_signed_distance(location)
+
+    def approximate_fraction_inside(self, other_geometry: Geometry) -> Tensor:
+        return 1 - self.geometry.approximate_fraction_inside(other_geometry)
+
+    def bounding_radius(self) -> Tensor:
+        raise NotImplementedError()
+
+    def bounding_half_extent(self) -> Tensor:
+        raise NotImplementedError()
+
+    def shifted(self, delta: Tensor) -> Geometry:
+        return _InvertedGeometry(self.geometry.shifted(delta))
+
+    def rotated(self, angle) -> Geometry:
+        return _InvertedGeometry(self.geometry.rotated(angle))
+
+
+def assert_same_rank(rank1, rank2, error_message):
+    rank1_, rank2_ = _rank(rank1), _rank(rank2)
+    if rank1_ is not None and rank2_ is not None:
+        assert rank1_ == rank2_, 'Ranks do not match: %s and %s. %s' % (rank1_, rank2_, error_message)
+
+
+def _rank(rank):
+    if rank is None:
+        return None
+    elif isinstance(rank, int):
+        pass
+    elif isinstance(rank, Geometry):
+        rank = rank.rank
+    elif isinstance(rank, Shape):
+        rank = rank.spatial.rank
+    elif isinstance(rank, Tensor):
+        rank = rank.shape.spatial_rank
+    else:
+        raise NotImplementedError()
+    return None if rank == 0 else rank
+
+
+def _fill_spatial_with_singleton(shape):
+    if shape.spatial.rank == shape.channel.volume:
+        return shape
+    else:
+        assert shape.spatial.rank == 0
+        return shape.combined(spatial_shape([1] * shape.channel.volume))

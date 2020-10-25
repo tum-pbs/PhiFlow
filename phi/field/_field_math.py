@@ -1,3 +1,4 @@
+import warnings
 from functools import wraps
 
 import numpy as np
@@ -139,25 +140,28 @@ def pad(grid: Grid, widths):
     raise NotImplementedError()
 
 
-def divergence_free(velocity: Grid, relative_tolerance: float = 1e-3, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake: str = 'sparse'):
+def divergence_free(vector_field: Grid, relative_tolerance: float = 1e-3, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse'):
     """
+    Returns the divergence-free part of the given vector field.
+    The boundary conditions are taken from `vector_field`.
 
-    :param velocity:
-    :param relative_tolerance:
-    :param absolute_tolerance:
-    :param max_iterations:
-    :param bake:
-    :return: divergence-free velocity, pressure, iterations, divergence
+    This function solves for a scalar potential with an interative solver.
+
+    :param vector_field: vector grid
+    :param relative_tolerance: for the potential solver
+    :param absolute_tolerance: for the potential solver
+    :param max_iterations: for the potential solver
+    :param bake: for the potential solver
+    :return: divergence-free vector field, scalar potential, number of iterations performed, divergence
     """
-    # TODO do we need the domain? closed -> boundary extrapolation
-    div = divergence(velocity)
+    div = divergence(vector_field)
     div -= mean(div)
-    pressure_extrapolation = velocity.extrapolation  # TODO periodic -> periodic, closed -> zero-grdient, open -> ?
-    pressure_guess = CenteredGrid.sample(0, velocity.resolution, velocity.box, extrapolation=pressure_extrapolation)
-    converged, pressure, iterations = conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
-    gradp = staggered_gradient(pressure)
-    velocity -= gradp
-    return velocity, pressure, iterations, div
+    pressure_extrapolation = vector_field.extrapolation  # periodic -> periodic, closed -> boundary, open -> zero
+    pressure_guess = CenteredGrid.sample(0, vector_field.resolution, vector_field.box, extrapolation=pressure_extrapolation)
+    converged, potential, iterations = conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
+    gradp = staggered_gradient(potential)
+    vector_field -= gradp
+    return vector_field, potential, iterations, div
 
 
 def squared(field: Field):

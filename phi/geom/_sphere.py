@@ -1,7 +1,6 @@
 from phi import math, struct
 
-from ._geom import Geometry
-from ._geom_util import _fill_spatial_with_singleton
+from ._geom import Geometry, _fill_spatial_with_singleton
 from ..math import tensor, combined_shape
 
 

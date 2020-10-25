@@ -1,8 +1,7 @@
 import numpy as np
 
 from phi import struct, math
-from ._geom_util import assert_same_rank, _fill_spatial_with_singleton
-from ._geom import Geometry
+from ._geom import Geometry, assert_same_rank, _fill_spatial_with_singleton
 from ._transform import rotate
 from ..math import tensor, combined_shape, spatial_shape
 from ..math._shape import CHANNEL_DIM
@@ -199,7 +198,7 @@ class Cuboid(AbstractBox):
     def __init__(self, center, half_size):
         self._center = tensor(center, names='..., vector', channel_dims=1, spatial_dims=0)
         self._half_size = tensor(half_size, names='..., vector', channel_dims=1, spatial_dims=0)
-        self._shape = _fill_spatial_with_singleton(combined_shape(self._center, self._half_size))
+        self._shape = _fill_spatial_with_singleton(combined_shape(self._center, self._half_size)).without('vector')
 
     @property
     def center(self):
