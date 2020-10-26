@@ -25,7 +25,7 @@ def f(u, x, t):
     u_t = gradients(u, t)
     u_x = gradients(u, x)
     u_xx = gradients(u_x, x)
-    return u_t + u*u_x - (0.05 / np.pi) * u_xx
+    return u_t + u*u_x - (0.01 / np.pi) * u_xx
 
 
 def boundary_t0(N):
@@ -43,26 +43,19 @@ def open_boundary(N):
 
 
 # Boundary loss
-N_bc = 50
-x, t, u_bc = [math.concat([v_t0, v_x], axis=0) for v_t0, v_x in zip(boundary_t0(N_bc), open_boundary(N_bc))]
+x_bc, t_bc, u_bc = [math.concat([v_t0, v_x], axis=0) for v_t0, v_x in zip(boundary_t0(100), open_boundary(100))]
 with app.model_scope():
-    u = network(x, t)
-loss_u = math.l2_loss(u[:, 0] - u_bc)
+    loss_u = math.l2_loss(network(x_bc, t_bc)[:, 0] - u_bc)  # normalizes by first dimension, N_bc
 
 # Physics loss
-N_f = 31 * 128
-x = tf.convert_to_tensor(rnd.random_uniform([N_f], -1, 1))
-t = tf.convert_to_tensor(rnd.random_uniform([N_f], 0, 1))
+x_ph, t_ph = tf.convert_to_tensor(rnd.random_uniform([1000], -1, 1)), tf.convert_to_tensor(rnd.random_uniform([1000], 0, 1))
 with app.model_scope():
-    u = network(x, t)
-loss_f = math.l2_loss(f(u[:, 0], x, t))
+    loss_f = math.l2_loss(f(network(x_ph, t_ph)[:, 0], x_ph, t_ph))  # normalizes by first dimension, N_f
 
-app.add_objective(loss_u, reg=loss_f * 0.32)
+app.add_objective(loss_u, reg=loss_f)
 
 # Display u on a grid
-grid_x, grid_t = np.meshgrid(np.linspace(-1, 1, 128), np.linspace(0, 1, 33), indexing='ij')
-grid_x = tf.convert_to_tensor(grid_x, tf.float32)
-grid_t = tf.convert_to_tensor(grid_t, tf.float32)
+grid_x, grid_t = [tf.convert_to_tensor(t, tf.float32) for t in np.meshgrid(np.linspace(-1, 1, 128), np.linspace(0, 1, 33), indexing='ij')]
 with app.model_scope():
     grid_u = math.expand_dims(network(grid_x, grid_t))
 app.add_field('u', grid_u)
