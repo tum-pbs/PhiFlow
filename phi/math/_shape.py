@@ -5,9 +5,9 @@ import warnings
 from phi import math
 
 
-BATCH_DIM = 0
-SPATIAL_DIM = 1
-CHANNEL_DIM = 2
+BATCH_DIM = 'batch'
+SPATIAL_DIM = 'spatial'
+CHANNEL_DIM = 'channel'
 
 
 class Shape:
@@ -483,6 +483,31 @@ def parse_dim_names(obj, count: int) -> tuple:
         assert len(obj) == count
         return tuple(obj)
     raise ValueError(obj)
+
+
+def shape_from_dict(dims: dict) -> Shape:
+    """
+    Creates a shape from a dict mapping dimension names to their respective sizes.
+
+    Dimension types are inferred from the names according to the following rules:
+
+    * 'vector' -> channel dimension
+    * 'x', 'y', 'z' -> spatial dimension
+    * else batch dimension
+
+    :param dims: dict mapping dimension names to their respective sizes
+    :return: Shape
+    """
+    types = []
+    for name, size in dims.items():
+        if name in ('vector',):
+            type_ = CHANNEL_DIM
+        elif name in ('x', 'y', 'z'):
+            type_ = SPATIAL_DIM
+        else:
+            type_ = BATCH_DIM
+        types.append(type_)
+    return Shape(dims.values(), dims.keys(), types)
 
 
 def define_shape(channels=(), names=None, batch=None, infer_types_if_not_given=False, **spatial):

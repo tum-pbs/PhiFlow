@@ -7,7 +7,7 @@ from functools import partial
 
 import numpy as np
 
-from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, define_shape
+from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, define_shape, shape_from_dict
 from . import _extrapolation as extrapolation
 from ._track import as_sparse_linear_operation, SparseLinearOperation, sum_operators
 from .backend import math
@@ -69,22 +69,21 @@ def transpose(tensor, axes):
         return math.transpose(tensor, axes)
 
 
-def zeros(channels=(), batch=None, dtype=None, **spatial):
+def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     """
 
-    :param channels: int or (int,)
-    :param batch: int or {name: size}
-    :param dtype:
-    :param spatial:
+    :param shape: base tensor shape
+    :param dtype: data type
+    :param dimensions: additional dimensions, types are determined from names: 'vector' -> channel, 'x','y','z' -> spatial, else batch
     :return:
     """
-    shape = define_shape(channels, batch=batch, infer_types_if_not_given=True, **spatial)
+    shape &= shape_from_dict(dimensions)
     native_zero = math.zeros((), dtype=dtype)
     collapsed = NativeTensor(native_zero, EMPTY_SHAPE)
     return CollapsedTensor(collapsed, shape)
 
 
-def ones(channels=(), batch=None, dtype=None, **spatial):
+def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     """
 
     :param channels: int or (int,)
@@ -93,14 +92,14 @@ def ones(channels=(), batch=None, dtype=None, **spatial):
     :param spatial:
     :return:
     """
-    shape = define_shape(channels, batch, infer_types_if_not_given=True, **spatial)
+    shape &= shape_from_dict(dimensions)
     native_zero = math.ones((), dtype=dtype)
     collapsed = NativeTensor(native_zero, EMPTY_SHAPE)
     return CollapsedTensor(collapsed, shape)
 
 
-def random_normal(channels=(), batch=None, dtype=None, **spatial):
-    shape = define_shape(channels, batch, infer_types_if_not_given=True, **spatial)
+def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
+    shape &= shape_from_dict(dimensions)
     native = math.random_normal(shape.sizes)
     native = native if dtype is None else native.astype(dtype)
     return NativeTensor(native, shape)
