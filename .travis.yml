@@ -16,7 +16,7 @@ before_install:
 
 install:
   - pip install --quiet tensorflow
-  - pip install --quiet pytorch
+  - pip install --quiet torch
   - pip install nbformat ipython pylint;
   - pip install .
 
