@@ -131,11 +131,7 @@ class StaggeredGrid(Grid):
     """
 
     def __init__(self, values: TensorStack, box=None, extrapolation=math.extrapolation.ZERO):
-        if 'vector' not in values.shape:
-            if 'staggered' in values.shape:
-                values = values.staggered.as_channel('vector')
-            else:
-                raise ValueError("values needs to have 'vector' or 'staggered' dimension")
+        values = _validate_staggered_values(values)
         x = values.vector[0 if math.GLOBAL_AXIS_ORDER.is_x_first else -1]
         resolution = x.shape.spatial.with_size('x', x.shape.get_size('x') - 1)#.expand(x.rank, 'vector', CHANNEL_DIM)
         Grid.__init__(self, values, resolution, box, extrapolation)
@@ -174,6 +170,10 @@ class StaggeredGrid(Grid):
                 comp_res, comp_box = extend_symmetric(resolution, box, dim)
                 tensors.append(math.zeros(comp_res) + value)
             return StaggeredGrid(math.channel_stack(tensors, 'vector'), box, extrapolation)
+
+    def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
+        values = _validate_staggered_values(values) if values is not None else None
+        return Grid._with(self, values, extrapolation)
 
     def sample_at(self, points, reduce_channels=()):
         if isinstance(points, Geometry):
@@ -282,3 +282,13 @@ def extend_symmetric(resolution: Shape, box: AbstractBox, axis, cells=1):
     box = Box(box.lower - delta_size, box.upper + delta_size)
     ext_res = resolution.sizes + axis_mask
     return resolution.with_sizes(ext_res), box
+
+
+def _validate_staggered_values(values: TensorStack):
+    if 'vector' in values.shape:
+        return values
+    else:
+        if 'staggered' in values.shape:
+            return values.staggered.as_channel('vector')
+        else:
+            raise ValueError("values needs to have 'vector' or 'staggered' dimension")

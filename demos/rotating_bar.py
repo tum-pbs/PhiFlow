@@ -8,8 +8,8 @@ def update_obstacle(obstacle, dt, angular_velocity=0.1):
     return obstacle.copied_with(geometry=geometry, angular_velocity=angular_velocity)
 
 
-world.add(Fluid(Domain([128, 128], OPEN, box=box([100, 100]))), physics=IncompressibleFlow())
-world.add(Obstacle(box[10:90, 48:52], name='bar'), physics=update_obstacle)
+world.add(Fluid(Domain([128, 128], OPEN, box=Box[0:100, 0:100])), physics=IncompressibleFlow())
+world.add(Obstacle(Box[10:90, 48:52], name='bar'), physics=update_obstacle)
 world.step()
 
 app = App('Moving Objects Demo', framerate=10)

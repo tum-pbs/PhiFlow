@@ -5,3 +5,7 @@ from ._scipy_backend import SCIPY_BACKEND, SciPyBackend
 DYNAMIC_BACKEND.add_backend(SCIPY_BACKEND)
 DYNAMIC_BACKEND.default_backend = SCIPY_BACKEND
 math = DYNAMIC_BACKEND
+
+
+def choose_backend(values):
+    return DYNAMIC_BACKEND.choose_backend(values)

@@ -1,6 +1,7 @@
 """
 Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 """
+import warnings
 from functools import partial
 
 import numpy as np
@@ -47,9 +48,10 @@ def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_t
 def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
     for obstacle in obstacles:
         if not obstacle.is_stationary:
-            obs_mask = GeometryMask(obstacle.geometry).at(velocity)
+            obs_mask = GeometryMask(obstacle.geometry)
+            obs_mask = obs_mask.at(velocity)
             angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None).at(velocity)
-            obs_vel = (angular_velocity + obstacle.velocity).at(velocity)
+            obs_vel = angular_velocity + obstacle.velocity
             velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
     return velocity
 
@@ -81,6 +83,7 @@ class Fluid(State):
     """
 
     def __init__(self, domain, density=0.0, velocity=0.0, buoyancy_factor=0.0, tags=('fluid', 'velocityfield', 'velocity'), name='fluid', **kwargs):
+        warnings.warn('Fluid is deprecated. Use a dictionary of fields instead. See the Φ-Flow 2 upgrade instructions.', DeprecationWarning)
         State.__init__(self, **struct.kwargs(locals()))
 
     def default_physics(self):
@@ -90,20 +93,24 @@ class Fluid(State):
     def domain(self, domain):
         return domain
 
+    @property
+    def rank(self):
+        return self.domain.rank
+
     @struct.variable(default=0, dependencies='domain')
     def density(self, density):
         """
 The marker density is stored in a CenteredGrid with dimensions matching the domain.
 It describes the number of particles per physical volume.
         """
-        return self.centered_grid('density', density)
+        return self.domain.grid(density)
 
     @struct.variable(default=0, dependencies='domain')
     def velocity(self, velocity):
         """
 The velocity is stored in a StaggeredGrid with dimensions matching the domain.
         """
-        return self.staggered_grid('velocity', velocity)
+        return self.domain.staggered_grid(velocity)
 
     @struct.constant(default=0.0)
     def buoyancy_factor(self, fac):
@@ -142,12 +149,13 @@ Supports obstacles, density effects, velocity effects, global gravity.
         gravity = gravity_tensor(gravity, fluid.rank)
         velocity = fluid.velocity
         density = fluid.density
+        pressure, iterations, div = None, None, None
         if self.make_input_divfree:
-            velocity, solve_info = divergence_free(velocity, obstacles, return_info=True)
+            velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
         # --- Advection ---
         density = _advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advected_velocity = _advect.semi_lagrangian(velocity, velocity, dt=dt)
-        if self.conserve_density and np.all(Material.solid(fluid.domain.boundaries)):
+        if self.conserve_density and fluid.domain.boundaries.accessible_extrapolation == math.extrapolation.ZERO:  # solid boundary
             density = field.normalize(density, fluid.density)
         # --- Effects ---
         for effect in density_effects:
@@ -158,9 +166,14 @@ Supports obstacles, density effects, velocity effects, global gravity.
         divergent_velocity = velocity
         # --- Pressure solve ---
         if self.make_output_divfree:
-            velocity, solve_info = divergence_free(velocity, obstacles, return_info=True)
-        solve_info['advected_velocity'] = advected_velocity
-        solve_info['divergent_velocity'] = divergent_velocity
+            velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
+        solve_info = {
+            'pressure': pressure,
+            'iterations': iterations,
+            'divergence': div,
+            'advected_velocity': advected_velocity,
+            'divergent_velocity': divergent_velocity,
+        }
         return fluid.copied_with(density=density, velocity=velocity, age=fluid.age + dt, solve_info=solve_info)
 
 

@@ -146,7 +146,7 @@ def divergence_free(vector_field: Grid, relative_tolerance: float = 1e-3, absolu
     Returns the divergence-free part of the given vector field.
     The boundary conditions are taken from `vector_field`.
 
-    This function solves for a scalar potential with an interative solver.
+    This function solves for a scalar potential with an iterative solver.
 
     :param vector_field: vector grid
     :param relative_tolerance: for the potential solver

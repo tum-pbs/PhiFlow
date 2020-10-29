@@ -1,7 +1,4 @@
-import numpy as np
-
-from .backend import DYNAMIC_BACKEND as math
-from . import _extrapolation as extrapolation
+from .backend import math, choose_backend
 from ._tensors import Tensor, NativeTensor, combined_shape, TensorStack
 
 
@@ -75,7 +72,7 @@ def as_sparse_linear_operation(tensor: Tensor):
     tracking_shape = tensor.shape.non_batch
     idx = math.range(tracking_shape.volume)
     ones = math.ones_like(idx)
-    sparse_diag = math.choose_backend(tensor.native()).sparse_tensor([idx, idx], ones, shape=(tracking_shape.volume,) * 2)
+    sparse_diag = choose_backend(tensor.native()).sparse_tensor([idx, idx], ones, shape=(tracking_shape.volume,) * 2)
     return SparseLinearOperation(tensor, sparse_diag, tracking_shape)
 
 

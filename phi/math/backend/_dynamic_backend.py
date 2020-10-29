@@ -15,7 +15,6 @@ class DynamicBackend(Backend):
         self.backends = []
         self.default_backend: Backend = None
         Backend.__init__(self, 'Dynamic')
-        self.invocation_counter = 0
 
     @property
     def precision(self):
@@ -30,8 +29,6 @@ class DynamicBackend(Backend):
     def choose_backend(self, values: list or tuple, creation=False) -> Backend:
         if not isinstance(values, (list, tuple)):
             values = [values]
-
-        self.invocation_counter += 1
 
         # --- Default Backend has priority ---
         if self.default_backend is not None and _is_specific(self.default_backend, values):
