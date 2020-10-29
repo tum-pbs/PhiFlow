@@ -1,4 +1,4 @@
-from pytest import TestCase
+from unittest import TestCase
 
 
 class TestPass(TestCase):
