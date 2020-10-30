@@ -15,22 +15,18 @@ def laplace(field: Grid, axes=None):
     return result
 
 
-def gradient(field: Grid, axes=None, difference='central'):
-    if not physical_units or self.has_cubic_cells:
-        data = math.gradient(self.values, dx=np.mean(self.dx), difference=difference, padding=_pad_mode(self.extrapolation))
-        return self.copied_with(data=data, extrapolation=self.extrapolation.gradient(), flags=())
-    else:
-        raise NotImplementedError('Only cubic cells supported.')
+def gradient(field: CenteredGrid, type: type = CenteredGrid):
+    if type == CenteredGrid:
+        values = math.gradient(field.values, field.dx, difference='central', padding=field.extrapolation)
+    elif type == StaggeredGrid:
+        values = stagger(field, lambda lower, upper: (upper - lower) / field.dx)
+    return type(values, field.bounds, field.extrapolation.gradient())
 
 
 def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
     """ Wraps :func:`math.shift` for CenteredGrid. """
     data = math.shift(grid.values, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
-
-
-def staggered_gradient(field: CenteredGrid):
-    return stagger(field, lambda lower, upper: (upper - lower) / field.dx)
 
 
 def stagger(field: CenteredGrid, face_function=math.minimum):
@@ -160,7 +156,7 @@ def divergence_free(vector_field: Grid, relative_tolerance: float = 1e-3, absolu
     pressure_extrapolation = vector_field.extrapolation  # periodic -> periodic, closed -> boundary, open -> zero
     pressure_guess = CenteredGrid.sample(0, vector_field.resolution, vector_field.box, extrapolation=pressure_extrapolation)
     converged, potential, iterations = conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
-    gradp = staggered_gradient(potential)
+    gradp = gradient(potential, type=StaggeredGrid)
     vector_field -= gradp
     return vector_field, potential, iterations, div
 

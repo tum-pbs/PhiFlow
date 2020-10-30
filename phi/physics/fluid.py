@@ -2,20 +2,17 @@
 Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 """
 import warnings
-from functools import partial
-
-import numpy as np
 
 from phi import math, struct, field
-from phi.field import GeometryMask, AngularVelocity, CenteredGrid, Grid, divergence
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence
 from phi.geom import union
 from . import _advect
-from ._boundaries import Domain, Material
+from ._boundaries import Domain
 from ._effect import Gravity, effect_applied, gravity_tensor
 from ._physics import Physics, StateDependency, State
 
 
-def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse'):
+def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse', pressure_guess=None):
     """
     Projects the given velocity field by solving for and subtracting the pressure.
 
@@ -34,12 +31,19 @@ def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_t
     div = divergence(velocity)
     div -= field.mean(div)
     # Solve pressure
-    laplace = partial(masked_laplace, active=active_mask, accessible=accessible_mask)
-    converged, pressure, iterations = field.conjugate_gradient(laplace, div, domain.grid(0), relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
+
+    def laplace(pressure):
+        grad = field.gradient(pressure, type=type(velocity))
+        grad_bc = grad * hard_bcs
+        div = field.divergence(grad_bc)
+        return div
+
+    pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
+    converged, pressure, iterations = field.conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
     if not math.all(converged):
         raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,))
     # Subtract grad pressure
-    gradp = field.staggered_gradient(pressure)
+    gradp = field.gradient(pressure, type=field.StaggeredGrid)
     gradp *= hard_bcs
     velocity -= gradp
     return velocity, pressure, iterations, div
@@ -56,30 +60,10 @@ def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
     return velocity
 
 
-def masked_laplace(pressure: CenteredGrid, active: CenteredGrid, accessible: CenteredGrid) -> CenteredGrid:
-    """
-    Compute the laplace of a pressure-like field in the presence of obstacles.
-
-    :param pressure: input field
-    :param active: Scalar field encoding active cells as ones and inactive (open/obstacle) as zero.
-        Active cells are those for which physical constants_dict such as pressure or velocity are calculated.
-    :param accessible: Scalar field encoding cells that are accessible, i.e. not solid, as ones and obstacles as zero.
-    :return: laplace of pressure given the boundary conditions
-    """
-    # TODO active * pressure has extrapolation=0
-    left_act_pr, right_act_pr = field.shift(active * pressure, (-1, 1), 'vector')
-    left_access, right_access = field.shift(accessible, (-1, 1), 'vector')
-    left_right = (left_act_pr + right_act_pr) * active
-    center = (left_access + right_access) * pressure
-    result = (left_right - center) / pressure.dx ** 2
-    result = math.sum(result.values, axis='vector')
-    return CenteredGrid(result, pressure.box, pressure.extrapolation.gradient().gradient())
-
-
 @struct.definition()
 class Fluid(State):
     """
-    A Fluid state consists of a density field (centered grid) and a velocity field (staggered grid).
+    Deprecated. A Fluid state consists of a density field (centered grid) and a velocity field (staggered grid).
     """
 
     def __init__(self, domain, density=0.0, velocity=0.0, buoyancy_factor=0.0, tags=('fluid', 'velocityfield', 'velocity'), name='fluid', **kwargs):

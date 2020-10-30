@@ -19,7 +19,7 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
-    laplace, gradient, staggered_gradient, divergence, stagger,staggered_curl_2d,
+    laplace, gradient, divergence, stagger,staggered_curl_2d,
     mean, pad, shift, normalize,
     expose_tensors,
     conjugate_gradient,
