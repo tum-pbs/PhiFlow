@@ -441,6 +441,9 @@ class MixedExtrapolation(Extrapolation):
             'axes': {ax: (es[0].to_dict(), es[1].to_dict()) for ax, es in self.ext.items()}
         }
 
+    def __repr__(self):
+        return repr(self.ext)
+
     def gradient(self) -> Extrapolation:
         return MixedExtrapolation({ax: (es[0].gradient(), es[1].gradient())
                                    for ax, es in self.ext.items()})
@@ -481,6 +484,22 @@ class MixedExtrapolation(Extrapolation):
     def __getitem__(self, item):
         dim, face = item
         return self.ext[dim][face]
+
+    def __add__(self, other):
+        return self._op2(other, lambda e1, e2: e1 + e2)
+
+    def __sub__(self, other):
+        return self._op2(other, lambda e1, e2: e1 - e2)
+
+    def __mul__(self, other):
+        return self._op2(other, lambda e1, e2: e1 * e2)
+
+    def _op2(self, other, operator):
+        if isinstance(other, MixedExtrapolation):
+            assert self.ext.keys() == other.ext.keys()
+            return MixedExtrapolation({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
+        else:
+            return MixedExtrapolation({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
 
 
 def from_dict(dictionary: dict) -> Extrapolation:

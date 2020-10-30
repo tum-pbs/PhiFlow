@@ -169,9 +169,9 @@ class Box(AbstractBox, metaclass=BoxType):
 
     def __repr__(self):
         if self.shape.non_channel.volume == 1:
-            return 'box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
+            return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
         else:
-            return 'box[shape=%s]' % self._shape
+            return 'Box[shape=%s]' % self._shape
 
 
 class Cuboid(AbstractBox):

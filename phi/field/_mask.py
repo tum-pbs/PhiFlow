@@ -13,6 +13,7 @@ class GeometryMask(AnalyticField):
     """
 
     def __init__(self, geometry: Geometry):
+        assert isinstance(geometry, Geometry)
         self.geometry = geometry
 
     @property

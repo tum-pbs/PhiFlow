@@ -50,8 +50,8 @@ def effect_applied(effect, field, dt):
         return field + effect_field
     elif effect._mode == FIX:
         assert effect.bounds is not None
-        inside = GeometryMask([effect.bounds]).at(field)
-        return math.where(inside, effect_field, field)
+        inside = GeometryMask(effect.bounds).at(field)
+        return inside * effect_field + (1 - inside) * field
     else:
         raise ValueError('Invalid mode: %s' % effect.mode)
 

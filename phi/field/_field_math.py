@@ -132,12 +132,12 @@ def pad(grid: Grid, widths):
     else:
         assert isinstance(widths, dict)
     widths_list = [widths[axis] for axis in grid.shape.spatial.names]
-    if isinstance(grid, CenteredGrid):
+    if isinstance(grid, Grid):
         data = math.pad(grid.values, widths, grid.extrapolation)
         w_lower = tensor([w[0] for w in widths_list])
         w_upper = tensor([w[1] for w in widths_list])
         box = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
-        return CenteredGrid(data, box, grid.extrapolation)
+        return type(grid)(data, box, grid.extrapolation)
     raise NotImplementedError()
 
 
@@ -196,4 +196,4 @@ def staggered_curl_2d(grid, pad_width=(1, 2)):
     kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
     scalar_potential = grid.padded([pad_width, pad_width]).values
     vector_field = math.conv(scalar_potential, kernel, padding='valid')
-    return StaggeredGrid(vector_field, box=grid.box)
+    return StaggeredGrid(vector_field, bounds=grid.box)

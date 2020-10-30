@@ -251,15 +251,17 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrap
 
 
 def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation'):
-    grid_names = ['grid_' + dim.name if dim.is_spatial else dim.name for dim in grid.shape.unstack()]
-    grid_names_sp = ['grid_' + dim.name for dim in grid.shape.spatial.unstack()]
-    grid = grid._with_shape_replaced(grid.shape.with_names(grid_names))
+    coord_names = ['_coord_' + dim.name if dim.is_spatial else dim.name for dim in coordinates.shape.unstack()]
+    coordinates = coordinates._with_shape_replaced(coordinates.shape.with_names(coord_names))
     neighbors = closest_grid_values(grid, coordinates, extrap)
-    binary = meshgrid(*[[0, 1]] * grid.shape.spatial_rank, names=grid_names_sp)
+    binary = meshgrid(*[[0, 1]] * grid.shape.spatial_rank, names=grid.shape.spatial)
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')
-    return sum_(neighbors * weights, axis=grid.shape.spatial.names)
+    result = sum_(neighbors * weights, axis=grid.shape.spatial.names)
+    result_names = [dim.name[7:] if dim.is_spatial else dim.name for dim in result.shape.unstack()]
+    result = result._with_shape_replaced(result.shape.with_names(result_names))
+    return result
 
 
 def join_spaces(*tensors):

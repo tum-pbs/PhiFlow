@@ -11,6 +11,7 @@ from phi.math import spatial_shape
 from ._effect import FieldEffect
 from ._physics import Physics
 from ._physics import State
+from ..math._extrapolation import MixedExtrapolation
 
 
 class Material:
@@ -36,10 +37,10 @@ class Material:
             axes = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
             obj = {ax: mat for ax, mat in zip(axes, obj)}
         if isinstance(obj, dict):
-            grid_extrapolation = {ax: mat.grid_extrapolation for ax, mat in obj.items()}
-            vector_extrapolation = {ax: mat.vector_extrapolation for ax, mat in obj.items()}
-            active_extrapolation = {ax: mat.active_extrapolation for ax, mat in obj.items()}
-            accessible_extrapolation = {ax: mat.accessible_extrapolation for ax, mat in obj.items()}
+            grid_extrapolation = MixedExtrapolation({ax: mat.grid_extrapolation for ax, mat in obj.items()})
+            vector_extrapolation = MixedExtrapolation({ax: mat.vector_extrapolation for ax, mat in obj.items()})
+            active_extrapolation = MixedExtrapolation({ax: mat.active_extrapolation for ax, mat in obj.items()})
+            accessible_extrapolation = MixedExtrapolation({ax: mat.accessible_extrapolation for ax, mat in obj.items()})
             return Material('mixed', grid_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
         raise NotImplementedError()
 

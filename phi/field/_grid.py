@@ -130,11 +130,11 @@ class StaggeredGrid(Grid):
     Centered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
     """
 
-    def __init__(self, values: TensorStack, box=None, extrapolation=math.extrapolation.ZERO):
+    def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
         values = _validate_staggered_values(values)
         x = values.vector[0 if math.GLOBAL_AXIS_ORDER.is_x_first else -1]
-        resolution = x.shape.spatial.with_size('x', x.shape.get_size('x') - 1)#.expand(x.rank, 'vector', CHANNEL_DIM)
-        Grid.__init__(self, values, resolution, box, extrapolation)
+        resolution = x.shape.spatial.with_size('x', x.shape.get_size('x') - 1)
+        Grid.__init__(self, values, resolution, bounds, extrapolation)
 
     @staticmethod
     def sample(value, resolution, box, extrapolation=math.extrapolation.ZERO):
@@ -236,12 +236,7 @@ class StaggeredGrid(Grid):
             return SampledField._op2(self, other, operator)
     #
     # def padded(self, widths):
-    #     new_grids = [grid.padded(widths) for grid in self.unstack()]
-    #     if isinstance(widths, int):
-    #         widths = [[widths, widths]] * self.rank
-    #     w_lower, w_upper = np.transpose(widths)
-    #     bounds = Box(self.bounds.lower - w_lower * self.dx, self.bounds.upper + w_upper * self.dx)
-    #     return self.copied_with(values=new_grids, bounds=bounds)
+
     #
     # def downsample2x(self):
     #     values = []
