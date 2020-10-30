@@ -200,11 +200,12 @@ def laplace(x, dx=1, padding=extrapolation.BOUNDARY, axes=None):
     :type axes: list
     :return: tensor of same shape
     """
-    dx = tensor(dx)
+    if not isinstance(dx, (int, float)):
+        dx = tensor(dx, names='_laplace')
     if isinstance(x, Extrapolation):
         return x.gradient()
     left, center, right = shift(tensor(x), (-1, 0, 1), axes, padding, stack_dim='_laplace')
-    result = (left + right - 2 * center) / tensor(dx, names='_laplace')
+    result = (left + right - 2 * center) / dx
     result = math.sum_(result, '_laplace')
     return result
 
