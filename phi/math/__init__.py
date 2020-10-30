@@ -17,7 +17,7 @@ Main classes:
 * Shape
 """
 
-from .backend import DYNAMIC_BACKEND
+from .backend import DYNAMIC_BACKEND, set_precision
 from .backend._scipy_backend import SCIPY_BACKEND
 
 from . import _extrapolation as extrapolation

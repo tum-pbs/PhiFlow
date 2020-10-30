@@ -133,7 +133,7 @@ class DynamicBackend(Backend):
         return self.choose_backend(tensor, creation=True).zeros_like(tensor)
 
     def ones(self, shape, dtype=None):
-        return self.choose_backend([], creation=True).zeros(shape, dtype)
+        return self.choose_backend([], creation=True).ones(shape, dtype)
 
     def ones_like(self, tensor):
         return self.choose_backend(tensor, creation=True).ones_like(tensor)

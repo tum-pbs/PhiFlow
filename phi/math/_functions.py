@@ -93,8 +93,8 @@ def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     :return:
     """
     shape &= shape_from_dict(dimensions)
-    native_zero = math.ones((), dtype=dtype)
-    collapsed = NativeTensor(native_zero, EMPTY_SHAPE)
+    native_one = math.ones((), dtype=dtype)
+    collapsed = NativeTensor(native_one, EMPTY_SHAPE)
     return CollapsedTensor(collapsed, shape)
 
 
