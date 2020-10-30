@@ -14,7 +14,7 @@ def assert_not_close(*tensors, rel_tolerance, abs_tolerance):
 class TestMathFunctions(TestCase):
 
     def test_assert_close(self):
-        math.assert_close(math.zeros(a=10), math.zeros(a=10), math.zeros(b=10), rel_tolerance=0, abs_tolerance=0)
+        math.assert_close(math.zeros(a=10), math.zeros(a=10), math.zeros(a=10), rel_tolerance=0, abs_tolerance=0)
         assert_not_close(math.zeros(a=10), math.ones(a=10), rel_tolerance=0, abs_tolerance=0)
         for scale in (1, 0.1, 10):
             math.assert_close(math.zeros(a=10), math.ones(a=10) * scale, rel_tolerance=0, abs_tolerance=scale)
