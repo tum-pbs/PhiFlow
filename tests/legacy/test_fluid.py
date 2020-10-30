@@ -65,7 +65,7 @@ class TestFluid(TestCase):
         world = World()
         world.add(Fluid(Domain([16, 16])), physics=IncompressibleFlow())
         world.add(Inflow(Sphere((8, 8), radius=4)))
-        # world.add(ConstantDensity(box[0:2, 6:10], 1.0))
+        # world.add(ConstantDensity(Box[0:2, 6:10], 1.0))
         world.add(Fan(Sphere((10, 8), 5), [-1, 0]))
         struct.properties_dict(world.state)
 

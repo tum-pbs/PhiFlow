@@ -46,7 +46,7 @@ Restrictions:
         resolutions.insert(0, y)
 
     y = resolutions.pop(0)
-    assert np.all(y.box.size == domain.box.size)
+    assert np.all(y.bounds.size == domain.bounds.size)
 
     for level in range(levels):
         y = math.upsample2x(y)

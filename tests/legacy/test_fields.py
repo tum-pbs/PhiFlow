@@ -96,7 +96,7 @@ class TestFields(TestCase):
         assert len(staggered.values) == 2
         assert isinstance(staggered.values[0], CenteredGrid)
         assert staggered.values[0].component_count == 1
-        np.testing.assert_equal(staggered.values[0].box.lower, [-0.5, 0])
+        np.testing.assert_equal(staggered.values[0].bounds.lower, [-0.5, 0])
         staggered2 = StaggeredGrid(unstack_staggered_tensor(tensor), name='')
         struct.print_differences(staggered, staggered2)
         self.assertEqual(staggered, staggered2)

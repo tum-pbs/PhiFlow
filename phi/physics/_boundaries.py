@@ -52,32 +52,20 @@ PERIODIC = Material('periodic', extrapolation.PERIODIC, extrapolation.PERIODIC, 
 
 class Domain:
 
-    def __init__(self, resolution: math.Shape or tuple or list, boundaries: Material or tuple or list = OPEN, box=None):
+    def __init__(self, resolution: math.Shape or tuple or list = math.EMPTY_SHAPE, boundaries: Material or tuple or list = OPEN, bounds: Box = None, **resolution_):
         """
-        Simulation domain that specifies size and boundary conditions.
+        The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
-        If all boundary surfaces should have the same behaviour, pass a single Material instance.
-
-        To specify the boundary constants_dict per dimension or surface, pass a tuple or list with as many elements as there are spatial dimensions (highest dimension first).
-        Each element can either be a Material, specifying the faces perpendicular to that axis, or a pair
-        of Material holding (lower_face_material, upper_face_material).
-
-        Examples:
-
-        Domain(grid, OPEN) - all surfaces are open
-
-        DomainBoundary(grid, boundaries=[(SLIPPY, OPEN), SLIPPY]) - creates a 2D domain with an open top and otherwise solid boundaries
-
-        :param resolution: 1D tensor specifying the grid dimensions
-        :param boundaries: Material or list of Material/Pair of Material
-        :param box: physical size of the domain, box-like
+        :param resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.
+        :param boundaries: specifies the extrapolation modes of grids created from this Domain
+        :param bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
-        self.resolution = spatial_shape(resolution)
+        self.resolution = spatial_shape(resolution) & spatial_shape(resolution_)
         self.boundaries = Material.as_material(boundaries)
-        self.box = Box.to_box(box, resolution_hint=self.resolution)
+        self.bounds = Box(0, math.tensor(self.resolution)) if bounds is None else bounds
 
     def __repr__(self):
-        return '(%s, size=%s)' % (self.resolution, self.box.size)
+        return '(%s, size=%s)' % (self.resolution, self.bounds.size)
 
     @property
     def rank(self):
@@ -85,11 +73,11 @@ class Domain:
 
     @property
     def dx(self):
-        return self.box.size / self.resolution
+        return self.bounds.size / self.resolution
 
     @property
     def cells(self):
-        return GridCell(self.resolution, self.box)
+        return GridCell(self.resolution, self.bounds)
 
     def center_points(self):
         return self.cells.center
@@ -107,9 +95,9 @@ class Domain:
         """
         extrapolation = extrapolation or self.boundaries.grid_extrapolation
         if type is CenteredGrid:
-            return CenteredGrid.sample(value, self.resolution, self.box, extrapolation)
+            return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         elif type is StaggeredGrid:
-            return StaggeredGrid.sample(value, self.resolution, self.box, extrapolation)
+            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
@@ -126,14 +114,14 @@ class Domain:
         """
         extrapolation = extrapolation or self.boundaries.vector_extrapolation
         if type is CenteredGrid:
-            grid = CenteredGrid.sample(value, self.resolution, self.box, extrapolation)
+            grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
             if grid.shape.channel.rank == 0:
                 grid = grid._with(math.expand_channel(grid.values, self.rank, 0))
             else:
                 assert grid.shape.channel.sizes[0] == self.rank
             return grid
         elif type is StaggeredGrid:
-            return StaggeredGrid.sample(value, self.resolution, self.box, extrapolation)
+            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         else:
             raise ValueError('Unknown grid type: %s' % type)
 

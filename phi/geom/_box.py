@@ -173,25 +173,6 @@ class Box(AbstractBox, metaclass=BoxType):
         else:
             return 'box[shape=%s]' % self._shape
 
-    @staticmethod
-    def to_box(value, resolution_hint=None):
-        if value is None:
-            assert resolution_hint is not None
-            result = Box([0] * len(resolution_hint), tensor(resolution_hint))
-        elif isinstance(value, Box):
-            result = value
-        elif isinstance(value, int):
-            if resolution_hint is None:
-                result = Box(0, value)
-            else:
-                size = [value] * (1 if math.ndims(resolution_hint) == 0 else len(resolution_hint))
-                result = Box(0, size)
-        else:
-            raise ValueError("Box extent not understood: '%s'" % value)
-        if resolution_hint is not None:
-            assert_same_rank(len(resolution_hint), result, 'Box rank does not match resolution.')
-        return result
-
 
 class Cuboid(AbstractBox):
 
@@ -226,24 +207,6 @@ class Cuboid(AbstractBox):
 
     def shifted(self, delta):
         return Cuboid(self._center + delta, self._half_size)
-
-
-# def box(*args, **kwargs):
-#     if len(args) == 2 and len(kwargs) == 0:
-#         lower, upper = args
-#         return Box(lower, upper)
-#     elif len(args) == 1 and 'size' in kwargs:
-#         center, = args
-#         size = kwargs['size']
-#         return Cuboid(center, 0.5 * tensor(size))
-#     elif 'size' in kwargs and 'center' in kwargs:
-#         center, size = kwargs['center'], kwargs['size']
-#         return Cuboid(center, 0.5 * tensor(size))
-#     elif len(args) == 1 and len(kwargs) == 0:
-#         return Box(0, args[0])
-#     else:
-#         raise ValueError('Cannot create box from args=%s, kwargs=%s' % (args, kwargs))
-
 
 def bounding_box(geometry):
     center = geometry.center

@@ -161,7 +161,7 @@ class StaggeredGrid(Grid):
                 return StaggeredGrid(math.channel_stack(tensors, 'vector'), box, extrapolation)
         elif callable(value):
             raise NotImplementedError()
-            x = CenteredGrid.getpoints(domain.box, domain.resolution).copied_with(extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
+            x = CenteredGrid.getpoints(domain.bounds, domain.resolution).copied_with(extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
             value = value(x)
             return value
         else:  # value is constant
@@ -187,14 +187,6 @@ class StaggeredGrid(Grid):
             points = points.unstack(reduce_channels[0])
             channels = [component.sample_at(p) for p, component in zip(points, self.unstack())]
         return math.channel_stack(channels, 'vector')
-
-    # def _resample_to(self, representation: Field) -> Field:
-    #     if isinstance(representation, StaggeredGrid) and representation.box == self.box and np.allclose(representation.resolution, self.resolution):
-    #         return self
-    #     points = representation.points
-    #     resampled = [centeredgrid.at(representation) for centeredgrid in self.values]
-    #     values = math.concat([field.values for field in resampled], -1)
-    #     return representation.copied_with(values=values, flags=propagate_flags_resample(self, representation.flags, representation.rank))
 
     def at_centers(self):
         centered = []
@@ -248,8 +240,8 @@ class StaggeredGrid(Grid):
     #     if isinstance(widths, int):
     #         widths = [[widths, widths]] * self.rank
     #     w_lower, w_upper = np.transpose(widths)
-    #     box = Box(self.box.lower - w_lower * self.dx, self.box.upper + w_upper * self.dx)
-    #     return self.copied_with(values=new_grids, box=box)
+    #     bounds = Box(self.bounds.lower - w_lower * self.dx, self.bounds.upper + w_upper * self.dx)
+    #     return self.copied_with(values=new_grids, bounds=bounds)
     #
     # def downsample2x(self):
     #     values = []

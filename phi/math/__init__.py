@@ -25,7 +25,7 @@ from ._extrapolation import Extrapolation
 
 from ._config import GLOBAL_AXIS_ORDER
 
-from ._shape import Shape, define_shape, spatial_shape, infer_shape, EMPTY_SHAPE, batch_shape, channel_shape
+from ._shape import Shape, spatial_shape, infer_shape, EMPTY_SHAPE, batch_shape, channel_shape
 from ._tensors import tensor, Tensor, combined_shape, Tensor as Tensor
 from ._functions import (
     is_tensor, as_tensor,

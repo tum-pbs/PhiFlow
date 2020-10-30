@@ -6,7 +6,7 @@ from phi import math
 def assert_not_close(*tensors, rel_tolerance, abs_tolerance):
     try:
         math.assert_close(*tensors, rel_tolerance, abs_tolerance)
-        raise BaseException(AssertionError('1 != 0'))
+        raise BaseException(AssertionError('Values are not close'))
     except AssertionError:
         pass
 

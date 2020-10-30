@@ -1,6 +1,6 @@
 from phi.flow import *
 
-domain = Domain([64, 64], CLOSED, box=Box(0, (100, 100)))
+domain = Domain([64, 64], CLOSED, bounds=Box(0, (100, 100)))
 
 positions = math.tensor([(10, 10), (50, 50), (200, -10)], names='points,:')
 cloud = PointCloud(Sphere(positions, 0)) * [-1, 1]

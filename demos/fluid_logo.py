@@ -29,7 +29,7 @@ class SmokeLogo(App):
 
     def __init__(self):
         App.__init__(self, 'Fluid Logo', DESCRIPTION, summary='fluid' + 'x'.join([str(d) for d in RESOLUTION]), framerate=20)
-        fluid = self.fluid = world.add(Fluid(Domain(RESOLUTION, box=box[0:100, 0:100], boundaries=CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
+        fluid = self.fluid = world.add(Fluid(Domain(RESOLUTION, bounds=box[0:100, 0:100], boundaries=CLOSED), buoyancy_factor=0.1), physics=IncompressibleFlow())
         world.add_all(Inflow(box[6:10, 14:21], rate=1.0), Inflow(box[6:10, 79:86], 0.8), Inflow(box[49:50, 43:46], 0.1))
         create_tum_logo()
         # Add Fields

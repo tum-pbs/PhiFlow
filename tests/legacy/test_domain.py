@@ -23,8 +23,8 @@ class TestDomain(TestCase):
     def test_convenience_initializers(self):
         domain = Domain(64)
         numpy.testing.assert_equal(domain.resolution, [64])
-        numpy.testing.assert_equal(domain.box.size, [64])
+        numpy.testing.assert_equal(domain.bounds.size, [64])
 
         domain = Domain(64, box=10)
         numpy.testing.assert_equal(domain.resolution, [64])
-        numpy.testing.assert_equal(domain.box.size, [10])
+        numpy.testing.assert_equal(domain.bounds.size, [10])

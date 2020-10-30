@@ -613,7 +613,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
             return tensor
         else:
             if names is None:
-                names = ['vector %d' % i for i in range(len(obj.shape))] if obj.ndim > 1 else ['vector']
+                names = ['vector%d' % i for i in range(len(obj.shape))] if obj.ndim > 1 else ['vector']
             else:
                 names = _shape.parse_dim_names(names, len(obj.shape))
             shape = Shape(obj.shape, names, [CHANNEL_DIM] * len(obj.shape))

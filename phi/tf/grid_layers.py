@@ -52,4 +52,4 @@ def residual_block(grid, nb_channels, kernel_size=(3, 3), _strides=(1, 1), activ
 
     y += shortcut
     y = activation(y)
-    return CenteredGrid(y, box=grid.box, extrapolation=grid.extrapolation)
+    return CenteredGrid(y, box=grid.bounds, extrapolation=grid.extrapolation)

@@ -7,7 +7,7 @@ from functools import partial
 
 import numpy as np
 
-from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, define_shape, shape_from_dict
+from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape_from_dict
 from . import _extrapolation as extrapolation
 from ._track import as_sparse_linear_operation, SparseLinearOperation, sum_operators
 from .backend import math

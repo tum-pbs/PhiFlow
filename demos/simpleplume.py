@@ -1,7 +1,7 @@
 from phi.flow import *
 
 
-domain = Domain([128, 160], boundaries=CLOSED, box=Box[0:100, 0:100])
+domain = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 buoyancy_factor = 0.1
 inflow = domain.grid(Sphere(center=(50, 10), radius=5)) * 0.2
 state = dict(velocity=domain.sgrid(0), density=domain.grid(0), pressure=domain.grid(0), divergence=domain.grid(0))

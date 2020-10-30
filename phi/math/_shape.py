@@ -491,8 +491,8 @@ def shape_from_dict(dims: dict) -> Shape:
 
     Dimension types are inferred from the names according to the following rules:
 
-    * 'vector' -> channel dimension
-    * 'x', 'y', 'z' -> spatial dimension
+    * single letter -> spatial dimension
+    * starts with 'vector' -> channel dimension
     * else batch dimension
 
     :param dims: dict mapping dimension names to their respective sizes
@@ -500,69 +500,14 @@ def shape_from_dict(dims: dict) -> Shape:
     """
     types = []
     for name, size in dims.items():
-        if name in ('vector',):
-            type_ = CHANNEL_DIM
-        elif name in ('x', 'y', 'z'):
+        if len(name) == 1:
             type_ = SPATIAL_DIM
+        elif name.startswith('vector'):
+            type_ = CHANNEL_DIM
         else:
             type_ = BATCH_DIM
         types.append(type_)
     return Shape(dims.values(), dims.keys(), types)
-
-
-def define_shape(channels=(), names=None, batch=None, infer_types_if_not_given=False, **spatial):
-    """
-    Creates a shape from the specified channel, spatial and batch dimensions.
-
-    :param channels: int or (int,)
-    :param batch: int or {name: size}
-    :param infer_types_if_not_given: if True, detects legacy-style shapes, infers the corresponding types and removes singleton dimensions
-    :param spatial:
-    :return:
-    """
-    if isinstance(channels, Shape):
-        assert batch is None
-        assert len(spatial) == 0
-        return channels
-    if infer_types_if_not_given and batch is None and len(spatial) == 0 and isinstance(channels, (tuple, list)) and len(channels) >= 3:
-        shape = infer_shape(channels)
-        return shape.without(shape.non_spatial.singleton)
-    sizes = []
-    names_ = []
-    types = []
-    # --- Batch dimensions ---
-    if isinstance(batch, int):
-        sizes.append(batch)
-        names_.append('batch')
-        types.append(BATCH_DIM)
-    elif isinstance(batch, dict):
-        for name, size in batch.items():
-            sizes.append(size)
-            names_.append(name)
-            types.append(BATCH_DIM)
-    elif batch is None:
-        pass
-    else:
-        raise ValueError(batch)
-    # --- Spatial dimensions ---
-    for name, size in spatial.items():
-        sizes.append(size)
-        names_.append(name)
-        types.append(SPATIAL_DIM)
-    # --- Channel dimensions ---
-    if isinstance(channels, int):
-        sizes.append(channels)
-        names_.append('vector')
-        types.append(CHANNEL_DIM)
-    else:
-        for i, channel in enumerate(channels):
-            sizes.append(channel)
-            names_.append('vector %d' % i)
-            types.append(CHANNEL_DIM)
-    if names is not None:
-        names = parse_dim_names(names, len(sizes))
-        names_ = [setn or detn for setn, detn in zip(names, names_)]
-    return Shape(sizes, names_, types)
 
 
 def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, channel_dims=None):
@@ -605,7 +550,7 @@ def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, chann
             dim_names.append('vector')
         else:
             for i in range(channel_dims):
-                dim_names.append('vector %d' % i)
+                dim_names.append('vector%d' % i)
         if set_dim_names is not None:
             for i, set_name in enumerate(set_dim_names):
                 if set_name is not None:
@@ -635,6 +580,8 @@ def spatial_shape(sizes, names=None):
     """
     if isinstance(sizes, Shape):
         return sizes.spatial.reorder(names) if names else sizes.spatial
+    elif isinstance(sizes, dict):
+        return Shape(sizes.values(), sizes.keys(), (SPATIAL_DIM,) * len(sizes))
     else:
         return infer_shape(sizes, batch_dims=0, channel_dims=0, dim_names=names)
 
