@@ -45,10 +45,10 @@ class Extrapolation:
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         """
-        Pads a tensor using this extrapolation.
+        Pads a tensor using values from self.pad_values()
 
         :param value: tensor to be padded
-        :param widths: name: str -> (lower: int, upper: int)
+        :param widths: {name: str -> (lower: int, upper: int)}
         """
         for dim in widths:
             left_pad_values = self.pad_values(value, widths[dim][False], dim, False)
@@ -109,6 +109,12 @@ class ConstantExtrapolation(Extrapolation):
         return ZERO
 
     def pad(self, value: Tensor, widths: dict):
+        """
+        Pads a tensor using CONSTANT values
+
+        :param value: tensor to be padded
+        :param widths: {name: str -> (lower: int, upper: int)}
+        """
         if isinstance(value, NativeTensor):
             native = value.tensor
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -313,6 +319,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     """
     Uses the closest defined value for points lying outside the defined region.
     """
+
     def __repr__(self):
         return 'boundary'
 
@@ -361,6 +368,7 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
     """
     Mirror with the boundary value occurring twice.
     """
+
     def __repr__(self):
         return 'symmetric'
 
@@ -392,6 +400,7 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     """
     Mirror of inner elements. The boundary value is not duplicated.
     """
+
     def __repr__(self):
         return 'reflect'
 
@@ -423,7 +432,8 @@ class MixedExtrapolation(Extrapolation):
         :param extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
         Extrapolation.__init__(self, None)
-        self.ext = {ax: (e, e) if isinstance(e, Extrapolation) else tuple(e) for ax, e in extrapolations.items()}
+        self.ext = {ax: (e, e) if isinstance(e, Extrapolation) else tuple(e)
+                    for ax, e in extrapolations.items()}
 
     def to_dict(self) -> dict:
         return {
@@ -432,13 +442,21 @@ class MixedExtrapolation(Extrapolation):
         }
 
     def gradient(self) -> Extrapolation:
-        return MixedExtrapolation({ax: (es[0].gradient(), es[1].gradient()) for ax, es in self.ext.items()})
+        return MixedExtrapolation({ax: (es[0].gradient(), es[1].gradient())
+                                   for ax, es in self.ext.items()})
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
+        """
+        Pads a tensor using mixed values
+
+        :param value: tensor to be padded
+        :param widths: {name: str -> (lower: int, upper: int)}
+        """
         extrapolations = set(sum(self.ext.values(), ()))
         extrapolations = tuple(sorted(extrapolations, key=lambda e: e.pad_rank))
         for ext in extrapolations:
-            ext_widths = {ax: (l if self.ext[ax][0] == ext else 0, u if self.ext[ax][1] == ext else 0) for ax, (l, u) in widths.items()}
+            ext_widths = {ax: (l if self.ext[ax][0] == ext else 0, u if self.ext[ax][1] == ext else 0)
+                          for ax, (l, u) in widths.items()}
             value = ext.pad(value, ext_widths)
         return value
 
@@ -479,5 +497,3 @@ def from_dict(dictionary: dict) -> Extrapolation:
         return REFLECT
     else:
         raise ValueError(dictionary)
-
-
