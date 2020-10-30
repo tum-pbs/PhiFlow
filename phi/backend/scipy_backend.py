@@ -34,7 +34,7 @@ class SciPyBackend(Backend):
             return True
         if scipy.sparse.issparse(values):
             return True
-        if isinstance(values, collections.Iterable):
+        if isinstance(values, (tuple, list)):
             try:
                 for value in values:
                     if not self.is_applicable(value):

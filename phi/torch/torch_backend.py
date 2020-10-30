@@ -88,6 +88,8 @@ class TorchBackend(Backend):
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
         assert interpolation == 'linear'
         assert constant_values == 0
+        inputs = self.as_tensor(inputs)
+        sample_coords = self.as_tensor(sample_coords)
         return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
         # return self._native_resample(inputs, sample_coords, interpolation, boundary)
 
@@ -144,6 +146,8 @@ class TorchBackend(Backend):
         return torch.where(condition, x, y)
 
     def mean(self, value, axis=None, keepdims=False):
+        if axis is None:
+            axis = tuple(range(len(value.shape)))
         return torch.mean(value, dim=axis, keepdim=keepdims)
 
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
