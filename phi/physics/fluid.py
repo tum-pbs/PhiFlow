@@ -4,7 +4,7 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 import warnings
 
 from phi import math, struct, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid
 from phi.geom import union
 from . import _advect
 from ._boundaries import Domain
@@ -25,28 +25,20 @@ def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_t
     """
     active_mask = domain.grid(~union([obstacle.geometry for obstacle in obstacles]), extrapolation=domain.boundaries.active_extrapolation)
     accessible_mask = domain.grid(active_mask, extrapolation=domain.boundaries.accessible_extrapolation)
-    hard_bcs = field.stagger(accessible_mask, math.minimum)
+    hard_bcs = field.stagger(accessible_mask, math.minimum, accessible_mask.extrapolation)
     velocity *= hard_bcs
     velocity = layer_obstacle_velocities(velocity, obstacles)
     div = divergence(velocity)
     div -= field.mean(div)
     # Solve pressure
-
-    def laplace(pressure):
-        grad = field.gradient(pressure, type=type(velocity))
-        grad_bc = grad * hard_bcs
-        div = field.divergence(grad_bc)
-        return div
-
+    laplace = lambda pressure: field.divergence(field.gradient(pressure, type=type(velocity)) * hard_bcs)
     pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
     converged, pressure, iterations = field.conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
     if not math.all(converged):
         raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,))
     # Subtract grad pressure
-    gradp = field.gradient(pressure, type=field.StaggeredGrid)
-    gradp *= hard_bcs
-    velocity -= gradp
-    return velocity, pressure, iterations, div
+    gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs
+    return velocity - gradp, pressure, iterations, div
 
 
 def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):

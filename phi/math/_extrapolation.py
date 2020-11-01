@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 
-from ._track import SparseLinearOperation
+from ._track import SparseLinearOperation, ShiftLinOp
 from .backend import math as native_math
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
@@ -155,6 +155,10 @@ class ConstantExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(new_sizes)
             padded_matrix = native_math.sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
             return SparseLinearOperation(value.source, padded_matrix, new_shape)
+        elif isinstance(value, ShiftLinOp):
+            assert self.is_zero()
+            lower = {dim: -lo for dim, (lo, _) in widths.items()}
+            return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
         else:
             raise NotImplementedError()
 
@@ -273,13 +277,13 @@ class _CopyExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type, value.keep_separate)
-        elif isinstance(value, SparseLinearOperation):
-            return self._pad_sparse_linear(value, widths)
+        elif isinstance(value, ShiftLinOp):
+            return self._pad_linear_operation(value, widths)
         else:
             raise NotImplementedError()
 
-    def _pad_sparse_linear(self, value: SparseLinearOperation, widths: dict) -> Tensor:
-        raise NotImplementedError(self)
+    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
+        raise NotImplementedError()
 
     def __eq__(self, other):
         return type(other) == type(self)
@@ -340,6 +344,44 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             value = math.concat([bottom_row] * pad_lower + [value] + [top_row] * pad_upper)
         return value
 
+    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
+        """
+        *Warning*:
+        This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
+        These are typically sliced off in differential operators. Corners are instead assigned the value 0.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinOp.
+        """
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values
+        for bound_dim, (bound_lo, bound_hi) in widths.items():
+            for i in range(bound_lo):  # i=0 means outer
+                # this sets corners to 0
+                lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
+                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (bound_lo-i-1, 0)})
+                mask = ONE.pad(mask, {bound_dim: (1, 0)})
+                mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+
+                # lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
+                # inner_widths = {dim: (lo, hi) for dim, (lo, hi) in widths.items() if dim not in finished_dims}
+                # inner_widths[bound_dim] = (bound_lo-i-1, 0)
+                # outer_widths = {dim: (lo, hi) for dim, (lo, hi) in widths.items() if dim in finished_dims}
+                # outer_widths[bound_dim] = (i, 0)
+                # mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), inner_widths)
+                # mask = ONE.pad(mask, {bound_dim: (1, 0)})
+                # mask = ZERO.pad(mask, outer_widths)
+
+                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
+                result += boundary
+            for i in range(bound_hi):
+                lower = {dim: i-lo-hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
+                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (0, bound_hi-i-1)})
+                mask = ONE.pad(mask, {bound_dim: (0, 1)})
+                mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
+                result += boundary
+        return result
+
+
 
 class _PeriodicExtrapolation(_CopyExtrapolation):
     def __repr__(self):
@@ -362,6 +404,12 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
             upper = value[tuple([slice(None, pad_upper) if d == dim else slice(None) for d in dims])]
             value = math.concat([lower, value, upper], axis=dim)
         return value
+
+    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
+        if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
+            raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
 
 
 class _SymmetricExtrapolation(_CopyExtrapolation):

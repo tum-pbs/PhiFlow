@@ -114,7 +114,12 @@ class Tensor:
         assert isinstance(item, dict)  # dict mapping name -> slice/int
         return self._getitem(item)
 
-    def _getitem(self, selection_dict):
+    def _getitem(self, selection: dict) -> 'Tensor':
+        """
+        Slice the tensor along specified axes.
+
+        :param selection: dim_name: str -> int or slice
+        """
         raise NotImplementedError()
 
     # def __setitem__(self, key, value):
@@ -395,10 +400,10 @@ class NativeTensor(Tensor):
         new_shape = Shape(self._shape.sizes, new_shape.names, new_shape.types)
         return NativeTensor(self.tensor, new_shape)
 
-    def _getitem(self, selection_dict):
+    def _getitem(self, selection: dict):
         new_shape = self.shape
         selections = [slice(None)] * self.rank
-        for name, selection in selection_dict.items():
+        for name, selection in selection.items():
             selections[self.shape.index(name)] = selection
             if isinstance(selection, int):
                 new_shape = new_shape.without(name)
@@ -470,10 +475,10 @@ class CollapsedTensor(Tensor):
     def _with_shape_replaced(self, new_shape):
         return CollapsedTensor(self.tensor, new_shape)
 
-    def _getitem(self, selection_dict):
-        inner_dict = {name: selection for name, selection in selection_dict.items() if name in self.tensor.shape}
+    def _getitem(self, selection: dict):
+        inner_dict = {name: selection for name, selection in selection.items() if name in self.tensor.shape}
         inner = self.tensor._getitem(inner_dict)
-        new_shape = self.shape.after_gather(selection_dict)
+        new_shape = self.shape.after_gather(selection)
         inner.shape.combined(new_shape)  # check that sizes match
         return CollapsedTensor(inner, new_shape)
 
@@ -528,17 +533,17 @@ class TensorStack(Tensor):
         tensors = [t._with_shape_replaced(inner_shape) for t in self.tensors]
         return TensorStack(tensors, stack_dim_name, new_shape.get_type(stack_dim_name), keep_separate=self.keep_separate)
 
-    def _getitem(self, selection_dict):
-        if (self.stack_dim_name not in selection_dict or len(selection_dict) != 1) and not self.requires_broadcast:
-            return self._cache()._getitem(selection_dict)
+    def _getitem(self, selection: dict):
+        if (self.stack_dim_name not in selection or len(selection) != 1) and not self.requires_broadcast:
+            return self._cache()._getitem(selection)
         # --- Inner dimensions ---
-        inner_dict = {dim: sel for dim, sel in selection_dict.items() if dim != self.stack_dim_name}
+        inner_dict = {dim: sel for dim, sel in selection.items() if dim != self.stack_dim_name}
         tensors = self.tensors
         if len(inner_dict) > 0:
             tensors = [t[inner_dict] for t in tensors]
         # --- stack dimension ---
-        if self.stack_dim_name in selection_dict:
-            selection = selection_dict[self.stack_dim_name]
+        if self.stack_dim_name in selection:
+            selection = selection[self.stack_dim_name]
             if isinstance(selection, int):
                 return self.tensors[selection]
             elif isinstance(selection, slice):
@@ -580,7 +585,8 @@ class TensorStack(Tensor):
 
     @property
     def requires_broadcast(self):
-        return self.keep_separate or not self._shape.well_defined
+        from phi.math._track import ShiftLinOp
+        return self.keep_separate or not self._shape.well_defined or np.any([isinstance(t, ShiftLinOp) for t in self.tensors])
 
 
 def tensor(*objects, names=None, infer_dimension_types=True, batch_dims=None, spatial_dims=None, channel_dims=None):

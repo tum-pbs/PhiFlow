@@ -2,11 +2,11 @@ from unittest import TestCase
 from phi.flow import *
 from phi.math import *
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM
-from phi.math._tensors import TensorStack, CollapsedTensor
+from phi.math._tensors import TensorStack, CollapsedTensor, NativeTensor
 
 import numpy as np
 
-from phi.math._track import as_sparse_linear_operation, SparseLinearOperation
+from phi.math._track import lin_placeholder, SparseLinearOperation, ShiftLinOp
 
 
 class TestTensors(TestCase):
@@ -142,24 +142,3 @@ class TestTensors(TestCase):
         vector *= vector.shape.spatial
         math.assert_close(vector.vector[0], 4)
         math.assert_close(vector.vector[1], 3)
-
-    def test_linear_operator(self):
-        GLOBAL_AXIS_ORDER.x_last()
-        direct = math.random_normal([10, 4, 3, 1])
-        op = as_sparse_linear_operation(direct)
-
-        def linear_function(val):
-            val *= 2
-            sl = val.x[:3].y[:2]
-            val = math.pad(val, {'x': (2, 1), 'y': (1, 2)}, mode=math.extrapolation.ZERO)
-            val = val.x[1:4].y[:2]
-            return math.sum([val, sl], axis=0) - sl
-
-        direct_result = linear_function(direct)
-        print()
-        print(direct_result.numpy()[0])
-        op_result = linear_function(op)
-        print()
-        print(op_result.numpy()[0])
-        math.assert_close(direct_result, op_result)
-        self.assertIsInstance(op_result, SparseLinearOperation)

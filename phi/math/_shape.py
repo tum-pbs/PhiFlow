@@ -74,41 +74,57 @@ class Shape:
             return self.sizes[selection]
         return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
 
-    def filtered(self, boolean_mask) -> Shape:
+    def _bool_filtered(self, boolean_mask) -> Shape:
         indices = [i for i in range(self.rank) if boolean_mask[i]]
         return self[indices]
 
     @property
     def channel(self):
-        return self.filtered([t == CHANNEL_DIM for t in self.types])
+        return self._bool_filtered([t == CHANNEL_DIM for t in self.types])
 
     @property
     def spatial(self) -> Shape:
-        return self.filtered([t == SPATIAL_DIM for t in self.types])
+        return self._bool_filtered([t == SPATIAL_DIM for t in self.types])
 
     @property
     def batch(self):
-        return self.filtered([t == BATCH_DIM for t in self.types])
+        return self._bool_filtered([t == BATCH_DIM for t in self.types])
 
     @property
     def non_channel(self):
-        return self.filtered([t != CHANNEL_DIM for t in self.types])
+        return self._bool_filtered([t != CHANNEL_DIM for t in self.types])
 
     @property
     def non_spatial(self):
-        return self.filtered([t != SPATIAL_DIM for t in self.types])
+        return self._bool_filtered([t != SPATIAL_DIM for t in self.types])
 
     @property
     def non_batch(self):
-        return self.filtered([t != BATCH_DIM for t in self.types])
+        return self._bool_filtered([t != BATCH_DIM for t in self.types])
 
     @property
     def singleton(self):
-        return self.filtered([size == 1 for size in self.sizes])
+        return self._bool_filtered([size == 1 for size in self.sizes])
 
     @property
     def non_singleton(self):
-        return self.filtered([size != 1 for size in self.sizes])
+        return self._bool_filtered([size != 1 for size in self.sizes])
+
+    @property
+    def zero(self):
+        return self._bool_filtered([size == 0 for size in self.sizes])
+
+    @property
+    def non_zero(self):
+        return self._bool_filtered([size != 0 for size in self.sizes])
+
+    @property
+    def undefined(self):
+        return self._bool_filtered([size is None for size in self.sizes])
+
+    @property
+    def defined(self):
+        return self._bool_filtered([size is not None for size in self.sizes])
 
     def unstack(self):
         return tuple(Shape([self.sizes[i]], [self.names[i]], [self.types[i]]) for i in range(self.rank))
@@ -260,7 +276,7 @@ class Shape:
         The resulting shape has linear indices.
         """
         if pos is None:
-            same_type_dims = self.filtered([t == dim_type for t in self.types])
+            same_type_dims = self._bool_filtered([t == dim_type for t in self.types])
             if len(same_type_dims) > 0:
                 pos = self.index(same_type_dims.names[0])
             else:
@@ -275,19 +291,52 @@ class Shape:
         types.insert(pos, dim_type)
         return Shape(sizes, names, types)
 
-    def without(self, other):
-        if isinstance(other, str):
-            return self[[i for i in range(self.rank) if self.names[i] != other]]
-        if isinstance(other, (tuple, list)):
-            return self[[i for i in range(self.rank) if self.names[i] not in other]]
-        elif isinstance(other, Shape):
-            return self[[i for i in range(self.rank) if self.names[i] not in other.names]]
-        elif other is None:  # subtract all
+    def extend(self, other: Shape):
+        return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
+
+    def without(self, dims) -> Shape:
+        """
+        Builds a new shape from this one that is missing all given dimensions.
+        Dimensions in `dims` that are not part of this Shape are ignored.
+
+        The complementary operation is :func:`Shape.only`.
+
+        :param dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
+        :return: Shape without specified dimensions
+        """
+        if isinstance(dims, str):
+            return self[[i for i in range(self.rank) if self.names[i] != dims]]
+        if isinstance(dims, (tuple, list)):
+            return self[[i for i in range(self.rank) if self.names[i] not in dims]]
+        elif isinstance(dims, Shape):
+            return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
+        elif dims is None:  # subtract all
             return EMPTY_SHAPE
         else:
-            raise ValueError(other)
+            raise ValueError(dims)
 
     reduce = without
+
+    def only(self, dims):
+        """
+        Builds a new shape from this one that only contains the given dimensions.
+        Dimensions in `dims` that are not part of this Shape are ignored.
+
+        The complementary operation is :func:`Shape.without`.
+
+        :param dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
+        :return: Shape containing only specified dimensions
+        """
+        if isinstance(dims, str):
+            return self[[i for i in range(self.rank) if self.names[i] == dims]]
+        if isinstance(dims, (tuple, list)):
+            return self[[i for i in range(self.rank) if self.names[i] in dims]]
+        elif isinstance(dims, Shape):
+            return self[[i for i in range(self.rank) if self.names[i] in dims.names]]
+        elif dims is None:  # keep all
+            return self
+        else:
+            raise ValueError(dims)
 
     @property
     def rank(self):
@@ -397,9 +446,15 @@ class Shape:
         else:  # just a constant
             return sequence
 
-    def after_gather(self, selection_dict):
+    def after_pad(self, widths: dict):
+        sizes = list(self.sizes)
+        for dim, (lo, up) in widths.items():
+            sizes[self.index(dim)] += lo + up
+        return Shape(sizes, self.names, self.types)
+
+    def after_gather(self, selection: dict):
         result = self
-        for name, selection in selection_dict.items():
+        for name, selection in selection.items():
             if isinstance(selection, int):
                 result = result.without(name)
             elif isinstance(selection, slice):
@@ -427,6 +482,8 @@ class Shape:
             else:
                 return
 
+    product = meshgrid
+
     def __add__(self, other):
         return self._op1(other, lambda s, o: s + o)
 
@@ -448,10 +505,14 @@ class Shape:
     def _op1(self, other, fun):
         if isinstance(other, int):
             return Shape([fun(s, other) for s in self.sizes], self.names, self.types)
-        # elif isinstance(other, Shape):
-        #     return Shape([fun(s, o) for s, o in zip(self.sizes, other.sizes)], self.names, self.types)
+        elif isinstance(other, Shape):
+            assert self.names == other.names, f"{self.names, other.names}"
+            return Shape([fun(s, o) for s, o in zip(self.sizes, other.sizes)], self.names, self.types)
         else:
             return NotImplemented
+
+    def __hash__(self):
+        return hash(self.sizes)
 
 
 EMPTY_SHAPE = Shape((), (), ())

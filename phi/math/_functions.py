@@ -9,7 +9,6 @@ import numpy as np
 
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape_from_dict
 from . import _extrapolation as extrapolation
-from ._track import as_sparse_linear_operation, SparseLinearOperation, sum_operators
 from .backend import math
 from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, combined_shape
 from phi.math.backend._scipy_backend import SCIPY_BACKEND
@@ -31,7 +30,7 @@ def copy(tensor, only_mutable=False):
     raise NotImplementedError()
 
 
-def print_(value, name: str = None):
+def print_(value: Tensor = None, name: str = None):
     """
     Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.
 
@@ -40,6 +39,9 @@ def print_(value, name: str = None):
     :param name: name of the tensor
     :param value: tensor-like
     """
+    if value is None:
+        print()
+        return
     if name is not None:
         print(" " * 16 + name)
     value = tensor(value)
@@ -145,6 +147,7 @@ def _stack(values, dim: str, dim_type: int):
     assert isinstance(dim, str)
     def inner_stack(*values):
         varying_shapes = any([v.shape != values[0].shape for v in values[1:]])
+        from ._track import SparseLinearOperation
         tracking = any([isinstance(v, SparseLinearOperation) for v in values])
         inner_keep_separate = any([isinstance(v, TensorStack) and v.keep_separate for v in values])
         return TensorStack(values, dim, dim_type, keep_separate=varying_shapes or tracking or inner_keep_separate)
@@ -180,7 +183,7 @@ def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation'):
         ordered_pad_widths = value.shape.order(pad_width, default=0)
         ordered_mode = value.shape.order(mode, default=extrapolation.ZERO)
         result_tensor = math.pad(native, ordered_pad_widths, ordered_mode)
-        new_shape = value.shape.with_sizes(math.staticshape(result_tensor))
+        new_shape = value.shape.after_pad(widths)
         return NativeTensor(result_tensor, new_shape)
     elif isinstance(value, CollapsedTensor):
         inner = value.tensor
@@ -355,9 +358,10 @@ def _reduce(value: Tensor or list or tuple, axis, native_function):
         inner_axes = [ax for ax in axes if ax != value.stack_dim_name]
         red_inners = [_reduce(t, inner_axes, native_function) for t in value.tensors]
         # --- outer reduce ---
+        from ._track import ShiftLinOp, sum_operators
         if value.stack_dim_name in axes:
-            if any([isinstance(t, SparseLinearOperation) for t in red_inners]):
-                return sum_operators(red_inners)  # TODO other functions
+            if any([isinstance(t, ShiftLinOp) for t in red_inners]):
+                return sum(red_inners[1:], red_inners[0])
             natives = [t.native() for t in red_inners]
             result = native_function(natives, axis=0)
             return NativeTensor(result, red_inners[0].shape)
@@ -589,10 +593,17 @@ def tile(value, multiples):
     raise NotImplementedError()
 
 
-def expand_channel(x, dim_size, dim_name):
-    x = tensor(x)
-    shape = x.shape.expand(dim_size, dim_name, CHANNEL_DIM)
-    return CollapsedTensor(x, shape)
+def expand_channel(value, dim_size, dim_name):
+    return _expand(value, dim_size, dim_name, CHANNEL_DIM)
+
+
+def _expand(value: Tensor, dim_size: int, dim_name: str, dim_type: str):
+    value = tensor(value)
+    new_shape = value.shape.expand(dim_size, dim_name, dim_type)
+    if isinstance(value, CollapsedTensor):
+        return CollapsedTensor(value.tensor, new_shape)
+    else:
+        return CollapsedTensor(value, new_shape)
 
 
 def sparse_tensor(indices, values, shape):
@@ -673,6 +684,7 @@ def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
 
 
 def conjugate_gradient(operator, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None, bake='sparse'):
+    from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensor(x0, y)
     batch = combined_shape(y, x0).batch
     x0_native = math.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
@@ -681,17 +693,13 @@ def conjugate_gradient(operator, y, x0, relative_tolerance: float = 1e-5, absolu
         A_ = None
         if bake == 'sparse':
             build_time = time.time()
-            x_track = as_sparse_linear_operation(x0)
-            try:
-                Ax_track = operator(x_track)
-                if isinstance(Ax_track, SparseLinearOperation):
-                    A_ = Ax_track.dependency_matrix
-                    print("CG: matrix build time: %s" % (time.time() - build_time))
-                else:
-                    warnings.warn("Could not create matrix for conjugate_gradient() because non-linear operations were used.")
-            except NotImplementedError as err:
-                warnings.warn("Could not create matrix for conjugate_gradient():\n%s" % err)
-                raise err
+            x_track = lin_placeholder(x0)
+            Ax_track = operator(x_track)
+            assert isinstance(Ax_track, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
+            A_ = Ax_track.build_sparse_coordinate_matrix()
+            # print_(tensor(A_.todense(), spatial_dims=2))
+            # TODO reshape x0, y so that independent dimensions are batch
+            print("CG: matrix build time: %s" % (time.time() - build_time))
         if A_ is None:
             def A_(native_x):
                 native_x_shaped = math.reshape(native_x, x0.shape.non_batch.sizes)

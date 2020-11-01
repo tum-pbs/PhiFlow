@@ -18,9 +18,10 @@ def laplace(field: Grid, axes=None):
 def gradient(field: CenteredGrid, type: type = CenteredGrid):
     if type == CenteredGrid:
         values = math.gradient(field.values, field.dx, difference='central', padding=field.extrapolation)
+        return CenteredGrid(values, field.bounds, field.extrapolation.gradient())
     elif type == StaggeredGrid:
-        values = stagger(field, lambda lower, upper: (upper - lower) / field.dx)
-    return type(values, field.bounds, field.extrapolation.gradient())
+        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
+    raise NotImplementedError(type(field))
 
 
 def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
@@ -29,7 +30,7 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
 
 
-def stagger(field: CenteredGrid, face_function=math.minimum):
+def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.extrapolation.Extrapolation):
     all_lower = []
     all_upper = []
     for dim in field.shape.spatial.names:
@@ -37,8 +38,8 @@ def stagger(field: CenteredGrid, face_function=math.minimum):
         all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation))
     all_upper = math.channel_stack(all_upper, 'vector')
     all_lower = math.channel_stack(all_lower, 'vector')
-    result = face_function(all_lower, all_upper)
-    return result
+    values = face_function(all_lower, all_upper)
+    return StaggeredGrid(values, field.bounds, extrapolation)
 
 
 def divergence(field: Grid):
