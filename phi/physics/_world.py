@@ -260,7 +260,7 @@ Remove a system or collection of systems from the world.
             return object.__getattribute__(self, item)
 
 
-def obstacle_mask(world_or_proxy, **mask_kwargs):
+def obstacle_mask(world_or_proxy):
     """
 Builds a binary Field, masking all obstacles in the world.
     :param world_or_proxy: World or StateProxy object
@@ -269,7 +269,7 @@ Builds a binary Field, masking all obstacles in the world.
     world = world_or_proxy.world if isinstance(world_or_proxy, StateProxy) else world_or_proxy
     assert isinstance(world, World)
     geometries = [obstacle.geometry for obstacle in world.state.all_with_tag('obstacle')]
-    return GeometryMask(geom.union(geometries), **mask_kwargs)
+    return GeometryMask(geom.union(*geometries))
 
 
 class StateCollection(dict):

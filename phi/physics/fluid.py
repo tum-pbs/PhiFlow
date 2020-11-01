@@ -26,8 +26,7 @@ def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_t
     active_mask = domain.grid(~union([obstacle.geometry for obstacle in obstacles]), extrapolation=domain.boundaries.active_extrapolation)
     accessible_mask = domain.grid(active_mask, extrapolation=domain.boundaries.accessible_extrapolation)
     hard_bcs = field.stagger(accessible_mask, math.minimum, accessible_mask.extrapolation)
-    velocity *= hard_bcs
-    velocity = layer_obstacle_velocities(velocity, obstacles)
+    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles)
     div = divergence(velocity)
     div -= field.mean(div)
     # Solve pressure

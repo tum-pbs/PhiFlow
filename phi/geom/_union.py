@@ -12,7 +12,7 @@ class Union(Geometry):
         self._geometries = tuple(geometries)
         assert len(self._geometries) > 0
         for g in self._geometries[1:]:
-            assert g.rank == self._geometries[0]
+            assert g.rank == self._geometries[0].rank
         self._shape = combined_shape(*[g.shape for g in geometries])
 
     @property
@@ -68,7 +68,7 @@ def union(*geometries) -> Geometry:
         geometries = geometries[0]
     if len(geometries) == 0:
         return NO_GEOMETRY
-    elif len(geometries):
+    elif len(geometries) == 1:
         return geometries[0]
     else:
         base_geometries = ()

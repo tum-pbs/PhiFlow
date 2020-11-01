@@ -147,8 +147,8 @@ def heatmap(field, settings):
         x = points.vector[0].y[0].numpy()
         y = points.vector[1].x[0].numpy()
     else:
-        y = field.points[0, :, 0, 0]
-        x = field.points[0, 0, :, 1]
+        x = points.vector[1].y[0].numpy()
+        y = points.vector[0].x[0].numpy()
     if settings.get('slow_colorbar', False):
         z_min, z_max = settings['minmax']
     else:
