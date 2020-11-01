@@ -13,6 +13,12 @@ class GeometryStack(Geometry):
         self.geometries = tuple(geometries)
         self.stack_dim_name = dim_name
 
+    def unstack(self, dimension):
+        if dimension == self.stack_dim_name:
+            return self.geometries
+        else:
+            return GeometryStack([g.unstack(dimension) for g in self.geometries], self.stack_dim_name)
+
     @property
     def center(self):
         centers = [g.center for g in self.geometries]

@@ -13,7 +13,9 @@ cloud = advect.advect(cloud, cloud, -5)  # Euler
 # Grid sampling
 scattered_grid = cloud.at(domain.grid())
 scattered_data = cloud.sample_at(domain.cells)
+scattered_sgrid = cloud.at(domain.sgrid())
 
 app = App()
 app.add_field('Scattered', scattered_grid)
+app.add_field('Scattered (Staggered)', scattered_sgrid)
 show(app)

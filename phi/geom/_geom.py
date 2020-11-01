@@ -30,6 +30,9 @@ class Geometry:
     def shape(self):
         raise NotImplementedError()
 
+    def unstack(self, dimension):
+        raise NotImplementedError()
+
     @property
     def rank(self):
         return self.shape.spatial.rank
