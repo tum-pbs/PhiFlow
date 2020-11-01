@@ -29,5 +29,6 @@ from phi.physics._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, NO
 
 from phi.data.fluidformat import write_sim_frame
 
-from phi.app.app import App
+from .app import App, EditableInt, EditableBool, EditableFloat, EditableString
+from phi.viz import display
 from phi.viz.display import show
