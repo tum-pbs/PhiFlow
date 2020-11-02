@@ -116,7 +116,7 @@ class ShiftLinOp(Tensor):
         val = {}
         for shift, values in self.val.items():
             assert isinstance(shift, Shape)
-            for dim, delta in reversed(shifts.items()):
+            for dim, delta in reversed(tuple(shifts.items())):
                 if dim not in values.shape:
                     values = math._expand(values, self._shape.get_size(dim), dim, self._shape.get_type(dim))  # dim order may be scrambled
                 if delta:

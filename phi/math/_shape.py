@@ -561,14 +561,17 @@ def shape_from_dict(dims: dict) -> Shape:
     """
     types = []
     for name, size in dims.items():
-        if len(name) == 1:
-            type_ = SPATIAL_DIM
-        elif name.startswith('vector'):
-            type_ = CHANNEL_DIM
-        else:
-            type_ = BATCH_DIM
-        types.append(type_)
+        types.append(_infer_dim_type_from_name(name))
     return Shape(dims.values(), dims.keys(), types)
+
+
+def _infer_dim_type_from_name(name):
+    if len(name) == 1:
+        return SPATIAL_DIM
+    elif name.startswith('vector'):
+        return CHANNEL_DIM
+    else:
+        return BATCH_DIM
 
 
 def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, channel_dims=None):
@@ -589,7 +592,6 @@ def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, chann
     batch_dims, spatial_dims, channel_dims = dims
     # --- Construct shape ---
     from phi import geom
-    types = [BATCH_DIM] * batch_dims + [SPATIAL_DIM] * spatial_dims + [CHANNEL_DIM] * channel_dims
     if dim_names is not None:
         dim_names = parse_dim_names(dim_names, len(shape))
     if dim_names is None or None in dim_names:
@@ -616,6 +618,7 @@ def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, chann
             for i, set_name in enumerate(set_dim_names):
                 if set_name is not None:
                     dim_names[i] = set_name
+    types = [_infer_dim_type_from_name(name) for name in dim_names]
     return Shape(sizes=shape, names=dim_names, types=types)
 
 

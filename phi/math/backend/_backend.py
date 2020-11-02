@@ -159,6 +159,10 @@ class Backend:
     def where(self, condition, x=None, y=None):
         raise NotImplementedError(self)
 
+    def nonzero(self, values):
+        """ Return non-zero / True indices as int tensor of shape (#non-zeros, values.rank) """
+        raise NotImplementedError(self)
+
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 

@@ -340,11 +340,37 @@ def divide_no_nan(x, y):
     return x._op2(y, lambda t1, t2: math.divide_no_nan(t1, t2))
 
 
-def where(condition, x: Tensor, y: Tensor):
-    condition = x._tensor(condition)
-    shape, (c_, x_, y_) = broadcastable_native_tensors(condition, x, y)
-    result = math.where(c_, x_, y_)
+def where(condition: Tensor or float or int, value_true: Tensor or float or int, value_false: Tensor or float or int):
+    """
+    Builds a tensor by choosing either values from `value_true` or `value_false` depending on `condition`.
+    If `condition` is not of type boolean, non-zero values are interpreted as True.
+
+    This function requires non-None values for `value_true` and `value_false`.
+    To get the indices of True / non-zero values, use :func:`nonzero`.
+
+    :param condition: determines where to choose values from value_true or from value_false
+    :param value_true: values to pick where condition != 0 / True
+    :param value_false: values to pick where condition == 0 / False
+    :return: tensor containing dimensions of all inputs
+    """
+    condition, value_true, value_false = tensor(condition, value_true, value_false)
+    shape, (c, vt, vf) = broadcastable_native_tensors(condition, value_true, value_false)
+    result = math.where(c, vt, vf)
     return NativeTensor(result, shape)
+
+
+def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
+    """
+    Get indices of non-zero / True values.
+    :param value: tensor to find non-zero / True values in
+    :param list_dim: name of dimension listing non-zero values
+    :param index_dim: name of index dimension
+    :return: tensor of shape (list_dim=#non-zero, index_dim=value.rank)
+    """
+    value = tensor(value)
+    indices = math.nonzero(value.native())
+    indices_shape = Shape(math.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
+    return NativeTensor(indices, indices_shape)
 
 
 def sum_(value: Tensor or list or tuple, axis=None):

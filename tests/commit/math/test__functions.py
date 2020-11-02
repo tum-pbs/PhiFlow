@@ -33,6 +33,12 @@ class TestMathFunctions(TestCase):
         math.assert_close(c.b[:3], 0)
         math.assert_close(c.b[3:], 1)
 
+    def test_nonzero(self):
+        c = math.concat([math.zeros(b=3, a=2), math.ones(a=2, b=4)], 'b')
+        nz = math.nonzero(c)
+        self.assertEqual(nz.shape.nonzero, 8)
+        self.assertEqual(nz.shape.vector, 2)
+
     # TODO: Fix
     def test_resample(self):
         grid = math.sum(math.meshgrid([1, 2, 3], [0, 3]), 'vector')  # 1 2 3 | 4 5 6

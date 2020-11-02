@@ -6,6 +6,12 @@ from phi.math import tensor, extrapolation, Tensor
 import numpy as np
 
 
+import os
+
+
+REF_DATA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'reference_data')
+
+
 class AbstractTestMathND(TestCase):
 
     def _test_scalar_gradient(self, ones: Tensor):
@@ -24,25 +30,27 @@ class AbstractTestMathND(TestCase):
         cases = dict(difference=('central', 'forward', 'backward'),
                      padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
+            file = os.path.join(REF_DATA, 'vector_grad_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()))
             grad = math.gradient(meshgrid, dx=0.1, **case_dict)
             if save:
                 math.print(meshgrid, 'Base')
-                np.save('reference_data/vector_grad_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()), grad.numpy())
+                np.save(file, grad.numpy())
                 math.print(grad, str(case_dict))
             else:
-                ref = np.load('reference_data/vector_grad_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()))
+                ref = np.load(file)
                 math.assert_close(grad, ref)
 
     def _test_vector_laplace(self, meshgrid: Tensor, save=False):
         cases = dict(padding=(extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
+            file = os.path.join(REF_DATA, 'laplace_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()))
             laplace = math.laplace(meshgrid, dx=0.1, **case_dict)
             if save:
                 math.print(meshgrid, 'Base')
-                np.save('reference_data/laplace_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()), laplace.numpy())
+                np.save(file, laplace.numpy())
                 math.print(laplace, str(case_dict))
             else:
-                ref = np.load('reference_data/laplace_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()))
+                ref = np.load(file)
                 math.assert_close(laplace, ref)
 
 
