@@ -39,6 +39,11 @@ class TestMathFunctions(TestCase):
         self.assertEqual(nz.shape.nonzero, 8)
         self.assertEqual(nz.shape.vector, 2)
 
+    def test_maximum(self):
+        v = math.ones(x=4, y=3, vector=2)
+        math.assert_close(math.maximum(0, v), 1)
+        math.assert_close(math.maximum(0, -v), 0)
+
     # TODO: Fix
     def test_resample(self):
         grid = math.sum(math.meshgrid([1, 2, 3], [0, 3]), 'vector')  # 1 2 3 | 4 5 6

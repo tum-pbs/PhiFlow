@@ -152,10 +152,6 @@ class Shape:
         mask = [1 if name in names else 0 for name in self.names]
         return tuple(mask)
 
-    def select(self, *names):
-        indices = [self.index(name) for name in names]
-        return self[indices]
-
     def __repr__(self):
         strings = ['%s=%s' % (name, size) for size, name, _ in self.dimensions]
         return '(' + ', '.join(strings) + ')'
@@ -337,6 +333,10 @@ class Shape:
             return self
         else:
             raise ValueError(dims)
+
+    def select(self, *names):
+        indices = [self.index(name) for name in names]
+        return self[indices]
 
     @property
     def rank(self):
