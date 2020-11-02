@@ -330,7 +330,7 @@ class SciPyBackend(Backend):
             filter_indices = np.argwhere(indices_inside)
             indices = indices[filter_indices][..., 0, :]
             if values.shape[0] > 1:
-                values = values[filter_indices]
+                values = values[filter_indices.reshape(-1)]
         array = np.zeros(tuple(shape) + values.shape[indices.ndim-1:], self.precision_dtype if self.has_fixed_precision else values.dtype)
         indices = self.unstack(indices, axis=-1)
         if duplicates_handling == 'add':

@@ -32,7 +32,7 @@ from ._functions import (
     copy,
     print_ as print,
     transpose,
-    zeros, ones, fftfreq, random_normal, meshgrid,  # creation operators (use default backend)
+    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid,  # creation operators (use default backend)
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad, spatial_pad,
     reshape,

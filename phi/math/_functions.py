@@ -107,6 +107,13 @@ def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     return NativeTensor(native, shape)
 
 
+def random_uniform(shape=EMPTY_SHAPE, dtype=None, **dimensions):
+    shape &= shape_from_dict(dimensions)
+    native = math.random_uniform(shape.sizes)
+    native = native if dtype is None else native.astype(dtype)
+    return NativeTensor(native, shape)
+
+
 def fftfreq(resolution, dtype=None):
     """
     Returns the discrete Fourier transform sample frequencies.
