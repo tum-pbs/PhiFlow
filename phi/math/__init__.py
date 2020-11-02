@@ -38,7 +38,7 @@ from ._functions import (
     reshape,
     prod,
     divide_no_nan,
-    where,
+    where, nonzero,
     sum_ as sum, mean, std,
     zeros_like, ones_like,
     dot,

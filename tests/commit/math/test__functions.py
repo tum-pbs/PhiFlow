@@ -31,3 +31,9 @@ class TestMathFunctions(TestCase):
         self.assertEqual(7, c.shape.b)
         math.assert_close(c.b[:3], 0)
         math.assert_close(c.b[3:], 1)
+
+    def test_nonzero(self):
+        c = math.concat([math.zeros(b=3, a=2), math.ones(a=2, b=4)], 'b')
+        nz = math.nonzero(c)
+        self.assertEqual(nz.shape.nonzero, 8)
+        self.assertEqual(nz.shape.vector, 2)

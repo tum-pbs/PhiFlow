@@ -124,6 +124,9 @@ class SciPyBackend(Backend):
             return np.argwhere(condition)
         return np.where(condition, x, y)
 
+    def nonzero(self, values):
+        return np.argwhere(values)
+
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         result = func(*inputs)
         assert result.dtype == Tout, "returned value has wrong type: {}, expected {}".format(result.dtype, Tout)
