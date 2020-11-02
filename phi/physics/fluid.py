@@ -4,7 +4,7 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 import warnings
 
 from phi import math, struct, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient
 from phi.geom import union
 from . import _advect
 from ._boundaries import Domain
@@ -30,7 +30,7 @@ def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_t
     div = divergence(velocity)
     div -= field.mean(div)
     # Solve pressure
-    laplace = lambda pressure: field.divergence(field.gradient(pressure, type=type(velocity)) * hard_bcs)
+    laplace = lambda pressure: divergence(gradient(pressure, type=type(velocity)) * hard_bcs)
     pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
     converged, pressure, iterations = field.conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
     if not math.all(converged):

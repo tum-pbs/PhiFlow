@@ -76,9 +76,6 @@ class ShiftLinOp(Tensor):
             for missing_dim in src_shape.without(self._shape).names:
                 cells.insert(self.source.shape.index(missing_dim), np.zeros_like(cells[0]))
             cells = [(cell + shift.get_size(dim) if dim in shift else cell) % src_shape.get_size(dim) for dim, cell in zip(src_shape.names, cells)]  # shift & wrap
-            # inside = [(cell >= 0) & (cell < src_shape.get_size(dim)) for dim, cell in zip(src_shape.names, cells)]
-            # inside = np.argwhere(np.all(inside, axis=0))[:, 0]
-            # TODO crop if output > source
             src_indices = np.ravel_multi_index(cells, src_shape.sizes)
             cols.append(src_indices)
             vals.append(values.native(order=out_shape.names))

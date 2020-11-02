@@ -28,16 +28,16 @@ class TestTensors(TestCase):
         functions = [
             linear_function,
             lambda val: math.gradient(val, difference='forward', padding=extrapolation.ZERO, axes='x').gradient[0],
-            lambda val: math.gradient(val, difference='backward', padding=extrapolation.ZERO, axes='x').gradient[0],
-            lambda val: math.gradient(val, difference='central', padding=extrapolation.ZERO, axes='x').gradient[0],
+            lambda val: math.gradient(val, difference='backward', padding=extrapolation.PERIODIC, axes='x').gradient[0],
+            lambda val: math.gradient(val, difference='central', padding=extrapolation.BOUNDARY, axes='x').gradient[0],
         ]
 
         for f in functions:
             direct_result = f(direct)
-            print(direct_result.batch[0], 'Direct result')
+            # print(direct_result.batch[0], 'Direct result')
             op_result = f(op)
             print(op_result.build_sparse_coordinate_matrix().todense())
             self.assertIsInstance(op_result, ShiftLinOp)
             op_result = NativeTensor(op_result.native(), op_result.shape)
-            print(op_result.batch[0], 'Placeholder result')
+            # print(op_result.batch[0], 'Placeholder result')
             math.assert_close(direct_result, op_result)
