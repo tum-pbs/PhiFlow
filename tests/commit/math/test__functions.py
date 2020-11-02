@@ -24,3 +24,10 @@ class TestMathFunctions(TestCase):
         math.set_precision(64)
         assert_not_close(math.zeros(a=10), math.ones(a=10) * 1e-100, rel_tolerance=0, abs_tolerance=0)
         math.assert_close(math.zeros(a=10), math.ones(a=10) * 1e-100, rel_tolerance=0, abs_tolerance=1e-15)
+
+    def test_concat(self):
+        c = math.concat([math.zeros(b=3, a=2), math.ones(a=2, b=4)], 'b')
+        self.assertEqual(2, c.shape.a)
+        self.assertEqual(7, c.shape.b)
+        math.assert_close(c.b[:3], 0)
+        math.assert_close(c.b[3:], 1)

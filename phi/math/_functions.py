@@ -163,10 +163,19 @@ def _stack(values, dim: str, dim_type: int):
     return result
 
 
-def concat(values, axis):
-    tensors = broadcastable_native_tensors(values)
-    concatenated = math.concat(tensors, axis)
-    return NativeTensor(concatenated, values[0].shape)
+def concat(values: tuple or list, dim: str) -> Tensor:
+    """
+    Concatenates a sequence of tensors along one axis.
+    The shapes of all values must be equal, except for the size of the concat dimension.
+
+    :param values: Tensors to concatenate
+    :param dim: concat dimension, must be present in all values
+    :return: concatenated tensor
+    """
+    broadcast_shape = values[0].shape
+    tensors = [v.native(order=broadcast_shape.names) for v in values]
+    concatenated = math.concat(tensors, broadcast_shape.index(dim))
+    return NativeTensor(concatenated, broadcast_shape.with_sizes(math.staticshape(concatenated)))
 
 
 def spatial_pad(value, pad_width: tuple or list, mode: 'extrapolation.Extrapolation'):
