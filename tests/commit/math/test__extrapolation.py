@@ -75,7 +75,7 @@ class TestExtrapolationOperators(TestCase):
              [[1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1], [5, 5, 5, 5, 5, 5, 5], [6, 6, 6, 6, 6, 6, 6], [7, 7, 7, 7, 7, 7, 7], [6, 6, 6, 6, 6, 6, 6], [5, 5, 5, 5, 5, 5, 5], [6, 6, 6, 6, 6, 6, 6], [7, 7, 7, 7, 7, 7, 7]]],
             batch_dims=0,
             names='vector, y, x'
-        ).x.as_spatial().vector.as_channel()
+        ).x.as_spatial().vector.as_channel()  # TODO: future this should be automatic
         math.assert_close(p, b)  # compare to reference
 
     def test_pad_collapsed(self):
