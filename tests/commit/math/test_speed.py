@@ -25,7 +25,7 @@ def _assert_equally_fast(f1, f2, n=100, tolerance_per_round=0.001):
 
 class TestMath(TestCase):
 
-    def test_speed_op2(self):
+    def test_np_speed_op2(self):
         np1, np2 = rnpv(64), rnpv(64)
         t1, t2 = math.tensor(np1, np2)
         _assert_equally_fast(lambda: np1 + np2, lambda: t1 + t2, n=10000)
@@ -33,7 +33,7 @@ class TestMath(TestCase):
         t1, t2 = math.tensor(np1, np2)
         _assert_equally_fast(lambda: np1 + np2, lambda: t1 + t2, n=1000)
 
-    def test_speed_sum(self):
+    def test_np_speed_sum(self):
         np1, np2 = rnpv(64), rnpv(256)
         t1, t2 = math.tensor(np1, np2)
         _assert_equally_fast(lambda: np.sum(np1), lambda: math.sum(t1), n=10000)
