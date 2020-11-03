@@ -66,13 +66,13 @@ from ._functions import (
 )
 from ._nd import (
     shift,
+    spatial_sum, vec_abs, vec_squared, cross_product,
     indices_tensor,
     normalize_to,
     l1_loss, l2_loss, l_n_loss, frequency_loss,
     gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, interpolate_linear,
-    spatial_sum, vec_abs, vec_squared
 )
 
 choose_backend = DYNAMIC_BACKEND.choose_backend

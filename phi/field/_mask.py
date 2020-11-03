@@ -1,6 +1,7 @@
 from phi import math
 from phi.geom import Geometry
 from ._analytic import AnalyticField
+from ..math import Tensor
 
 
 class GeometryMask(AnalyticField):
@@ -20,8 +21,8 @@ class GeometryMask(AnalyticField):
     def shape(self):
         return self.geometry.shape.non_channel
 
-    def sample_at(self, points, reduce_channels=()):
-        if isinstance(points, Geometry):
-            return self.geometry.approximate_fraction_inside(points)
-        else:
-            return math.to_float(self.geometry.lies_inside(points))
+    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        return self.geometry.approximate_fraction_inside(geometry)
+
+    def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
+        return math.to_float(self.geometry.lies_inside(points))

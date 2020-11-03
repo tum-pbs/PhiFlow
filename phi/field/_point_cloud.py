@@ -5,6 +5,7 @@ from phi.geom import Geometry, GridCell, Box
 from ._field import SampledField
 from ._grid import CenteredGrid
 from ..geom._stack import GeometryStack
+from ..math import Tensor
 
 
 class PointCloud(SampledField):
@@ -30,22 +31,25 @@ class PointCloud(SampledField):
         self._add_overlapping = add_overlapping
         assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
 
-    def sample_at(self, points, reduce_channels=()):
+    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if not reduce_channels:
-            if points == self.elements:
+            if geometry == self.elements:
                 return self.values
-            elif isinstance(points, GridCell):
-                return self._grid_scatter(points.bounds, points.resolution)
-            elif isinstance(points, GeometryStack):
-                sampled = [self.sample_at(g) for g in points.geometries]
-                return math.batch_stack(sampled, points.stack_dim_name)
+            elif isinstance(geometry, GridCell):
+                return self._grid_scatter(geometry.bounds, geometry.resolution)
+            elif isinstance(geometry, GeometryStack):
+                sampled = [self.sample_at(g) for g in geometry.geometries]
+                return math.batch_stack(sampled, geometry.stack_dim_name)
             else:
                 raise NotImplementedError()
         else:
             assert len(reduce_channels) == 1
-            components = self.unstack('vector') if 'vector' in self.shape else (self,) * points.shape.get_size(reduce_channels[0])
-            sampled = [c.sample_at(p) for c, p in zip(components, points.unstack(reduce_channels[0]))]
+            components = self.unstack('vector') if 'vector' in self.shape else (self,) * geometry.shape.get_size(reduce_channels[0])
+            sampled = [c.volume_sample(p) for c, p in zip(components, geometry.unstack(reduce_channels[0]))]
             return math.channel_stack(sampled, 'vector')
+
+    def sample_at(self, points, reduce_channels=()) -> Tensor:
+        raise NotImplementedError()
 
     def _grid_scatter(self, box: Box, resolution: math.Shape):
         """

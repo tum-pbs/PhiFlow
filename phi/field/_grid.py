@@ -64,7 +64,7 @@ class CenteredGrid(Grid):
             value = GeometryMask(value)
         if isinstance(value, Field):
             elements = GridCell(resolution, box)
-            data = value.sample_at(elements)
+            data = value.volume_sample(elements)
         else:
             if callable(value):
                 x = GridCell(resolution, box).center
@@ -73,17 +73,17 @@ class CenteredGrid(Grid):
             data = math.zeros(resolution) + value
         return CenteredGrid(data, box, extrapolation)
 
-    def sample_at(self, points, reduce_channels=()):
-        if isinstance(points, (tuple, list)):
-            return tuple(self.sample_at(p) for p in points)
-        elif isinstance(points, GridCell) and points.bounds == self.box and points.resolution == self.resolution:
-            return self.values
-        elif isinstance(points, GridCell) and math.close(self.dx, points.size):
-            fast_resampled = self._shift_resample(points.resolution, points.bounds)
-            if fast_resampled is not NotImplemented:
-                return fast_resampled
-        elif isinstance(points, Geometry):
-            points = points.center
+    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        if isinstance(geometry, GridCell):
+            if geometry.bounds == self.box and geometry.resolution == self.resolution:
+                return self.values
+            elif math.close(self.dx, geometry.size):
+                fast_resampled = self._shift_resample(geometry.resolution, geometry.bounds)
+                if fast_resampled is not NotImplemented:
+                    return fast_resampled
+        return self.sample_at(geometry.center, reduce_channels)
+
+    def sample_at(self, points, reduce_channels=()) -> Tensor:
         local_points = self.box.global_to_local(points)
         local_points = local_points * self.resolution - 0.5
         if len(reduce_channels) == 0:
@@ -176,9 +176,7 @@ class StaggeredGrid(Grid):
         return Grid._with(self, values, extrapolation)
 
     def sample_at(self, points, reduce_channels=()):
-        if isinstance(points, Geometry):
-            points = points.center
-        if len(reduce_channels) == 0:
+        if not reduce_channels:
             if isinstance(points, StaggeredGrid) and points.resolution == self.resolution and points.bounds == self.bounds:
                 return self
             channels = [component.sample_at(points) for component in self.unstack()]

@@ -40,7 +40,7 @@ def semi_lagrangian(field: Grid, velocity: Field, dt) -> Grid:
     :param dt: time increment
     :return: Field compatible with input field
     """
-    v = velocity.sample_at(field.elements)
+    v = velocity.volume_sample(field.elements)
     x = field.points - v * dt
     interpolated = field.sample_at(x, reduce_channels=x.shape.non_channel.without(field.shape).names)
     return field._with(interpolated)
@@ -59,7 +59,7 @@ def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.
     :return: Field compatible with input field
     """
     x0 = field.points
-    v = velocity.sample_at(field.elements)
+    v = velocity.volume_sample(field.elements)
     x_bwd = x0 - v * dt
     x_fwd = x0 + v * dt
     field_semi_la = field._with(field.sample_at(x_bwd.values, reduce_channels='not yet implemented'))  # semi-Lagrangian advection
@@ -83,10 +83,10 @@ Lagrangian advection of particles.
     assert isinstance(velocity, Field)
     points = field.elements
     # --- Sample velocity at intermediate points ---
-    vel_k1 = velocity.sample_at(points)
-    vel_k2 = velocity.sample_at(points.shifted(0.5 * dt * vel_k1))
-    vel_k3 = velocity.sample_at(points.shifted(0.5 * dt * vel_k2))
-    vel_k4 = velocity.sample_at(points.shifted(dt * vel_k3))
+    vel_k1 = velocity.volume_sample(points)
+    vel_k2 = velocity.volume_sample(points.shifted(0.5 * dt * vel_k1))
+    vel_k3 = velocity.volume_sample(points.shifted(0.5 * dt * vel_k2))
+    vel_k4 = velocity.volume_sample(points.shifted(dt * vel_k3))
     # --- Combine points with RK4 scheme ---
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     new_points = points.shifted(dt * vel)

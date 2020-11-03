@@ -29,30 +29,38 @@ class Field:
         """
         return self.shape.spatial.rank
 
-    def sample_at(self, points, reduce_channels=()) -> Tensor:
+    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        """
+        Approximates the mean field value inside the volume of the geometry (batch).
+
+        For small volumes, the value at the volume's center may be sampled.
+        The batch dimensions of the geometry are matched with this Field.
+        Spatial dimensions can be used to sample a grid of geometries.
+
+        The default implementation of this method samples this Field at the center point of the geometry.
+
+        :param geometry: single or batched Geometry object
+        :param reduce_channels: (optional) dimension of `points` to be reduced against the vector dimension of this Field.
+        Causes the components of this field to be sampled at different locations.
+        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
+
+        :return: sampled values
+        """
+        return self.sample_at(geometry.center, reduce_channels)
+
+    def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
         """
         Sample this field at the world-space locations (in physical units) given by points.
-
-        Points must be one of the following:
-
-        * **Tensor** with exactly one channel dimension.
-          The channel dimension holds the vectors that reference the locations in world-space.
-          Batch dimensions are matched with the batch dimensions of this Field.
-          Spatial dimensions can be used to sample a grid of locations.
-
-        * **Geometry**. Approximates the mean field value inside the volume.
-          For small volumes, the value at the volume's center may be sampled.
-          The batch dimensions of the geometry are matched with this Field.
-          Spatial dimensions can be used to sample a grid of geometries.
-
-        * **List** or **tuple** of any of these. This broadcasts the sampling for all entries in the list.
-          The result will have the same (nested) structure.
+        Points must have a single channel dimension named `vector`.
+        It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
 
         :param points: world-space locations
-        :param reduce_channels: batch dimensions to be reduced against channel dimensions. Indicates that the different channels of this field should be sampled at different locations.
-        :return: object of same kind as points
+        :param reduce_channels: (optional) dimension of `points` to be reduced against the vector dimension of this Field.
+        Causes the components of this field to be sampled at different locations.
+        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
+
+        :return: sampled values
         """
-        # * **Field**. The values of that field are interpreted as the sample locations. Analytic fields cannot be used.
         raise NotImplementedError(self)
 
     def at(self, representation: SampledField) -> SampledField:
@@ -66,7 +74,7 @@ class Field:
         :return: Field object of same type as `representation`
         """
         elements = representation.elements
-        resampled = self.sample_at(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
+        resampled = self.volume_sample(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -197,7 +205,7 @@ class SampledField(Field):
 
     def _op2(self, other, operator) -> Field:
         if isinstance(other, Field):
-            other_values = other.sample_at(self._elements)
+            other_values = other.volume_sample(self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self._with(values, extrapolation_)

@@ -16,6 +16,34 @@ from ._tensors import Tensor
 from .backend.tensorop import collapsed_gather_nd
 
 
+def spatial_sum(value: Tensor):
+    return math.sum_(value, axis=value.shape.spatial.names)
+
+
+def vec_abs(vec: Tensor):
+    return math.sqrt(math.sum_(vec ** 2, axis=vec.shape.channel.names))
+
+
+def vec_squared(vec: Tensor):
+    return math.sum_(vec ** 2, axis=vec.shape.channel.names)
+
+
+def cross_product(vec1: Tensor, vec2: Tensor):
+    vec1, vec2 = math.tensor(vec1, vec2)
+    spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
+    if spatial_rank == 2:  # Curl in 2D
+        dist_0, dist_1 = vec2.vector.unstack()
+        if math.GLOBAL_AXIS_ORDER.is_x_first:
+            velocity = vec1 * math.channel_stack([-dist_1, dist_0], 'vector')
+        else:
+            velocity = vec1 * math.channel_stack([dist_1, -dist_0], 'vector')
+        return velocity
+    elif spatial_rank == 3:  # Curl in 3D
+        raise NotImplementedError('not yet implemented')
+    else:
+        raise AssertionError('Vector product not available in > 3 dimensions')
+
+
 def indices_tensor(tensor: Tensor, dtype=None):
     """
     Returns an index tensor of the same spatial shape as the given tensor.
@@ -337,13 +365,6 @@ def upsample2x(tensor, interpolation='linear') -> Tensor:
     return tensor
 
 
-def spatial_sum(tensor):
-    summed = math.sum_(tensor, axis=math.dimrange(tensor))
-    for i in math.dimrange(tensor):
-        summed = math.expand_dims(summed, i)
-    return summed
-
-
 def interpolate_linear(tensor: Tensor, start, size):
     for sta, siz, dim in zip(start, size, tensor.shape.spatial.names):
         tensor = tensor.dimension(dim)[int(sta):int(sta) + siz + (1 if sta != 0 else 0)]
@@ -355,13 +376,6 @@ def interpolate_linear(tensor: Tensor, start, size):
             tensor = upper * upper_weight[i] + lower * lower_weight[i]
     return tensor
 
-
-def vec_abs(tensor: Tensor):
-    return math.sqrt(math.sum_(tensor ** 2, axis=tensor.shape.channel.names))
-
-
-def vec_squared(tensor: Tensor):
-    return math.sum_(tensor ** 2, axis=tensor.shape.channel.names)
 
 
 def _get_pad_width_axes(rank, axes, val_true=(1, 1), val_false=(0, 0)):

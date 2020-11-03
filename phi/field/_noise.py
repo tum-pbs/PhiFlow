@@ -1,8 +1,8 @@
 import numpy as np
 
 from phi import math
-from phi.geom import GridCell
-from phi.math import random_normal
+from phi.geom import GridCell, Geometry
+from phi.math import random_normal, Tensor
 from ._analytic import AnalyticField
 
 
@@ -33,9 +33,12 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     def shape(self):
         return self._shape
 
-    def sample_at(self, points, reduce_channels=()):
-        if isinstance(points, GridCell):
-            return self.grid_sample(points.resolution, points.grid_size)
+    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        if isinstance(geometry, GridCell):
+            return self.grid_sample(geometry.resolution, geometry.grid_size, self._shape.without(reduce_channels))
+        raise NotImplementedError()
+
+    def sample_at(self, points, reduce_channels=()) -> math.Tensor:
         raise NotImplementedError()
 
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):

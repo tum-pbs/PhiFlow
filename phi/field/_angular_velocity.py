@@ -16,25 +16,14 @@ class AngularVelocity(AnalyticField):
         self._shape = location.shape.combined(math.spatial_shape([1] * location.vector.size))
 
     def sample_at(self, points, reduce_channels=()) -> math.Tensor:
-        if isinstance(points, Geometry):
-            points = points.center  # TODO correct for cells very close to location
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)
-        if points.vector.size == 2:  # Curl in 2D
-            dist_0, dist_1 = distances.vector.unstack()
-            if reduce_channels:
-                assert len(reduce_channels) == 1
-                dist_0 = dist_0[{reduce_channels[0]: 0}]
-                dist_1 = dist_1[{reduce_channels[0]: 1}]
-            if math.GLOBAL_AXIS_ORDER.is_x_first:
-                velocity = strength * math.channel_stack([-dist_1, dist_0], 'vector')
-            else:
-                velocity = strength * math.channel_stack([dist_1, -dist_0], 'vector')
-        elif points.vector.size == 3:  # Curl in 3D
-            raise NotImplementedError('not yet implemented')
+        if reduce_channels:
+            assert len(reduce_channels) == 1
+            velocities = [math.cross_product(strength, dist).vector[i] for i, dist in enumerate(distances.unstack(reduce_channels[0]))]  # TODO this is inefficient, computes components that are discarded
+            velocity = math.channel_stack(velocities, 'vector')
         else:
-            raise AssertionError('Vector product not available in > 3 dimensions')
-        # velocity = math.vec_prod(strength, distances)
+            velocity = math.cross_product(strength, distances)
         velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
         return velocity
 
