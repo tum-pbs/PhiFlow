@@ -2,6 +2,7 @@ import numpy as np
 
 
 class AxisOrder:
+    """Define the order of spatial axes. Default: x first"""
 
     def __init__(self):
         self.is_x_first = False
