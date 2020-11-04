@@ -12,7 +12,7 @@ from ._effect import Gravity, effect_applied, gravity_tensor
 from ._physics import Physics, StateDependency, State
 
 
-def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse', pressure_guess=None):
+def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), subtract_mean_div=True, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse', pressure_guess=None):
     """
     Projects the given velocity field by solving for and subtracting the pressure.
 
@@ -23,18 +23,20 @@ def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), relative_t
     :param obstacles: list of Obstacles to specify boundary conditions inside the domain
     :return: divergence-free velocity, pressure, iterations, divergence of input velocity
     """
-    active_mask = domain.grid(~union([obstacle.geometry for obstacle in obstacles]), extrapolation=domain.boundaries.active_extrapolation)
+    active_mask = 1 - GeometryMask(union([obstacle.geometry for obstacle in obstacles])).sample_at(domain.cells.center)
+    active_mask = domain.grid(active_mask, extrapolation=domain.boundaries.active_extrapolation)
     accessible_mask = domain.grid(active_mask, extrapolation=domain.boundaries.accessible_extrapolation)
     hard_bcs = field.stagger(accessible_mask, math.minimum, accessible_mask.extrapolation)
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles)
     div = divergence(velocity)
-    div -= field.mean(div)
+    if subtract_mean_div:
+        div -= field.mean(div)
     # Solve pressure
-    laplace = lambda pressure: divergence(gradient(pressure, type=type(velocity)) * hard_bcs)
+    laplace = lambda pressure: divergence(gradient(pressure, type=type(velocity)) * hard_bcs) * active_mask + (1 - active_mask) * pressure
     pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
     converged, pressure, iterations = field.conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
     if not math.all(converged):
-        raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,))
+        raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,), pressure.values)
     # Subtract grad pressure
     gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs
     return velocity - gradp, pressure, iterations, div

@@ -165,10 +165,12 @@ class StaggeredGrid(Grid):
             value = value(x)
             return value
         else:  # value is constant
+            value = tensor(value)
+            components = value.unstack('vector') if 'vector' in value.shape else [value] * resolution.spatial_rank
             tensors = []
-            for dim in resolution.spatial.names:
+            for dim, component in zip(resolution.spatial.names, components):
                 comp_res, comp_box = extend_symmetric(resolution, box, dim)
-                tensors.append(math.zeros(comp_res) + value)
+                tensors.append(math.zeros(comp_res) + component)
             return StaggeredGrid(math.channel_stack(tensors, 'vector'), box, extrapolation)
 
     def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):

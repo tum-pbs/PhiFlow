@@ -628,7 +628,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
         array = np.array(obj)
         return NativeTensor(array, EMPTY_SHAPE)
     if isinstance(obj, Shape):
-        return _tensor(obj.sizes, names or ['vector'])
+        return _tensor(obj.sizes, names or ['vector'], infer_dimension_types=False)
     raise ValueError(obj)
 
 

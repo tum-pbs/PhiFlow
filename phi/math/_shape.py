@@ -535,13 +535,13 @@ def parse_dim_names(obj, count: int) -> tuple:
                 result.append(None)
             else:
                 result.append(part)
-        assert len(result) == count
+        assert len(result) == count, f"Number of specified names in '{obj}' does not match number of dimensions ({count})"
         return tuple(result)
     elif isinstance(obj, Shape):
-        assert len(obj) == count
+        assert len(obj) == count, f"Number of specified names in {obj} does not match number of dimensions ({count})"
         return obj.names
     elif isinstance(obj, (tuple, list)):
-        assert len(obj) == count
+        assert len(obj) == count, f"Number of specified names in {obj} does not match number of dimensions ({count})"
         return tuple(obj)
     raise ValueError(obj)
 
