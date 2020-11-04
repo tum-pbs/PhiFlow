@@ -2,17 +2,15 @@ import functools
 import numbers
 import re
 import time
-import warnings
 from functools import partial
 
 import numpy as np
 
+from .backend import math, Solve, LinearSolve
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape_from_dict
 from . import _extrapolation as extrapolation
-from .backend import math
 from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, combined_shape
 from phi.math.backend._scipy_backend import SCIPY_BACKEND
-from ._config import GLOBAL_AXIS_ORDER
 
 
 def is_tensor(x):
@@ -725,7 +723,12 @@ def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
         np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance)
 
 
-def conjugate_gradient(operator, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None, bake='sparse'):
+def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
+    if not isinstance(solve_params, LinearSolve):
+        raise NotImplementedError("Only linear solve is currently supported. Pass a LinearSolve object")
+    if solve_params.solver not in (None, 'CG'):
+        raise NotImplementedError("Only 'CG' solver currently supported")
+
     from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensor(x0, y)
     batch = combined_shape(y, x0).batch
@@ -733,7 +736,7 @@ def conjugate_gradient(operator, y, x0, relative_tolerance: float = 1e-5, absolu
     y_native = math.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))
     if callable(operator):
         A_ = None
-        if bake == 'sparse':
+        if solve_params.solver_arguments['bake'] == 'sparse':
             build_time = time.time()
             x_track = lin_placeholder(x0)
             Ax_track = operator(x_track)
@@ -753,7 +756,7 @@ def conjugate_gradient(operator, y, x0, relative_tolerance: float = 1e-5, absolu
         A_ = math.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     cg_time = time.time()
-    converged, x, iterations = math.conjugate_gradient(A_, y_native, x0_native, relative_tolerance, absolute_tolerance, max_iterations, gradient, callback)
+    converged, x, iterations = math.conjugate_gradient(A_, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
     print("CG: loop time: %s (%s iterations)" % (time.time() - cg_time, iterations))
     converged = math.reshape(converged, batch.sizes)
     x = math.reshape(x, batch.sizes + x0.shape.non_batch.sizes)

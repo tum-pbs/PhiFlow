@@ -12,7 +12,12 @@ from ._effect import Gravity, effect_applied, gravity_tensor
 from ._physics import Physics, StateDependency, State
 
 
-def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), subtract_mean_div=True, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse', pressure_guess=None):
+def make_incompressible(velocity: Grid,
+                        domain: Domain,
+                        obstacles=(),
+                        subtract_mean_div=True,
+                        solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
+                        pressure_guess=None):
     """
     Projects the given velocity field by solving for and subtracting the pressure.
 
@@ -34,7 +39,7 @@ def make_incompressible(velocity: Grid, domain: Domain, obstacles=(), subtract_m
     # Solve pressure
     laplace = lambda pressure: divergence(gradient(pressure, type=type(velocity)) * hard_bcs) * active_mask + (1 - active_mask) * pressure
     pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
-    converged, pressure, iterations = field.conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
+    converged, pressure, iterations = field.solve(laplace, div, pressure_guess, solve_params)
     if not math.all(converged):
         raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,), pressure.values)
     # Subtract grad pressure

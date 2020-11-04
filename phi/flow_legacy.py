@@ -8,3 +8,4 @@ from phi.field import diffuse
 physics_config = math.GLOBAL_AXIS_ORDER
 physics_config.x_last()
 box = Box
+SampledField = PointCloud

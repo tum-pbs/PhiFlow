@@ -84,7 +84,7 @@ def diffuse(field: Field, diffusivity, dt, substeps=1):
         return field
 
 
-def conjugate_gradient(function, y: Grid, x0: Grid, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None, bake='sparse'):
+def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
     if callback is not None:
         def field_callback(x):
             x = x0._with(x)
@@ -93,7 +93,7 @@ def conjugate_gradient(function, y: Grid, x0: Grid, relative_tolerance: float = 
         field_callback = None
 
     data_function = expose_tensors(function, x0)
-    converged, x, iterations = math.conjugate_gradient(data_function, y.values, x0.values, relative_tolerance, absolute_tolerance, max_iterations, gradient, field_callback, bake)
+    converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params, field_callback)
     return converged, x0._with(x), iterations
 
 
@@ -156,7 +156,7 @@ def divergence_free(vector_field: Grid, relative_tolerance: float = 1e-3, absolu
     div -= mean(div)
     pressure_extrapolation = vector_field.extrapolation  # periodic -> periodic, closed -> boundary, open -> zero
     pressure_guess = CenteredGrid.sample(0, vector_field.resolution, vector_field.box, extrapolation=pressure_extrapolation)
-    converged, potential, iterations = conjugate_gradient(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
+    converged, potential, iterations = solve(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
     gradp = gradient(potential, type=StaggeredGrid)
     vector_field -= gradp
     return vector_field, potential, iterations, div

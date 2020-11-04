@@ -8,28 +8,28 @@ The dense marker is sampled on a regular grid while the sparse marker is a colle
 """
 
 
-def checkerboard(resolution, size=8, offset=2):
-    data = math.zeros([1] + list(resolution) + [1])
+def checkerboard(resolution: math.Shape, size=8, offset=2):
+    data = math.zeros(resolution).numpy()
     for y in range(size):
         for x in range(size):
-            data[:, y + offset::size * 2, x + offset::size * 2, :] = 1
-    return data
-
-
-def regular_locations(box, count=16):
-    return np.reshape(CenteredGrid.getpoints(box, [count] * box.rank).values, (1, -1, box.rank))
+            data[y + offset::size * 2, x + offset::size * 2] = 1
+    return math.tensor(data, names='x, y')
 
 
 domain = Domain([160, 126], CLOSED)
-smoke = world.add(Fluid(domain, buoyancy_factor=0.1), physics=IncompressibleFlow())
-world.add(Inflow(Sphere((18, 64), 10), rate=0.2))
-# --- Markers ---
-dense_marker = world.add(CenteredGrid(checkerboard(domain.resolution), box=domain.bounds, extrapolation='constant'), physics=Drift())
-sparse_marker = world.add(SampledField(regular_locations(domain.bounds)), physics=Drift())
+velocity = domain.sgrid(Noise(vector=2))
+dense_marker = CenteredGrid(checkerboard(domain.resolution), domain.bounds)
+sparse_marker = PointCloud(reshape(domain.cells, '(x, y) -> points'))
+state = dict(velocity=velocity, markers=(dense_marker, sparse_marker))
+
+
+def step(velocity: CenteredGrid, markers: tuple):
+
+    return dict(velocity=velocity, markers=markers)
+
 
 app = App('Passive Markers', DESCRIPTION, framerate=10, dt=0.2)
-app.add_field('Density', lambda: smoke.density)
-app.add_field('Velocity', lambda: smoke.velocity)
-app.add_field('Dense Marker', dense_marker)
-app.add_field('Sparse Marker', lambda: sparse_marker.at(smoke.density))
+app.set_state(state, step, show=['velocity'])
+app.add_field('Dense Marker', lambda: app.state['markers'][0])
+app.add_field('Sparse Marker', lambda: app.state['markers'][1].volume_sample(domain.cells))
 show(app)

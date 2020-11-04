@@ -13,6 +13,7 @@ from ._shape import CHANNEL_DIM, spatial_shape, channel_shape
 from ._functions import broadcast_op, batch_stack, channel_stack
 from ._tensors import tensor, Tensor, TensorStack, NativeTensor
 from ._tensors import Tensor
+from ._config import GLOBAL_AXIS_ORDER
 from .backend.tensorop import collapsed_gather_nd
 
 
@@ -33,7 +34,7 @@ def cross_product(vec1: Tensor, vec2: Tensor):
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
         dist_0, dist_1 = vec2.vector.unstack()
-        if math.GLOBAL_AXIS_ORDER.is_x_first:
+        if GLOBAL_AXIS_ORDER.is_x_first:
             velocity = vec1 * math.channel_stack([-dist_1, dist_0], 'vector')
         else:
             velocity = vec1 * math.channel_stack([dist_1, -dist_0], 'vector')

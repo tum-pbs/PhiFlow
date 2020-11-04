@@ -17,7 +17,7 @@ Main classes:
 * Shape
 """
 
-from .backend import DYNAMIC_BACKEND, set_precision
+from .backend import DYNAMIC_BACKEND, set_precision, Solve, LinearSolve
 from .backend._scipy_backend import SCIPY_BACKEND
 
 from . import _extrapolation as extrapolation
@@ -62,7 +62,7 @@ from ._functions import (
     tile, expand_channel,
     sparse_tensor,
     close, assert_close,
-    conjugate_gradient,
+    solve,
 )
 from ._nd import (
     shift,

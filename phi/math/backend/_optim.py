@@ -1,6 +1,34 @@
 from collections import namedtuple
 
 
+class Solve:
+
+    def __init__(self,
+                 solver: str = None,
+                 relative_tolerance=1e-5,
+                 absolute_tolerance=0,
+                 max_iterations=1000,
+                 **solver_arguments):
+        self.solver = solver
+        self.relative_tolerance = relative_tolerance
+        self.absolute_tolerance = absolute_tolerance
+        self.max_iterations = max_iterations
+        self.solver_arguments = solver_arguments
+
+
+class LinearSolve(Solve):
+
+    def __init__(self,
+                 solver: str = None,
+                 relative_tolerance=1e-5,
+                 absolute_tolerance=0,
+                 max_iterations=1000,
+                 bake='sparse',
+                 **solver_arguments):
+        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake,
+                       **solver_arguments)
+
+
 SolveResult = namedtuple('SolveResult', ['iterations', 'x', 'residual'])
 
 

@@ -4,7 +4,7 @@ from phi.flow import *
 def step(dt, velocity, obstacle):
     obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(- obstacle.angular_velocity * dt))  # rotate bar
     velocity = advect.semi_lagrangian(velocity, velocity, dt)
-    velocity, pressure, iterations, divergence = fluid.make_incompressible(velocity, domain, (obstacle,), relative_tolerance=1e-3)
+    velocity, pressure, iterations, divergence = fluid.make_incompressible(velocity, domain, (obstacle,), solve_params=math.LinearSolve(None, 1e-3))
     return dict(velocity=velocity, obstacle=obstacle)
 
 
@@ -14,5 +14,5 @@ state = step(1, **state)
 
 app = App('Moving Objects Demo', framerate=10)
 app.set_state(state, step, show=['velocity'])
-app.add_field('Domain', lambda: domain.grid(state['obstacle'].geometry))
+app.add_field('Domain', lambda: domain.grid(app.state['obstacle'].geometry))
 show(app, display=('Domain', 'velocity'))
