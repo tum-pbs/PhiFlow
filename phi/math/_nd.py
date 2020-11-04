@@ -328,7 +328,9 @@ def downsample2x(tensor,
         axes = range(rank)
     tensor = math.pad(tensor,
                       [[0, 0]]
-                      + [([0, 1] if (dim % 2) != 0 and _contains_axis(axes, ax, rank) else [0, 0]) for ax, dim in enumerate(tensor.shape[1:-1])]
+                      + [([0, 1] if (dim % 2) != 0 and _contains_axis(axes, ax, rank)
+                          else [0, 0])
+                          for ax, dim in enumerate(tensor.shape[1:-1])]
                       + [[0, 0]], 'replicate')
     for axis in axes:
         upper_slices = tuple([(slice(1, None, 2) if i == axis else slice(None)) for i in range(rank)])
@@ -420,7 +422,20 @@ def _contains_axis(axes, axis, sp_rank):
     return (axes is None) or (axis in axes) or (axis + sp_rank in axes)
 
 
-def map_for_axes(function, obj, axes, rank):
+def map_for_axes(function, obj, axes: tuple or None, rank: int):
+    """apply function to each axes contained in the object
+
+    :param function: function to be applied
+    :type function: function
+    :param obj: object with axes
+    :type obj: Tensor or similar
+    :param axes: axes along which to apply the function
+    :type axes: tuple or None
+    :param rank: number of dimensions
+    :type rank: int
+    :return: applied function
+    :rtype: object or list
+    """
     if axes is None:
         return function(obj)
     else:
