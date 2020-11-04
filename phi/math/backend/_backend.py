@@ -136,10 +136,14 @@ class Backend:
     def pad(self, value, pad_width, mode: str = 'constant', constant_values=0):
         """
         Pad a tensor with values as specified by `mode` and `constant_values`.
+
+        If the mode is not supported, returns NotImplemented.
+
         :param value: tensor
         :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[axis 0 lower, axis 0 upper], ...] including batch and component axes.
         :param mode: 'constant', 'boundary', 'periodic', 'symmetric', 'reflect'
         :param constant_values: used for out-of-bounds points if mode='constant'
+        :return: padded tensor or NotImplemented
         """
         raise NotImplementedError(self)
 

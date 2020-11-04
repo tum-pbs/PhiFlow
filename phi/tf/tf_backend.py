@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import tensorflow as tf
 
-from phi.math.backend import Backend, split_multi_mode_pad, PadSettings, general_grid_sample_nd, circular_pad, replicate_pad, extrapolation
+from phi.math.backend import Backend
 from phi.math.backend._scipy_backend import SCIPY_BACKEND, SciPyBackend
 from .tf_cuda_resample import resample_cuda, use_cuda
 
@@ -80,15 +80,12 @@ class TFBackend(Backend):
         return tf.concat(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        assert mode in ('constant', 'symmetric', 'periodic', 'reflect', 'boundary'), mode
-        if mode == 'periodic':
-            return circular_pad(value, pad_width, self)
-        if mode == 'boundary':
-            if np.any(np.array(pad_width) > 1):
-                return replicate_pad(value, pad_width, self)
-            else:
-                mode = 'symmetric'
-        return tf.pad(value, pad_width, mode.upper(), constant_values=constant_values)  # constant, symmetric, reflect
+        if mode == 'boundary' and np.all(np.array(pad_width) <= 1):
+            mode = 'symmetric'
+        if mode in ('constant', 'symmetric', 'reflect'):
+            return tf.pad(value, pad_width, mode.upper(), constant_values=constant_values)
+        else:
+            return NotImplemented
 
     def reshape(self, value, shape):
         return tf.reshape(value, shape)
@@ -423,6 +420,7 @@ class TFBackend(Backend):
             return SCIPY_BACKEND.dtype(array)
 
     def sparse_tensor(self, indices, values, shape):
+        indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]
         indices = tf.cast(tf.stack(indices, axis=-1), tf.int64)
         return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
 

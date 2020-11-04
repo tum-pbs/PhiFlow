@@ -118,7 +118,7 @@ class ConstantExtrapolation(Extrapolation):
         if isinstance(value, NativeTensor):
             native = value.tensor
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
-            result_tensor = native_math.pad(native, ordered_pad_widths, 'constant', self.value)
+            result_tensor = native_math.pad(native, ordered_pad_widths, 'constant', self.value.native())
             new_shape = value.shape.with_sizes(native_math.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
