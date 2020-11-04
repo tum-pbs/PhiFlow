@@ -16,8 +16,7 @@ from ._tensors import Tensor
 from .backend.tensorop import collapsed_gather_nd
 
 
-
-def indices_tensor(tensor, dtype=None):
+def indices_tensor(tensor: Tensor, dtype=None):
     """
     Returns an index tensor of the same spatial shape as the given tensor.
     Each index denotes the location within the tensor starting from zero.
@@ -51,7 +50,8 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(tensor, batch_norm=True, reduce_batches=True):
+def l1_loss(tensor: Tensor, batch_norm=True, reduce_batches=True):
+    """get L1 loss"""
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
         return sum(l1_loss(tensor, batch_norm, reduce_batches) for tensor in all_tensors)
@@ -66,11 +66,13 @@ def l1_loss(tensor, batch_norm=True, reduce_batches=True):
         return total_loss
 
 
-def l2_loss(tensor, batch_norm=True):
+def l2_loss(tensor: Tensor, batch_norm=True):
+    """get L2 loss"""
     return l_n_loss(tensor, 2, batch_norm=batch_norm)
 
 
-def l_n_loss(tensor, n, batch_norm=True):
+def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
+    """get Ln loss"""
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
         return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
@@ -101,6 +103,12 @@ def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
 
 
 def abs_square(complex):
+    """get the square magnitude
+    :param complex: complex input data
+    :type complex: Tensor
+    :return: real valued magnitude squared
+    :rtype: Tensor
+    """
     return math.imag(complex) ** 2 + math.real(complex) ** 2
 
 
@@ -138,7 +146,26 @@ def abs_square(complex):
 #     return math.sum_(components, 0)
 
 
-def shift(x: Tensor, offsets: tuple, axes: tuple or None = None, padding: Extrapolation or None = extrapolation.BOUNDARY, stack_dim='shift') -> list:
+def shift(x: Tensor,
+          offsets: tuple,
+          axes: tuple or None = None,
+          padding: Extrapolation or None = extrapolation.BOUNDARY,
+          stack_dim: str = 'shift') -> list:
+    """shift Tensor by a fixed offset and abiding by extrapolation
+
+    :param x: Input data
+    :type x: Tensor
+    :param offsets: Shift size
+    :type offsets: tuple
+    :param axes: Axes along which to shift, defaults to None
+    :type axes: tuple or None, optional
+    :param padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
+    :type padding: Extrapolation or None, optional
+    :param stack_dim: dimensions to be stacked, defaults to 'shift'
+    :type stack_dim: str, optional
+    :return: offset_tensor
+    :rtype: list
+    """
     x = tensor(x)
     axes = axes if axes is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
@@ -158,12 +185,17 @@ def shift(x: Tensor, offsets: tuple, axes: tuple or None = None, padding: Extrap
 
 # Gradient
 
-def gradient(tensor, dx=1, difference='central', padding=extrapolation.BOUNDARY, axes=None):
+def gradient(tensor: Tensor,
+             dx: float or int = 1,
+             difference: str = 'central',
+             padding: Extrapolation = extrapolation.BOUNDARY,
+             axes: tuple or None = None):
     """
     Calculates the gradient of a scalar channel from finite differences.
     The gradient vectors are in reverse order, lowest dimension first.
 
     :param axes: (optional) sequence of dimension names
+    :type axes: integer, iterable of integers
     :param tensor: channel with shape (batch_size, spatial_dimensions..., 1)
     :param dx: physical distance between grid points (default 1)
     :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
@@ -187,7 +219,10 @@ def _gradient_nd(x, padding, relative_shifts, axes):
 
 # Laplace
 
-def laplace(x, dx=1, padding=extrapolation.BOUNDARY, axes=None):
+def laplace(x: Tensor,
+            dx: float = 1,
+            padding: Extrapolation = extrapolation.BOUNDARY,
+            axes: tuple or None = None):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -195,7 +230,7 @@ def laplace(x, dx=1, padding=extrapolation.BOUNDARY, axes=None):
     :param x: n-dimensional field of shape (batch, spacial dimensions..., components)
     :param dx: scalar or 1d tensor
     :param padding: extrapolation
-    :type padding: Ex
+    :type padding: Extrapolation
     :param axes: The second derivative along these axes is summed over
     :type axes: list
     :return: tensor of same shape
@@ -212,12 +247,13 @@ def laplace(x, dx=1, padding=extrapolation.BOUNDARY, axes=None):
 
 def fourier_laplace(tensor, times=1):
     """
-Applies the spatial laplce operator to the given tensor with periodic boundary conditions.
+    Applies the spatial laplace operator to the given tensor with periodic boundary conditions.
 
-*Note:* The results of `fourier_laplace` and `laplace` are close but not identical.
+    *Note:* The results of `fourier_laplace` and `laplace` are close but not identical.
 
-This implementation computes the laplace operator in Fourier space.
-The result for periodic fields is exact, i.e. no numerical instabilities can occur, even for higher-order derivatives.
+    This implementation computes the laplace operator in Fourier space.
+    The result for periodic fields is exact, i.e. no numerical instabilities can occur, even for higher-order derivatives.
+
     :param tensor: tensor, assumed to have periodic boundary conditions
     :param times: number of times the laplace operator is applied. The computational cost is independent of this parameter.
     :return: tensor of same shape as `tensor`
@@ -239,11 +275,24 @@ def fourier_poisson(tensor, times=1):
 
 # Downsample / Upsample
 
-def downsample2x(tensor, interpolation='linear', axes=None):
+def downsample2x(tensor,
+                 interpolation: str = 'linear',
+                 axes: tuple or None = None) -> Tensor:
+    """get half sized tensor using given interpolation method
+
+    :param tensor: [description]
+    :type tensor: [type]
+    :param interpolation: [description], defaults to 'linear'
+    :type interpolation: str, optional
+    :param axes: axes along which this is applied, defaults to None
+    :type axes: iterable, optional
+    :raises ValueError: if interpolation != linear
+    :return: Downsampled Tensor (half the size)
+    :rtype: Tensor
+    """
     if struct.isstruct(tensor):
         return struct.map(lambda s: downsample2x(s, interpolation, axes),
                           tensor, recursive=False)
-
     if interpolation.lower() != 'linear':
         raise ValueError('Only linear interpolation supported')
     rank = spatial_rank(tensor)
@@ -261,10 +310,19 @@ def downsample2x(tensor, interpolation='linear', axes=None):
     return tensor
 
 
-def upsample2x(tensor, interpolation='linear'):
+def upsample2x(tensor, interpolation='linear') -> Tensor:
+    """get double sized tensor using given interpolation method
+
+    :param tensor: Data to be upsampled
+    :type tensor: Tensor
+    :param interpolation: interpolation method, defaults to 'linear'
+    :type interpolation: str, optional (only linear allowed)
+    :raises ValueError: if not linear
+    :return: Upsampled Tensor (double the size)
+    :rtype: Tensor
+    """
     if struct.isstruct(tensor):
         return struct.map(lambda s: upsample2x(s, interpolation), tensor, recursive=False)
-
     if interpolation.lower() != 'linear':
         raise ValueError('Only linear interpolation supported')
     dims = range(spatial_rank(tensor))
@@ -288,7 +346,7 @@ def spatial_sum(tensor):
 
 def interpolate_linear(tensor: Tensor, start, size):
     for sta, siz, dim in zip(start, size, tensor.shape.spatial.names):
-        tensor = tensor.dimension(dim)[int(sta):int(sta)+siz + (1 if sta != 0 else 0)]
+        tensor = tensor.dimension(dim)[int(sta):int(sta) + siz + (1 if sta != 0 else 0)]
     upper_weight = start % 1
     lower_weight = 1 - upper_weight
     for i, dimension in enumerate(tensor.shape.spatial.names):
@@ -304,7 +362,6 @@ def vec_abs(tensor: Tensor):
 
 def vec_squared(tensor: Tensor):
     return math.sum_(tensor ** 2, axis=tensor.shape.channel.names)
-
 
 
 def _get_pad_width_axes(rank, axes, val_true=(1, 1), val_false=(0, 0)):
