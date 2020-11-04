@@ -516,7 +516,7 @@ class MixedExtrapolation(Extrapolation):
         return extrap.pad_values(value, width, dimension, upper_edge)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
-        coordinates = math.unstack(coordinates, axis=-1)
+        coordinates = coordinates.vector.unstack()
         assert len(self.ext) == len(shape) == len(coordinates)
         result = []
         for dim, dim_coords in zip(shape.spatial.unstack(), coordinates):
@@ -527,7 +527,10 @@ class MixedExtrapolation(Extrapolation):
                 lower = dim_extrapolations[0].transform_coordinates(dim_coords, dim)
                 upper = dim_extrapolations[1].transform_coordinates(dim_coords, dim)
                 result.append(math.where(dim_coords <= 0, lower, upper))
-        return math.channel_stack(result, 'vector')
+        if 'vector' in result[0].shape:
+            return math.concat(result, 'vector')
+        else:
+            return math.channel_stack(result, 'vector')
 
     def __getitem__(self, item):
         dim, face = item

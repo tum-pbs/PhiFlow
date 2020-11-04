@@ -319,9 +319,17 @@ def broadcast_op(operation, tensors):
         raise NotImplementedError()
 
 
-def reshape(value: Tensor, shape: Shape):
-    native = value.native(shape.names)
-    return NativeTensor(native, shape)
+def reshape(value: Tensor, *operations: str):
+    # '(x, y) -> list', 'batch -> (batch=5, group=2)'
+    raise NotImplementedError()
+
+
+def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
+    order = value.shape.order_group(dims)
+    native = value.native(order)
+    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, BATCH_DIM, pos=value.shape.index(dims[0]))
+    native = math.reshape(native, new_shape.sizes)
+    return NativeTensor(native, new_shape)
 
 
 def prod(value, axis=None):

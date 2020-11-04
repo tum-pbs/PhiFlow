@@ -15,9 +15,8 @@ from ._physics import Physics, StateDependency, State
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles=(),
-                        subtract_mean_div=True,
                         solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
-                        pressure_guess=None):
+                        pressure_guess: CenteredGrid = None):
     """
     Projects the given velocity field by solving for and subtracting the pressure.
 
@@ -26,6 +25,8 @@ def make_incompressible(velocity: Grid,
     :param velocity: vector field sampled on a grid
     :param domain: used to specify boundary conditions
     :param obstacles: list of Obstacles to specify boundary conditions inside the domain
+    :param pressure_guess: initial guess for the pressure solve
+    :param solve_params: parameters for the pressure solve
     :return: divergence-free velocity, pressure, iterations, divergence of input velocity
     """
     active_mask = 1 - GeometryMask(union([obstacle.geometry for obstacle in obstacles])).sample_at(domain.cells.center)
@@ -34,7 +35,7 @@ def make_incompressible(velocity: Grid,
     hard_bcs = field.stagger(accessible_mask, math.minimum, accessible_mask.extrapolation)
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles)
     div = divergence(velocity)
-    if subtract_mean_div:
+    if velocity.extrapolation == math.extrapolation.BOUNDARY:
         div -= field.mean(div)
     # Solve pressure
     laplace = lambda pressure: divergence(gradient(pressure, type=type(velocity)) * hard_bcs) * active_mask + (1 - active_mask) * pressure

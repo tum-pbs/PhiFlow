@@ -4,7 +4,7 @@ from phi import math
 from phi.geom import Box, Geometry, assert_same_rank, GridCell, AbstractBox
 from ._field import Field, IncompatibleFieldTypes
 from ._field import SampledField
-from ._mask import GeometryMask
+from ._mask import SoftGeometryMask
 from ..geom._stack import GeometryStack
 from ..math import tensor, Shape
 from ..math._shape import CHANNEL_DIM
@@ -61,7 +61,7 @@ class CenteredGrid(Grid):
     @staticmethod
     def sample(value: Geometry or Field or int or float or callable, resolution, box, extrapolation=math.extrapolation.ZERO):
         if isinstance(value, Geometry):
-            value = GeometryMask(value)
+            value = SoftGeometryMask(value)
         if isinstance(value, Field):
             elements = GridCell(resolution, box)
             data = value.volume_sample(elements)
@@ -146,7 +146,7 @@ class StaggeredGrid(Grid):
         :rtype: StaggeredGrid
         """
         if isinstance(value, Geometry):
-            value = GeometryMask(value)
+            value = SoftGeometryMask(value)
         if isinstance(value, Field):
             assert_same_rank(value.rank, box.rank, 'rank of value (%s) does not match domain (%s)' % (value.rank, box.rank))
             if isinstance(value, StaggeredGrid) and value.box == box and np.all(value.resolution == resolution):

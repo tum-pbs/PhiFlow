@@ -4,7 +4,7 @@ from phi import struct, math
 from ._geom import Geometry, assert_same_rank, _fill_spatial_with_singleton
 from ._transform import rotate
 from ..math import tensor, combined_shape, spatial_shape
-from ..math._shape import CHANNEL_DIM
+from ..math._shape import CHANNEL_DIM, BATCH_DIM
 from ..math._tensors import NativeTensor, TensorStack, Tensor
 
 
@@ -208,6 +208,7 @@ class Cuboid(AbstractBox):
     def shifted(self, delta):
         return Cuboid(self._center + delta, self._half_size)
 
+
 def bounding_box(geometry):
     center = geometry.center
     extent = geometry.bounding_half_extent()
@@ -235,3 +236,7 @@ class GridCell(Cuboid):
     @property
     def grid_size(self):
         return self._bounds.size
+
+    def list_cells(self, dim_name):
+        center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
+        return Cuboid(center, self.half_size)

@@ -13,7 +13,7 @@ The most commonly used field types are
 from ._field import Field, IncompatibleFieldTypes, SampledField
 from ._analytic import AnalyticField, SymbolicFieldBackend
 from ._constant import ConstantField
-from ._mask import GeometryMask
+from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
 from ._point_cloud import PointCloud
 from ._noise import Noise

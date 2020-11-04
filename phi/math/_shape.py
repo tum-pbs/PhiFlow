@@ -175,6 +175,17 @@ class Shape:
         order = [self.index(n) for n in names]
         return self[order]
 
+    def order_group(self, names):
+        order = []
+        for name in self.names:
+            if name not in order:
+                if name in names:
+                    order.extend(names)
+                else:
+                    order.append(name)
+        return order
+
+
     def combined(self, other, allow_inconsistencies=False, combine_spatial=False):
         """
         Returns a Shape object that both `self` and `other` can be broadcast to.

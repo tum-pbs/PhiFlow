@@ -35,7 +35,7 @@ from ._functions import (
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid,  # creation operators (use default backend)
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad, spatial_pad,
-    reshape,
+    join_dimensions,
     prod,
     divide_no_nan,
     where, nonzero,
