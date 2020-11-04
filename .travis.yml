@@ -17,13 +17,15 @@ install:
   - pip install --quiet tensorflow
   - pip install --quiet torch
   - pip install nbformat ipython pylint;
+  - pip install coverage
   - pip install .
 
 script:
-  - pytest tests/commit
+  - coverage run python -m pytest tests/commit
 
 after_success:
   - pip show pylint
   - pylint --rcfile=./demos/.pylintrc demos
   - pylint --rcfile=./tests/.pylintrc tests
   - pylint --rcfile=./phi/.pylintrc phi
+  - bash <(curl -s https://codecov.io/bash)
