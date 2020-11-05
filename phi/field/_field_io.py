@@ -18,13 +18,14 @@ def write(field: SampledField, file: str):
         extrap = field.extrapolation.to_dict()
         np.savez_compressed(file, dim_names=dim_names, dim_types=field.values.shape.types, field_type=type(field).__name__, lower=lower, upper=upper, extrapolation=extrap, data=data)
     else:
-        raise NotImplementedError(type(field))
+        raise NotImplementedError(f"{type(field)} not implemented. Only Grid allowed.")
 
 
 def read(file: str, convert_to_backend=True) -> SampledField:
     stored = np.load(file, allow_pickle=True)
     ftype = stored['field_type']
-    if ftype in ('CenteredGrid', 'StaggeredGrid'):
+    implemented_types = ('CenteredGrid', 'StaggeredGrid')
+    if ftype in implemented_types:
         data = stored['data']
         if convert_to_backend:
             data = math.backend.DYNAMIC_BACKEND.default_backend.as_tensor(data, convert_external=True)
@@ -38,4 +39,4 @@ def read(file: str, convert_to_backend=True) -> SampledField:
         elif ftype == 'StaggeredGrid':
             data_ = unstack_staggered_tensor(data)
             return StaggeredGrid(data_, geom.Box(lower, upper), extrapolation)
-    raise NotImplementedError()
+    raise NotImplementedError(f"{ftype} not implemented ({implemented_types})")

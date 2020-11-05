@@ -280,7 +280,7 @@ class _CopyExtrapolation(Extrapolation):
         elif isinstance(value, ShiftLinOp):
             return self._pad_linear_operation(value, widths)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f'{type(value)} not supported')
 
     def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
         raise NotImplementedError()
@@ -357,7 +357,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             for i in range(bound_lo):  # i=0 means outer
                 # this sets corners to 0
                 lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
-                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (bound_lo-i-1, 0)})
+                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (bound_lo - i - 1, 0)})
                 mask = ONE.pad(mask, {bound_dim: (1, 0)})
                 mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
 
@@ -373,14 +373,13 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
                 boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
                 result += boundary
             for i in range(bound_hi):
-                lower = {dim: i-lo-hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
-                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (0, bound_hi-i-1)})
+                lower = {dim: i - lo - hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
+                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (0, bound_hi - i - 1)})
                 mask = ONE.pad(mask, {bound_dim: (0, 1)})
                 mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
                 boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
                 result += boundary
         return result
-
 
 
 class _PeriodicExtrapolation(_CopyExtrapolation):
