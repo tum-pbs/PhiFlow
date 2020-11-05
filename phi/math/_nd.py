@@ -40,9 +40,9 @@ def cross_product(vec1: Tensor, vec2: Tensor):
             velocity = vec1 * math.channel_stack([dist_1, -dist_0], 'vector')
         return velocity
     elif spatial_rank == 3:  # Curl in 3D
-        raise NotImplementedError('not yet implemented')
+        raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
     else:
-        raise AssertionError('Vector product not available in > 3 dimensions')
+        raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
 
 def indices_tensor(tensor: Tensor, dtype=None):
@@ -133,6 +133,7 @@ def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
 
 def abs_square(complex):
     """get the square magnitude
+
     :param complex: complex input data
     :type complex: Tensor
     :return: real valued magnitude squared
@@ -274,7 +275,7 @@ def laplace(x: Tensor,
     return result
 
 
-def fourier_laplace(tensor, times=1):
+def fourier_laplace(tensor, dx, times=1):
     """
     Applies the spatial laplace operator to the given tensor with periodic boundary conditions.
 
@@ -290,16 +291,18 @@ def fourier_laplace(tensor, times=1):
     frequencies = math.fft(math.to_complex(tensor))
     k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
     fft_laplace = -(2 * np.pi)**2 * k
-    return math.real(math.ifft(frequencies * fft_laplace ** times))
+    result = math.real(math.ifft(frequencies * fft_laplace ** times))
+    return result / dx**2
 
 
-def fourier_poisson(tensor, times=1):
+def fourier_poisson(tensor, dx, times=1):
     """ Inverse operation to `fourier_laplace`. """
     frequencies = math.fft(math.to_complex(tensor))
     k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
     fft_laplace = -(2 * np.pi)**2 * k
     fft_laplace[(0,) * math.ndims(k)] = np.inf
-    return math.cast(math.real(math.ifft(math.divide_no_nan(frequencies, fft_laplace**times))), math.dtype(tensor))
+    result = math.cast(math.real(math.ifft(math.divide_no_nan(frequencies, fft_laplace ** times))), math.dtype(tensor))
+    return result * dx**2
 
 
 # Downsample / Upsample
@@ -380,7 +383,6 @@ def interpolate_linear(tensor: Tensor, start, size):
     return tensor
 
 
-
 def _get_pad_width_axes(rank, axes, val_true=(1, 1), val_false=(0, 0)):
     mid_shape = []
     for i in range(rank):
@@ -443,3 +445,44 @@ def map_for_axes(function, obj, axes: tuple or None, rank: int):
         return [(function(collapsed_gather_nd(obj, i)) if _contains_axis(axes, i, rank)
                  else collapsed_gather_nd(obj, i))
                 for i in range(rank)]
+
+
+# Poisson Brackets
+
+
+def poisson_bracket(grid1, grid2):
+    if all([grid1.rank == grid2.rank == 2,
+            grid1.boundary == grid2.boundary == extrapolation.PERIODIC,
+            len(set(list(grid1.dx) + list(grid2.dx))) == 1]):
+        return _periodic_2d_arakawa_poisson_bracket(grid1.values, grid2.values, grid1.dx)
+    else:
+        raise NotImplementedError("\n".join[
+            "Not implemented for:"
+            f"ranks ({grid1.rank}, {grid2.rank}) != 2",
+            f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
+            f"dx uniform ({grid1.dx}, {grid2.dx})"
+        ])
+
+
+def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: float):
+    """Solves the poisson bracket using the Arakawa Scheme [tensor1, tensor2]
+
+    Only works in 2D, with equal spaced grids, and periodic boundary conditions
+
+    :param tensor1: first field in the poisson bracket
+    :type tensor1: Tensor
+    :param tensor2: second field in the poisson bracket
+    :type tensor2: Tensor
+    :param dx: Grid size (equal in x-y)
+    :type dx: float
+    """
+    zeta = math.pad(tensor1, {'x': (1, 1), 'y': (1, 1)}, extrapolation.PERIODIC)
+    psi = math.pad(tensor2, {'x': (1, 1), 'y': (1, 1)}, extrapolation.PERIODIC)
+    return (zeta.x[2:].y[1:-1] * (psi.x[1:-1].y[2:] - psi.x[1:-1].y[0:-2] + psi.x[2:].y[2:] - psi.x[2:].y[0:-2])
+            - zeta.x[0:-2].y[1:-1] * (psi.x[1:-1].y[2:] - psi.x[1:-1].y[0:-2] + psi.x[0:-2].y[2:] - psi.x[0:-2].y[0:-2])
+            - zeta.x[1:-1].y[2:] * (psi.x[2:].y[1:-1] - psi.x[0:-2].y[1:-1] + psi.x[2:].y[2:] - psi.x[0:-2].y[2:])
+            + zeta.x[1:-1].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[0:-2].y[1:-1] + psi.x[2:].y[0:-2] - psi.x[0:-2].y[0:-2])
+            + zeta.x[2:].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[1:-1].y[0:-2])
+            + zeta.x[2:].y[2:] * (psi.x[1:-1].y[2:] - psi.x[2:].y[1:-1])
+            - zeta.x[0:-2].y[2:] * (psi.x[1:-1].y[2:] - psi.x[0:-2].y[1:-1])
+            - zeta.x[0:-2].y[0:-2] * (psi.x[0:-2].y[1:-1] - psi.x[1:-1].y[0:-2])) / (12 * d**2)
