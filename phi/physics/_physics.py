@@ -24,27 +24,27 @@ class State(struct.Struct):
     @struct.constant(default=())
     def tags(self, tags):
         """
-Tags are used to resolve dependencies.
-They represent traits or classes of the state.
+        Tags are used to resolve dependencies.
+        They represent traits or classes of the state.
 
-Physics objects typically definition their dependencies in terms of tags.
+        Physics objects typically definition their dependencies in terms of tags.
         """
         return tuple(tags)
 
     @struct.variable(default=0.0, holds_data=False)
     def age(self, age):
         """
-Cumulative dt of all step() invocations. States usually start out at age=0.
+        Cumulative dt of all step() invocations. States usually start out at age=0.
         """
         return age
 
     @struct.constant()
     def name(self, name):
         """
-Names uniquely identify the system represented by this state.
-All states that represent a configuration of the same system must have the same name.
+        Names uniquely identify the system represented by this state.
+        All states that represent a configuration of the same system must have the same name.
 
-Names can also be used as a shortcut to reference states (e.g. in StateCollection or World).
+        Names can also be used as a shortcut to reference states (e.g. in StateCollection or World).
         """
         if name is None:
             return '%s_%d' % (self.__class__.__name__.lower(), id(self))
@@ -53,7 +53,7 @@ Names can also be used as a shortcut to reference states (e.g. in StateCollectio
 
     def default_physics(self):
         """
-Returns a Physics object that can be used to progress this state forward in time.
+        Returns a Physics object that can be used to progress this state forward in time.
         """
         return STATIC
 
@@ -71,12 +71,13 @@ Returns a Physics object that can be used to progress this state forward in time
 class StateDependency(object):
     # pylint: disable-msg = too-few-public-methods
     """
-StateDependencies can be used by Physics objects to request information about other states.
+    StateDependencies can be used by Physics objects to request information about other states.
     """
 
     def __init__(self, parameter_name, tag, single_state=False, blocking=False, state_name=None):
         """
-Define a StateDependency.
+        Define a StateDependency.
+
         :param parameter_name: the state(s) will be passed to step() under this name
         :param tag: Model dependency by tag
         :param single_state: If True: checks that only one state matches the criteria. This state is then passed. If False: passes a list of matching states.
@@ -138,12 +139,12 @@ class Physics(object):
 
 class Static(Physics):
     """
-Physics for states with no natural evolution.
+    Physics for states with no natural evolution.
     """
 
     def step(self, state, dt=1.0, **dependent_states):
         """
-Does not alter the state except for increasing its age.
+        Does not alter the state except for increasing its age.
         """
         return state.map_item(State.age, lambda age: age + dt)
 

@@ -36,7 +36,7 @@ class TestTensors(TestCase):
             direct_result = f(direct)
             # print(direct_result.batch[0], 'Direct result')
             op_result = f(op)
-            print(op_result.build_sparse_coordinate_matrix().todense())
+            # print(op_result.build_sparse_coordinate_matrix().todense())
             self.assertIsInstance(op_result, ShiftLinOp)
             op_result = NativeTensor(op_result.native(), op_result.shape)
             # print(op_result.batch[0], 'Placeholder result')
