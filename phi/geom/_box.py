@@ -89,7 +89,7 @@ For inside locations it is `-max(abs(l - s))`.
         if isinstance(other, AbstractBox):
             return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"{type(other)} not supported. Only AbstractBox allowed.")
 
     def rotated(self, angle):
         return rotate(self, angle)

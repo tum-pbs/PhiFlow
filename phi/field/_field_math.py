@@ -21,7 +21,7 @@ def gradient(field: CenteredGrid, type: type = CenteredGrid):
         return CenteredGrid(values, field.bounds, field.extrapolation.gradient())
     elif type == StaggeredGrid:
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
-    raise NotImplementedError(type(field))
+    raise NotImplementedError(f"{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.")
 
 
 def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
@@ -51,7 +51,7 @@ def divergence(field: Grid):
         data = math.sum(components, 0)
         return CenteredGrid(data, field.box, field.extrapolation.gradient())
     else:
-        raise NotImplementedError(field)
+        raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")
 
 
 def diffuse(field: Field, diffusivity, dt, substeps=1):
@@ -135,7 +135,7 @@ def pad(grid: Grid, widths):
         w_upper = tensor([w[1] for w in widths_list])
         box = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
         return type(grid)(data, box, grid.extrapolation)
-    raise NotImplementedError()
+    raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
 
 
 def divergence_free(vector_field: Grid, relative_tolerance: float = 1e-3, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse'):

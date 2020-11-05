@@ -91,7 +91,7 @@ class CenteredGrid(Grid):
         else:
             assert self.shape.channel.sizes == points.shape.get_size(reduce_channels)
             if len(reduce_channels) > 1:
-                raise NotImplementedError()
+                raise NotImplementedError(f"{len(reduce_channels)} > 1. Only 1 reduced channel allowed.")
             channels = []
             for i, channel in enumerate(self.values.vector.unstack()):
                 channels.append(math.grid_sample(channel, local_points[{reduce_channels[0]: i}], self.extrapolation))
@@ -160,7 +160,7 @@ class StaggeredGrid(Grid):
                     tensors.append(comp_grid.values)
                 return StaggeredGrid(math.channel_stack(tensors, 'vector'), box, extrapolation)
         elif callable(value):
-            raise NotImplementedError()
+            raise NotImplementedError(f"Callable values not allowed. type(values): {type(values)}")
             x = CenteredGrid.getpoints(domain.bounds, domain.resolution).copied_with(extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
             value = value(x)
             return value
@@ -202,7 +202,7 @@ class StaggeredGrid(Grid):
                 result.append(CenteredGrid(data, extend_symmetric(self.resolution, self.box, dim)[1], self.extrapolation))
             return tuple(result)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"dimension={dimension}. Only 'vector' allowed.")
 
     @property
     def x(self):

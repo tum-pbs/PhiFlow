@@ -36,7 +36,7 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
     def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if isinstance(geometry, GridCell):
             return self.grid_sample(geometry.resolution, geometry.grid_size, self._shape.without(reduce_channels))
-        raise NotImplementedError()
+        raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")
 
     def sample_at(self, points, reduce_channels=()) -> math.Tensor:
         raise NotImplementedError()
