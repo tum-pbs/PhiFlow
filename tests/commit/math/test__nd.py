@@ -107,9 +107,8 @@ class TestMathNDNumpy(AbstractTestMathND):
             ref = -sine_field
             input_tensor = field.CenteredGrid(values=math.tensor(input_field, names=['x', 'y']), bounds=geom.Box([0,0], [N,N]), extrapolation=padding)
             val = math.fourier_poisson(input_tensor.values, dx)
-            val = val.values
             try:
-                self.assertLess(np.mean(np.abs(ref - val)), 1e-5)
+                math.assert_close(val, ref, rel_tolerance=1e-5)
             except BaseException as e:
                 abs_error = math.abs(ref - val)
                 max_abs_error = math.max(abs_error)
@@ -143,9 +142,8 @@ class TestMathNDNumpy(AbstractTestMathND):
             input_field = -sine_field
             input_tensor = field.CenteredGrid(values=math.tensor(input_field, names=['x', 'y']), bounds=geom.Box([0,0], [N,N]), extrapolation=padding)
             val = math.fourier_laplace(input_tensor.values, dx)
-            val = val.values
             try:
-                self.assertLess(np.mean(np.abs(ref - val)), 1e-5)
+                math.assert_close(val, ref, rel_tolerance=1e-5)
             except BaseException as e:
                 abs_error = math.abs(ref - val)
                 max_abs_error = math.max(abs_error)

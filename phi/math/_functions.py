@@ -601,11 +601,21 @@ def scatter(indices: Tensor, values: Tensor, size: Shape, scatter_dims, duplicat
     return NativeTensor(result_, result_shape)
 
 
-def fft(x):
-    raise math.fft(x)  # NotImplementedError()
+def fft(x: Tensor):
+    """
+    Performs a fast Fourier transform (FFT) on all spatial dimensions of x.
+
+    The inverse operation is :func:`ifft`.
+
+    :param x: tensor of type float or complex
+    :return: FFT(x) of type complex
+    """
+    native, assemble = _invertible_standard_form(x)
+    result = math.fft(native)
+    return assemble(result)
 
 
-def ifft(k):
+def ifft(k: Tensor):
     native, assemble = _invertible_standard_form(k)
     result = math.ifft(native)
     return assemble(result)
@@ -620,7 +630,7 @@ def real(complex: Tensor):
 
 
 def cast(x: Tensor, dtype):
-    return x._op1(lambda t: math.cast(x, dtype))
+    return x._op1(partial(math.cast, dtype=dtype))
 
 
 def sin(x):
@@ -659,10 +669,16 @@ def sparse_tensor(indices, values, shape):
     raise NotImplementedError()
 
 
-def _invertible_standard_form(tensor: Tensor):
-    normal_order = tensor.shape.normal_order()
-    native = tensor.native(normal_order.names)
-    standard_form = (tensor.shape.batch.volume,) + tensor.shape.spatial.sizes + (tensor.shape.channel.volume,)
+def _invertible_standard_form(value: Tensor):
+    """
+    Reshapes the tensor into the shape (batch, spatial..., channel) with a single batch and channel dimension.
+
+    :param value: tensor to reshape
+    :return: reshaped native tensor, inverse function
+    """
+    normal_order = value.shape.normal_order()
+    native = value.native(normal_order.names)
+    standard_form = (value.shape.batch.volume,) + value.shape.spatial.sizes + (value.shape.channel.volume,)
     reshaped = math.reshape(native, standard_form)
 
     def assemble(reshaped):

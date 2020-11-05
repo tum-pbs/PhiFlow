@@ -9,7 +9,7 @@ from phi import struct
 from . import _extrapolation as extrapolation
 from ._extrapolation import Extrapolation
 from . import _functions as math
-from ._shape import CHANNEL_DIM, spatial_shape, channel_shape
+from ._shape import CHANNEL_DIM, spatial_shape, channel_shape, Shape
 from ._functions import broadcast_op, batch_stack, channel_stack
 from ._tensors import tensor, Tensor, TensorStack, NativeTensor
 from ._tensors import Tensor
@@ -126,8 +126,8 @@ def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
         all_tensors = struct.flatten(tensor)
         return sum(frequency_loss(tensor, frequency_falloff, reduce_batches) for tensor in all_tensors)
     diff_fft = abs_square(math.fft(tensor))
-    k = fftfreq(tensor.shape[1:-1], mode='absolute')
-    weights = math.exp(-0.5 * k ** 2 * frequency_falloff ** 2)
+    k_squared = math.sum_(math.fftfreq(tensor.shape[1:-1]) ** 2, 'vector')
+    weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
     return l1_loss(diff_fft * weights, reduce_batches=reduce_batches)
 
 
@@ -215,7 +215,7 @@ def shift(x: Tensor,
 
 # Gradient
 
-def gradient(tensor: Tensor,
+def gradient(grid: Tensor,
              dx: float or int = 1,
              difference: str = 'central',
              padding: Extrapolation = extrapolation.BOUNDARY,
@@ -226,25 +226,24 @@ def gradient(tensor: Tensor,
 
     :param axes: (optional) sequence of dimension names
     :type axes: integer, iterable of integers
-    :param tensor: channel with shape (batch_size, spatial_dimensions..., 1)
+    :param x: channel with shape (batch_size, spatial_dimensions..., 1)
     :param dx: physical distance between grid points (default 1)
     :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
     :param padding: tensor padding mode
     :return: tensor of shape (batch_size, spatial_dimensions..., spatial rank)
     """
+    grid = tensor(grid)
     if difference.lower() == 'central':
-        return _gradient_nd(tensor, padding, (-1, 1), axes) / (dx * 2)
+        left, right = shift(grid, (-1, 1), axes, padding, stack_dim='gradient')
+        return (right - left) / (dx * 2)
     elif difference.lower() == 'forward':
-        return _gradient_nd(tensor, padding, (0, 1), axes) / dx
+        left, right = shift(grid, (0, 1), axes, padding, stack_dim='gradient')
+        return (right - left) / dx
     elif difference.lower() == 'backward':
-        return _gradient_nd(tensor, padding, (-1, 0), axes) / dx
+        left, right = shift(grid, (-1, 0), axes, padding, stack_dim='gradient')
+        return (right - left) / dx
     else:
         raise ValueError('Invalid difference type: {}. Can be CENTRAL or FORWARD'.format(difference))
-
-
-def _gradient_nd(x, padding, relative_shifts, axes):
-    left, right = shift(tensor(x), relative_shifts, axes, padding, stack_dim='gradient')
-    return right - left
 
 
 # Laplace
@@ -275,7 +274,9 @@ def laplace(x: Tensor,
     return result
 
 
-def fourier_laplace(tensor, dx, times=1):
+def fourier_laplace(grid: Tensor,
+                    dx: Tensor or Shape or float or list or tuple,
+                    times=1):
     """
     Applies the spatial laplace operator to the given tensor with periodic boundary conditions.
 
@@ -284,25 +285,26 @@ def fourier_laplace(tensor, dx, times=1):
     This implementation computes the laplace operator in Fourier space.
     The result for periodic fields is exact, i.e. no numerical instabilities can occur, even for higher-order derivatives.
 
-    :param tensor: tensor, assumed to have periodic boundary conditions
+    :param grid: tensor, assumed to have periodic boundary conditions
+    :param dx: distance between grid points, tensor-like, scalar or vector
     :param times: number of times the laplace operator is applied. The computational cost is independent of this parameter.
     :return: tensor of same shape as `tensor`
     """
-    frequencies = math.fft(math.to_complex(tensor))
-    k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
-    fft_laplace = -(2 * np.pi)**2 * k
+    frequencies = math.fft(math.to_complex(grid))
+    k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
+    fft_laplace = -(2 * np.pi)**2 * k_squared
     result = math.real(math.ifft(frequencies * fft_laplace ** times))
-    return result / dx**2
+    return math.cast(result / tensor(dx) ** 2, grid.dtype)
 
 
-def fourier_poisson(tensor, dx, times=1):
+def fourier_poisson(grid: Tensor, dx, times=1):
     """ Inverse operation to `fourier_laplace`. """
-    frequencies = math.fft(math.to_complex(tensor))
-    k = fftfreq(math.staticshape(tensor)[1:-1], mode='square')
-    fft_laplace = -(2 * np.pi)**2 * k
-    fft_laplace[(0,) * math.ndims(k)] = np.inf
-    result = math.cast(math.real(math.ifft(math.divide_no_nan(frequencies, fft_laplace ** times))), math.dtype(tensor))
-    return result * dx**2
+    frequencies = math.fft(math.to_complex(grid))
+    k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
+    fft_laplace = -(2 * np.pi)**2 * k_squared
+    fft_laplace.tensor[(0,) * math.ndims(k_squared)] = np.inf  # assume NumPy array to edit
+    result = math.real(math.ifft(math.divide_no_nan(frequencies, fft_laplace ** times)))
+    return math.cast(result * tensor(dx) ** 2, grid.dtype)
 
 
 # Downsample / Upsample
