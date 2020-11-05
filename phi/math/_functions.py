@@ -150,6 +150,7 @@ def spatial_stack(values, axis: str):
 
 def _stack(values, dim: str, dim_type: int):
     assert isinstance(dim, str)
+
     def inner_stack(*values):
         varying_shapes = any([v.shape != values[0].shape for v in values[1:]])
         from ._track import SparseLinearOperation
@@ -222,7 +223,7 @@ def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation'):
         tensors = [pad(t, inner_widths, mode) for t in value.tensors]
         return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type, value.keep_separate)
     else:
-        raise NotImplementedError()
+        raise NotImplementedError(f"{type(value)} not allowed. Only (NativeTensor, CollapsedTensor, SparseLinearOperation, TensorStack) allowed.")
 
 
 def closest_grid_values(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation'):
@@ -316,7 +317,7 @@ def broadcast_op(operation, tensors):
             result_unstacked.append(operation(*gathered))
         return TensorStack(result_unstacked, dim, dim_type, keep_separate=True)
     else:
-        raise NotImplementedError()
+        raise NotImplementedError(f"len(non_atomic_dims)={len(non_atomic_dims)} > 1. Only (0, 1) allowed.")
 
 
 def reshape(value: Tensor, *operations: str):
@@ -338,7 +339,7 @@ def prod(value, axis=None):
     if isinstance(value, Tensor):
         native = math.prod(value.native(), value.shape.index(axis))
         return NativeTensor(native, value.shape.without(axis))
-    raise NotImplementedError()
+    raise NotImplementedError(f"{type(value)} not supported. Only Tensor allowed.")
 
 
 def divide_no_nan(x, y):
@@ -416,7 +417,7 @@ def _reduce(value: Tensor or list or tuple, axis, native_function):
         else:
             return TensorStack(red_inners, value.stack_dim_name, value.stack_dim_type, keep_separate=value.keep_separate)
     else:
-        raise NotImplementedError()
+        raise NotImplementedError(f"{type(value)} not supported. Only (NativeTensor, TensorStack) allowed.")
 
 
 def _axis(axis, shape: Shape):
@@ -665,8 +666,8 @@ def _invertible_standard_form(tensor: Tensor):
     reshaped = math.reshape(native, standard_form)
 
     def assemble(reshaped):
-            un_reshaped = math.reshape(reshaped, math.shape(native))
-            return NativeTensor(un_reshaped, normal_order)
+        un_reshaped = math.reshape(reshaped, math.shape(native))
+        return NativeTensor(un_reshaped, normal_order)
 
     return reshaped, assemble
 

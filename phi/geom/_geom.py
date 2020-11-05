@@ -183,7 +183,7 @@ def _rank(rank):
     elif isinstance(rank, Tensor):
         rank = rank.shape.spatial_rank
     else:
-        raise NotImplementedError()
+        raise NotImplementedError(f"{type(rank)} now allowed. Allowed are (int, Geometry, Shape, Tensor).")
     return None if rank == 0 else rank
 
 

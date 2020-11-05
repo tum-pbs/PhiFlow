@@ -549,7 +549,7 @@ class TensorStack(Tensor):
             elif isinstance(selection, slice):
                 return TensorStack(tensors[selection], self.stack_dim_name, self.shape.get_type(self.stack_dim_name))
             else:
-                raise NotImplementedError()
+                raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allwoed")
         else:
             return TensorStack(tensors, self.stack_dim_name, self.shape.get_type(self.stack_dim_name), keep_separate=self.keep_separate)
 
@@ -608,7 +608,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
         if array.dtype != np.object:
             obj = array
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"{array.dtype} dtype for iterable not allowed. Only np.object supported.")
             return TensorStack(tensor(obj), dim_name=None, dim_type=CHANNEL_DIM)
     if isinstance(obj, np.ndarray) and obj.dtype != np.object:
         if infer_dimension_types:

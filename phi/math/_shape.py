@@ -476,7 +476,7 @@ class Shape:
                     stop += self.get_size(name)
                 result = result.with_size(name, stop - start)
             else:
-                raise NotImplementedError()
+                raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allowed.")
         return result
 
     def meshgrid(self):

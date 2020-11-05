@@ -393,14 +393,14 @@ class SciPyBackend(Backend):
         if len(indices) == 2:
             return scipy.sparse.csc_matrix((values, indices), shape=shape)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"len(indices) = {len(indices)} not supported. Only (2) allowed.")
 
     def coordinates(self, tensor, unstack_coordinates=False):
         if scipy.sparse.issparse(tensor):
             coo = tensor.tocoo()
             return (coo.row, coo.col), coo.data
         else:
-            raise NotImplementedError()
+            raise NotImplementedError("Only sparse tensors supported.")
 
     def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None):
         bs_y = self.staticshape(y)[0]
