@@ -106,7 +106,7 @@ class TestMathNDNumpy(AbstractTestMathND):
             input_field = 8 * np.pi**2 * sine_field
             ref = -sine_field
             input_tensor = field.CenteredGrid(values=math.tensor(input_field, names=['x', 'y']), bounds=geom.Box([0,0], [N,N]), extrapolation=padding)
-            val = math.fourier_poisson(input_tensor, dx)
+            val = math.fourier_poisson(input_tensor.values, dx)
             val = val.values
             try:
                 self.assertLess(np.mean(np.abs(ref - val)), 1e-5)
@@ -142,7 +142,7 @@ class TestMathNDNumpy(AbstractTestMathND):
             ref = 8 * np.pi**2 * sine_field
             input_field = -sine_field
             input_tensor = field.CenteredGrid(values=math.tensor(input_field, names=['x', 'y']), bounds=geom.Box([0,0], [N,N]), extrapolation=padding)
-            val = math.fourier_laplace(input_tensor, dx)
+            val = math.fourier_laplace(input_tensor.values, dx)
             val = val.values
             try:
                 self.assertLess(np.mean(np.abs(ref - val)), 1e-5)
@@ -192,7 +192,7 @@ class TestMathNDNumpy(AbstractTestMathND):
         test_params = {
             'grid_size': [(16, 16), (32, 32)],
             'dx': [0.1, 1],
-            'gen_func': [lambda grid_size: np.random.rand(*grid_size)]
+            'gen_func': [lambda grid_size: np.random.rand(*grid_size).reshape(grid_size)]
         }
         test_cases = [dict(zip(test_params, v)) for v in product(*test_params.values())]
         for params in test_cases:
@@ -200,14 +200,15 @@ class TestMathNDNumpy(AbstractTestMathND):
             d1 = params['gen_func'](grid_size)
             d2 = params['gen_func'](grid_size)
             dx = params['dx']
+            padding = extrapolation.PERIODIC
             ref = self.arakawa_reference_implementation(d1.copy(), d2.copy(), dx)
             d1_tensor = field.CenteredGrid(values=math.tensor(d1, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
             d2_tensor = field.CenteredGrid(values=math.tensor(d2, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
-            val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor, d2_tensor, dx)
+            val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
             try:
                 math.assert_close(ref, val, rel_tolerance=1e-5, abs_tolerance=0)
             except BaseException as e:
-                abs_error = math.abs(ref - val)
+                abs_error = math.abs(val - ref)
                 max_abs_error = math.max(abs_error)
                 max_rel_error = math.max(math.abs(abs_error / ref))
                 variation_str = "\n".join([
