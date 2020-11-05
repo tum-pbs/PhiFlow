@@ -602,7 +602,7 @@ def scatter(indices: Tensor, values: Tensor, size: Shape, scatter_dims, duplicat
 
 
 def fft(x):
-    raise NotImplementedError()
+    raise math.fft(x)  # NotImplementedError()
 
 
 def ifft(k):
