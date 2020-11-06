@@ -12,7 +12,7 @@ import warnings
 from os.path import isfile
 
 import numpy as np
-from phi import struct
+from phi import struct, math
 from phi.data.fluidformat import Scene, write_sim_frame
 from phi.field import CenteredGrid, Field, StaggeredGrid
 from phi.physics._world import StateProxy, world
@@ -213,7 +213,7 @@ class App(object):
         elif callable(value):
             generator = value
         else:
-            assert isinstance(value, (np.ndarray, Field, float, int)), 'Unsupported type for field "%s": %s' % (name, type(value))
+            assert isinstance(value, (np.ndarray, Field, float, int, math.Tensor)), 'Unsupported type for field "%s": %s' % (name, type(value))
 
             def get_constant():
                 return value

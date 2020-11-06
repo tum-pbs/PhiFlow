@@ -45,25 +45,6 @@ def cross_product(vec1: Tensor, vec2: Tensor):
         raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
 
-def indices_tensor(tensor: Tensor, dtype=None):
-    """
-    Returns an index tensor of the same spatial shape as the given tensor.
-    Each index denotes the location within the tensor starting from zero.
-    Indices are encoded as vectors in the index tensor.
-
-    :param tensor: a tensor of shape (batch size, spatial dimensions..., component size)
-    :param dtype: NumPy data type or `None` for default
-    :return: an index tensor of shape (1, spatial dimensions..., spatial rank)
-    """
-    spatial_dimensions = list(tensor.shape[1:-1])
-    idx_zyx = math.meshgrid(*[range(dim) for dim in spatial_dimensions])
-    idx = np.stack(idx_zyx, axis=-1).reshape([1, ] + spatial_dimensions + [len(spatial_dimensions)])
-    if dtype is not None:
-        return idx.astype(dtype)
-    else:
-        return math.to_float(idx)
-
-
 def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     """
     Multiplies the target so that its total content matches the source.

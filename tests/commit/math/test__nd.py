@@ -85,11 +85,11 @@ class TestMathNDNumpy(AbstractTestMathND):
         self._test_scalar_gradient(scalar)
 
     def test_gradient_vector(self):
-        meshgrid = math.meshgrid((0, 1, 2, 3), (0, -1))
+        meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
         self._test_vector_gradient(meshgrid, save=False)
 
     def test_vector_laplace(self):
-        meshgrid = math.meshgrid((0, 1, 2, 3), (0, -1))
+        meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
         self._test_vector_laplace(meshgrid, save=False)
 
     # Fourier Poisson

@@ -9,6 +9,7 @@ from phi.field import CenteredGrid, StaggeredGrid
 from phi.viz.plot import FRONT, RIGHT, TOP
 from .colormaps import COLORMAPS
 from ... import math
+from ...geom import Box
 
 EMPTY_FIGURE = {'data': [{'z': None, 'type': 'heatmap'}]}
 
@@ -19,7 +20,10 @@ def dash_graph_plot(data, settings):
         return EMPTY_FIGURE
 
     if isinstance(data, np.ndarray):
-        data = CenteredGrid(data)
+        data = math.tensor(data)
+
+    if isinstance(data, math.Tensor):
+        data = CenteredGrid(data, Box(0, data.shape))
 
     if isinstance(data, (CenteredGrid, StaggeredGrid)):
         component = settings.get('component', 'x')

@@ -46,7 +46,7 @@ class TestMathFunctions(TestCase):
 
     # TODO: Fix
     def test_resample(self):
-        grid = math.sum(math.meshgrid([1, 2, 3], [0, 3]), 'vector')  # 1 2 3 | 4 5 6
+        grid = math.sum(math.meshgrid(x=[1, 2, 3], y=[0, 3]), 'vector')  # 1 2 3 | 4 5 6
         coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], names=('list', 'vector'))
         closest = math.closest_grid_values(grid, coords, extrapolation.ZERO)
         interp = math.grid_sample(grid, coords, extrapolation.ZERO)

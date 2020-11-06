@@ -122,16 +122,15 @@ def fftfreq(resolution, dtype=None):
     :return: tensor holding the frequencies of the corresponding values computed by math.fft
     """
     resolution = spatial_shape(resolution)
-    k = math.meshgrid(*[np.fft.fftfreq(int(n)) for n in resolution.sizes])
-    k = [math.to_float(channel) if dtype is None else math.cast(channel, dtype) for channel in k]
-    channel_shape = spatial_shape(k[0].shape)
-    k = [NativeTensor(channel, channel_shape) for channel in k]
-    return TensorStack(k, 'vector', CHANNEL_DIM)
+    k = meshgrid(**{dim: np.fft.fftfreq(int(n)) for dim, n in resolution.named_sizes})
+    return to_float(k) if dtype is None else cast(k, dtype)
 
 
-def meshgrid(*coordinates, names=None):
-    indices_list = math.meshgrid(*coordinates)
-    single_shape = spatial_shape([len(coo) for coo in coordinates], names)
+def meshgrid(**dimensions):
+    assert 'vector' not in dimensions
+    dimensions = {dim: np.arange(val) if isinstance(val, int) else val for dim, val in dimensions.items()}
+    indices_list = math.meshgrid(*dimensions.values())
+    single_shape = Shape([len(val) for val in dimensions.values()], dimensions.keys(), [SPATIAL_DIM] * len(dimensions))
     channels = [NativeTensor(t, single_shape) for t in indices_list]
     return TensorStack(channels, 'vector', CHANNEL_DIM)
 
@@ -272,7 +271,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
     coord_names = ['_coord_' + dim.name if dim.is_spatial else dim.name for dim in coordinates.shape.unstack()]
     coordinates = coordinates._with_shape_replaced(coordinates.shape.with_names(coord_names))
     neighbors = closest_grid_values(grid, coordinates, extrap)
-    binary = meshgrid(*[[0, 1]] * grid.shape.spatial_rank, names=grid.shape.spatial)
+    binary = meshgrid(**{dim: (0, 1) for dim in grid.shape.spatial.names})
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')

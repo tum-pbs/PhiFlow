@@ -67,7 +67,6 @@ from ._functions import (
 from ._nd import (
     shift,
     spatial_sum, vec_abs, vec_squared, cross_product,
-    indices_tensor,
     normalize_to,
     l1_loss, l2_loss, l_n_loss, frequency_loss,
     gradient, laplace,
@@ -76,3 +75,5 @@ from ._nd import (
 )
 
 choose_backend = DYNAMIC_BACKEND.choose_backend
+
+pi = PI = 3.14159265358979323846
