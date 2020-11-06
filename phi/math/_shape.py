@@ -67,7 +67,12 @@ class Shape:
         raise AttributeError("Shape has no attribute '%s'" % (name,))
 
     def get_type(self, name):
-        return self.types[self.names.index(name)]
+        if isinstance(name, str):
+            return self.types[self.names.index(name)]
+        elif isinstance(name, (tuple, list)):
+            return tuple(self.get_type(n) for n in name)
+        else:
+            raise ValueError(name)
 
     def __getitem__(self, selection):
         if isinstance(selection, int):

@@ -125,7 +125,7 @@ def abs_square(complex):
 
 # Divergence
 
-# def divergence(tensor, dx=1, difference='central', padding='constant', axes=None):
+# def divergence(tensor, dx=1, difference='central', padding='constant', dimensions=None):
 #     """
 #     Computes the spatial divergence of a vector channel from finite differences.
 #
@@ -137,22 +137,22 @@ def abs_square(complex):
 #     assert difference in ('central', 'forward', 'backward'), difference
 #     rank = spatial_rank(tensor)
 #     if difference == 'forward':
-#         return _divergence_nd(tensor, padding, (0, 1), axes) / dx ** rank  # TODO why dx^rank?
+#         return _divergence_nd(tensor, padding, (0, 1), dimensions) / dx ** rank  # TODO why dx^rank?
 #     elif difference == 'backward':
-#         return _divergence_nd(tensor, padding, (-1, 0), axes) / dx ** rank
+#         return _divergence_nd(tensor, padding, (-1, 0), dimensions) / dx ** rank
 #     else:
-#         return _divergence_nd(tensor, padding, (-1, 1), axes) / (2 * dx) ** rank
+#         return _divergence_nd(tensor, padding, (-1, 1), dimensions) / (2 * dx) ** rank
 #
 #
-# def _divergence_nd(x_, padding, relative_shifts, axes=None):
+# def _divergence_nd(x_, padding, relative_shifts, dimensions=None):
 #     x = tensor(x_)
 #     assert x.shape.channel.rank == 1
-#     axes = axes if axes is not None else x.shape.spatial.names
-#     x = math.pad(x, {axis: (-relative_shifts[0], relative_shifts[1]) for axis in axes}, mode=padding)
+#     dimensions = dimensions if dimensions is not None else x.shape.spatial.names
+#     x = math.pad(x, {axis: (-relative_shifts[0], relative_shifts[1]) for axis in dimensions}, mode=padding)
 #     components = []
-#     for dimension in axes:
+#     for dimension in dimensions:
 #         dim_index_in_spatial = x.shape.spatial.reset_indices().index(dimension)
-#         lower, upper = _multi_roll(x, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]), names=axes, base_selection={0: rank - dimension - 1})
+#         lower, upper = _multi_roll(x, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]), names=dimensions, base_selection={0: rank - dimension - 1})
 #         components.append(upper - lower)
 #     return math.sum_(components, 0)
 
@@ -161,22 +161,19 @@ def shift(x: Tensor,
           offsets: tuple,
           axes: tuple or None = None,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
-          stack_dim: str = 'shift') -> list:
+          stack_dim: str or None = 'shift') -> list:
     """shift Tensor by a fixed offset and abiding by extrapolation
 
     :param x: Input data
-    :type x: Tensor
     :param offsets: Shift size
-    :type offsets: tuple
     :param axes: Axes along which to shift, defaults to None
-    :type axes: tuple or None, optional
     :param padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
-    :type padding: Extrapolation or None, optional
     :param stack_dim: dimensions to be stacked, defaults to 'shift'
-    :type stack_dim: str, optional
     :return: offset_tensor
     :rtype: list
     """
+    if stack_dim is None:
+        assert len(axes) == 1
     x = tensor(x)
     axes = axes if axes is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
@@ -190,7 +187,7 @@ def shift(x: Tensor,
             slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower, -pad_upper) for dim in axes}
             slices = {dim: slice(sl.start, sl.stop if sl.stop < 0 else None) for dim, sl in slices.items()}  # replace stop=0 by stop=None
             components.append(x[slices])
-        offset_tensors.append(channel_stack(components, stack_dim))
+        offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors
 
 
@@ -241,7 +238,7 @@ def laplace(x: Tensor,
     :param dx: scalar or 1d tensor
     :param padding: extrapolation
     :type padding: Extrapolation
-    :param axes: The second derivative along these axes is summed over
+    :param axes: The second derivative along these dimensions is summed over
     :type axes: list
     :return: tensor of same shape
     """
@@ -290,68 +287,45 @@ def fourier_poisson(grid: Tensor, dx, times=1):
 
 # Downsample / Upsample
 
-def downsample2x(tensor,
-                 interpolation: str = 'linear',
-                 axes: tuple or None = None) -> Tensor:
-    """get half sized tensor using given interpolation method
-
-    :param tensor: [description]
-    :type tensor: [type]
-    :param interpolation: [description], defaults to 'linear'
-    :type interpolation: str, optional
-    :param axes: axes along which this is applied, defaults to None
-    :type axes: iterable, optional
-    :raises ValueError: if interpolation != linear
-    :return: Downsampled Tensor (half the size)
-    :rtype: Tensor
+def downsample2x(grid: Tensor,
+                 padding: Extrapolation = extrapolation.BOUNDARY,
+                 dimensions: tuple or None = None) -> Tensor:
     """
-    if struct.isstruct(tensor):
-        return struct.map(lambda s: downsample2x(s, interpolation, axes),
-                          tensor, recursive=False)
-    if interpolation.lower() != 'linear':
-        raise ValueError('Only linear interpolation supported')
-    rank = spatial_rank(tensor)
-    if axes is None:
-        axes = range(rank)
-    tensor = math.pad(tensor,
-                      [[0, 0]]
-                      + [([0, 1] if (dim % 2) != 0 and _contains_axis(axes, ax, rank)
-                          else [0, 0])
-                          for ax, dim in enumerate(tensor.shape[1:-1])]
-                      + [[0, 0]], 'replicate')
-    for axis in axes:
-        upper_slices = tuple([(slice(1, None, 2) if i == axis else slice(None)) for i in range(rank)])
-        lower_slices = tuple([(slice(0, None, 2) if i == axis else slice(None)) for i in range(rank)])
-        tensor_sum = tensor[(slice(None),) + upper_slices + (slice(None),)] + tensor[(slice(None),) + lower_slices + (slice(None),)]
-        tensor = tensor_sum / 2
-    return tensor
+    Resamples a regular grid to half the number of spatial sample points per dimension.
+    The grid values at the new points are determined via linear interpolation.
 
-
-def upsample2x(tensor, interpolation='linear') -> Tensor:
-    """get double sized tensor using given interpolation method
-
-    :param tensor: Data to be upsampled
-    :type tensor: Tensor
-    :param interpolation: interpolation method, defaults to 'linear'
-    :type interpolation: str, optional (only linear allowed)
-    :raises ValueError: if not linear
-    :return: Upsampled Tensor (double the size)
-    :rtype: Tensor
+    :param grid: full size grid
+    :param padding: grid extrapolation. Used to insert an additional value for odd spatial dimensions
+    :param dimensions: axes along which down-sampling is applied. If None, down-sample along all spatial dimensions.
+    :return: half-size grid
     """
-    if struct.isstruct(tensor):
-        return struct.map(lambda s: upsample2x(s, interpolation), tensor, recursive=False)
-    if interpolation.lower() != 'linear':
-        raise ValueError('Only linear interpolation supported')
-    dims = range(spatial_rank(tensor))
-    vlen = tensor.shape[-1]
-    spatial_dims = tensor.shape[1:-1]
-    rank = spatial_rank(tensor)
-    tensor = math.pad(tensor, _get_pad_width(rank), 'replicate')
-    for dim in dims:
-        lower, center, upper = _dim_shifted(tensor, dim, (-1, 0, 1))
-        combined = math.stack([0.25 * lower + 0.75 * center, 0.75 * center + 0.25 * upper], axis=2 + dim)
-        tensor = math.reshape(combined, [-1] + [spatial_dims[dim] * 2 if i == dim else tensor.shape[i + 1] for i in dims] + [vlen])
-    return tensor
+    dimensions = grid.shape.spatial.only(dimensions).names
+    odd_dimensions = [dim for dim in dimensions if grid.shape.get_size(dim) % 2 != 0]
+    grid = math.pad(grid, {dim: (0, 1) for dim in odd_dimensions}, padding)
+    for dim in dimensions:
+        grid = (grid[{dim: slice(1, None, 2)}] + grid[{dim: slice(0, None, 2)}]) / 2
+    return grid
+
+
+def upsample2x(grid: Tensor,
+               padding: Extrapolation = extrapolation.BOUNDARY,
+               dimensions: tuple or None = None) -> Tensor:
+    """
+    Resamples a regular grid to double the number of spatial sample points per dimension.
+    The grid values at the new points are determined via linear interpolation.
+
+    :param grid: half-size grid
+    :param padding: grid extrapolation
+    :param dimensions: axes along which up-sampling is applied. If None, up-sample along all spatial dimensions.
+    :return: double-size grid
+    """
+    for i, dim in enumerate(grid.shape.spatial.only(dimensions).names):
+        left, center, right = shift(grid, (-1, 0, 1), (dim,), padding, None)
+        interp_left = 0.25 * left + 0.75 * center
+        interp_right = 0.75 * center + 0.25 * right
+        stacked = math.spatial_stack([interp_left, interp_right], '_interleave')
+        grid = math.join_dimensions(stacked, (dim, '_interleave'), dim)
+    return grid
 
 
 def interpolate_linear(tensor: Tensor, start, size):
@@ -364,70 +338,6 @@ def interpolate_linear(tensor: Tensor, start, size):
             lower, upper = _multi_roll(tensor, dimension, (0, 1), names=tensor.shape.spatial.names)
             tensor = upper * upper_weight[i] + lower * lower_weight[i]
     return tensor
-
-
-def _get_pad_width_axes(rank, axes, val_true=(1, 1), val_false=(0, 0)):
-    mid_shape = []
-    for i in range(rank):
-        if _contains_axis(axes, i, rank):
-            mid_shape.append(val_true)
-        else:
-            mid_shape.append(val_false)
-    return [[0, 0]] + mid_shape + [[0, 0]]
-
-
-def _get_pad_width(rank, axis_widths=(1, 1)):
-    return [[0, 0]] + [axis_widths] * rank + [[0, 0]]
-
-
-def _multi_roll(tensor, roll_name, relative_shifts, diminish_others=(0, 0), names=None, base_selection={}):
-    assert isinstance(tensor, Tensor), tensor
-    assert len(relative_shifts) >= 2
-    total_shift = max(relative_shifts) - min(relative_shifts)
-    slice_others = slice(diminish_others[0], -diminish_others[1] if diminish_others[1] != 0 else None)
-    # --- Slice tensor to create shifts ---
-    shifted_tensors = []
-    for shift in relative_shifts:
-        slices = dict(base_selection)
-        for name in names:
-            if name == roll_name:
-                shift_start = shift - min(relative_shifts)
-                shift_end = shift_start - total_shift
-                if shift_end == 0:
-                    shift_end = None
-                slices[name] = slice(shift_start, shift_end)
-            else:
-                slices[name] = slice_others
-        sliced_tensor = tensor[slices]
-        shifted_tensors.append(sliced_tensor)
-    return shifted_tensors
-
-
-def _contains_axis(axes, axis, sp_rank):
-    assert -sp_rank <= axis < sp_rank
-    return (axes is None) or (axis in axes) or (axis + sp_rank in axes)
-
-
-def map_for_axes(function, obj, axes: tuple or None, rank: int):
-    """apply function to each axes contained in the object
-
-    :param function: function to be applied
-    :type function: function
-    :param obj: object with axes
-    :type obj: Tensor or similar
-    :param axes: axes along which to apply the function
-    :type axes: tuple or None
-    :param rank: number of dimensions
-    :type rank: int
-    :return: applied function
-    :rtype: object or list
-    """
-    if axes is None:
-        return function(obj)
-    else:
-        return [(function(collapsed_gather_nd(obj, i)) if _contains_axis(axes, i, rank)
-                 else collapsed_gather_nd(obj, i))
-                for i in range(rank)]
 
 
 # Poisson Brackets

@@ -118,6 +118,23 @@ class TestMathNDNumpy(AbstractTestMathND):
         abs_differences = [d['abs_tolerance'] for d in results]
         assert all(np.diff(np.array(abs_differences)) < 0), f"fourier_poisson not converging: {abs_differences}"
 
+    def test_downsample2x(self):
+        meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1, -2))
+        half_size = math.downsample2x(meshgrid, extrapolation.BOUNDARY)
+        math.print(meshgrid, 'Full size')
+        math.print(half_size, 'Half size')
+        math.assert_close(half_size.vector[0], tensor([[0.5, 2.5], [0.5, 2.5]], names='y,x'))
+        math.assert_close(half_size.vector[1], tensor([[-0.5, -0.5], [-2, -2]], names='y,x'))
+
+    def test_upsample2x(self):
+        meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1, -2))
+        double_size = math.upsample2x(meshgrid, extrapolation.BOUNDARY)
+        same_size = math.downsample2x(double_size)
+        math.print(meshgrid, 'Normal size')
+        math.print(double_size, 'Double size')
+        math.print(same_size, 'Same size')
+        math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
+
     def test_fourier_poisson_2d_periodic(self):
         test_params = {
             'grid_sizes': [(16, 16), (32, 32)],

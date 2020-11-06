@@ -47,7 +47,7 @@ from ._functions import (
     abs,
     sign,
     round, ceil, floor,
-    max, min, maximum, minimum, clip,
+    max_ as max, min_ as min, maximum, minimum, clip,
     with_custom_gradient,
     sqrt, exp, sin, cos,
     conv,

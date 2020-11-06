@@ -327,7 +327,10 @@ def reshape(value: Tensor, *operations: str):
 def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
     order = value.shape.order_group(dims)
     native = value.native(order)
-    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, BATCH_DIM, pos=value.shape.index(dims[0]))
+    types = value.shape.get_type(dims)
+    dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
+    first_dim_index = min(*value.shape.index(dims))
+    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos=first_dim_index)
     native = math.reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
@@ -447,11 +450,11 @@ def all_(boolean_tensor: Tensor or list or tuple, axis=None):
     return _reduce(boolean_tensor, axis, math.all)
 
 
-def max(value: Tensor or list or tuple, axis=None):
+def max_(value: Tensor or list or tuple, axis=None):
     return _reduce(value, axis, math.max)
 
 
-def min(value: Tensor or list or tuple, axis=None):
+def min_(value: Tensor or list or tuple, axis=None):
     return _reduce(value, axis, math.min)
 
 
