@@ -200,9 +200,12 @@ def plot(field1d, settings):
     if isinstance(field1d, StaggeredGrid):
         field1d = field1d.unstack()[0]
     assert isinstance(field1d, CenteredGrid)
-    x = field1d.points.data[0, :, 0]
-    data = field1d.values[min(field1d.resolution[0], batch), :, :]
+    x = field1d.points.vector[0].native()
+    data = field1d.values
+    if 'batch' in field1d.shape:
+        data = data.batch[min(field1d.resolution[0], batch)]
     data = reduce_component(data, component)
+    data = data.native()
     return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
 
 

@@ -80,20 +80,17 @@ class Tensor:
             try:
                 dtype = self.dtype
             except AttributeError:
-                return '[%s]' % (self.shape,)
-            return "[%s  %s]" % (dtype, self.shape)
+                return repr(self.shape)
+            return "%s %s" % (self.shape, dtype)
         if self.rank == 0:
             return str(content)
         if self.shape.volume is not None and self.shape.volume <= 4:
             content = list(np.reshape(content, [-1]))
             content = ', '.join([repr(number) for number in content])
-            if self.rank == 1:
-                return "[%s (%s)  %s]" % (dtype, self.shape.names[0], content)
-            else:
-                return "[%s, %s:  %s]" % (dtype, self.shape, content)
+            return "%s %s  %s" % (self.shape, dtype, content)
         else:
             min_, max_ = np.min(content), np.max(content)
-            return "[%s, %s  %s < ... < %s]" % (content.dtype, self.shape, min_, max_)
+            return "%s %s  %s < ... < %s" % (self.shape, content.dtype, min_, max_)
 
     def __getitem__(self, item):
         if isinstance(item, Tensor):
@@ -581,7 +578,7 @@ class TensorStack(Tensor):
             tensors = [t._op1(native_function) for t in self.tensors]
             return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type, self.keep_separate)
         else:
-            return Tensor._op1(self, native_function)
+            return self._cache()._op1(native_function)
 
     @property
     def requires_broadcast(self):
