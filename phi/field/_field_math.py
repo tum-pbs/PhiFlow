@@ -11,7 +11,7 @@ from ..math import tensor
 
 
 def laplace(field: Grid, axes=None):
-    result = field._op1(lambda tensor: math.laplace(tensor, dx=field.dx, padding=field.extrapolation, axes=axes))
+    result = field._op1(lambda tensor: math.laplace(tensor, dx=field.dx, padding=field.extrapolation, dims=axes))
     return result
 
 
@@ -46,7 +46,7 @@ def divergence(field: Grid):
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, axes=[dim]).gradient[0]
+            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
         return CenteredGrid(data, field.box, field.extrapolation.gradient())
@@ -121,7 +121,7 @@ def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
     return field._with(data)
 
 
-def pad(grid: Grid, widths):
+def pad(grid: Grid, widths: int or tuple or list or dict):
     if isinstance(widths, int):
         widths = {axis: (widths, widths) for axis in grid.shape.spatial.names}
     elif isinstance(widths, (tuple, list)):

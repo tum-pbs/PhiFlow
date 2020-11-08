@@ -222,8 +222,3 @@ class SampledField(Field):
         copied = copy.copy(self)
         SampledField.__init__(copied, self._elements, values if values is not None else self._values, extrapolation if extrapolation is not None else self._extrapolation)
         return copied
-
-
-class IncompatibleFieldTypes(Exception):
-    def __init__(self, *args):
-        Exception.__init__(self, *args)

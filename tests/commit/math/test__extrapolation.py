@@ -64,7 +64,7 @@ class TestExtrapolationOperators(TestCase):
             pass
 
     def test_pad_tensor(self):
-        a = math.meshgrid([1, 2, 3, 4], [5, 6, 7])
+        a = math.meshgrid(x=[1, 2, 3, 4], y=[5, 6, 7])
         extrap = MixedExtrapolation({'x': PERIODIC, 'y': (ONE, REFLECT)})
         p = math.pad(a, {'x': (1, 2), 'y': (3, 4)}, extrap)
         self.assertEqual((7, 10, 2), p.shape.sizes)  # dimension check

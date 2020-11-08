@@ -137,54 +137,54 @@ def abs_square(complex):
 #     assert difference in ('central', 'forward', 'backward'), difference
 #     rank = spatial_rank(tensor)
 #     if difference == 'forward':
-#         return _divergence_nd(tensor, padding, (0, 1), dimensions) / dx ** rank  # TODO why dx^rank?
+#         return _divergence_nd(tensor, padding, (0, 1), dims) / dx ** rank  # TODO why dx^rank?
 #     elif difference == 'backward':
-#         return _divergence_nd(tensor, padding, (-1, 0), dimensions) / dx ** rank
+#         return _divergence_nd(tensor, padding, (-1, 0), dims) / dx ** rank
 #     else:
-#         return _divergence_nd(tensor, padding, (-1, 1), dimensions) / (2 * dx) ** rank
+#         return _divergence_nd(tensor, padding, (-1, 1), dims) / (2 * dx) ** rank
 #
 #
-# def _divergence_nd(x_, padding, relative_shifts, dimensions=None):
+# def _divergence_nd(x_, padding, relative_shifts, dims=None):
 #     x = tensor(x_)
 #     assert x.shape.channel.rank == 1
-#     dimensions = dimensions if dimensions is not None else x.shape.spatial.names
-#     x = math.pad(x, {axis: (-relative_shifts[0], relative_shifts[1]) for axis in dimensions}, mode=padding)
+#     dims = dims if dims is not None else x.shape.spatial.names
+#     x = math.pad(x, {axis: (-relative_shifts[0], relative_shifts[1]) for axis in dims}, mode=padding)
 #     components = []
-#     for dimension in dimensions:
+#     for dimension in dims:
 #         dim_index_in_spatial = x.shape.spatial.reset_indices().index(dimension)
-#         lower, upper = _multi_roll(x, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]), names=dimensions, base_selection={0: rank - dimension - 1})
+#         lower, upper = _multi_roll(x, dimension, relative_shifts, diminish_others=(-relative_shifts[0], relative_shifts[1]), names=dims, base_selection={0: rank - dimension - 1})
 #         components.append(upper - lower)
 #     return math.sum_(components, 0)
 
 
 def shift(x: Tensor,
           offsets: tuple,
-          axes: tuple or None = None,
+          dims: tuple or None = None,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
           stack_dim: str or None = 'shift') -> list:
     """shift Tensor by a fixed offset and abiding by extrapolation
 
     :param x: Input data
     :param offsets: Shift size
-    :param axes: Axes along which to shift, defaults to None
+    :param dims: Dimensions along which to shift, defaults to None
     :param padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
     :param stack_dim: dimensions to be stacked, defaults to 'shift'
     :return: offset_tensor
     :rtype: list
     """
     if stack_dim is None:
-        assert len(axes) == 1
+        assert len(dims) == 1
     x = tensor(x)
-    axes = axes if axes is not None else x.shape.spatial.names
+    dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
     if padding is not None:
-        x = math.pad(x, {axis: (pad_lower, pad_upper) for axis in axes}, mode=padding)
+        x = math.pad(x, {axis: (pad_lower, pad_upper) for axis in dims}, mode=padding)
     offset_tensors = []
     for offset in offsets:
         components = []
-        for dimension in axes:
-            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower, -pad_upper) for dim in axes}
+        for dimension in dims:
+            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower, -pad_upper) for dim in dims}
             slices = {dim: slice(sl.start, sl.stop if sl.stop < 0 else None) for dim, sl in slices.items()}  # replace stop=0 by stop=None
             components.append(x[slices])
         offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
@@ -197,14 +197,13 @@ def gradient(grid: Tensor,
              dx: float or int = 1,
              difference: str = 'central',
              padding: Extrapolation = extrapolation.BOUNDARY,
-             axes: tuple or None = None):
+             dims: tuple or None = None):
     """
     Calculates the gradient of a scalar channel from finite differences.
     The gradient vectors are in reverse order, lowest dimension first.
 
-    :param axes: (optional) sequence of dimension names
-    :type axes: integer, iterable of integers
-    :param x: channel with shape (batch_size, spatial_dimensions..., 1)
+    :param grid: grid values
+    :param dims: (optional) sequence of dimension names
     :param dx: physical distance between grid points (default 1)
     :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
     :param padding: tensor padding mode
@@ -212,13 +211,13 @@ def gradient(grid: Tensor,
     """
     grid = tensor(grid)
     if difference.lower() == 'central':
-        left, right = shift(grid, (-1, 1), axes, padding, stack_dim='gradient')
+        left, right = shift(grid, (-1, 1), dims, padding, stack_dim='gradient')
         return (right - left) / (dx * 2)
     elif difference.lower() == 'forward':
-        left, right = shift(grid, (0, 1), axes, padding, stack_dim='gradient')
+        left, right = shift(grid, (0, 1), dims, padding, stack_dim='gradient')
         return (right - left) / dx
     elif difference.lower() == 'backward':
-        left, right = shift(grid, (-1, 0), axes, padding, stack_dim='gradient')
+        left, right = shift(grid, (-1, 0), dims, padding, stack_dim='gradient')
         return (right - left) / dx
     else:
         raise ValueError('Invalid difference type: {}. Can be CENTRAL or FORWARD'.format(difference))
@@ -227,9 +226,9 @@ def gradient(grid: Tensor,
 # Laplace
 
 def laplace(x: Tensor,
-            dx: float = 1,
+            dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            axes: tuple or None = None):
+            dims: tuple or None = None):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -237,16 +236,14 @@ def laplace(x: Tensor,
     :param x: n-dimensional field of shape (batch, spacial dimensions..., components)
     :param dx: scalar or 1d tensor
     :param padding: extrapolation
-    :type padding: Extrapolation
-    :param axes: The second derivative along these dimensions is summed over
-    :type axes: list
+    :param dims: The second derivative along these dimensions is summed over
     :return: tensor of same shape
     """
     if not isinstance(dx, (int, float)):
         dx = tensor(dx, names='_laplace')
     if isinstance(x, Extrapolation):
         return x.gradient()
-    left, center, right = shift(tensor(x), (-1, 0, 1), axes, padding, stack_dim='_laplace')
+    left, center, right = shift(tensor(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, '_laplace')
     return result
@@ -254,7 +251,7 @@ def laplace(x: Tensor,
 
 def fourier_laplace(grid: Tensor,
                     dx: Tensor or Shape or float or list or tuple,
-                    times=1):
+                    times: int = 1):
     """
     Applies the spatial laplace operator to the given tensor with periodic boundary conditions.
 
@@ -275,7 +272,9 @@ def fourier_laplace(grid: Tensor,
     return math.cast(result / tensor(dx) ** 2, grid.dtype)
 
 
-def fourier_poisson(grid: Tensor, dx, times=1):
+def fourier_poisson(grid: Tensor,
+                    dx: Tensor or Shape or float or list or tuple,
+                    times: int = 1):
     """ Inverse operation to `fourier_laplace`. """
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
@@ -289,37 +288,37 @@ def fourier_poisson(grid: Tensor, dx, times=1):
 
 def downsample2x(grid: Tensor,
                  padding: Extrapolation = extrapolation.BOUNDARY,
-                 dimensions: tuple or None = None) -> Tensor:
+                 dims: tuple or None = None) -> Tensor:
     """
     Resamples a regular grid to half the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
 
     :param grid: full size grid
-    :param padding: grid extrapolation. Used to insert an additional value for odd spatial dimensions
-    :param dimensions: axes along which down-sampling is applied. If None, down-sample along all spatial dimensions.
+    :param padding: grid extrapolation. Used to insert an additional value for odd spatial dims
+    :param dims: dims along which down-sampling is applied. If None, down-sample along all spatial dims.
     :return: half-size grid
     """
-    dimensions = grid.shape.spatial.only(dimensions).names
-    odd_dimensions = [dim for dim in dimensions if grid.shape.get_size(dim) % 2 != 0]
+    dims = grid.shape.spatial.only(dims).names
+    odd_dimensions = [dim for dim in dims if grid.shape.get_size(dim) % 2 != 0]
     grid = math.pad(grid, {dim: (0, 1) for dim in odd_dimensions}, padding)
-    for dim in dimensions:
+    for dim in dims:
         grid = (grid[{dim: slice(1, None, 2)}] + grid[{dim: slice(0, None, 2)}]) / 2
     return grid
 
 
 def upsample2x(grid: Tensor,
                padding: Extrapolation = extrapolation.BOUNDARY,
-               dimensions: tuple or None = None) -> Tensor:
+               dims: tuple or None = None) -> Tensor:
     """
     Resamples a regular grid to double the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
 
     :param grid: half-size grid
     :param padding: grid extrapolation
-    :param dimensions: axes along which up-sampling is applied. If None, up-sample along all spatial dimensions.
+    :param dims: dims along which up-sampling is applied. If None, up-sample along all spatial dims.
     :return: double-size grid
     """
-    for i, dim in enumerate(grid.shape.spatial.only(dimensions).names):
+    for i, dim in enumerate(grid.shape.spatial.only(dims).names):
         left, center, right = shift(grid, (-1, 0, 1), (dim,), padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
@@ -328,16 +327,33 @@ def upsample2x(grid: Tensor,
     return grid
 
 
-def interpolate_linear(tensor: Tensor, start, size):
-    for sta, siz, dim in zip(start, size, tensor.shape.spatial.names):
-        tensor = tensor.dimension(dim)[int(sta):int(sta) + siz + (1 if sta != 0 else 0)]
+def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
+    """
+    Samples a sub-grid from `grid` with equal distance between sampling points.
+    The values at the new sample points are determined via linear interpolation.
+
+    :param grid: full size grid to be resampled
+    :param start: origin point of sub-grid within `grid`, measured in number of cells.
+    Must have a single dimension called `vector`.
+    Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
+    The order of dims must be equal to `size` and `grid.shape.spatial`.
+    :param size: resolution of the sub-grid. Must not be larger than the resolution of `grid`.
+    The order of dims must be equal to `start` and `grid.shape.spatial`.
+    :return: sampled sub-grid
+    """
+    assert start.shape.names == ('vector',)
+    assert grid.shape.spatial.names == size.names
+    discard = {}
+    for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size):
+        discard[dim] = slice(int(d_start), int(d_start) + d_size + (1 if d_start != 0 else 0))
+    grid = grid[discard]
     upper_weight = start % 1
     lower_weight = 1 - upper_weight
-    for i, dimension in enumerate(tensor.shape.spatial.names):
+    for i, dim in enumerate(grid.shape.spatial.names):
         if upper_weight[i] not in (0, 1):
-            lower, upper = _multi_roll(tensor, dimension, (0, 1), names=tensor.shape.spatial.names)
-            tensor = upper * upper_weight[i] + lower * lower_weight[i]
-    return tensor
+            lower, upper = shift(grid, (0, 1), [dim], padding=None, stack_dim=None)
+            grid = upper * upper_weight[i] + lower * lower_weight[i]
+    return grid
 
 
 # Poisson Brackets

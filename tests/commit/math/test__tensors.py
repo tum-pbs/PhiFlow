@@ -91,6 +91,18 @@ class TestTensors(TestCase):
         self.assertEqual('()', repr(scalar.y[0].x[0].shape))
         self.assertEqual(3, len(scalar.y.unstack()))
 
+    def test_collapsed_op2(self):
+        # Collapsed + Collapsed
+        a = math.zeros(vector=4)
+        b = math.ones(batch=3)
+        c = a + b
+        self.assertIsInstance(c, CollapsedTensor)
+        self.assertEqual(c.shape.volume, 12)
+        self.assertEqual(c.tensor.shape.volume, 1)
+        # Collapsed + Native
+        n = math.ones(vector=3) + (0, 1, 2)
+        math.assert_close(n, (1, 2, 3))
+
     def test_semi_collapsed(self):
         scalar = math.ones(x=4, y=3)
         scalar = CollapsedTensor(scalar, scalar.shape.expand(10, 'batch', BATCH_DIM))

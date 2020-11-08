@@ -133,26 +133,26 @@ class ShiftLinOp(Tensor):
     def _op1(self, native_function):  # only __neg__ is linear
         raise NotImplementedError('Only linear operations are supported')
 
-    def _op2(self, other, native_function, handle_special=False):
+    def _op2(self, other: Tensor, operator: callable, native_function: callable) -> Tensor:
         if isinstance(other, ShiftLinOp):
             assert self.source is other.source
             assert self._shape == other._shape
             values = {}
             for dim_shift in self.val.keys():
                 if dim_shift in other.val:
-                    values[dim_shift] = self.val[dim_shift]._op2(other.val[dim_shift], native_function)
+                    values[dim_shift] = operator(self.val[dim_shift], other.val[dim_shift])
                 else:
-                    values[dim_shift] = self.val[dim_shift]._op2(math.zeros_like(self.val[dim_shift]), native_function)
+                    values[dim_shift] = operator(self.val[dim_shift], math.zeros_like(self.val[dim_shift]))
             for dim_shift, other_values in other.val.items():
                 if dim_shift not in self.val:
-                    values[dim_shift] = math.zeros_like(other_values)._op2(other_values, native_function)
+                    values[dim_shift] = operator(math.zeros_like(other_values), other_values)
             return ShiftLinOp(self.source, values, self._shape)
         else:
             other = self._tensor(other)
             values = {}
             for dim_shift, val in self.val.items():
                 val_, other_ = math.join_spaces(val, other)
-                values[dim_shift] = val_._op2(other_, native_function)
+                values[dim_shift] = operator(val_, other_)
             return ShiftLinOp(self.source, values, self._shape & other.shape)
 
 

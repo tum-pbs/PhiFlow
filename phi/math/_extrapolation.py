@@ -485,7 +485,7 @@ class MixedExtrapolation(Extrapolation):
     def to_dict(self) -> dict:
         return {
             'type': 'mixed',
-            'axes': {ax: (es[0].to_dict(), es[1].to_dict()) for ax, es in self.ext.items()}
+            'dims': {ax: (es[0].to_dict(), es[1].to_dict()) for ax, es in self.ext.items()}
         }
 
     def __repr__(self):

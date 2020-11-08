@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from phi import math
-from phi.math import Tensor, Shape, spatial_shape
+from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE
 
 
 class Geometry:
@@ -14,7 +14,7 @@ class Geometry:
     * box family: box (generator), Box, Cuboid, AbstractBox
 
     All geometry objects support batching.
-    Thereby any parameter defining the geometry can be varied along arbitrary batch dimensions.
+    Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
     All batch dimensions are listed in Geometry.shape.
     """
 
@@ -129,6 +129,15 @@ class Geometry:
     def __invert__(self):
         return _InvertedGeometry(self)
 
+    def __eq__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        raise NotImplementedError(self.__class__)
+
 
 class _InvertedGeometry(Geometry):
 
@@ -163,6 +172,59 @@ class _InvertedGeometry(Geometry):
 
     def rotated(self, angle) -> Geometry:
         return _InvertedGeometry(self.geometry.rotated(angle))
+
+    def unstack(self, dimension):
+        return [_InvertedGeometry(g) for g in self.geometry.unstack(dimension)]
+
+    def __eq__(self, other):
+        return isinstance(other, _InvertedGeometry) and self.geometry == other.geometry
+
+    def __hash__(self):
+        return -hash(self.geometry)
+
+
+class _NoGeometry(Geometry):
+
+    @property
+    def shape(self):
+        return EMPTY_SHAPE
+
+    @property
+    def center(self):
+        return 0
+
+    def bounding_radius(self):
+        return 0
+
+    def bounding_half_extent(self):
+        return 0
+
+    def approximate_signed_distance(self, location):
+        return math.zeros(location.shape.non_channel) + np.inf
+
+    def lies_inside(self, location):
+        return math.zeros(location.shape.non_channel, dtype=bool)
+
+    def approximate_fraction_inside(self, other_geometry):
+        return math.zeros(other_geometry.shape)
+
+    def shifted(self, delta):
+        return self
+
+    def rotated(self, angle):
+        return self
+
+    def unstack(self, dimension):
+        raise AssertionError('empty geometry cannot be unstacked')
+
+    def __eq__(self, other):
+        return isinstance(other, _NoGeometry)
+
+    def __hash__(self):
+        return 1
+
+
+NO_GEOMETRY = _NoGeometry()
 
 
 def assert_same_rank(rank1, rank2, error_message):

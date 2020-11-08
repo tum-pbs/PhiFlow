@@ -10,6 +10,18 @@ from ..math._tensors import NativeTensor, TensorStack, Tensor
 
 class AbstractBox(Geometry):
 
+    def unstack(self, dimension):
+        raise NotImplementedError()
+
+    def __eq__(self, other):
+        raise NotImplementedError()
+
+    def __hash__(self):
+        raise NotImplementedError()
+
+    def __ne__(self, other):
+        return not self == other
+
     @property
     def shape(self):
         raise NotImplementedError()
@@ -121,15 +133,36 @@ class BoxType(type):
 
 
 class Box(AbstractBox, metaclass=BoxType):
-    """
-    Axis-aligned box, defined by lower and upper corner.
-    Boxes can be created using the shorthand notation box[slices], (e.g. box[:,0:1] to create an inifinite-height box from x=0 to x=1).
-    """
 
-    def __init__(self, lower, upper):
+    def __init__(self, lower: Tensor or float or int, upper: Tensor or float or int):
+        """
+        Simple cuboid defined by location of lower and upper corner.
+
+        In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, `Box[slice1, slice2,...]`
+        Each slice marks the lower and upper edge of the box along one dimension.
+        Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
+        The parameter slice.step has no effect.
+
+        **Examples**:
+
+        * Box[0:1, 0:1] creates a two-dimensional unit box.
+        * Box[:, 0:1] creates an infinite-height Box from x=0 to x=1.
+
+        :param lower: physical location of lower corner
+        :param upper: physical location of upper corner
+        """
         self._lower = tensor(lower, names='..., vector', channel_dims=1, spatial_dims=0)
         self._upper = tensor(upper, names='..., vector', channel_dims=1, spatial_dims=0)
         self._shape = _fill_spatial_with_singleton(combined_shape(self._lower, self._upper))
+
+    def unstack(self, dimension):
+        raise NotImplementedError()  # TODO
+
+    def __eq__(self, other):
+        return isinstance(other, AbstractBox) and self._lower.shape == other.lower.shape and math.close(self._lower, other.lower)
+
+    def __hash__(self):
+        return hash(self._upper)
 
     @property
     def shape(self):
@@ -240,3 +273,15 @@ class GridCell(Cuboid):
     def list_cells(self, dim_name):
         center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
+
+    def unstack(self, dimension):
+        pass
+
+    def __eq__(self, other):
+        return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution
+
+    def __hash__(self):
+        return hash(self._resolution) + hash(self._bounds)
+
+    def __repr__(self):
+        return f"{self._resolution}, bounds={self._bounds}"

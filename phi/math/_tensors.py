@@ -113,7 +113,7 @@ class Tensor:
 
     def _getitem(self, selection: dict) -> 'Tensor':
         """
-        Slice the tensor along specified axes.
+        Slice the tensor along specified dimensions.
 
         :param selection: dim_name: str -> int or slice
         """
@@ -150,83 +150,80 @@ class Tensor:
         raise AttributeError("%s with shape %s has no attribute '%s'" % (self.__class__, self.shape, name))
 
     def __add__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.add(t1, t2))
+        return self._op2(other, lambda x, y: x + y, lambda x, y: native_math.add(x, y))
 
     def __radd__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.add(t2, t1))
+        return self._op2(other, lambda x, y: y + x, lambda x, y: native_math.add(y, x))
 
     def __sub__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.sub(t1, t2))
+        return self._op2(other, lambda x, y: x - y, lambda x, y: native_math.sub(x, y))
 
     def __rsub__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.sub(t2, t1))
+        return self._op2(other, lambda x, y: y - x, lambda x, y: native_math.sub(y, x))
 
     def __and__(self, other):
-        return self._op2(other, lambda t1, t2: t1 & t2)
+        return self._op2(other, lambda x, y: x & y, lambda x, y: x & y)
 
     def __or__(self, other):
-        return self._op2(other, lambda t1, t2: t1 | t2)
+        return self._op2(other, lambda x, y: x | y, lambda x, y: x | y)
 
     def __xor__(self, other):
-        return self._op2(other, lambda t1, t2: t1 ^ t2)
+        return self._op2(other, lambda x, y: x ^ y, lambda x, y: x ^ y)
 
     def __mul__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.mul(t1, t2))
+        return self._op2(other, lambda x, y: x * y, lambda x, y: native_math.mul(x, y))
 
     def __rmul__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.mul(t2, t1))
+        return self._op2(other, lambda x, y: y * x, lambda x, y: native_math.mul(y, x))
 
     def __truediv__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.div(t1, t2))
+        return self._op2(other, lambda x, y: x / y, lambda x, y: native_math.div(x, y))
 
     def __rtruediv__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.div(t2, t1))
+        return self._op2(other, lambda x, y: y / x, lambda x, y: native_math.div(y, x))
 
     def __divmod__(self, other):
-        return self._op2(other, lambda t1, t2: divmod(t1, t2))
+        return self._op2(other, lambda x, y: divmod(x, y), lambda x, y: divmod(x, y))
 
     def __rdivmod__(self, other):
-        return self._op2(other, lambda t1, t2: divmod(t2, t1))
+        return self._op2(other, lambda x, y: divmod(y, x), lambda x, y: divmod(y, x))
 
     def __floordiv__(self, other):
-        return self._op2(other, lambda t1, t2: t1 // t2)
+        return self._op2(other, lambda x, y: x // y, lambda x, y: x // y)
 
     def __rfloordiv__(self, other):
-        return self._op2(other, lambda t1, t2: t2 // t1)
+        return self._op2(other, lambda x, y: y // x, lambda x, y: y // x)
 
     def __pow__(self, power, modulo=None):
         assert modulo is None
-        return self._op2(power, lambda t1, t2: native_math.pow(t1, t2))
+        return self._op2(power, lambda x, y: x ** y, lambda x, y: native_math.pow(x, y))
 
     def __rpow__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.pow(t2, t1))
+        return self._op2(other, lambda x, y: y ** x, lambda x, y: native_math.pow(y, x))
 
     def __mod__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.mod(t1, t2))
+        return self._op2(other, lambda x, y: x % y, lambda x, y: native_math.mod(x, y))
 
-    def __lshift__(self, other):
-        return self._op2(other, lambda t1, t2: t1 << t2)
-
-    def __rshift__(self, other):
-        return self._op2(other, lambda t1, t2: t1 >> t2)
+    def __rmod__(self, other):
+        return self._op2(other, lambda x, y: y % x, lambda x, y: native_math.mod(y, x))
 
     def __eq__(self, other):
-        return self._op2(other, lambda t1, t2: native_math.equal(t1, t2))
+        return self._op2(other, lambda x, y: x == y, lambda x, y: native_math.equal(x, y))
 
     def __ne__(self, other):
-        return self._op2(other, lambda t1, t2: t1 != t2)
+        return self._op2(other, lambda x, y: x != y, lambda x, y: x != y)
 
     def __lt__(self, other):
-        return self._op2(other, lambda t1, t2: t1 < t2)
+        return self._op2(other, lambda x, y: x < y, lambda x, y: x < y)
 
     def __le__(self, other):
-        return self._op2(other, lambda t1, t2: t1 <= t2)
+        return self._op2(other, lambda x, y:  x <= y, lambda x, y: x <= y)
 
     def __gt__(self, other):
-        return self._op2(other, lambda t1, t2: t1 > t2)
+        return self._op2(other, lambda x, y: x > y, lambda x, y: x > y)
 
     def __ge__(self, other):
-        return self._op2(other, lambda t1, t2: t1 >= t2)
+        return self._op2(other, lambda x, y: x >= y, lambda x, y: x >= y)
 
     def __abs__(self):
         return self._op1(lambda t: native_math.abs(t))
@@ -282,15 +279,18 @@ class Tensor:
             else:
                 raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (native_math.ndims(other), self.shape))
 
-    def _op2(self, other, native_function, handle_special=False):
-        other = self._tensor(other)
-        if not isinstance(other, (NativeTensor, CollapsedTensor)) and not handle_special:
-            return NotImplemented
-        new_shape, (native1, native2) = broadcastable_native_tensors(self, other)
-        result_tensor = native_function(native1, native2)
-        return NativeTensor(result_tensor, new_shape)
+    def _op2(self, other: 'Tensor', operator: callable, native_function: callable) -> 'Tensor':
+        """
+        Apply a broadcast operation on two tensors.
+
+        :param other: second argument
+        :param operator: function (Tensor, Tensor) -> Tensor, used to propagate the operation to children tensors to have Python choose the callee
+        :param native_function: function (native tensor, native tensor) -> native tensor
+        """
+        raise NotImplementedError()
 
     def _op1(self, native_function):
+        """ Transform the values of this tensor given a function that can be applied to any native tensor. """
         raise NotImplementedError(self.__class__)
 
 
@@ -373,7 +373,7 @@ class NativeTensor(Tensor):
     def native(self, order=None):
         if order is None or tuple(order) == self.shape.names:
             return self.tensor
-        # --- Insert missing dimensions ---
+        # --- Insert missing dims ---
         tensor = self.tensor
         shape = self.shape
         for name in order:
@@ -417,10 +417,17 @@ class NativeTensor(Tensor):
     def _op1(self, native_function):
         return NativeTensor(native_function(self.native()), self.shape)
 
+    def _op2(self, other, operator, native_function):
+        other = self._tensor(other)
+        if isinstance(other, NativeTensor):
+            return op2_native(self, other, native_function)
+        else:
+            return NotImplemented
+
 
 class CollapsedTensor(Tensor):
     """
-    Tiled / Repeated tensor along additional axes.
+    Tiled / Repeated tensor along additional dimensions.
     """
 
     def __init__(self, tensor: Tensor, shape: Shape):
@@ -482,6 +489,22 @@ class CollapsedTensor(Tensor):
     def _op1(self, native_function):
         return CollapsedTensor(self.tensor._op1(native_function), self._shape)
 
+    def _op2(self, other, operator, native_function):
+        other = self._tensor(other)
+        if isinstance(other, CollapsedTensor):
+            self_inner = self.tensor._with_shape_replaced(self.tensor.shape.to_batch())
+            other_inner = other.tensor._with_shape_replaced(other.tensor.shape.to_batch())
+            inner = operator(self_inner, other_inner)
+            if inner.shape.rank >= self.rank and inner.shape.rank >= other.rank:
+                result = inner._with_shape_replaced(inner.shape.with_types(self.shape.combined(other.shape)))
+                return result
+            else:
+                return CollapsedTensor(inner, self.shape.combined(other.shape).with_sizes(inner.shape))
+        elif isinstance(other, NativeTensor):
+            return op2_native(self, other, native_function)
+        else:
+            return NotImplemented
+
 
 class TensorStack(Tensor):
     """
@@ -533,7 +556,7 @@ class TensorStack(Tensor):
     def _getitem(self, selection: dict):
         if (self.stack_dim_name not in selection or len(selection) != 1) and not self.requires_broadcast:
             return self._cache()._getitem(selection)
-        # --- Inner dimensions ---
+        # --- Inner dims ---
         inner_dict = {dim: sel for dim, sel in selection.items() if dim != self.stack_dim_name}
         tensors = self.tensors
         if len(inner_dict) > 0:
@@ -561,17 +584,21 @@ class TensorStack(Tensor):
             else:
                 return self._cache().unstack(dimension=dimension)
 
-    def _op2(self, other, native_function):
+    def _op2(self, other, operator, native_function):
         other = self._tensor(other)
         if self.requires_broadcast:
             if self.stack_dim_name in other.shape:
                 other = other.unstack(self.stack_dim_name)
-                tensors = [t1._op2(t2, native_function) for t1, t2 in zip(self.tensors, other)]
+                tensors = [operator(t1, t2) for t1, t2 in zip(self.tensors, other)]
             else:
-                tensors = [t._op2(other, native_function) for t in self.tensors]
+                tensors = [operator(t, other) for t in self.tensors]
             return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type, self.keep_separate)
+        elif isinstance(other, (CollapsedTensor, NativeTensor)):
+            return op2_native(self, other, native_function)
+        elif isinstance(other, TensorStack) and not other.requires_broadcast:
+            return op2_native(self, other, native_function)
         else:
-            return Tensor._op2(self, other, native_function, handle_special=True)
+            return NotImplemented
 
     def _op1(self, native_function):
         if self.requires_broadcast:
@@ -612,7 +639,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
             shape = infer_shape(obj.shape, names, batch_dims, spatial_dims, channel_dims)
             tensor = NativeTensor(obj, shape)
             for dim in shape.non_spatial.singleton.names:
-                tensor = tensor.dimension(dim)[0]  # Remove singleton batch and channel dimensions
+                tensor = tensor.dimension(dim)[0]  # Remove singleton batch and channel dims
             return tensor
         else:
             if names is None:
@@ -639,6 +666,22 @@ def broadcastable_native_tensors(*tensors):
     broadcast_shape = combined_shape(*tensors)
     natives = [tensor.native(order=broadcast_shape.names) for tensor in tensors]
     return broadcast_shape, natives
+
+
+def op2_native(x: Tensor, y: Tensor, native_function: callable):
+    new_shape, (native1, native2) = broadcastable_native_tensors(x, y)
+    result_tensor = native_function(native1, native2)
+    return NativeTensor(result_tensor, new_shape)
+
+
+def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_function, r_operator=None, r_native_function=None):
+    x, y = tensor(x, y)
+    result = x._op2(y, l_operator, l_native_function)
+    if result is NotImplemented:
+        result = y._op2(x, r_operator or l_operator, r_native_function or l_native_function)
+        if result is NotImplemented:
+            raise NotImplementedError(f"Operation not supported between {type(x)} and {type(y)}")
+    return result
 
 
 def shapeof(tensor):

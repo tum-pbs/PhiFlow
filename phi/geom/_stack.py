@@ -55,3 +55,11 @@ class GeometryStack(Geometry):
         geometries = [g.rotated(angle) for g in self.geometries]
         return GeometryStack(geometries, self.stack_dim_name)
 
+    def __eq__(self, other):
+        return isinstance(other, GeometryStack) \
+               and self._shape == other.shape \
+               and self.stack_dim_name == other.stack_dim_name \
+               and self.geometries == other.geometries
+
+    def __hash__(self):
+        return hash(self.geometries)

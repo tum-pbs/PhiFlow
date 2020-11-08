@@ -2,12 +2,11 @@ import numpy as np
 
 from phi import math
 from phi.geom import Box, Geometry, assert_same_rank, GridCell, AbstractBox
-from ._field import Field, IncompatibleFieldTypes
+from ._field import Field
 from ._field import SampledField
-from ._mask import SoftGeometryMask
+from ._mask import SoftGeometryMask, HardGeometryMask
 from ..geom._stack import GeometryStack
 from ..math import tensor, Shape
-from ..math._shape import CHANNEL_DIM
 from ..math._tensors import TensorStack, Tensor
 
 
@@ -18,7 +17,7 @@ class Grid(SampledField):
     Grids are defined by
 
     * data: Tensor, defines resolution
-    * box: physical size of the grid, defines dx
+    * bounds: physical size of the grid, defines dx
     * extrapolation: values of virtual grid points lying outside the data bounds
     """
 
@@ -50,7 +49,7 @@ class Grid(SampledField):
 class CenteredGrid(Grid):
     """
     N-dimensional grid with values sampled at the cell centers.
-    A centered grid is defined through its data tensor, its box describing the physical size and extrapolation.
+    A centered grid is defined through its data tensor, its bounds describing the physical size and extrapolation.
 
     Centered grids support arbitrary batch, spatial and channel dimensions.
     """
@@ -74,8 +73,17 @@ class CenteredGrid(Grid):
         return CenteredGrid(data, box, extrapolation)
 
     def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        if reduce_channels:
+            assert len(reduce_channels) == 1
+            geometries = geometry.unstack(reduce_channels[0])
+            components = self.unstack('vector')
+            sampled = [c.volume_sample(g) for c, g in zip(components, geometries)]
+            return math.channel_stack(sampled, 'vector')
+        if isinstance(geometry, GeometryStack):
+            sampled = [self.volume_sample(g) for g in geometry.geometries]
+            return math.batch_stack(sampled, geometry.stack_dim_name)
         if isinstance(geometry, GridCell):
-            if geometry.bounds == self.box and geometry.resolution == self.resolution:
+            if self.elements == geometry:
                 return self.values
             elif math.close(self.dx, geometry.size):
                 fast_resampled = self._shift_resample(geometry.resolution, geometry.bounds)
@@ -97,35 +105,29 @@ class CenteredGrid(Grid):
                 channels.append(math.grid_sample(channel, local_points[{reduce_channels[0]: i}], self.extrapolation))
             return math.channel_stack(channels, 'vector')
 
-    def _shift_resample(self, resolution, box):
-        paddings = _required_paddings_transposed(self.box, self.dx, box)
-        if math.sum(paddings) == 0:
+    def _shift_resample(self, resolution, box, threshold=1e-5, max_padding=20):
+        lower = math.to_int(math.ceil(math.maximum(0, self.box.lower - box.lower) / self.dx - threshold))
+        upper = math.to_int(math.ceil(math.maximum(0, box.upper - self.box.upper) / self.dx - threshold))
+        total_padding = math.sum(lower) + math.sum(upper)
+        if total_padding == 0:
             origin_in_local = self.box.global_to_local(box.lower) * self.resolution
-            data = math.interpolate_linear(self.values, origin_in_local, resolution.sizes)
+            data = math.sample_subgrid(self.values, origin_in_local, resolution)
             return data
-        elif math.sum(paddings) < 16:
-            padded = self.padded(np.transpose(paddings).tolist())
-            return padded.at(representation)
+        elif total_padding < max_padding:
+            from phi.field import pad
+            padded = pad(self, {dim: (int(lower[i]), int(upper[i])) for i, dim in enumerate(self.shape.spatial.names)})
+            return padded._shift_resample(resolution, box)
 
     def closest_values(self, points):
         local_points = self.box.global_to_local(points)
         indices = local_points * math.to_float(self.resolution) - 0.5
         return math.closest_grid_values(self.values, indices, self.extrapolation)
 
-    def compatible(self, other):
-        return isinstance(other, CenteredGrid) and other.box == self.box and other.resolution == self.resolution
-
-
-def _required_paddings_transposed(box, dx, target, threshold=1e-5):
-    lower = math.to_int(math.ceil(math.maximum(0, box.lower - target.lower) / dx - threshold))
-    upper = math.to_int(math.ceil(math.maximum(0, target.upper - box.upper) / dx - threshold))
-    return [lower, upper]
-
 
 class StaggeredGrid(Grid):
     """
     N-dimensional grid whose vector components are sampled at the respective face centers.
-    A staggered grid is defined through its values tensor, its box describing the physical size and extrapolation.
+    A staggered grid is defined through its values tensor, its bounds describing the physical size and extrapolation.
 
     Centered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
     """
@@ -137,28 +139,40 @@ class StaggeredGrid(Grid):
         Grid.__init__(self, values, resolution, bounds, extrapolation)
 
     @staticmethod
-    def sample(value, resolution, box, extrapolation=math.extrapolation.ZERO):
+    def sample(value: Field or Geometry or callable or Tensor or float or int,
+               resolution: Shape,
+               bounds: Box,
+               extrapolation=math.extrapolation.ZERO) -> 'StaggeredGrid':
         """
-        Sampmles the value to a staggered grid.
+        Creates a StaggeredGrid from `value`.
+        `value` has to be one of the following:
 
-        :param value: Either constant, staggered tensor, or Field
+        * Geometry: sets inside values to 1, outside to 0
+        * Field: resamples the Field to the staggered sample points
+        * float, int: uses the value for all sample points
+        * tuple, list: interprets the sequence as vector, used for all sample points
+        * Tensor compatible with grid dims: uses tensor values as grid values
+
+        :param value: values to use for the grid
+        :param resolution: grid resolution
+        :param bounds: physical grid bounds
+        :param extrapolation:
         :return: Sampled values in staggered grid form matching domain resolution
-        :rtype: StaggeredGrid
         """
         if isinstance(value, Geometry):
-            value = SoftGeometryMask(value)
+            value = HardGeometryMask(value)
         if isinstance(value, Field):
-            assert_same_rank(value.rank, box.rank, 'rank of value (%s) does not match domain (%s)' % (value.rank, box.rank))
-            if isinstance(value, StaggeredGrid) and value.box == box and np.all(value.resolution == resolution):
+            assert_same_rank(value.rank, bounds.rank, 'rank of value (%s) does not match domain (%s)' % (value.rank, bounds.rank))
+            if isinstance(value, StaggeredGrid) and value.bounds == bounds and np.all(value.resolution == resolution):
                 return value
             else:
-                components = value.unstack('vector') if 'vector' in value.shape else [value] * box.rank
+                components = value.unstack('vector') if 'vector' in value.shape else [value] * bounds.rank
                 tensors = []
                 for dim, comp in zip(resolution.spatial.names, components):
-                    comp_res, comp_box = extend_symmetric(resolution, box, dim)
-                    comp_grid = CenteredGrid.sample(comp, comp_res, comp_box, extrapolation)
+                    comp_res, comp_bounds = extend_symmetric(resolution, bounds, dim)
+                    comp_grid = CenteredGrid.sample(comp, comp_res, comp_bounds, extrapolation)
                     tensors.append(comp_grid.values)
-                return StaggeredGrid(math.channel_stack(tensors, 'vector'), box, extrapolation)
+                return StaggeredGrid(math.channel_stack(tensors, 'vector'), bounds, extrapolation)
         elif callable(value):
             raise NotImplementedError(f"Callable values not allowed. type(values): {type(values)}")
             x = CenteredGrid.getpoints(domain.bounds, domain.resolution).copied_with(extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
@@ -169,18 +183,27 @@ class StaggeredGrid(Grid):
             components = value.unstack('vector') if 'vector' in value.shape else [value] * resolution.spatial_rank
             tensors = []
             for dim, component in zip(resolution.spatial.names, components):
-                comp_res, comp_box = extend_symmetric(resolution, box, dim)
+                comp_res, comp_bounds = extend_symmetric(resolution, bounds, dim)
                 tensors.append(math.zeros(comp_res) + component)
-            return StaggeredGrid(math.channel_stack(tensors, 'vector'), box, extrapolation)
+            return StaggeredGrid(math.channel_stack(tensors, 'vector'), bounds, extrapolation)
 
     def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
         values = _validate_staggered_values(values) if values is not None else None
         return Grid._with(self, values, extrapolation)
 
-    def sample_at(self, points, reduce_channels=()):
+    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        if geometry == self.elements and reduce_channels:
+            return self.values
         if not reduce_channels:
-            if isinstance(points, StaggeredGrid) and points.resolution == self.resolution and points.bounds == self.bounds:
-                return self
+            channels = [component.volume_sample(geometry) for component in self.unstack()]
+        else:
+            assert len(reduce_channels) == 1
+            geometries = geometry.unstack(reduce_channels[0])
+            channels = [component.volume_sample(g) for g, component in zip(geometries, self.unstack())]
+        return math.channel_stack(channels, 'vector')
+
+    def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
+        if not reduce_channels:
             channels = [component.sample_at(points) for component in self.unstack()]
         else:
             assert len(reduce_channels) == 1
@@ -199,7 +222,7 @@ class StaggeredGrid(Grid):
         if dimension == 'vector':
             result = []
             for dim, data in zip(self.resolution.spatial.names, self.values.vector.unstack()):
-                result.append(CenteredGrid(data, extend_symmetric(self.resolution, self.box, dim)[1], self.extrapolation))
+                result.append(CenteredGrid(data, extend_symmetric(self.resolution, self._bounds, dim)[1], self.extrapolation))
             return tuple(result)
         else:
             raise NotImplementedError(f"dimension={dimension}. Only 'vector' allowed.")
@@ -243,7 +266,7 @@ class StaggeredGrid(Grid):
     #     for axis in range(self.rank):
     #         grid = self.unstack()[axis].values
     #         grid = grid[tuple([slice(None, None, 2) if d - 1 == axis else slice(None) for d in range(self.rank + 2)])]  # Discard odd indices along axis
-    #         grid = math.downsample2x(grid, axes=tuple(filter(lambda ax2: ax2 != axis, range(self.rank))))  # Interpolate values along other axes
+    #         grid = math.downsample2x(grid, dims=tuple(filter(lambda ax2: ax2 != axis, range(self.rank))))  # Interpolate values along other dims
     #         values.append(grid)
     #     return self._with(values)
 
@@ -262,13 +285,13 @@ def stack_staggered_components(data: Tensor) -> Tensor:
     return math.channel_stack(padded, 'vector')
 
 
-def extend_symmetric(resolution: Shape, box: AbstractBox, axis, cells=1):
+def extend_symmetric(resolution: Shape, bounds: AbstractBox, axis, cells=1):
     axis_mask = np.array(resolution.mask(axis)) * cells
-    unit = box.size / resolution * axis_mask
+    unit = bounds.size / resolution * axis_mask
     delta_size = unit / 2
-    box = Box(box.lower - delta_size, box.upper + delta_size)
+    bounds = Box(bounds.lower - delta_size, bounds.upper + delta_size)
     ext_res = resolution.sizes + axis_mask
-    return resolution.with_sizes(ext_res), box
+    return resolution.with_sizes(ext_res), bounds
 
 
 def _validate_staggered_values(values: TensorStack):

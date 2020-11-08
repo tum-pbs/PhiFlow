@@ -190,7 +190,6 @@ class Shape:
                     order.append(name)
         return order
 
-
     def combined(self, other, allow_inconsistencies=False, combine_spatial=False):
         """
         Returns a Shape object that both `self` and `other` can be broadcast to.
@@ -391,23 +390,45 @@ class Shape:
                 r += 1
         return r
 
+    def to_batch(self, dims: tuple or list or None = None) -> Shape:
+        """
+        Returns a shape like this Shape but with `dims` being of type `batch`.
+
+        Leaves this Shape object untouched.
+
+        :param dims: sequence of dimension names to convert or None to convert all dimensions
+        :return: new Shape object
+        """
+        if dims is None:
+            return Shape(self.sizes, self.names, [BATCH_DIM] * self.rank)
+        else:
+            return Shape(self.sizes, self.names, [BATCH_DIM if dim in dims else self.types[i] for i, dim in enumerate(self.names)])
+
     @property
     def well_defined(self):
         return None not in self.sizes
 
-    def with_sizes(self, sizes):
-        return Shape(sizes, self.names, self.types)
+    def with_sizes(self, sizes: tuple or list or Shape):
+        if isinstance(sizes, Shape):
+            sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
+            return Shape(sizes, self.names, self.types)
+        else:
+            assert len(sizes) == len(self.sizes)
+            return Shape(sizes, self.names, self.types)
 
     def with_size(self, name, size):
         new_sizes = list(self.sizes)
         new_sizes[self.index(name)] = size
         return self.with_sizes(new_sizes)
 
-    def with_names(self, names):
+    def with_names(self, names: str or tuple or list):
         if isinstance(names, str):
             names = parse_dim_names(names, self.rank)
             names = [n if n is not None else o for n, o in zip(names, self.names)]
         return Shape(self.sizes, names, self.types)
+
+    def with_types(self, types: Shape):
+        return Shape(self.sizes, self.names, [types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)])
 
     def perm(self, names):
         assert set(names) == set(self.names), 'names must match existing dimensions %s but got %s' % (self.names, names)

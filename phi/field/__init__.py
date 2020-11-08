@@ -10,7 +10,7 @@ The most commonly used field types are
 * Noise is a function that produces a procedurally generated noise field
 """
 
-from ._field import Field, IncompatibleFieldTypes, SampledField
+from ._field import Field, SampledField
 from ._analytic import AnalyticField, SymbolicFieldBackend
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask

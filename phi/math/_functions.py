@@ -9,7 +9,8 @@ import numpy as np
 from .backend import math, Solve, LinearSolve
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape_from_dict
 from . import _extrapolation as extrapolation
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, combined_shape
+from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, \
+    combined_shape, custom_op2
 from phi.math.backend._scipy_backend import SCIPY_BACKEND
 
 
@@ -176,53 +177,23 @@ def concat(values: tuple or list, dim: str) -> Tensor:
     return NativeTensor(concatenated, broadcast_shape.with_sizes(math.staticshape(concatenated)))
 
 
-def spatial_pad(value, pad_width: tuple or list, mode: 'extrapolation.Extrapolation'):
+def spatial_pad(value, pad_width: tuple or list, mode: 'extrapolation.Extrapolation') -> Tensor:
     value = tensor(value)
     return pad(value, {n: w for n, w in zip(value.shape.spatial.names, pad_width)}, mode=mode)
 
 
-def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation'):
+def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation') -> Tensor:
     """
+    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
+
+    This is equivalent to calling `mode.pad(value, widths)`.
 
     :param value: tensor to be padded
     :param widths: name: str -> (lower: int, upper: int)
-    :param mode: extrapolation object
-    :return:
+    :param mode: Extrapolation object
+    :return: padded Tensor
     """
     return mode.pad(value, widths)
-
-    value = tensor(value)
-    if isinstance(value, NativeTensor):
-        native = value.tensor
-        ordered_pad_widths = value.shape.order(pad_width, default=0)
-        ordered_mode = value.shape.order(mode, default=extrapolation.ZERO)
-        result_tensor = math.pad(native, ordered_pad_widths, ordered_mode)
-        new_shape = value.shape.after_pad(widths)
-        return NativeTensor(result_tensor, new_shape)
-    elif isinstance(value, CollapsedTensor):
-        inner = value.tensor
-        inner_widths = {dim: w for dim, w in pad_width.items() if dim in inner.shape}
-        if len(inner_widths) > 0:
-            inner = pad(inner, pad_width, mode=mode)
-        new_sizes = []
-        for size, dim, dim_type in value.shape.dimensions:
-            if dim not in pad_width:
-                new_sizes.append(size)
-            else:
-                delta = sum_(pad_width[dim]) if isinstance(pad_width[dim], (tuple, list)) else 2 * pad_width[dim]
-                new_sizes.append(size + int(delta))
-        new_shape = value.shape.with_sizes(new_sizes)
-        return CollapsedTensor(inner, new_shape)
-    elif isinstance(value, SparseLinearOperation):
-        return pad_operator(value, pad_width, mode)
-    elif isinstance(value, TensorStack):
-        if not value.requires_broadcast:
-            return pad(value._cache())
-        inner_widths = {dim: w for dim, w in pad_width.items() if dim != value.stack_dim_name}
-        tensors = [pad(t, inner_widths, mode) for t in value.tensors]
-        return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type, value.keep_separate)
-    else:
-        raise NotImplementedError(f"{type(value)} not allowed. Only (NativeTensor, CollapsedTensor, SparseLinearOperation, TensorStack) allowed.")
 
 
 def closest_grid_values(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation'):
@@ -342,11 +313,6 @@ def prod(value, axis=None):
         native = math.prod(value.native(), value.shape.index(axis))
         return NativeTensor(native, value.shape.without(axis))
     raise NotImplementedError(f"{type(value)} not supported. Only Tensor allowed.")
-
-
-def divide_no_nan(x, y):
-    x = tensor(x)
-    return x._op2(y, lambda t1, t2: math.divide_no_nan(t1, t2))
 
 
 def where(condition: Tensor or float or int, value_true: Tensor or float or int, value_false: Tensor or float or int):
@@ -498,14 +464,16 @@ def floor(x: Tensor):
     return x._op1(math.floor)
 
 
-def maximum(a, b):
-    a_, b_ = tensor(a, b)
-    return a_._op2(b_, math.maximum)
+def divide_no_nan(x, y):
+    return custom_op2(x, y, divide_no_nan, math.divide_no_nan, lambda y_, x_: divide_no_nan(x_, y_), lambda y_, x_: math.divide_no_nan(x_, y_))
 
 
-def minimum(a, b):
-    a_, b_ = tensor(a, b)
-    return a_._op2(b_, math.minimum)
+def maximum(x, y):
+    return custom_op2(x, y, maximum, math.maximum)
+
+
+def minimum(x, y):
+    return custom_op2(x, y, minimum, math.minimum)
 
 
 def clip(x, minimum, maximum):

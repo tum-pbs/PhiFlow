@@ -13,7 +13,7 @@ class TestMathND(TestCase):
         scalar_grad = math.gradient(scalar, dx=0.1, difference='central', padding='replicate')
         scalar_grad.assert_close(0)
         self.assertEqual('(batch=2, y=4, x=3, 2)', repr(scalar_grad.shape))
-        axis_grad = math.gradient(scalar, dx=0.1, difference='forward', padding='replicate', axes=('x',))
+        axis_grad = math.gradient(scalar, dx=0.1, difference='forward', padding='replicate', dims=('x',))
         self.assertEqual('(batch=2, y=4, x=3, 1)', repr(axis_grad.shape))
 
     def test_vector_gradient(self):

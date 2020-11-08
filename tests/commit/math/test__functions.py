@@ -41,6 +41,7 @@ class TestMathFunctions(TestCase):
 
     def test_maximum(self):
         v = math.ones(x=4, y=3, vector=2)
+        maximum = math.maximum(0, v)
         math.assert_close(math.maximum(0, v), 1)
         math.assert_close(math.maximum(0, -v), 0)
 

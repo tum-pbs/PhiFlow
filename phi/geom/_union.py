@@ -1,6 +1,5 @@
 from phi import math
-from ._geom import Geometry
-from ._empty import NO_GEOMETRY
+from ._geom import Geometry, NO_GEOMETRY
 from ._transform import rotate
 from ._box import bounding_box, Box
 from ..math import combined_shape
@@ -61,7 +60,7 @@ def union(*geometries) -> Geometry:
     Union of the given geometries.
     A point lies inside the union if it lies within at least one of the geometries.
 
-    :param geometries: arbitrary geometries with same spatial dimensions. Arbitrary batch dimensions are allowed.
+    :param geometries: arbitrary geometries with same spatial dims. Arbitrary batch dims are allowed.
     :return: union Geometry
     """
     if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)):
