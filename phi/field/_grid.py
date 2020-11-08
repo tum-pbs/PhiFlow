@@ -191,6 +191,10 @@ class StaggeredGrid(Grid):
         values = _validate_staggered_values(values) if values is not None else None
         return Grid._with(self, values, extrapolation)
 
+    @property
+    def cells(self):
+        return GridCell(self.resolution, self.bounds)
+
     def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if geometry == self.elements and reduce_channels:
             return self.values
@@ -211,12 +215,8 @@ class StaggeredGrid(Grid):
             channels = [component.sample_at(p) for p, component in zip(points, self.unstack())]
         return math.channel_stack(channels, 'vector')
 
-    def at_centers(self):
-        centered = []
-        for grid in self.unstack():
-            centered.append(CenteredGrid.sample(grid, self.resolution, self.bounds, self._extrapolation).values)
-        tensor = math.channel_stack(centered, 'vector')
-        return CenteredGrid(tensor, self.bounds, self._extrapolation)
+    def at_centers(self) -> CenteredGrid:
+        return CenteredGrid(self.volume_sample(self.cells), self.bounds, self.extrapolation)
 
     def unstack(self, dimension='vector'):
         if dimension == 'vector':
