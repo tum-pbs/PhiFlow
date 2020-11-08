@@ -9,28 +9,32 @@
 ![Gui](documentation/figures/WebInterface.png)
 
 Φ<sub>Flow</sub> is a research-oriented, open-source fluid simulation toolkit.
-It is written mostly in Python and can use both NumPy and TensorFlow for execution.
+It is written mostly in Python and can use either NumPy, TensorFlow or PyTorch for execution.
 
-Having all functionality of a fluid simulation running in TensorFlow opens up the possibility of back-propagating gradients through the simulation as well as running the simulation on GPUs.
+Having all functionality of a fluid simulation running in a machine learning framework opens up the possibility of back-propagating gradients through the simulation as well as running the simulation fully on the GPU.
 
 ## Features
 
-* Variety of built-in fully-differentiable simulations, ranging from Burgers and Navier-Stokes to the Schrödinger equation.
-* Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) (experimental) allowing for straightforward neural network training with fully differentiable simulations that [run on the GPU](documentation/GPU_Execution.md).
-* Object-oriented architecture enabling concise and expressive code, designed for ease of use and extensibility.
+* Variety of built-in PDE operations covering, among others, transport and diffusion. This allows for very concise formulation of simulations.
+* High-level linear equation solver with automated sparse matrix creation.
+* Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) allowing for straightforward neural network training with fully differentiable simulations that [run on the GPU](documentation/GPU_Execution.md).
+* Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
 * Flexible, easy-to-use [web interface](documentation/Web_Interface.md) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
+
 
 ## Publications
 
 * [Learning to Control PDEs with Differentiable Physics](https://ge.in.tum.de/publications/2020-iclr-holl/), *Philipp Holl, Vladlen Koltun, Nils Thuerey*, ICLR 2020.
+* [Solver-in-the-Loop: Learning from Differentiable Physics to Interact with Iterative PDE-Solvers](https://arxiv.org/abs/2007.00016), *Kiwon Um, Raymond Fei, Philipp Holl, Robert Brand, Nils Thuerey*, NeurIPS 2020.
+* [Φ<sub>Flow</sub>: A Differentiable PDE Solving Framework for Deep Learning via Physical Simulations](https://montrealrobotics.ca/diffcvgp/), *Nils Thuerey, Kiwon Um, Philipp Holl*, DiffCVGP workshop at NeurIPS 2020.
 
 ## Installation
 
-To install Φ<sub>Flow</sub> with web interface, run:
+Installation with PIP on Python 3.7 or newer:
 
 ``` bash
-$ pip install phiflow[gui]
+$ pip install phiflow
 ```
 
 Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
@@ -51,37 +55,34 @@ The following introductory demos are also helpful to get started with writing yo
 * [simpleplume.py](./demos/simpleplume.py): Runs a fluid simulation and displays it in the browser
 * [optimize_pressure.py](./demos/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
-### Running simulations
+## Module Overview
 
-The [simulation overview](documentation/Simulation_Overview.md) explains how to run predefined simulations using either the [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md) backend. It also introduces the GUI.
+| Module      | Documentation                                        |
+|-------------|------------------------------------------------------|
+| [phi.app](phi/app)     | [Interactive application development, web interface](documentation/Web_Interface.md)   |
+| [phi.physics](phi/physics) | [Build-in physics functions, e.g. for fluids](documentation/Simulation_Overview.md)         |
+| [phi.field](phi/field)   | [Grids, particles, analytic representations](documentation/Fields.md)           |
+| [phi.geom](phi/geom)    | [Differentiable Geometry](documentation/Geometry.md)                              |
+| [phi.math](phi/math)    | [Vectorized operations, tensors with named dimensions](documentation/Math.md) |
 
-To learn how specific simulations are implemented, check out the documentation for [Fluids](documentation/Fluid_Simulation.md) or read about [staggered grids](documentation/Staggered_Grids.md) or [pressure solvers](documentation/Pressure_Solvers.md).
+## Other Documentation
 
-The [Φ<sub>Flow</sub> Web Interface](documentation/Web_Interface.md) guide introduces the high-level classes and explains how to launch and configure the built-in web interface for displaying simulations and interactive network training.
+* [Fluids](documentation/Fluid_Simulation.md)
+* [Staggered grids](documentation/Staggered_Grids.md)
 
-For I/O and data management, see the [data documentation](documentation/Reading_and_Writing_Data.md).
+Deprecated
 
-### Optimization and Learning
-
-For training machine learning models, [this document](documentation/Interactive_Training_Apps.md) gives an introduction into writing a GUI-enabled application.
-
-### Architecture
-
-The [simulation code design documentation](documentation/Simulation_Architecture.md) provides a deeper look into the object-oriented code design of simulations.
-
-All simulations of continuous systems are based on the [Field API](documentation/Fields.md) and underlying all states is the [struct API](documentation/Structs.ipynb).
-
-The [software architecture documentation](documentation/Software_Architecture.md) shows the building blocks of Φ<sub>Flow</sub> and the module dependencies.
+* [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md)
+* [Training machine learning models](documentation/Interactive_Training_Apps.md)
+* [simulation code design](documentation/Simulation_Architecture.md)
+* [struct API](documentation/Structs.ipynb)
+* [Software Architecture](documentation/Software_Architecture.md)
+* [Data](documentation/Reading_and_Writing_Data.md)
+* [Pressure solvers](documentation/Pressure_Solvers.md)
 
 ## Version History
 
 The [Version history](https://github.com/tum-pbs/PhiFlow/releases) lists all major changes since release.
-
-## Known Issues
-
-TensorBoard: Live supervision does not work when running a local app that writes to a remote directory.
-
-Resampling / Advection: NumPy interpolation handles the boundaries slightly differently than TensorFlow.
 
 ## Contributions
 
