@@ -151,7 +151,14 @@ class Shape:
     def is_channel(self):
         return all([t == CHANNEL_DIM for t in self.types])
 
-    def mask(self, names):
+    def mask(self, names: tuple or list or set):
+        """
+        Returns a binary sequence corresponding to the names of this Shape.
+        A value of 1 means that a dimension of this Shape is contained in `names`.
+
+        :param names: collection of dimension
+        :return: binary sequence
+        """
         if isinstance(names, str):
             names = [names]
         mask = [1 if name in names else 0 for name in self.names]

@@ -145,9 +145,7 @@ class Tensor:
 
     def __getattr__(self, name):
         assert name not in ('shape', '_shape')
-        if name in self.shape:
-            return _TensorDim(self, name)
-        raise AttributeError("%s with shape %s has no attribute '%s'" % (self.__class__, self.shape, name))
+        return _TensorDim(self, name)
 
     def __add__(self, other):
         return self._op2(other, lambda x, y: x + y, lambda x, y: native_math.add(x, y))
@@ -300,11 +298,23 @@ class _TensorDim:
         self.tensor = tensor
         self.name = name
 
+    @property
+    def exists(self):
+        return self.name in self.tensor.shape.names
+
     def __str__(self):
         return self.name
 
-    def unstack(self):
-        return self.tensor.unstack(self.name)
+    def unstack(self, size: int or None = None):
+        if size is None:
+            return self.tensor.unstack(self.name)
+        else:
+            if self.exists:
+                unstacked = self.tensor.unstack(self.name)
+                assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
+                return unstacked
+            else:
+                return (self.tensor,) * size
 
     @property
     def index(self):
@@ -336,7 +346,6 @@ class _TensorDim:
             new_names[self.index] = name
         new_shape = Shape(shape.sizes, new_names, new_types)
         return self.tensor._with_shape_replaced(new_shape)
-
 
     @property
     def dim_type(self):
