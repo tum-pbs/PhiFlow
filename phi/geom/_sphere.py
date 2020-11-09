@@ -58,5 +58,5 @@ Very close to the sphere center, the distance takes a constant value.
     def __eq__(self, other):
         return isinstance(other, Sphere) \
                and self._shape == other.shape \
-               and self._radius == other.radius \
+               and math.all(self._radius == other.radius) \
                and math.all(self._center == other.center)
