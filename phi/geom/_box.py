@@ -30,7 +30,7 @@ class AbstractBox(Geometry):
     def center(self):
         raise NotImplementedError()
 
-    def shifted(self, delta):
+    def shifted(self, delta) -> 'AbstractBox':
         raise NotImplementedError()
 
     @property
@@ -248,15 +248,13 @@ def bounding_box(geometry):
     return Box(lower=center - extent, upper=center + extent)
 
 
-class GridCell(Cuboid):
+class GridCell(AbstractBox):
 
     def __init__(self, resolution: math.Shape, bounds: AbstractBox):
         assert resolution.spatial_rank == resolution.rank, 'resolution must be purely spatial but got %s' % (resolution,)
-        local_coords = math.meshgrid(**{dim: np.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in resolution.named_sizes})
-        points = bounds.local_to_global(local_coords)
-        Cuboid.__init__(self, points, half_size=bounds.size / resolution.sizes / 2)
         self._resolution = resolution
         self._bounds = bounds
+        self._shape = resolution & bounds.shape.non_spatial
 
     @property
     def resolution(self):
@@ -267,15 +265,59 @@ class GridCell(Cuboid):
         return self._bounds
 
     @property
+    def center(self):
+        local_coords = math.meshgrid(**{dim: np.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
+        points = self.bounds.local_to_global(local_coords)
+        return points
+
+    @property
     def grid_size(self):
         return self._bounds.size
+
+    @property
+    def size(self):
+        return self.bounds.size / self.resolution.sizes
+
+    @property
+    def lower(self):
+        return self.center - self.half_size
+
+    @property
+    def upper(self):
+        return self.center + self.half_size
+
+    @property
+    def half_size(self):
+        return self.bounds.size / self.resolution.sizes / 2
 
     def list_cells(self, dim_name):
         center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
 
+    def extend_symmetric(self, dims: str or list or tuple, cells: int):
+        axis_mask = np.array(self.resolution.mask(dims)) * cells
+        unit = self.bounds.size / self.resolution * axis_mask
+        delta_size = unit / 2
+        bounds = Box(self.bounds.lower - delta_size, self.bounds.upper + delta_size)
+        ext_res = self.resolution.sizes + axis_mask
+        return GridCell(self.resolution.with_sizes(ext_res), bounds)
+
+    def face_centers(self, staggered_name='staggered'):
+        face_centers = [self.extend_symmetric(dim, 1).center for dim in self.shape.spatial.names]
+        return math.channel_stack(face_centers, staggered_name)
+
+    @property
+    def shape(self):
+        return self._shape
+
+    def shifted(self, delta: Tensor) -> 'GridCell':
+        return GridCell(self.resolution, self.bounds.shifted(delta))
+
+    def rotated(self, angle) -> Geometry:
+        raise NotImplementedError()
+
     def unstack(self, dimension):
-        pass
+        raise NotImplementedError()
 
     def __eq__(self, other):
         return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution
