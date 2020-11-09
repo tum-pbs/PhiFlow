@@ -3,7 +3,7 @@ from functools import reduce
 import numpy as np
 
 from .backend import math as native_math, choose_backend
-from ._shape import EMPTY_SHAPE, Shape, shape_from_dict
+from ._shape import EMPTY_SHAPE, Shape, shape
 from ._tensors import Tensor, NativeTensor, combined_shape, TensorStack
 from . import _functions as math
 

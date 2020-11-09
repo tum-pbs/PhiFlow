@@ -11,13 +11,20 @@ CHANNEL_DIM = 'channel'
 
 
 class Shape:
+    """
+    Shapes enumerate dimensions, each consisting of a name, size and type.
+    """
 
     def __init__(self, sizes: tuple or list, names: tuple or list, types: tuple or list):
         """
+        Construct a Shape from sizes, names and types sequences.
+        All arguments must have same length.
 
-        :param sizes: list of dimension sizes
-        :param names: list of dimension names, either strings (spatial, batch) or integers (channel)
-        :param types: list of types, all values must be one of (CHANNEL_DIM, SPATIAL_DIM, BATCH_DIM)
+        To create a Shape with inferred dimension types, use :func:`shape(**dims)` instead.
+
+        :param sizes: ordered dimension sizes
+        :param names: ordered dimension names, either strings (spatial, batch) or integers (channel)
+        :param types: ordered types, all values should be one of (CHANNEL_DIM, SPATIAL_DIM, BATCH_DIM)
         """
         assert len(sizes) == len(names) == len(types), "sizes=%s, names=%s, types=%s" % (sizes, names, types)
         self.sizes = tuple(sizes)
@@ -590,17 +597,17 @@ def parse_dim_names(obj, count: int) -> tuple:
     raise ValueError(obj)
 
 
-def shape_from_dict(dims: dict) -> Shape:
+def shape(**dims: int) -> Shape:
     """
-    Creates a shape from a dict mapping dimension names to their respective sizes.
+    Creates a Shape from the dimension names and their respective sizes.
 
     Dimension types are inferred from the names according to the following rules:
 
     * single letter -> spatial dimension
     * starts with 'vector' -> channel dimension
-    * else batch dimension
+    * else -> batch dimension
 
-    :param dims: dict mapping dimension names to their respective sizes
+    :param dims: names -> size
     :return: Shape
     """
     types = []

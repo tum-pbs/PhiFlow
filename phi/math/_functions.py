@@ -7,7 +7,7 @@ from functools import partial
 import numpy as np
 
 from .backend import math, Solve, LinearSolve
-from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape_from_dict
+from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_
 from . import _extrapolation as extrapolation
 from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, \
     combined_shape, custom_op2
@@ -78,7 +78,7 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     :param dimensions: additional dimensions, types are determined from names: 'vector' -> channel, 'x','y','z' -> spatial, else batch
     :return:
     """
-    shape &= shape_from_dict(dimensions)
+    shape &= shape_(**dimensions)
     native_zero = math.zeros((), dtype=dtype)
     collapsed = NativeTensor(native_zero, EMPTY_SHAPE)
     return CollapsedTensor(collapsed, shape)
@@ -93,21 +93,21 @@ def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     :param spatial:
     :return:
     """
-    shape &= shape_from_dict(dimensions)
+    shape &= shape_(**dimensions)
     native_one = math.ones((), dtype=dtype)
     collapsed = NativeTensor(native_one, EMPTY_SHAPE)
     return CollapsedTensor(collapsed, shape)
 
 
 def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
-    shape &= shape_from_dict(dimensions)
+    shape &= shape_(**dimensions)
     native = math.random_normal(shape.sizes)
     native = native if dtype is None else native.astype(dtype)
     return NativeTensor(native, shape)
 
 
 def random_uniform(shape=EMPTY_SHAPE, dtype=None, **dimensions):
-    shape &= shape_from_dict(dimensions)
+    shape &= shape_(**dimensions)
     native = math.random_uniform(shape.sizes)
     native = native if dtype is None else native.astype(dtype)
     return NativeTensor(native, shape)
@@ -500,19 +500,19 @@ def conv(tensor, kernel, padding='same'):
     raise NotImplementedError()
 
 
-def shape(tensor):
-    return tensor.shape.sizes if isinstance(tensor, Tensor) else math.shape(tensor)
+def dim_sizes(value):
+    return value.shape.sizes if isinstance(value, Tensor) else math.shape(value)
 
 
-def ndims(tensor):
-    return tensor.rank if isinstance(tensor, Tensor) else math.ndims(tensor)
+def ndims(value):
+    return value.rank if isinstance(value, Tensor) else math.ndims(value)
 
 
-def staticshape(tensor):
-    if isinstance(tensor, Tensor):
-        return tensor.shape.sizes
+def dim_sizes_static(value):
+    if isinstance(value, Tensor):
+        return value.shape.sizes
     else:
-        return math.staticshape(tensor)
+        return math.staticshape(value)
 
 
 def to_float(x, float64=False):
