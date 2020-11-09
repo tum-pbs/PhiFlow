@@ -25,6 +25,7 @@ from ._field_math import (
     solve,
     divergence_free,
     diffuse,
+    where,
 )
 from ._field_io import write, read
 

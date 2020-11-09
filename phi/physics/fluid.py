@@ -4,7 +4,7 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 import warnings
 
 from phi import math, struct, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient, where, HardGeometryMask
 from phi.geom import union
 from . import _advect
 from ._boundaries import Domain
@@ -29,16 +29,16 @@ def make_incompressible(velocity: Grid,
     :param solve_params: parameters for the pressure solve
     :return: divergence-free velocity, pressure, iterations, divergence of input velocity
     """
-    active_mask = 1 - GeometryMask(union([obstacle.geometry for obstacle in obstacles])).sample_at(domain.cells.center)
-    active_mask = domain.grid(active_mask, extrapolation=domain.boundaries.active_extrapolation)
-    accessible_mask = domain.grid(active_mask, extrapolation=domain.boundaries.accessible_extrapolation)
-    hard_bcs = field.stagger(accessible_mask, math.minimum, accessible_mask.extrapolation)
+    active = 1 - HardGeometryMask(union([obstacle.geometry for obstacle in obstacles]))
+    active = domain.grid(active, extrapolation=domain.boundaries.active_extrapolation)
+    accessible = domain.grid(active, extrapolation=domain.boundaries.accessible_extrapolation)
+    hard_bcs = field.stagger(accessible, math.minimum, math.extrapolation.ZERO)
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles)
     div = divergence(velocity)
     if velocity.extrapolation == math.extrapolation.BOUNDARY:
         div -= field.mean(div)
     # Solve pressure
-    laplace = lambda pressure: divergence(gradient(pressure, type=type(velocity)) * hard_bcs) * active_mask + (1 - active_mask) * pressure
+    laplace = lambda p: where(active, divergence(gradient(p, type=type(velocity)) * hard_bcs), p)
     pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
     converged, pressure, iterations = field.solve(laplace, div, pressure_guess, solve_params)
     if not math.all(converged):

@@ -3,8 +3,8 @@ from functools import wraps
 
 import numpy as np
 from phi import math
-from phi.geom import Box
-from . import StaggeredGrid, ConstantField
+from phi.geom import Box, Geometry
+from . import StaggeredGrid, ConstantField, HardGeometryMask
 from ._field import Field, SampledField
 from ._grid import CenteredGrid, Grid
 from ..math import tensor
@@ -194,3 +194,22 @@ def staggered_curl_2d(grid, pad_width=(1, 2)):
     scalar_potential = grid.padded([pad_width, pad_width]).values
     vector_field = math.conv(scalar_potential, kernel, padding='valid')
     return StaggeredGrid(vector_field, bounds=grid.box)
+
+
+def where(mask: Field or Geometry, field_true: Field, field_false: Field):
+    if isinstance(mask, Geometry):
+        mask = HardGeometryMask(mask)
+    elif isinstance(mask, SampledField):
+        field_true = field_true.at(mask)
+        field_false = field_false.at(mask)
+    elif isinstance(field_true, SampledField):
+        mask = mask.at(field_true)
+        field_false = field_false.at(field_true)
+    elif isinstance(field_false, SampledField):
+        mask = mask.at(field_true)
+        field_true = field_true.at(mask)
+    else:
+        raise NotImplementedError('At least one argument must be a SampledField')
+    values = mask.values * field_true.values + (1 - mask.values) * field_false.values
+    # values = math.where(mask.values, field_true.values, field_false.values)
+    return field_true._with(values)
