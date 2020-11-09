@@ -54,3 +54,9 @@ Very close to the sphere center, the distance takes a constant value.
 
     def rotated(self, angle):
         return self
+
+    def __eq__(self, other):
+        return isinstance(other, Sphere) \
+               and self._shape == other.shape \
+               and self._radius == other.radius \
+               and self._center == other.center
