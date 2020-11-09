@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import tensor, extrapolation, Tensor
+from phi.math import tensor, extrapolation, Tensor, PI
 
 import numpy as np
 import os
@@ -137,12 +137,17 @@ class TestMathNDNumpy(AbstractTestMathND):
 
     def test_fourier_poisson_2d_periodic(self):
         test_params = {
-            'grid_sizes': [(16, 16), (32, 32)],
+            'size': [16, 32, 40],
             'L': [0.5, 1],
-            'padding': [extrapolation.PERIODIC]
         }
         test_cases = [dict(zip(test_params, v)) for v in product(*test_params.values())]
         for params in test_cases:
+            vec = math.meshgrid(x=params['size'], y=params['size'])
+            sine_field = math.prod(math.sin(2 * PI * params['L'] * vec / 40 + 1), 'vector')
+            sin_lap_ref = - 2 * (2 * PI / params['size']) ** 2 * params['L'] ** 2 * sine_field  # leading 2 from from x-y cross terms
+            sin_lap = math.fourier_laplace(sine_field, 1)
+            math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
+
             N = params['grid_sizes'][0]
             L = params['L']
             padding = params['padding']
@@ -171,26 +176,16 @@ class TestMathNDNumpy(AbstractTestMathND):
     def test_fourier_laplace_2d_periodic_convergence(self):
         """test for convergence of the laplace operator"""
         test_params = {
-            'grid_sizes': [(16, 16), (32, 32), (64, 64), (128, 128), (256, 256)],
-            'L': [1],  # FFT requires L>1
-            'padding': [extrapolation.PERIODIC]  # Tests against sine requires padding
+            'size': [16, 32, 40],
+            'L': [1],
         }
         test_cases = [dict(zip(test_params, v)) for v in product(*test_params.values())]
-        results = []
         for params in test_cases:
-            N = params['grid_sizes'][0]
-            L = params['L']
-            padding = params['padding']
-            dx = L / N
-            sine_field = get_2d_sine((N, N), L=L)
-            ref = 8 * np.pi**2 * sine_field
-            input_field = -sine_field
-            input_tensor = field.CenteredGrid(values=math.tensor(input_field, names=['x', 'y']), bounds=geom.Box([0,0], [N,N]), extrapolation=padding)
-            val = math.fourier_laplace(input_tensor.values, dx)
-            abs_diff = math.abs(val - ref)
-            results.append({'abs_tolerance': math.max(abs_diff), 'rel_tolerance': math.max(abs_diff / ref), **params})
-        abs_differences = [d['abs_tolerance'] for d in results]
-        assert all(np.diff(np.array(abs_differences)) < 0), f"fourier_poisson not converging: {abs_differences}"
+            vec = math.meshgrid(x=params['size'], y=params['size'])
+            sine_field = math.prod(math.sin(2 * PI * params['L'] * vec / params['size'] + 1), 'vector')
+            sin_lap_ref = - 2 * (2 * PI / params['size']) ** 2 * sine_field  # leading 2 from from x-y cross terms
+            sin_lap = math.fourier_laplace(sine_field, 1)
+            math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
 
     def test_fourier_laplace_2d_periodic(self):
         test_params = {

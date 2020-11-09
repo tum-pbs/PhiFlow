@@ -18,7 +18,7 @@ import numpy
 import numpy as np
 
 from phi import math, struct
-from phi.math import extrapolation, PI, PI2
+from phi.math import extrapolation, PI
 
 from phi import geom
 from phi.geom import Geometry, Sphere, Box, union

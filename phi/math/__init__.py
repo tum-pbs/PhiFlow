@@ -77,4 +77,3 @@ from ._nd import (
 choose_backend = DYNAMIC_BACKEND.choose_backend
 
 pi = PI = 3.14159265358979323846
-pi2 = PI2 = PI * 2
