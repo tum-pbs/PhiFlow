@@ -169,22 +169,20 @@ class StaggeredGrid(Grid):
                 components = value.unstack('vector') if 'vector' in value.shape else [value] * bounds.rank
                 tensors = []
                 for dim, comp in zip(resolution.spatial.names, components):
-                    comp_res, comp_bounds = extend_symmetric(resolution, bounds, dim)
-                    comp_grid = CenteredGrid.sample(comp, comp_res, comp_bounds, extrapolation)
+                    comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
+                    comp_grid = CenteredGrid.sample(comp, comp_cells.resolution, comp_cells.bounds, extrapolation)
                     tensors.append(comp_grid.values)
                 return StaggeredGrid(math.channel_stack(tensors, 'vector'), bounds, extrapolation)
-        elif callable(value):
-            raise NotImplementedError(f"Callable values not allowed. type(values): {type(values)}")
-            x = CenteredGrid.getpoints(domain.bounds, domain.resolution).copied_with(extrapolation=Material.extrapolation_mode(domain.boundaries), name=name)
-            value = value(x)
-            return value
-        else:  # value is constant
+        else:  # value is function or constant
+            if callable(value):
+                points = GridCell(resolution, bounds).face_centers()
+                value = value(points)
             value = tensor(value)
-            components = value.unstack('vector') if 'vector' in value.shape else [value] * resolution.spatial_rank
+            components = value.vector.unstack(resolution.spatial_rank)
             tensors = []
             for dim, component in zip(resolution.spatial.names, components):
-                comp_res, comp_bounds = extend_symmetric(resolution, bounds, dim)
-                tensors.append(math.zeros(comp_res) + component)
+                comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
+                tensors.append(math.zeros(comp_cells.resolution) + component)
             return StaggeredGrid(math.channel_stack(tensors, 'vector'), bounds, extrapolation)
 
     def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
@@ -222,7 +220,8 @@ class StaggeredGrid(Grid):
         if dimension == 'vector':
             result = []
             for dim, data in zip(self.resolution.spatial.names, self.values.vector.unstack()):
-                result.append(CenteredGrid(data, extend_symmetric(self.resolution, self._bounds, dim)[1], self.extrapolation))
+                comp_cells = GridCell(self.resolution, self._bounds).extend_symmetric(dim, 1)
+                result.append(CenteredGrid(data, comp_cells.bounds, self.extrapolation))
             return tuple(result)
         else:
             raise NotImplementedError(f"dimension={dimension}. Only 'vector' allowed.")
@@ -283,15 +282,6 @@ def stack_staggered_components(data: Tensor) -> Tensor:
     for dim, component in zip(data.shape.spatial.names, data.unstack('vector')):
         padded.append(math.pad(component, {d: (0, 1) for d in data.shape.spatial.without(dim).names}, mode=math.extrapolation.ZERO))
     return math.channel_stack(padded, 'vector')
-
-
-def extend_symmetric(resolution: Shape, bounds: AbstractBox, axis, cells=1):
-    axis_mask = np.array(resolution.mask(axis)) * cells
-    unit = bounds.size / resolution * axis_mask
-    delta_size = unit / 2
-    bounds = Box(bounds.lower - delta_size, bounds.upper + delta_size)
-    ext_res = resolution.sizes + axis_mask
-    return resolution.with_sizes(ext_res), bounds
 
 
 def _validate_staggered_values(values: TensorStack):
