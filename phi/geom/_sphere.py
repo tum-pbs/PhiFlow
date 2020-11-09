@@ -59,4 +59,4 @@ Very close to the sphere center, the distance takes a constant value.
         return isinstance(other, Sphere) \
                and self._shape == other.shape \
                and self._radius == other.radius \
-               and self._center == other.center
+               and math.all(self._center == other.center)
