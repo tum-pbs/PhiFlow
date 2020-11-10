@@ -19,7 +19,7 @@ class Geometry:
     """
 
     @property
-    def center(self):
+    def center(self) -> Tensor:
         """
         :return: center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
         :rtype: Tensor
@@ -27,7 +27,7 @@ class Geometry:
         raise NotImplementedError()
 
     @property
-    def shape(self):
+    def shape(self) -> Shape:
         raise NotImplementedError()
 
     def unstack(self, dimension):
