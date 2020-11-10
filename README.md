@@ -74,8 +74,8 @@ Deprecated
 
 * [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md)
 * [Training machine learning models](documentation/Interactive_Training_Apps.md)
-* [simulation code design](documentation/Simulation_Architecture.md)
-* [struct API](documentation/Structs.ipynb)
+* [Simulation code design](documentation/Simulation_Architecture.md)
+* [Struct API](documentation/Structs.ipynb)
 * [Software Architecture](documentation/Software_Architecture.md)
 * [Data](documentation/Reading_and_Writing_Data.md)
 * [Pressure solvers](documentation/Pressure_Solvers.md)

@@ -522,9 +522,10 @@ class TensorStack(Tensor):
     """
 
     def __init__(self, tensors, dim_name, dim_type, keep_separate=False):
-        for tensor in tensors:
-            assert isinstance(tensor, Tensor)
-            assert tensor.dtype == tensors[0].dtype
+        for t in tensors:
+            assert isinstance(t, Tensor)
+            assert t.dtype == tensors[0].dtype
+            assert dim_name not in t.shape, f"Cannot stack along '{dim_name}' because the dimension already exists."
             # assert tensor.shape == tensors[0].shape or keep_separate
         self.tensors = tuple(tensors)
         self.stack_dim_name = dim_name

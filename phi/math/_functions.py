@@ -72,11 +72,14 @@ def transpose(tensor, axes):
 
 def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     """
+    Define a tensor with specified shape with value 0 / False everywhere.
+
+    This method may not immediately allocate the memory to store the values.
 
     :param shape: base tensor shape
     :param dtype: data type
-    :param dimensions: additional dimensions, types are determined from names: 'vector' -> channel, 'x','y','z' -> spatial, else batch
-    :return:
+    :param dimensions: additional dimensions, types are determined from names
+    :return: tensor of specified shape
     """
     shape &= shape_(**dimensions)
     native_zero = math.zeros((), dtype=dtype)
@@ -86,12 +89,14 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
 
 def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     """
+    Define a tensor with specified shape with value 1 / True everywhere.
 
-    :param channels: int or (int,)
-    :param batch: int or {name: size}
-    :param dtype:
-    :param spatial:
-    :return:
+    This method may not immediately allocate the memory to store the values.
+
+    :param shape: base tensor shape
+    :param dtype: data type
+    :param dimensions: additional dimensions, types are determined from names
+    :return: tensor of specified shape
     """
     shape &= shape_(**dimensions)
     native_one = math.ones((), dtype=dtype)
