@@ -2,9 +2,9 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
-from phi.viz.dash import viewsettings, model_controls
-from phi.viz.dash.dash_plotting import dash_graph_plot, EMPTY_FIGURE
-from phi.viz.dash.player_controls import STEP_COMPLETE, REFRESH_INTERVAL
+from . import viewsettings, model_controls
+from .dash_plotting import dash_graph_plot, EMPTY_FIGURE
+from .player_controls import STEP_COMPLETE, REFRESH_INTERVAL
 import webglviewer
 from .viewsettings import parse_view_settings
 from .webgl_util import default_sky, EMPTY_GRID, webgl_prepare_data

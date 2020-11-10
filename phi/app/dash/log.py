@@ -2,7 +2,7 @@
 import dash_core_components as dcc
 import dash_html_components as html
 
-from phi.viz.dash.player_controls import STEP_BUTTON, STEP_COMPLETE
+from .player_controls import STEP_COMPLETE
 from .dash_app import DashApp
 from dash.dependencies import Input, Output
 

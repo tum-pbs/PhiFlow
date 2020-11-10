@@ -1,8 +1,6 @@
 # pylint: disable-msg = unused-import
 """
-Use this module as your main PhiFlow import.
-
-from phi.flow import *
+Main PhiFlow import: `from phi.flow import *`
 
 Contains:
 
@@ -29,8 +27,5 @@ from phi.field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeome
 from phi.physics import _boundaries as boundaries, fluid, _advect as advect
 from phi.physics._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, NO_SLIP, NO_STICK, STICKY, SLIPPERY, Obstacle
 
-from phi.data.fluidformat import write_sim_frame
-
-from .app import App, EditableInt, EditableBool, EditableFloat, EditableString
-from phi.viz import display
-from phi.viz.display import show
+from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, display
+from phi.app.display import show

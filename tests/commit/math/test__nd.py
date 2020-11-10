@@ -43,7 +43,7 @@ class AbstractTestMathND(TestCase):
         cases = dict(difference=('central', 'forward', 'backward'),
                      padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
-                     axes=(None, 0, 1))
+                     dims=(None, 0, 1))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             file = os.path.join(REF_DATA, 'vector_grad_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()))
             grad = math.gradient(meshgrid, **case_dict)
@@ -65,7 +65,7 @@ class AbstractTestMathND(TestCase):
         """
         cases = dict(padding=(extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
-                     axes=(None, 1, (0, 1)))
+                     dims=(None, 1, (0, 1)))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             file = os.path.join(REF_DATA, 'laplace_%s.npy' % '_'.join(f'{key}={value}' for key, value in case_dict.items()))
             laplace = math.laplace(meshgrid, **case_dict)

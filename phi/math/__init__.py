@@ -1,6 +1,8 @@
 """
-The phi.math package is the main API for tensor / array operations in PhiFlow.
-It provides a common inferface for mathematical operations over tensors which currently supports NumPy, TensorFlow and PyTorch.
+Vectorized operations, tensors with named dimensions.
+
+This package provides a common interface for tensor operations.
+Is internally uses NumPy, TensorFlow or PyTorch.
 
 Provides
 

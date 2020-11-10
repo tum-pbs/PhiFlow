@@ -2,7 +2,7 @@ import json
 import os
 import threading
 
-from . import tf
+import tensorflow as tf
 from tensorflow.python.client import timeline
 
 

@@ -6,7 +6,7 @@ import plotly.figure_factory as plotly_figures
 
 from phi.math import GLOBAL_AXIS_ORDER as physics_config
 from phi.field import CenteredGrid, StaggeredGrid
-from phi.viz.plot import FRONT, RIGHT, TOP
+from ..plot import FRONT, RIGHT, TOP
 from .colormaps import COLORMAPS
 from ... import math
 from ...geom import Box

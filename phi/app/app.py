@@ -13,10 +13,9 @@ from os.path import isfile
 
 import numpy as np
 from phi import struct, math
-from phi.data.fluidformat import Scene, write_sim_frame
 from phi.field import CenteredGrid, Field, StaggeredGrid
 from phi.physics._world import StateProxy, world
-from phi.viz.plot import PlotlyFigureBuilder
+from .fluidformat import Scene
 
 from .control import Action, Control
 from .value import (EditableBool, EditableFloat, EditableInt, EditableString, EditableValue)
@@ -360,10 +359,10 @@ class App(object):
     def scene_summary(self):
         return self.summary
 
-    def show(self, *args, **kwargs):
+    def show(self, **config):
         warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
-        from phi.viz.display import show
-        show(self, *args, **kwargs)
+        from .display import show
+        show(self, **config)
 
     @property
     def status(self):

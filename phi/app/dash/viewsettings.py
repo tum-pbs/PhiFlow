@@ -6,7 +6,7 @@ from dash.dependencies import Input, Output
 
 from phi.app import App
 from phi.field import Field, CenteredGrid, StaggeredGrid
-from phi.viz.plot import FRONT, RIGHT, TOP
+from ..plot import FRONT, RIGHT, TOP
 
 
 VIEWED_BATCH = Input('batch-slider', 'value')

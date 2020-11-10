@@ -3,8 +3,8 @@ import dash_html_components as html
 from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 
-from phi.viz.dash.dash_app import DashApp
-from phi.viz.dash.viewsettings import refresh_rate_ms, REFRESH_RATE
+from .dash_app import DashApp
+from .viewsettings import refresh_rate_ms, REFRESH_RATE
 
 
 def build_status_bar(dashapp):

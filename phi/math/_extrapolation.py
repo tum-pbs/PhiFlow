@@ -253,7 +253,7 @@ class _CopyExtrapolation(Extrapolation):
             native = value.tensor
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
             result_tensor = native_math.pad(native, ordered_pad_widths, repr(self))
-            new_shape = value.shape.with_sizes(math.staticshape(result_tensor))
+            new_shape = value.shape.with_sizes(result_tensor.shape)
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
             inner = value.tensor

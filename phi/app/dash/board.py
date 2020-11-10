@@ -6,8 +6,8 @@ import dash_html_components as html
 from dash.dependencies import Output, Input
 from dash.exceptions import PreventUpdate
 
-from phi.viz.dash.dash_app import DashApp
-from phi.viz.dash.player_controls import STEP_COUNT, parse_step_count
+from .dash_app import DashApp
+from .player_controls import STEP_COUNT, parse_step_count
 
 
 BENCHMARK_BUTTON = Input('benchmark-button', 'n_clicks')

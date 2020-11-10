@@ -6,8 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as torchf
 
-from phi.backend.backend import Backend
-from phi.backend.backend_helper import split_multi_mode_pad, PadSettings, general_grid_sample_nd, combined_dim, symmetric_pad
+from phi.math.backend import Backend
 from phi.math.backend._scipy_backend import SciPyBackend
 
 

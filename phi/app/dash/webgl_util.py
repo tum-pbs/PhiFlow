@@ -8,7 +8,7 @@ import inspect
 import webglviewer
 from phi.math import GLOBAL_AXIS_ORDER as physics_config
 from phi.field import CenteredGrid, StaggeredGrid
-from phi.viz.dash.dash_plotting import reduce_component
+from .dash_plotting import reduce_component
 
 
 def load_sky(file, image_format=None, flatten=True, resolution=None, scale=1.0):
