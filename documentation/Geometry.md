@@ -74,3 +74,7 @@ However, some sampling operations like `CenteredGrid.sample()` also accept `Geom
 The classes `SoftGeometryMask` and `HardGeometryMask` represent fields that take the value `1` inside the geometry and `0` outside.
 The hard version always returns 0 or 1 while the soft version returns continuous values when volume-sampled.
 
+
+## Class Diagram
+
+![alt text](./figures/classes_phi.geom.svg)
