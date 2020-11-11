@@ -1,6 +1,6 @@
 # Fields
 
-The `phi.field` module contains various data structures 
+The `phi.field` module ([source](../phi/field/)) contains various data structures 
 - such as grids or point clouds - 
 and provides a common interface to access them.
 This allows the physics to be somewhat independent of the underlying data structure.
@@ -8,7 +8,7 @@ This allows the physics to be somewhat independent of the underlying data struct
 
 ## Abstract classes
 
-The `Field` class is the base class that all fields extend.
+The `Field` class ([source](../phi/field/_field.py)) is the base class that all fields extend.
 It represents a physical quantity `F(x)` that defines a value at every point in space.
 The values of `F(x)` may have any number of dimensions, described by the channel dimensions of the Field.
 Scalar fields have no channel dimensions, vector fields have one, etc.
@@ -28,7 +28,7 @@ Important methods
 Fields implement many mathematical operators, e.g. `+, -, * , /, **`.
 The shift operator `>>` calls the `at()` method on the left field.
 
-The class `SampledField` extends `Field` to form the basis for all fields that explicitly store their data.
+The class `SampledField` ([source](../phi/field/_field.py)) extends `Field` to form the basis for all fields that explicitly store their data.
 The most important sampled fields are `CenteredGrid`, `StaggeredGrid` and `PointCloud`.
 
 Important properties:
@@ -45,23 +45,31 @@ They model `F(x)` as a function instead of from data.
 ## Build-in Fields
 
 `ConstantField` models `F(x) = const.`
-[source](../phi/field/_constant.py)
+([source](../phi/field/_constant.py))
 
-`CenteredGrid`[source](../phi/field/_grid.py) stores values in a regular grid structure.
+`CenteredGrid` ([source](../phi/field/_grid.py)) stores values in a regular grid structure.
 The grid values are stored in a `Tensor` whose spatial dimensions match the resolution of the grid.
 The `bounds` property stores the physical size of the grid from which the cell size is derived.
 `CenteredGrid.elements` is a `GridCell` matching the grid resolution.
 
-`StaggeredGrid`[source](../phi/field/_grid.py) stores vector fields in staggered form.
+`StaggeredGrid` ([source](../phi/field/_grid.py))
+stores vector fields in staggered form.
 The velocity components are not sampled at the cell centers but at the cell faces.
 This results in the `values` having different shapes for the different vector components.
 [More on staggered grids](./Staggered_Grids.md).
 
-`PointCloud` [source](../phi/field/_point_cloud.py) is a set of points or finite elements, each associated with a value.
+`PointCloud` ([source](../phi/field/_point_cloud.py))
+is a set of points or finite elements, each associated with a value.
 
-`GeometryMask` [source](../phi/field/_mask.py): 1 inside the geometry, 0 outiside.
+`GeometryMask` ([source](../phi/field/_mask.py)):
+1 inside the geometry, 0 outside.
 
-`AngularVelocity` [source](../phi/field/_angular_velocity.py) models a vortex-like velocity field around one or multiple points.
+`Noise` ([source](../phi/field/_noise.py))
+samples random fluctuations of certain sizes.
+Currently, it only supports resampling to grids.
+
+`AngularVelocity` ([source](../phi/field/_angular_velocity.py))
+models a vortex-like velocity field around one or multiple points.
 This is useful for sampling the velocity of rotating objects.
 
 
