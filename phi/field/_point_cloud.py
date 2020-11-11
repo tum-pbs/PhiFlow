@@ -31,7 +31,7 @@ class PointCloud(SampledField):
         self._add_overlapping = add_overlapping
         assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
 
-    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if not reduce_channels:
             if geometry == self.elements:
                 return self.values
@@ -45,7 +45,7 @@ class PointCloud(SampledField):
         else:
             assert len(reduce_channels) == 1
             components = self.unstack('vector') if 'vector' in self.shape else (self,) * geometry.shape.get_size(reduce_channels[0])
-            sampled = [c.volume_sample(p) for c, p in zip(components, geometry.unstack(reduce_channels[0]))]
+            sampled = [c.sample_in(p) for c, p in zip(components, geometry.unstack(reduce_channels[0]))]
             return math.channel_stack(sampled, 'vector')
 
     def sample_at(self, points, reduce_channels=()) -> Tensor:

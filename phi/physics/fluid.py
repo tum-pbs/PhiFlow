@@ -18,9 +18,9 @@ def make_incompressible(velocity: Grid,
                         solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
                         pressure_guess: CenteredGrid = None):
     """
-    Projects the given velocity field by solving for and subtracting the pressure.
+    Projects the given velocity field by solving for the pressure and subtracting its gradient.
 
-    This method is similar to `field.divergence_free()` but differs in how the boundary conditions are specified.
+    This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     :param velocity: vector field sampled on a grid
     :param domain: used to specify boundary conditions

@@ -12,7 +12,7 @@ cloud = advect.advect(cloud, cloud, -5)  # Euler
 
 # Grid sampling
 scattered_grid = cloud.at(domain.grid())
-scattered_data = cloud.volume_sample(domain.cells)
+scattered_data = cloud.sample_in(domain.cells)
 scattered_sgrid = cloud.at(domain.sgrid())
 
 app = App()

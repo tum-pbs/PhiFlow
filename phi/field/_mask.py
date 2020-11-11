@@ -27,5 +27,5 @@ class SoftGeometryMask(HardGeometryMask):
     When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.
     """
 
-    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         return self.geometry.approximate_fraction_inside(geometry)

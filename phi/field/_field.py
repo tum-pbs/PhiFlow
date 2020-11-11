@@ -29,7 +29,7 @@ class Field:
         """
         return self.shape.spatial.rank
 
-    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         """
         Approximates the mean field value inside the volume of the geometry (batch).
 
@@ -74,7 +74,7 @@ class Field:
         :return: Field object of same type as `representation`
         """
         elements = representation.elements
-        resampled = self.volume_sample(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
+        resampled = self.sample_in(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -208,7 +208,7 @@ class SampledField(Field):
 
     def _op2(self, other, operator) -> Field:
         if isinstance(other, Field):
-            other_values = other.volume_sample(self._elements)
+            other_values = other.sample_in(self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self._with(values, extrapolation_)

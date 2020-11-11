@@ -138,7 +138,7 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
 
 
-def divergence_free(vector_field: Grid, relative_tolerance: float = 1e-3, absolute_tolerance: float = 0.0, max_iterations: int = 1000, bake='sparse'):
+def divergence_free(vector_field: Grid, solve_params: math.LinearSolve = math.LinearSolve(None, 1e-5)):
     """
     Returns the divergence-free part of the given vector field.
     The boundary conditions are taken from `vector_field`.
@@ -146,17 +146,14 @@ def divergence_free(vector_field: Grid, relative_tolerance: float = 1e-3, absolu
     This function solves for a scalar potential with an iterative solver.
 
     :param vector_field: vector grid
-    :param relative_tolerance: for the potential solver
-    :param absolute_tolerance: for the potential solver
-    :param max_iterations: for the potential solver
-    :param bake: for the potential solver
+    :param solve_params:
     :return: divergence-free vector field, scalar potential, number of iterations performed, divergence
     """
     div = divergence(vector_field)
     div -= mean(div)
     pressure_extrapolation = vector_field.extrapolation  # periodic -> periodic, closed -> boundary, open -> zero
     pressure_guess = CenteredGrid.sample(0, vector_field.resolution, vector_field.box, extrapolation=pressure_extrapolation)
-    converged, potential, iterations = solve(laplace, div, pressure_guess, relative_tolerance, absolute_tolerance, max_iterations, bake=bake)
+    converged, potential, iterations = solve(laplace, div, pressure_guess, solve_params)
     gradp = gradient(potential, type=StaggeredGrid)
     vector_field -= gradp
     return vector_field, potential, iterations, div

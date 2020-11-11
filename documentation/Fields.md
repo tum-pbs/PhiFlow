@@ -1,51 +1,80 @@
 # Fields
 
-The `phi.physics.field` module provides abstract access to physical quantities in a way that does not depend on the specific values structure used.
+The `phi.field` module contains various data structures 
+- such as grids or point clouds - 
+and provides a common interface to access them.
+This allows the physics to be somewhat independent of the underlying data structure.
 
-The main class, `Field` represents a physical quantity (scalar or vector) that takes a value at any point in space or in a region of space.
 
-All fields are subclasses of `Struct` (see the [documentation](Structs.ipynb)) and have some entries in common:
+## Abstract classes
 
-| Entry             | Type                 | Description                                                                                                                                                                                                                                                                 |
-|-------------------|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `component_count` | -                    | Vector length of the Field's values (1 for scalar fields)                                                                                                                                                                                                                   |
-| `rank`            | -                    | Dimensions of the physical space (1=1D, 2=2D, 3=3D)                                                                                                                                                                                                                         |
-| `values`            | Attribute | Either the actual values as a tensor or a reference to the underlying values structure. In any case, this value supports all element-wise mathematical operators and works with all `phi.math` functions. Some subclasses of `Field` may redefine `values` as a property instead. |
-| `name`            | Property             | string                                                                                                                                                                                                                                                                      |
-| `flags`           | Property             | Tuple of [`Flag`](../phi/field/_flag.py) objects. Flags indicate certain properties about a field such as divergence-freeness and are propagated automatically in mathematical operations.                                                                                   |
-| `points`          | -                    | Vector Field holding the sample points. If the Field is not sampled, `points=None`. If the Field is sampled but the sample points vary among the different components of the Field, accessing `Field.points` raises a `StaggeredSamplePoints` exception.                    |
+The `Field` class is the base class that all fields extend.
+It represents a physical quantity `F(x)` that defines a value at every point in space.
+The values of `F(x)` may have any number of dimensions, described by the channel dimensions of the Field.
+Scalar fields have no channel dimensions, vector fields have one, etc.
+
+Important properties:
+
+* `.shape: Shape` contains batch and spatial dimensions from 
+* `.rank: int = len(shape.spatial)` is the dimensionality of physical space
+
+Important methods
+
+* `sample_at(Tensor) -> Tensor` computes the field values at the given points
+* `sample_in(Geometry) -> Tensor` computes the field values in the given volumes
+* `at(SampledField) -> SampledField` returns a field with the same sample points as the specified representation.
+* `unstack(dim) -> tuple[Field]` slices the field along a dimension
+
+Fields implement many mathematical operators, e.g. `+, -, * , /, **`.
+The shift operator `>>` calls the `at()` method on the left field.
+
+The class `SampledField` extends `Field` to form the basis for all fields that explicitly store their data.
+The most important sampled fields are `CenteredGrid`, `StaggeredGrid` and `PointCloud`.
+
+Important properties:
+
+* `.values: Tensor` data that is used in sampling
+* `.elements: Geometry` sample points as finite volumes
+* `.points: Tensor` center points of `elements`
+* `.extrapolation: Extrapolation` determines how values outside the region covered by `values` are determined.
+
+Non-sampled fields inherit from `AnalyticField`.
+They model `F(x)` as a function instead of from data.
 
 
 ## Build-in Fields
 
-[ConstantField](../phi/field/_constant.py): has the same value everywhere.
-Has no sample points.
+`ConstantField` models `F(x) = const.`
+[source](../phi/field/_constant.py)
 
-[GeometryMask](../phi/field/_mask.py): 1 inside the geometry, 0 outiside.
-Has no sample points.
+`CenteredGrid`[source](../phi/field/_grid.py) stores values in a regular grid structure.
+The grid values are stored in a `Tensor` whose spatial dimensions match the resolution of the grid.
+The `bounds` property stores the physical size of the grid from which the cell size is derived.
+`CenteredGrid.elements` is a `GridCell` matching the grid resolution.
 
-[CenteredGrid](../phi/field/_grid.py): has regular sample points.
+`StaggeredGrid`[source](../phi/field/_grid.py) stores vector fields in staggered form.
+The velocity components are not sampled at the cell centers but at the cell faces.
+This results in the `values` having different shapes for the different vector components.
+[More on staggered grids](./Staggered_Grids.md).
 
-[StaggeredGrid](../phi/field/_grid.py): has staggered sample points.
+`PointCloud` [source](../phi/field/_point_cloud.py) is a set of points or finite elements, each associated with a value.
+
+`GeometryMask` [source](../phi/field/_mask.py): 1 inside the geometry, 0 outiside.
+
+`AngularVelocity` [source](../phi/field/_angular_velocity.py) models a vortex-like velocity field around one or multiple points.
+This is useful for sampling the velocity of rotating objects.
 
 
 ## Resampling Fields
 
-Given two fields `field1` and `field2` with different values structures or different sampling points, they can be made compatible using `at` or `sample_at`.
+Given `field1: Field` and `field2: SampledField` with different values structures or different sampling points, they can be made compatible using `at()` or `>>`.
 
 ```python
-field1.at(field2)  # resamples field1 at the sample points of field 2
+field1.at(field2)  # resamples field1 at the elements of field 2
+field1 >> field2  # same operation
 ```
 
-This assumes that `field2` is actually a sampled field, i.e. that `field2.points` is not `None`.
+If they are already sampled at the same elements, the above operations simply return `field1`.
 
-
-## Mathematical Operations on Fields
-
-All functions from `phi.math` can be applied to Fields. They act only on `Field.values`.
-Operators like +, -, * are also implemented.
-Currently, mathematical operations should only be performed on sampled Fields such as CenteredGrid or StaggeredGrid.
-
-Operators working with multiple fields require all fields to be compatible with each other.
-Fields without sample points such as ConstantField or GeometryMask are compatible with all Fields.
-Other fields can be made compatible using resampling (see above).
+Note that `at()` is based on the volume sampling method `sample_in()`.
+To sample at the center points, use `field1.sample_at(field2.points)`.

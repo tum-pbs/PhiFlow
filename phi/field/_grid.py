@@ -63,7 +63,7 @@ class CenteredGrid(Grid):
             value = SoftGeometryMask(value)
         if isinstance(value, Field):
             elements = GridCell(resolution, box)
-            data = value.volume_sample(elements)
+            data = value.sample_in(elements)
         else:
             if callable(value):
                 x = GridCell(resolution, box).center
@@ -72,15 +72,15 @@ class CenteredGrid(Grid):
             data = math.zeros(resolution) + value
         return CenteredGrid(data, box, extrapolation)
 
-    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if reduce_channels:
             assert len(reduce_channels) == 1
             geometries = geometry.unstack(reduce_channels[0])
             components = self.unstack('vector')
-            sampled = [c.volume_sample(g) for c, g in zip(components, geometries)]
+            sampled = [c.sample_in(g) for c, g in zip(components, geometries)]
             return math.channel_stack(sampled, 'vector')
         if isinstance(geometry, GeometryStack):
-            sampled = [self.volume_sample(g) for g in geometry.geometries]
+            sampled = [self.sample_in(g) for g in geometry.geometries]
             return math.batch_stack(sampled, geometry.stack_dim_name)
         if isinstance(geometry, GridCell):
             if self.elements == geometry:
@@ -193,15 +193,15 @@ class StaggeredGrid(Grid):
     def cells(self):
         return GridCell(self.resolution, self.bounds)
 
-    def volume_sample(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if geometry == self.elements and reduce_channels:
             return self.values
         if not reduce_channels:
-            channels = [component.volume_sample(geometry) for component in self.unstack()]
+            channels = [component.sample_in(geometry) for component in self.unstack()]
         else:
             assert len(reduce_channels) == 1
             geometries = geometry.unstack(reduce_channels[0])
-            channels = [component.volume_sample(g) for g, component in zip(geometries, self.unstack())]
+            channels = [component.sample_in(g) for g, component in zip(geometries, self.unstack())]
         return math.channel_stack(channels, 'vector')
 
     def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
@@ -214,7 +214,7 @@ class StaggeredGrid(Grid):
         return math.channel_stack(channels, 'vector')
 
     def at_centers(self) -> CenteredGrid:
-        return CenteredGrid(self.volume_sample(self.cells), self.bounds, self.extrapolation)
+        return CenteredGrid(self.sample_in(self.cells), self.bounds, self.extrapolation)
 
     def unstack(self, dimension='vector'):
         if dimension == 'vector':
