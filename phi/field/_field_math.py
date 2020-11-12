@@ -17,7 +17,7 @@ def laplace(field: Grid, axes=None):
 
 def gradient(field: CenteredGrid, type: type = CenteredGrid):
     if type == CenteredGrid:
-        values = math.gradient(field.values, field.dx, difference='central', padding=field.extrapolation)
+        values = math.gradient(field.values, field.dx.vector.as_channel(name='gradient'), difference='central', padding=field.extrapolation)
         return CenteredGrid(values, field.bounds, field.extrapolation.gradient())
     elif type == StaggeredGrid:
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
