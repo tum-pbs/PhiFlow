@@ -162,7 +162,7 @@ class StaggeredGrid(Grid):
         if isinstance(value, Geometry):
             value = HardGeometryMask(value)
         if isinstance(value, Field):
-            assert_same_rank(value.rank, bounds.rank, 'rank of value (%s) does not match domain (%s)' % (value.rank, bounds.rank))
+            assert_same_rank(value.spatial_rank, bounds.spatial_rank, 'rank of value (%s) does not match domain (%s)' % (value.spatial_rank, bounds.spatial_rank))
             if isinstance(value, StaggeredGrid) and value.bounds == bounds and np.all(value.resolution == resolution):
                 return value
             else:
@@ -256,10 +256,7 @@ class StaggeredGrid(Grid):
             return self._with(values, extrapolation_)
         else:
             return SampledField._op2(self, other, operator)
-    #
-    # def padded(self, widths):
 
-    #
     # def downsample2x(self):
     #     values = []
     #     for axis in range(self.rank):

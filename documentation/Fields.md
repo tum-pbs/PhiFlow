@@ -16,7 +16,7 @@ Scalar fields have no channel dimensions, vector fields have one, etc.
 Important properties:
 
 * `.shape: Shape` contains batch and spatial dimensions from 
-* `.rank: int = len(shape.spatial)` is the dimensionality of physical space
+* `.spatial_rank: int = len(shape.spatial)` is the dimensionality of physical space
 
 Important methods
 

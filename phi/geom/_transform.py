@@ -64,7 +64,7 @@ class RotatedGeometry(Geometry):
 
     @property
     def rank(self):
-        return self.geometry.rank
+        return self.geometry.spatial_rank
 
     def shifted(self, delta):
         return RotatedGeometry(self._geometry.shifted(delta), self._angle)

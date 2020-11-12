@@ -11,7 +11,7 @@ class Union(Geometry):
         self._geometries = tuple(geometries)
         assert len(self._geometries) > 0
         for g in self._geometries[1:]:
-            assert g.rank == self._geometries[0].rank
+            assert g.spatial_rank == self._geometries[0].spatial_rank
         self._shape = combined_shape(*[g.shape for g in geometries])
 
     @property
@@ -24,7 +24,7 @@ class Union(Geometry):
 
     @property
     def rank(self):
-        return self.geometries[0].rank
+        return self.geometries[0].spatial_rank
 
     def lies_inside(self, location):
         return math.any([geometry.lies_inside(location) for geometry in self.geometries], axis=0)

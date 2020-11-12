@@ -8,12 +8,12 @@ class TestShape(TestCase):
 
     def test_infer_shape(self):
         shape = infer_shape([1, 2, 3, 4], batch_dims=1, channel_dims=1)
-        self.assertEqual(2, shape.spatial.rank)
+        self.assertEqual(2, shape.spatial_rank)
         self.assertEqual(shape, infer_shape([1, 2, 3, 4]))
         shape = infer_shape([1, 2, 3, 4], batch_dims=0, channel_dims=0)
-        self.assertEqual(4, shape.spatial.rank)
+        self.assertEqual(4, shape.spatial_rank)
         shape = infer_shape([1, 2, 3, 4], batch_dims=0, spatial_dims=0)
-        self.assertEqual(4, shape.channel.rank)
+        self.assertEqual(4, shape.channel_rank)
 
     def test_dimension_types(self):
         v = math.ones(batch=10, x=4, y=3, vector=2)

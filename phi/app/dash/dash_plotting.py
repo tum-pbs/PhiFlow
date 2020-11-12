@@ -27,14 +27,14 @@ def dash_graph_plot(data, settings):
 
     if isinstance(data, (CenteredGrid, StaggeredGrid)):
         component = settings.get('component', 'x')
-        if data.rank == 1:
+        if data.spatial_rank == 1:
             return plot(data, settings)
-        if data.rank == 2:
+        if data.spatial_rank == 2:
             if component == 'vec2' and data.shape.channel.volume >= 2:
                 return vector_field(data, settings)
             else:
                 return heatmap(data, settings)
-        if data.rank == 3:
+        if data.spatial_rank == 3:
             if component == 'vec2' and data.shape.channel.volum >= 2:
                 return vector_field(slice_2d(data, settings), settings)
             else:
@@ -125,7 +125,7 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
 
 def heatmap(field, settings):
     assert isinstance(field, (StaggeredGrid, CenteredGrid))
-    assert field.rank == 2
+    assert field.spatial_rank == 2
     batch = settings.get('batch', 0)
     component = settings.get('component', 'x')
 
@@ -180,7 +180,7 @@ def slice_2d(field3d, settings):
             field3d = field3d.unstack()[{'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component] % 3]
         else:
             field3d = field3d.at_centers()
-    assert isinstance(field3d, CenteredGrid) and field3d.rank == 3
+    assert isinstance(field3d, CenteredGrid) and field3d.spatial_rank == 3
     depth = settings.get('depth', 0)
     projection = settings.get('projection', FRONT)
 
@@ -236,7 +236,7 @@ def vector_field(field2d, settings):
     if isinstance(field2d, StaggeredGrid):
         field2d = field2d.at_centers()
     assert isinstance(field2d, CenteredGrid)
-    assert field2d.rank == 2
+    assert field2d.spatial_rank == 2
 
     batch = settings.get('batch', 0)
     batch = min(batch, field2d.values.shape.batch.volume)

@@ -22,7 +22,7 @@ class Field:
         raise NotImplementedError()
 
     @property
-    def rank(self) -> int:
+    def spatial_rank(self) -> int:
         """
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.

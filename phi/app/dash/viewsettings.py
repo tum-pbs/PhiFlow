@@ -125,7 +125,7 @@ def _batch_size_of_field(field):
 
 
 def _resolution3d_of_field(field):
-    if isinstance(field, Field) and field.rank >= 3:
+    if isinstance(field, Field) and field.spatial_rank >= 3:
         if isinstance(field, (CenteredGrid, StaggeredGrid)):
             return field.resolution[-3:]
     if isinstance(field, numpy.ndarray) and field.ndim >= 5:

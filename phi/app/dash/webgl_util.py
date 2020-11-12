@@ -115,13 +115,13 @@ def webgl_prepare_data(field, settings):
     data = None
 
     if isinstance(field, CenteredGrid):
-        if field.rank == 1:
+        if field.spatial_rank == 1:
             return EMPTY_GRID
         else:
             data = field.values
 
     elif isinstance(field, StaggeredGrid):
-        if field.rank == 1:
+        if field.spatial_rank == 1:
             return EMPTY_GRID
         if component == 'vec2' or component == 'length':
             data = field.at_centers().values

@@ -34,7 +34,7 @@ class Geometry:
         raise NotImplementedError()
 
     @property
-    def rank(self):
+    def spatial_rank(self):
         return self.shape.spatial.rank
 
     def lies_inside(self, location: Tensor) -> Tensor:
@@ -239,7 +239,7 @@ def _rank(rank):
     elif isinstance(rank, int):
         pass
     elif isinstance(rank, Geometry):
-        rank = rank.rank
+        rank = rank.spatial_rank
     elif isinstance(rank, Shape):
         rank = rank.spatial.rank
     elif isinstance(rank, Tensor):

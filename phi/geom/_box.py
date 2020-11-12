@@ -191,7 +191,7 @@ class Box(AbstractBox, metaclass=BoxType):
     def without_axis(self, axis):
         lower = []
         upper = []
-        for ax in range(self.rank):
+        for ax in range(self.spatial_rank):
             if ax != axis:
                 lower.append(self.get_lower(ax))
                 upper.append(self.get_upper(ax))
