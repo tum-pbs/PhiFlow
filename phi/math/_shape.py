@@ -86,57 +86,53 @@ class Shape:
             return self.sizes[selection]
         return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
 
-    def _bool_filtered(self, boolean_mask) -> Shape:
-        indices = [i for i in range(self.rank) if boolean_mask[i]]
-        return self[indices]
-
-    @property
-    def channel(self):
-        return self._bool_filtered([t == CHANNEL_DIM for t in self.types])
-
-    @property
-    def spatial(self) -> Shape:
-        return self._bool_filtered([t == SPATIAL_DIM for t in self.types])
-
     @property
     def batch(self):
-        return self._bool_filtered([t == BATCH_DIM for t in self.types])
-
-    @property
-    def non_channel(self):
-        return self._bool_filtered([t != CHANNEL_DIM for t in self.types])
-
-    @property
-    def non_spatial(self):
-        return self._bool_filtered([t != SPATIAL_DIM for t in self.types])
+        return self[[i for i, t in enumerate(self.types) if t == BATCH_DIM]]
 
     @property
     def non_batch(self):
-        return self._bool_filtered([t != BATCH_DIM for t in self.types])
+        return self[[i for i, t in enumerate(self.types) if t != BATCH_DIM]]
+
+    @property
+    def spatial(self) -> Shape:
+        return self[[i for i, t in enumerate(self.types) if t == SPATIAL_DIM]]
+
+    @property
+    def non_spatial(self):
+        return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]
+
+    @property
+    def channel(self):
+        return self[[i for i, t in enumerate(self.types) if t == CHANNEL_DIM]]
+
+    @property
+    def non_channel(self):
+        return self[[i for i, t in enumerate(self.types) if t != CHANNEL_DIM]]
 
     @property
     def singleton(self):
-        return self._bool_filtered([size == 1 for size in self.sizes])
+        return self[[i for i, size in enumerate(self.sizes) if size == 1]]
 
     @property
     def non_singleton(self):
-        return self._bool_filtered([size != 1 for size in self.sizes])
+        return self[[i for i, size in enumerate(self.sizes) if size != 1]]
 
     @property
     def zero(self):
-        return self._bool_filtered([size == 0 for size in self.sizes])
+        return self[[i for i, size in enumerate(self.sizes) if size == 0]]
 
     @property
     def non_zero(self):
-        return self._bool_filtered([size != 0 for size in self.sizes])
+        return self[[i for i, size in enumerate(self.sizes) if size != 0]]
 
     @property
     def undefined(self):
-        return self._bool_filtered([size is None for size in self.sizes])
+        return self[[i for i, size in enumerate(self.sizes) if size is None]]
 
     @property
     def defined(self):
-        return self._bool_filtered([size is not None for size in self.sizes])
+        return self[[i for i, size in enumerate(self.sizes) if size is not None]]
 
     def unstack(self):
         return tuple(Shape([self.sizes[i]], [self.names[i]], [self.types[i]]) for i in range(self.rank))
@@ -204,7 +200,7 @@ class Shape:
                     order.append(name)
         return order
 
-    def combined(self, other, allow_inconsistencies=False, combine_spatial=False):
+    def combined(self, other, combine_spatial=False):
         """
         Returns a Shape object that both `self` and `other` can be broadcast to.
         If `self` and `other` are incompatible, raises a ValueError.
@@ -212,78 +208,10 @@ class Shape:
         :return:
         :raise: ValueError if shapes don't match
         """
-        assert isinstance(other, Shape)
-        sizes = list(self.batch.sizes)
-        names = list(self.batch.names)
-        types = list(self.batch.types)
-
-        def _check(size, name):
-            self_size = self.get_size(name)
-            if size != self_size:
-                if not allow_inconsistencies:
-                    raise IncompatibleShapes(self, other)
-                else:
-                    sizes[names.index(name)] = None
-
-        for size, name, type in other.batch.dimensions:
-            if name not in names:
-                names.insert(0, name)
-                sizes.insert(0, size)
-                types.insert(0, type)
-            else:
-                _check(size, name)
-        # --- spatial ---
-        self_spatial = self.spatial
-        other_spatial = other.spatial
-        sizes.extend(self_spatial.sizes)
-        names.extend(self_spatial.names)
-        types.extend(self_spatial.types)
-        if combine_spatial:
-            for size, name, type in other_spatial.dimensions:
-                if name not in names:
-                    names.insert(0, name)
-                    sizes.insert(0, size)
-                    types.insert(0, type)
-                else:
-                    _check(size, name)
-        else:
-            # spatial dimensions must match exactly or one shape has none
-            if self_spatial.rank == 0:
-                sizes.extend(other_spatial.sizes)
-                names.extend(other_spatial.names)
-                types.extend(other_spatial.types)
-            elif other_spatial.rank == 0:
-                pass
-            else:
-                if set(self_spatial.names) != set(other_spatial.names):
-                    raise IncompatibleShapes(self, other)
-                for size, name, type in other_spatial.dimensions:
-                    _check(size, name)
-        # --- channel ---
-        # channel dimensions must match exactly or one shape has none
-        if self.channel.rank == 0:
-            sizes.extend(other.channel.sizes)
-            names.extend(other.channel.names)
-            types.extend(other.channel.types)
-        elif other.channel.rank == 0:
-            sizes.extend(self.channel.sizes)
-            names.extend(self.channel.names)
-            types.extend(self.channel.types)
-        else:
-            sizes.extend(self.channel.sizes)
-            names.extend(self.channel.names)
-            types.extend(self.channel.types)
-            for size, name, type in other.channel.dimensions:
-                if name not in names:
-                    names.append(name)
-                    sizes.append(size)
-                    types.append(type)
-                else:
-                    _check(size, name)
-        return Shape(sizes, names, types)
+        return combine_safe(self, other, check_exact=[] if combine_spatial else [SPATIAL_DIM])
 
     def __and__(self, other):
-        return self.combined(other)
+        return combine_safe(self, other, check_exact=[SPATIAL_DIM])
 
     def expand_batch(self, size, name, pos=None):
         return self.expand(size, name, BATCH_DIM, pos)
@@ -301,7 +229,7 @@ class Shape:
         The resulting shape has linear indices.
         """
         if pos is None:
-            same_type_dims = self._bool_filtered([t == dim_type for t in self.types])
+            same_type_dims = self[[i for i, t in enumerate(self.types) if t == dim_type]]
             if len(same_type_dims) > 0:
                 pos = self.index(same_type_dims.names[0])
             else:
@@ -570,8 +498,8 @@ EMPTY_SHAPE = Shape((), (), ())
 
 
 class IncompatibleShapes(ValueError):
-    def __init__(self, shape1, shape2):
-        ValueError.__init__(self, shape1, shape2)
+    def __init__(self, message, *shapes: Shape):
+        ValueError.__init__(self, message, *shapes)
 
 
 def parse_dim_names(obj, count: int) -> tuple:
@@ -737,3 +665,72 @@ def check_singleton(shape):
     for i, (size, dim_type) in enumerate(zip(shape.sizes, shape.types)):
         if isinstance(size, int) and size == 1 and dim_type != SPATIAL_DIM and check_singleton:
             warnings.warn("Dimension '%s' at index %d of shape %s has size 1. Is this intentional? Singleton dimensions are not supported." % (shape.names[i], i, shape.sizes))
+
+
+def combine_safe(*shapes: Shape, check_exact: tuple or list = ()):
+    _check_exact_match(*shapes, check_exact)
+    sizes = list(shapes[0].sizes)
+    names = list(shapes[0].names)
+    types = list(shapes[0].types)
+    for other in shapes[1:]:
+        for size, name, type in other.dimensions:
+            if name not in names:
+                if type in types:
+                    index = len(types) - types[::-1].index(type)
+                elif type == BATCH_DIM:
+                    index = 0
+                elif type == CHANNEL_DIM:
+                    index = len(names)
+                elif type == SPATIAL_DIM:
+                    index = min([len(names), *[i for i in range(len(names)) if types[i] == CHANNEL_DIM]])
+                else:
+                    raise ValueError(type)
+                names.insert(index, name)
+                sizes.insert(index, size)
+                types.insert(index, type)
+            else:
+                existing_size = sizes[names.index(name)]
+                if size != existing_size:
+                    raise IncompatibleShapes(*shapes)
+    return Shape(sizes, names, types)
+
+
+def _check_exact_match(*shapes: Shape, check_types: tuple or list = ()):
+    shape0 = shapes[0]
+    for check_type in check_types:
+        dims0 = shape0[[i for i, t in enumerate(shape0.types) if t == check_type]]
+        for other in shapes[1:]:
+            dims_other = other[[i for i, t in enumerate(shape0.types) if t == check_type]]
+            if len(dims0) == 0:
+                dims0 = dims_other
+            elif len(dims_other) > 0:
+                if dims0 != dims_other:
+                    raise IncompatibleShapes(f"Incompatible dimensions of type '{check_type}", *shapes)
+
+
+def combine_stack(dim: Shape, *shapes: Shape):
+    sizes = list(shapes[0].sizes)
+    names = list(shapes[0].names)
+    types = list(shapes[0].types)
+    for other in shapes[1:]:
+        for size, name, type in other.dimensions:
+            if name not in names:
+                if type in types:
+                    index = len(types) - types[::-1].index(type)
+                elif type == BATCH_DIM:
+                    index = 0
+                elif type == CHANNEL_DIM:
+                    index = len(names)
+                elif type == SPATIAL_DIM:
+                    index = min([len(names), *[i for i in range(len(names)) if types[i] == CHANNEL_DIM]])
+                else:
+                    raise ValueError(type)
+                names.insert(index, name)
+                sizes.insert(index, size)
+                types.insert(index, type)
+            else:
+                existing_size = sizes[names.index(name)]
+                if size != existing_size:
+                    sizes[names.index(name)] = None
+    return dim & Shape(sizes, names, types)
+

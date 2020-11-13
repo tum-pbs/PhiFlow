@@ -2,7 +2,7 @@ from phi import math
 from ._geom import Geometry, NO_GEOMETRY
 from ._transform import rotate
 from ._box import bounding_box, Box
-from ..math import combined_shape
+from ..math._shape import combine_safe
 
 
 class Union(Geometry):
@@ -12,7 +12,7 @@ class Union(Geometry):
         assert len(self._geometries) > 0
         for g in self._geometries[1:]:
             assert g.spatial_rank == self._geometries[0].spatial_rank
-        self._shape = combined_shape(*[g.shape for g in geometries])
+        self._shape = combine_safe(*[g.shape for g in geometries])
 
     @property
     def shape(self):

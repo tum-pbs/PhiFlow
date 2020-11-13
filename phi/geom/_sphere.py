@@ -1,7 +1,7 @@
 from phi import math, struct
 
 from ._geom import Geometry, _fill_spatial_with_singleton
-from ..math import tensor, combined_shape
+from ..math import tensor
 
 
 class Sphere(Geometry):
@@ -13,7 +13,7 @@ class Sphere(Geometry):
     def __init__(self, center, radius):
         self._center = tensor(center, names='..., vector', channel_dims=1, spatial_dims=0)
         self._radius = tensor(radius, channel_dims=0, spatial_dims=0)
-        self._shape = _fill_spatial_with_singleton(combined_shape(self._center, self._radius))
+        self._shape = _fill_spatial_with_singleton(self._center.shape & self._radius.shape)
 
     @property
     def shape(self):

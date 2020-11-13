@@ -1,11 +1,10 @@
 import numpy as np
 
 from phi import struct, math
-from ._geom import Geometry, assert_same_rank, _fill_spatial_with_singleton
+from ._geom import Geometry, _fill_spatial_with_singleton
 from ._transform import rotate
-from ..math import tensor, combined_shape, spatial_shape
-from ..math._shape import CHANNEL_DIM, BATCH_DIM
-from ..math._tensors import NativeTensor, TensorStack, Tensor
+from ..math import tensor
+from ..math._tensors import Tensor
 
 
 class AbstractBox(Geometry):
@@ -154,7 +153,7 @@ class Box(AbstractBox, metaclass=BoxType):
         """
         self._lower = tensor(lower, names='..., vector', channel_dims=1, spatial_dims=0)
         self._upper = tensor(upper, names='..., vector', channel_dims=1, spatial_dims=0)
-        self._shape = _fill_spatial_with_singleton(combined_shape(self._lower, self._upper))
+        self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape)
 
     def unstack(self, dimension):
         raise NotImplementedError()  # TODO
@@ -213,7 +212,7 @@ class Cuboid(AbstractBox):
     def __init__(self, center, half_size):
         self._center = tensor(center, names='..., vector', channel_dims=1, spatial_dims=0)
         self._half_size = tensor(half_size, names='..., vector', channel_dims=1, spatial_dims=0)
-        self._shape = _fill_spatial_with_singleton(combined_shape(self._center, self._half_size)).without('vector')
+        self._shape = _fill_spatial_with_singleton(self._center.shape & self._half_size.shape).without('vector')
 
     @property
     def center(self):

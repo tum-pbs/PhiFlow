@@ -4,7 +4,7 @@ import numpy as np
 
 from .backend import math as native_math, choose_backend
 from ._shape import EMPTY_SHAPE, Shape, shape
-from ._tensors import Tensor, NativeTensor, combined_shape, TensorStack
+from ._tensors import Tensor, NativeTensor, TensorStack
 from . import _functions as math
 
 
@@ -195,7 +195,7 @@ class SparseLinearOperation(Tensor):
         deps = native_function(self.dependency_matrix)
         return SparseLinearOperation(self.source, deps, self._shape)
 
-    def _op2(self, other, native_function):
+    def _op2(self, other, operator, native_function):
         if isinstance(other, SparseLinearOperation):
             assert self.source is other.source
             assert self._shape == other._shape
@@ -203,7 +203,7 @@ class SparseLinearOperation(Tensor):
             return SparseLinearOperation(self.source, new_matrix, self._shape)
         else:
             other = self._tensor(other)
-            broadcast_shape = combined_shape(self, other)
+            broadcast_shape = self.shape.combined(other.shape)
             if other.shape.volume > 1:
                 additional_dims = broadcast_shape.without(self._shape)
                 if len(additional_dims) == 0:

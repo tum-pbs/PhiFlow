@@ -531,7 +531,7 @@ class TensorStack(Tensor):
         self.stack_dim_name = dim_name
         self.stack_dim_type = dim_type
         self.keep_separate = keep_separate
-        self._shape = combined_shape(*self.tensors, allow_inconsistencies=keep_separate).expand(len(tensors), dim_name, dim_type, pos=None)
+        self._shape = _shape.combine_stack(Shape([len(tensors)], [dim_name], [dim_type]), *[t.shape for t in self.tensors])
         self._cached = None
 
     def _cache(self):
@@ -673,8 +673,8 @@ def broadcastable_native_tensors(*tensors):
     :param tensors: sequence of Tensors
     :return: (shape, native tensors)
     """
-    broadcast_shape = combined_shape(*tensors)
-    natives = [tensor.native(order=broadcast_shape.names) for tensor in tensors]
+    broadcast_shape = _shape.combine_safe(*[t.shape for t in tensors])
+    natives = [t.native(order=broadcast_shape.names) for t in tensors]
     return broadcast_shape, natives
 
 
@@ -700,19 +700,3 @@ def shapeof(tensor):
     else:
         shape = native_math.staticshape(tensor)
         return infer_shape(shape)
-
-
-def combined_shape(*shapes_or_tensors, allow_inconsistencies=False):
-    assert len(shapes_or_tensors) > 0
-    shapes = []
-    for shape in shapes_or_tensors:
-        if isinstance(shape, Tensor):
-            shapes.append(shape.shape)
-        elif isinstance(shape, Shape):
-            shapes.append(shape)
-        else:
-            raise ValueError("Not a shape or tensor: %s" % (shape,))
-    result = shapes[0]
-    for shape in shapes[1:]:
-        result = result.combined(shape, allow_inconsistencies=allow_inconsistencies)
-    return result

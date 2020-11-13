@@ -9,8 +9,7 @@ import numpy as np
 from .backend import math, Solve, LinearSolve
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_
 from . import _extrapolation as extrapolation
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, \
-    combined_shape, custom_op2
+from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, custom_op2
 from phi.math.backend._scipy_backend import SCIPY_BACKEND
 
 
@@ -732,7 +731,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
 
     from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensor(x0, y)
-    batch = combined_shape(y, x0).batch
+    batch = (y.shape & x0.shape).batch
     x0_native = math.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
     y_native = math.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))
     if callable(operator):
