@@ -133,6 +133,7 @@ def fftfreq(resolution, dtype=None):
 
 
 def meshgrid(**dimensions):
+    """generate a TensorStack meshgrid from keyword dimensions"""
     assert 'vector' not in dimensions
     dimensions = {dim: np.arange(val) if isinstance(val, int) else val for dim, val in dimensions.items()}
     indices_list = math.meshgrid(*dimensions.values())

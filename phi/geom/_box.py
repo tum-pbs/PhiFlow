@@ -119,6 +119,7 @@ class BoxType(type):
     * box(center=(5, 10), size=(10, 20))
     * box((10, 20))
     """
+
     def __getitem__(self, item):
         if not isinstance(item, (tuple, list)):
             item = [item]
@@ -136,7 +137,7 @@ class Box(AbstractBox, metaclass=BoxType):
 
     def __init__(self, lower: Tensor or float or int, upper: Tensor or float or int):
         """
-        Simple cuboid defined by location of lower and upper corner.
+        Simple cuboid defined by location of lower and upper corner in physical space.
 
         In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, `Box[slice1, slice2,...]`
         Each slice marks the lower and upper edge of the box along one dimension.

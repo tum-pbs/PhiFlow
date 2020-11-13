@@ -635,7 +635,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
         if names is None:
             return obj
         else:
-            new_shape = obj.shape.with_names( names)
+            new_shape = obj.shape.with_names(names)
             return obj._with_shape_replaced(new_shape)
     if isinstance(obj, (tuple, list)):
         array = np.array(obj)
@@ -663,7 +663,7 @@ def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatia
         return NativeTensor(array, EMPTY_SHAPE)
     if isinstance(obj, Shape):
         return _tensor(obj.sizes, names or ['vector'], infer_dimension_types=False)
-    raise ValueError(obj)
+    raise ValueError(f"{type(obj)} is not supported. Only (Tensor, tuple, list, np.ndarray, NativeTensor).")
 
 
 def broadcastable_native_tensors(*tensors):
