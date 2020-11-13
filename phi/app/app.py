@@ -86,6 +86,7 @@ class App(object):
             self.fields = {}
         self.message = None
         self.steps = 0
+        self.time = 0
         self._invalidation_counter = 0
         self._controls = []
         self._actions = []
@@ -186,13 +187,15 @@ class App(object):
         self._invalidation_counter += 1
 
     def step(self):
+        dt = self.dt  # prevent race conditions
         if self.step_function is None:
-            world.step(dt=self.dt)
+            world.step(dt=dt)
         else:
-            new_state = self.step_function(dt=self.dt, **self.state)
+            new_state = self.step_function(dt=dt, **self.state)
             assert isinstance(self.state, dict), 'step_function must return a dict'
             assert new_state.keys() == self.state.keys(), 'step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s' % (self.state.keys(), new_state.keys())
             self.state = new_state
+        self.time += dt
 
     @property
     def fieldnames(self):
@@ -334,7 +337,8 @@ class App(object):
             'actions': [action.name for action in self.actions],
             'controls': [{control.name: control.value} for control in self.controls],
             'summary': self.scene_summary(),
-            'time_of_writing': self.steps,
+            'steps': self.steps,
+            'time': self.time,
             'world': struct.properties_dict(self.world.state)
         }
         properties.update(self.custom_properties())
@@ -366,10 +370,10 @@ class App(object):
 
     @property
     def status(self):
-        pausing = '/Pausing' if self._pause and self.current_action else ''
+        pausing = '/Pausing' if (self._pause and self.current_action) else ''
         action = self.current_action if self.current_action else 'Idle'
-        message = (' - %s' % self.message) if self.message else ''
-        return '{}{} ({}){}'.format(action, pausing, self.steps, message)
+        message = f' - {self.message}' if self.message else ''
+        return f'{action}{pausing} (t={self.time:4g} in {self.steps} steps){message}'
 
     def run_step(self, framerate=None, allow_recording=True):
         self.current_action = 'Running'
