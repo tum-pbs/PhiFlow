@@ -96,7 +96,9 @@ class App(object):
         self._pause = False
         self.detect_fields = 'default'  # False, True, 'default'
         self.world = world
-        self.dt = dt
+        self._dt = dt
+        self.min_dt = self.dt
+        self.dt_history = {}  # sparse representation of time when new timestep was set (for the next step)
         # Setup directory & Logging
         self.objects_to_save = [self.__class__] if objects_to_save is None else list(objects_to_save)
         self.base_dir = os.path.expanduser(base_dir)
@@ -138,6 +140,16 @@ class App(object):
         self.step_function = None
         # Initial log message
         self.info('App created. Scene directory is %s' % self.scene.path)
+
+    @property
+    def dt(self):
+        return self._dt
+
+    @dt.setter
+    def dt(self, value):
+        self._dt = value
+        self.min_dt = min(self.min_dt, self.dt)
+        self.dt_history[self.time] = self.dt
 
     def set_state(self, initial_state, step_function=None, show=(), dt=None):
         """
@@ -373,7 +385,11 @@ class App(object):
         pausing = '/Pausing' if (self._pause and self.current_action) else ''
         action = self.current_action if self.current_action else 'Idle'
         message = f' - {self.message}' if self.message else ''
-        return f'{action}{pausing} (t={self.time:4g} in {self.steps} steps){message}'
+        return f'{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}'
+
+    def format_time(self, time):
+        commas = int(np.ceil(np.abs(np.log10(self.min_dt))))
+        return ("{time:," + f".{commas}f" + "}").format(time=time)
 
     def run_step(self, framerate=None, allow_recording=True):
         self.current_action = 'Running'
