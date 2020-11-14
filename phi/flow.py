@@ -28,5 +28,6 @@ from phi.physics import _boundaries as boundaries, fluid, _advect as advect
 from phi.physics._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, NO_SLIP, NO_STICK, STICKY, SLIPPERY, Obstacle
 
 from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, display
+from .app._module_app import ModuleViewer
 from .app.fluidformat import write_sim_frame
 from phi.app.display import show
