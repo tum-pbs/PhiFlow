@@ -262,15 +262,16 @@ def join_spaces(*tensors):
     return [CollapsedTensor(t, t.shape.non_spatial & spatial) for t in tensors]
 
 
-def broadcast_op(operation, tensors):
-    non_atomic_dims = set()
-    for tensor in tensors:
-        if isinstance(tensor, TensorStack) and tensor.keep_separate:
-            non_atomic_dims.add(tensor.stack_dim_name)
-    if len(non_atomic_dims) == 0:
+def broadcast_op(operation, tensors, iter_dims: set or tuple or list = None):
+    if iter_dims is None:
+        iter_dims = set()
+        for tensor in tensors:
+            if isinstance(tensor, TensorStack) and tensor.keep_separate:
+                iter_dims.add(tensor.stack_dim_name)
+    if len(iter_dims) == 0:
         return operation(*tensors)
-    elif len(non_atomic_dims) == 1:
-        dim = next(iter(non_atomic_dims))
+    else:
+        dim = next(iter(iter_dims))
         dim_type = None
         size = None
         unstacked = []
@@ -289,10 +290,8 @@ def broadcast_op(operation, tensors):
         result_unstacked = []
         for i in range(size):
             gathered = [t[i] if isinstance(t, tuple) else t for t in unstacked]
-            result_unstacked.append(operation(*gathered))
+            result_unstacked.append(broadcast_op(operation, gathered, iter_dims=set(iter_dims) - {dim}))
         return TensorStack(result_unstacked, dim, dim_type, keep_separate=True)
-    else:
-        raise NotImplementedError(f"len(non_atomic_dims)={len(non_atomic_dims)} > 1. Only (0, 1) allowed.")
 
 
 def reshape(value: Tensor, *operations: str):
@@ -341,16 +340,25 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
 
 def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
     """
-    Get indices of non-zero / True values.
-    :param value: tensor to find non-zero / True values in
+    Get spatial indices of non-zero / True values.
+
+    Batch dimensions are preserved by this operation.
+    If channel dimensions are present, this method returns the indices where any entry is nonzero.
+
+    :param value: spatial tensor to find non-zero / True values in.
     :param list_dim: name of dimension listing non-zero values
     :param index_dim: name of index dimension
-    :return: tensor of shape (list_dim=#non-zero, index_dim=value.rank)
+    :return: tensor of shape (batch dims..., list_dim=#non-zero, index_dim=value.shape.spatial_rank)
     """
-    value = tensor(value)
-    indices = math.nonzero(value.native())
-    indices_shape = Shape(math.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
-    return NativeTensor(indices, indices_shape)
+    if value.shape.channel_rank > 0:
+        value = sum_(abs(value), value.shape.channel.names)
+
+    def unbatched_nonzero(value):
+        indices = math.nonzero(value.native())
+        indices_shape = Shape(math.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
+        return NativeTensor(indices, indices_shape)
+
+    return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)
 
 
 def sum_(value: Tensor or list or tuple, axis=None):

@@ -53,6 +53,13 @@ class TestMathFunctions(TestCase):
         interp = math.grid_sample(grid, coords, extrapolation.ZERO)
         math.assert_close(interp, [1, 1.5, 2.5, 0])
 
+    def test_nonzero_batched(self):
+        grid = math.tensor([[(0, 1)], [(0, 0)]])
+        nz = math.nonzero(grid, list_dim='nonzero', index_dim='vector')
+        self.assertEqual(('batch', 'nonzero', 'vector'), nz.shape.names)
+        self.assertEqual(1, nz.batch[0].shape.nonzero)
+        self.assertEqual(0, nz.batch[1].shape.nonzero)
+
 # Legacy test to be fixed
 # def _resample_test(mode, constant_values, expected):
 #    grid = np.tile(np.reshape(np.array([[1,2], [4,5]]), [1,2,2,1]), [1, 1, 1, 2])
