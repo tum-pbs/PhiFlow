@@ -69,6 +69,17 @@ def transpose(tensor, axes):
         return math.transpose(tensor, axes)
 
 
+def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None, **dimensions):
+    shape &= shape_(**dimensions)
+    if shape.is_non_uniform:
+        stack_dim = shape.shape.without('dims')[0:1]
+        shapes = shape.unstack(stack_dim.name)
+        tensors = [_initialize(uniform_initializer, s, dtype) for s in shapes]
+        return _stack(tensors, stack_dim.name, stack_dim.types[0])
+    else:
+        return uniform_initializer(shape, dtype)
+
+
 def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     """
     Define a tensor with specified shape with value 0 / False everywhere.
@@ -80,10 +91,7 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     :param dimensions: additional dimensions, types are determined from names
     :return: tensor of specified shape
     """
-    shape &= shape_(**dimensions)
-    native_zero = math.zeros((), dtype=dtype)
-    collapsed = NativeTensor(native_zero, EMPTY_SHAPE)
-    return CollapsedTensor(collapsed, shape)
+    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(math.zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
 
 
 def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
@@ -97,24 +105,27 @@ def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     :param dimensions: additional dimensions, types are determined from names
     :return: tensor of specified shape
     """
-    shape &= shape_(**dimensions)
-    native_one = math.ones((), dtype=dtype)
-    collapsed = NativeTensor(native_one, EMPTY_SHAPE)
-    return CollapsedTensor(collapsed, shape)
+    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(math.ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
 
 
 def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
-    shape &= shape_(**dimensions)
-    native = math.random_normal(shape.sizes)
-    native = native if dtype is None else native.astype(dtype)
-    return NativeTensor(native, shape)
+
+    def uniform_random_normal(shape, dtype):
+        native = math.random_normal(shape.sizes)
+        native = native if dtype is None else native.astype(dtype)
+        return NativeTensor(native, shape)
+
+    return _initialize(uniform_random_normal, shape, dtype, **dimensions)
 
 
 def random_uniform(shape=EMPTY_SHAPE, dtype=None, **dimensions):
-    shape &= shape_(**dimensions)
-    native = math.random_uniform(shape.sizes)
-    native = native if dtype is None else native.astype(dtype)
-    return NativeTensor(native, shape)
+
+    def uniform_random_uniform(shape, dtype):
+        native = math.random_uniform(shape.sizes)
+        native = native if dtype is None else native.astype(dtype)
+        return NativeTensor(native, shape)
+
+    return _initialize(uniform_random_uniform, shape, dtype, **dimensions)
 
 
 def fftfreq(resolution, dtype=None):
@@ -153,7 +164,7 @@ def spatial_stack(values, axis: str):
     return _stack(values, axis, SPATIAL_DIM)
 
 
-def _stack(values, dim: str, dim_type: int):
+def _stack(values, dim: str, dim_type: str):
     assert isinstance(dim, str)
 
     def inner_stack(*values):

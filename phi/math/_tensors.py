@@ -58,7 +58,11 @@ class Tensor:
         return self.shape.volume if self.rank == 1 else NotImplemented
 
     def __bool__(self):
-        return bool(self.native()) if self.rank == 0 else NotImplemented
+        if self.rank == 0:
+            return bool(self.native())
+        else:
+            from phi.math._functions import all_
+            return bool(all_(self))
 
     def __int__(self):
         return int(self.native()) if self.rank == 0 else NotImplemented
@@ -531,7 +535,7 @@ class TensorStack(Tensor):
         self.stack_dim_name = dim_name
         self.stack_dim_type = dim_type
         self.keep_separate = keep_separate
-        self._shape = _shape.combine_stack(Shape([len(tensors)], [dim_name], [dim_type]), *[t.shape for t in self.tensors])
+        self._shape = _shape.shape_stack(dim_name, dim_type, *[t.shape for t in self.tensors])
         self._cached = None
 
     def _cache(self):
@@ -630,6 +634,8 @@ def tensor(*objects, names=None, infer_dimension_types=True, batch_dims=None, sp
         return [_tensor(obj, names, infer_dimension_types, batch_dims, spatial_dims, channel_dims) for obj in objects]
 
 
+def _tensor(obj, names=None, types='auto'):
+    pass
 def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatial_dims=None, channel_dims=None):
     if isinstance(obj, Tensor):
         if names is None:

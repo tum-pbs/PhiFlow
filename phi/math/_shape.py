@@ -84,6 +84,8 @@ class Shape:
     def __getitem__(self, selection):
         if isinstance(selection, int):
             return self.sizes[selection]
+        elif isinstance(selection, slice):
+            return Shape(self.sizes[selection], self.names[selection], self.types[selection])
         return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
 
     @property
@@ -134,8 +136,25 @@ class Shape:
     def defined(self):
         return self[[i for i, size in enumerate(self.sizes) if size is not None]]
 
-    def unstack(self):
-        return tuple(Shape([self.sizes[i]], [self.names[i]], [self.types[i]]) for i in range(self.rank))
+    def unstack(self, name='dims'):
+        if name == 'dims':
+            return tuple(Shape([self.sizes[i]], [self.names[i]], [self.types[i]]) for i in range(self.rank))
+        if name not in self:
+            return tuple([self])
+        else:
+            from ._tensors import Tensor
+            inner = self.without(name)
+            sizes = []
+            dim_size = self.get_size(name)
+            for size in inner.sizes:
+                if isinstance(size, Tensor) and name in size.shape:
+                    sizes.append(size.unstack(name))
+                    dim_size = size.shape.get_size(name)
+                else:
+                    sizes.append(size)
+            assert isinstance(dim_size, int)
+            shapes = tuple(Shape([int(size[i]) if isinstance(size, tuple) else size for size in sizes], inner.names, inner.types) for i in range(dim_size))
+            return shapes
 
     @property
     def name(self):
@@ -349,6 +368,23 @@ class Shape:
     @property
     def well_defined(self):
         return None not in self.sizes
+
+    @property
+    def shape(self):
+        from phi.math import Tensor
+        shape = Shape([self.rank], ['dims'], [CHANNEL_DIM])
+        for size in self.sizes:
+            if isinstance(size, Tensor):
+                shape = shape & size.shape
+        return shape
+
+    @property
+    def is_non_uniform(self):
+        from phi.math import Tensor
+        for size in self.sizes:
+            if isinstance(size, Tensor):
+                return True
+        return False
 
     def with_sizes(self, sizes: tuple or list or Shape):
         if isinstance(sizes, Shape):
@@ -708,8 +744,7 @@ def _check_exact_match(*shapes: Shape, check_types: tuple or list = ()):
                     raise IncompatibleShapes(f"Incompatible dimensions of type '{check_type}", *shapes)
 
 
-def combine_stack(dim: Shape, *shapes: Shape):
-    sizes = list(shapes[0].sizes)
+def shape_stack(stack_dim: str, stack_type: str, *shapes: Shape):
     names = list(shapes[0].names)
     types = list(shapes[0].types)
     for other in shapes[1:]:
@@ -726,11 +761,16 @@ def combine_stack(dim: Shape, *shapes: Shape):
                 else:
                     raise ValueError(type)
                 names.insert(index, name)
-                sizes.insert(index, size)
                 types.insert(index, type)
-            else:
-                existing_size = sizes[names.index(name)]
-                if size != existing_size:
-                    sizes[names.index(name)] = None
-    return dim & Shape(sizes, names, types)
-
+    sizes = []
+    for name in names:
+        dim_sizes = [(shape.get_size(name) if name in shape else 1) for shape in shapes]
+        if min(dim_sizes) == max(dim_sizes):
+            dim_sizes = dim_sizes[0]
+        else:
+            from ._functions import _stack
+            from ._tensors import tensor
+            dim_sizes = [tensor(d) for d in dim_sizes]
+            dim_sizes = _stack(dim_sizes, stack_dim, stack_type)
+        sizes.append(dim_sizes)
+    return Shape(sizes, names, types).expand(len(shapes), stack_dim, stack_type)

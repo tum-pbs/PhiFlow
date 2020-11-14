@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy as np
 
 from phi import math
-from phi.math._shape import CHANNEL_DIM, BATCH_DIM
+from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, shape
 from phi.math._tensors import TensorStack, CollapsedTensor
 
 
@@ -110,3 +110,10 @@ class TestTensors(TestCase):
         self.assertEqual(4, len(scalar.x.unstack()))
         self.assertEqual(10, len(scalar.batch.unstack()))
         self.assertEqual('()', repr(scalar.y[0].batch[0].x[0].shape))
+
+    def test_zeros_nonuniform(self):
+        nonuniform = shape_stack('stack', BATCH_DIM, shape(time=1, x=3, y=3), shape(x=3, y=4), shape())
+        self.assertEqual(math.zeros(nonuniform).shape, nonuniform)
+        self.assertEqual(math.ones(nonuniform).shape, nonuniform)
+        self.assertEqual(math.random_normal(nonuniform).shape, nonuniform)
+        self.assertEqual(math.random_uniform(nonuniform).shape, nonuniform)

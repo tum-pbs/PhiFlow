@@ -1,6 +1,6 @@
 from phi import math
 from ._geom import Geometry
-from ..math._shape import combine_stack, Shape, BATCH_DIM
+from ..math._shape import shape_stack, Shape, BATCH_DIM
 
 
 class GeometryStack(Geometry):
@@ -8,7 +8,7 @@ class GeometryStack(Geometry):
     def __init__(self, geometries, dim_name):
         self.geometries = tuple(geometries)
         self.stack_dim_name = dim_name
-        self._shape = combine_stack(Shape([len(geometries)], [dim_name], [BATCH_DIM]), *[g.shape for g in geometries])
+        self._shape = shape_stack(dim_name, BATCH_DIM, *[g.shape for g in geometries])
 
     def unstack(self, dimension):
         if dimension == self.stack_dim_name:
