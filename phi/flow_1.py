@@ -1,5 +1,5 @@
 """
-Compatibility import for PhiFlow 1 projects: `from phi.flow_legacy import *`
+Compatibility import for PhiFlow 1 projects: `from phi.flow1 import *`
 """
 
 from .flow import *
