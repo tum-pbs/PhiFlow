@@ -96,8 +96,10 @@ class App(object):
         self._pause = False
         self.detect_fields = 'default'  # False, True, 'default'
         self.world = world
-        self._dt = dt
-        self.min_dt = self.dt
+        self._dt = dt.initial_value if isinstance(dt, EditableValue) else dt
+        if isinstance(dt, EditableValue):
+            self._controls.append(Control(self, "dt", dt))
+        self.min_dt = self._dt
         self.dt_history = {}  # sparse representation of time when new timestep was set (for the next step)
         # Setup directory & Logging
         self.objects_to_save = [self.__class__] if objects_to_save is None else list(objects_to_save)

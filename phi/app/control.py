@@ -1,11 +1,12 @@
 import numpy as np
 
 from .value import EditableValue
+from typing import Callable
 
 
 class Control(object):
 
-    def __init__(self, model, attribute_name, editable_value):
+    def __init__(self, model, attribute_name: str, editable_value: int or float):
         assert isinstance(editable_value, EditableValue)
         self.model = model
         self.attribute_name = attribute_name
@@ -47,7 +48,7 @@ class Control(object):
 
 class Action(object):
 
-    def __init__(self, name, method, id):
+    def __init__(self, name: str, method: Callable, id: str):
         self.name = name
         self.method = method
         self.method_name = id
