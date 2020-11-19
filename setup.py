@@ -244,6 +244,7 @@ setup(
               'phi.physics',
               'phi.struct',
               'phi.tf',
+              'phi.torch',
               'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
