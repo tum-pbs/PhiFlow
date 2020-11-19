@@ -286,9 +286,9 @@ class TFBackend(Backend):
         if self.dtype(x) in (np.complex64, np.complex128):
             return x
         if self.dtype(x) == np.float64:
-            return tf.to_complex128(x)
+            return tf.cast(x, tf.complex128)
         else:
-            return tf.to_complex64(x)
+            return tf.cast(x, tf.complex64)
 
     def gather(self, values, indices):
         if isinstance(values, tf.SparseTensor):
@@ -374,11 +374,11 @@ class TFBackend(Backend):
         assert rank >= 1
         x = self.to_complex(x)
         if rank == 1:
-            return tf.stack([tf.fft(c) for c in tf.unstack(x, axis=-1)], axis=-1)
+            return tf.stack([tf.signal.fft(c) for c in tf.unstack(x, axis=-1)], axis=-1)
         elif rank == 2:
-            return tf.stack([tf.fft2d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
+            return tf.stack([tf.signal.fft2d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
         elif rank == 3:
-            return tf.stack([tf.fft3d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
+            return tf.stack([tf.signal.fft3d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
         else:
             raise NotImplementedError('n-dimensional FFT not implemented.')
 
@@ -386,11 +386,11 @@ class TFBackend(Backend):
         rank = len(k.shape) - 2
         assert rank >= 1
         if rank == 1:
-            return tf.stack([tf.ifft(c) for c in tf.unstack(k, axis=-1)], axis=-1)
+            return tf.stack([tf.signal.ifft(c) for c in tf.unstack(k, axis=-1)], axis=-1)
         elif rank == 2:
-            return tf.stack([tf.ifft2d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
+            return tf.stack([tf.signal.ifft2d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
         elif rank == 3:
-            return tf.stack([tf.ifft3d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
+            return tf.stack([tf.signal.ifft3d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
         else:
             raise NotImplementedError('n-dimensional inverse FFT not implemented.')
 
