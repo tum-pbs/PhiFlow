@@ -279,7 +279,7 @@ def fourier_poisson(grid: Tensor,
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
     fft_laplace = -(2 * np.pi)**2 * k_squared
-    fft_laplace.tensor[(0,) * math.ndims(k_squared)] = np.inf  # assume NumPy array to edit
+    # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
     result = math.real(math.ifft(math.divide_no_nan(frequencies, fft_laplace ** times)))
     return math.cast(result * tensor(dx) ** 2, grid.dtype)
 
