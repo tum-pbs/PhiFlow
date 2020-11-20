@@ -54,7 +54,7 @@ class TFBackend(Backend):
         return tf.equal(x, y)
 
     def divide_no_nan(self, x, y):
-        return tf.div_no_nan(x, y)
+        return tf.math.divide_no_nan(x, y)
 
     def random_uniform(self, shape):
         return tf.random.uniform(shape, dtype=self.float_type)
