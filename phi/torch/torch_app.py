@@ -34,18 +34,22 @@ class App(base_app.App):
 
     def add_field(self, name, value):
         if callable(value):
-            def wrapped(): return torch_to_numpy(value())
+            def wrapped():
+                return torch_to_numpy(value())
         else:
             wrapped = torch_to_numpy(value)
         base_app.App.add_field(self, name, wrapped)
 
 
-def EVERY_EPOCH(tfapp): return tfapp.steps % tfapp.epoch_size == 0
+def EVERY_EPOCH(tfapp):
+    return tfapp.steps % tfapp.epoch_size == 0
 
 
 class LearningApp(App):
 
-    def __init__(self, name='TensorFlow application', subtitle='',
+    def __init__(self,
+                 name='Torch Application',
+                 subtitle='',
                  learning_rate=1e-3,
                  training_batch_size=4,
                  validation_batch_size=16,
