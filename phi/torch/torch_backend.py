@@ -20,7 +20,7 @@ class TorchBackend(Backend):
         return {16: torch.float16, 32: torch.float32, 64: torch.float64, None: torch.float32}[self.precision]
 
     def combine_types(self, *dtypes):
-        dtypes = [self.inv_translate_dtype(dt) if isinstance(dt, torch.dtype)
+        dtypes = [np.dtype(self.inv_translate_dtype(dt)) if isinstance(dt, torch.dtype)
                   else dt
                   for dt in dtypes]
         # all bool?
