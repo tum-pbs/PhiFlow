@@ -100,10 +100,33 @@ class TorchBackend(Backend):
         return torch.cat(values, dim=axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        passes = split_multi_mode_pad(self.ndims(value), PadSettings(pad_width, mode, constant_values), split_by_constant_value=True)
-        for pad_pass in passes:
-            value = self._single_mode_single_constant_pad(value, *pad_pass)
-        return value
+        """pad tensor using mode
+
+        :param value: values
+        :type value: torch.Tensor
+        :param pad_width: left, right, upper, lower
+        :type pad_width: iterable
+        :param mode: type of padding to be applied, defaults to 'constant'
+        :type mode: str, optional
+        :param constant_values: value to pad, defaults to 0
+        :type constant_values: int, optional
+        :return: padded tensor
+        :rtype: torch.Tensor
+        """
+        # Valid mode: constant, reflect, replicate, circular
+        pad_width = [item for sublist in pad_width for item in sublist]
+        # need at least 3D to perform padding :(
+        value = torch.unsqueeze(value, 0)
+        value = torch.unsqueeze(value, 0)
+        if mode == 'boundary' and np.all(np.array(pad_width) <= 1):
+            mode = 'replicate'
+        elif mode == 'periodic':
+            mode = 'circular'
+        if mode in ('constant', 'reflect', 'replicate', 'circular'):
+            res = torchf.pad(value, pad_width, mode, value=constant_values)
+            return torch.squeeze(torch.squeeze(res, 0), 0)
+        else:
+            return NotImplemented
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
         assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
