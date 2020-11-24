@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 
 import torch
+import torch.fft
 import torch.nn.functional as torchf
 
 from phi.math.backend import Backend
@@ -53,7 +54,7 @@ class TorchBackend(Backend):
     def is_tensor(self, x, only_native=False):
         if not only_native and isinstance(x, numbers.Number):
             return True
-        return isinstance(x, (torch.Tensor, ComplexTensor))
+        return isinstance(x, torch.Tensor)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -158,6 +159,8 @@ class TorchBackend(Backend):
         return result
 
     def reshape(self, value, shape):
+        if not value.is_complex():
+            value = value.view_as_complex()
         return torch.reshape(value, shape)
 
     def sum(self, value, axis=None, keepdims=False):
@@ -170,6 +173,8 @@ class TorchBackend(Backend):
         return torch.prod(value, dim=axis)
 
     def divide_no_nan(self, x, y):
+        if not isinstance(y, torch.Tensor):
+            y = torch.Tensor(y)
         result = self.as_tensor(x) / self.as_tensor(y)
         return torch.where(y == 0, torch.zeros_like(result), result)
 
@@ -330,11 +335,12 @@ class TorchBackend(Backend):
         x = self.as_tensor(x)
         return x.int()
 
-    def to_complex(self, x):
-        if isinstance(x, ComplexTensor):
-            return x
-        x = self.as_tensor(x)
-        return ComplexTensor(self.stack([x, torch.zeros_like(x)], -1))
+    def to_complex(self, real, imag=None):
+        if real.is_complex():
+            return real
+        if imag is None:
+            imag = torch.zeros_like(real)
+        return torch.complex(real, imag)
 
     def gather(self, values, indices):
         # return torch.gather(values, dim=0, index=indices)
@@ -382,27 +388,31 @@ class TorchBackend(Backend):
         return torch.all(boolean_tensor, dim=axis, keepdim=keepdims)
 
     def fft(self, x):
-        if not isinstance(x, ComplexTensor):
+        if not x.is_complex():
             x = self.to_complex(x)
         rank = len(x.shape) - 2
-        x = channels_first(x).tensor
-        k = torch.fft(x, rank)
-        k = ComplexTensor(k)
+        x = channels_first(x)
+        k = torch.fft.fft(torch.view_as_real(x), rank)
+        if k.is_complex():
+            k = self.real(k).contiguous()
+        k = torch.view_as_complex(k)
         k = channels_last(k)
         return k
 
     def ifft(self, k):
-        if not isinstance(k, ComplexTensor):
+        if not k.is_complex():
             k = self.to_complex(k)
         rank = len(k.shape) - 2
         k = channels_first(k)
-        x = torch.ifft(k.tensor, rank)
-        x = ComplexTensor(x)
+        x = torch.fft.ifft(torch.view_as_real(k), rank)
+        if x.is_complex():
+            x = self.real(x).contiguous()
+        x = torch.view_as_complex(x)
         x = channels_last(x)
         return x
 
     def imag(self, complex):
-        if isinstance(complex, ComplexTensor):
+        if isinstance(complex, torch.Tensor):
             return complex.imag
         else:
             if isinstance(complex, np.ndarray):
@@ -410,7 +420,7 @@ class TorchBackend(Backend):
             return torch.zeros_like(self.as_tensor(complex))
 
     def real(self, complex):
-        if isinstance(complex, ComplexTensor):
+        if isinstance(complex, torch.Tensor):
             return complex.real
         else:
             if isinstance(complex, np.ndarray):
@@ -456,43 +466,8 @@ class TorchBackend(Backend):
 
 
 def channels_first(x):
-    if isinstance(x, ComplexTensor):
-        x = x.tensor
-        y = x.permute(*((0, -2) + tuple(range(1, len(x.shape) - 2)) + (-1,)))
-        return ComplexTensor(y)
-    else:
-        return x.permute(*((0, -1) + tuple(range(1, len(x.shape) - 1))))
+    return x.permute(*((0, -1) + tuple(range(1, len(x.shape) - 1))))
 
 
 def channels_last(x):
-    if isinstance(x, ComplexTensor):
-        x = x.tensor
-        x = x.permute((0,) + tuple(range(2, len(x.shape) - 1)) + (1, -1))
-        return ComplexTensor(x)
-    else:
-        return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))
-
-
-class ComplexTensor(object):
-
-    def __init__(self, tensor):
-        self.tensor = tensor
-
-    @property
-    def shape(self):
-        return self.tensor.shape[:-1]
-
-    @property
-    def real(self):
-        return self.tensor[...,0]
-
-    @property
-    def imag(self):
-        return self.tensor[...,1]
-
-    def __mul__(self, other):
-        math = TorchBackend()
-        real = self.real * math.real(other) - self.imag * math.imag(other)
-        imag = self.real * math.imag(other) + self.imag * math.real(other)
-        result = math.stack([real, imag], -1)
-        return ComplexTensor(result)
+    return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))
