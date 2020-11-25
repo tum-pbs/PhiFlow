@@ -9,6 +9,7 @@ else:
     from phi.flow import *  # Use NumPy
     import os
     MODE = 'NumPy'
+from phi.physics.fluid import Fluid
 
 DIM = 2  # 2d / 3d
 BATCH_SIZE = 1  # process multiple independent simulations at once
