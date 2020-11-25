@@ -219,7 +219,7 @@ class Tensor:
         return self._op2(other, lambda x, y: x < y, lambda x, y: x < y)
 
     def __le__(self, other):
-        return self._op2(other, lambda x, y:  x <= y, lambda x, y: x <= y)
+        return self._op2(other, lambda x, y: x <= y, lambda x, y: x <= y)
 
     def __gt__(self, other):
         return self._op2(other, lambda x, y: x > y, lambda x, y: x > y)
@@ -637,8 +637,6 @@ def tensor(*objects, names=None, infer_dimension_types=True, batch_dims=None, sp
         return [_tensor(obj, names, infer_dimension_types, batch_dims, spatial_dims, channel_dims) for obj in objects]
 
 
-def _tensor(obj, names=None, types='auto'):
-    pass
 def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatial_dims=None, channel_dims=None):
     if isinstance(obj, Tensor):
         if names is None:
