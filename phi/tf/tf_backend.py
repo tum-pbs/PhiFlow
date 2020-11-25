@@ -54,6 +54,9 @@ class TFBackend(Backend):
         return tf.equal(x, y)
 
     def divide_no_nan(self, x, y):
+        if x.dtype != y.dtype:
+            # TODO: cast to complex is somehow broken
+            x, y = self.auto_cast((x, y))
         return tf.math.divide_no_nan(x, y)
 
     def random_uniform(self, shape):
@@ -395,19 +398,19 @@ class TFBackend(Backend):
             raise NotImplementedError('n-dimensional inverse FFT not implemented.')
 
     def imag(self, complex):
-        return tf.imag(complex)
+        return tf.math.imag(complex)
 
     def real(self, complex):
-        return tf.real(complex)
+        return tf.math.real(complex)
 
     def cast(self, x, dtype):
         return tf.cast(x, dtype)
 
     def sin(self, x):
-        return tf.sin(x)
+        return tf.math.sin(x)
 
     def cos(self, x):
-        return tf.cos(x)
+        return tf.math.cos(x)
 
     def dtype(self, array):
         if tf.is_tensor(array):
