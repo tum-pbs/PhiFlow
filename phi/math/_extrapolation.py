@@ -51,9 +51,13 @@ class Extrapolation:
         :param widths: {name: str -> (lower: int, upper: int)}
         """
         for dim in widths:
-            left_pad_values = self.pad_values(value, widths[dim][False], dim, False)
-            right_pad_values = self.pad_values(value, widths[dim][True], dim, True)
-            value = math._stack([left_pad_values, value, right_pad_values], dim, value.shape.get_type(dim))
+            values = []
+            if widths[dim][False] > 0:
+                values.append(self.pad_values(value, widths[dim][False], dim, False))
+            values.append(value)
+            if widths[dim][True] > 0:
+                values.append(self.pad_values(value, widths[dim][True], dim, True))
+            value = math.concat(values, dim)
         return value
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
@@ -61,7 +65,7 @@ class Extrapolation:
         Determines the values with which the given tensor would be padded at the specified using this extrapolation.
 
         :param value: tensor to be padded
-        :param width: number of cells to pad perpendicular to the face
+        :param width: number of cells to pad perpendicular to the face. Must be larger than zero.
         :param dimension: axis in which to pad
         :param upper_edge: True for upper edge, False for lower edge
         :return: tensor that can be concatenated to value for padding
@@ -253,6 +257,8 @@ class _CopyExtrapolation(Extrapolation):
             native = value.tensor
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
             result_tensor = native_math.pad(native, ordered_pad_widths, repr(self))
+            if result_tensor is NotImplemented:
+                return Extrapolation.pad(self, value, widths)
             new_shape = value.shape.with_sizes(result_tensor.shape)
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
@@ -331,18 +337,11 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
         return ZERO
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
-        raise NotImplementedError()
-        dims = range(math.ndims(value))
-        for dim in dims:
-            pad_lower, pad_upper = pad_width[dim]
-            if pad_lower == 0 and pad_upper == 0:
-                continue  # Nothing to pad
-            bottom_row = value[
-                (slice(None),) + tuple([slice(1) if d == dim else slice(None) for d in dims]) + (slice(None),)]
-            top_row = value[
-                (slice(None),) + tuple([slice(-1, None) if d == dim else slice(None) for d in dims]) + (slice(None),)]
-            value = math.concat([bottom_row] * pad_lower + [value] + [top_row] * pad_upper)
-        return value
+        if upper_edge:
+            edge = value[{dimension: slice(-1, None)}]
+        else:
+            edge = value[{dimension: slice(1)}]
+        return math.concat([edge] * width, dimension)
 
     def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
         """
@@ -393,16 +392,10 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         return coordinates % shape.spatial
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
-        raise NotImplementedError()
-        dims = range(math.ndims(value))
-        for dim in dims:
-            pad_lower, pad_upper = pad_width[dim]
-            if pad_lower == 0 and pad_upper == 0:
-                continue  # Nothing to pad
-            lower = value[tuple([slice(value.shape[dim] - pad_lower, None) if d == dim else slice(None) for d in dims])]
-            upper = value[tuple([slice(None, pad_upper) if d == dim else slice(None) for d in dims])]
-            value = math.concat([lower, value, upper], axis=dim)
-        return value
+        if upper_edge:
+            return value[{dimension: slice(width)}]
+        else:
+            return value[{dimension: slice(-width, None)}]
 
     def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
         if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
