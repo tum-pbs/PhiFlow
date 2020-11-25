@@ -12,8 +12,8 @@ try:
     resample_op_path = os.path.join(current_dir, 'cuda/build/resample.so')
     resample_gradient_op_path = os.path.join(current_dir, 'cuda/build/resample_gradient.so')
     assert os.path.isfile(
-        resample_op_path), 'CUDA binaries not found at %s. Run "python setup.py cuda" to compile them' % resample_op_path
-    assert os.path.isfile(resample_gradient_op_path), 'CUDA binaries not found at %s. Run "python setup.py cuda" to ' \
+        resample_op_path), 'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to compile them' % resample_op_path
+    assert os.path.isfile(resample_gradient_op_path), 'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to ' \
                                                       'compile them' % resample_gradient_op_path
     resample_op = tf.load_op_library(resample_op_path)
     resample_gradient_op = tf.load_op_library(resample_gradient_op_path)
@@ -23,6 +23,8 @@ except (RuntimeError, AssertionError) as e:
     librariesLoaded = False
 
 # Register gradient
+
+
 @ops.RegisterGradient("Resample")
 def _resample_gradient(op, gradient):
     gradients = resample_gradient_op.resample_gradient(gradient, op.inputs[0], op.inputs[1], op.inputs[2])
@@ -72,4 +74,3 @@ def resample_cuda(inputs, sample_coords, boundary):
                 boundary_array[i, j] = REFLECT
 
     return resample_op.resample(inputs, sample_coords, boundary_array)
-
