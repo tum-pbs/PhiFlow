@@ -59,7 +59,7 @@ class PointCloud(SampledField):
         :param resolution: grid resolution
         :return: CenteredGrid
         """
-        closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution))
+        closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution - 0.5))
         if self._add_overlapping:
             duplicates_handling = 'add'
         else:
