@@ -414,9 +414,12 @@ class NativeTensor(Tensor):
         new_shape = self.shape
         selections = [slice(None)] * self.rank
         for name, selection in selection.items():
-            selections[self.shape.index(name)] = selection
-            if isinstance(selection, int):
-                new_shape = new_shape.without(name)
+            if name in self.shape:
+                selections[self.shape.index(name)] = selection
+                if isinstance(selection, int):
+                    new_shape = new_shape.without(name)
+            else:
+                assert isinstance(selection, int), f"Attempting slice missing dimension {name} with {selection}"
         gathered = self.tensor[tuple(selections)]
         new_shape = new_shape.with_sizes(native_math.staticshape(gathered))
         return NativeTensor(gathered, new_shape)
