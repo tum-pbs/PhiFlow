@@ -1,6 +1,11 @@
 # pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 
+import torch
 from phi.flow import *
 from .torch_util import *
 from .torch_app import *
-import torch
+from .torch_backend import TorchBackend
+
+TORCH_BACKEND = TorchBackend()
+math.DYNAMIC_BACKEND.add_backend(TORCH_BACKEND)
+math.DYNAMIC_BACKEND.default_backend = TORCH_BACKEND
