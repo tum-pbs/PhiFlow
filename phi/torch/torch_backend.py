@@ -7,7 +7,7 @@ import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math.backend import Backend
+from phi.math.backend import Backend, DType
 from phi.math.backend._scipy_backend import SciPyBackend
 
 
@@ -18,26 +18,7 @@ class TorchBackend(Backend):
 
     @property
     def precision_dtype(self):
-        return {16: torch.float16, 32: torch.float32, 64: torch.float64, None: torch.float32}[self.precision]
-
-    def combine_types(self, *dtypes):
-        dtypes = [np.dtype(self.inv_translate_dtype(dt)) if isinstance(dt, torch.dtype)
-                  else dt
-                  for dt in dtypes]
-        # all bool?
-        if all(dt.kind == 'b' for dt in dtypes):
-            return dtypes[0]
-        # all int / bool?
-        if all(dt.kind == 'i' or dt.kind == 'b' for dt in dtypes):
-            largest = max(dtypes, key=lambda dt: dt.itemsize)
-            return largest
-        # all real?
-        if all(dt.kind == 'f' or dt.kind == 'i' or dt.kind == 'b' for dt in dtypes):
-            return self.float_type
-        # complex
-        if all(dt.kind == 'c' or dt.kind == 'f' or dt.kind == 'i' or dt.kind == 'b' for dt in dtypes):
-            return self.complex_type
-        raise ValueError(dtypes)
+        return to_torch_dtype(self.float_type)
 
     def auto_cast(self, *tensors):
         """
@@ -450,23 +431,9 @@ class TorchBackend(Backend):
                 complex = np.real(complex)
             return self.as_tensor(complex)
 
-    def translate_dtype(self, np_dtype):
-        dtype = {np.float16: torch.float16, np.float32: torch.float32, np.float64: torch.float64,
-                 np.bool: torch.bool, np.int8: torch.int8, np.int16: torch.int16, np.int32: torch.int32, np.int64: torch.int64,
-                 np.complex64: torch.complex64, np.complex128: torch.complex128}
-        return dtype[np_dtype]
-
-    def inv_translate_dtype(self, torch_dtype):
-        dtype = {torch.float16: np.float16, torch.float32: np.float32, torch.float64: np.float64,
-                 torch.bool: np.bool, torch.int8: np.int8, torch.int16: np.int16, torch.int32: np.int32, torch.int64: np.int64,
-                 torch.complex64: np.complex64, torch.complex128: np.complex128}
-        return dtype[torch_dtype]
-
-    def cast(self, x, dtype):
-        if not isinstance(dtype, torch.dtype):
-            dtype = self.translate_dtype(dtype)
+    def cast(self, x, dtype: DType):
         x = self.as_tensor(x)
-        return x.to(dtype)
+        return x.to(to_torch_dtype(dtype))
 
     def sin(self, x):
         return torch.sin(x)
@@ -474,8 +441,8 @@ class TorchBackend(Backend):
     def cos(self, x):
         return torch.cos(x)
 
-    def dtype(self, array):
-        return array.dtype
+    def dtype(self, array) -> DType:
+        return from_torch_dtype(array.dtype)
 
     def tile(self, value, multiples):
         if isinstance(multiples, np.ndarray):
@@ -494,3 +461,30 @@ def channels_first(x):
 
 def channels_last(x):
     return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))
+
+
+def to_torch_dtype(dtype: DType):
+    return _TO_TORCH[dtype]
+
+
+def from_torch_dtype(torch_dtype):
+    if torch_dtype in _FROM_TORCH:
+        return _FROM_TORCH[torch_dtype]
+    else:
+        kind = {'i': int, 'b': bool, 'f': float, 'c': complex}[torch_dtype.kind]
+        return DType(kind, torch_dtype.itemsize * 8)
+
+
+_TO_TORCH = {
+    DType(float, 16): torch.float16,
+    DType(float, 32): torch.float32,
+    DType(float, 64): torch.float64,
+    DType(complex, 64): torch.complex64,
+    DType(complex, 128): torch.complex128,
+    DType(int, 8): torch.int8,
+    DType(int, 16): torch.int16,
+    DType(int, 32): torch.int32,
+    DType(int, 64): torch.int64,
+    DType(bool): torch.bool,
+}
+_FROM_TORCH = {np: dtype for dtype, np in _TO_TORCH.items()}

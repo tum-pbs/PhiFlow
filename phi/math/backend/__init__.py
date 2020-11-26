@@ -1,3 +1,4 @@
+from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import Backend
 from ._dynamic_backend import DYNAMIC_BACKEND, set_precision, NoBackendFound
 from ._scipy_backend import SCIPY_BACKEND, SciPyBackend

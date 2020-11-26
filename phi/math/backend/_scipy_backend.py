@@ -1,4 +1,3 @@
-import collections
 import numbers
 import warnings
 
@@ -9,6 +8,7 @@ from scipy.sparse.linalg import cg, LinearOperator
 
 from . import Backend
 from ._backend_helper import combined_dim
+from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 
 class SciPyBackend(Backend):
@@ -22,7 +22,7 @@ class SciPyBackend(Backend):
 
     @property
     def precision_dtype(self):
-        return {16: np.float16, 32: np.float32, 64: np.float64, None: np.float32}[self.precision]
+        return to_numpy_dtype(self.float_type)
 
     # --- Abstract math functions ---
 
@@ -133,14 +133,14 @@ class SciPyBackend(Backend):
         assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
         return result
 
-    def zeros(self, shape, dtype=None):
-        return np.zeros(shape, dtype=dtype or self.float_type)
+    def zeros(self, shape, dtype: DType = None):
+        return np.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def zeros_like(self, tensor):
         return np.zeros_like(tensor)
 
-    def ones(self, shape, dtype=None):
-        return np.ones(shape, dtype=dtype or self.float_type)
+    def ones(self, shape, dtype: DType = None):
+        return np.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def ones_like(self, tensor):
         return np.ones_like(tensor)
@@ -264,11 +264,11 @@ class SciPyBackend(Backend):
         else:
             return x.astype(np.complex64)
 
-    def cast(self, x, dtype):
-        if self.is_tensor(x, only_native=True) and x.dtype == dtype:
+    def cast(self, x, dtype: DType):
+        if self.is_tensor(x, only_native=True) and from_numpy_dtype(x.dtype) == dtype:
             return x
         else:
-            return np.array(x, dtype)
+            return np.array(x, to_numpy_dtype(dtype))
 
     def auto_cast(self, *tensors):
         return tensors
@@ -380,12 +380,16 @@ class SciPyBackend(Backend):
     def cos(self, x):
         return np.cos(x)
 
-    def dtype(self, array):
+    def dtype(self, array) -> DType:
+        if isinstance(array, int):
+            return DType(int, 32)
         if isinstance(array, float):
-            return self.precision_dtype(0).dtype
+            return self.float_type
+        if isinstance(array, complex):
+            return self.complex_type
         if not isinstance(array, np.ndarray):
             array = np.array(array)
-        return array.dtype
+        return from_numpy_dtype(array.dtype)
 
     def sparse_tensor(self, indices, values, shape):
         if not isinstance(indices, (tuple, list)):

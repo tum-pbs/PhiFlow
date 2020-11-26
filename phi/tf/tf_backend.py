@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import tensorflow as tf
 
-from phi.math.backend import Backend
+from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype
 from phi.math.backend._scipy_backend import SCIPY_BACKEND, SciPyBackend
 from .tf_cuda_resample import resample_cuda, use_cuda
 
@@ -147,14 +147,14 @@ class TFBackend(Backend):
         else:
             return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)  # while this is a bit slower than niftynet, it give consisten results at the boundaries
 
-    def zeros(self, shape, dtype=None):
-        return tf.zeros(shape, dtype=dtype or self.float_type)
+    def zeros(self, shape, dtype: DType = None):
+        return tf.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def zeros_like(self, tensor):
         return tf.zeros_like(tensor)
 
-    def ones(self, shape, dtype=None):
-        return tf.ones(shape, dtype=dtype or self.float_type)
+    def ones(self, shape, dtype: DType = None):
+        return tf.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def ones_like(self, tensor):
         return tf.ones_like(tensor)
@@ -274,7 +274,7 @@ class TFBackend(Backend):
             warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
             return tf.cast(x, tf.float64)
         else:
-            return tf.cast(x, self.float_type)
+            return tf.cast(x, to_numpy_dtype(self.float_type))
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
@@ -403,8 +403,8 @@ class TFBackend(Backend):
     def real(self, complex):
         return tf.math.real(complex)
 
-    def cast(self, x, dtype):
-        return tf.cast(x, dtype)
+    def cast(self, x, dtype: DType):
+        return tf.cast(x, to_numpy_dtype(dtype))
 
     def sin(self, x):
         return tf.math.sin(x)
@@ -412,13 +412,10 @@ class TFBackend(Backend):
     def cos(self, x):
         return tf.math.cos(x)
 
-    def dtype(self, array):
+    def dtype(self, array) -> DType:
         if tf.is_tensor(array):
             dt = array.dtype.as_numpy_dtype
-            if dt is bool:
-                return np.dtype('b')
-            else:
-                return np.dtype(dt(0))
+            return from_numpy_dtype(dt)
         else:
             return SCIPY_BACKEND.dtype(array)
 

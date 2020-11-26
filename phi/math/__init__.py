@@ -19,7 +19,7 @@ Main classes:
 * Shape
 """
 
-from .backend import DYNAMIC_BACKEND, set_precision, Solve, LinearSolve
+from .backend import DYNAMIC_BACKEND, set_precision, Solve, LinearSolve, DType
 from .backend._scipy_backend import SCIPY_BACKEND
 
 from . import _extrapolation as extrapolation

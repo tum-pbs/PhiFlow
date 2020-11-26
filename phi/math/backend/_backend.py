@@ -1,4 +1,4 @@
-import numpy as np
+from ._dtype import DType
 
 
 class Backend:
@@ -34,25 +34,25 @@ class Backend:
 
     @property
     def float_type(self):
-        return {16: np.float16, 32: np.float32, 64: np.float64, None: np.float32}[self.precision]
+        return DType(float, self._precision or 32)
 
     @property
     def complex_type(self):
-        return {16: np.complex64, 32: np.complex64, 64: np.complex128, None: np.complex64}[self.precision]
+        return DType(complex, max(64, self._precision or 32))
 
-    def combine_types(self, *dtypes):
+    def combine_types(self, *dtypes: DType):
         # all bool?
-        if all(dt.kind == 'b' for dt in dtypes):
+        if all(dt.kind == bool for dt in dtypes):
             return dtypes[0]
         # all int / bool?
-        if all(dt.kind == 'i' or dt.kind == 'b' for dt in dtypes):
-            largest = max(dtypes, key=lambda dt: dt.itemsize)
+        if all(dt.kind in (bool, int) for dt in dtypes):
+            largest = max(dtypes, key=lambda dt: dt.bits)
             return largest
         # all real?
-        if all(dt.kind == 'f' or dt.kind == 'i' or dt.kind == 'b' for dt in dtypes):
+        if all(dt.kind in (float, int, bool) for dt in dtypes):
             return self.float_type
         # complex
-        if all(dt.kind == 'c' or dt.kind == 'f' or dt.kind == 'i' or dt.kind == 'b' for dt in dtypes):
+        if all(dt.kind == (complex, float, int, bool) for dt in dtypes):
             return self.complex_type
         raise ValueError(dtypes)
 
@@ -176,13 +176,13 @@ class Backend:
     def range(self, start, limit=None, delta=1, dtype=None):
         raise NotImplementedError(self)
 
-    def zeros(self, shape, dtype=None):
+    def zeros(self, shape, dtype: DType = None):
         raise NotImplementedError(self)
 
     def zeros_like(self, tensor):
         raise NotImplementedError(self)
 
-    def ones(self, shape, dtype=None):
+    def ones(self, shape, dtype: DType = None):
         raise NotImplementedError(self)
 
     def ones_like(self, tensor):
@@ -337,7 +337,7 @@ To convert float tensors to the backend precision but leave non-float tensors un
     def real(self, complex):
         raise NotImplementedError(self)
 
-    def cast(self, x, dtype):
+    def cast(self, x, dtype: DType):
         raise NotImplementedError(self)
 
     def sin(self, x):
@@ -346,7 +346,7 @@ To convert float tensors to the backend precision but leave non-float tensors un
     def cos(self, x):
         raise NotImplementedError(self)
 
-    def dtype(self, array):
+    def dtype(self, array) -> DType:
         raise NotImplementedError(self)
 
     def tile(self, value, multiples):
@@ -403,15 +403,14 @@ If `multiples` has more dimensions than `value`, these dimensions are added to `
     def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
         """
         Interpolates a regular grid at the specified coordinates.
+
         :param inputs: grid values
         :param sample_coords: tensor of floating grid indices. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
         :param interpolation: only 'linear' is currently supported
         :param boundary: values to use for coordinates outside the grid, can be specified for each face, options are 'constant', 'boundary', 'periodic', 'symmetric', 'reflect'
         :param constant_values: Value used for constant boundaries, can be specified for each face
         """
-        from . import general_grid_sample_nd
-        assert interpolation == 'linear'
-        return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
+        return NotImplemented
 
     def ndims(self, tensor):
         return len(self.staticshape(tensor))

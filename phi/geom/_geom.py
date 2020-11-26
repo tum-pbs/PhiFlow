@@ -203,7 +203,7 @@ class _NoGeometry(Geometry):
         return math.zeros(location.shape.non_channel) + np.inf
 
     def lies_inside(self, location):
-        return math.zeros(location.shape.non_channel, dtype=bool)
+        return math.zeros(location.shape.non_channel, dtype=math.DType(bool))
 
     def approximate_fraction_inside(self, other_geometry):
         return math.zeros(other_geometry.shape)
