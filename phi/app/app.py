@@ -169,8 +169,12 @@ class App(object):
         self.step_function = step_function
         if dt is not None:
             self.dt = dt
-        for field_name in show:
-            self.add_field(field_name, lambda n=field_name: self.state[n])
+        if show:
+            if not self.prepared:
+                for field_name in show:
+                    self.add_field(field_name, lambda n=field_name: self.state[n])
+                else:
+                    warnings.warn('Ignoring show argument because App is already prepared.')
 
     @property
     def frame(self):

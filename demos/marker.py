@@ -15,7 +15,7 @@ def checkerboard(size=8, offset=2):
 domain = Domain([160, 126], CLOSED)
 velocity = domain.sgrid(Noise(vector=2, scale=100)) * 4
 dense_marker = CenteredGrid(checkerboard(), domain.bounds)
-points = math.join_dimensions(domain.cells.center.x[::4].y[::4], ('x', 'y'), 'points')
+points = math.join_dimensions(domain.cells.center.x[::4].y[::4], ('x', 'y'), 'points').points.as_batch()
 sparse_marker = PointCloud(Sphere(points, 1), math.random_normal(points.shape.without('vector')))
 state = dict(velocity=velocity, markers=(dense_marker, sparse_marker))
 
