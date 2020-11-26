@@ -68,7 +68,7 @@ class CenteredGrid(Grid):
             if callable(value):
                 x = GridCell(resolution, box).center
                 value = value(x)
-            value = tensor(value, infer_dimension_types=False)
+            value = tensor(value)
             data = math.zeros(resolution) + value
         return CenteredGrid(data, box, extrapolation)
 

@@ -9,7 +9,8 @@ import numpy as np
 from .backend import math, Solve, LinearSolve
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_
 from . import _extrapolation as extrapolation
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, custom_op2
+from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, \
+    custom_op2, tensors
 from phi.math.backend._scipy_backend import SCIPY_BACKEND
 
 
@@ -343,7 +344,7 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
     :param value_false: values to pick where condition == 0 / False
     :return: tensor containing dimensions of all inputs
     """
-    condition, value_true, value_false = tensor(condition, value_true, value_false)
+    condition, value_true, value_false = tensors(condition, value_true, value_false)
     shape, (c, vt, vf) = broadcastable_native_tensors(condition, value_true, value_false)
     result = math.where(c, vt, vf)
     return NativeTensor(result, shape)
@@ -502,10 +503,10 @@ def minimum(x, y):
 
 def clip(x, minimum, maximum):
     def _clip(x, minimum, maximum):
-        new_shape, (x_, min_, max_) = broadcastable_native_tensors(*tensor(x, minimum, maximum))
+        new_shape, (x_, min_, max_) = broadcastable_native_tensors(*tensors(x, minimum, maximum))
         result_tensor = math.clip(x_, min_, max_)
         return NativeTensor(result_tensor, new_shape)
-    return broadcast_op(_clip, tensor(x, minimum, maximum))
+    return broadcast_op(_clip, tensors(x, minimum, maximum))
 
 
 def with_custom_gradient(function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
@@ -749,7 +750,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
         raise NotImplementedError("Only 'CG' solver currently supported")
 
     from ._track import lin_placeholder, ShiftLinOp
-    x0, y = tensor(x0, y)
+    x0, y = tensors(x0, y)
     batch = (y.shape & x0.shape).batch
     x0_native = math.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
     y_native = math.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))

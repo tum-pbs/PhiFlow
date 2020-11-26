@@ -2,7 +2,7 @@ from phi import math
 from phi.geom import Geometry
 
 from ._analytic import AnalyticField
-from ..math import Shape
+from ..math import Shape, GLOBAL_AXIS_ORDER
 
 
 class AngularVelocity(AnalyticField):
@@ -13,7 +13,8 @@ class AngularVelocity(AnalyticField):
         self.location = location
         self.strength = strength
         self.falloff = falloff
-        self._shape = location.shape.combined(math.spatial_shape([1] * location.vector.size))
+        spatial_names = [GLOBAL_AXIS_ORDER.axis_name(i, location.vector.size) for i in range(location.vector.size)]
+        self._shape = location.shape.combined(math.spatial_shape([1] * location.vector.size, spatial_names))
 
     def sample_at(self, points, reduce_channels=()) -> math.Tensor:
         distances = points - self.location

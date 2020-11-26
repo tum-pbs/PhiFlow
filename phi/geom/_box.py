@@ -151,8 +151,8 @@ class Box(AbstractBox, metaclass=BoxType):
         :param lower: physical location of lower corner
         :param upper: physical location of upper corner
         """
-        self._lower = tensor(lower, names='..., vector', channel_dims=1, spatial_dims=0)
-        self._upper = tensor(upper, names='..., vector', channel_dims=1, spatial_dims=0)
+        self._lower = tensor(lower)
+        self._upper = tensor(upper)
         self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape)
 
     def unstack(self, dimension):

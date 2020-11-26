@@ -11,8 +11,8 @@ class Sphere(Geometry):
     """
 
     def __init__(self, center, radius):
-        self._center = tensor(center, names='..., vector', channel_dims=1, spatial_dims=0)
-        self._radius = tensor(radius, channel_dims=0, spatial_dims=0)
+        self._center = tensor(center)
+        self._radius = tensor(radius)
         self._shape = _fill_spatial_with_singleton(self._center.shape & self._radius.shape)
 
     @property

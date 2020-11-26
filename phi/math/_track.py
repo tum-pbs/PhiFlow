@@ -3,7 +3,7 @@ from functools import reduce
 import numpy as np
 
 from .backend import math as native_math, choose_backend
-from ._shape import EMPTY_SHAPE, Shape, shape
+from ._shape import EMPTY_SHAPE, Shape, shape, parse_dim_order
 from ._tensors import Tensor, NativeTensor, TensorStack
 from . import _functions as math
 
@@ -34,7 +34,7 @@ class ShiftLinOp(Tensor):
         self.val = simplify_add(values_by_shift)
         self._shape = shape
 
-    def native(self, order=None):
+    def native(self, order: str or tuple or list = None):
         """
         Evaluates the value of the linear operation applied to the original source tensor.
 
@@ -42,6 +42,7 @@ class ShiftLinOp(Tensor):
         These dimensions are detected automatically during the creation of the linear operation.
         All other dimensions (independent dimensions) are combined into a single batch dimensions for the sparse matrix multiplication.
         """
+        order = parse_dim_order(order)
         result = self.apply(self.source)
         result_order = order if order is not None else self._shape.names
         return result.native(result_order)
@@ -163,7 +164,8 @@ class SparseLinearOperation(Tensor):
         self.dependency_matrix = dependency_matrix
         self._shape = shape
 
-    def native(self, order=None):
+    def native(self, order: str or tuple or list = None):
+        order = parse_dim_order(order)
         native_source = native_math.reshape(self.source.native(), (self.source.shape.batch.volume, self.source.shape.non_batch.volume))
         native = native_math.matmul(self.dependency_matrix, native_source)
         new_shape = self.source.shape.batch.combined(self._shape)

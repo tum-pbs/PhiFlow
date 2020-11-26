@@ -5,7 +5,7 @@ import numpy as np
 
 from . import _shape
 from .backend import math as native_math
-from ._shape import Shape, infer_shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
+from ._shape import Shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
 
 
 class Tensor:
@@ -17,7 +17,7 @@ class Tensor:
     The internal data representation of a tensor can change, even without being edited.
     """
 
-    def native(self, order=None):
+    def native(self, order: str or tuple or list = None):
         """
         Returns a native tensor object with the dimensions ordered according to `order`.
 
@@ -31,7 +31,21 @@ class Tensor:
         """
         raise NotImplementedError()
 
-    def numpy(self, order=None) -> np.ndarray:
+    def numpy(self, order: str or tuple or list = None) -> np.ndarray:
+        """
+        Returns this tensor as a NumPy ndarray object with dimensions ordered according to `order`.
+
+        *Note*: Using this function breaks the autograd chain. The returned tensor is not differentiable.
+        To get a differentiable tensor, use :func:`Tensor.native` instead.
+
+        Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
+
+        If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
+
+        :param order: (optional) list of dimension names. If not given, the current order is kept.
+        :return: NumPy representation
+        :raise: ValueError if the tensor cannot be transposed to match target_shape
+        """
         native = self.native(order=order)
         return native_math.numpy(native)
 
@@ -253,7 +267,7 @@ class Tensor:
         return self[::-1]
 
     def __iter__(self):
-        assert self.rank == 1
+        assert self.rank == 1, f"Can only iterate over 1D tensors but got {self.shape}"
         return iter(self.native())
 
     def _tensor(self, other):
@@ -274,7 +288,7 @@ class Tensor:
             elif len(shape) == self.rank:
                 return NativeTensor(other_tensor, self.shape.with_sizes(shape))
             elif len(shape) == self.shape.channel.rank:
-                other_tensor = tensor(other, names=self.shape.channel.names, infer_dimension_types=False)
+                other_tensor = tensor(other, names=self.shape.channel.names)
                 return other_tensor
             elif len(shape) == 1 and self.shape.channel.rank == 0:
                 return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
@@ -379,11 +393,12 @@ class NativeTensor(Tensor):
     def __init__(self, native_tensor, shape):
         assert not isinstance(native_tensor, Tensor)
         assert isinstance(shape, Shape)
-        assert native_math.staticshape(native_tensor) == shape.sizes
+        assert native_math.staticshape(native_tensor) == shape.sizes, f"Shape {shape} does not match native tensor with shape {native_math.staticshape(native_tensor)}"
         self.tensor = native_tensor
         self._shape = shape
 
-    def native(self, order=None):
+    def native(self, order: str or tuple or list = None):
+        order = _shape.parse_dim_order(order)
         if order is None or tuple(order) == self.shape.names:
             return self.tensor
         # --- Insert missing dims ---
@@ -467,7 +482,8 @@ class CollapsedTensor(Tensor):
     def expand(self):
         return self._cache()
 
-    def native(self, order=None):
+    def native(self, order: str or tuple or list = None):
+        order = _shape.parse_dim_order(order)
         if order is None or tuple(order) == self.shape.names:
             return self._cache().native()
         else:
@@ -555,7 +571,8 @@ class TensorStack(Tensor):
     def shape(self):
         return self._shape
 
-    def native(self, order=None):
+    def native(self, order: str or tuple or list = None):
+        order = _shape.parse_dim_order(order)
         if self._cached is not None:
             return self._cached.native(order=order)
         # Is only the stack dimension shifted?
@@ -630,47 +647,54 @@ class TensorStack(Tensor):
         return self.keep_separate or not self._shape.well_defined or np.any([isinstance(t, ShiftLinOp) for t in self.tensors])
 
 
-def tensor(*objects, names=None, infer_dimension_types=True, batch_dims=None, spatial_dims=None, channel_dims=None):
-    if len(objects) == 1:
-        return _tensor(objects[0], names, infer_dimension_types, batch_dims, spatial_dims, channel_dims)
-    else:
-        return [_tensor(obj, names, infer_dimension_types, batch_dims, spatial_dims, channel_dims) for obj in objects]
+def tensors(*objects, names=None):
+    return [tensor(obj, names) for obj in objects]
 
 
-def _tensor(obj, names=None, infer_dimension_types=True, batch_dims=None, spatial_dims=None, channel_dims=None):
-    if isinstance(obj, Tensor):
+def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
+           names: str or tuple or list = None) -> Tensor:
+    """
+    Create a Tensor from the specified data.
+
+    If dimension names are specified, dimension types are inferred from them.
+    Otherwise, existing or default dimension names are used.
+
+    :param data: native tensor, scalar, sequence, Shape or Tensor
+    :param names: Dimension names. Dimension types are inferred from the names.
+    :return: Tensor representing `obj`
+    """
+    if isinstance(data, Tensor):
         if names is None:
-            return obj
+            return data
         else:
-            new_shape = obj.shape.with_names(names)
-            return obj._with_shape_replaced(new_shape)
-    if isinstance(obj, (tuple, list)):
-        array = np.array(obj)
+            names = _shape.parse_dim_names(names, data.rank)
+            names = [n if n is not None else o for n, o in zip(names, data.shape.names)]
+            types = [_shape._infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
+            new_shape = Shape(data.shape.sizes, names, types)
+            return data._with_shape_replaced(new_shape)
+    if isinstance(data, (tuple, list)):
+        array = np.array(data)
         if array.dtype != np.object:
-            obj = array
+            data = array
         else:
             raise NotImplementedError(f"{array.dtype} dtype for iterable not allowed. Only np.object supported.")
-            return TensorStack(tensor(obj), dim_name=None, dim_type=CHANNEL_DIM)
-    if isinstance(obj, np.ndarray) and obj.dtype != np.object:
-        if infer_dimension_types:
-            shape = infer_shape(obj.shape, names, batch_dims, spatial_dims, channel_dims)
-            tensor = NativeTensor(obj, shape)
-            for dim in shape.non_spatial.singleton.names:
-                tensor = tensor.dimension(dim)[0]  # Remove singleton batch and channel dims
-            return tensor
+            return TensorStack(tensor(data), dim_name=None, dim_type=CHANNEL_DIM)
+    if isinstance(data, np.ndarray) and data.dtype != np.object:
+        if names is None:
+            assert data.ndim <= 1, "Specify dimension names for tensors with more than 1 dimension"
+            names = ['vector'] * data.ndim
         else:
-            if names is None:
-                names = ['vector%d' % i for i in range(len(obj.shape))] if obj.ndim > 1 else ['vector']
-            else:
-                names = _shape.parse_dim_names(names, len(obj.shape))
-            shape = Shape(obj.shape, names, [CHANNEL_DIM] * len(obj.shape))
-            return NativeTensor(obj, shape)
-    if isinstance(obj, numbers.Number):
-        array = np.array(obj)
+            names = _shape.parse_dim_names(names, len(data.shape))
+        shape = Shape(data.shape, names, [CHANNEL_DIM] * len(data.shape))
+        return NativeTensor(data, shape)
+    if isinstance(data, numbers.Number):
+        assert not names
+        array = np.array(data)
         return NativeTensor(array, EMPTY_SHAPE)
-    if isinstance(obj, Shape):
-        return _tensor(obj.sizes, names or ['vector'], infer_dimension_types=False)
-    raise ValueError(f"{type(obj)} is not supported. Only (Tensor, tuple, list, np.ndarray, NativeTensor).")
+    if isinstance(data, Shape):
+        assert names is not None
+        return tensor(data.sizes, names)
+    raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, NativeTensor).")
 
 
 def broadcastable_native_tensors(*tensors):
@@ -692,18 +716,10 @@ def op2_native(x: Tensor, y: Tensor, native_function: callable):
 
 
 def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_function, r_operator=None, r_native_function=None):
-    x, y = tensor(x, y)
+    x, y = tensors(x, y)
     result = x._op2(y, l_operator, l_native_function)
     if result is NotImplemented:
         result = y._op2(x, r_operator or l_operator, r_native_function or l_native_function)
         if result is NotImplemented:
             raise NotImplementedError(f"Operation not supported between {type(x)} and {type(y)}")
     return result
-
-
-def shapeof(tensor):
-    if isinstance(tensor, Tensor):
-        return tensor.shape
-    else:
-        shape = native_math.staticshape(tensor)
-        return infer_shape(shape)

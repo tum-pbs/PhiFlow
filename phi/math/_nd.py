@@ -1,20 +1,17 @@
 # Because division is different in Python 2 and 3
 from __future__ import division
 
-import warnings
-
 import numpy as np
 
 from phi import struct
 from . import _extrapolation as extrapolation
-from ._extrapolation import Extrapolation
 from . import _functions as math
-from ._shape import CHANNEL_DIM, spatial_shape, channel_shape, Shape, shape
-from ._functions import broadcast_op, batch_stack, channel_stack
-from ._tensors import tensor, Tensor, TensorStack, NativeTensor
-from ._tensors import Tensor, shapeof
 from ._config import GLOBAL_AXIS_ORDER
-from .backend.tensorop import collapsed_gather_nd
+from ._extrapolation import Extrapolation
+from ._functions import channel_stack
+from ._shape import Shape
+from ._tensors import Tensor
+from ._tensors import tensor
 
 
 def spatial_sum(value: Tensor):
@@ -30,7 +27,7 @@ def vec_squared(vec: Tensor):
 
 
 def cross_product(vec1: Tensor, vec2: Tensor):
-    vec1, vec2 = math.tensor(vec1, vec2)
+    vec1, vec2 = math.tensors(vec1, vec2)
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
         dist_0, dist_1 = vec2.vector.unstack()

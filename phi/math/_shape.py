@@ -204,12 +204,12 @@ class Shape:
         types = self.batch.types + self.spatial.types + self.channel.types
         return Shape(sizes, names, types)
 
-    def reorder(self, names):
+    def reorder(self, names: tuple or list):
         assert len(names) == self.rank
         order = [self.index(n) for n in names]
         return self[order]
 
-    def order_group(self, names):
+    def order_group(self, names: tuple or list):
         order = []
         for name in self.names:
             if name not in order:
@@ -219,12 +219,12 @@ class Shape:
                     order.append(name)
         return order
 
-    def combined(self, other, combine_spatial=False):
+    def combined(self, other: Shape, combine_spatial=False) -> Shape:
         """
         Returns a Shape object that both `self` and `other` can be broadcast to.
         If `self` and `other` are incompatible, raises a ValueError.
         :param other: Shape
-        :return:
+        :return: combined shape
         :raise: ValueError if shapes don't match
         """
         return combine_safe(self, other, check_exact=[] if combine_spatial else [SPATIAL_DIM])
@@ -232,16 +232,16 @@ class Shape:
     def __and__(self, other):
         return combine_safe(self, other, check_exact=[SPATIAL_DIM])
 
-    def expand_batch(self, size, name, pos=None):
+    def expand_batch(self, size, name: str, pos=None) -> Shape:
         return self.expand(size, name, BATCH_DIM, pos)
 
-    def expand_spatial(self, size, name, pos=None):
+    def expand_spatial(self, size, name: str, pos=None) -> Shape:
         return self.expand(size, name, SPATIAL_DIM, pos)
 
-    def expand_channel(self, size, name, pos=None):
+    def expand_channel(self, size, name: str, pos=None) -> Shape:
         return self.expand(size, name, CHANNEL_DIM, pos)
 
-    def expand(self, size, name, dim_type, pos=None):
+    def expand(self, size, name: str, dim_type: str, pos=None) -> Shape:
         """
         Add a dimension to the shape.
 
@@ -263,10 +263,10 @@ class Shape:
         types.insert(pos, dim_type)
         return Shape(sizes, names, types)
 
-    def extend(self, other: Shape):
+    def extend(self, other: Shape) -> Shape:
         return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
 
-    def without(self, dims) -> Shape:
+    def without(self, dims: str or tuple or list or Shape or None) -> Shape:
         """
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -289,7 +289,7 @@ class Shape:
 
     reduce = without
 
-    def only(self, dims):
+    def only(self, dims: str or tuple or list or Shape):
         """
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -538,7 +538,7 @@ class IncompatibleShapes(ValueError):
         ValueError.__init__(self, message, *shapes)
 
 
-def parse_dim_names(obj, count: int) -> tuple:
+def parse_dim_names(obj: str or tuple or list or Shape, count: int) -> tuple:
     if isinstance(obj, str):
         parts = obj.split(',')
         result = []
@@ -559,6 +559,19 @@ def parse_dim_names(obj, count: int) -> tuple:
         assert len(obj) == count, f"Number of specified names in {obj} does not match number of dimensions ({count})"
         return tuple(obj)
     raise ValueError(obj)
+
+
+def parse_dim_order(order: str or tuple or list or Shape or None) -> tuple or None:
+    if order is None:
+        return None
+    elif isinstance(order, Shape):
+        return order.names
+    elif isinstance(order, (tuple, list)):
+        return order
+    elif isinstance(order, str):
+        parts = order.split(',')
+        parts = [p.strip() for p in parts]
+        return tuple(parts)
 
 
 def shape(**dims: int) -> Shape:
@@ -589,54 +602,6 @@ def _infer_dim_type_from_name(name):
         return BATCH_DIM
 
 
-def infer_shape(shape, dim_names=None, batch_dims=None, spatial_dims=None, channel_dims=None):
-    if isinstance(shape, Shape):
-        return shape
-    shape = tuple(shape)
-    if len(shape) == 0:
-        return EMPTY_SHAPE
-    # --- Infer dim types ---
-    dims = _infer_dim_group_counts(len(shape), constraints=[batch_dims, spatial_dims, channel_dims])
-    if dims is None:  # could not infer
-        channel_dims = 1
-        dims = _infer_dim_group_counts(len(shape), constraints=[batch_dims, spatial_dims, channel_dims])
-        if dims is None:
-            batch_dims = 1
-            dims = _infer_dim_group_counts(len(shape), constraints=[batch_dims, spatial_dims, channel_dims])
-    assert dims is not None, "Could not infer shape from '%s' given constraints batch_dims=%s, spatial_dims=%s, channel_dims=%s" % (shape, batch_dims, spatial_dims, channel_dims)
-    batch_dims, spatial_dims, channel_dims = dims
-    # --- Construct shape ---
-    from phi import geom
-    if dim_names is not None:
-        dim_names = parse_dim_names(dim_names, len(shape))
-    if dim_names is None or None in dim_names:
-        set_dim_names = dim_names
-        dim_names = []
-        # --- batch names ---
-        if batch_dims == 1:
-            dim_names.append('batch')
-        else:
-            for i in range(batch_dims):
-                dim_names.append('batch %d' % (i,))
-        # --- spatial names ---
-        for i in range(spatial_dims):
-            dim_names.append(math.GLOBAL_AXIS_ORDER.axis_name(i, spatial_dims))
-        # --- channel names ---
-        if channel_dims == 0:
-            pass
-        elif channel_dims == 1:
-            dim_names.append('vector')
-        else:
-            for i in range(channel_dims):
-                dim_names.append('vector%d' % i)
-        if set_dim_names is not None:
-            for i, set_name in enumerate(set_dim_names):
-                if set_name is not None:
-                    dim_names[i] = set_name
-    types = [_infer_dim_type_from_name(name) for name in dim_names]
-    return Shape(sizes=shape, names=dim_names, types=types)
-
-
 def _infer_dim_group_counts(rank, constraints: list):
     known_sum = sum([dim or 0 for dim in constraints])
     unknown_count = sum([1 if dim is None else 0 for dim in constraints])
@@ -647,54 +612,103 @@ def _infer_dim_group_counts(rank, constraints: list):
     return None
 
 
-def spatial_shape(sizes, names=None):
+def batch_shape(sizes: Shape or dict or tuple or list, names: tuple or list = None):
     """
-    If `sizes` is a `Shape`, returns the spatial part of it.
+    Creates a Shape with the following properties:
 
-    Otherwise, creates a Shape with the given sizes as spatial dimensions.
-    The sizes are assumed to be ordered according to the GLOBAL_AXIS_ORDER and the dimensions are named accordingly.
+    * All dimensions are of type 'batch'
+    * The shape's `names` match `names`, if provided
 
-    :param sizes: list of integers or Shape
+    Depending on the type of `sizes`, returns
+
+    * Shape -> (reordered) spatial sub-shape
+    * dict[dim: str -> size] -> (reordered) shape with given names and sizes
+    * tuple/list of sizes -> matches names to sizes and keeps order
+
+    :param sizes: list of integers or dict or Shape
+    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
+    :return: Shape containing only spatial dimensions
+    """
+    return _pure_shape(sizes, names, BATCH_DIM)
+
+
+def spatial_shape(sizes: Shape or dict or tuple or list, names: tuple or list = None) -> Shape:
+    """
+    Creates a Shape with the following properties:
+
+    * All dimensions are of type 'spatial'
+    * The shape's `names` match `names`, if provided
+
+    Depending on the type of `sizes`, returns
+
+    * Shape -> (reordered) spatial sub-shape
+    * dict[dim: str -> size] -> (reordered) shape with given names and sizes
+    * tuple/list of sizes -> matches names to sizes and keeps order
+
+    :param sizes: list of integers or dict or Shape
+    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
+    :return: Shape containing only spatial dimensions
+    """
+    return _pure_shape(sizes, names, SPATIAL_DIM)
+
+
+def channel_shape(sizes: Shape or dict or list or tuple, names: tuple or list = None) -> Shape:
+    """
+    Creates a Shape with the following properties:
+
+    * All dimensions are of type 'channel'
+    * The shape's `names` match `names`, if provided
+
+    Depending on the type of `sizes`, returns
+
+    * Shape -> (reordered) spatial sub-shape
+    * dict[dim: str -> size] -> (reordered) shape with given names and sizes
+    * tuple/list of sizes -> matches names to sizes and keeps order
+
+    :param sizes: list of integers or dict or Shape
+    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
+    :return: Shape containing only spatial dimensions
+    """
+    return _pure_shape(sizes, names, SPATIAL_DIM)
+
+
+def _pure_shape(sizes: Shape or dict or tuple or list, names: tuple or list, dim_type: str) -> Shape:
+    """
+    Creates a Shape with the following properties:
+
+    * All dimensions are of type `dim_type`
+    * The shape's `names` match `names`, if provided
+
+    Depending on the type of `sizes`, returns
+
+    * Shape -> (reordered) spatial sub-shape
+    * dict[dim: str -> size] -> (reordered) shape with given names and sizes
+    * tuple/list of sizes -> matches names to sizes and keeps order
+
+    :param sizes: list of integers or dict or Shape
+    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
     :return: Shape containing only spatial dimensions
     """
     if isinstance(sizes, Shape):
-        return sizes.spatial.reorder(names) if names else sizes.spatial
+        s = sizes[[i for i, t in enumerate(sizes.types) if t == dim_type]]
+        if names is None:
+            return s
+        else:
+            assert s.rank == len(names)
+            return s.reorder(names)
     elif isinstance(sizes, dict):
-        return Shape(sizes.values(), sizes.keys(), (SPATIAL_DIM,) * len(sizes))
+        s = Shape(sizes.values(), sizes.keys(), (dim_type,) * len(sizes))
+        if names is None:
+            return s
+        else:
+            assert s.rank == len(names)
+            return s.reorder(names)
+    elif isinstance(sizes, (tuple, list)):
+        assert names is not None
+        assert len(names) == len(sizes)
+        return Shape(sizes, names, (dim_type,) * len(sizes))
     else:
-        return infer_shape(sizes, batch_dims=0, channel_dims=0, dim_names=names)
-
-
-def channel_shape(sizes: Shape or list or tuple or dict) -> Shape:
-    """
-    Creates a `Shape` with all dimensions of type `channel`.
-
-    The behavior depends on the type of `sizes`:
-
-    * Shape: Returns a new Shape containing only the channel dimensions.
-    * dict str -> int: Keys are interpreted as names and values as sizes.
-    * tuple/list of int: Names are generated automatically.
-
-    :param sizes: Shape, dict: name -> size, sequence of int
-    :return: new Shape
-    """
-    if isinstance(sizes, Shape):
-        return sizes.channel
-    elif isinstance(sizes, dict):
-        return Shape(sizes.values(), sizes.keys(), [CHANNEL_DIM] * len(sizes))
-    else:
-        return infer_shape(sizes, batch_dims=0, spatial_dims=0)
-
-
-def batch_shape(obj):
-    if obj is None:
-        return EMPTY_SHAPE
-    elif isinstance(obj, Shape):
-        return obj.batch
-    elif isinstance(obj, int):
-        return Shape((obj,), ('batch',), (BATCH_DIM,))
-    else:
-        return infer_shape(obj, spatial_dims=0, channel_dims=0)
+        raise ValueError(sizes)
 
 
 def check_singleton(shape):

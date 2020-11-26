@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import numpy as np
+
 from phi import math
-from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE
+from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
 
 
 class Geometry:
@@ -250,8 +252,10 @@ def _rank(rank):
 
 
 def _fill_spatial_with_singleton(shape):
-    if shape.spatial.rank == shape.channel.volume:
+    if shape.spatial.rank == shape.vector:
         return shape
     else:
-        assert shape.spatial.rank == 0
-        return shape.combined(spatial_shape([1] * shape.channel.volume))
+        assert shape.spatial.rank == 0, shape
+        names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.vector) for i in range(shape.vector)]
+        return shape.combined(spatial_shape([1] * shape.vector, names=names))
+

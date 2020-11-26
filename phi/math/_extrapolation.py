@@ -84,7 +84,7 @@ class Extrapolation:
         :param shape: tensor shape
         :return: transformed coordinates
         """
-        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1))
+        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, 'vector'))
 
     @property
     def is_copy_pad(self):
