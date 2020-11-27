@@ -169,8 +169,8 @@ class TorchBackend(Backend):
         return result
 
     def reshape(self, value, shape):
-        if not value.is_complex():
-            value = value.view_as_complex()
+        # if not value.is_complex():
+        #     value = value.view_as_complex()
         return torch.reshape(value, shape)
 
     def flip(self, value, axes: tuple or list):
@@ -213,10 +213,13 @@ class TorchBackend(Backend):
         return torch.arange(start, limit, delta, dtype=dtype)
 
     def zeros(self, shape, dtype=None):
-        return torch.zeros(shape, dtype=dtype or self.precision_dtype)
+        return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type))
 
     def zeros_like(self, tensor):
         return torch.zeros_like(tensor)
+
+    def ones(self, shape, dtype: DType = None):
+        return torch.ones(shape, dtype=to_torch_dtype(dtype or self.float_type))
 
     def ones_like(self, tensor):
         return torch.ones_like(tensor)
@@ -402,6 +405,8 @@ class TorchBackend(Backend):
         return torch.any(boolean_tensor, dim=axis, keepdim=keepdims)
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
+        if axis is None:
+            return torch.all(boolean_tensor)
         return torch.all(boolean_tensor, dim=axis, keepdim=keepdims)
 
     def fft(self, x):
@@ -463,9 +468,40 @@ class TorchBackend(Backend):
         return self.as_tensor(value).repeat(multiples)
 
     def sparse_tensor(self, indices, values, shape):
-        indices_ = torch.transpose(torch.LongTensor(indices), 0, 1)
+        indices_ = torch.LongTensor(indices)
         values_ = torch.FloatTensor(values)
-        return torch.sparse.FloatTensor(indices_, values_, shape)
+        result = torch.sparse.FloatTensor(indices_, values_, shape)
+        return result
+
+    def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None):
+        if callable(A):
+            function = A
+        else:
+            A = self.as_tensor(A)
+
+            def function(vec):
+                return self.matmul(A, vec)
+
+        tolerance_sq = self.maximum(relative_tolerance * self.sum(y ** 2, -1), absolute_tolerance ** 2)
+
+        y = self.to_float(y)
+        x = self.to_float(x0)
+        dx = residual = y - function(x)
+        dy = function(dx)
+        iterations = 0
+        converged = True
+        while self.all(self.sum(residual ** 2, -1) > tolerance_sq):
+            if iterations == max_iterations:
+                converged = False
+                break
+            iterations += 1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            x += step_size * dx
+            residual -= step_size * dy
+            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+            dy = function(dx)
+        return converged, x, iterations
 
 
 def channels_first(x):
