@@ -33,9 +33,15 @@ class TorchBackend(Backend):
         return tensors
 
     def is_tensor(self, x, only_native=False):
-        if not only_native and isinstance(x, numbers.Number):
+        if isinstance(x, torch.Tensor):
             return True
-        return isinstance(x, torch.Tensor)
+        if only_native:
+            return False
+        if isinstance(x, numbers.Number):
+            return True
+        if isinstance(x, (tuple, list)) and all(isinstance(c, numbers.Number) for c in x):
+            return True
+        return False
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -95,7 +101,7 @@ class TorchBackend(Backend):
         :rtype: torch.Tensor
         """
         # Valid mode: constant, reflect, replicate, circular
-        pad_width = [item for sublist in pad_width for item in sublist]
+        pad_width = [item for sublist in reversed(pad_width) for item in sublist]
         # need at least 3D to perform padding :(
         value = torch.unsqueeze(value, 0)
         value = torch.unsqueeze(value, 0)
@@ -103,7 +109,7 @@ class TorchBackend(Backend):
             mode = 'replicate'
         elif mode == 'periodic':
             mode = 'circular'
-        if mode in ('constant', 'reflect', 'replicate', 'circular'):
+        if mode in ('constant', 'replicate', 'circular'):
             res = torchf.pad(value, pad_width, mode, value=constant_values)
             return torch.squeeze(torch.squeeze(res, 0), 0)
         else:
@@ -167,6 +173,9 @@ class TorchBackend(Backend):
             value = value.view_as_complex()
         return torch.reshape(value, shape)
 
+    def flip(self, value, axes: tuple or list):
+        return torch.flip(value, axes)
+
     def sum(self, value, axis=None, keepdims=False):
         value = self.as_tensor(value)
         if axis is None:
@@ -211,6 +220,10 @@ class TorchBackend(Backend):
 
     def ones_like(self, tensor):
         return torch.ones_like(tensor)
+
+    def meshgrid(self, *coordinates):
+        coordinates = [self.as_tensor(c) for c in coordinates]
+        return torch.meshgrid(coordinates)
 
     def dot(self, a, b, axes):
         return torch.tensordot(a, b, axes)

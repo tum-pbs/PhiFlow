@@ -448,7 +448,10 @@ class _ReflectExtrapolation(_CopyExtrapolation):
         return -self
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
-        raise NotImplementedError()
+        if upper_edge:
+            return value[{dimension: slice(-1-width, -1)}].flip(dimension)
+        else:
+            return value[{dimension: slice(1, width+1)}].flip(dimension)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         coordinates = coordinates % (2 * shape - 2)

@@ -137,6 +137,9 @@ class Tensor:
         """
         raise NotImplementedError()
 
+    def flip(self, *dims: str) -> 'Tensor':
+        raise NotImplementedError()
+
     # def __setitem__(self, key, value):
     #     """
     #     All tensors are editable.
@@ -439,6 +442,11 @@ class NativeTensor(Tensor):
         new_shape = new_shape.with_sizes(native_math.staticshape(gathered))
         return NativeTensor(gathered, new_shape)
 
+    def flip(self, *dims: str) -> 'Tensor':
+        dims = [dim for dim in dims if dim in self._shape]
+        native = native_math.flip(self.tensor, self._shape.index(dims))
+        return NativeTensor(native, self._shape)
+
     def unstack(self, dimension):
         dim_index = self.shape.index(dimension)
         new_shape = self.shape.without(dimension)
@@ -517,6 +525,9 @@ class CollapsedTensor(Tensor):
         new_shape = self.shape.after_gather(selection)
         inner.shape.combined(new_shape)  # check that sizes match
         return CollapsedTensor(inner, new_shape)
+
+    def flip(self, *dims: str) -> 'Tensor':
+        return CollapsedTensor(self.tensor.flip(*dims), self._shape)
 
     def _op1(self, native_function):
         return CollapsedTensor(self.tensor._op1(native_function), self._shape)
@@ -607,6 +618,12 @@ class TensorStack(Tensor):
         else:
             return TensorStack(tensors, self.stack_dim_name, self.shape.get_type(self.stack_dim_name), keep_separate=self.keep_separate)
 
+    def flip(self, *dims: str) -> 'Tensor':
+        tensors = [t.flip(*dims) for t in self.tensors]
+        if self.stack_dim_name in dims:
+            tensors = tensors[::-1]
+        return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type, self.keep_separate)
+
     def unstack(self, dimension):
         if dimension == self.stack_dim_name:
             return self.tensors
@@ -689,8 +706,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         return NativeTensor(data, shape)
     if isinstance(data, numbers.Number):
         assert not names
-        array = np.array(data)
-        return NativeTensor(array, EMPTY_SHAPE)
+        return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, Shape):
         assert names is not None
         return tensor(data.sizes, names)

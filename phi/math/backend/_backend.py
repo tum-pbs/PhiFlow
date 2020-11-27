@@ -150,6 +150,10 @@ class Backend:
     def reshape(self, value, shape):
         raise NotImplementedError(self)
 
+    def flip(self, value, axes: tuple or list):
+        slices = [slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value))]
+        return value[slices]
+
     def sum(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 

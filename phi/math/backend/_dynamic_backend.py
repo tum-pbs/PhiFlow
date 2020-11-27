@@ -100,6 +100,9 @@ class DynamicBackend(Backend):
     def reshape(self, value, shape):
         return self.choose_backend(value).reshape(value, shape)
 
+    def flip(self, value, axes: tuple or list):
+        return self.choose_backend(value).flip(value, axes)
+
     def sum(self, value, axis=None, keepdims=False):
         return self.choose_backend(value).sum(value, axis=axis, keepdims=keepdims)
 

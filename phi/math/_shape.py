@@ -46,7 +46,13 @@ class Shape:
     def __contains__(self, item):
         return item in self.names
 
-    def index(self, name):
+    def index(self, name: str or list or tuple or Shape):
+        """
+        Finds the index of the dimension(s) within this Shape.
+
+        :param name: dimension name or sequence thereof, including Shape object
+        :return: single index or sequence of indices
+        """
         if name is None:
             return None
         if isinstance(name, (list, tuple)):

@@ -4,6 +4,7 @@ from phi.math import SCIPY_BACKEND
 from phi.math._extrapolation import *
 from phi import math, tf
 from phi.tf import TF_BACKEND
+from phi.torch import TORCH_BACKEND
 
 
 class TestExtrapolation(TestCase):
@@ -67,7 +68,7 @@ class TestExtrapolationOperators(TestCase):
             pass
 
     def test_pad_tensor(self):
-        for backend in [SCIPY_BACKEND, TF_BACKEND]:
+        for backend in [SCIPY_BACKEND, TF_BACKEND, TORCH_BACKEND]:
             math.DYNAMIC_BACKEND.default_backend = backend
             a = math.meshgrid(x=4, y=3)
             # 0
