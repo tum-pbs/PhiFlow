@@ -43,7 +43,7 @@ class Grid(SampledField):
         return self.box.size / self.resolution
 
     def __repr__(self):
-        return '%s[%s, size=%s, extrapolation=%s]' % (self.__class__.__name__, self.shape, self.box.size, self._extrapolation)
+        return f"{self.__class__.__name__}[{self.shape}, size={self.box.size}, extrapolation={self._extrapolation}]"
 
 
 class CenteredGrid(Grid):
@@ -166,7 +166,7 @@ class StaggeredGrid(Grid):
             if isinstance(value, StaggeredGrid) and value.bounds == bounds and np.all(value.resolution == resolution):
                 return value
             else:
-                components = value.unstack('vector') if 'vector' in value.shape else [value] * bounds.rank
+                components = value.unstack('vector') if 'vector' in value.shape else [value] * bounds.spatial_rank
                 tensors = []
                 for dim, comp in zip(resolution.spatial.names, components):
                     comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
@@ -178,7 +178,7 @@ class StaggeredGrid(Grid):
                 points = GridCell(resolution, bounds).face_centers()
                 value = value(points)
             value = tensor(value)
-            components = value.vector.unstack(resolution.spatial_rank)
+            components = (value.staggered if 'staggered' in value.shape else value.vector).unstack(resolution.spatial_rank)
             tensors = []
             for dim, component in zip(resolution.spatial.names, components):
                 comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
@@ -242,9 +242,6 @@ class StaggeredGrid(Grid):
     def elements(self):
         grids = [grid.elements for grid in self.unstack()]
         return GeometryStack(grids, 'staggered')
-
-    def __repr__(self):
-        return 'StaggeredGrid[%s, size=%s]' % (self.shape, self.box.size.numpy())
 
     def staggered_tensor(self):
         return stack_staggered_components(self.values)

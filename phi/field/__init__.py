@@ -26,6 +26,7 @@ from ._field_math import (
     divergence_free,
     diffuse,
     where,
+    l2_loss,
 )
 from ._field_io import write, read
 

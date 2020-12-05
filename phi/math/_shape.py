@@ -37,6 +37,10 @@ class Shape:
         return zip(self.names, self.sizes)
 
     @property
+    def spatial_dict(self):
+        return {n: s for s, n, t in zip(self.sizes, self.names, self.types) if t == SPATIAL_DIM}
+
+    @property
     def dimensions(self):
         return zip(self.sizes, self.names, self.types)
 

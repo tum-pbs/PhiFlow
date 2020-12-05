@@ -454,7 +454,8 @@ class NativeTensor(Tensor):
         return tuple([NativeTensor(t, new_shape) for t in tensors])
 
     def _op1(self, native_function):
-        return NativeTensor(native_function(self.native()), self.shape)
+        native = native_function(self.native())
+        return NativeTensor(native, self.shape) if native is not None else self
 
     def _op2(self, other, operator, native_function):
         other = self._tensor(other)

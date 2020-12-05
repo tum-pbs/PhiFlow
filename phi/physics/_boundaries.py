@@ -63,7 +63,7 @@ class Domain:
         """
         self.resolution = spatial_shape(resolution) & spatial_shape(resolution_)
         self.boundaries = Material.as_material(boundaries)
-        self.bounds = Box(0, math.tensor(self.resolution)) if bounds is None else bounds
+        self.bounds = Box(0, math.tensor(self.resolution, names='vector')) if bounds is None else bounds
 
     def __repr__(self):
         return '(%s, size=%s)' % (self.resolution, self.bounds.size)

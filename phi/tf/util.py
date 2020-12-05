@@ -2,11 +2,37 @@ import warnings
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.python import pywrap_tensorflow
 
 from phi import struct, math
+from phi.math._tensors import NativeTensor
 from phi.field import StaggeredGrid, CenteredGrid
 from . import TF_BACKEND
+
+
+def GradientTape(watch=(), persistent=False) -> tf.GradientTape:
+    tape = tf.GradientTape(persistent)
+
+    with tape:
+        for value in watch:
+            assert isinstance(value, math.Tensor), value
+            value._op1(lambda native: tape.watch(native))
+    return tape
+
+
+def gradients(target: math.Tensor, sources: math.Tensor, gradient_tape: tf.GradientTape = None, output_gradients=None):
+    assert isinstance(target, NativeTensor)
+    target = target.native()
+    if gradient_tape is None:
+        raise NotImplementedError()
+    if output_gradients is not None:
+        raise NotImplementedError()
+    sources_list = []
+    sources._op1(lambda native: sources_list.append(native))
+    grads = list(gradient_tape.gradient(target, sources_list))
+    for i, grad in enumerate(grads):
+        assert grad is not None, f"Missing gradient for source with shape {sources_list[i].shape}"
+    grads = sources._op1(lambda native: grads.pop(0))
+    return grads
 
 
 def _tf_name(trace, basename):
@@ -48,54 +74,3 @@ def istensor(obj):
     if isinstance(obj, StaggeredGrid):
         return np.any([istensor(t) for t in obj.values])
     return isinstance(obj, (tf.Tensor, tf.Variable))
-
-
-def gradients(y, xs, grad_y=None):
-    """
-    Compute the analytic gradients using TensorFlow's automatic differentiation.
-
-    :param y: tensor or struct of tensors. The contributions of all tensors in `y` are added up.
-    :param xs: struct of input tensors
-    :return: struct compatible with `xs` holding dy/dx
-    """
-    ys = struct.flatten(y)
-    if grad_y is not None:
-        grad_y = struct.flatten(grad_y)
-        for i in range(len(grad_y)):
-            grad_y[i] = math.cast(grad_y[i], math.dtype(ys[i]))
-    xs_ = struct.flatten(xs)
-    grad = tf.gradients(ys, xs_, grad_ys=grad_y)
-    return struct.unflatten(grad, xs)
-
-
-def stop_gradient(x):
-    return struct.map(tf.stop_gradient, x)
-
-
-def conv_function(scope, constants_file=None):
-    if constants_file is not None:
-        reader = pywrap_tensorflow.NewCheckpointReader(constants_file)
-
-        def conv(n, filters, kernel_size, strides=[1, 1, 1, 1], padding="VALID", activation=None, name=None, kernel_initializer=None):
-            assert name is not None
-            kernel = reader.get_tensor("%s/%s/kernel" % (scope, name))
-            assert kernel.shape[-1] == filters, "Expected %d filters but loaded kernel has shape %s for conv %s" % (kernel_size, kernel.shape, name)
-            if isinstance(kernel_size, int):
-                assert kernel.shape[0] == kernel.shape[1] == kernel_size
-            else:
-                assert kernel.shape[0:2] == kernel_size
-            if isinstance(strides, int):
-                strides = [1, strides, strides, 1]
-            elif len(strides) == 2:
-                strides = [1, strides[0], strides[1], 1]
-            n = tf.nn.conv2d(n, kernel, strides=strides, padding=padding.upper(), name=name)
-            if activation is not None:
-                n = activation(n)
-            n = tf.nn.bias_add(n, reader.get_tensor("%s/%s/bias" % (scope, name)))
-            return n
-    else:
-        def conv(n, filters, kernel_size, strides=(1, 1), padding="valid", activation=None, name=None, kernel_initializer=None):
-            with tf.variable_scope(scope):
-                return tf.layers.conv2d(n, filters=filters, kernel_size=kernel_size, strides=strides, padding=padding,
-                                        activation=activation, name=name, reuse=tf.AUTO_REUSE, kernel_initializer=kernel_initializer)
-    return conv

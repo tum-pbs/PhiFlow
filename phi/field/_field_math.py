@@ -210,3 +210,7 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field):
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
     # values = math.where(mask.values, field_true.values, field_false.values)
     return field_true._with(values)
+
+
+def l2_loss(field: SampledField, batch_norm=True):
+    return math.l2_loss(field.values, batch_norm=batch_norm)

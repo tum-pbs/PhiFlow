@@ -60,10 +60,10 @@ class TFBackend(Backend):
         return tf.math.divide_no_nan(x, y)
 
     def random_uniform(self, shape):
-        return tf.random.uniform(shape, dtype=self.float_type)
+        return tf.random.uniform(shape, dtype=to_numpy_dtype(self.float_type))
 
     def random_normal(self, shape):
-        return tf.random.normal(shape, dtype=self.float_type)
+        return tf.random.normal(shape, dtype=to_numpy_dtype(self.float_type))
 
     def rank(self, value):
         return len(value.shape)

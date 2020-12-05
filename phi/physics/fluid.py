@@ -29,6 +29,7 @@ def make_incompressible(velocity: Grid,
     :param solve_params: parameters for the pressure solve
     :return: divergence-free velocity, pressure, iterations, divergence of input velocity
     """
+    input_velocity = velocity
     active = 1 - HardGeometryMask(union([obstacle.geometry for obstacle in obstacles]))
     active = domain.grid(active, extrapolation=domain.boundaries.active_extrapolation)
     accessible = domain.grid(active, extrapolation=domain.boundaries.accessible_extrapolation)
@@ -45,7 +46,8 @@ def make_incompressible(velocity: Grid,
         raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,), pressure.values)
     # Subtract grad pressure
     gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs
-    return velocity - gradp, pressure, iterations, div
+    velocity = (velocity - gradp)._with(extrapolation=input_velocity.extrapolation)
+    return velocity, pressure, iterations, div
 
 
 def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
