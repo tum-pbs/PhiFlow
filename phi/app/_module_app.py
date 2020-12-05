@@ -10,13 +10,30 @@ from .display import show
 
 
 class ModuleViewer(App):
-    """
-    ModuleViewer shows the contents of a module in the GUI.
-    """
-
     def __init__(self, fields=None, **kwargs):
+        """
+        ModuleViewer shows the contents of the calling Python script in the GUI.
+
+        Name and subtitle of the App may be specified in the module docstring (string before imports).
+        The first line is interpreted as the name, the rest as the subtitle.
+        If not specified, a generic name and description is chosen.
+
+        Use ModuleViewer.range() as a for-loop iteratable to control the loop execution from within the GUI.
+
+        :param fields: (Optional) names of global variables to be displayed.
+          If not provided, searches all global variables for Field or Tensor values.
+          All fields must exist as global variables before the ModuleViewer is instantiated.
+        """
         module = inspect.getmodule(inspect.stack()[1].frame)
-        App.__init__(self, os.path.basename(module.__file__)[:-3], module.__file__, **kwargs)
+        doc = module.__doc__
+        if doc is None:
+            name = os.path.basename(module.__file__)[:-3]
+            subtitle = module.__doc__ or module.__file__
+        else:
+            end_of_line = doc.index('\n')
+            name = doc[:end_of_line].strip()
+            subtitle = doc[end_of_line:].strip() or None
+        App.__init__(self, name, subtitle, **kwargs)
         if fields is None:
             for name in dir(module):
                 val = getattr(module, name)
