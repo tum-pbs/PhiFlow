@@ -1,1 +1,5 @@
 webglviewer/webglviewer.min.js linguist-vendored
+
+# main repo language from Javascript to Python
+    *.js linguist-language=Python
+
