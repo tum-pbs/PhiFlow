@@ -1,5 +1,6 @@
 import warnings
 from functools import wraps
+from typing import TypeVar
 
 import numpy as np
 from phi import math
@@ -54,7 +55,10 @@ def divergence(field: Grid):
         raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")
 
 
-def diffuse(field: Field, diffusivity, dt, substeps=1):
+F = TypeVar('F', bound=Field)
+
+
+def diffuse(field: F, diffusivity, dt, substeps=1) -> F:
     """
     Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` F with diffusion coefficient α.
 

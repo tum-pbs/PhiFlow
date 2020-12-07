@@ -6,6 +6,7 @@ from abc import ABC
 from phi import math
 from phi.geom import Geometry
 from phi.math import Shape, Tensor, Extrapolation
+from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM
 
 
 class Field:
@@ -201,6 +202,14 @@ class SampledField(Field):
         values = self._values.unstack(dimension)
         return tuple(self._with(v) for i, v in enumerate(values))
 
+    def dimension(self, name):
+        return _FieldDim(self, name)
+
+    def __getattr__(self, name: str):
+        if name.startswith('_'):
+            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
+        return _FieldDim(self, name)
+
     def _op1(self, operator) -> Field:
         values = operator(self.values)
         extrapolation_ = operator(self._extrapolation)
@@ -225,3 +234,51 @@ class SampledField(Field):
         copied = copy.copy(self)
         SampledField.__init__(copied, self._elements, values if values is not None else self._values, extrapolation if extrapolation is not None else self._extrapolation)
         return copied
+
+
+class _FieldDim:
+
+    def __init__(self, field: Field, name: str):
+        self.field = field
+        self.name = name
+
+    @property
+    def exists(self):
+        return self.name in self.field.shape
+
+    def __str__(self):
+        return self.name
+
+    def unstack(self, size: int or None = None):
+        if size is None:
+            return self.field.unstack(self.name)
+        else:
+            if self.exists:
+                unstacked = self.field.unstack(self.name)
+                assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
+                return unstacked
+            else:
+                return (self.field,) * size
+
+    @property
+    def size(self):
+        return self.field.shape.get_size(self.name)
+
+    @property
+    def dim_type(self):
+        return self.field.shape.get_type(self.name)
+
+    @property
+    def is_spatial(self):
+        return self.dim_type == SPATIAL_DIM
+
+    @property
+    def is_batch(self):
+        return self.dim_type == BATCH_DIM
+
+    @property
+    def is_channel(self):
+        return self.dim_type == CHANNEL_DIM
+
+    def __getitem__(self, item):
+        return self.field.unstack(self.name)[item]

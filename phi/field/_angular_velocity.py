@@ -1,5 +1,4 @@
 from phi import math
-from phi.geom import Geometry
 
 from ._analytic import AnalyticField
 from ..math import Shape, GLOBAL_AXIS_ORDER
@@ -7,7 +6,8 @@ from ..math import Shape, GLOBAL_AXIS_ORDER
 
 class AngularVelocity(AnalyticField):
 
-    def __init__(self, location: math.Tensor, strength=1.0, falloff: callable = None):
+    def __init__(self, location, strength=1.0, falloff: callable = None):
+        location = math.tensor(location)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
         assert location.shape.spatial.is_empty, "location tensor cannot have any spatial dimensions"
         self.location = location

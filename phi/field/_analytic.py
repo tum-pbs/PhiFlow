@@ -12,10 +12,11 @@ class AnalyticField(Field):
     def unstack(self, dimension: str) -> tuple:
         components = []
         size = self.shape.get_size(dimension)
+        shape = self.shape.without(dimension)
         for i in range(size):
             def _context(index=i):
-                return lambda x: x.unstack()[index]
-            components.append(_SymbolicOpField(_context(i), [self]))
+                return lambda x: x.unstack(dimension)[index]
+            components.append(_SymbolicOpField(shape, _context(i), [self]))
         return tuple(components)
 
     def _op2(self, other, operator):

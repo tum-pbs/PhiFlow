@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 
 from . import _shape
-from .backend import math as native_math
+from .backend import math as native_math, NoBackendFound
 from ._shape import Shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
 
 
@@ -165,6 +165,8 @@ class Tensor:
         return _TensorDim(self, name)
 
     def __getattr__(self, name):
+        if name.startswith('_'):
+            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
         assert name not in ('shape', '_shape')
         return _TensorDim(self, name)
 
@@ -315,13 +317,13 @@ class Tensor:
 
 class _TensorDim:
 
-    def __init__(self, tensor, name):
+    def __init__(self, tensor: Tensor, name: str):
         self.tensor = tensor
         self.name = name
 
     @property
     def exists(self):
-        return self.name in self.tensor.shape.names
+        return self.name in self.tensor.shape
 
     def __str__(self):
         return self.name
@@ -346,7 +348,7 @@ class _TensorDim:
 
     @property
     def size(self):
-        return self.tensor.shape.sizes[self.index]
+        return self.tensor.shape.get_size(self.name)
 
     def as_batch(self, name: str or None = None):
         return self._as(BATCH_DIM, name)
@@ -370,19 +372,19 @@ class _TensorDim:
 
     @property
     def dim_type(self):
-        return self.tensor.shape.types[self.index]
+        return self.tensor.shape.get_type(self.name)
 
     @property
     def is_spatial(self):
-        return self.tensor.shape.types[self.index] == SPATIAL_DIM
+        return self.dim_type == SPATIAL_DIM
 
     @property
     def is_batch(self):
-        return self.tensor.shape.types[self.index] == BATCH_DIM
+        return self.dim_type == BATCH_DIM
 
     @property
     def is_channel(self):
-        return self.tensor.shape.types[self.index] == CHANNEL_DIM
+        return self.dim_type == CHANNEL_DIM
 
     def __getitem__(self, item):
         return self.tensor[{self.name: item}]
@@ -458,7 +460,10 @@ class NativeTensor(Tensor):
         return NativeTensor(native, self.shape) if native is not None else self
 
     def _op2(self, other, operator, native_function):
-        other = self._tensor(other)
+        try:
+            other = self._tensor(other)
+        except NoBackendFound:
+            return NotImplemented
         if isinstance(other, NativeTensor):
             return op2_native(self, other, native_function)
         else:
@@ -697,20 +702,22 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         else:
             raise NotImplementedError(f"{array.dtype} dtype for iterable not allowed. Only np.object supported.")
             return TensorStack(tensor(data), dim_name=None, dim_type=CHANNEL_DIM)
-    if isinstance(data, np.ndarray) and data.dtype != np.object:
-        if names is None:
-            assert data.ndim <= 1, "Specify dimension names for tensors with more than 1 dimension"
-            names = ['vector'] * data.ndim
-        else:
-            names = _shape.parse_dim_names(names, len(data.shape))
-        shape = Shape(data.shape, names, [CHANNEL_DIM] * len(data.shape))
-        return NativeTensor(data, shape)
     if isinstance(data, numbers.Number):
         assert not names
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, Shape):
         assert names is not None
         return tensor(data.sizes, names)
+    if native_math.is_tensor(data):
+        if names is None:
+            assert data.ndim <= 1, "Specify dimension names for tensors with more than 1 dimension"
+            names = ['vector'] * native_math.ndims(data)  # [] or ['vector']
+            types = [CHANNEL_DIM] * native_math.ndims(data)
+        else:
+            names = _shape.parse_dim_names(names, len(data.shape))
+            types = [_shape._infer_dim_type_from_name(n) for n in names]
+        shape = Shape(data.shape, names, types)
+        return NativeTensor(data, shape)
     raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, NativeTensor).")
 
 

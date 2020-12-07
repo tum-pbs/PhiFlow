@@ -18,7 +18,7 @@ target = domain.staggered_grid(domain.vgrid(target)) * right
 pressure_guess = None
 for _iter in ModuleViewer(['velocity', 'target', 'incompressible_velocity']).range():
     with GradientTape(watch=[velocity.values]) as tape:
-        incompressible_velocity, p, _, _ = fluid.make_incompressible(velocity * left, domain, pressure_guess=pressure_guess)
+        incompressible_velocity, pressure_guess, _, _ = fluid.make_incompressible(velocity * left, domain, pressure_guess=pressure_guess)
         loss = field.l2_loss((incompressible_velocity - target) * right)
     grad = gradients(loss, velocity.values, tape)
     velocity -= domain.staggered_grid(grad)

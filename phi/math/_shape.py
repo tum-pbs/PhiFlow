@@ -29,7 +29,7 @@ class Shape:
         assert len(sizes) == len(names) == len(types), "sizes=%s, names=%s, types=%s" % (sizes, names, types)
         self.sizes = tuple(sizes)
         self.names = tuple(names)
-        assert all(isinstance(n, str) for n in names), names
+        assert all(isinstance(n, str) for n in names), f"All names must be of type string but got {names}"
         self.types = tuple(types)
 
     @property

@@ -23,7 +23,7 @@ def dash_graph_plot(data, settings):
         data = math.tensor(data)
 
     if isinstance(data, math.Tensor):
-        data = CenteredGrid(data, Box(0, data.shape))
+        data = CenteredGrid(data, Box(0, math.tensor(data.shape, 'vector')))
 
     if isinstance(data, (CenteredGrid, StaggeredGrid)):
         component = settings.get('component', 'x')

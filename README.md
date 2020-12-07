@@ -53,7 +53,7 @@ It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
 The following introductory demos are also helpful to get started with writing your own app using Φ<sub>Flow</sub>:
 
 * [simpleplume.py](./demos/simpleplume.py): Runs a fluid simulation and displays it in the browser
-* [optimize_pressure.py](./demos/optimize_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
+* [optimize_pressure.py](demos/differentiate_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
 
 ## Module Overview
 

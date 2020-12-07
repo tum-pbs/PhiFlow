@@ -5,5 +5,7 @@ from phi.flow import *
 from .util import *
 from .tf_backend import TF_BACKEND
 import tensorflow
+from tensorflow import keras
+from tensorflow.keras import layers
 
 tf = tensorflow

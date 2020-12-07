@@ -244,7 +244,7 @@ def closest_grid_values(grid: Tensor, coordinates: Tensor, extrap: 'extrapolatio
         else:
             values_left = left_right(is_hi_by_axis_left, ax_idx + 1)
             values_right = left_right(is_hi_by_axis_right, ax_idx + 1)
-        return spatial_stack([values_left, values_right], grid.shape.names[ax_idx])
+        return spatial_stack([values_left, values_right], grid.shape.spatial.names[ax_idx])
 
     result = left_right(np.array([False] * grid.shape.spatial_rank), 0)
     return result
@@ -764,7 +764,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
             A_ = Ax_track.build_sparse_coordinate_matrix()
             # print_(tensor(A_.todense(), spatial_dims=2))
             # TODO reshape x0, y so that independent dimensions are batch
-            print("CG: matrix build time: %s" % (time.time() - build_time))
+            print("CG: matrix build time: %d ms" % (1000 * (time.time() - build_time),))
         if A_ is None:
             def A_(native_x):
                 native_x_shaped = math.reshape(native_x, x0.shape.non_batch.sizes)
@@ -777,7 +777,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
 
     cg_time = time.time()
     converged, x, iterations = math.conjugate_gradient(A_, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
-    print("CG: loop time: %s (%s iterations)" % (time.time() - cg_time, iterations))
+    print("CG: loop time: %d ms (%s iterations)" % (1000 * (time.time() - cg_time), iterations))
     converged = math.reshape(converged, batch.sizes)
     x = math.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     iterations = math.reshape(iterations, batch.sizes)

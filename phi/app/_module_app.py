@@ -37,7 +37,7 @@ class ModuleViewer(App):
         if fields is None:
             for name in dir(module):
                 val = getattr(module, name)
-                if not callable(val) and issubclass(type(val), (Field, Tensor)):
+                if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank > 0):
                     self.add_field(name, lambda name=name: getattr(module, name))
         else:
             for name in fields:
