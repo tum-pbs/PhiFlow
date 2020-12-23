@@ -166,7 +166,7 @@ class StaggeredGrid(Grid):
             if isinstance(value, StaggeredGrid) and value.bounds == bounds and np.all(value.resolution == resolution):
                 return value
             else:
-                components = value.unstack('vector') if 'vector' in value.shape else [value] * bounds.spatial_rank
+                components = value.vector.unstack(bounds.spatial_rank)
                 tensors = []
                 for dim, comp in zip(resolution.spatial.names, components):
                     comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)

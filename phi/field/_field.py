@@ -92,6 +92,14 @@ class Field:
         """
         raise NotImplementedError()
 
+    def dimension(self, name):
+        return _FieldDim(self, name)
+
+    def __getattr__(self, name: str) -> _FieldDim:
+        if name.startswith('_'):
+            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
+        return _FieldDim(self, name)
+
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
 
@@ -201,14 +209,6 @@ class SampledField(Field):
     def unstack(self, dimension: str) -> tuple:
         values = self._values.unstack(dimension)
         return tuple(self._with(v) for i, v in enumerate(values))
-
-    def dimension(self, name):
-        return _FieldDim(self, name)
-
-    def __getattr__(self, name: str):
-        if name.startswith('_'):
-            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
-        return _FieldDim(self, name)
 
     def _op1(self, operator) -> Field:
         values = operator(self.values)
