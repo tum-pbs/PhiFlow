@@ -1,17 +1,10 @@
 from __future__ import annotations
 
-from abc import ABC
-
-from ._track import SparseLinearOperation, ShiftLinOp
+from . import _functions as math
 from .backend import math as native_math
+from ._track import SparseLinearOperation, ShiftLinOp
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
-from . import _functions as math
-
-
-class IncompatibleExtrapolations(ValueError):
-    def __init__(self, extrapolation1, extrapolation2):
-        ValueError.__init__(self, extrapolation1, extrapolation2)
 
 
 class Extrapolation:
@@ -188,13 +181,13 @@ class ConstantExtrapolation(Extrapolation):
         elif self.is_zero():
             return other
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __sub__(self, other):
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value - other.value)
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __rsub__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -202,7 +195,7 @@ class ConstantExtrapolation(Extrapolation):
         elif self.is_zero():
             return other
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __mul__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -212,7 +205,7 @@ class ConstantExtrapolation(Extrapolation):
         elif self.is_zero():
             return self
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __truediv__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -220,7 +213,7 @@ class ConstantExtrapolation(Extrapolation):
         elif self.is_zero():
             return self
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __rtruediv__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -228,19 +221,19 @@ class ConstantExtrapolation(Extrapolation):
         elif self.is_one():
             return other
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __lt__(self, other):
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value < other.value)
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __gt__(self, other):
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value > other.value)
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
 
 class _CopyExtrapolation(Extrapolation):
@@ -304,7 +297,7 @@ class _CopyExtrapolation(Extrapolation):
             op = getattr(other, op.__name__)
             return op(self)
         else:
-            raise IncompatibleExtrapolations(self, other)
+            return NotImplemented
 
     def __add__(self, other):
         return self._op(other, ConstantExtrapolation.__add__)
@@ -466,6 +459,20 @@ SYMMETRIC = _SymmetricExtrapolation(3)
 REFLECT = _ReflectExtrapolation(4)
 
 
+def mixed_extrapolation(extrapolations: dict):
+    values = set()
+    for ext in extrapolations.values():
+        if isinstance(ext, Extrapolation):
+            values.add(ext)
+        else:
+            values.add(ext[0])
+            values.add(ext[1])
+    if len(values) == 1:
+        return next(iter(values))
+    else:
+        return MixedExtrapolation(extrapolations)
+
+
 class MixedExtrapolation(Extrapolation):
 
     def __init__(self, extrapolations: dict):
@@ -475,8 +482,7 @@ class MixedExtrapolation(Extrapolation):
         :param extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
         Extrapolation.__init__(self, None)
-        self.ext = {ax: (e, e) if isinstance(e, Extrapolation) else tuple(e)
-                    for ax, e in extrapolations.items()}
+        self.ext = {ax: (e, e) if isinstance(e, Extrapolation) else tuple(e) for ax, e in extrapolations.items()}
 
     def to_dict(self) -> dict:
         return {
@@ -484,11 +490,28 @@ class MixedExtrapolation(Extrapolation):
             'dims': {ax: (es[0].to_dict(), es[1].to_dict()) for ax, es in self.ext.items()}
         }
 
+    def __eq__(self, other):
+        if isinstance(other, MixedExtrapolation):
+            return self.ext == other.ext
+        else:
+            simplified = mixed_extrapolation(self.ext)
+            if not isinstance(simplified, MixedExtrapolation):
+                return simplified == other
+            else:
+                return False
+
+    def __hash__(self):
+        simplified = mixed_extrapolation(self.ext)
+        if not isinstance(simplified, MixedExtrapolation):
+            return hash(simplified)
+        else:
+            return hash(frozenset(self.ext.items()))
+
     def __repr__(self):
         return repr(self.ext)
 
     def gradient(self) -> Extrapolation:
-        return MixedExtrapolation({ax: (es[0].gradient(), es[1].gradient())
+        return mixed_extrapolation({ax: (es[0].gradient(), es[1].gradient())
                                    for ax, es in self.ext.items()})
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
@@ -534,18 +557,27 @@ class MixedExtrapolation(Extrapolation):
     def __add__(self, other):
         return self._op2(other, lambda e1, e2: e1 + e2)
 
+    def __radd__(self, other):
+        return self._op2(other, lambda e1, e2: e2 + e1)
+
     def __sub__(self, other):
         return self._op2(other, lambda e1, e2: e1 - e2)
+
+    def __rsub__(self, other):
+        return self._op2(other, lambda e1, e2: e2 - e1)
 
     def __mul__(self, other):
         return self._op2(other, lambda e1, e2: e1 * e2)
 
+    def __rmul__(self, other):
+        return self._op2(other, lambda e1, e2: e2 * e1)
+
     def _op2(self, other, operator):
         if isinstance(other, MixedExtrapolation):
             assert self.ext.keys() == other.ext.keys()
-            return MixedExtrapolation({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
+            return mixed_extrapolation({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
         else:
-            return MixedExtrapolation({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
+            return mixed_extrapolation({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
 
 
 def from_dict(dictionary: dict) -> Extrapolation:
