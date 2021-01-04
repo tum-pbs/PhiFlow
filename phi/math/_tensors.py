@@ -681,6 +681,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
 
     If dimension names are specified, dimension types are inferred from them.
     Otherwise, existing or default dimension names are used.
+    If the dimension names cannot automatically be inferred, raises an AssertionError.
 
     :param data: native tensor, scalar, sequence, Shape or Tensor
     :param names: Dimension names. Dimension types are inferred from the names.
@@ -715,6 +716,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             types = [CHANNEL_DIM] * native_math.ndims(data)
         else:
             names = _shape.parse_dim_names(names, len(data.shape))
+            assert None not in names, f"All names must be specified but got {names}"
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
         return NativeTensor(data, shape)

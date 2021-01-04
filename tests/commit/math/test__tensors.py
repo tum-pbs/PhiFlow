@@ -10,22 +10,18 @@ from phi.math._tensors import TensorStack, CollapsedTensor
 class TestTensors(TestCase):
 
     def test_tensor_creation(self):
-        v = math.tensor(np.ones([1, 4, 3, 2]))
-        self.assertEqual((4, 3, 2), v.shape.sizes)
-        v = math.tensor(np.ones([10, 4, 3, 2]))
+        v = math.tensor(np.ones([1, 4, 3, 2]), names='batch, x,y, vector')
+        self.assertEqual((1, 4, 3, 2), v.shape.sizes)
+        v = math.tensor(np.ones([10, 4, 3, 2]), names='batch, x, y, vector')
         self.assertEqual((10, 4, 3, 2), v.shape.sizes)
-        scalar = math.tensor(np.ones([1, 4, 3, 1]))
-        self.assertEqual((4, 3), scalar.shape.sizes)
-        a = math.tensor([1, 2, 3])
-        self.assertEqual((3,), a.shape.sizes)
 
     def test_tensor_creation_dims(self):
         a = math.tensor(math.zeros(a=2, b=2), names=':,vector')
         self.assertEqual(('a', 'vector'), a.shape.names)
-        self.assertEqual(('spatial', 'spatial'), a.shape.types)
+        self.assertEqual(('spatial', 'channel'), a.shape.types)
 
     def test_native_constant_ops(self):
-        v = math.tensor(np.ones([1, 4, 3, 2]))
+        v = math.tensor(np.ones([1, 4, 3, 2]), names='batch, x,y, vector')
         math.assert_close(v + 1, 2)
         math.assert_close(v * 3, 3)
         math.assert_close(v / 2, 0.5)
