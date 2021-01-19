@@ -1,6 +1,6 @@
 # Math
 
-The `phi.math` module provides abstract access to tensor operations.
+The `phi.math` module \[[source](../phi/math)\] provides abstract access to tensor operations.
 It internally uses NumPy, TensorFlow or PyTorch to execute the actual operations, depending on which backend is selected.
 This ensures that code written against `phi.math` functions produces equal results on all backends.
 

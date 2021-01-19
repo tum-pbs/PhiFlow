@@ -60,7 +60,7 @@ The following introductory demos are also helpful to get started with writing yo
 | Module      | Documentation                                        |
 |-------------|------------------------------------------------------|
 | [phi.app](phi/app)     | [Interactive application development, web interface](documentation/Web_Interface.md)   |
-| [phi.physics](phi/physics) | [Build-in physics functions, e.g. for fluids](documentation/Simulation_Overview.md)         |
+| [phi.physics](phi/physics) | [Domains, build-in physics functions](documentation/Physics.md)         |
 | [phi.field](phi/field)   | [Grids, particles, analytic representations](documentation/Fields.md)           |
 | [phi.geom](phi/geom)    | [Differentiable Geometry](documentation/Geometry.md)                              |
 | [phi.math](phi/math)    | [Vectorized operations, tensors with named dimensions](documentation/Math.md) |
@@ -69,6 +69,7 @@ The following introductory demos are also helpful to get started with writing yo
 
 * [Fluids](documentation/Fluid_Simulation.md)
 * [Staggered grids](documentation/Staggered_Grids.md)
+* [GPU execution](documentation/GPU_Execution.md)
 
 Deprecated
 

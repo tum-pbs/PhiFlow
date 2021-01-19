@@ -1,10 +1,10 @@
 # Differentiable Geometry
 
-The module `phi.geom` integrates geometric shapes and supports differentiable volumes.
+The module `phi.geom` \[[source](../phi/geom)\] integrates geometric shapes and supports differentiable volumes.
 
 The base class, `Geometry`, describes the interface that all geometry objects implement.
 
-Most properties of `Geometry` object support the use of [batch and spatial dimensions](./Math.md).
+Most properties of `Geometry` object support the use of batch and spatial dimensions like [tensors](./Math.md).
 This allows a single `Geometry` object to describe a collection of shapes with varying properties.
 
 Important properties:
