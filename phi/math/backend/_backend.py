@@ -52,7 +52,7 @@ class Backend:
         if all(dt.kind in (float, int, bool) for dt in dtypes):
             return self.float_type
         # complex
-        if all(dt.kind == (complex, float, int, bool) for dt in dtypes):
+        if all(dt.kind in (complex, float, int, bool) for dt in dtypes):
             return self.complex_type
         raise ValueError(dtypes)
 

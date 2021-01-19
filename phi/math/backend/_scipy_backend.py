@@ -160,7 +160,7 @@ class SciPyBackend(Backend):
         elif scipy.sparse.issparse(b):
             return b.multiply(a)
         else:
-            return a * b
+            return Backend.mul(self, a, b)
 
     def matmul(self, A, b):
         return np.stack([A.dot(b[i]) for i in range(b.shape[0])])
@@ -269,9 +269,6 @@ class SciPyBackend(Backend):
             return x
         else:
             return np.array(x, to_numpy_dtype(dtype))
-
-    def auto_cast(self, *tensors):
-        return tensors
 
     def gather(self, values, indices):
         if scipy.sparse.issparse(values):
@@ -384,9 +381,9 @@ class SciPyBackend(Backend):
         if isinstance(array, int):
             return DType(int, 32)
         if isinstance(array, float):
-            return self.float_type
+            return DType(float, 64)
         if isinstance(array, complex):
-            return self.complex_type
+            return DType(complex, 128)
         if not isinstance(array, np.ndarray):
             array = np.array(array)
         return from_numpy_dtype(array.dtype)
