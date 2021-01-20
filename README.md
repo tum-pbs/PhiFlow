@@ -67,14 +67,13 @@ The following introductory demos are also helpful to get started with writing yo
 
 ## Other Documentation
 
-* [Fluids](documentation/Fluid_Simulation.md)
+* [Fluids](documentation/Fluid_Simulation.md) (not updated yet)
 * [Staggered grids](documentation/Staggered_Grids.md)
-* [GPU execution](documentation/GPU_Execution.md)
+* [GPU execution](documentation/GPU_Execution.md) (not updated yet)
 
 Deprecated
 
 * [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md)
-* [Training machine learning models](documentation/Interactive_Training_Apps.md)
 * [Simulation code design](documentation/Simulation_Architecture.md)
 * [Struct API](documentation/Structs.ipynb)
 * [Software Architecture](documentation/Software_Architecture.md)
