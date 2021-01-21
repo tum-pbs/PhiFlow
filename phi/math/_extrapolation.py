@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from . import _functions as math
-from .backend import math as native_math
+from .backend import choose_backend
 from ._track import SparseLinearOperation, ShiftLinOp
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
@@ -113,10 +113,11 @@ class ConstantExtrapolation(Extrapolation):
         :param widths: {name: str -> (lower: int, upper: int)}
         """
         if isinstance(value, NativeTensor):
-            native = value.tensor
+            native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
-            result_tensor = native_math.pad(native, ordered_pad_widths, 'constant', self.value.native())
-            new_shape = value.shape.with_sizes(native_math.staticshape(result_tensor))
+            backend = choose_backend(native)
+            result_tensor = backend.pad(native, ordered_pad_widths, 'constant', self.value.native())
+            new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
             if value.tensor.shape.volume > 1 or not math.close(self.value, value.tensor):
@@ -140,7 +141,7 @@ class ConstantExtrapolation(Extrapolation):
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type, value.keep_separate)
         elif isinstance(value, SparseLinearOperation):
-            (row, col), data = native_math.coordinates(value.dependency_matrix, unstack_coordinates=True)
+            (row, col), data = choose_backend(value.dependency_matrix).coordinates(value.dependency_matrix, unstack_coordinates=True)
             assert len(value.shape) == 2  # TODO nd
             y = row // value.shape[1]
             dy0, dy1 = widths[value.shape.names[0]]
@@ -150,7 +151,7 @@ class ConstantExtrapolation(Extrapolation):
             for i, dim in enumerate(value.shape.names):
                 new_sizes[i] += sum(widths[dim])
             new_shape = value.shape.with_sizes(new_sizes)
-            padded_matrix = native_math.sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
+            padded_matrix = choose_backend(padded_row, col, data).sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
             return SparseLinearOperation(value.source, padded_matrix, new_shape)
         elif isinstance(value, ShiftLinOp):
             assert self.is_zero()
@@ -247,9 +248,9 @@ class _CopyExtrapolation(Extrapolation):
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         if isinstance(value, NativeTensor):
-            native = value.tensor
+            native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
-            result_tensor = native_math.pad(native, ordered_pad_widths, repr(self))
+            result_tensor = choose_backend(native).pad(native, ordered_pad_widths, repr(self))
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths)
             new_shape = value.shape.with_sizes(result_tensor.shape)

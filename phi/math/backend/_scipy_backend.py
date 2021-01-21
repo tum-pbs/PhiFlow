@@ -17,8 +17,8 @@ class SciPyBackend(Backend):
     Core Python Backend using NumPy & SciPy
     """
 
-    def __init__(self, precision=32):
-        Backend.__init__(self, "SciPy", precision=precision)
+    def __init__(self):
+        Backend.__init__(self, "SciPy")
 
     @property
     def precision_dtype(self):
@@ -33,7 +33,7 @@ class SciPyBackend(Backend):
             array = np.array(x)
         # --- Enforce Precision ---
         if not isinstance(array, numbers.Number):
-            if array.dtype in (np.float16, np.float32, np.float64, np.longdouble) and self.has_fixed_precision:
+            if array.dtype in (np.float16, np.float32, np.float64, np.longdouble):
                 array = self.to_float(array)
         return array
 
@@ -245,12 +245,8 @@ class SciPyBackend(Backend):
     def staticshape(self, tensor):
         return np.shape(tensor)
 
-    def to_float(self, x, float64=False):
-        if float64:
-            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
-            return np.array(x).astype(np.float64)
-        else:
-            return np.array(x).astype(self.precision_dtype)
+    def to_float(self, x):
+        return np.array(x).astype(self.precision_dtype)
 
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)
@@ -331,7 +327,7 @@ class SciPyBackend(Backend):
             indices = indices[filter_indices][..., 0, :]
             if values.shape[0] > 1:
                 values = values[filter_indices.reshape(-1)]
-        array = np.zeros(tuple(shape) + values.shape[indices.ndim-1:], self.precision_dtype if self.has_fixed_precision else values.dtype)
+        array = np.zeros(tuple(shape) + values.shape[indices.ndim-1:], self.precision_dtype)
         indices = self.unstack(indices, axis=-1)
         if duplicates_handling == 'add':
             np.add.at(array, tuple(indices), values)

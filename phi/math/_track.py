@@ -2,7 +2,7 @@ from functools import reduce
 
 import numpy as np
 
-from .backend import math as native_math, choose_backend
+from .backend import choose_backend
 from ._shape import EMPTY_SHAPE, Shape, shape, parse_dim_order
 from ._tensors import Tensor, NativeTensor, TensorStack
 from . import _functions as math
@@ -55,9 +55,10 @@ class ShiftLinOp(Tensor):
         order_src = value.shape.only(independent_dims).extend(value.shape.without(independent_dims))
         order_out = self._shape.only(independent_dims).extend(self._shape.without(independent_dims))
         native_src = value.native(order=order_src.names)
-        native_src = native_math.reshape(native_src, (order_src.only(independent_dims).volume, order_src.without(independent_dims).volume))
-        native_out = native_math.matmul(mat, native_src)
-        native_out = native_math.reshape(native_out, order_out.sizes)
+        backend = choose_backend(native_src)
+        native_src = backend.reshape(native_src, (order_src.only(independent_dims).volume, order_src.without(independent_dims).volume))
+        native_out = backend.matmul(mat, native_src)
+        native_out = backend.reshape(native_out, order_out.sizes)
         return NativeTensor(native_out, order_out)
 
     def build_sparse_coordinate_matrix(self):
@@ -81,10 +82,11 @@ class ShiftLinOp(Tensor):
             cols.append(src_indices)
             vals.append(values.native(order=out_shape.names))
         cols = np.stack(cols, -1).flatten()
-        vals = native_math.flatten(native_math.stack(vals, -1))
+        backend = choose_backend(*vals)
+        vals = backend.flatten(backend.stack(vals, -1))
         rows = np.arange(out_shape.volume * len(self.val)) // len(self.val)
         # TODO sort indices
-        return native_math.sparse_tensor((rows, cols), vals, (out_shape.volume, src_shape.volume))
+        return choose_backend(rows, cols, vals).sparse_tensor((rows, cols), vals, (out_shape.volume, src_shape.volume))
 
     def build_sparse_csr_matrix(self):
         raise NotImplementedError()

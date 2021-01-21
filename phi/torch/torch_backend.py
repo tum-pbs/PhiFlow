@@ -8,7 +8,7 @@ import torch.fft
 import torch.nn.functional as torchf
 
 from phi.math.backend import Backend, DType
-from phi.math.backend._scipy_backend import SciPyBackend
+from phi.math.backend._scipy_backend import SciPyBackend, SCIPY_BACKEND
 
 
 class TorchBackend(Backend):
@@ -47,7 +47,7 @@ class TorchBackend(Backend):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = torch.from_numpy(SciPyBackend(precision=self.precision).as_tensor(x))
+            tensor = torch.from_numpy(SCIPY_BACKEND.as_tensor(x))
         elif isinstance(x, (tuple, list)):
             try:
                 tensor = torch.tensor(x)
@@ -58,7 +58,7 @@ class TorchBackend(Backend):
             tensor = torch.tensor(x)
         # --- Enforce Precision ---
         if self.is_tensor(tensor, only_native=True):
-            if tensor.dtype.is_floating_point and self.has_fixed_precision:
+            if tensor.dtype.is_floating_point:
                 tensor = self.to_float(tensor)
         return tensor
 
@@ -333,23 +333,17 @@ class TorchBackend(Backend):
     def staticshape(self, tensor):
         return tuple(tensor.shape)
 
-    def to_float(self, x, float64=False):
+    def to_float(self, x):
         if not self.is_tensor(x):
             x = self.as_tensor(x)
-        if float64:
-            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
+        elif self.precision == 16:
+            return x.half()
+        elif self.precision == 32:
+            return x.float()
+        elif self.precision == 64:
             return x.double()
         else:
-            if not self.has_fixed_precision:
-                return x if x.dtype.is_floating else x.float()
-            elif self.precision == 16:
-                return x.half()
-            elif self.precision == 32:
-                return x.float()
-            elif self.precision == 64:
-                return x.double()
-            else:
-                raise AssertionError(self.precision)
+            raise AssertionError(self.precision)
 
     def to_int(self, x, int64=False):
         x = self.as_tensor(x)

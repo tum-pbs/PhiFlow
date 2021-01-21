@@ -44,9 +44,9 @@ Noise can be used as an initializer for CenteredGrids or StaggeredGrids.
         lowest_frequency = 0.1
         weight_mask = 1 / (1 + math.exp((lowest_frequency - k) * 1e3))  # High pass filter
         # --- Compute 1/k ---
-        k.tensor[(0,) * len(k.shape)] = np.inf
+        k.native()[(0,) * len(k.shape)] = np.inf
         inv_k = 1 / k
-        inv_k.tensor[(0,) * len(k.shape)] = 0
+        inv_k.native()[(0,) * len(k.shape)] = 0
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))

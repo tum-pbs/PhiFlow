@@ -32,32 +32,6 @@ class AnalyticField(Field):
         return _SymbolicOpField(self.shape, operator, [self])
 
 
-class SymbolicFieldBackend(Backend):
-    # Abstract mehtods are overridden generically.
-    # pylint: disable-msg = abstract-method
-
-    def __init__(self, backend):
-        Backend.__init__(self, 'Symbolic Field Backend')
-        self.backend = backend
-        for fname in dir(self):
-            if fname not in ('__init__', 'is_tensor', 'symbolic_call', 'complex_type', 'float_type') and not fname.startswith('__'):
-                function = getattr(self, fname)
-                if callable(function):
-                    def context(fname=fname):
-                        def proxy(*args, **kwargs):
-                            return self.symbolic_call(fname, args, kwargs)
-                        return proxy
-                    setattr(self, fname, context())
-
-    def symbolic_call(self, func, args, kwargs):
-        assert len(kwargs) == 0, 'kwargs not supported'
-        backend_func = getattr(self.backend, func)
-        return _SymbolicOpField(backend_func, args)
-
-    def is_tensor(self, x, only_native=False):
-        return isinstance(x, AnalyticField)
-
-
 class _SymbolicOpField(AnalyticField):
 
     def __init__(self, shape, function, function_args):

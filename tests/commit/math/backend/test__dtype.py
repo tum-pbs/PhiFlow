@@ -2,7 +2,8 @@ from unittest import TestCase
 
 import numpy as np
 
-from phi.math.backend._dtype import DType, from_numpy_dtype
+from phi.math import DType
+from phi.math.backend._dtype import from_numpy_dtype
 
 
 class TestDType(TestCase):

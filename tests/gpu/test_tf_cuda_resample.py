@@ -5,8 +5,6 @@ import random as rand
 from setuptools.command.develop import develop
 from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
-from phi.tf.flow import *
-
 from phi.tf.tf_backend import *
 from phi.tf.tf_backend import _resample_linear_niftynet
 

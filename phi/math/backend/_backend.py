@@ -3,9 +3,16 @@ from ._dtype import DType
 
 class Backend:
 
-    def __init__(self, name, precision=32):
+    def __init__(self, name):
         self._name = name
-        self.precision = precision
+
+    def __enter__(self):
+        from . import _DEFAULT
+        _DEFAULT.append(self)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        from . import _DEFAULT
+        _DEFAULT.pop(-1)
 
     @property
     def name(self):
@@ -13,32 +20,17 @@ class Backend:
 
     @property
     def precision(self):
-        """
-        If `precision` is an integer, any Backend method may convert floating point values to this precision, even if the input had a different precision.
-
-        If `precision` is `None`, the output of math operations has the same precision as its inputs.
-        """
-        return self._precision
-
-    @precision.setter
-    def precision(self, precision):
-        """
-        If `precision` is an integer, any Backend method may convert floating point values to this precision, even if the input had a different precision.
-
-        If `precision` is `None`, the output of math operations has the same precision as its inputs.
-
-        :param precision: one of (16, 32, 64, None)
-        """
-        assert precision in (None, 16, 32, 64)
-        self._precision = precision
+        """ Short for math.backend.get_precision() """
+        from . import get_precision
+        return get_precision()
 
     @property
     def float_type(self):
-        return DType(float, self._precision or 32)
+        return DType(float, self.precision)
 
     @property
     def complex_type(self):
-        return DType(complex, max(64, self._precision or 32))
+        return DType(complex, max(64, self.precision))
 
     def combine_types(self, *dtypes: DType):
         # all bool?
@@ -67,10 +59,6 @@ class Backend:
         result_type = self.combine_types(*dtypes)
         tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
-
-    @property
-    def has_fixed_precision(self):
-        return self.precision is not None
 
     def __str__(self):
         return self.name
@@ -259,7 +247,7 @@ class Backend:
     def staticshape(self, tensor):
         raise NotImplementedError(self)
 
-    def to_float(self, x, float64=False):
+    def to_float(self, x):
         """
 Converts a tensor to floating point values.
 If this Backend uses a fixed precision, the tensor will be converted to that precision.
@@ -269,7 +257,6 @@ If `x` is mutable and of the correct floating type, returns a copy of `x`.
 
 To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
         :param x: tensor
-        :param float64: deprecated. Set Backend.precision = 64 to use 64 bit operations.
         """
         raise NotImplementedError(self)
 

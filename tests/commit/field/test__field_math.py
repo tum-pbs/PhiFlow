@@ -1,5 +1,7 @@
 from unittest import TestCase
-from phi.flow import *
+
+from phi import field
+from phi.physics import Domain
 
 
 class TestFieldMath(TestCase):

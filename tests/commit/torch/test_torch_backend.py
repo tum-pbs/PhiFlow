@@ -1,6 +1,9 @@
 from unittest import TestCase
-from phi.torch.flow import *
+
 import numpy as np
+import torch
+
+from phi.torch import TORCH_BACKEND
 
 
 class TestTorchBackend(TestCase):

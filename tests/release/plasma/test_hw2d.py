@@ -1,9 +1,16 @@
 from unittest import TestCase
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+from phi import math
+from phi import field
+from phi.app import App
+from phi.geom import Box
+from phi.physics import Domain, PERIODIC
 from .numpy_reference import HW, Namespace
 from .phi_version import step_gradient_2d, rk4_step, get_domain_phi
-import numpy as np
-from phi.flow import *
-import matplotlib.pyplot as plt
+
 
 
 def plot_list(image_arrays):

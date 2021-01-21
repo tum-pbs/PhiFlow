@@ -6,6 +6,5 @@ from .torch_util import *
 from .torch_app import *
 from .torch_backend import TorchBackend
 
-TORCH_BACKEND = TorchBackend()
-math.DYNAMIC_BACKEND.add_backend(TORCH_BACKEND)
-math.DYNAMIC_BACKEND.default_backend = TORCH_BACKEND
+from phi.math import backend
+backend.set_global_default_backend(TORCH_BACKEND)

@@ -1,6 +1,6 @@
 import warnings
 
-from phi.math.backend import math, NoBackendFound
+from phi.math.backend import NoBackendFound
 from .context import _unsafe, skip_validate
 from .item_condition import ALL_ITEMS, context_item_condition
 from .structdef import Item

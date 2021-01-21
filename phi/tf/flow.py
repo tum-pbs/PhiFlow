@@ -9,3 +9,4 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 tf = tensorflow
+math.DYNAMIC_BACKEND.default_backend = TF_BACKEND

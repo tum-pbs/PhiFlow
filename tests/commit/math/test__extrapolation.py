@@ -68,38 +68,38 @@ class TestExtrapolationOperators(TestCase):
             pass
 
     def test_pad_tensor(self):
-        for backend in [SCIPY_BACKEND, TF_BACKEND, TORCH_BACKEND]:
-            math.DYNAMIC_BACKEND.default_backend = backend
-            a = math.meshgrid(x=4, y=3)
-            # 0
-            p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, ZERO)
-            self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
-            math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
-            math.assert_close(p.x[0], 0)
-            # 1
-            p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, ONE)
-            self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
-            math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
-            math.assert_close(p.x[0], 1)
-            # periodic
-            p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, PERIODIC)
-            self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
-            math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
-            math.assert_close(p.x[0].y[:-1], a.x[-1])
-            math.assert_close(p.x[-2:].y[:-1], a.x[:2])
-            # boundary
-            p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, BOUNDARY)
-            self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
-            math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
-            math.assert_close(p.x[0].y[:-1], a.x[0])
-            math.assert_close(p.x[-2:].y[:-1], a.x[-1])
-            # mixed
-            p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, MixedExtrapolation({'x': PERIODIC, 'y': (ONE, REFLECT)}))
-            math.print(p)
-            self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
-            math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
-            math.assert_close(p.x[0].y[:-1], a.x[-1])  # periodic
-            math.assert_close(p.x[-2:].y[:-1], a.x[:2])  # periodic
+        for backend in (SCIPY_BACKEND, TF_BACKEND, TORCH_BACKEND):
+            with backend:
+                a = math.meshgrid(x=4, y=3)
+                # 0
+                p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, ZERO)
+                self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
+                math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
+                math.assert_close(p.x[0], 0)
+                # 1
+                p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, ONE)
+                self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
+                math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
+                math.assert_close(p.x[0], 1)
+                # periodic
+                p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, PERIODIC)
+                self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
+                math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
+                math.assert_close(p.x[0].y[:-1], a.x[-1])
+                math.assert_close(p.x[-2:].y[:-1], a.x[:2])
+                # boundary
+                p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, BOUNDARY)
+                self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
+                math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
+                math.assert_close(p.x[0].y[:-1], a.x[0])
+                math.assert_close(p.x[-2:].y[:-1], a.x[-1])
+                # mixed
+                p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, MixedExtrapolation({'x': PERIODIC, 'y': (ONE, REFLECT)}))
+                math.print(p)
+                self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
+                math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
+                math.assert_close(p.x[0].y[:-1], a.x[-1])  # periodic
+                math.assert_close(p.x[-2:].y[:-1], a.x[:2])  # periodic
 
     def test_pad_collapsed(self):
         a = math.zeros(b=2, x=10, y=10, batch=10)

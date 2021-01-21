@@ -6,7 +6,7 @@ from functools import partial
 
 import numpy as np
 
-from .backend import math, Solve, LinearSolve
+from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_
 from . import _extrapolation as extrapolation
 from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, \
@@ -23,10 +23,6 @@ def as_tensor(x, convert_external=True):
         return tensor(x)
     else:
         return x
-
-
-def copy(tensor, only_mutable=False):
-    raise NotImplementedError()
 
 
 def print_(value: Tensor = None, name: str = None):
@@ -63,13 +59,6 @@ def print_(value: Tensor = None, name: str = None):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
-def transpose(tensor, axes):
-    if isinstance(tensor, Tensor):
-        return CollapsedTensor(tensor, tensor.shape[axes])
-    else:
-        return math.transpose(tensor, axes)
-
-
 def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None, **dimensions):
     shape &= shape_(**dimensions)
     if shape.is_non_uniform:
@@ -92,7 +81,7 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     :param dimensions: additional dimensions, types are determined from names
     :return: tensor of specified shape
     """
-    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(math.zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
+    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
 
 
 def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
@@ -106,13 +95,13 @@ def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     :param dimensions: additional dimensions, types are determined from names
     :return: tensor of specified shape
     """
-    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(math.ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
+    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
 
 
 def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
 
     def uniform_random_normal(shape, dtype):
-        native = math.random_normal(shape.sizes)
+        native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes)
         native = native if dtype is None else native.astype(dtype)
         return NativeTensor(native, shape)
 
@@ -122,11 +111,18 @@ def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
 def random_uniform(shape=EMPTY_SHAPE, dtype=None, **dimensions):
 
     def uniform_random_uniform(shape, dtype):
-        native = math.random_uniform(shape.sizes)
+        native = choose_backend(*shape.sizes, prefer_default=True).random_uniform(shape.sizes)
         native = native if dtype is None else native.astype(dtype)
         return NativeTensor(native, shape)
 
     return _initialize(uniform_random_uniform, shape, dtype, **dimensions)
+
+
+def transpose(value, axes):
+    if isinstance(value, Tensor):
+        return CollapsedTensor(value, value.shape[axes])
+    else:
+        return choose_backend(value).transpose(value, axes)
 
 
 def fftfreq(resolution, dtype=None):
@@ -147,7 +143,7 @@ def meshgrid(**dimensions):
     """generate a TensorStack meshgrid from keyword dimensions"""
     assert 'vector' not in dimensions
     dimensions = {dim: tuple(range(val)) if isinstance(val, int) else val for dim, val in dimensions.items()}
-    indices_list = math.meshgrid(*dimensions.values())
+    indices_list = choose_backend(*dimensions.values(), prefer_default=True).meshgrid(*dimensions.values())
     single_shape = Shape([len(val) for val in dimensions.values()], dimensions.keys(), [SPATIAL_DIM] * len(dimensions))
     channels = [NativeTensor(t, single_shape) for t in indices_list]
     return TensorStack(channels, 'vector', CHANNEL_DIM)
@@ -189,9 +185,10 @@ def concat(values: tuple or list, dim: str) -> Tensor:
     :return: concatenated tensor
     """
     broadcast_shape = values[0].shape
-    tensors = [v.native(order=broadcast_shape.names) for v in values]
-    concatenated = math.concat(tensors, broadcast_shape.index(dim))
-    return NativeTensor(concatenated, broadcast_shape.with_sizes(math.staticshape(concatenated)))
+    natives = [v.native(order=broadcast_shape.names) for v in values]
+    backend = choose_backend(*natives)
+    concatenated = backend.concat(natives, broadcast_shape.index(dim))
+    return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
 def spatial_pad(value, pad_width: tuple or list, mode: 'extrapolation.Extrapolation') -> Tensor:
@@ -318,7 +315,7 @@ def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name
     dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
     first_dim_index = min(*value.shape.index(dims))
     new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos=first_dim_index)
-    native = math.reshape(native, new_shape.sizes)
+    native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
 
@@ -326,7 +323,8 @@ def prod(value, axis=None):
     if axis is None and isinstance(value, (tuple, list)) and all(isinstance(v, numbers.Number) for v in value):
         return SCIPY_BACKEND.prod(value)
     if isinstance(value, Tensor):
-        native = math.prod(value.native(), value.shape.index(axis))
+        native = value.native()
+        native = choose_backend(native).prod(native, value.shape.index(axis))
         return NativeTensor(native, value.shape.without(axis))
     raise NotImplementedError(f"{type(value)} not supported. Only Tensor allowed.")
 
@@ -346,7 +344,7 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
     """
     condition, value_true, value_false = tensors(condition, value_true, value_false)
     shape, (c, vt, vf) = broadcastable_native_tensors(condition, value_true, value_false)
-    result = math.where(c, vt, vf)
+    result = choose_backend(c, vt, vf).where(c, vt, vf)
     return NativeTensor(result, shape)
 
 
@@ -366,15 +364,13 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
         value = sum_(abs(value), value.shape.channel.names)
 
     def unbatched_nonzero(value):
-        indices = math.nonzero(value.native())
-        indices_shape = Shape(math.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
+        native = value.native()
+        backend = choose_backend(native)
+        indices = backend.nonzero(native)
+        indices_shape = Shape(backend.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
         return NativeTensor(indices, indices_shape)
 
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)
-
-
-def sum_(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, math.sum)
 
 
 def _reduce(value: Tensor or list or tuple, axis, native_function):
@@ -393,7 +389,8 @@ def _reduce(value: Tensor or list or tuple, axis, native_function):
         value = tensor(value)
     axes = _axis(axis, value.shape)
     if isinstance(value, NativeTensor):
-        result = native_function(value.native(), axis=value.shape.index(axes))
+        native = value.native()
+        result = native_function(choose_backend(native), native, axis=value.shape.index(axes))
         return NativeTensor(result, value.shape.without(axes))
     elif isinstance(value, TensorStack):
         # --- inner reduce ---
@@ -405,7 +402,7 @@ def _reduce(value: Tensor or list or tuple, axis, native_function):
             if any([isinstance(t, ShiftLinOp) for t in red_inners]):
                 return sum(red_inners[1:], red_inners[0])
             natives = [t.native() for t in red_inners]
-            result = native_function(natives, axis=0)
+            result = native_function(choose_backend(*natives), natives, axis=0)
             return NativeTensor(result, red_inners[0].shape)
         else:
             return TensorStack(red_inners, value.stack_dim_name, value.stack_dim_type, keep_separate=value.keep_separate)
@@ -425,28 +422,32 @@ def _axis(axis, shape: Shape):
     raise ValueError(axis)
 
 
+def sum_(value: Tensor or list or tuple, axis=None):
+    return _reduce(value, axis, lambda backend, native, axis: backend.sum(native, axis))
+
+
 def mean(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, math.mean)
+    return _reduce(value, axis, lambda backend, native, axis: backend.mean(native, axis))
 
 
 def std(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, math.std)
+    return _reduce(value, axis, lambda backend, native, axis: backend.std(native, axis))
 
 
 def any_(boolean_tensor: Tensor or list or tuple, axis=None):
-    return _reduce(boolean_tensor, axis, math.any)
+    return _reduce(boolean_tensor, axis, lambda backend, native, axis: backend.any(native, axis))
 
 
 def all_(boolean_tensor: Tensor or list or tuple, axis=None):
-    return _reduce(boolean_tensor, axis, math.all)
+    return _reduce(boolean_tensor, axis, lambda backend, native, axis: backend.all(native, axis))
 
 
 def max_(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, math.max)
+    return _reduce(value, axis, lambda backend, native, axis: backend.max(native, axis))
 
 
 def min_(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, math.min)
+    return _reduce(value, axis, lambda backend, native, axis: backend.min(native, axis))
 
 
 def zeros_like(tensor: Tensor):
@@ -469,42 +470,90 @@ def einsum(equation, *tensors):
     raise NotImplementedError()
 
 
+def _backend_op1(x: Tensor, unbound_method):
+    return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
+
+
 def abs(x: Tensor):
-    return x._op1(math.abs)
+    return _backend_op1(x, Backend.abs)
 
 
 def sign(x: Tensor):
-    return x._op1(math.sign)
+    return _backend_op1(x, Backend.sign)
 
 
 def round(x: Tensor):
-    return x._op1(math.round)
+    return _backend_op1(x, Backend.round)
 
 
 def ceil(x: Tensor):
-    return x._op1(math.ceil)
+    return _backend_op1(x, Backend.ceil)
 
 
 def floor(x: Tensor):
-    return x._op1(math.floor)
+    return _backend_op1(x, Backend.floor)
+
+
+def sqrt(x: Tensor):
+    return _backend_op1(x, Backend.sqrt)
+
+
+def exp(x: Tensor):
+    return _backend_op1(x, Backend.exp)
+
+
+def to_float(x: Tensor):
+    return _backend_op1(x, Backend.to_float)
+
+
+def to_int(x: Tensor, int64=False):
+    return x._op1(lambda native: choose_backend(native).to_int(native, int64=int64))
+
+
+def to_complex(x: Tensor):
+    return _backend_op1(x, Backend.to_complex)
+
+
+def isfinite(x: Tensor):
+    return _backend_op1(x, Backend.isfinite)
+
+
+def imag(complex: Tensor):
+    return _backend_op1(complex, Backend.imag)
+
+
+def real(complex: Tensor):
+    return _backend_op1(complex, Backend.real)
+
+
+def cast(x: Tensor, dtype):
+    return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
+
+
+def sin(x):
+    return _backend_op1(x, Backend.sin)
+
+
+def cos(x):
+    return _backend_op1(x, Backend.cos)
 
 
 def divide_no_nan(x, y):
-    return custom_op2(x, y, divide_no_nan, math.divide_no_nan, lambda y_, x_: divide_no_nan(x_, y_), lambda y_, x_: math.divide_no_nan(x_, y_))
+    return custom_op2(x, y, divide_no_nan, lambda x_, y_: choose_backend(x_, y_).divide_no_nan(x_, y_), lambda y_, x_: divide_no_nan(x_, y_), lambda y_, x_: choose_backend(x_, y_).divide_no_nan(x_, y_))
 
 
 def maximum(x, y):
-    return custom_op2(x, y, maximum, math.maximum)
+    return custom_op2(x, y, maximum, lambda x_, y_: choose_backend(x_, y_).maximum(x_, y_))
 
 
 def minimum(x, y):
-    return custom_op2(x, y, minimum, math.minimum)
+    return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_))
 
 
 def clip(x, minimum, maximum):
     def _clip(x, minimum, maximum):
         new_shape, (x_, min_, max_) = broadcastable_native_tensors(*tensors(x, minimum, maximum))
-        result_tensor = math.clip(x_, min_, max_)
+        result_tensor = choose_backend(x_, min_, max_).clip(x_, min_, max_)
         return NativeTensor(result_tensor, new_shape)
     return broadcast_op(_clip, tensors(x, minimum, maximum))
 
@@ -513,64 +562,26 @@ def with_custom_gradient(function, inputs, gradient, input_index=0, output_index
     raise NotImplementedError()
 
 
-def sqrt(x):
-    return tensor(x)._op1(math.sqrt)
-
-
-def exp(x):
-    return tensor(x)._op1(math.exp)
-
-
-def conv(tensor, kernel, padding='same'):
+def conv(value: Tensor, kernel: Tensor, padding='same'):
     raise NotImplementedError()
 
 
-def dim_sizes(value):
-    return value.shape.sizes if isinstance(value, Tensor) else math.shape(value)
+def unstack(value: Tensor, axis=0):
+    assert isinstance(value, Tensor)
+    return value.unstack(value.shape.names[axis])
 
 
-def ndims(value):
-    return value.rank if isinstance(value, Tensor) else math.ndims(value)
-
-
-def dim_sizes_static(value):
-    if isinstance(value, Tensor):
-        return value.shape.sizes
-    else:
-        return math.staticshape(value)
-
-
-def to_float(x, float64=False):
-    return tensor(x)._op1(partial(math.to_float, float64=float64))
-
-
-def to_int(x, int64=False):
-    return tensor(x)._op1(partial(math.to_int, int64=int64))
-
-
-def to_complex(x):
-    return tensor(x)._op1(math.to_complex)
-
-
-def unstack(tensor, axis=0):
-    assert isinstance(tensor, Tensor)
-    return tensor.unstack(tensor.shape.names[axis])
-
-
-def boolean_mask(x, mask):
+def boolean_mask(x: Tensor, mask):
     raise NotImplementedError()
-
-
-def isfinite(x):
-    return tensor(x)._op1(lambda t: math.isfinite(t))
 
 
 def gather(value: Tensor, indices: Tensor):
     v_ = value.native()
     i_ = indices.native()
+    backend = choose_backend(v_, i_)
     if value.shape.channel_rank == 0:
-        v_ = math.expand_dims(v_, -1)
-    result = math.gather_nd(v_, i_, batch_dims=value.shape.batch_rank)
+        v_ = backend.expand_dims(v_, -1)
+    result = backend.gather_nd(v_, i_, batch_dims=value.shape.batch_rank)
     if value.shape.channel_rank == 0:
         result = result[..., 0]
     new_shape = value.shape.batch & indices.shape.non_channel & value.shape.channel
@@ -590,7 +601,8 @@ def scatter(indices: Tensor, values: Tensor, size: Shape, scatter_dims, duplicat
     """
     indices_ = indices.native()
     values_ = values.native(values.shape.combined(indices.shape.non_channel).names)
-    result_ = math.scatter(indices_, values_, tuple(size), duplicates_handling=duplicates_handling, outside_handling=outside_handling)
+    backend = choose_backend(indices_, values_)
+    result_ = backend.scatter(indices_, values_, tuple(size), duplicates_handling=duplicates_handling, outside_handling=outside_handling)
     result_shape = size & indices.shape.batch & values.shape.non_spatial
     result_shape = result_shape.without(scatter_dims)
     return NativeTensor(result_, result_shape)
@@ -606,41 +618,21 @@ def fft(x: Tensor):
     :return: FFT(x) of type complex
     """
     native, assemble = _invertible_standard_form(x)
-    result = math.fft(native)
+    result = choose_backend(native).fft(native)
     return assemble(result)
 
 
 def ifft(k: Tensor):
     native, assemble = _invertible_standard_form(k)
-    result = math.ifft(native)
+    result = choose_backend(native).ifft(native)
     return assemble(result)
-
-
-def imag(complex):
-    return complex._op1(math.imag)
-
-
-def real(complex: Tensor):
-    return complex._op1(math.real)
-
-
-def cast(x: Tensor, dtype):
-    return x._op1(partial(math.cast, dtype=dtype))
-
-
-def sin(x):
-    return tensor(x)._op1(math.sin)
-
-
-def cos(x):
-    return tensor(x)._op1(math.cos)
 
 
 def dtype(x):
     if isinstance(x, Tensor):
         return x.dtype
     else:
-        return math.dtype(x)
+        return choose_backend(x).dtype(x)
 
 
 def tile(value, multiples):
@@ -673,11 +665,12 @@ def _invertible_standard_form(value: Tensor):
     """
     normal_order = value.shape.normal_order()
     native = value.native(normal_order.names)
+    backend = choose_backend(native)
     standard_form = (value.shape.batch.volume,) + value.shape.spatial.sizes + (value.shape.channel.volume,)
-    reshaped = math.reshape(native, standard_form)
+    reshaped = backend.reshape(native, standard_form)
 
     def assemble(reshaped):
-        un_reshaped = math.reshape(reshaped, math.shape(native))
+        un_reshaped = backend.reshape(reshaped, backend.shape(native))
         return NativeTensor(un_reshaped, normal_order)
 
     return reshaped, assemble
@@ -705,8 +698,8 @@ def _close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
     if tensor2 is tensor1:
         return True
     new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
-    np1 = math.numpy(native1)
-    np2 = math.numpy(native2)
+    np1 = choose_backend(native1).numpy(native1)
+    np2 = choose_backend(native2).numpy(native2)
     return np.allclose(np1, np2, rel_tolerance, abs_tolerance)
 
 
@@ -737,8 +730,8 @@ def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
     if isinstance(tensor2, (int, float, bool)):
         np.testing.assert_allclose(tensor1.numpy(), tensor2, rel_tolerance, abs_tolerance)
     new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
-    np1 = math.numpy(native1)
-    np2 = math.numpy(native2)
+    np1 = choose_backend(native1).numpy(native1)
+    np2 = choose_backend(native2).numpy(native2)
     if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
         np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance)
 
@@ -752,8 +745,9 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
     batch = (y.shape & x0.shape).batch
-    x0_native = math.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
-    y_native = math.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))
+    backend = choose_backend(x0.native(), y.native())
+    x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
+    y_native = backend.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))
     if callable(operator):
         A_ = None
         if solve_params.solver_arguments['bake'] == 'sparse':
@@ -767,18 +761,18 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
             print("CG: matrix build time: %d ms" % (1000 * (time.time() - build_time),))
         if A_ is None:
             def A_(native_x):
-                native_x_shaped = math.reshape(native_x, x0.shape.non_batch.sizes)
+                native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
                 x = NativeTensor(native_x_shaped, x0.shape.non_batch)
                 Ax = operator(x)
-                Ax_native = math.reshape(Ax.native(), math.shape(native_x))
+                Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
                 return Ax_native
     else:
-        A_ = math.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
+        A_ = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     cg_time = time.time()
-    converged, x, iterations = math.conjugate_gradient(A_, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
+    converged, x, iterations = backend.conjugate_gradient(A_, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
     print("CG: loop time: %d ms (%s iterations)" % (1000 * (time.time() - cg_time), iterations))
-    converged = math.reshape(converged, batch.sizes)
-    x = math.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
-    iterations = math.reshape(iterations, batch.sizes)
+    converged = choose_backend(converged).reshape(converged, batch.sizes)
+    x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
+    iterations = choose_backend(iterations).reshape(iterations, batch.sizes)
     return NativeTensor(converged, batch), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, batch)

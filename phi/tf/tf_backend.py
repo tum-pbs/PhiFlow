@@ -269,12 +269,8 @@ class TFBackend(Backend):
     def shape(self, tensor):
         return tf.shape(tensor)
 
-    def to_float(self, x, float64=False):
-        if float64:
-            warnings.warn('float64 argument is deprecated, set Backend.precision = 64 to use 64 bit operations.', DeprecationWarning)
-            return tf.cast(x, tf.float64)
-        else:
-            return tf.cast(x, to_numpy_dtype(self.float_type))
+    def to_float(self, x):
+        return tf.cast(x, to_numpy_dtype(self.float_type))
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):

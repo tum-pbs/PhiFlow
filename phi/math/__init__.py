@@ -19,7 +19,7 @@ Main classes:
 * Shape
 """
 
-from .backend import DYNAMIC_BACKEND, set_precision, Solve, LinearSolve, DType
+from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, choose_backend
 from .backend._scipy_backend import SCIPY_BACKEND
 
 from . import _extrapolation as extrapolation
@@ -31,7 +31,6 @@ from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shap
 from ._tensors import tensor, tensors, Tensor
 from ._functions import (
     is_tensor, as_tensor,
-    copy,
     print_ as print,
     transpose,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid,  # creation operators (use default backend)
@@ -53,7 +52,6 @@ from ._functions import (
     with_custom_gradient,
     sqrt, exp, sin, cos,
     conv,
-    dim_sizes, dim_sizes_static, ndims,
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
@@ -75,7 +73,5 @@ from ._nd import (
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
 )
-
-choose_backend = DYNAMIC_BACKEND.choose_backend
 
 pi = PI = 3.14159265358979323846

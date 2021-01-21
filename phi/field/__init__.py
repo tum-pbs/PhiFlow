@@ -11,7 +11,7 @@ The most commonly used field types are
 """
 
 from ._field import Field, SampledField
-from ._analytic import AnalyticField, SymbolicFieldBackend
+from ._analytic import AnalyticField
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
@@ -29,6 +29,3 @@ from ._field_math import (
     l2_loss,
 )
 from ._field_io import write, read
-
-from phi import math as _math
-_math.DYNAMIC_BACKEND.add_backend(SymbolicFieldBackend(_math.DYNAMIC_BACKEND), priority=True)
