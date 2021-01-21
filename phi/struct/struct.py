@@ -39,11 +39,10 @@ VALID = _DataType('valid')
 
 
 class Struct(object):
-    """
-Base class for all custom structs.
-To implement a custom struct, extend this class and add the decorator @struct.definition().
+    """ Deprecated.
 
-See the struct documentation at documentation/Structs.ipynb
+    Base class for all custom structs.
+    To implement a custom struct, extend this class and add the decorator @struct.definition().
     """
 
     __items__ = None

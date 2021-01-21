@@ -31,19 +31,18 @@ Having all functionality of a fluid simulation running in a machine learning fra
 
 ## Installation
 
-Installation with PIP on Python 3.7 or newer:
+Installation with pip on Python 3.7 or newer:
 
 ``` bash
 $ pip install phiflow
 ```
 
 Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
-
 See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to compile the custom CUDA operators and verify your installation.
 
 ## Documentation and Guides
 
-| [Index](documentation) | [Demos](demos) / [Tests](tests) | [Source](phi) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true) |
+| [Index](documentation) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true) | [Source](phi) |
 |------------------------|---------------------------------|---------------| -----------------------------|
 
 If you would like to get right into it and have a look at some code, check out the
@@ -52,15 +51,15 @@ It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
 
 The following introductory demos are also helpful to get started with writing your own app using Φ<sub>Flow</sub>:
 
-* [simpleplume.py](./demos/simpleplume.py): Runs a fluid simulation and displays it in the browser
-* [optimize_pressure.py](demos/differentiate_pressure.py): Uses TensorFlow to optimize a velocity channel. TensorBoard can be started from the GUI and displays the loss.
+* [simpleplume.py](./demos/simpleplume.py) runs a fluid simulation and displays it in the web interface.
+* [optimize_pressure.py](demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field.
 
 ## Module Overview
 
 | Module      | Documentation                                        |
 |-------------|------------------------------------------------------|
 | [phi.app](phi/app)     | [Interactive application development, web interface](documentation/Web_Interface.md)   |
-| [phi.physics](phi/physics) | [Domains, build-in physics functions](documentation/Physics.md)         |
+| [phi.physics](phi/physics) | [Domains, built-in physics functions](documentation/Physics.md)         |
 | [phi.field](phi/field)   | [Grids, particles, analytic representations](documentation/Fields.md)           |
 | [phi.geom](phi/geom)    | [Differentiable Geometry](documentation/Geometry.md)                              |
 | [phi.math](phi/math)    | [Vectorized operations, tensors with named dimensions](documentation/Math.md) |
@@ -69,14 +68,11 @@ The following introductory demos are also helpful to get started with writing yo
 
 * [Fluids](documentation/Fluid_Simulation.md)
 * [Staggered grids](documentation/Staggered_Grids.md)
-* [GPU execution](documentation/GPU_Execution.md) (not updated yet)
 
-Deprecated
+Not yet updated:
 
+* [GPU execution](documentation/GPU_Execution.md) (not yet updated)
 * [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md)
-* [Simulation code design](documentation/Simulation_Architecture.md)
-* [Struct API](documentation/Structs.ipynb)
-* [Software Architecture](documentation/Software_Architecture.md)
 * [Data](documentation/Reading_and_Writing_Data.md)
 * [Pressure solvers](documentation/Pressure_Solvers.md)
 

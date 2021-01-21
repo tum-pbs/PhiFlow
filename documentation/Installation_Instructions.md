@@ -1,115 +1,74 @@
 # Φ<sub>Flow</sub> Installation
 
-## Dependencies
+## Requirements
 
-You need to have Python 3.5.X, 3.6.X or 2.7.X with pip (or an alternative package manager) installed.
+* [Python](https://www.python.org/downloads/) 3.7 or newer (e.g. [Anaconda](https://www.anaconda.com/products/individual))
+* [pip](https://pip.pypa.io/en/stable/) (included in many Python distributions)
 
-For GPU acceleration, deep learning and optimization, [TensorFlow](https://www.tensorflow.org/install/) must be registered with your Python installation.
-TensorFlow can be compiled from sources or installed as the CPU-enabled version using:
-
-```bash
-$ pip install tensorflow==1.14.0
-```
-
-and as the GPU-enabled version using:
-
-```bash
-$ pip install tensorflow_gpu==1.14.0
-```
-
-The browser-based GUI depends on [Plotly / Dash](https://dash.plot.ly/installation).
-These packages can be installed together with Φ<sub>Flow</sub> (see next section).
+For GPU acceleration, deep learning and optimization,
+[TensorFlow](https://www.tensorflow.org/install/) or [PyTorch](https://pytorch.org/)
+must be registered with your Python installation.
+Note that TensorFlow also requires a CUDA SDK with *cuDNN* libraries for GPU execution.
+The PyTorch binaries already include these.
 
 ## Installing a pre-built Φ<sub>Flow</sub> version
 
-*Note*: If you want to use the Φ<sub>Flow</sub> CUDA operations with TensorFlow, you have to build Φ<sub>Flow</sub> from sources instead.
+*Note*: If you want to use the Φ<sub>Flow</sub> CUDA operations with TensorFlow, you have to build Φ<sub>Flow</sub> from source instead (see below).
 
-The following code  installs Φ<sub>Flow</sub> with GUI dependencies using pip.
-
+The following command installs the latest stable version of Φ<sub>Flow</sub> using pip.
 ```bash
-$ pip install phiflow[gui]
+$ pip install phiflow
 ```
 
-If you do not require the web interface, leave out the optional dependency `[gui]`.
-
-## Installing Φ<sub>Flow</sub> from sources
+## Installing Φ<sub>Flow</sub> from source
 
 Clone the git repository by running
 
 ```bash
-$ git clone https://github.com/tum-pbs/PhiFlow.git
+$ git clone https://github.com/tum-pbs/PhiFlow.git <target directory>
 ```
+This will create the folder \<target directory\> and copy all Φ<sub>Flow</sub> source files into it.
 
-See the section *Optional features* below on how to configure the installation to add CUDA operators.
+With this done, you may compile CUDA kernels for better performance, see below.
 
-Φ<sub>Flow</sub> is built as a Python package.
-If you run a program that uses Φ<sub>Flow</sub> from the command line, it is recommended to install Φ<sub>Flow</sub> using pip.
-For installing Φ<sub>Flow</sub> with GUI dependencies, run:
+Finally, Φ<sub>Flow</sub> needs to be added to the Python path.
+This can be done in one of multiple ways:
 
-```bash
-$ pip install phiflow/[gui]
-```
+* Marking \<target directory\> as a source directory in your Python IDE.
+* Manually adding the cloned directory to the Python path.
+* Installing Φ<sub>Flow</sub> using pip: `$ pip install <target directory>/`. This command needs to be rerun after you make changes to the source code.
 
-To update the Φ<sub>Flow</sub> installation (because the sources changed), simply run
-`$ pip install phiflow/` (or `$ pip install .` inside the phiflow directory).
 
-Installing Φ<sub>Flow</sub> as a package is not required if your Python PATH points to it (as is the case when executing code from within most IDEs).
+## Compiling the CUDA Kernels
+
+The Φ<sub>Flow</sub> source includes several custom CUDA kernels to speed up certain operations when using TensorFlow.
+To use these, you must have a TensorFlow compatible CUDA SDK with cuDNN as well as a compatible C++ compiler installed.
+We strongly recommend using Linux with GCC 4.8 (`apt-get install gcc-4.8`) for this.
+
+To compile the CUDA kernels for TensorFlow, clone the repository as described above, then run `$ python <target directory>/setup.py tf_cuda`.
+This will add the compiled CUDA binaries to the \<target directory\>.
+
 
 ## Verifying the installation
 
-### Testing with GUI
-
-To verify your Φ<sub>Flow</sub> installation (including TensorFlow), run `fluid_logo.py` using the following command:
-
+To verify your Φ<sub>Flow</sub> installation, run the included script `verify.py` using the following command:
 ```bash
-$ python phiflow/demos/fluid_logo.py 64 tf
+$ python <target directory>/tests/verify.py
 ```
+If everything works, you should see the text `Installation verified.`, followed by additional information on the components at the end of the console output.
 
-To test Φ<sub>Flow</sub> without TensorFlow, leave out the `tf` at the end.
+### Unit tests
 
-The application should output a URL which you can open in your browser to use the GUI.
-At the top of the page, the app displays if it is using TensorFlow or NumPy.
-Simply press the Play button and watch the simulation run.
+PyTest is required to run the unit tests. To install it, run `$ pip install pytest`.
 
-### Testing without GUI
+Some unit tests require TensorFlow and PyTorch.
+Make sure, both are installed before running the tests.
 
-If you do not wish to use the GUI, you can verify the installation by running the test scripts.
-Inside the phiflow directory, run:
+Execute `$ pytest <target directory>/tests/commit` to run the normal tests.
+The result of this should match the automated tests run by Travis CI which are linked on the main GitHub page.
 
+You can run the additional tests
 ```bash
-$ pip install pytest
-$ pytest
+$ pytest <target directory>/tests/gpu
+$ pytest <target directory>/tests/release
 ```
-
-This will run all tests (including some depending on TensorFlow).
-If everything works correctly, all test should pass.
-
-## Optional features
-
-### CUDA operations
-
-There are several custom TensorFlow operations, written in CUDA.
-To use these, you must have a TensorFlow compatible CUDA SDK installed.
-
-To install Φ<sub>Flow</sub> with CUDA operators, run:
-
-```bash
-$ cd phiflow/
-$ python setup.py tf_cuda
-$ pip install .
-```
-
-If you do not compile TensorFlow from scratch (i.e. install it using pip), it is crucial to 
-use the correct versions for all components (e.g., linux with gcc-4.8 for compilation). 
-Before compiling and installing phiflow as explained above we recommend the following steps via anaconda:
-
-```bash
-apt-get install gcc-4.8
-conda create -n tf python=3.6
-conda activate tf
-pip install tensorflow-gpu==1.14.0
-```
-
-This assumes that CUDA 10.0 is already installed.
-Note that tensorflow also requires the *cudnn* libraries, but its version is less critical (e.g. 7.6.5 should work).
-

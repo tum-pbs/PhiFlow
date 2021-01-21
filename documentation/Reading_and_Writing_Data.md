@@ -57,7 +57,7 @@ densities, velocities = scene.read_sim_frames(fieldnames=['density', 'velocity']
 fluid = scene.read(Fluid(...), frame=0)
 ```
 
-The last call makes use of Φ<sub>Flow</sub>'s [`struct` system](Structs.ipynb).
+The last call makes use of Φ<sub>Flow</sub>'s `struct`.
 
 ## Writing to a scene
 
