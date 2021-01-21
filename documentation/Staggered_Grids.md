@@ -1,6 +1,6 @@
 # Staggered grids
 
-Staggered grids are a key component of the marker-and-cell (MAC) method.
+Staggered grids are a key component of the marker-and-cell (MAC) method \[Harlow and Welch 1965\].
 They sample the velocity components not at the cell centers but in staggered form at the corresponding face centers.
 Since cells have two faces along each dimension, the number of sample points can vary between components.
 

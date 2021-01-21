@@ -67,7 +67,7 @@ The following introductory demos are also helpful to get started with writing yo
 
 ## Other Documentation
 
-* [Fluids](documentation/Fluid_Simulation.md) (not updated yet)
+* [Fluids](documentation/Fluid_Simulation.md)
 * [Staggered grids](documentation/Staggered_Grids.md)
 * [GPU execution](documentation/GPU_Execution.md) (not updated yet)
 
