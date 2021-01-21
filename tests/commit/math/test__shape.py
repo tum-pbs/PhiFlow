@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi import math
-from phi.math import infer_shape, shape, Shape
+from phi.math import shape
 from phi.math._shape import shape_stack, BATCH_DIM
 
 

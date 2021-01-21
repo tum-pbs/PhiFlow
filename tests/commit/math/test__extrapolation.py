@@ -58,13 +58,13 @@ class TestExtrapolationOperators(TestCase):
         try:
             PERIODIC + BOUNDARY
             assert False
-        except IncompatibleExtrapolations:
+        except TypeError:
             pass
 
         try:
             PERIODIC + ONE
             assert False
-        except IncompatibleExtrapolations:
+        except TypeError:
             pass
 
     def test_pad_tensor(self):

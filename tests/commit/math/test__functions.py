@@ -54,7 +54,7 @@ class TestMathFunctions(TestCase):
         math.assert_close(interp, [1, 1.5, 2.5, 0])
 
     def test_nonzero_batched(self):
-        grid = math.tensor([[(0, 1)], [(0, 0)]])
+        grid = math.tensor([[(0, 1)], [(0, 0)]], 'batch,x,y')
         nz = math.nonzero(grid, list_dim='nonzero', index_dim='vector')
         self.assertEqual(('batch', 'nonzero', 'vector'), nz.shape.names)
         self.assertEqual(1, nz.batch[0].shape.nonzero)
