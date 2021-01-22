@@ -30,7 +30,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import tensor, tensors, Tensor
 from ._functions import (
-    is_tensor, as_tensor,
+    all_available,
     print_ as print,
     transpose,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid,  # creation operators (use default backend)

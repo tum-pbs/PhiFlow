@@ -222,7 +222,7 @@ class SampledField(Field):
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self._with(values, extrapolation_)
         else:
-            other = math.as_tensor(other)
+            other = math.tensor(other)
             values = operator(self._values, other)
             return self._with(values)
 

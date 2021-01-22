@@ -1,3 +1,5 @@
+import numpy
+
 from ._dtype import DType
 
 
@@ -97,7 +99,29 @@ class Backend:
         """
         raise NotImplementedError()
 
-    def numpy(self, tensor):
+    def is_available(self, tensor) -> bool:
+        """
+        Tests if the value of the tensor is known and can be read at this point.
+        If true, `numpy(tensor)` must return a valid NumPy representation of the value.
+
+        Tensors are typically available when the backend operates in eager mode.
+
+        :param tensor: backend-compatible tensor
+        :return: bool
+        """
+        raise NotImplementedError()
+
+    def numpy(self, tensor) -> numpy.ndarray:
+        """
+        Returns a NumPy representation of the given tensor.
+        If `tensor` is already a NumPy array, it is returned without modification.
+
+        This method raises an error if the value of the tensor is not known at this point, e.g. because it represents a node in a graph.
+        Use `is_available(tensor)` to check if the value can be represented as a NumPy array.
+
+        :param tensor: backend-compatible tensor
+        :return: NumPy representation of the values stored in the tensor
+        """
         raise NotImplementedError()
 
     def copy(self, tensor, only_mutable=False):

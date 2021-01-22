@@ -36,6 +36,12 @@ class TFBackend(Backend):
                 tensor = self.to_float(tensor)
         return tensor
 
+    def is_available(self, tensor) -> bool:
+        if self.is_tensor(tensor, only_native=True):
+            return tf.executing_eagerly()
+        else:
+            return True
+
     def numpy(self, tensor):
         if tf.is_tensor(tensor):
             return tensor.numpy()
@@ -451,7 +457,7 @@ class TFBackend(Backend):
                 return y.shape
 
         result = tf.linalg.experimental.conjugate_gradient(LinOp(), y, preconditioner=None, x=x0, tol=absolute_tolerance + relative_tolerance, max_iter=max_iterations)
-        converged = True
+        converged = result.i < max_iterations
         iterations = result.i
         return converged, result.x, iterations
 

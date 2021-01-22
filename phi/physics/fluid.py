@@ -50,7 +50,7 @@ def make_incompressible(velocity: Grid,
 
     pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
     converged, pressure, iterations = field.solve(laplace, div, pressure_guess, solve_params)
-    if not math.all(converged):
+    if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
     # Subtract grad pressure
     gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs

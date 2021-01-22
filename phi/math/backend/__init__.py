@@ -10,7 +10,7 @@ _DEFAULT = [SCIPY_BACKEND]  # [0] = global default, [1:] from 'with' blocks
 _PRECISION = [32]  # [0] = global precision in bits, [1:] from 'with' blocks
 
 
-def choose_backend(*values, prefer_default=False, raise_error=True):
+def choose_backend(*values, prefer_default=False, raise_error=True) -> Backend:
     # --- Default Backend has priority ---
     if _is_specific(_DEFAULT[-1], values):
         return _DEFAULT[-1]

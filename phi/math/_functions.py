@@ -14,15 +14,21 @@ from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor
 from phi.math.backend._scipy_backend import SCIPY_BACKEND
 
 
-def is_tensor(x):
-    return isinstance(x, Tensor)
+def all_available(*values: Tensor):
+    """
+    Tests if the values of all given tensors are known and can be read at this point.
 
+    Tensors are typically available when the backend operates in eager mode.
 
-def as_tensor(x, convert_external=True):
-    if convert_external:
-        return tensor(x)
-    else:
-        return x
+    :param values: tensors to check
+    :return: bool
+    """
+    for value in values:
+        natives_available = []
+        value._op1(lambda native: natives_available.append(choose_backend(native).is_available(native)))
+        if not all(natives_available):
+            return False
+    return True
 
 
 def print_(value: Tensor = None, name: str = None):

@@ -54,6 +54,9 @@ class SciPyBackend(Backend):
             return all([self.is_tensor(item, False) for item in x])
         return False
 
+    def is_available(self, tensor):
+        return True
+
     def numpy(self, tensor):
         if isinstance(tensor, np.ndarray):
             return tensor

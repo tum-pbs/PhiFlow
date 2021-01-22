@@ -120,7 +120,7 @@ class ConstantExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value.tensor.shape.volume > 1 or not math.close(self.value, value.tensor):
+            if value.tensor.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value.tensor):
                 return self.pad(value.expand(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []

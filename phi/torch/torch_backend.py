@@ -62,6 +62,9 @@ class TorchBackend(Backend):
                 tensor = self.to_float(tensor)
         return tensor
 
+    def is_available(self, tensor) -> bool:
+        return True  # ToDo may require different handling for TorchScript
+
     def numpy(self, tensor):
         return tensor.numpy()
 
