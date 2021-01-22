@@ -8,20 +8,23 @@
 
 ![Gui](documentation/figures/WebInterface.png)
 
-Φ<sub>Flow</sub> is a research-oriented, open-source fluid simulation toolkit.
-It is written mostly in Python and can use either NumPy, TensorFlow or PyTorch for execution.
+Φ<sub>Flow</sub> is an open-source simulation toolkit built for optimization and machine learning applications.
+It is written mostly in Python and can be used with NumPy, TensorFlow or PyTorch.
+The close integration with machine learning frameworks allows it to leverage their automatic differentiation functionality,
+making it easy to build end-to-end differentiable functions involving both learning models and physics simulations.
 
-Having all functionality of a fluid simulation running in a machine learning framework opens up the possibility of back-propagating gradients through the simulation as well as running the simulation fully on the GPU.
+While it can be used to simulate a broad variety of systems, Φ<sub>Flow</sub> mainly focuses on fluid simulations.
+
+as well as running the simulation fully on the GPU.
 
 ## Features
 
-* Variety of built-in PDE operations covering, among others, transport and diffusion. This allows for very concise formulation of simulations.
-* High-level linear equation solver with automated sparse matrix creation.
+* Variety of built-in PDE operations with focus on fluid phenomena. This allows for very concise formulation of simulations.
 * Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) allowing for straightforward neural network training with fully differentiable simulations that [run on the GPU](documentation/GPU_Execution.md).
+* Flexible, easy-to-use [web interface](documentation/Web_Interface.md) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 * Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
-* Flexible, easy-to-use [web interface](documentation/Web_Interface.md) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
-
+* High-level linear equation solver with automated sparse matrix generation.
 
 ## Publications
 
@@ -32,11 +35,9 @@ Having all functionality of a fluid simulation running in a machine learning fra
 ## Installation
 
 Installation with pip on Python 3.7 or newer:
-
 ``` bash
 $ pip install phiflow
 ```
-
 Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
 See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to compile the custom CUDA operators and verify your installation.
 

@@ -43,8 +43,8 @@ It takes the dimension sizes as keyword arguments.
 
 The dimension types are inferred from the names according to the following rules:
 
-* Single letter -> Spatial dimension
-* Starts with 'vector' -> Channel dimension
+* Single letter &rarr; Spatial dimension
+* Starts with 'vector' &rarr; Channel dimension
 * Else -> Batch dimension
 
 ```
@@ -85,7 +85,7 @@ Additional tips and tricks
 * `shape.x` returns the size of the dimension 'x'.
 
 
-## Tensor creation
+## Tensor Creation
 
 The `tensor()` function converts list, NumPy array or TensorFlow/PyTorch tensor to a `Tensor`.
 The dimension names can be specified using the `names` keyword and dimension types are inferred from the names.
@@ -106,7 +106,7 @@ Singleton batch dimensions are discarded.
 (y=3, x=3) float64  0.0 < ... < 0.0
 ```
 
-There are a couple of functions in the `phi.math` module for creating basic `Tensor`s.
+There are a couple of functions in the `phi.math` module for creating basic tensors.
 
 * `zeros()`
 * `ones()`
@@ -134,7 +134,31 @@ Examples
 ```
 
 
-## Indexing, slicing, unstacking
+## Backend Selection
+
+The `phi.math` library does not implement basic operators directly but rather delegates the calls to another computing library.
+Currently, it supports three such libraries: NumPy, TensorFlow and PyTorch.
+These are referred to as *backends*.
+
+The easiest way to use a certain backend is via the import statement:
+
+* `phi.flow` &rarr; NumPy
+* `phi.tf.flow` &rarr; TensorFlow
+* `phi.torch.flow` &rarr; PyTorch
+
+This determines what backend is used to create new tensors.
+Existing tensors created with a different backend will keep using that backend.
+For example, even if TensorFlow is set as the default backend, NumPy-backed tensors will continue using NumPy functions.
+
+The global backend can be set directly using `math.backend.set_global_default_backend()`.
+Backends also support context scopes, i.e. tensors created within a `with backend:` block will use that backend to back the new tensors.
+
+When passing tensors of different backends to one function, an automatic conversion will be performed,
+e.g. NumPy arrays will be converted to TensorFlow or PyTorch tensors.
+
+
+
+## Indexing, Slicing, Unstacking
 
 The recommended way of indexing or slicing tensors is using the syntax `tensor.<dim name>[start:end:step]`.
 This can be chained to index multiple dimensions, e.g. `tensor.x[:2].y[1:-1]`.
@@ -155,7 +179,7 @@ When passing the dimension size to the latter, tensors can even be unstacked alo
 AssertionError: Size of dimension x does not match 2.
 ```
 
-## Non-uniform tensors
+## Non-uniform Tensors
 
 The `math` package allows tensors of varying sizes to be stacked into a single tensor.
 This tensor then has undefined dimension sizes where the source tensors vary in size.
@@ -165,3 +189,12 @@ This is used by `StaggeredGrid`s where the grids holding one vector component ha
 >>> math.channel_stack([math.zeros(a=4, b=2), math.zeros(b=2, a=5)], 'c')
 (a=None, b=2, c=2) float32
 ```
+
+
+## FP Precision
+
+By default, floating point operations use 32 bit (single precision).
+This can be changed globally using `math.set_global_precision(64)` or locally using `with math.precision(64):`.
+
+This setting does not affect integers.
+To specify the number of integer bits, use `math.to_int()`.
