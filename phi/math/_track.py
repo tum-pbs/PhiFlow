@@ -4,7 +4,7 @@ import numpy as np
 
 from .backend import choose_backend
 from ._shape import EMPTY_SHAPE, Shape, shape, parse_dim_order
-from ._tensors import Tensor, NativeTensor, TensorStack
+from ._tensors import Tensor, NativeTensor, TensorStack, CollapsedTensor
 from . import _functions as math
 
 
@@ -80,7 +80,7 @@ class ShiftLinOp(Tensor):
             cells = [(cell + shift.get_size(dim) if dim in shift else cell) % src_shape.get_size(dim) for dim, cell in zip(src_shape.names, cells)]  # shift & wrap
             src_indices = np.ravel_multi_index(cells, src_shape.sizes)
             cols.append(src_indices)
-            vals.append(values.native(order=out_shape.names))
+            vals.append(CollapsedTensor(values, out_shape).native())
         cols = np.stack(cols, -1).flatten()
         backend = choose_backend(*vals)
         vals = backend.flatten(backend.stack(vals, -1))
@@ -110,6 +110,10 @@ class ShiftLinOp(Tensor):
     def _with_shape_replaced(self, new_shape):
         raise NotImplementedError()
 
+    @property
+    def _is_special(self) -> bool:
+        return True
+
     def _getitem(self, selection: dict):
         starts = {dim: (item.start or 0) if isinstance(item, slice) else item for dim, item in selection.items()}
         new_shape = math.zeros(self._shape)[selection].shape
@@ -121,7 +125,7 @@ class ShiftLinOp(Tensor):
             assert isinstance(shift, Shape)
             for dim, delta in reversed(tuple(shifts.items())):
                 if dim not in values.shape:
-                    values = math._expand(values, self._shape.get_size(dim), dim, self._shape.get_type(dim))  # dim order may be scrambled
+                    values = math._expand(values, dim, self._shape.get_size(dim), self._shape.get_type(dim))  # dim order may be scrambled
                 if delta:
                     shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand_spatial(delta, dim)
             val[shift] = val_fun(values)
@@ -184,6 +188,10 @@ class SparseLinearOperation(Tensor):
 
     def _with_shape_replaced(self, new_shape):
         raise NotImplementedError()
+
+    @property
+    def _is_special(self) -> bool:
+        return True
 
     def _getitem(self, selection: dict):
         indices = NativeTensor(native_math.reshape(native_math.range(self.shape.volume), self.shape.sizes), self.shape)

@@ -139,7 +139,7 @@ class ConstantExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
-            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type, value.keep_separate)
+            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
         elif isinstance(value, SparseLinearOperation):
             (row, col), data = choose_backend(value.dependency_matrix).coordinates(value.dependency_matrix, unstack_coordinates=True)
             assert len(value.shape) == 2  # TODO nd
@@ -276,7 +276,7 @@ class _CopyExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
-            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type, value.keep_separate)
+            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
         elif isinstance(value, ShiftLinOp):
             return self._pad_linear_operation(value, widths)
         else:

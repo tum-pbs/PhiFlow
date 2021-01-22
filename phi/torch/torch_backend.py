@@ -472,6 +472,9 @@ class TorchBackend(Backend):
             function = A
         else:
             A = self.as_tensor(A)
+            A_shape = self.staticshape(A)
+            assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
+            assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
 
             def function(vec):
                 return self.matmul(A, vec)

@@ -165,11 +165,7 @@ def _stack(values, dim: str, dim_type: str):
     assert isinstance(dim, str)
 
     def inner_stack(*values):
-        varying_shapes = any([v.shape != values[0].shape for v in values[1:]])
-        from ._track import SparseLinearOperation
-        tracking = any([isinstance(v, SparseLinearOperation) for v in values])
-        inner_keep_separate = any([isinstance(v, TensorStack) and v.keep_separate for v in values])
-        return TensorStack(values, dim, dim_type, keep_separate=varying_shapes or tracking or inner_keep_separate)
+        return TensorStack(values, dim, dim_type)
 
     result = broadcast_op(inner_stack, values)
     return result
@@ -275,7 +271,7 @@ def broadcast_op(operation, tensors, iter_dims: set or tuple or list = None):
     if iter_dims is None:
         iter_dims = set()
         for tensor in tensors:
-            if isinstance(tensor, TensorStack) and tensor.keep_separate:
+            if isinstance(tensor, TensorStack) and tensor.requires_broadcast:
                 iter_dims.add(tensor.stack_dim_name)
     if len(iter_dims) == 0:
         return operation(*tensors)
@@ -300,7 +296,7 @@ def broadcast_op(operation, tensors, iter_dims: set or tuple or list = None):
         for i in range(size):
             gathered = [t[i] if isinstance(t, tuple) else t for t in unstacked]
             result_unstacked.append(broadcast_op(operation, gathered, iter_dims=set(iter_dims) - {dim}))
-        return TensorStack(result_unstacked, dim, dim_type, keep_separate=True)
+        return TensorStack(result_unstacked, dim, dim_type)
 
 
 def reshape(value: Tensor, *operations: str):
@@ -405,7 +401,7 @@ def _reduce(value: Tensor or list or tuple, axis, native_function):
             result = native_function(choose_backend(*natives), natives, axis=0)
             return NativeTensor(result, red_inners[0].shape)
         else:
-            return TensorStack(red_inners, value.stack_dim_name, value.stack_dim_type, keep_separate=value.keep_separate)
+            return TensorStack(red_inners, value.stack_dim_name, value.stack_dim_type)
     else:
         raise NotImplementedError(f"{type(value)} not supported. Only (NativeTensor, TensorStack) allowed.")
 
@@ -639,11 +635,11 @@ def tile(value, multiples):
     raise NotImplementedError()
 
 
-def expand_channel(value, dim_size, dim_name):
-    return _expand(value, dim_size, dim_name, CHANNEL_DIM)
+def expand_channel(value: Tensor, dim_name: str, dim_size: int = 1):
+    return _expand(value, dim_name, dim_size, CHANNEL_DIM)
 
 
-def _expand(value: Tensor, dim_size: int, dim_name: str, dim_type: str):
+def _expand(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
     value = tensor(value)
     new_shape = value.shape.expand(dim_size, dim_name, dim_type)
     if isinstance(value, CollapsedTensor):
@@ -749,28 +745,28 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
     y_native = backend.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))
     if callable(operator):
-        A_ = None
+        operator_or_matrix = None
         if solve_params.solver_arguments['bake'] == 'sparse':
             build_time = time.time()
             x_track = lin_placeholder(x0)
             Ax_track = operator(x_track)
             assert isinstance(Ax_track, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
-            A_ = Ax_track.build_sparse_coordinate_matrix()
-            # print_(tensor(A_.todense(), spatial_dims=2))
+            operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
+            # print_(tensor(operator_or_matrix.todense(), names='x,y'))
             # TODO reshape x0, y so that independent dimensions are batch
             print("CG: matrix build time: %d ms" % (1000 * (time.time() - build_time),))
-        if A_ is None:
-            def A_(native_x):
+        if operator_or_matrix is None:
+            def operator_or_matrix(native_x):
                 native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
                 x = NativeTensor(native_x_shaped, x0.shape.non_batch)
                 Ax = operator(x)
                 Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
                 return Ax_native
     else:
-        A_ = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
+        operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     cg_time = time.time()
-    converged, x, iterations = backend.conjugate_gradient(A_, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
+    converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
     print("CG: loop time: %d ms (%s iterations)" % (1000 * (time.time() - cg_time), iterations))
     converged = choose_backend(converged).reshape(converged, batch.sizes)
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)

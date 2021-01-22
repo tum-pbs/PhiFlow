@@ -68,6 +68,18 @@ class Tensor:
     def rank(self) -> int:
         return self.shape.rank
 
+    @property
+    def _is_special(self) -> bool:
+        """
+        Special tensors store additional internal information.
+        They should not be converted to native() in intermediate operations.
+
+        Tracking tensors are special tensors.
+
+        TensorStack prevents performing the actual stack operation if one of its component tensors is special.
+        """
+        raise NotImplementedError()
+
     def __len__(self):
         return self.shape.volume if self.rank == 1 else NotImplemented
 
@@ -347,6 +359,9 @@ class _TensorDim:
     def __int__(self):
         return self.index
 
+    def __len__(self):
+        return self.tensor.shape.get_size(self.name)
+
     @property
     def size(self):
         return self.tensor.shape.get_size(self.name)
@@ -428,6 +443,10 @@ class NativeTensor(Tensor):
     def _with_shape_replaced(self, new_shape):
         new_shape = Shape(self._shape.sizes, new_shape.names, new_shape.types)
         return NativeTensor(self._native, new_shape)
+
+    @property
+    def _is_special(self) -> bool:
+        return False
 
     def _getitem(self, selection: dict):
         new_shape = self.shape
@@ -524,6 +543,10 @@ class CollapsedTensor(Tensor):
     def _with_shape_replaced(self, new_shape):
         return CollapsedTensor(self.tensor, new_shape)
 
+    @property
+    def _is_special(self) -> bool:
+        return self.tensor._is_special
+
     def _getitem(self, selection: dict):
         inner_dict = {name: selection for name, selection in selection.items() if name in self.tensor.shape}
         inner = self.tensor._getitem(inner_dict)
@@ -560,18 +583,25 @@ class TensorStack(Tensor):
     List of tensors, does not store stacked tensor in memory.
     """
 
-    def __init__(self, tensors, dim_name, dim_type, keep_separate=False):
-        for t in tensors:
+    def __init__(self, components, dim_name, dim_type):
+        for t in components:
             assert isinstance(t, Tensor)
-            assert t.dtype == tensors[0].dtype, f"Stacked tensors must have the same data type but got {[t.dtype for t in tensors]}"
+            assert t.dtype == components[0].dtype, f"Stacked tensors must have the same data type but got {[t.dtype for t in components]}"
             assert dim_name not in t.shape, f"Cannot stack along '{dim_name}' because the dimension already exists."
-            # assert _native.shape == tensors[0].shape or keep_separate
-        self.tensors = tuple(tensors)
+        self.tensors = tuple(components)
         self.stack_dim_name = dim_name
         self.stack_dim_type = dim_type
-        self.keep_separate = keep_separate
+        self._varying_shapes = any([v.shape != components[0].shape for v in components[1:]])
         self._shape = _shape.shape_stack(dim_name, dim_type, *[t.shape for t in self.tensors])
         self._cached = None
+
+    @property
+    def _is_special(self) -> bool:
+        return any([t._is_special for t in self.tensors])
+
+    @property
+    def requires_broadcast(self):
+        return self._varying_shapes or not self._shape.well_defined or self._is_special
 
     def _cache(self):
         if self._cached is None:
@@ -603,7 +633,7 @@ class TensorStack(Tensor):
         stack_dim_name = new_shape.names[self._shape.index(self.stack_dim_name)]
         inner_shape = new_shape.without(stack_dim_name)
         tensors = [t._with_shape_replaced(inner_shape) for t in self.tensors]
-        return TensorStack(tensors, stack_dim_name, new_shape.get_type(stack_dim_name), keep_separate=self.keep_separate)
+        return TensorStack(tensors, stack_dim_name, new_shape.get_type(stack_dim_name))
 
     def _getitem(self, selection: dict):
         if (self.stack_dim_name not in selection or len(selection) != 1) and not self.requires_broadcast:
@@ -623,21 +653,21 @@ class TensorStack(Tensor):
             else:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allwoed")
         else:
-            return TensorStack(tensors, self.stack_dim_name, self.shape.get_type(self.stack_dim_name), keep_separate=self.keep_separate)
+            return TensorStack(tensors, self.stack_dim_name, self.shape.get_type(self.stack_dim_name))
 
     def flip(self, *dims: str) -> 'Tensor':
         tensors = [t.flip(*dims) for t in self.tensors]
         if self.stack_dim_name in dims:
             tensors = tensors[::-1]
-        return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type, self.keep_separate)
+        return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
 
     def unstack(self, dimension):
         if dimension == self.stack_dim_name:
             return self.tensors
         else:
-            if self.keep_separate:
+            if self.requires_broadcast:
                 unstacked = [t.unstack(dimension) for t in self.tensors]
-                result = [TensorStack(items, self.stack_dim_name, self.stack_dim_type, keep_separate=self.keep_separate) for items in zip(*unstacked)]
+                result = [TensorStack(items, self.stack_dim_name, self.stack_dim_type) for items in zip(*unstacked)]
                 return result
             else:
                 return self._cache().unstack(dimension=dimension)
@@ -650,7 +680,7 @@ class TensorStack(Tensor):
                 tensors = [operator(t1, t2) for t1, t2 in zip(self.tensors, other)]
             else:
                 tensors = [operator(t, other) for t in self.tensors]
-            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type, self.keep_separate)
+            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
         elif isinstance(other, (CollapsedTensor, NativeTensor)):
             return op2_native(self, other, native_function)
         elif isinstance(other, TensorStack) and not other.requires_broadcast:
@@ -661,14 +691,10 @@ class TensorStack(Tensor):
     def _op1(self, native_function):
         if self.requires_broadcast:
             tensors = [t._op1(native_function) for t in self.tensors]
-            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type, self.keep_separate)
+            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
         else:
             return self._cache()._op1(native_function)
 
-    @property
-    def requires_broadcast(self):
-        from phi.math._track import ShiftLinOp
-        return self.keep_separate or not self._shape.well_defined or np.any([isinstance(t, ShiftLinOp) for t in self.tensors])
 
 
 def tensors(*objects, names=None):

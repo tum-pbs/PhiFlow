@@ -193,8 +193,9 @@ def shift(x: Tensor,
 def gradient(grid: Tensor,
              dx: float or int = 1,
              difference: str = 'central',
-             padding: Extrapolation = extrapolation.BOUNDARY,
-             dims: tuple or None = None):
+             padding: Extrapolation or None = extrapolation.BOUNDARY,
+             dims: tuple or None = None,
+             stack_dim: str = 'gradient'):
     """
     Calculates the gradient of a scalar channel from finite differences.
     The gradient vectors are in reverse order, lowest dimension first.
@@ -204,17 +205,18 @@ def gradient(grid: Tensor,
     :param dx: physical distance between grid points (default 1)
     :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
     :param padding: tensor padding mode
+    :param stack_dim: name of the new vector dimension listing the gradient w.r.t. the various axes
     :return: tensor of shape (batch_size, spatial_dimensions..., spatial rank)
     """
     grid = tensor(grid)
     if difference.lower() == 'central':
-        left, right = shift(grid, (-1, 1), dims, padding, stack_dim='gradient')
+        left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
     elif difference.lower() == 'forward':
-        left, right = shift(grid, (0, 1), dims, padding, stack_dim='gradient')
+        left, right = shift(grid, (0, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / dx
     elif difference.lower() == 'backward':
-        left, right = shift(grid, (-1, 0), dims, padding, stack_dim='gradient')
+        left, right = shift(grid, (-1, 0), dims, padding, stack_dim=stack_dim)
         return (right - left) / dx
     else:
         raise ValueError('Invalid difference type: {}. Can be CENTRAL or FORWARD'.format(difference))
