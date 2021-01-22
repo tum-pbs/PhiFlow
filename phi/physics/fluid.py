@@ -33,17 +33,25 @@ def make_incompressible(velocity: Grid,
     active = 1 - HardGeometryMask(union([obstacle.geometry for obstacle in obstacles]))
     active = domain.grid(active, extrapolation=domain.boundaries.active_extrapolation)
     accessible = domain.grid(active, extrapolation=domain.boundaries.accessible_extrapolation)
-    hard_bcs = field.stagger(accessible, math.minimum, math.extrapolation.ZERO)
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles)
+    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries.accessible_extrapolation, type=type(velocity))
+    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles)._with(extrapolation=domain.boundaries.near_vector_extrapolation)
     div = divergence(velocity)
-    if velocity.extrapolation == math.extrapolation.BOUNDARY:
+    if domain.boundaries.near_vector_extrapolation == math.extrapolation.BOUNDARY:
         div -= field.mean(div)
+
     # Solve pressure
-    laplace = lambda p: where(active, divergence(gradient(p, type=type(velocity)) * hard_bcs), p)
+
+    def laplace(p):
+        grad = gradient(p, type(velocity))
+        grad *= hard_bcs
+        grad = grad._with(extrapolation=domain.boundaries.near_vector_extrapolation)
+        div = divergence(grad)
+        return where(active, div, p)
+
     pressure_guess = pressure_guess if pressure_guess is not None else domain.grid(0)
     converged, pressure, iterations = field.solve(laplace, div, pressure_guess, solve_params)
     if not math.all(converged):
-        raise AssertionError('pressure solve did not converge after %d iterations' % (iterations,), pressure.values)
+        raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
     # Subtract grad pressure
     gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp)._with(extrapolation=input_velocity.extrapolation)

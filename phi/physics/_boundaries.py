@@ -17,12 +17,25 @@ from ..math._extrapolation import mixed_extrapolation
 class Material:
     """
     Defines the extrapolation modes / boundary conditions for a surface.
-    The surface can be an obstacle or the domain boundary.
+    The surface can be an Obstacle or a Domain boundary.
+
+    Use Material.as_material() to mix different materials for different sides.
     """
-    def __init__(self, name, grid_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation):
+    def __init__(self, name, grid_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
+        """
+        Create a Material for a Domain or Obstacle.
+
+        :param name:
+        :param grid_extrapolation: extrapolation mode of grids created via Domain.grid()
+        :param vector_extrapolation: extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
+        :param near_vector_extrapolation: Used in pressure solve.
+        :param active_extrapolation: Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.
+        :param accessible_extrapolation: Whether quantities can move in and out of the domain. Used in pressure solve.
+        """
         self.name = name
         self.grid_extrapolation = grid_extrapolation
         self.vector_extrapolation = vector_extrapolation
+        self.near_vector_extrapolation = near_vector_extrapolation
         self.active_extrapolation = active_extrapolation
         self.accessible_extrapolation = accessible_extrapolation
 
@@ -38,17 +51,18 @@ class Material:
             obj = {ax: mat for ax, mat in zip(axes, obj)}
         if isinstance(obj, dict):
             grid_extrapolation = mixed_extrapolation({ax: mat.grid_extrapolation for ax, mat in obj.items()})
+            near_vector_extrapolation = mixed_extrapolation({ax: mat.near_vector_extrapolation for ax, mat in obj.items()})
             vector_extrapolation = mixed_extrapolation({ax: mat.vector_extrapolation for ax, mat in obj.items()})
             active_extrapolation = mixed_extrapolation({ax: mat.active_extrapolation for ax, mat in obj.items()})
             accessible_extrapolation = mixed_extrapolation({ax: mat.accessible_extrapolation for ax, mat in obj.items()})
-            return Material('mixed', grid_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
+            return Material('mixed', grid_extrapolation, near_vector_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
         raise NotImplementedError()
 
 
-OPEN = Material('open', extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ONE)
-CLOSED = NO_STICK = SLIPPERY = Material('slippery', extrapolation.BOUNDARY, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO)
-NO_SLIP = STICKY = Material('sticky', extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO)
-PERIODIC = Material('periodic', extrapolation.PERIODIC, extrapolation.PERIODIC, extrapolation.ONE, extrapolation.ONE)
+OPEN = Material('open', extrapolation.ZERO, extrapolation.ZERO, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ONE)
+CLOSED = NO_STICK = SLIPPERY = Material('slippery', extrapolation.BOUNDARY, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO)
+NO_SLIP = STICKY = Material('sticky', extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO)
+PERIODIC = Material('periodic', extrapolation.PERIODIC, extrapolation.PERIODIC, extrapolation.PERIODIC, extrapolation.ONE, extrapolation.ONE)
 
 
 class Domain:
@@ -117,7 +131,7 @@ class Domain:
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
             if grid.shape.channel.rank == 0:
-                grid = grid._with(math.expand_channel(grid.values, self.rank, 0))
+                grid = grid._with(math.expand_channel(grid.values, 'vector', dim_size=self.rank))
             else:
                 assert grid.shape.channel.sizes[0] == self.rank
             return grid

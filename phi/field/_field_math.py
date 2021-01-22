@@ -16,11 +16,12 @@ def laplace(field: Grid, axes=None):
     return result
 
 
-def gradient(field: CenteredGrid, type: type = CenteredGrid):
+def gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='vector'):
     if type == CenteredGrid:
-        values = math.gradient(field.values, field.dx.vector.as_channel(name='gradient'), difference='central', padding=field.extrapolation)
+        values = math.gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
         return CenteredGrid(values, field.bounds, field.extrapolation.gradient())
     elif type == StaggeredGrid:
+        assert stack_dim == 'vector'
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
     raise NotImplementedError(f"{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.")
 
@@ -31,16 +32,37 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
 
 
-def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.extrapolation.Extrapolation):
+def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.extrapolation.Extrapolation, type: type = StaggeredGrid):
+    """
+    Creates a new grid by evaluating `face_function` given two neighbouring cells.
+    One layer of missing cells is inferred from the extrapolation.
+
+    This method returns a Field of type `type` which must be either StaggeredGrid or CenteredGrid.
+    When returning a StaggeredGrid, the new values are sampled at the faces of neighbouring cells.
+    When returning a CenteredGrid, the new grid has the same resolution as `field`.
+
+    :param field: centered grid
+    :param face_function: function mapping (value1: Tensor, value2: Tensor) -> center_value: Tensor
+    :param extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
+    :param type: one of (StaggeredGrid, CenteredGrid)
+    :return: grid of type matching the `type` argument
+    """
     all_lower = []
     all_upper = []
-    for dim in field.shape.spatial.names:
-        all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation))
-        all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation))
-    all_upper = math.channel_stack(all_upper, 'vector')
-    all_lower = math.channel_stack(all_lower, 'vector')
-    values = face_function(all_lower, all_upper)
-    return StaggeredGrid(values, field.bounds, extrapolation)
+    if type == StaggeredGrid:
+        for dim in field.shape.spatial.names:
+            all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation))
+            all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation))
+        all_upper = math.channel_stack(all_upper, 'vector')
+        all_lower = math.channel_stack(all_lower, 'vector')
+        values = face_function(all_lower, all_upper)
+        return StaggeredGrid(values, field.bounds, extrapolation)
+    elif type == CenteredGrid:
+        left, right = math.shift(field.values, (-1, 1), padding=field.extrapolation, stack_dim='vector')
+        values = face_function(left, right)
+        return CenteredGrid(values, field.bounds, extrapolation)
+    else:
+        raise ValueError(type)
 
 
 def divergence(field: Grid):
@@ -51,6 +73,12 @@ def divergence(field: Grid):
             components.append(div_dim)
         data = math.sum(components, 0)
         return CenteredGrid(data, field.box, field.extrapolation.gradient())
+    elif isinstance(field, CenteredGrid):
+        left, right = shift(field, (-1, 1), stack_dim='div_')
+        grad = (right - left) / (field.dx * 2)
+        components = [grad.vector[i].div_[i] for i in range(grad.div_.size)]
+        result = sum(components)
+        return result
     else:
         raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")
 

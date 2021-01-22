@@ -71,7 +71,7 @@ The following introductory demos are also helpful to get started with writing yo
 
 Not yet updated:
 
-* [GPU execution](documentation/GPU_Execution.md) (not yet updated)
+* [GPU execution](documentation/GPU_Execution.md)
 * [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md)
 * [Data](documentation/Reading_and_Writing_Data.md)
 * [Pressure solvers](documentation/Pressure_Solvers.md)
