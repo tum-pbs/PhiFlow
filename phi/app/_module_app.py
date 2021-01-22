@@ -10,7 +10,19 @@ from .display import show
 
 
 class ModuleViewer(App):
-    def __init__(self, fields=None, **kwargs):
+    def __init__(self,
+                 name=None,
+                 subtitle='',
+                 fields=None,
+                 stride=None,
+                 base_dir='~/phi/data/',
+                 summary=None,
+                 custom_properties=None,
+                 target_scene=None,
+                 objects_to_save=None,
+                 framerate=None,
+                 dt=1.0,
+                 **show_config):
         """
         ModuleViewer shows the contents of the calling Python script in the GUI.
 
@@ -33,7 +45,7 @@ class ModuleViewer(App):
             end_of_line = doc.index('\n')
             name = doc[:end_of_line].strip()
             subtitle = doc[end_of_line:].strip() or None
-        App.__init__(self, name, subtitle, **kwargs)
+        App.__init__(self, name, subtitle, fields=None, stride=stride, base_dir=base_dir, summary=summary, custom_properties=custom_properties, target_scene=target_scene, objects_to_save=objects_to_save, framerate=framerate, dt=dt)
         if fields is None:
             for name in dir(module):
                 val = getattr(module, name)
@@ -44,7 +56,7 @@ class ModuleViewer(App):
                 self.add_field(name, lambda name=name: getattr(module, name))
         self.step_exec_event = Event()
         self.step_finished_event = Event()
-        Thread(target=lambda: show(self)).start()
+        Thread(target=lambda: show(self, **show_config)).start()
 
     def range(self, *args):
         if len(args) == 0:
