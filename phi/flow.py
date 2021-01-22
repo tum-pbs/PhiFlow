@@ -15,7 +15,7 @@ Contains:
 import numpy
 import numpy as np
 
-from phi import math, struct
+from phi import math
 from phi.math import extrapolation, PI
 
 from phi import geom

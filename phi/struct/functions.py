@@ -1,6 +1,6 @@
 import warnings
 
-from phi.math.backend import NoBackendFound
+from phi.math.backend import NoBackendFound, choose_backend
 from .context import _unsafe, skip_validate
 from .item_condition import ALL_ITEMS, context_item_condition
 from .structdef import Item
@@ -289,7 +289,7 @@ To specify custom shapes, add an override with key struct.shape to the Item.
     """
     def get_shape(obj):
         try:
-            return math.shape(obj)
+            return choose_backend(obj).shape(obj)
         except NoBackendFound:
             return ()
     if isinstance(obj, Struct):
@@ -309,7 +309,7 @@ To specify custom static shapes, add an override with key struct.staticshape to 
     """
     def get_staticshape(obj):
         try:
-            return math.staticshape(obj)
+            return choose_backend(obj).staticshape(obj)
         except NoBackendFound:
             return ()
     if isinstance(obj, Struct):
@@ -329,7 +329,7 @@ To specify custom dtypes, add an override with key struct.dtype to the Item.
     """
     def get_dtype(obj):
         try:
-            return math.dtype(obj)
+            return choose_backend(obj).dtype(obj)
         except NoBackendFound:
             return type(obj)
     if isinstance(obj, Struct):

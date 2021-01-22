@@ -13,14 +13,10 @@ It is written mostly in Python and can be used with NumPy, TensorFlow or PyTorch
 The close integration with machine learning frameworks allows it to leverage their automatic differentiation functionality,
 making it easy to build end-to-end differentiable functions involving both learning models and physics simulations.
 
-While it can be used to simulate a broad variety of systems, Φ<sub>Flow</sub> mainly focuses on fluid simulations.
-
-as well as running the simulation fully on the GPU.
-
 ## Features
 
-* Variety of built-in PDE operations with focus on fluid phenomena. This allows for very concise formulation of simulations.
-* Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) allowing for straightforward neural network training with fully differentiable simulations that [run on the GPU](documentation/GPU_Execution.md).
+* Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
+* Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) for straightforward neural network training with fully differentiable simulations that [run on the GPU](documentation/GPU_Execution.md).
 * Flexible, easy-to-use [web interface](documentation/Web_Interface.md) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 * Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
