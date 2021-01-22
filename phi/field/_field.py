@@ -79,7 +79,13 @@ class Field:
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
-    def __rshift__(self, other):
+    def __rshift__(self, other: SampledField):
+        """
+        Resampling operator.
+
+        :param other: instance of SampledField
+        :return: copy of other with values determined by resampling this Field
+        """
         return self.at(other)
 
     def unstack(self, dimension: str) -> tuple:

@@ -83,12 +83,13 @@ def divergence(field: Grid):
         raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")
 
 
-F = TypeVar('F', bound=Field)
+FieldType = TypeVar('FieldType', bound=Field)
+GridType = TypeVar('GridType', bound=Grid)
 
 
-def diffuse(field: F, diffusivity, dt, substeps=1) -> F:
+def diffuse(field: FieldType, diffusivity, dt, substeps=1) -> FieldType:
     """
-    Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` F with diffusion coefficient α.
+    Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` FieldType with diffusion coefficient α.
 
     If `field` is periodic (set via `extrapolation='periodic'`), diffusion may be simulated in Fourier space.
     Otherwise, finite differencing is used to approximate the

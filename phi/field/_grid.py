@@ -58,7 +58,10 @@ class CenteredGrid(Grid):
         Grid.__init__(self, values, values.shape.spatial, bounds, extrapolation)
 
     @staticmethod
-    def sample(value: Geometry or Field or int or float or callable, resolution, box, extrapolation=math.extrapolation.ZERO):
+    def sample(value: Geometry or Field or int or float or callable,
+               resolution: Shape,
+               box: Box,
+               extrapolation=math.extrapolation.ZERO):
         if isinstance(value, Geometry):
             value = SoftGeometryMask(value)
         if isinstance(value, Field):

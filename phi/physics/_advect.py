@@ -10,6 +10,7 @@ Esamples:
 
 from phi import math
 from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Grid, Field, PointCloud
+from phi.field._field_math import GridType
 
 
 def advect(field: Field, velocity: Field, dt):
@@ -31,14 +32,18 @@ Advect `field` along the `velocity` vectors using the default advection method.
     raise NotImplementedError(field)
 
 
-def semi_lagrangian(field: Grid, velocity: Field, dt) -> Grid:
+def semi_lagrangian(field: GridType, velocity: Field, dt) -> GridType:
     """
     Semi-Lagrangian advection with simple backward lookup.
 
-    :param field: Field to be advected
+    This method samples the `velocity` at the grid points of `field`
+    to determine the lookup location for each grid point by walking backwards along the velocity vectors.
+    The new values are then determined by sampling `field` at these lookup locations.
+
+    :param field: quantity to be advected, stored on a grid (CenteredGrid or StaggeredGrid)
     :param velocity: vector field, need not be compatible with with `field`.
     :param dt: time increment
-    :return: Field compatible with input field
+    :return: Field with same sample points as `field`
     """
     v = velocity.sample_in(field.elements)
     x = field.points - v * dt

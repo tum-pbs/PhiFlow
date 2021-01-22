@@ -21,11 +21,12 @@ class Material:
 
     Use Material.as_material() to mix different materials for different sides.
     """
+
     def __init__(self, name, grid_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
         """
         Create a Material for a Domain or Obstacle.
 
-        :param name:
+        :param name: material name
         :param grid_extrapolation: extrapolation mode of grids created via Domain.grid()
         :param vector_extrapolation: extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
         :param near_vector_extrapolation: Used in pressure solve.
@@ -84,28 +85,47 @@ class Domain:
 
     @property
     def rank(self):
+        """ Number of spatial dimensions of the simulation; spatial rank. 1 = 1D, 2 = 2D, 3 = 3D, etc. """
         return self.resolution.rank
 
     @property
     def dx(self):
+        """ Size of a single grid cell (physical size divided by resolution) """
         return self.bounds.size / self.resolution
 
     @property
     def cells(self):
+        """
+        Returns the geometry of all cells as a Box object.
+        The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
+        """
         return GridCell(self.resolution, self.bounds)
 
     def center_points(self):
+        """
+        Returns a Tensor enumerating the physical center locations of all cells within the Domain.
+        This is equivalent to calling `domain.cells.center`.
+
+        The shape of the returned Tensor extends the domain resolution by one vector dimension.
+        """
         return self.cells.center
 
-    def grid(self, value: Tensor or float or int = 0, type: type = CenteredGrid, extrapolation: math.Extrapolation = None):
+    def grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+             type: type = CenteredGrid,
+             extrapolation: math.Extrapolation = None) -> StaggeredGrid or CenteredGrid:
         """
-        Creates a grid matching the domain by sampling the given value.
+        Creates a grid matching the resolution and bounds of the domain.
+        The grid is created from the given `value` which must be one of the following:
 
-        This method uses Material.extrapolation_mode of the domain's boundaries.
+        * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+        * Field: the given value is resampled to the grid cells of this Domain.
+        * Tensor with spatial dimensions matching the domain resolution: grid values will equal `value`.
+        * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+        * function(location: Tensor) returning one of the above.
 
-        :param value: Field or tensor or tensor function
-        :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.vector_extrapolation
+        :param value: constant, Field, Tensor or function specifying the grid values
+        :param type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
+        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
         :return: Grid of specified type
         """
         extrapolation = extrapolation or self.boundaries.grid_extrapolation
@@ -116,13 +136,24 @@ class Domain:
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
-    def vector_grid(self, value: Tensor or float or int = 0, type: type = CenteredGrid, extrapolation: math.Extrapolation = None) -> Grid:
+    def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                    type: type = CenteredGrid,
+                    extrapolation: math.Extrapolation = None) -> StaggeredGrid or CenteredGrid:
         """
-        Creates a vector grid matching the domain by sampling the given value.
+        Creates a vector grid matching the resolution and bounds of the domain.
+        The grid is created from the given `value` which must be one of the following:
 
-        This method uses Material.vector_extrapolation_mode of the domain's boundaries.
+        * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+        * Field: the given value is resampled to the grid cells of this Domain.
+        * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+        * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+        * function(location: Tensor) returning one of the above.
 
-        :param value: Field or tensor or tensor function
+        The returned grid will have a vector dimension with size equal to the rank of the domain.
+
+        Alias: `vgrid`
+
+        :param value: constant, Field, Tensor or function specifying the grid values
         :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
         :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
         :return: Grid of specified type
@@ -140,9 +171,33 @@ class Domain:
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
-    staggered_grid = partialmethod(vector_grid, type=StaggeredGrid)
-
     vgrid = vector_grid
+
+    def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                       extrapolation: math.Extrapolation = None) -> StaggeredGrid:
+        """
+        Creates a staggered grid matching the resolution and bounds of the domain.
+        This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
+
+        The grid is created from the given `value` which must be one of the following:
+
+        * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+        * Field: the given value is resampled to the grid cells of this Domain.
+        * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+        * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+        * function(location: Tensor) returning one of the above.
+
+        The returned grid will have a vector dimension with size equal to the rank of the domain.
+
+        Alias: `sgrid`
+
+        :param value: constant, Field, Tensor or function specifying the grid values
+        :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+        :return: Grid of specified type
+        """
+        return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
+
     sgrid = staggered_grid
 
 

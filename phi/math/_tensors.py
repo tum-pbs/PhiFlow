@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 
 from . import _shape
-from .backend import NoBackendFound, choose_backend
+from .backend import NoBackendFound, choose_backend, BACKENDS
 from ._shape import Shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
 
 
@@ -562,6 +562,11 @@ class CollapsedTensor(Tensor):
 
     def _op2(self, other, operator, native_function):
         other = self._tensor(other)
+        if isinstance(other, NativeTensor):
+            if all([dim in other.shape for dim in self._shape.names]):
+                return op2_native(self, other, native_function)
+            else:
+                other = CollapsedTensor(other, other.shape)
         if isinstance(other, CollapsedTensor):
             self_inner = self.tensor._with_shape_replaced(self.tensor.shape.to_batch())
             other_inner = other.tensor._with_shape_replaced(other.tensor.shape.to_batch())
@@ -571,8 +576,6 @@ class CollapsedTensor(Tensor):
                 return result
             else:
                 return CollapsedTensor(inner, self.shape.combined(other.shape).with_sizes(inner.shape))
-        elif isinstance(other, NativeTensor):
-            return op2_native(self, other, native_function)
         else:
             return NotImplemented
 
@@ -705,14 +708,23 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
            names: str or tuple or list = None) -> Tensor:
     """
     Create a Tensor from the specified data.
+    `data` must be one of the following:
 
-    If dimension names are specified, dimension types are inferred from them.
-    Otherwise, existing or default dimension names are used.
-    If the dimension names cannot automatically be inferred, raises an AssertionError.
+    * Number: returns a dimensionless Tensor
+    * Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor
+    * tuple or list of numbers: backs the Tensor with a NumPy array
+    * Tensor: renames dimensions and dimension types if `names` is specified, otherwise returns the tensor.
+    * Shape: creates a 1D tensor listing the dimension sizes
+
+    While specifying `names` is optional in some cases, it is recommended to always specify them.
+
+    Dimension types are always inferred from the dimension names if specified.
+
 
     :param data: native tensor, scalar, sequence, Shape or Tensor
     :param names: Dimension names. Dimension types are inferred from the names.
-    :return: Tensor representing `obj`
+    :raise: AssertionError if dimension names are not provided and cannot automatically be inferred
+    :return: Tensor containing same values as data
     """
     if isinstance(data, Tensor):
         if names is None:
@@ -748,7 +760,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
         return NativeTensor(data, shape)
-    raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, NativeTensor).")
+    raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
 
 
 def broadcastable_native_tensors(*tensors):
