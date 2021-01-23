@@ -6,7 +6,7 @@ import warnings
 from phi import math, struct, field
 from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient, where, HardGeometryMask
 from phi.geom import union
-from . import _advect
+from . import advect
 from ._boundaries import Domain
 from ._effect import Gravity, effect_applied, gravity_tensor
 from ._physics import Physics, StateDependency, State
@@ -146,8 +146,8 @@ Supports obstacles, density effects, velocity effects, global gravity.
         if self.make_input_divfree:
             velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
         # --- Advection ---
-        density = _advect.semi_lagrangian(density, velocity, dt=dt)
-        velocity = advected_velocity = _advect.semi_lagrangian(velocity, velocity, dt=dt)
+        density = advect.semi_lagrangian(density, velocity, dt=dt)
+        velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
         if self.conserve_density and fluid.domain.boundaries.accessible_extrapolation == math.extrapolation.ZERO:  # solid boundary
             density = field.normalize(density, fluid.density)
         # --- Effects ---

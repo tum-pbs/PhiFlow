@@ -104,7 +104,7 @@ def build_tensorboard_launcher(dashapp):
         if clicks:
             logging.info('Launching TensorBoard...')
             logdir = dashapp.app.session.summary_directory
-            import phi.tf.profiling as profiling
+            import phi.tf._profiling as profiling
             url = profiling.launch_tensorboard(logdir, port=dashapp.config.get('tensorboard_port', None))
             dashapp.config['tensorboard_url'] = url
             logging.info('TensorBoard launched, URL: %s' % url)

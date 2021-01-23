@@ -76,4 +76,11 @@ from ._nd import (
     downsample2x, upsample2x, sample_subgrid,
 )
 
-pi = PI = 3.14159265358979323846
+PI = 3.14159265358979323846
+"""Value of π to double precision """
+pi = PI
+
+SCIPY_BACKEND = SCIPY_BACKEND  # to show up in pdoc
+"""Default backend for NumPy arrays and SciPy objects."""
+
+__all__ = [key for key in globals().keys() if not key.startswith('_')]

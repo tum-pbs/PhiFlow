@@ -1,5 +1,5 @@
-from .context import _struct_context, _STRUCT_CONTEXT_STACK
-from .structdef import Item
+from ._context import _struct_context, _STRUCT_CONTEXT_STACK
+from ._structdef import Item
 
 
 class ItemCondition(object):

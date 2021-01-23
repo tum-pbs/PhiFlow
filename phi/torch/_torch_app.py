@@ -2,7 +2,7 @@ from contextlib import contextmanager
 
 import phi.app.app as base_app
 
-from .torch_util import torch_to_numpy, torch_from_numpy
+from ._torch_util import torch_to_numpy, torch_from_numpy
 
 
 class App(base_app.App):

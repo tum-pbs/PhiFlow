@@ -5,10 +5,10 @@ import random as rand
 from setuptools.command.develop import develop
 from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
-from phi.tf.tf_backend import *
-from phi.tf.tf_backend import _resample_linear_niftynet
+from phi.tf._tf_backend import *
+from phi.tf._tf_backend import _resample_linear_niftynet
 
-from phi.tf.tf_cuda_resample import resample_cuda
+from phi.tf._tf_cuda_resample import resample_cuda
 
 
 class TestTfCudaResample(TestCase):

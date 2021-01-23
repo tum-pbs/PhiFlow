@@ -33,8 +33,7 @@ inflow = DOMAIN.grid(Box[14:21, 6:10]) + DOMAIN.grid(Box[79:86, 6:10]) * 0.8 + D
 velocity = DOMAIN.sgrid(0)
 smoke = pressure = divergence = remaining_divergence = DOMAIN.grid(0)
 
-# for _ in range(2):
-for _ in ModuleViewer(port=8050).range():
+for _ in ModuleViewer().range():
     smoke = advect.semi_lagrangian(smoke, velocity, 1) + inflow
     buoyancy_force = smoke * (0, 0.1) >> velocity  # resamples density to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force

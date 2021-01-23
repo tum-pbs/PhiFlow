@@ -504,6 +504,9 @@ class TorchBackend(Backend):
         return converged, x, iterations
 
 
+TORCH_BACKEND = TorchBackend()
+
+
 def channels_first(x):
     return x.permute(*((0, -1) + tuple(range(1, len(x.shape) - 1))))
 

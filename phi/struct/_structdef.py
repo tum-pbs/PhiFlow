@@ -2,7 +2,7 @@ import copy
 
 import numpy
 
-from .trait import Trait
+from ._trait import Trait
 
 
 def definition(traits=()):
@@ -193,7 +193,7 @@ Example: to override the shape of an item, put the following just below its decl
 
     def __call__(self, obj):
         assert self.struct_class is not None
-        from .functions import map
+        from ._struct_functions import map
         return map(lambda x: getattr(x, '_' + self.name), obj, leaf_condition=lambda x: isinstance(x, self.struct_class))
 
     def __set__(self, instance, value):
@@ -234,7 +234,7 @@ class DerivedProperty(object):
 
     def __call__(self, obj):
         assert self.owner is not None
-        from .functions import map
+        from ._struct_functions import map
         return map(lambda x: self.getter(x), obj, leaf_condition=lambda x: isinstance(x, self.owner))
 
     def __set__(self, instance, value):

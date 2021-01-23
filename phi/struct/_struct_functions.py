@@ -1,10 +1,10 @@
 import warnings
 
 from phi.math.backend import NoBackendFound, choose_backend
-from .context import _unsafe, skip_validate
-from .item_condition import ALL_ITEMS, context_item_condition
-from .structdef import Item
-from .struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID, items
+from ._context import _unsafe, skip_validate
+from ._item_condition import ALL_ITEMS, context_item_condition
+from ._structdef import Item
+from ._struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID, items
 
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=None):

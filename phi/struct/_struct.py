@@ -4,9 +4,9 @@ from copy import copy
 
 import numpy as np
 
-from .context import skip_validate
-from .item_condition import context_item_condition, VARIABLES, CONSTANTS
-from .structdef import Item, derived, _IndexItem
+from ._context import skip_validate
+from ._item_condition import context_item_condition, VARIABLES, CONSTANTS
+from ._structdef import Item, derived, _IndexItem
 
 
 def kwargs(locals, include_self=False, ignore=()):
@@ -73,7 +73,7 @@ To override the shapes of items, use `Item.override` with key `struct.shape` ins
 The result of `x.shape` is equivalent to calling `struct.shape(x)`.
         :return: Struct of same type holding shapes instead of data
         """
-        from .functions import shape
+        from ._struct_functions import shape
         return shape(self)
 
     @derived()
@@ -87,7 +87,7 @@ To override the static shapes of items, use `Item.override` with key `struct.sta
 The result of `x.staticshape` is equivalent to calling `struct.staticshape(x)`.
         :return: Struct of same type holding shapes instead of data
         """
-        from .functions import staticshape
+        from ._struct_functions import staticshape
         return staticshape(self)
 
     @derived()
@@ -101,17 +101,17 @@ To override the dtype of items, use `Item.override` with key `struct.dtype` inst
 The result of `x.dtype` is equivalent to calling `struct.dtype(x)`.
         :return: Struct of same type holding data types instead of data
         """
-        from .functions import dtype
+        from ._struct_functions import dtype
         return dtype(self)
 
     def map(self, function, leaf_condition=None, recursive=True, trace=False, item_condition=None, content_type=None):
         """Alias for struct.map()"""
-        from .functions import map
+        from ._struct_functions import map
         return map(function, self, leaf_condition=leaf_condition, recursive=recursive, trace=trace, item_condition=item_condition, content_type=content_type)
 
     def map_item(self, item, function, leaf_condition=None, recursive=True, content_type=None):
         """Alias for struct.map_item()"""
-        from .functions import map_item
+        from ._struct_functions import map_item
         return map_item(item, function, self, leaf_condition=leaf_condition, recursive=recursive, content_type=content_type)
 
     def copied_with(self, change_type=None, **kwargs):

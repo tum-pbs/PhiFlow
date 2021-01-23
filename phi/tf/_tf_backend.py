@@ -7,7 +7,7 @@ import tensorflow as tf
 
 from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype
 from phi.math.backend._scipy_backend import SCIPY_BACKEND, SciPyBackend
-from .tf_cuda_resample import resample_cuda, use_cuda
+from ._tf_cuda_resample import resample_cuda, use_cuda
 
 
 class TFBackend(Backend):

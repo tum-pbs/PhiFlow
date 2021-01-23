@@ -1,7 +1,7 @@
 import torch
 
 from phi import struct
-from phi.torch import TORCH_BACKEND
+from ._torch_backend import TORCH_BACKEND
 
 
 def variable(initial_value, dtype=None, requires_grad=True, device=None, item_condition=struct.VARIABLES):

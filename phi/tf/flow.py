@@ -7,9 +7,8 @@ New tensors created via `phi.math` functions will be backed by TensorFlow tensor
 """
 
 from phi.flow import *
-# from .data import *
-from .util import *
-from .tf_backend import TF_BACKEND
+from ._util import *
+from ._tf_backend import TF_BACKEND
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers

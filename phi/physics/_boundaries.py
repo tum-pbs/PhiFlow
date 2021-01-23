@@ -157,7 +157,7 @@ class Domain:
 
         The returned grid will have a vector dimension with size equal to the rank of the domain.
 
-        Alias: `vgrid`
+        Aliases: `vector_grid`, `vgrid`
 
         :param value: constant, Field, Tensor or function specifying the grid values
         :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
@@ -195,7 +195,7 @@ class Domain:
 
         The returned grid will have a vector dimension with size equal to the rank of the domain.
 
-        Alias: `sgrid`
+        Aliases: `staggered_grid`, `sgrid`
 
         :param value: constant, Field, Tensor or function specifying the grid values
         :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid

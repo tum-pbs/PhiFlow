@@ -8,9 +8,9 @@ New tensors created via `phi.math` functions will be backed by PyTorch tensors.
 
 import torch
 from phi.flow import *
-from .torch_util import *
-from .torch_app import *
-from .torch_backend import TorchBackend
+from ._torch_util import *
+from ._torch_app import *
+from ._torch_backend import TorchBackend
 
 from phi.math import backend
 backend.set_global_default_backend(TORCH_BACKEND)
