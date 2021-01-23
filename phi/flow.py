@@ -24,6 +24,7 @@ from phi.geom import Geometry, Sphere, Box, union
 from phi import field
 from phi.field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud
 
+from phi import physics
 from phi.physics import _boundaries as boundaries, fluid, _advect as advect
 from phi.physics._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, NO_SLIP, NO_STICK, STICKY, SLIPPERY, Obstacle
 

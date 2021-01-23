@@ -10,6 +10,18 @@ from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM
 
 
 class Field:
+    """
+    Base class for all fields.
+
+    Important implementations:
+
+    * CenteredGrid
+    * StaggeredGrid
+    * PointCloud
+    * Noise
+
+    See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+    """
 
     @property
     def shape(self) -> Shape:
@@ -210,7 +222,7 @@ class SampledField(Field):
         return self._shape
 
     def sample_at(self, points, reduce_channels=()) -> Tensor:
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def unstack(self, dimension: str) -> tuple:
         values = self._values.unstack(dimension)

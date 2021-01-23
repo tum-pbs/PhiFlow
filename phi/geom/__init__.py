@@ -1,5 +1,7 @@
 """
 Differentiable geometry.
+
+See the `phi.geom` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/phi/geom
 """
 
 from ._geom import Geometry, assert_same_rank

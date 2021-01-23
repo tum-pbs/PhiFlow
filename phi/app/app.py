@@ -54,12 +54,14 @@ class TimeDependentField(object):
 
 class App(object):
     """
-    Main class for defining an application that can be displayed in the GUI.
+    Main class for defining an application that can be displayed in the user interface.
 
     To display data, call App.add_field().
     All fields need to be registered before the app is prepared or shown.
 
     To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
+
+    See the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
     """
 
     def __init__(self,
@@ -203,6 +205,17 @@ class App(object):
         self._invalidation_counter += 1
 
     def step(self):
+        """
+        Performs a single step.
+        You may override this method to specify what happens when the user presses the buttons `Step` or `Play`.
+
+        If a step function has been passed to `App.set_state()`, the state is progressed using that function.
+
+        Otherwise, `world.step()` is executed (for phiflow 1 style simulations).
+
+        App.steps automatically counts how many steps have been completed.
+        If this method is not overridden, `App.time` is additionally increased by `App.dt`.
+        """
         dt = self.dt  # prevent race conditions
         if self.step_function is None:
             world.step(dt=dt)
@@ -222,7 +235,20 @@ class App(object):
             raise KeyError('Field %s not declared. Available fields are %s' % (fieldname, self.fields.keys()))
         return self.fields[fieldname].get(self._invalidation_counter)
 
-    def add_field(self, name, value):
+    def add_field(self, name: str, value):
+        """
+        Expose data to be displayed in the user interface.
+        This method must be called before the user interface is launched, i.e. before `show(app)` or `app.prepare()` are invoked.
+
+        `value` must be one of the following
+
+        * Field
+        * tensor
+        * function without arguments returning one of the former. This function will be called each time the interface is updated.
+
+        :param name: unique human-readable name
+        :param value: data to display
+        """
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if isinstance(value, StateProxy):
             def current_state():
@@ -269,6 +295,20 @@ class App(object):
         return self._controls
 
     def prepare(self):
+        """
+        Prepares the app to be displayed in a user interface.
+
+        This method can only be called once.
+        If not invoked manually, it is automatically called before the user interface is launched.
+
+        Preparation includes:
+
+        * Detecting editable values from member variables that start with 'value_'
+        * Detecting actions from member functions that start with 'action_'
+        * Initializing the scene directory with a JSON file and copying related Python source files
+
+        :return: self
+        """
         if self.prepared:
             return
         logging.info('Gathering model data...')

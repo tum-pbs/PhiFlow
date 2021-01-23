@@ -505,6 +505,16 @@ def exp(x: Tensor):
 
 
 def to_float(x: Tensor):
+    """
+    Converts the given tensor to floating point format with the currently specified precision.
+
+    The precision can be set globally using `math.set_global_precision()` and locally using `with math.precision()`.
+
+    See the `phi.math` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Math.md
+
+    :param x: values to convert
+    :return: Tensor of same shape as `x`
+    """
     return _backend_op1(x, Backend.to_float)
 
 

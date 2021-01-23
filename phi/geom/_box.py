@@ -26,7 +26,14 @@ class AbstractBox(Geometry):
         raise NotImplementedError()
 
     @property
-    def center(self):
+    def center(self) -> Tensor:
+        """
+        Center point of the geometry or geometry batch.
+
+        The shape of the location extends the shape of the Geometry by a `vector` dimension.
+
+        :return: Tensor describing the center location(s)
+        """
         raise NotImplementedError()
 
     def shifted(self, delta) -> 'AbstractBox':
@@ -266,6 +273,13 @@ class GridCell(AbstractBox):
 
     @property
     def center(self):
+        """
+        Center point of the box or batch of boxes.
+
+        The shape of the location extends the shape of the Box instance by a `vector` dimension.
+
+        :return: Tensor describing the center location(s)
+        """
         local_coords = math.meshgrid(**{dim: np.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
         points = self.bounds.local_to_global(local_coords)
         return points

@@ -11,8 +11,6 @@ from .display import show
 
 class ModuleViewer(App):
     def __init__(self,
-                 name=None,
-                 subtitle='',
                  fields=None,
                  stride=None,
                  base_dir='~/phi/data/',
@@ -24,13 +22,15 @@ class ModuleViewer(App):
                  dt=1.0,
                  **show_config):
         """
-        ModuleViewer shows the contents of the calling Python script in the GUI.
+        ModuleViewer launches the user interface to display the contents of the calling Python script.
 
         Name and subtitle of the App may be specified in the module docstring (string before imports).
         The first line is interpreted as the name, the rest as the subtitle.
         If not specified, a generic name and description is chosen.
 
         Use ModuleViewer.range() as a for-loop iteratable to control the loop execution from within the GUI.
+
+        Also see the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
 
         :param fields: (Optional) names of global variables to be displayed.
           If not provided, searches all global variables for Field or Tensor values.

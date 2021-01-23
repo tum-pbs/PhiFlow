@@ -83,17 +83,21 @@ if 'headless' not in sys.argv:
 AUTORUN = 'autorun' in sys.argv
 
 
-def show(app=None, **config):
+def show(app: App or None = None, **config):
     """
-    Launch the registered GUI (web interface by default).
+    Launch the registered user interface (web interface by default).
 
     This method may block until the GUI is closed.
 
     This method prepares the app before showing it. No more fields should be added to the app after this method is invoked.
 
-    :param app: the application to display
-    :param config: additional GUI configuration parameters, see the PhiFlow documentation
-    :return: reference to the GUI, depending on the implementaiton. For the web interface this may be the web server instance.
+    Also see the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+
+    :param app: (optional) the application to display.
+        If unspecified, searches the calling script for a subclass of App and instantiates it.
+    :param config: additional GUI configuration parameters.
+        For a full list of parameters, see https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+    :return: reference to the GUI, depending on the implementation. For the web interface this may be the web server instance.
     """
     frame_records = inspect.stack()[1]
     calling_module = inspect.getmodulename(frame_records[1])

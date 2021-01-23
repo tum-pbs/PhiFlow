@@ -1,4 +1,10 @@
 # pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
+"""
+Standard import for TensorFlow mode.
+
+Importing this module registers the TensorFlow backend as the default backend.
+New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
+"""
 
 from phi.flow import *
 # from .data import *

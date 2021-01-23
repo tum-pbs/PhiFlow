@@ -72,8 +72,14 @@ class Domain:
         """
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
+        It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
+
+        Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
+
         :param resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.
-        :param boundaries: specifies the extrapolation modes of grids created from this Domain
+        :param boundaries: specifies the extrapolation modes of grids created from this Domain as a Material instance.
+            Default materials include OPEN, CLOSED, PERIODIC.
+            To specify boundary conditions per face of the domain, pass a sequence of Materials or Material pairs (lower, upper)., e.g. [CLOSED, (CLOSED, OPEN)].
         :param bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
         self.resolution = spatial_shape(resolution) & spatial_shape(resolution_)

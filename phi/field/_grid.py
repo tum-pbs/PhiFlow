@@ -26,6 +26,9 @@ class Grid(SampledField):
         self._bounds = bounds
         assert_same_rank(self.values.shape, bounds, 'data dimensions %s do not match box %s' % (self.values.shape, bounds))
 
+    def sample_at(self, points, reduce_channels=()) -> Tensor:
+        raise NotImplementedError(self)
+
     @property
     def bounds(self) -> Box:
         return self._bounds
@@ -52,6 +55,8 @@ class CenteredGrid(Grid):
     A centered grid is defined through its data tensor, its bounds describing the physical size and extrapolation.
 
     Centered grids support arbitrary batch, spatial and channel dimensions.
+
+    See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
     """
 
     def __init__(self, values, bounds: Box, extrapolation=math.extrapolation.ZERO):
@@ -132,7 +137,9 @@ class StaggeredGrid(Grid):
     N-dimensional grid whose vector components are sampled at the respective face centers.
     A staggered grid is defined through its values tensor, its bounds describing the physical size and extrapolation.
 
-    Centered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
+    Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
+
+    See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
     """
 
     def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
