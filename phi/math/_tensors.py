@@ -568,8 +568,8 @@ class CollapsedTensor(Tensor):
             else:
                 other = CollapsedTensor(other, other.shape)
         if isinstance(other, CollapsedTensor):
-            self_inner = self.tensor._with_shape_replaced(self.tensor.shape.to_batch())
-            other_inner = other.tensor._with_shape_replaced(other.tensor.shape.to_batch())
+            self_inner = self.tensor
+            other_inner = other.tensor
             inner = operator(self_inner, other_inner)
             if inner.shape.rank >= self.rank and inner.shape.rank >= other.rank:
                 result = inner._with_shape_replaced(inner.shape.with_types(self.shape.combined(other.shape)))
