@@ -6,8 +6,11 @@ from dash.dependencies import Input, Output
 
 from phi.app import App
 from phi.field import Field, CenteredGrid, StaggeredGrid
-from ..plot import FRONT, RIGHT, TOP
 
+
+FRONT = 'front'
+RIGHT = 'right'
+TOP = 'top'
 
 VIEWED_BATCH = Input('batch-slider', 'value')
 VIEWED_DEPTH = Input('depth-slider', 'value')

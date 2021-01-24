@@ -5,10 +5,10 @@ from phi.tf.flow import *
 
 DOMAIN = Domain([64, 64], boundaries=OPEN)  # [y, x]
 DATAPATH = os.path.expanduser('~/phi/data/smoke/')  # at least 10 sims, has to match RESOLUTION
-DESCRIPTION = u"""
+DESCRIPTION = f"""
 Train a neural network to reproduce the flow field given the marker density.
 
-This application loads the previously generated training data from "%s".
+This application loads the previously generated training data from "{DATAPATH}".
 
 Try showing only the X component of the velocity - that one is more interesting than the magnitude.
 Use the batch slider to change the example shown in the viewer.
@@ -16,11 +16,11 @@ Use the batch slider to change the example shown in the viewer.
 Also make sure to check out the TensorBoard integration.
 In TensorBoard you will see how the loss changes during optimization.
 You can launch TensorBord right from the GUI by opening the Φ Board page and clicking on 'Launch TensorBoard'.
-""" % DATAPATH
+"""
 
 
 if not os.path.exists(os.path.join(DATAPATH, 'sim_000009')):
-    print('Not enough training data found in %s. Run smoke_datagen_commandline.py or smoke_datagen_interactive.py to generate training data.' % DATAPATH)
+    print(f"Not enough training data found in {DATAPATH}.")
     exit(1)
 
 

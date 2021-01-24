@@ -77,13 +77,13 @@ if 'headless' not in sys.argv:
         from ._dash.dash_gui import DashGui
         DEFAULT_DISPLAY_CLASS = DashGui
     except ImportError as import_error:
-        warnings.warn('GUI is disabled because of missing dependencies: %s. To install all dependencies, run $ pip install phiflow[gui]' % import_error)
+        warnings.warn(f"GUI is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
 
 
 AUTORUN = 'autorun' in sys.argv
 
 
-def show(app: App or None = None, **config):
+def show(app: App or None = None, autorun=AUTORUN, **config):
     """
     Launch the registered user interface (web interface by default).
 
@@ -93,6 +93,7 @@ def show(app: App or None = None, **config):
 
     Also see the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
 
+    :param autorun: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
     :param app: (optional) the application to display.
         If unspecified, searches the calling script for a subclass of App and instantiates it.
     :param config: additional GUI configuration parameters.
@@ -121,7 +122,7 @@ def show(app: App or None = None, **config):
         display.configure(config)
         display.setup()
     # --- Autorun ---
-    if AUTORUN:
+    if autorun:
         if display is None:
             app.info('Starting execution because autorun is enabled.')
             app.play()  # asynchronous call
@@ -129,7 +130,7 @@ def show(app: App or None = None, **config):
             display.play()
     # --- Show ---
     if display is None:
-        warnings.warn('show() has no effect because no display is available. To use the web interface, run $ pip install phiflow[gui]')
+        warnings.warn('show() has no effect because no display is available. To use the web interface, run $ pip install phiflow')
         return app
     else:
         return display.show(called_from_main)  # blocking call

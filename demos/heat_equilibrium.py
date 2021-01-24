@@ -5,7 +5,7 @@ DESCRIPTION = """
 A horizontal plate at the top is heated and a sphere at the bottom is cooled.
 """
 
-DOMAIN = Domain([64, 64])
+DOMAIN = Domain(x=64, y=64)
 
 
 class HeatEquilibriumDemo(App):
@@ -23,5 +23,4 @@ class HeatEquilibriumDemo(App):
         return {'temperature': field.diffuse(temperature, 0.5, dt, substeps=4)}
 
 
-display.AUTORUN = True
-show()
+show(port=8050, autorun=True)
