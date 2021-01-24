@@ -2,9 +2,10 @@ from abc import ABC
 
 from phi.math.backend import Backend
 from phi import math
-from phi.math import Shape
+from phi.math import Shape, Tensor
 
 from ._field import Field, SampledField
+from ..geom import Geometry
 
 
 class AnalyticField(Field):
@@ -44,6 +45,15 @@ class _SymbolicOpField(AnalyticField):
     @property
     def shape(self) -> Shape:
         return self._shape
+
+    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        args = []
+        for arg in self.function_args:
+            if isinstance(arg, Field):
+                arg = arg.sample_in(geometry, reduce_channels=reduce_channels)
+            args.append(arg)
+        applied = self.function(*args)
+        return applied
 
     def sample_at(self, points, reduce_channels=()) -> math.Tensor:
         args = []

@@ -273,7 +273,10 @@ def join_spaces(*tensors):
     return [CollapsedTensor(t, t.shape.non_spatial & spatial) for t in tensors]
 
 
-def broadcast_op(operation, tensors, iter_dims: set or tuple or list = None):
+def broadcast_op(operation: callable,
+                 tensors: tuple or list,
+                 iter_dims: set or tuple or list = None,
+                 no_return=False):
     if iter_dims is None:
         iter_dims = set()
         for tensor in tensors:
@@ -302,7 +305,8 @@ def broadcast_op(operation, tensors, iter_dims: set or tuple or list = None):
         for i in range(size):
             gathered = [t[i] if isinstance(t, tuple) else t for t in unstacked]
             result_unstacked.append(broadcast_op(operation, gathered, iter_dims=set(iter_dims) - {dim}))
-        return TensorStack(result_unstacked, dim, dim_type)
+        if not no_return:
+            return TensorStack(result_unstacked, dim, dim_type)
 
 
 def reshape(value: Tensor, *operations: str):
@@ -375,32 +379,36 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)
 
 
-def _reduce(value: Tensor or list or tuple, axis, native_function):
-    if axis in ((), [], EMPTY_SHAPE):
+def _reduce(value: Tensor or list or tuple,
+            dim: str or tuple or list or Shape or None,
+            native_function):
+    if dim in ((), [], EMPTY_SHAPE):
         return value
     if isinstance(value, (tuple, list)):
         values = [tensor(v) for v in value]
         value = _stack(values, '_reduce', BATCH_DIM)
-        if axis is None:
+        if dim is None:
             pass  # continue below
-        elif axis == 0:
-            axis = '_reduce'
+        elif dim == 0:
+            dim = '_reduce'
         else:
-            raise ValueError('axis must be 0 or None when passing a sequence of tensors')
+            raise ValueError('dim must be 0 or None when passing a sequence of tensors')
     else:
         value = tensor(value)
-    axes = _axis(axis, value.shape)
+    dims = _resolve_dims(dim, value.shape)
+    if all([dim not in value.shape for dim in dims]):
+        return value  # no axis to sum over
     if isinstance(value, NativeTensor):
         native = value.native()
-        result = native_function(choose_backend(native), native, axis=value.shape.index(axes))
-        return NativeTensor(result, value.shape.without(axes))
+        result = native_function(choose_backend(native), native, axis=value.shape.index(dims))
+        return NativeTensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
         # --- inner reduce ---
-        inner_axes = [ax for ax in axes if ax != value.stack_dim_name]
+        inner_axes = [dim for dim in dims if dim != value.stack_dim_name]
         red_inners = [_reduce(t, inner_axes, native_function) for t in value.tensors]
         # --- outer reduce ---
         from ._track import ShiftLinOp, sum_operators
-        if value.stack_dim_name in axes:
+        if value.stack_dim_name in dims:
             if any([isinstance(t, ShiftLinOp) for t in red_inners]):
                 return sum(red_inners[1:], red_inners[0])
             natives = [t.native() for t in red_inners]
@@ -412,19 +420,28 @@ def _reduce(value: Tensor or list or tuple, axis, native_function):
         raise NotImplementedError(f"{type(value)} not supported. Only (NativeTensor, TensorStack) allowed.")
 
 
-def _axis(axis, shape: Shape):
-    if axis is None:
+def _resolve_dims(dim: str or tuple or list or Shape or None,
+                  shape: Shape) -> tuple or list:
+    if dim is None:
         return shape.names
-    if isinstance(axis, (tuple, list)):
-        return axis
-    if isinstance(axis, str):
-        return [axis]
-    if isinstance(axis, Shape):
-        return axis.names
-    raise ValueError(axis)
+    if isinstance(dim, (tuple, list)):
+        return dim
+    if isinstance(dim, str):
+        return [dim]
+    if isinstance(dim, Shape):
+        return dim.names
+    raise ValueError(dim)
 
 
-def sum_(value: Tensor or list or tuple, axis: str or int = None):
+def sum_(value: Tensor or list or tuple,
+         axis: str or int or tuple or list or None or Shape = None):
+    if isinstance(value, CollapsedTensor):
+        inner_sum = sum_(value.tensor, axis)
+        sum_dims = _resolve_dims(axis, value.shape)
+        collapsed_dims = value.shape.without(value.tensor.shape)
+        factor = collapsed_dims.only(sum_dims).volume
+        total_sum = inner_sum * factor
+        return CollapsedTensor(total_sum, value.shape.without(sum_dims))
     return _reduce(value, axis, lambda backend, native, axis: backend.sum(native, axis))
 
 
@@ -504,7 +521,7 @@ def exp(x: Tensor):
     return _backend_op1(x, Backend.exp)
 
 
-def to_float(x: Tensor):
+def to_float(x: Tensor) -> Tensor:
     """
     Converts the given tensor to floating point format with the currently specified precision.
 
@@ -741,11 +758,15 @@ def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
         return
     if isinstance(tensor2, (int, float, bool)):
         np.testing.assert_allclose(tensor1.numpy(), tensor2, rel_tolerance, abs_tolerance)
-    new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
-    np1 = choose_backend(native1).numpy(native1)
-    np2 = choose_backend(native2).numpy(native2)
-    if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
-        np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance)
+
+    def inner_assert_close(tensor1, tensor2):
+        new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
+        np1 = choose_backend(native1).numpy(native1)
+        np2 = choose_backend(native2).numpy(native2)
+        if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
+            np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance)
+
+    broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
 def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):

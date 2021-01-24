@@ -1,8 +1,10 @@
-#from phi.torch.flow import *
-#from phi.tf.flow import *
+# from phi.torch.flow import *
+# from phi.tf.flow import *
 from phi.flow import *
 import time
-math.set_precision(64)
+
+
+math.set_global_precision(64)
 
 # Simulation parameters
 k0 = 0.15  # smallest wavenumber in the box
@@ -112,7 +114,7 @@ def step_gradient_2d(plasma, phi, dt=0):
             arr = field.laplace(arr)  # math.fourier_laplace(arr, dx)
         return arr
     # Calculate Gradients
-    dx_p, dy_p = field.gradient(phi).unstack('gradient')
+    dx_p, dy_p = field.gradient(phi).unstack('vector')
     # Get difference
     diff = (phi - plasma.density)
     # Step 2.1: New Omega.

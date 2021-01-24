@@ -4,7 +4,8 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 import warnings
 
 from phi import math, struct, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient, where, HardGeometryMask
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient, where, HardGeometryMask, \
+    StaggeredGrid
 from phi.geom import union
 from . import advect
 from ._boundaries import Domain
@@ -91,7 +92,7 @@ class Fluid(State):
         return self.domain.rank
 
     @struct.variable(default=0, dependencies='domain')
-    def density(self, density):
+    def density(self, density) -> CenteredGrid:
         """
 The marker density is stored in a CenteredGrid with dimensions matching the domain.
 It describes the number of particles per physical volume.
@@ -99,7 +100,7 @@ It describes the number of particles per physical volume.
         return self.domain.grid(density)
 
     @struct.variable(default=0, dependencies='domain')
-    def velocity(self, velocity):
+    def velocity(self, velocity) -> StaggeredGrid:
         """
 The velocity is stored in a StaggeredGrid with dimensions matching the domain.
         """
