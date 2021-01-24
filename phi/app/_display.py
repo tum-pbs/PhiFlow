@@ -3,7 +3,7 @@ import inspect
 import os
 import warnings
 
-from phi.app.app import App
+from phi.app._app import App
 
 
 class AppDisplay(object):
@@ -74,7 +74,7 @@ DEFAULT_DISPLAY_CLASS = None
 
 if 'headless' not in sys.argv:
     try:
-        from .dash.dash_gui import DashGui
+        from ._dash.dash_gui import DashGui
         DEFAULT_DISPLAY_CLASS = DashGui
     except ImportError as import_error:
         warnings.warn('GUI is disabled because of missing dependencies: %s. To install all dependencies, run $ pip install phiflow[gui]' % import_error)

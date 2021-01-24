@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-import phi.app.app as base_app
+import phi.app._app as base_app
 
 from ._torch_util import torch_to_numpy, torch_from_numpy
 

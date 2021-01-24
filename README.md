@@ -39,19 +39,21 @@ See the [detailed installation instructions](documentation/Installation_Instruct
 
 ## Documentation and Guides
 
-| [Index](documentation) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true) | [Source](phi) |
-|------------------------|---------------------------------|---------------| -----------------------------|
+| [API](./documentation/pdoc/phi/index.html) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
+|------------------------|---------------------------------|---------------|
 
 If you would like to get right into it and have a look at some code, check out the
 [tutorial notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
 It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
 
-The following introductory demos are also helpful to get started with writing your own app using Φ<sub>Flow</sub>:
+An introduction to writing fluid simulations can be found [here](documentation/Fluid_Simulation.md).
 
-* [simpleplume.py](./demos/simpleplume.py) runs a fluid simulation and displays it in the web interface.
-* [optimize_pressure.py](demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field.
+The following introductory demos are also helpful to get started with writing your own scripts using Φ<sub>Flow</sub>:
 
-## Module Overview
+* [smoke_plume.py](demos/smoke_plume.py) runs a smoke simulation and displays it in the web interface.
+* [optimize_pressure.py](demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field and displays it in the web interface.
+
+### Module Overview
 
 | Module      | Documentation                                        |
 |-------------|------------------------------------------------------|
@@ -61,9 +63,13 @@ The following introductory demos are also helpful to get started with writing yo
 | [phi.geom](phi/geom)    | [Differentiable Geometry](documentation/Geometry.md)                              |
 | [phi.math](phi/math)    | [Vectorized operations, tensors with named dimensions](documentation/Math.md) |
 
-## Other Documentation
+### API Documentation
 
-* [Fluids](documentation/Fluid_Simulation.md)
+The [API documentation](./documentation/pdoc/phi/index.html) is generated using [pdoc](https://pdoc3.github.io/pdoc/).
+
+### Other Documentation
+
+* [Writing Fluid Simulations](documentation/Fluid_Simulation.md)
 * [Staggered grids](documentation/Staggered_Grids.md)
 
 Not yet updated:

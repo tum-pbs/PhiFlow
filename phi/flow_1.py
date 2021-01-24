@@ -8,7 +8,7 @@ from .physics._effect import FieldEffect, GROW, ADD, FIX, Inflow, Accelerator, C
 from .physics._world import World, world, obstacle_mask
 from .physics.fluid import Fluid, IncompressibleFlow
 from phi.field import diffuse
-from phi.app.fluidformat import write_sim_frame
+from phi.app._fluidformat import write_sim_frame
 
 physics_config = math.GLOBAL_AXIS_ORDER
 physics_config.x_last()

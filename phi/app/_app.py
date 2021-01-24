@@ -15,10 +15,10 @@ import numpy as np
 from phi import struct, math
 from phi.field import CenteredGrid, Field, StaggeredGrid
 from phi.physics._world import StateProxy, world
-from .fluidformat import Scene
+from ._fluidformat import Scene
 
-from .control import Action, Control
-from .value import (EditableBool, EditableFloat, EditableInt, EditableString, EditableValue)
+from ._control import Action, Control
+from ._value import (EditableBool, EditableFloat, EditableInt, EditableString, EditableValue)
 
 
 def synchronized_method(method):
@@ -421,7 +421,7 @@ class App(object):
 
     def show(self, **config):
         warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
-        from .display import show
+        from ._display import show
         show(self, **config)
 
     @property

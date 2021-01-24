@@ -12,7 +12,7 @@ from .dash_app import DashApp
 from .info import build_app_details, build_description, build_phiflow_info, build_app_time
 from .viewer import build_viewer
 from .player_controls import build_status_bar, build_player_controls
-from ..display import AppDisplay
+from .._display import AppDisplay
 
 
 class DashGui(AppDisplay):

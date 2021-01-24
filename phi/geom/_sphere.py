@@ -28,7 +28,7 @@ class Sphere(Geometry):
         return self._center
 
     def lies_inside(self, location):
-        distance_squared = math.sum((location - self.center) ** 2, axis=0)
+        distance_squared = math.sum((location - self.center) ** 2, axis='vector')
         return distance_squared <= self.radius ** 2
 
     def approximate_signed_distance(self, location):

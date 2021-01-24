@@ -461,6 +461,12 @@ REFLECT = _ReflectExtrapolation(4)
 
 
 def mixed_extrapolation(extrapolations: dict):
+    """
+    Create a single Extrapolation object that uses different extrapolations for different sides of a box.
+
+    :param extrapolations: dict mapping dim: str -> extrapolation or (lower, upper)
+    :return: single extrapolation
+    """
     values = set()
     for ext in extrapolations.values():
         if isinstance(ext, Extrapolation):

@@ -5,8 +5,8 @@ from threading import Thread, Lock, Event
 from phi.field import Field
 from phi.math import Tensor
 
-from .app import App
-from .display import show
+from ._app import App
+from ._display import show
 
 
 class ModuleViewer(App):

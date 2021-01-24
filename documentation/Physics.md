@@ -77,7 +77,7 @@ This launches a web interface displaying the velocity and pressure fields and al
 
 Slightly more complex examples can be found in 
 [marker.py](../demos/marker.py) which passively advects an additional marker field,
-[simpleplume.py](../demos/simpleplume.py) which additionally introduces a buoyancy force,
+[smoke_plume.py](../demos/smoke_plume.py) which additionally introduces a buoyancy force,
 [fluid_logo.py](../demos/fluid_logo.py) which adds obstacles to the scene and
 [rotating_bar.py](../demos/rotating_bar.py) which adds geometry movement.
 

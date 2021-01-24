@@ -21,7 +21,7 @@ To use the CUDA pressure solver, pass `pressure_solver=CUDASolver()` when creati
 
 ## Running the demos on the GPU
 
-Most demos, such as [simpleplume.py](../demos/simpleplume.py) use the `App` class to progress the simulation.
+Most demos, such as [smoke_plume.py](../demos/smoke_plume.py) use the `App` class to progress the simulation.
 Running these demos on the GPU is as simple as exchanging the import:
 
 - Standard NumPy (CPU) import: `from phi.flow import *`

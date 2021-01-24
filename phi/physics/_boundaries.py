@@ -48,16 +48,26 @@ class Material:
         if isinstance(obj, Material):
             return obj
         if isinstance(obj, (tuple, list)):
-            axes = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
-            obj = {ax: mat for ax, mat in zip(axes, obj)}
+            dims = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
+            obj = {dim: mat for dim, mat in zip(dims, obj)}
         if isinstance(obj, dict):
-            grid_extrapolation = mixed_extrapolation({ax: mat.grid_extrapolation for ax, mat in obj.items()})
-            near_vector_extrapolation = mixed_extrapolation({ax: mat.near_vector_extrapolation for ax, mat in obj.items()})
-            vector_extrapolation = mixed_extrapolation({ax: mat.vector_extrapolation for ax, mat in obj.items()})
-            active_extrapolation = mixed_extrapolation({ax: mat.active_extrapolation for ax, mat in obj.items()})
-            accessible_extrapolation = mixed_extrapolation({ax: mat.accessible_extrapolation for ax, mat in obj.items()})
+            grid_extrapolation = _mix(obj, 'grid_extrapolation')
+            near_vector_extrapolation = _mix(obj, 'near_vector_extrapolation')
+            vector_extrapolation = _mix(obj, 'vector_extrapolation')
+            active_extrapolation = _mix(obj, 'active_extrapolation')
+            accessible_extrapolation = _mix(obj, 'accessible_extrapolation')
             return Material('mixed', grid_extrapolation, near_vector_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
         raise NotImplementedError()
+
+
+def _mix(material_dict, ext_property: str):
+    extrapolations = {}
+    for dim, material in material_dict.items():
+        if isinstance(material, Material):
+            extrapolations[dim] = getattr(material, ext_property)
+        else:
+            extrapolations[dim] = (getattr(material[0], ext_property), getattr(material[1], ext_property))
+    return mixed_extrapolation(extrapolations)
 
 
 OPEN = Material('open', extrapolation.ZERO, extrapolation.ZERO, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ONE)
@@ -68,7 +78,7 @@ PERIODIC = Material('periodic', extrapolation.PERIODIC, extrapolation.PERIODIC, 
 
 class Domain:
 
-    def __init__(self, resolution: math.Shape or tuple or list = math.EMPTY_SHAPE, boundaries: Material or tuple or list = OPEN, bounds: Box = None, **resolution_):
+    def __init__(self, resolution: math.Shape = math.EMPTY_SHAPE, boundaries: Material or tuple or list = OPEN, bounds: Box = None, **resolution_):
         """
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 

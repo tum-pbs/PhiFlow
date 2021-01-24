@@ -1,6 +1,6 @@
 import numpy as np
 
-from .value import EditableValue
+from ._value import EditableValue
 from typing import Callable
 
 

@@ -236,7 +236,7 @@ setup(
     download_url='https://github.com/tum-pbs/PhiFlow/archive/%s.tar.gz' % version,
     packages=['phi',
               'phi.app',
-              'phi.app.dash',
+              'phi.app._dash',
               'phi.field',
               'phi.geom',
               'phi.math',

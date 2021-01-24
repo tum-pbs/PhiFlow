@@ -417,14 +417,14 @@ def _axis(axis, shape: Shape):
         return shape.names
     if isinstance(axis, (tuple, list)):
         return axis
-    if isinstance(axis, (str, int)):
+    if isinstance(axis, str):
         return [axis]
     if isinstance(axis, Shape):
         return axis.names
     raise ValueError(axis)
 
 
-def sum_(value: Tensor or list or tuple, axis=None):
+def sum_(value: Tensor or list or tuple, axis: str or int = None):
     return _reduce(value, axis, lambda backend, native, axis: backend.sum(native, axis))
 
 
