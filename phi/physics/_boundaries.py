@@ -22,7 +22,7 @@ class Material:
     Use Material.as_material() to mix different materials for different sides.
     """
 
-    def __init__(self, name, grid_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
+    def __init__(self, name: str, grid_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
         """
         Create a Material for a Domain or Obstacle.
 
@@ -34,17 +34,33 @@ class Material:
         :param accessible_extrapolation: Whether quantities can move in and out of the domain. Used in pressure solve.
         """
         self.name = name
+        """ Material name """
         self.grid_extrapolation = grid_extrapolation
+        """ Extrapolation mode of grids created via Domain.grid() """
         self.vector_extrapolation = vector_extrapolation
+        """ Extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid() """
         self.near_vector_extrapolation = near_vector_extrapolation
+        """ Used in pressure solve. """
         self.active_extrapolation = active_extrapolation
+        """ Whether cells outside the domain bounds also belong to the domain. Used in pressure solve. """
         self.accessible_extrapolation = accessible_extrapolation
+        """ Whether quantities can move in and out of the domain. Used in pressure solve. """
 
     def __repr__(self):
         return self.name
 
     @staticmethod
     def as_material(obj: Material or tuple or list or dict) -> Material:
+        """
+        Construct a mixed material from from a sequence of materials.
+
+        Args:
+            obj: sequence of materials
+
+        Returns:
+            Single mixed Material
+
+        """
         if isinstance(obj, Material):
             return obj
         if isinstance(obj, (tuple, list)):
@@ -93,8 +109,11 @@ class Domain:
         :param bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
         self.resolution = spatial_shape(resolution) & spatial_shape(resolution_)
+        """ Grid dimensions as `Shape` object """
         self.boundaries = Material.as_material(boundaries)
+        """ Outer boundary condition as `Material` object """
         self.bounds = Box(0, math.tensor(self.resolution, names='vector')) if bounds is None else bounds
+        """ Physical dimensions of the domain as `Box` object """
 
     def __repr__(self):
         return '(%s, size=%s)' % (self.resolution, self.bounds.size)
@@ -106,13 +125,13 @@ class Domain:
 
     @property
     def dx(self):
-        """ Size of a single grid cell (physical size divided by resolution) """
+        """ Size of a single grid cell (physical size divided by resolution) as `Tensor` """
         return self.bounds.size / self.resolution
 
     @property
     def cells(self):
         """
-        Returns the geometry of all cells as a Box object.
+        Returns the geometry of all cells as a `Box` object.
         The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
         """
         return GridCell(self.resolution, self.bounds)

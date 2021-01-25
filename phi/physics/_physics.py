@@ -118,7 +118,7 @@ class Physics(object):
         :param state: current state
         :param dt: time increment, float (can be positive, negative or zero)
         :param dependent_states: dict from String to List<State>
-        :return next state of the same type as state
+        :return: next state of the same type as state
         """
         raise NotImplementedError(self)
 

@@ -99,6 +99,15 @@ Lagrangian advection of particles.
 
 
 def points(field: PointCloud, velocity: PointCloud, dt):
+    """
+    Advects the sample points of a point cloud using a simple Euler step.
+    Each point moves by an amount equal to the local velocity times `dt`.
+
+    :param field: point cloud to be advected
+    :param velocity: velocity sampled at the same points as the point cloud
+    :param dt: Euler step time increment
+    :return: advected point cloud
+    """
     assert field.elements == velocity.elements
     new_points = field.elements.shifted(dt * velocity.values)
     return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)

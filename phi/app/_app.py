@@ -86,6 +86,7 @@ class App(object):
             self.fields = {}
         self.message = None
         self.steps = 0
+        """ Counts the number of times `step()` has been called. May be set by the user. """
         self.time = 0
         self._invalidation_counter = 0
         self._controls = []

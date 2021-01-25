@@ -167,9 +167,9 @@ def spatial_stack(values, axis: str):
     return _stack(values, axis, SPATIAL_DIM)
 
 
-def _stack(values, dim: str, dim_type: str):
-    assert isinstance(dim, str)
-
+def _stack(values: tuple or list,
+           dim: str,
+           dim_type: str):
     def inner_stack(*values):
         return TensorStack(values, dim, dim_type)
 
