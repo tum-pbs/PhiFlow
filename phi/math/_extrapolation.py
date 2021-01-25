@@ -13,35 +13,46 @@ class Extrapolation:
         """
         Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
 
-        They play a pivotal role in padding and sampling.
+            They play a pivotal role in padding and sampling.
 
-        :param pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
+        Args:
+          pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
         The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
+
+        Returns:
+
         """
         self.pad_rank = pad_rank
 
     def to_dict(self) -> dict:
         """
         Serialize this extrapolation to a dictionary that is JSON-writable.
-
+        
         Use extrapolation.from_dict() to restore the Extrapolation object.
+
+        Args:
+
+        Returns:
+
         """
         raise NotImplementedError()
 
     def gradient(self) -> Extrapolation:
-        """
-        Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.
-
-        :rtype: _Extrapolation
-        """
+        """Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation."""
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         """
         Pads a tensor using values from self.pad_values()
 
-        :param value: tensor to be padded
-        :param widths: {name: str -> (lower: int, upper: int)}
+        Args:
+          value: tensor to be padded
+          widths: name: str -> (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
         """
         for dim in widths:
             values = []
@@ -57,33 +68,45 @@ class Extrapolation:
         """
         Determines the values with which the given tensor would be padded at the specified using this extrapolation.
 
-        :param value: tensor to be padded
-        :param width: number of cells to pad perpendicular to the face. Must be larger than zero.
-        :param dimension: axis in which to pad
-        :param upper_edge: True for upper edge, False for lower edge
-        :return: tensor that can be concatenated to value for padding
+        Args:
+          value: tensor to be padded
+          width: number of cells to pad perpendicular to the face. Must be larger than zero.
+          dimension: axis in which to pad
+          upper_edge: True for upper edge, False for lower edge
+          value: Tensor: 
+          width: int: 
+          dimension: str: 
+          upper_edge: bool: 
+
+        Returns:
+          tensor that can be concatenated to value for padding
+
         """
         raise NotImplementedError()
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         """
         If is_copy_pad, transforms outsider coordinates to point to the index from which the value should be copied.
-
+        
         Otherwise, the grid tensor is assumed to hold the correct boundary values for this extrapolation at the edge.
         Coordinates are then snapped to the valid index range.
         This is the default implementation.
 
-        :param coordinates: integer coordinates in index space
-        :param shape: tensor shape
-        :return: transformed coordinates
+        Args:
+          coordinates: integer coordinates in index space
+          shape: tensor shape
+          coordinates: Tensor: 
+          shape: Shape: 
+
+        Returns:
+          transformed coordinates
+
         """
         return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, 'vector'))
 
     @property
     def is_copy_pad(self):
-        """
-        :return: True if all pad values are copies of existing values in the tensor to be padded
-        """
+        """:return: True if all pad values are copies of existing values in the tensor to be padded"""
         return False
 
     def __getitem__(self, item):
@@ -109,8 +132,14 @@ class ConstantExtrapolation(Extrapolation):
         """
         Pads a tensor using CONSTANT values
 
-        :param value: tensor to be padded
-        :param widths: {name: str -> (lower: int, upper: int)}
+        Args:
+          value: tensor to be padded
+          widths: name: str -> (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
         """
         if isinstance(value, NativeTensor):
             native = value.native()
@@ -320,9 +349,7 @@ class _CopyExtrapolation(Extrapolation):
 
 
 class _BoundaryExtrapolation(_CopyExtrapolation):
-    """
-    Uses the closest defined value for points lying outside the defined region.
-    """
+    """Uses the closest defined value for points lying outside the defined region."""
 
     def __repr__(self):
         return 'boundary'
@@ -343,6 +370,13 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
         This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
         These are typically sliced off in differential operators. Corners are instead assigned the value 0.
         To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinOp.
+
+        Args:
+          value: ShiftLinOp: 
+          widths: dict: 
+
+        Returns:
+
         """
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
         result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values
@@ -399,9 +433,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
 
 
 class _SymmetricExtrapolation(_CopyExtrapolation):
-    """
-    Mirror with the boundary value occurring twice.
-    """
+    """Mirror with the boundary value occurring twice."""
 
     def __repr__(self):
         return 'symmetric'
@@ -431,9 +463,7 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
 
 
 class _ReflectExtrapolation(_CopyExtrapolation):
-    """
-    Mirror of inner elements. The boundary value is not duplicated.
-    """
+    """Mirror of inner elements. The boundary value is not duplicated."""
 
     def __repr__(self):
         return 'reflect'
@@ -464,8 +494,13 @@ def mixed_extrapolation(extrapolations: dict):
     """
     Create a single Extrapolation object that uses different extrapolations for different sides of a box.
 
-    :param extrapolations: dict mapping dim: str -> extrapolation or (lower, upper)
-    :return: single extrapolation
+    Args:
+      extrapolations: dict mapping dim: str -> extrapolation or (lower, upper)
+      extrapolations: dict: 
+
+    Returns:
+      single extrapolation
+
     """
     values = set()
     for ext in extrapolations.values():
@@ -486,7 +521,8 @@ class MixedExtrapolation(Extrapolation):
         """
         A mixed extrapolation uses different extrapolations for different sides.
 
-        :param extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
+        Args:
+          extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
         Extrapolation.__init__(self, None)
         self.ext = {ax: (e, e) if isinstance(e, Extrapolation) else tuple(e) for ax, e in extrapolations.items()}
@@ -525,8 +561,14 @@ class MixedExtrapolation(Extrapolation):
         """
         Pads a tensor using mixed values
 
-        :param value: tensor to be padded
-        :param widths: {name: str -> (lower: int, upper: int)}
+        Args:
+          value: tensor to be padded
+          widths: name: str -> (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
         """
         extrapolations = set(sum(self.ext.values(), ()))
         extrapolations = tuple(sorted(extrapolations, key=lambda e: e.pad_rank))

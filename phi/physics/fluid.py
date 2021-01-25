@@ -15,15 +15,24 @@ def make_incompressible(velocity: Grid,
                         pressure_guess: CenteredGrid = None):
     """
     Projects the given velocity field by solving for the pressure and subtracting its gradient.
-
+    
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
-    :param velocity: vector field sampled on a grid
-    :param domain: used to specify boundary conditions
-    :param obstacles: list of Obstacles to specify boundary conditions inside the domain
-    :param pressure_guess: initial guess for the pressure solve
-    :param solve_params: parameters for the pressure solve
-    :return: divergence-free velocity, pressure, iterations, divergence of input velocity
+    Args:
+      velocity: vector field sampled on a grid
+      domain: used to specify boundary conditions
+      obstacles: list of Obstacles to specify boundary conditions inside the domain (Default value = ())
+      pressure_guess: initial guess for the pressure solve
+      solve_params: parameters for the pressure solve
+      velocity: Grid: 
+      domain: Domain: 
+      solve_params: math.LinearSolve:  (Default value = math.LinearSolve(None)
+      1e-3): 
+      pressure_guess: CenteredGrid:  (Default value = None)
+
+    Returns:
+      divergence-free velocity, pressure, iterations, divergence of input velocity
+
     """
     input_velocity = velocity
     active = 1 - HardGeometryMask(union([obstacle.geometry for obstacle in obstacles]))
@@ -60,9 +69,15 @@ def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
     Cells inside obstacles will get their velocity from the obstacle movement.
     Cells outside will be unaffected.
 
-    :param velocity: centered or staggered velocity grid
-    :param obstacles: sequence of Obstacles
-    :return: velocity of same type as `velocity`
+    Args:
+      velocity: centered or staggered velocity grid
+      obstacles: sequence of Obstacles
+      velocity: Grid: 
+      obstacles: tuple or list: 
+
+    Returns:
+      velocity of same type as `velocity`
+
     """
     for obstacle in obstacles:
         if not obstacle.is_stationary:

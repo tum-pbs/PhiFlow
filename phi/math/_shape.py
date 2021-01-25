@@ -11,9 +11,7 @@ CHANNEL_DIM = 'channel'
 
 
 class Shape:
-    """
-    Shapes enumerate dimensions, each consisting of a name, size and type.
-    """
+    """Shapes enumerate dimensions, each consisting of a name, size and type."""
 
     def __init__(self, sizes: tuple or list, names: tuple or list, types: tuple or list):
         """
@@ -54,8 +52,13 @@ class Shape:
         """
         Finds the index of the dimension(s) within this Shape.
 
-        :param name: dimension name or sequence thereof, including Shape object
-        :return: single index or sequence of indices
+        Args:
+          name: dimension name or sequence thereof, including Shape object
+          name: str or list or tuple or Shape: 
+
+        Returns:
+          single index or sequence of indices
+
         """
         if name is None:
             return None
@@ -188,8 +191,13 @@ class Shape:
         Returns a binary sequence corresponding to the names of this Shape.
         A value of 1 means that a dimension of this Shape is contained in `names`.
 
-        :param names: collection of dimension
-        :return: binary sequence
+        Args:
+          names: collection of dimension
+          names: tuple or list or set: 
+
+        Returns:
+          binary sequence
+
         """
         if isinstance(names, str):
             names = [names]
@@ -233,9 +241,16 @@ class Shape:
         """
         Returns a Shape object that both `self` and `other` can be broadcast to.
         If `self` and `other` are incompatible, raises a ValueError.
-        :param other: Shape
-        :return: combined shape
-        :raise: ValueError if shapes don't match
+
+        Args:
+          other: Shape
+          other: Shape: 
+          combine_spatial:  (Default value = False)
+
+        Returns:
+          combined shape
+          :raise: ValueError if shapes don't match
+
         """
         return combine_safe(self, other, check_exact=[] if combine_spatial else [SPATIAL_DIM])
 
@@ -254,8 +269,17 @@ class Shape:
     def expand(self, size, name: str, dim_type: str, pos=None) -> Shape:
         """
         Add a dimension to the shape.
-
+        
         The resulting shape has linear indices.
+
+        Args:
+          size: 
+          name: str: 
+          dim_type: str: 
+          pos:  (Default value = None)
+
+        Returns:
+
         """
         if pos is None:
             same_type_dims = self[[i for i, t in enumerate(self.types) if t == dim_type]]
@@ -280,11 +304,16 @@ class Shape:
         """
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
-
+        
         The complementary operation is :func:`Shape.only`.
 
-        :param dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
-        :return: Shape without specified dimensions
+        Args:
+          dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
+          dims: str or tuple or list or Shape or None: 
+
+        Returns:
+          Shape without specified dimensions
+
         """
         if isinstance(dims, str):
             return self[[i for i in range(self.rank) if self.names[i] != dims]]
@@ -303,11 +332,16 @@ class Shape:
         """
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
-
+        
         The complementary operation is :func:`Shape.without`.
 
-        :param dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
-        :return: Shape containing only specified dimensions
+        Args:
+          dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
+          dims: str or tuple or list or Shape: 
+
+        Returns:
+          Shape containing only specified dimensions
+
         """
         if isinstance(dims, str):
             return self[[i for i in range(self.rank) if self.names[i] == dims]]
@@ -330,9 +364,7 @@ class Shape:
 
     @property
     def spatial_rank(self):
-        """
-        Fast implementation of Shape.spatial.rank.
-        """
+        """Fast implementation of Shape.spatial.rank."""
         r = 0
         for ty in self.types:
             if ty == SPATIAL_DIM:
@@ -341,9 +373,7 @@ class Shape:
 
     @property
     def batch_rank(self):
-        """
-        Fast implementation of Shape.batch.rank.
-        """
+        """Fast implementation of Shape.batch.rank."""
         r = 0
         for ty in self.types:
             if ty == BATCH_DIM:
@@ -352,9 +382,7 @@ class Shape:
 
     @property
     def channel_rank(self):
-        """
-        Fast implementation of Shape.batch.rank.
-        """
+        """Fast implementation of Shape.batch.rank."""
         r = 0
         for ty in self.types:
             if ty == CHANNEL_DIM:
@@ -364,11 +392,16 @@ class Shape:
     def to_batch(self, dims: tuple or list or None = None) -> Shape:
         """
         Returns a shape like this Shape but with `dims` being of type `batch`.
-
+        
         Leaves this Shape object untouched.
 
-        :param dims: sequence of dimension names to convert or None to convert all dimensions
-        :return: new Shape object
+        Args:
+          dims: sequence of dimension names to convert or None to convert all dimensions
+          dims: tuple or list or None:  (Default value = None)
+
+        Returns:
+          new Shape object
+
         """
         if dims is None:
             return Shape(self.sizes, self.names, [BATCH_DIM] * self.rank)
@@ -428,6 +461,11 @@ class Shape:
         """
         Returns the total number of values contained in a tensor of this shape.
         This is the product of all dimension sizes.
+
+        Args:
+
+        Returns:
+
         """
         if None in self.sizes:
             return None
@@ -442,13 +480,16 @@ class Shape:
     def order(self, sequence, default=None):
         """
         If sequence is a dict with dimension names as keys, orders its values according to this shape.
-
+        
         Otherwise, the sequence is returned unchanged.
 
-        :param sequence: sequence or dict to be ordered
-        :type sequence: dict or list or tuple
-        :param default: default value used for dimensions not contained in sequence
-        :return: ordered sequence of values
+        Args:
+          sequence(dict or list or tuple): sequence or dict to be ordered
+          default: default value used for dimensions not contained in sequence
+
+        Returns:
+          ordered sequence of values
+
         """
         if isinstance(sequence, dict):
             result = [sequence.get(name, default) for name in self.names]
@@ -494,9 +535,7 @@ class Shape:
         return result
 
     def meshgrid(self):
-        """
-        Builds a sequence containing all multi-indices within a tensor of this shape.
-        """
+        """Builds a sequence containing all multi-indices within a tensor of this shape."""
         indices = [0] * self.rank
         while True:
             yield {name: index for name, index in zip(self.names, indices)}
@@ -587,15 +626,20 @@ def parse_dim_order(order: str or tuple or list or Shape or None) -> tuple or No
 def shape(**dims: int) -> Shape:
     """
     Creates a Shape from the dimension names and their respective sizes.
-
+    
     Dimension types are inferred from the names according to the following rules:
-
+    
     * single letter -> spatial dimension
     * starts with 'vector' -> channel dimension
     * else -> batch dimension
 
-    :param dims: names -> size
-    :return: Shape
+    Args:
+      dims: names -> size
+      **dims: int: 
+
+    Returns:
+      Shape
+
     """
     types = []
     for name, size in dims.items():
@@ -625,19 +669,25 @@ def _infer_dim_group_counts(rank, constraints: list):
 def batch_shape(sizes: Shape or dict or tuple or list, names: tuple or list = None):
     """
     Creates a Shape with the following properties:
-
+    
     * All dimensions are of type 'batch'
     * The shape's `names` match `names`, if provided
-
+    
     Depending on the type of `sizes`, returns
-
+    
     * Shape -> (reordered) spatial sub-shape
     * dict[dim: str -> size] -> (reordered) shape with given names and sizes
     * tuple/list of sizes -> matches names to sizes and keeps order
 
-    :param sizes: list of integers or dict or Shape
-    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
-    :return: Shape containing only spatial dimensions
+    Args:
+      sizes: list of integers or dict or Shape
+      names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
+      sizes: Shape or dict or tuple or list: 
+      names: tuple or list:  (Default value = None)
+
+    Returns:
+      Shape containing only spatial dimensions
+
     """
     return _pure_shape(sizes, names, BATCH_DIM)
 
@@ -645,19 +695,25 @@ def batch_shape(sizes: Shape or dict or tuple or list, names: tuple or list = No
 def spatial_shape(sizes: Shape or dict or tuple or list, names: tuple or list = None) -> Shape:
     """
     Creates a Shape with the following properties:
-
+    
     * All dimensions are of type 'spatial'
     * The shape's `names` match `names`, if provided
-
+    
     Depending on the type of `sizes`, returns
-
+    
     * Shape -> (reordered) spatial sub-shape
     * dict[dim: str -> size] -> (reordered) shape with given names and sizes
     * tuple/list of sizes -> matches names to sizes and keeps order
 
-    :param sizes: list of integers or dict or Shape
-    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
-    :return: Shape containing only spatial dimensions
+    Args:
+      sizes: list of integers or dict or Shape
+      names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
+      sizes: Shape or dict or tuple or list: 
+      names: tuple or list:  (Default value = None)
+
+    Returns:
+      Shape containing only spatial dimensions
+
     """
     return _pure_shape(sizes, names, SPATIAL_DIM)
 
@@ -665,19 +721,25 @@ def spatial_shape(sizes: Shape or dict or tuple or list, names: tuple or list = 
 def channel_shape(sizes: Shape or dict or list or tuple, names: tuple or list = None) -> Shape:
     """
     Creates a Shape with the following properties:
-
+    
     * All dimensions are of type 'channel'
     * The shape's `names` match `names`, if provided
-
+    
     Depending on the type of `sizes`, returns
-
+    
     * Shape -> (reordered) spatial sub-shape
     * dict[dim: str -> size] -> (reordered) shape with given names and sizes
     * tuple/list of sizes -> matches names to sizes and keeps order
 
-    :param sizes: list of integers or dict or Shape
-    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
-    :return: Shape containing only spatial dimensions
+    Args:
+      sizes: list of integers or dict or Shape
+      names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
+      sizes: Shape or dict or list or tuple: 
+      names: tuple or list:  (Default value = None)
+
+    Returns:
+      Shape containing only spatial dimensions
+
     """
     return _pure_shape(sizes, names, SPATIAL_DIM)
 
@@ -685,19 +747,26 @@ def channel_shape(sizes: Shape or dict or list or tuple, names: tuple or list = 
 def _pure_shape(sizes: Shape or dict or tuple or list, names: tuple or list, dim_type: str) -> Shape:
     """
     Creates a Shape with the following properties:
-
+    
     * All dimensions are of type `dim_type`
     * The shape's `names` match `names`, if provided
-
+    
     Depending on the type of `sizes`, returns
-
+    
     * Shape -> (reordered) spatial sub-shape
     * dict[dim: str -> size] -> (reordered) shape with given names and sizes
     * tuple/list of sizes -> matches names to sizes and keeps order
 
-    :param sizes: list of integers or dict or Shape
-    :param names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
-    :return: Shape containing only spatial dimensions
+    Args:
+      sizes: list of integers or dict or Shape
+      names: Order of dimensions. Optional if isinstance(sizes, (dict, Shape))
+      sizes: Shape or dict or tuple or list: 
+      names: tuple or list: 
+      dim_type: str: 
+
+    Returns:
+      Shape containing only spatial dimensions
+
     """
     if isinstance(sizes, Shape):
         s = sizes[[i for i, t in enumerate(sizes.types) if t == dim_type]]

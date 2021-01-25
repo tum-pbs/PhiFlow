@@ -46,10 +46,16 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     """
     Multiplies the target so that its total content matches the source.
 
-    :param target: a tensor
-    :param source: a tensor or number
-    :param epsilon: small number to prevent division by zero or None.
-    :return: normalized tensor of the same shape as target
+    Args:
+      target: a tensor
+      source: a tensor or number
+      epsilon: small number to prevent division by zero or None. (Default value = 1e-5)
+      target: Tensor: 
+      source: Tensor: 
+
+    Returns:
+      normalized tensor of the same shape as target
+
     """
     target_total = math.sum_(target, axis=target.shape.non_batch.names)
     denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
@@ -58,7 +64,17 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
 
 
 def l1_loss(tensor: Tensor, batch_norm=True, reduce_batches=True):
-    """get L1 loss"""
+    """
+    get L1 loss
+
+    Args:
+      tensor: Tensor: 
+      batch_norm:  (Default value = True)
+      reduce_batches:  (Default value = True)
+
+    Returns:
+
+    """
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
         return sum(l1_loss(tensor, batch_norm, reduce_batches) for tensor in all_tensors)
@@ -74,12 +90,31 @@ def l1_loss(tensor: Tensor, batch_norm=True, reduce_batches=True):
 
 
 def l2_loss(tensor: Tensor, batch_norm=True):
-    """get L2 loss"""
+    """
+    get L2 loss
+
+    Args:
+      tensor: Tensor: 
+      batch_norm:  (Default value = True)
+
+    Returns:
+
+    """
     return l_n_loss(tensor, 2, batch_norm=batch_norm)
 
 
 def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
-    """get Ln loss"""
+    """
+    get Ln loss
+
+    Args:
+      tensor: Tensor: 
+      n: int: 
+      batch_norm:  (Default value = True)
+
+    Returns:
+
+    """
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
         return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
@@ -95,10 +130,14 @@ def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
     """
     Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
 
-    :param reduce_batches: whether to reduce the batch dimension of the loss by adding the losses along the first dimension
-    :param tensor: typically actual - target
-    :param frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
-    :return: scalar loss value
+    Args:
+      reduce_batches: whether to reduce the batch dimension of the loss by adding the losses along the first dimension (Default value = True)
+      tensor: typically actual - target
+      frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)
+
+    Returns:
+      scalar loss value
+
     """
     if struct.isstruct(tensor):
         all_tensors = struct.flatten(tensor)
@@ -110,12 +149,15 @@ def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
 
 
 def abs_square(complex):
-    """get the square magnitude
+    """
+    get the square magnitude
 
-    :param complex: complex input data
-    :type complex: Tensor
-    :return: real valued magnitude squared
-    :rtype: Tensor
+    Args:
+      complex(Tensor): complex input data
+
+    Returns:
+      Tensor: real valued magnitude squared
+
     """
     return math.imag(complex) ** 2 + math.real(complex) ** 2
 
@@ -159,15 +201,24 @@ def shift(x: Tensor,
           dims: tuple or None = None,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
           stack_dim: str or None = 'shift') -> list:
-    """shift Tensor by a fixed offset and abiding by extrapolation
+    """
+    shift Tensor by a fixed offset and abiding by extrapolation
 
-    :param x: Input data
-    :param offsets: Shift size
-    :param dims: Dimensions along which to shift, defaults to None
-    :param padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
-    :param stack_dim: dimensions to be stacked, defaults to 'shift'
-    :return: offset_tensor
-    :rtype: list
+    Args:
+      x: Input data
+      offsets: Shift size
+      dims: Dimensions along which to shift, defaults to None
+      padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
+      stack_dim: dimensions to be stacked, defaults to 'shift'
+      x: Tensor: 
+      offsets: tuple: 
+      dims: tuple or None:  (Default value = None)
+      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
+      stack_dim: str or None:  (Default value = 'shift')
+
+    Returns:
+      list: offset_tensor
+
     """
     if stack_dim is None:
         assert len(dims) == 1
@@ -200,13 +251,23 @@ def gradient(grid: Tensor,
     Calculates the gradient of a scalar channel from finite differences.
     The gradient vectors are in reverse order, lowest dimension first.
 
-    :param grid: grid values
-    :param dims: (optional) sequence of dimension names
-    :param dx: physical distance between grid points (default 1)
-    :param difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
-    :param padding: tensor padding mode
-    :param stack_dim: name of the new vector dimension listing the gradient w.r.t. the various axes
-    :return: tensor of shape (batch_size, spatial_dimensions..., spatial rank)
+    Args:
+      grid: grid values
+      dims: optional) sequence of dimension names
+      dx: physical distance between grid points (default 1)
+      difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
+      padding: tensor padding mode
+      stack_dim: name of the new vector dimension listing the gradient w.r.t. the various axes
+      grid: Tensor: 
+      dx: float or int:  (Default value = 1)
+      difference: str:  (Default value = 'central')
+      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
+      dims: tuple or None:  (Default value = None)
+      stack_dim: str:  (Default value = 'gradient')
+
+    Returns:
+      tensor of shape (batch_size, spatial_dimensions..., spatial rank)
+
     """
     grid = tensor(grid)
     if difference.lower() == 'central':
@@ -232,11 +293,19 @@ def laplace(x: Tensor,
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
 
-    :param x: n-dimensional field of shape (batch, spacial dimensions..., components)
-    :param dx: scalar or 1d tensor
-    :param padding: extrapolation
-    :param dims: The second derivative along these dimensions is summed over
-    :return: tensor of same shape
+    Args:
+      x: n-dimensional field of shape (batch, spacial dimensions..., components)
+      dx: scalar or 1d tensor
+      padding: extrapolation
+      dims: The second derivative along these dimensions is summed over
+      x: Tensor: 
+      dx: Tensor or float:  (Default value = 1)
+      padding: Extrapolation:  (Default value = extrapolation.BOUNDARY)
+      dims: tuple or None:  (Default value = None)
+
+    Returns:
+      tensor of same shape
+
     """
     if not isinstance(dx, (int, float)):
         dx = tensor(dx, names='_laplace')
@@ -253,16 +322,23 @@ def fourier_laplace(grid: Tensor,
                     times: int = 1):
     """
     Applies the spatial laplace operator to the given tensor with periodic boundary conditions.
-
+    
     *Note:* The results of `fourier_laplace` and `laplace` are close but not identical.
-
+    
     This implementation computes the laplace operator in Fourier space.
     The result for periodic fields is exact, i.e. no numerical instabilities can occur, even for higher-order derivatives.
 
-    :param grid: tensor, assumed to have periodic boundary conditions
-    :param dx: distance between grid points, tensor-like, scalar or vector
-    :param times: number of times the laplace operator is applied. The computational cost is independent of this parameter.
-    :return: tensor of same shape as `tensor`
+    Args:
+      grid: tensor, assumed to have periodic boundary conditions
+      dx: distance between grid points, tensor-like, scalar or vector
+      times: number of times the laplace operator is applied. The computational cost is independent of this parameter.
+      grid: Tensor: 
+      dx: Tensor or Shape or float or list or tuple: 
+      times: int:  (Default value = 1)
+
+    Returns:
+      tensor of same shape as `tensor`
+
     """
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
@@ -274,7 +350,17 @@ def fourier_laplace(grid: Tensor,
 def fourier_poisson(grid: Tensor,
                     dx: Tensor or Shape or float or list or tuple,
                     times: int = 1):
-    """ Inverse operation to `fourier_laplace`. """
+    """
+    Inverse operation to `fourier_laplace`.
+
+    Args:
+      grid: Tensor: 
+      dx: Tensor or Shape or float or list or tuple: 
+      times: int:  (Default value = 1)
+
+    Returns:
+
+    """
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
     fft_laplace = -(2 * np.pi)**2 * k_squared
@@ -292,10 +378,17 @@ def downsample2x(grid: Tensor,
     Resamples a regular grid to half the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
 
-    :param grid: full size grid
-    :param padding: grid extrapolation. Used to insert an additional value for odd spatial dims
-    :param dims: dims along which down-sampling is applied. If None, down-sample along all spatial dims.
-    :return: half-size grid
+    Args:
+      grid: full size grid
+      padding: grid extrapolation. Used to insert an additional value for odd spatial dims
+      dims: dims along which down-sampling is applied. If None, down-sample along all spatial dims.
+      grid: Tensor: 
+      padding: Extrapolation:  (Default value = extrapolation.BOUNDARY)
+      dims: tuple or None:  (Default value = None)
+
+    Returns:
+      half-size grid
+
     """
     dims = grid.shape.spatial.only(dims).names
     odd_dimensions = [dim for dim in dims if grid.shape.get_size(dim) % 2 != 0]
@@ -312,10 +405,17 @@ def upsample2x(grid: Tensor,
     Resamples a regular grid to double the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
 
-    :param grid: half-size grid
-    :param padding: grid extrapolation
-    :param dims: dims along which up-sampling is applied. If None, up-sample along all spatial dims.
-    :return: double-size grid
+    Args:
+      grid: half-size grid
+      padding: grid extrapolation
+      dims: dims along which up-sampling is applied. If None, up-sample along all spatial dims.
+      grid: Tensor: 
+      padding: Extrapolation:  (Default value = extrapolation.BOUNDARY)
+      dims: tuple or None:  (Default value = None)
+
+    Returns:
+      double-size grid
+
     """
     for i, dim in enumerate(grid.shape.spatial.only(dims).names):
         left, center, right = shift(grid, (-1, 0, 1), (dim,), padding, None)
@@ -331,14 +431,21 @@ def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
     Samples a sub-grid from `grid` with equal distance between sampling points.
     The values at the new sample points are determined via linear interpolation.
 
-    :param grid: full size grid to be resampled
-    :param start: origin point of sub-grid within `grid`, measured in number of cells.
+    Args:
+      grid: full size grid to be resampled
+      start: origin point of sub-grid within `grid`, measured in number of cells.
     Must have a single dimension called `vector`.
     Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
     The order of dims must be equal to `size` and `grid.shape.spatial`.
-    :param size: resolution of the sub-grid. Must not be larger than the resolution of `grid`.
+      size: resolution of the sub-grid. Must not be larger than the resolution of `grid`.
     The order of dims must be equal to `start` and `grid.shape.spatial`.
-    :return: sampled sub-grid
+      grid: Tensor: 
+      start: Tensor: 
+      size: Shape: 
+
+    Returns:
+      sampled sub-grid
+
     """
     assert start.shape.names == ('vector',)
     assert grid.shape.spatial.names == size.names
@@ -373,16 +480,21 @@ def poisson_bracket(grid1, grid2):
 
 
 def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: float):
-    """Solves the poisson bracket using the Arakawa Scheme [tensor1, tensor2]
-
+    """
+    Solves the poisson bracket using the Arakawa Scheme [tensor1, tensor2]
+    
     Only works in 2D, with equal spaced grids, and periodic boundary conditions
 
-    :param tensor1: first field in the poisson bracket
-    :type tensor1: Tensor
-    :param tensor2: second field in the poisson bracket
-    :type tensor2: Tensor
-    :param dx: Grid size (equal in x-y)
-    :type dx: float
+    Args:
+      tensor1(Tensor): first field in the poisson bracket
+      tensor2(Tensor): second field in the poisson bracket
+      dx(float): Grid size (equal in x-y)
+      tensor1: Tensor: 
+      tensor2: Tensor: 
+      dx: float: 
+
+    Returns:
+
     """
     zeta = math.pad(value=tensor1, widths={'x': (1, 1), 'y': (1, 1)}, mode=extrapolation.PERIODIC)
     psi = math.pad(value=tensor2, widths={'x': (1, 1), 'y': (1, 1)}, mode=extrapolation.PERIODIC)

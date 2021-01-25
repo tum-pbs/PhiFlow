@@ -13,21 +13,22 @@ class PointCloud(SampledField):
     def __init__(self, elements: Geometry, values: Any = 1, extrapolation=math.extrapolation.ZERO, add_overlapping=False):
         """
         A point cloud consists of elements at arbitrary locations.
-        A value or vector is associated with each element.
+            A value or vector is associated with each element.
 
-        Outside of elements, the value of the field is determined by the extrapolation.
+            Outside of elements, the value of the field is determined by the extrapolation.
 
-        All points belonging to one example must be listed in the 'points' dimension.
+            All points belonging to one example must be listed in the 'points' dimension.
 
-        Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-        When sampling this field on a grid, scatter functions may be used.
+            Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+            When sampling this field on a grid, scatter functions may be used.
 
-        See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+            See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
 
-        :param elements: Geometry object specifying the sample points and sizes
-        :param values: values corresponding to elements
-        :param extrapolation: values outside elements
-        :param add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
+        Args:
+          elements: Geometry object specifying the sample points and sizes
+          values: values corresponding to elements
+          extrapolation: values outside elements
+          add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
         """
         SampledField.__init__(self, elements, values, extrapolation)
         self._add_overlapping = add_overlapping
@@ -57,9 +58,15 @@ class PointCloud(SampledField):
         """
         Approximately samples this field on a regular grid using math.scatter().
 
-        :param box: physical dimensions of the grid
-        :param resolution: grid resolution
-        :return: CenteredGrid
+        Args:
+          box: physical dimensions of the grid
+          resolution: grid resolution
+          box: Box: 
+          resolution: math.Shape: 
+
+        Returns:
+          CenteredGrid
+
         """
         closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution - 0.5))
         if self._add_overlapping:
@@ -78,11 +85,16 @@ class PointCloud(SampledField):
 
 def _distribute_points(density, particles_per_cell=1, distribution='uniform'):
     """
-Distribute points according to the distribution specified in density.
-    :param density: binary tensor
-    :param particles_per_cell: integer
-    :param distribution: 'uniform' or 'center'
-    :return: tensor of shape (batch_size, point_count, rank)
+    Distribute points according to the distribution specified in density.
+
+    Args:
+      density: binary tensor
+      particles_per_cell: integer (Default value = 1)
+      distribution: uniform' or 'center' (Default value = 'uniform')
+
+    Returns:
+      tensor of shape (batch_size, point_count, rank)
+
     """
     assert distribution in ('center', 'uniform')
     index_array = []

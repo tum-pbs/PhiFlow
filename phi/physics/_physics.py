@@ -9,12 +9,17 @@ from phi import struct
 class State(struct.Struct):
     """
     States describe one configuration of a physical system.
-
+    
     State objects are generally immutable, i.e. once created the state cannot be changed.
     Instead, new State objects are created when the state changes.
     This guarantees that previously acquired states are not altered by other parts of the code which is convenient when working with sequence values.
-
+    
     States are identified by their unique name.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, batch_size=None, **kwargs):
@@ -26,8 +31,14 @@ class State(struct.Struct):
         """
         Tags are used to resolve dependencies.
         They represent traits or classes of the state.
-
+        
         Physics objects typically definition their dependencies in terms of tags.
+
+        Args:
+          tags: 
+
+        Returns:
+
         """
         return tuple(tags)
 
@@ -35,6 +46,12 @@ class State(struct.Struct):
     def age(self, age):
         """
         Cumulative dt of all step() invocations. States usually start out at age=0.
+
+        Args:
+          age: 
+
+        Returns:
+
         """
         return age
 
@@ -43,8 +60,14 @@ class State(struct.Struct):
         """
         Names uniquely identify the system represented by this state.
         All states that represent a configuration of the same system must have the same name.
-
+        
         Names can also be used as a shortcut to reference states (e.g. in StateCollection or World).
+
+        Args:
+          name: 
+
+        Returns:
+
         """
         if name is None:
             return '%s_%d' % (self.__class__.__name__.lower(), id(self))
@@ -52,16 +75,12 @@ class State(struct.Struct):
             return str(name)
 
     def default_physics(self):
-        """
-        Returns a Physics object that can be used to progress this state forward in time.
-        """
+        """Returns a Physics object that can be used to progress this state forward in time."""
         return STATIC
 
     @property
     def state(self):
-        """
-        :return: self
-        """
+        """:return: self"""
         return self
 
     def __repr__(self):
@@ -105,6 +124,11 @@ class Physics(object):
     """
     A Physics object describes a set of physical laws that can be used to simulate a system by moving from state to state, tracing out a trajectory.
     Physics objects are stateless and always support an empty constructor.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, dependencies=()):
@@ -115,10 +139,15 @@ class Physics(object):
         Computes the next state of a physical system, given the current state.
         Solves the simulation for a time increment self.dt.
 
-        :param state: current state
-        :param dt: time increment, float (can be positive, negative or zero)
-        :param dependent_states: dict from String to List<State>
-        :return: next state of the same type as state
+        Args:
+          state: current state
+          dt: time increment, float (can be positive, negative or zero) (Default value = 1.0)
+          dependent_states: dict from String to List<State>
+          **dependent_states: 
+
+        Returns:
+          next state of the same type as state
+
         """
         raise NotImplementedError(self)
 
@@ -138,13 +167,19 @@ class Physics(object):
 
 
 class Static(Physics):
-    """
-    Physics for states with no natural evolution.
-    """
+    """Physics for states with no natural evolution."""
 
     def step(self, state, dt=1.0, **dependent_states):
         """
         Does not alter the state except for increasing its age.
+
+        Args:
+          state: 
+          dt:  (Default value = 1.0)
+          **dependent_states: 
+
+        Returns:
+
         """
         return state.map_item(State.age, lambda age: age + dt)
 

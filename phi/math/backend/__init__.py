@@ -49,22 +49,24 @@ def set_global_default_backend(backend: Backend):
 def set_global_precision(floating_point_bits):
     """
     Sets the floating point precision of DYNAMIC_BACKEND which affects all registered backends.
-
+    
     If `floating_point_bits` is an integer, all floating point tensors created henceforth will be of the corresponding data type, float16, float32 or float64.
     Operations may also convert floating point values to this precision, even if the input had a different precision.
-
+    
     If `floating_point_bits` is None, new tensors will default to float32 unless specified otherwise.
     The output of math operations has the same precision as its inputs.
 
-    :param floating_point_bits: one of (16, 32, 64, None)
+    Args:
+      floating_point_bits: one of (16, 32, 64, None)
+
+    Returns:
+
     """
     _PRECISION[0] = floating_point_bits
 
 
 def get_precision() -> int:
-    """
-    Any Backend method may convert floating point values to this precision, even if the input had a different precision.
-    """
+    """Any Backend method may convert floating point values to this precision, even if the input had a different precision."""
     return _PRECISION[-1]
 
 

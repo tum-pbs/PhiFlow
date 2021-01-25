@@ -36,17 +36,20 @@ def broyden(function, x0, inv_J0, accuracy=1e-5, max_iterations=1000, back_prop=
     """
     Broyden's method for finding a root of the given function.
     Given a function `f: R^n -> R^n`, it finds an x such that `f(x)=0` within the specified `accuracy`.
-
+    
     Boryden's method does not require explicit computations of the Jacobian except for the initial inverse `inv_J0`.
 
-    :param function: Differentiable black-box function mapping from tensors like x0 to tensors like y
-    :param x0: initial guess for x
-    :param inv_J0: Approximation of the inverse Jacobian matrix of f at x0. The closer this is to the true matrix, the fewer iterations will be required.
-    :param max_iterations: (optional) maximum number of CG iterations to perform
-    :param back_prop: Whether to enable auto-differentiation. This induces a memory cost scaling with the number of iterations. Otherwise, the memory cost is constant.
-    :param accuracy: (optional) the algorithm terminates once |f(x)| ≤ accuracy for every entry. If None, the algorithm runs until `max_iterations` is reached.
-    :return: list of SolveResults with [0] being the forward solve result, [1] backward solve result (will be added once backward pass is computed)
-    :rtype: SolveResult
+    Args:
+      function: Differentiable black-box function mapping from tensors like x0 to tensors like y
+      x0: initial guess for x
+      inv_J0: Approximation of the inverse Jacobian matrix of f at x0. The closer this is to the true matrix, the fewer iterations will be required.
+      max_iterations: optional) maximum number of CG iterations to perform (Default value = 1000)
+      back_prop: Whether to enable auto-differentiation. This induces a memory cost scaling with the number of iterations. Otherwise, the memory cost is constant. (Default value = False)
+      accuracy: optional) the algorithm terminates once |f(x)| ≤ accuracy for every entry. If None, the algorithm runs until `max_iterations` is reached. (Default value = 1e-5)
+
+    Returns:
+      SolveResult: list of SolveResults with [0] being the forward solve result, [1] backward solve result (will be added once backward pass is computed)
+
     """
     x0 = to_float(x0)
     y0 = function(x0)
@@ -73,18 +76,22 @@ def conjugate_gradient(function, y, x0, accuracy=1e-5, max_iterations=1000, back
     """
     Solve the linear system of equations `A·x=y`  using the conjugate gradient (CG) algorithm.
     A, x and y can have arbitrary matching shapes, i.e. this method can be used to solve vector and matrix equations.
-
+    
     Since representing the matrix A in memory might not be feasible, a linear function of x can be specified that computes `function(x) = Ax`.
-
+    
     The implementation is based on https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
 
-    :param y: Desired output of `f(x)`
-    :param function: linear function of x that returns A·x
-    :param x0: initial guess for the value of x
-    :param accuracy: (optional) the algorithm terminates once |f(x)-y| ≤ accuracy for every entry. If None, the algorithm runs until `max_iterations` is reached.
-    :param max_iterations: (optional) maximum number of CG iterations to perform
-    :param back_prop: Whether to enable auto-differentiation. This induces a memory cost scaling with the number of iterations. Otherwise, the memory cost is constant.
-    :return: Pair containing the result for x and the number of iterations performed
+    Args:
+      y: Desired output of `f(x)`
+      function: linear function of x that returns A·x
+      x0: initial guess for the value of x
+      accuracy: optional) the algorithm terminates once |f(x)-y| ≤ accuracy for every entry. If None, the algorithm runs until `max_iterations` is reached. (Default value = 1e-5)
+      max_iterations: optional) maximum number of CG iterations to perform (Default value = 1000)
+      back_prop: Whether to enable auto-differentiation. This induces a memory cost scaling with the number of iterations. Otherwise, the memory cost is constant. (Default value = False)
+
+    Returns:
+      Pair containing the result for x and the number of iterations performed
+
     """
     y = to_float(y)
     x = to_float(x0)

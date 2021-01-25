@@ -9,12 +9,12 @@ from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE, GLOBAL_AXIS_ORDE
 class Geometry:
     """
     Abstract base class for N-dimensional shapes.
-
+    
     Main implementing classes:
-
+    
     * Sphere
     * box family: box (generator), Box, Cuboid, AbstractBox
-
+    
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
     All batch dimensions are listed in Geometry.shape.
@@ -23,28 +23,47 @@ class Geometry:
     @property
     def center(self) -> Tensor:
         """
-        :return: center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
-        :rtype: Tensor
+        Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
         """
         raise NotImplementedError()
 
     @property
     def shape(self) -> Shape:
+        """
+        Specifies the number of copies of the geometry as batch and spatial dimensions.
+        """
         raise NotImplementedError()
 
-    def unstack(self, dimension):
+    def unstack(self, dimension: str) -> tuple:
+        """
+        Unstacks this Geometry along the given dimension.
+        The shapes of the returned geometries are reduced by `dimension`.
+
+        Args:
+            dimension: dimension along which to unstack
+
+        Returns:
+            geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
+
+        """
         raise NotImplementedError()
 
     @property
-    def spatial_rank(self):
+    def spatial_rank(self) -> int:
+        """ Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. """
         return self.shape.spatial.rank
 
     def lies_inside(self, location: Tensor) -> Tensor:
         """
         Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.
 
-        :param location: float tensor of shape (batch_size, ..., rank)
-        :return: bool tensor of shape (*location.shape[:-1], 1).
+        Args:
+          location: float tensor of shape (batch_size, ..., rank)
+          location: Tensor: 
+
+        Returns:
+          bool tensor of shape (*location.shape[:-1], 1).
+
         """
         raise NotImplementedError(self.__class__)
 
@@ -52,13 +71,18 @@ class Geometry:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
-
+        
         The exact distance metric used depends on the geometry.
         The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
         The distance metric is differentiable and its gradients are bounded at every point in space.
 
-        :param location: float tensor of shape (batch_size, ..., rank)
-        :return: float tensor of shape (*location.shape[:-1], 1).
+        Args:
+          location: float tensor of shape (batch_size, ..., rank)
+          location: Tensor: 
+
+        Returns:
+          float tensor of shape (*location.shape[:-1], 1).
+
         """
         raise NotImplementedError(self.__class__)
 
@@ -67,17 +91,22 @@ class Geometry:
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
         Close to the surface of this geometry, the fraction filled is differentiable w.r.t. the location and size of `other_geometry`.
-
+        
         To call this method on batches of geometries of same shape, pass a batched Geometry instance.
         The result tensor will match the batch shape of `other_geometry`.
-
+        
         The result may only be accurate in special cases.
         The given geometries may be approximated as spheres or boxes using `bounding_radius()` and `bounding_half_extent()`.
-
+        
         The default implementation of this method approximates other_geometry as a Sphere and computes the fraction using `approximate_signed_distance()`.
 
-        :param other_geometry: (batched) Geometry instance
-        :return: fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).
+        Args:
+          other_geometry: batched) Geometry instance
+          other_geometry: Geometry: 
+
+        Returns:
+          fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).
+
         """
         assert isinstance(other_geometry, Geometry)
         radius = other_geometry.bounding_radius()
@@ -91,8 +120,13 @@ class Geometry:
         """
         Returns the radius of a Sphere object that fully encloses this geometry.
         The sphere is centered at the center of this geometry.
-
+        
         :return: radius of type float
+
+        Args:
+
+        Returns:
+
         """
         raise NotImplementedError(self.__class__)
 
@@ -100,20 +134,30 @@ class Geometry:
         """
         The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
         Each component is non-negative.
-
+        
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
-
+        
         :return: float vector
+
+        Args:
+
+        Returns:
+
         """
         raise NotImplementedError(self.__class__)
 
     def shifted(self, delta: Tensor) -> Geometry:
         """
         Returns a translated version of this geometry.
-        :param delta: direction vector
-        :return: shifted geometry
-        :rtype: Geometry
+
+        Args:
+          delta: direction vector
+          delta: Tensor: 
+
+        Returns:
+          Geometry: shifted geometry
+
         """
         raise NotImplementedError(self.__class__)
 
@@ -122,9 +166,12 @@ class Geometry:
         Returns a rotated version of this geometry.
         The geometry is rotated about its center point.
 
-        :param angle: scalar (2d) or vector (3D+) representing delta angle
-        :return: rotated geometry
-        :rtype: Geometry
+        Args:
+          angle: scalar (2d) or vector (3D+) representing delta angle
+
+        Returns:
+          Geometry: rotated geometry
+
         """
         raise NotImplementedError(self.__class__)
 

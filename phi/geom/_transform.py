@@ -31,7 +31,15 @@ class RotatedGeometry(Geometry):
         return self.geometry.center
 
     def global_to_child(self, location):
-        """ Inverse transform """
+        """
+        Inverse transform
+
+        Args:
+          location: 
+
+        Returns:
+
+        """
         delta = location - self.center
         if location.shape.vector == 2:
             sin = math.sin(self.angle)
@@ -74,7 +82,16 @@ class RotatedGeometry(Geometry):
 
 
 def rotate(geometry, angle):
-    """ package-internal rotation function. Users should use Geometry.rotated() instead. """
+    """
+    package-internal rotation function. Users should use Geometry.rotated() instead.
+
+    Args:
+      geometry: 
+      angle: 
+
+    Returns:
+
+    """
     assert isinstance(geometry, Geometry)
     if isinstance(geometry, RotatedGeometry):
         total_rotation = geometry.angle + angle  # ToDo concatenate rotations

@@ -22,7 +22,7 @@ class Backend:
 
     @property
     def precision(self):
-        """ Short for math.backend.get_precision() """
+        """Short for math.backend.get_precision()"""
         from . import get_precision
         return get_precision()
 
@@ -53,9 +53,15 @@ class Backend:
     def auto_cast(self, *tensors):
         """
         Determins the appropriate values type resulting from operations involving the tensors as input.
-
+        
         This method is called by the default implementations of basic operators.
         Backends can override this method to prevent unnecessary casting.
+
+        Args:
+          *tensors: 
+
+        Returns:
+
         """
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)
@@ -78,10 +84,13 @@ class Backend:
         An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
         An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
 
-        :param x: object to check
-        :param only_native: If True, only accepts true native tensor representations, not Python numbers or others that are also supported as tensors
-        :return: whether `x` is considered a tensor by this backend
-        :rtype: bool
+        Args:
+          x: object to check
+          only_native: If True, only accepts true native tensor representations, not Python numbers or others that are also supported as tensors (Default value = False)
+
+        Returns:
+          bool: whether `x` is considered a tensor by this backend
+
         """
         raise NotImplementedError()
 
@@ -90,12 +99,16 @@ class Backend:
         Converts a tensor-like object to the native tensor representation of this backend.
         If x is a native tensor of this backend, it is returned without modification.
         If x is a Python number (numbers.Number instance), `convert_numbers` decides whether to convert it unless the backend cannot handle Python numbers.
-
+        
         *Note:* There may be objects that are considered tensors by this backend but are not native and thus, will be converted by this method.
 
-        :param x: tensor-like, e.g. list, tuple, Python number, tensor
-        :param convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64.
-        :return: tensor representation of `x`
+        Args:
+          x: tensor-like, e.g. list, tuple, Python number, tensor
+          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+
+        Returns:
+          tensor representation of `x`
+
         """
         raise NotImplementedError()
 
@@ -103,11 +116,15 @@ class Backend:
         """
         Tests if the value of the tensor is known and can be read at this point.
         If true, `numpy(tensor)` must return a valid NumPy representation of the value.
-
+        
         Tensors are typically available when the backend operates in eager mode.
 
-        :param tensor: backend-compatible tensor
-        :return: bool
+        Args:
+          tensor: backend-compatible tensor
+
+        Returns:
+          bool
+
         """
         raise NotImplementedError()
 
@@ -115,12 +132,16 @@ class Backend:
         """
         Returns a NumPy representation of the given tensor.
         If `tensor` is already a NumPy array, it is returned without modification.
-
+        
         This method raises an error if the value of the tensor is not known at this point, e.g. because it represents a node in a graph.
         Use `is_available(tensor)` to check if the value can be represented as a NumPy array.
 
-        :param tensor: backend-compatible tensor
-        :return: NumPy representation of the values stored in the tensor
+        Args:
+          tensor: backend-compatible tensor
+
+        Returns:
+          NumPy representation of the values stored in the tensor
+
         """
         raise NotImplementedError()
 
@@ -148,14 +169,19 @@ class Backend:
     def pad(self, value, pad_width, mode: str = 'constant', constant_values=0):
         """
         Pad a tensor with values as specified by `mode` and `constant_values`.
-
+        
         If the mode is not supported, returns NotImplemented.
 
-        :param value: tensor
-        :param pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[axis 0 lower, axis 0 upper], ...] including batch and component axes.
-        :param mode: 'constant', 'boundary', 'periodic', 'symmetric', 'reflect'
-        :param constant_values: used for out-of-bounds points if mode='constant'
-        :return: padded tensor or NotImplemented
+        Args:
+          value: tensor
+          pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[axis 0 lower, axis 0 upper], ...] including batch and component axes.
+          mode: constant', 'boundary', 'periodic', 'symmetric', 'reflect'
+          constant_values: used for out-of-bounds points if mode='constant' (Default value = 0)
+          mode: str:  (Default value = 'constant')
+
+        Returns:
+          padded tensor or NotImplemented
+
         """
         raise NotImplementedError(self)
 
@@ -173,14 +199,32 @@ class Backend:
         raise NotImplementedError(self)
 
     def divide_no_nan(self, x, y):
-        """ Computes x/y but returns 0 if y=0. """
+        """
+        Computes x/y but returns 0 if y=0.
+
+        Args:
+          x: 
+          y: 
+
+        Returns:
+
+        """
         raise NotImplementedError(self)
 
     def where(self, condition, x=None, y=None):
         raise NotImplementedError(self)
 
     def nonzero(self, values):
-        """ Return non-zero / True indices as int tensor of shape (#non-zeros, values.rank) """
+        """
+        
+
+        Args:
+          values: 
+
+        Returns:
+          
+
+        """
         raise NotImplementedError(self)
 
     def mean(self, value, axis=None, keepdims=False):
@@ -273,14 +317,19 @@ class Backend:
 
     def to_float(self, x):
         """
-Converts a tensor to floating point values.
-If this Backend uses a fixed precision, the tensor will be converted to that precision.
-Otherwise, non-float inputs are converted to float32 (unless `float64=True`).
+        Converts a tensor to floating point values.
+        If this Backend uses a fixed precision, the tensor will be converted to that precision.
+        Otherwise, non-float inputs are converted to float32 (unless `float64=True`).
+        
+        If `x` is mutable and of the correct floating type, returns a copy of `x`.
+        
+        To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
 
-If `x` is mutable and of the correct floating type, returns a copy of `x`.
+        Args:
+          x: tensor
 
-To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
-        :param x: tensor
+        Returns:
+
         """
         raise NotImplementedError(self)
 
@@ -316,11 +365,15 @@ To convert float tensors to the backend precision but leave non-float tensors un
         This method expects the first dimension of indices and values to be the batch dimension.
         The batch dimension need not be specified in the indices array.
 
-        :param indices: n-dimensional indices corresponding to values
-        :param values: values to scatter at indices
-        :param shape: spatial shape of the result tensor, 1D int array
-        :param duplicates_handling: one of ('undefined', 'add', 'mean', 'any')
-        :param outside_handling: one of ('discard', 'clamp', 'undefined')
+        Args:
+          indices: n-dimensional indices corresponding to values
+          values: values to scatter at indices
+          shape: spatial shape of the result tensor, 1D int array
+          duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
+          outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'undefined')
+
+        Returns:
+
         """
         raise NotImplementedError(self)
 
@@ -334,7 +387,11 @@ To convert float tensors to the backend precision but leave non-float tensors un
         """
         Computes the n-dimensional FFT along all but the first and last dimensions.
 
-        :param x: tensor of dimension 3 or higher
+        Args:
+          x: tensor of dimension 3 or higher
+
+        Returns:
+
         """
         raise NotImplementedError(self)
 
@@ -342,7 +399,11 @@ To convert float tensors to the backend precision but leave non-float tensors un
         """
         Computes the n-dimensional inverse FFT along all but the first and last dimensions.
 
-        :param k: tensor of dimension 3 or higher
+        Args:
+          k: tensor of dimension 3 or higher
+
+        Returns:
+
         """
         raise NotImplementedError(self)
 
@@ -366,32 +427,47 @@ To convert float tensors to the backend precision but leave non-float tensors un
 
     def tile(self, value, multiples):
         """
-Repeats the tensor along each axis the number of times given by multiples.
-If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
-        :param value: tensor
-        :param multiples: tuple or list of integers
-        :return: tile tensor
+        Repeats the tensor along each axis the number of times given by multiples.
+        If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
+
+        Args:
+          value: tensor
+          multiples: tuple or list of integers
+
+        Returns:
+          tile tensor
+
         """
         raise NotImplementedError(self)
 
     def sparse_tensor(self, indices, values, shape):
         """
+        
 
-        :param indices: tuple/list matching the dimensions (pair for matrix)
-        :param values:
-        :param shape:
+        Args:
+          indices: tuple/list matching the dimensions (pair for matrix)
+          values: param shape:
+          shape: 
+
+        Returns:
+
         """
         raise NotImplementedError(self)
 
     def coordinates(self, tensor, unstack_coordinates=False):
         """
         Returns the coordinates and values of a tensor.
-
+        
         The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
         In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
-        :param tensor: dense or sparse tensor
-        :return: indices (tensor or tuple), values
+        Args:
+          tensor: dense or sparse tensor
+          unstack_coordinates:  (Default value = False)
+
+        Returns:
+          indices (tensor or tuple), values
+
         """
         raise NotImplementedError(self)
 
@@ -400,16 +476,23 @@ If `multiples` has more dimensions than `value`, these dimensions are added to `
         Solve the system of linear equations
           A * x = y
 
-        :param A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
-        :param y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
-        :param x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-        :param relative_tolerance: stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance)
-        :param absolute_tolerance: stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance)
-        :param max_iterations: maximum number of iterations or None for unlimited
-        :param gradient: one of ('implicit', 'inverse', 'autodiff')
-        :param callback: Function to call after each iteration. It is called with the current solution as callback(x).
-        :rtype: tuple
-        :return: converged, solution, iterations
+        Args:
+          A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
+          y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+          x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
+          relative_tolerance: stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance)
+          absolute_tolerance: stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance)
+          max_iterations: maximum number of iterations or None for unlimited
+          gradient: one of ('implicit', 'inverse', 'autodiff')
+          callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
+          relative_tolerance: float:  (Default value = 1e-5)
+          absolute_tolerance: float:  (Default value = 0.0)
+          max_iterations: int:  (Default value = 1000)
+          gradient: str:  (Default value = 'implicit')
+
+        Returns:
+          converged, solution, iterations
+
         """
         raise NotImplementedError(self)
 
@@ -419,11 +502,15 @@ If `multiples` has more dimensions than `value`, these dimensions are added to `
         """
         Interpolates a regular grid at the specified coordinates.
 
-        :param inputs: grid values
-        :param sample_coords: tensor of floating grid indices. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-        :param interpolation: only 'linear' is currently supported
-        :param boundary: values to use for coordinates outside the grid, can be specified for each face, options are 'constant', 'boundary', 'periodic', 'symmetric', 'reflect'
-        :param constant_values: Value used for constant boundaries, can be specified for each face
+        Args:
+          inputs: grid values
+          sample_coords: tensor of floating grid indices. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+          interpolation: only 'linear' is currently supported (Default value = 'linear')
+          boundary: values to use for coordinates outside the grid, can be specified for each face, options are 'constant', 'boundary', 'periodic', 'symmetric', 'reflect' (Default value = 'constant')
+          constant_values: Value used for constant boundaries, can be specified for each face (Default value = 0)
+
+        Returns:
+
         """
         return NotImplemented
 

@@ -13,9 +13,7 @@ from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 class SciPyBackend(Backend):
 
-    """
-    Core Python Backend using NumPy & SciPy
-    """
+    """Core Python Backend using NumPy & SciPy"""
 
     def __init__(self):
         Backend.__init__(self, "SciPy")
@@ -70,7 +68,16 @@ class SciPyBackend(Backend):
         return np.transpose(tensor, axes)
 
     def equal(self, x, y):
-        """ array equality comparison """
+        """
+        array equality comparison
+
+        Args:
+          x: 
+          y: 
+
+        Returns:
+
+        """
         return np.equal(x, y)
 
     def divide_no_nan(self, x, y):
@@ -79,14 +86,33 @@ class SciPyBackend(Backend):
         return np.where(y == 0, 0, result)
 
     def random_uniform(self, shape):
-        """ random array [0.0, 1.0) """
+        """
+        random array [0.0, 1.0)
+
+        Args:
+          shape: 
+
+        Returns:
+
+        """
         return np.random.random(shape).astype(self.precision_dtype)
 
     def random_normal(self, shape):
         return np.random.standard_normal(shape).astype(self.precision_dtype)
 
     def range(self, start, limit=None, delta=1, dtype=None):
-        """ range syntax to arange syntax """
+        """
+        range syntax to arange syntax
+
+        Args:
+          start: 
+          limit:  (Default value = None)
+          delta:  (Default value = 1)
+          dtype:  (Default value = None)
+
+        Returns:
+
+        """
         if limit is None:
             start, limit = 0, start
         return np.arange(start, limit, delta, dtype)
@@ -221,7 +247,17 @@ class SciPyBackend(Backend):
         return np.exp(x)
 
     def conv(self, tensor, kernel, padding="SAME"):
-        """ apply convolution of kernel on tensor """
+        """
+        apply convolution of kernel on tensor
+
+        Args:
+          tensor: 
+          kernel: 
+          padding:  (Default value = "SAME")
+
+        Returns:
+
+        """
         assert tensor.shape[-1] == kernel.shape[-2]
         # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
         if padding.lower() == "same":

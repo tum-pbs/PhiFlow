@@ -11,13 +11,14 @@ class Noise(AnalyticField):
     def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **dims):
         """
         Generates random noise fluctuations which can be configured in physical size and smoothness.
-        Each time values are sampled from a Noise field, a new noise field is generated.
+            Each time values are sampled from a Noise field, a new noise field is generated.
 
-        Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
+            Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
 
-        :param channels: Number of independent random scalar fields this Field consists of
-        :param scale: Size of noise fluctuations in physical units
-        :param smoothness: Determines how quickly high frequencies die out
+        Args:
+          channels: Number of independent random scalar fields this Field consists of
+          scale: Size of noise fluctuations in physical units
+          smoothness: Determines how quickly high frequencies die out
         """
         self.scale = scale
         self.smoothness = smoothness

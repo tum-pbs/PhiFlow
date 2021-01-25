@@ -4,13 +4,18 @@ from ._structdef import Item
 
 class ItemCondition(object):
     """
-ItemConditions are used to filter struct items.
-They represent a named boolean function on items.
+    ItemConditions are used to filter struct items.
+    They represent a named boolean function on items.
+    
+    In addition, they can be used in 'with ItemCondition:' blocks, adding the condition to the thread context for all actions within that block.
+    In particular, struct.map, Struct.shape, Struct.staticshape are affected by context conditions.
+    
+    This module provides some standard conditions like ALL_ITEMS, DATA, VARIABLES, CONSTANTS.
 
-In addition, they can be used in 'with ItemCondition:' blocks, adding the condition to the thread context for all actions within that block.
-In particular, struct.map, Struct.shape, Struct.staticshape are affected by context conditions.
+    Args:
 
-This module provides some standard conditions like ALL_ITEMS, DATA, VARIABLES, CONSTANTS.
+    Returns:
+
     """
 
     def __init__(self, item_condition, name=None):
@@ -55,11 +60,16 @@ ALL_ITEMS = ItemCondition(None)
 
 def context_item_condition(item):
     """
-Checks all thread-global item conditions.
-Conditions can be specified using 'with ItemCondition:' blocks.
-If no condition was specified, this function defaults to testing whether the item holds data.
-    :param item: item to be checked
-    :return: True if the item passes all conditions, False otherwise
+    Checks all thread-global item conditions.
+    Conditions can be specified using 'with ItemCondition:' blocks.
+    If no condition was specified, this function defaults to testing whether the item holds data.
+
+    Args:
+      item: item to be checked
+
+    Returns:
+      True if the item passes all conditions, False otherwise
+
     """
     user_specified = False
     for context in _STRUCT_CONTEXT_STACK:

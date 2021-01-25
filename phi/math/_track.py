@@ -24,11 +24,13 @@ class ShiftLinOp(Tensor):
     def __init__(self, source: Tensor, values_by_shift: dict, shape: Shape):
         """
 
-        :param source: placeholder tensor
-        :param values_by_shift: shift: Shape -> values: Tensor.
+
+        Args:
+          source: placeholder tensor
+          values_by_shift: shift: Shape -> values: Tensor.
         shift only contains only non-zero shift dims.
         Missing dims are interpreted as independent.
-        :param shape: shape of this tensor
+          shape: shape of this tensor
         """
         self.source = source
         self.val = simplify_add(values_by_shift)
@@ -37,10 +39,16 @@ class ShiftLinOp(Tensor):
     def native(self, order: str or tuple or list = None):
         """
         Evaluates the value of the linear operation applied to the original source tensor.
-
+        
         This is done by building a sparse matrix for all dimensions that are affected by the linear operation.
         These dimensions are detected automatically during the creation of the linear operation.
         All other dimensions (independent dimensions) are combined into a single batch dimensions for the sparse matrix multiplication.
+
+        Args:
+          order: str or tuple or list:  (Default value = None)
+
+        Returns:
+
         """
         order = parse_dim_order(order)
         result = self.apply(self.source)
@@ -65,8 +73,13 @@ class ShiftLinOp(Tensor):
         """
         Builds a sparse matrix that represents this linear operation.
         Independent dimensions, those that can be treated as batch dimensions, are recognized automatically and ignored.
-
+        
         :return: native sparse tensor
+
+        Args:
+
+        Returns:
+
         """
         independent_dims = self.independent_dims
         out_shape = self._shape.without(independent_dims)
@@ -238,11 +251,16 @@ def lin_placeholder(value: Tensor, format='shift', broadcast_dims=()) -> Tensor:
     """
     Create a placeholder tensor that can be used to track linear operations and construct a matrix to represent them efficiently.
 
-    :param value: source tensor
-    :param format: 'shift' or 'sparse'
-    :param broadcast_dims: list of dimension names that are ignored.
-    All values along these dimensions are expected to share the same linear operation.
-    :return: placeholder tensor matching the values of `value`
+    Args:
+      value: source tensor
+      format: shift' or 'sparse' (Default value = 'shift')
+      broadcast_dims: list of dimension names that are ignored.
+    All values along these dimensions are expected to share the same linear operation. (Default value = ())
+      value: Tensor: 
+
+    Returns:
+      placeholder tensor matching the values of `value`
+
     """
     tracking_shape = value.shape.without(broadcast_dims)
     if format == 'shift':

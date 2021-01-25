@@ -10,9 +10,11 @@ class AppDisplay(object):
 
     def __init__(self, app):
         """
-Creates a display for the given app and initializes the configuration.
-This method does not set up the display. It only sets up the AppDisplay object and returns as quickly as possible.
-        :param app: app to be displayed, may not be prepared or be otherwise invalid at this point.
+        Creates a display for the given app and initializes the configuration.
+        This method does not set up the display. It only sets up the AppDisplay object and returns as quickly as possible.
+
+        Args:
+          app: app to be displayed, may not be prepared or be otherwise invalid at this point.
         """
         self.app = app
         self.config = {}
@@ -20,52 +22,55 @@ This method does not set up the display. It only sets up the AppDisplay object a
     def configure(self, config):
         # type: (dict) -> None
         """
-Updates the GUI configuration.
-This method may only be called while the GUI is not yet visible, i.e. before show() is called.
-        :param config: Complete or partial GUI-specific configuration. dictionary mapping from strings to JSON serializable values
+        Updates the GUI configuration.
+        This method may only be called while the GUI is not yet visible, i.e. before show() is called.
+
+        Args:
+            config: Complete or partial GUI-specific configuration. dictionary mapping from strings to JSON serializable values
         """
         self.config.update(config)
 
-    def get_configuration(self):
-        # type: () -> dict
+    def get_configuration(self) -> dict:
         """
-Returns the current configuration of the GUI.
-The returned dictionary may only contain serializable values and all keys must be strings.
-The configuration can be passed to another instance of this class using set_configuration().
-        :rtype: dict
+        Returns the current configuration of the GUI.
+        The returned dictionary may only contain serializable values and all keys must be strings.
+        The configuration can be passed to another instance of this class using set_configuration().
         """
         return self.config
 
     def setup(self):
         """
-Sets up all necessary GUI components.
-
-The GUI can register callbacks with the app to be informed about app-state changes induced externally.
-The app can be assumed to be prepared when this method is called.
-
-This method is called after set_configuration() but before show()
-
-The return value of this method will be returned by show(app).
+        Sets up all necessary GUI components.
+        
+        The GUI can register callbacks with the app to be informed about app-state changes induced externally.
+        The app can be assumed to be prepared when this method is called.
+        
+        This method is called after set_configuration() but before show()
+        
+        The return value of this method will be returned by show(app).
         """
         pass
 
     def show(self, caller_is_main):
         # type: (bool) -> bool
         """
-Displays the previously setup GUI.
-This method is blocking and returns only when the GUI is hidden.
+        Displays the previously setup GUI.
+        This method is blocking and returns only when the GUI is hidden.
 
-This method will always be called after setup().
-        :param caller_is_main: True if the calling script is the __main__ module.
-        :return: Whether the GUI was displayed
-        :rtype: bool
+        This method will always be called after setup().
+
+        Args:
+            caller_is_main: True if the calling script is the __main__ module.
+
+        Returns:
+            Whether the GUI was displayed
         """
         return False
 
     def play(self):
         """
-Called if AUTORUN is enabled.
-If no Display is specified, App.run() is called instead.
+        Called if AUTORUN is enabled.
+        If no Display is specified, App.run() is called instead.
         """
         self.app.play()
 
@@ -86,19 +91,25 @@ AUTORUN = 'autorun' in sys.argv
 def show(app: App or None = None, autorun=AUTORUN, **config):
     """
     Launch the registered user interface (web interface by default).
-
+    
     This method may block until the GUI is closed.
-
+    
     This method prepares the app before showing it. No more fields should be added to the app after this method is invoked.
-
+    
     Also see the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
 
-    :param autorun: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-    :param app: (optional) the application to display.
-        If unspecified, searches the calling script for a subclass of App and instantiates it.
-    :param config: additional GUI configuration parameters.
-        For a full list of parameters, see https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
-    :return: reference to the GUI, depending on the implementation. For the web interface this may be the web server instance.
+    Args:
+      autorun: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
+      app: optional) the application to display.
+    If unspecified, searches the calling script for a subclass of App and instantiates it.
+      config: additional GUI configuration parameters.
+    For a full list of parameters, see https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+      app: App or None:  (Default value = None)
+      **config: 
+
+    Returns:
+      reference to the GUI, depending on the implementation. For the web interface this may be the web server instance.
+
     """
     frame_records = inspect.stack()[1]
     calling_module = inspect.getmodulename(frame_records[1])

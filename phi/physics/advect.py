@@ -15,11 +15,18 @@ from phi.field._field_math import GridType
 
 def advect(field: Field, velocity: Field, dt):
     """
-Advect `field` along the `velocity` vectors using the default advection method.
-    :param field: any built-in Field
-    :param velocity: any Field
-    :param dt: time increment
-    :return: Advected field of same type as `field`
+    Advect `field` along the `velocity` vectors using the default advection method.
+
+    Args:
+      field: any built-in Field
+      velocity: any Field
+      dt: time increment
+      field: Field: 
+      velocity: Field: 
+
+    Returns:
+      Advected field of same type as `field`
+
     """
     if isinstance(field, PointCloud):
         if isinstance(velocity, PointCloud) and velocity.elements == field.elements:
@@ -35,15 +42,21 @@ Advect `field` along the `velocity` vectors using the default advection method.
 def semi_lagrangian(field: GridType, velocity: Field, dt) -> GridType:
     """
     Semi-Lagrangian advection with simple backward lookup.
-
+    
     This method samples the `velocity` at the grid points of `field`
     to determine the lookup location for each grid point by walking backwards along the velocity vectors.
     The new values are then determined by sampling `field` at these lookup locations.
 
-    :param field: quantity to be advected, stored on a grid (CenteredGrid or StaggeredGrid)
-    :param velocity: vector field, need not be compatible with with `field`.
-    :param dt: time increment
-    :return: Field with same sample points as `field`
+    Args:
+      field: quantity to be advected, stored on a grid (CenteredGrid or StaggeredGrid)
+      velocity: vector field, need not be compatible with with `field`.
+      dt: time increment
+      field: GridType: 
+      velocity: Field: 
+
+    Returns:
+      Field with same sample points as `field`
+
     """
     v = velocity.sample_in(field.elements)
     x = field.points - v * dt
@@ -57,11 +70,17 @@ def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.
     It then uses that error estimate to correct the field values.
     To avoid overshoots, the resulting value is bounded by the neighbouring grid cells of the backward lookup.
 
-    :param correction_strength: the estimated error is multiplied by this factor before being applied. The case correction_strength=0 equals semi-lagrangian advection. Set lower than 1.0 to avoid oscillations.
-    :param field: Field to be advected
-    :param velocity: vector field, need not be compatible with `field`.
-    :param dt: time increment
-    :return: Field compatible with input field
+    Args:
+      correction_strength: the estimated error is multiplied by this factor before being applied. The case correction_strength=0 equals semi-lagrangian advection. Set lower than 1.0 to avoid oscillations. (Default value = 1.0)
+      field: Field to be advected
+      velocity: vector field, need not be compatible with `field`.
+      dt: time increment
+      field: CenteredGrid: 
+      velocity: Field: 
+
+    Returns:
+      Field compatible with input field
+
     """
     x0 = field.points
     v = velocity.sample_in(field.elements)
@@ -76,13 +95,18 @@ def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.
 
 def runge_kutta_4(field: PointCloud, velocity: Field, dt):
     """
-Lagrangian advection of particles.
-    :param field: SampledField with any number of components
-    :type field: SampledField
-    :param velocity: Vector field
-    :type velocity: Field
-    :param dt: time increment
-    :return: SampledField with same data as `field` but advected points
+    Lagrangian advection of particles.
+
+    Args:
+      field(SampledField): SampledField with any number of components
+      velocity(Field): Vector field
+      dt: time increment
+      field: PointCloud: 
+      velocity: Field: 
+
+    Returns:
+      SampledField with same data as `field` but advected points
+
     """
     assert isinstance(field, SampledField)
     assert isinstance(velocity, Field)
@@ -103,10 +127,16 @@ def points(field: PointCloud, velocity: PointCloud, dt):
     Advects the sample points of a point cloud using a simple Euler step.
     Each point moves by an amount equal to the local velocity times `dt`.
 
-    :param field: point cloud to be advected
-    :param velocity: velocity sampled at the same points as the point cloud
-    :param dt: Euler step time increment
-    :return: advected point cloud
+    Args:
+      field: point cloud to be advected
+      velocity: velocity sampled at the same points as the point cloud
+      dt: Euler step time increment
+      field: PointCloud: 
+      velocity: PointCloud: 
+
+    Returns:
+      advected point cloud
+
     """
     assert field.elements == velocity.elements
     new_points = field.elements.shifted(dt * velocity.values)

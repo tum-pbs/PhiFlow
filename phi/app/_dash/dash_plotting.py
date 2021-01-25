@@ -45,7 +45,16 @@ def dash_graph_plot(data, settings):
 
 
 def get_color_interpolation(val, cm_arr):
-    """Weighted average between point smaller and larger than it"""
+    """
+    Weighted average between point smaller and larger than it
+
+    Args:
+      val: 
+      cm_arr: 
+
+    Returns:
+
+    """
     if 0 in cm_arr[:, 0]-val:
         center = cm_arr[cm_arr[:, 0] == val][-1]
     else:
@@ -63,8 +72,16 @@ def get_color_interpolation(val, cm_arr):
 
 def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
     """
-    :param colormap: colormap defined as list of [fraction_val, red_frac, green_frac, blue_frac]
-    :type colormap: list or array
+    
+
+    Args:
+      colormap(list or array, optional): colormap defined as list of [fraction_val, red_frac, green_frac, blue_frac] (Default value = None)
+      zmin: 
+      zmax: 
+      equal_scale:  (Default value = False)
+
+    Returns:
+
     """
     colormap = COLORMAPS[colormap]
     # Ensure slicing

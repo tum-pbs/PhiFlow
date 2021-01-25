@@ -12,9 +12,7 @@ from ._physics import Physics, StateDependency, State
 
 @struct.definition()
 class Fluid(State):
-    """
-    Deprecated. A Fluid state consists of a density field (centered grid) and a velocity field (staggered grid).
-    """
+    """Deprecated. A Fluid state consists of a density field (centered grid) and a velocity field (staggered grid)."""
 
     def __init__(self, domain, density=0.0, velocity=0.0, buoyancy_factor=0.0, tags=('fluid', 'velocityfield', 'velocity'), name='fluid', **kwargs):
         warnings.warn('Fluid is deprecated. Use a dictionary of fields instead. See the Φ-Flow 2 upgrade instructions.', DeprecationWarning)
@@ -34,23 +32,41 @@ class Fluid(State):
     @struct.variable(default=0, dependencies='domain')
     def density(self, density) -> CenteredGrid:
         """
-The marker density is stored in a CenteredGrid with dimensions matching the domain.
-It describes the number of particles per physical volume.
+        The marker density is stored in a CenteredGrid with dimensions matching the domain.
+        It describes the number of particles per physical volume.
+
+        Args:
+          density: 
+
+        Returns:
+
         """
         return self.domain.grid(density)
 
     @struct.variable(default=0, dependencies='domain')
     def velocity(self, velocity) -> StaggeredGrid:
         """
-The velocity is stored in a StaggeredGrid with dimensions matching the domain.
+        The velocity is stored in a StaggeredGrid with dimensions matching the domain.
+
+        Args:
+          velocity: 
+
+        Returns:
+
         """
         return self.domain.staggered_grid(velocity)
 
     @struct.constant(default=0.0)
     def buoyancy_factor(self, fac):
         """
-The default fluid physics can apply Boussinesq buoyancy as an upward force, proportional to the density.
-This force is scaled with the buoyancy_factor (float).
+        The default fluid physics can apply Boussinesq buoyancy as an upward force, proportional to the density.
+        This force is scaled with the buoyancy_factor (float).
+
+        Args:
+          fac: 
+
+        Returns:
+
         """
         return fac
 
@@ -64,9 +80,14 @@ This force is scaled with the buoyancy_factor (float).
 
 class IncompressibleFlow(Physics):
     """
-Physics modelling the incompressible Navier-Stokes equations.
-Supports buoyancy proportional to the marker density.
-Supports obstacles, density effects, velocity effects, global gravity.
+    Physics modelling the incompressible Navier-Stokes equations.
+    Supports buoyancy proportional to the marker density.
+    Supports obstacles, density effects, velocity effects, global gravity.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, make_input_divfree=False, make_output_divfree=True, conserve_density=True):

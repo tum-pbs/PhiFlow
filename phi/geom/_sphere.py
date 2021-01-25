@@ -8,6 +8,11 @@ class Sphere(Geometry):
     """
     N-dimensional sphere.
     Defined through center position and radius.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, center, radius):
@@ -33,10 +38,15 @@ class Sphere(Geometry):
 
     def approximate_signed_distance(self, location):
         """
-Computes the exact distance from location to the closest point on the sphere.
-Very close to the sphere center, the distance takes a constant value.
-        :param location: float tensor of shape (batch_size, ..., rank)
-        :return: float tensor of shape (*location.shape[:-1], 1).
+        Computes the exact distance from location to the closest point on the sphere.
+        Very close to the sphere center, the distance takes a constant value.
+
+        Args:
+          location: float tensor of shape (batch_size, ..., rank)
+
+        Returns:
+          float tensor of shape (*location.shape[:-1], 1).
+
         """
         distance_squared = math.vec_squared(location - self.center)
         distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite gradient at sphere center

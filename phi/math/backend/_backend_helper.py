@@ -13,19 +13,24 @@ def general_grid_sample_nd(grid, coords, boundary, constant_values, math, reduce
     """
     Backend-independent grid sampling with linear interpolation.
     Supports boundary conditions per face: 'constant' , 'boundary', 'periodic', 'symmetric', 'reflect'.
-
+    
     Interpolation at the boundaries works according to the following principle:
     The boundary mode determines the value at virtual grid points outside the grid bounds.
     This is exact, even for far-away points.
     Then, linear interpolation is used to determine the point between grid points.
     Consequently, for constant boundaries, the value linearly approaches the constant value over the distance of one cell at the boundary.
 
-    :param grid: tensor of shape (batch_dim, spatial dims..., channels)
-    :param coords: tensor of shape (batch_dim, ..., spatial_rank)
-    :param boundary: 'zero'/'constant', 'boundary', 'periodic', 'symmetric', 'reflect'
-    :param constant_values: extrapolation values (same options as in pad)
-    :param math: backend
-    :return: tensor of sampled values from the grid
+    Args:
+      grid: tensor of shape (batch_dim, spatial dims..., channels)
+      coords: tensor of shape (batch_dim, ..., spatial_rank)
+      boundary: zero'/'constant', 'boundary', 'periodic', 'symmetric', 'reflect'
+      constant_values: extrapolation values (same options as in pad)
+      math: backend
+      reduce:  (Default value = 'linear')
+
+    Returns:
+      tensor of sampled values from the grid
+
     """
     if not isinstance(reduce, NeighbourReduce):
         reduce = {

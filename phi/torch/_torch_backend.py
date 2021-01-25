@@ -23,9 +23,15 @@ class TorchBackend(Backend):
     def auto_cast(self, *tensors):
         """
         Determins the appropriate values type resulting from operations involving the tensors as input.
-
+        
         This method is called by the default implementations of basic operators.
         Backends can override this method to prevent unnecessary casting.
+
+        Args:
+          *tensors: 
+
+        Returns:
+
         """
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)
@@ -90,18 +96,18 @@ class TorchBackend(Backend):
         return torch.cat(values, dim=axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
-        """pad tensor using mode
+        """
+        pad tensor using mode
 
-        :param value: values
-        :type value: torch.Tensor
-        :param pad_width: left, right, upper, lower
-        :type pad_width: iterable
-        :param mode: type of padding to be applied, defaults to 'constant'
-        :type mode: str, optional
-        :param constant_values: value to pad, defaults to 0
-        :type constant_values: int, optional
-        :return: padded tensor
-        :rtype: torch.Tensor
+        Args:
+          value(torch.Tensor): values
+          pad_width(iterable): left, right, upper, lower
+          mode(str, optional, optional): type of padding to be applied, defaults to 'constant'
+          constant_values(int, optional, optional): value to pad, defaults to 0
+
+        Returns:
+          torch.Tensor: padded tensor
+
         """
         # Valid mode: constant, reflect, replicate, circular
         pad_width = [item for sublist in reversed(pad_width) for item in sublist]
@@ -142,7 +148,18 @@ class TorchBackend(Backend):
         # return self._native_resample(inputs, sample_coords, interpolation, boundary)
 
     def _native_resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        """ Around 5% faster than general_grid_sample_nd on the CPU. Does not support multi-boundary resampling or constant values. """
+        """
+        Around 5% faster than general_grid_sample_nd on the CPU. Does not support multi-boundary resampling or constant values.
+
+        Args:
+          inputs: 
+          sample_coords: 
+          interpolation:  (Default value = 'linear')
+          boundary:  (Default value = 'constant')
+
+        Returns:
+
+        """
         inputs = channels_first(self.as_tensor(inputs))
         sample_coords = self.as_tensor(sample_coords)
         # --- Interpolation ---

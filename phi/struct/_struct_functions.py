@@ -9,12 +9,17 @@ from ._struct import copy_with, equal, isstruct, to_dict, Struct, VALID, INVALID
 
 def flatten(struct, leaf_condition=None, trace=False, item_condition=None):
     """
-Generates a list of all leaves by recursively iterating over the given struct.
-    :param struct: struct or leaf
-    :param leaf_condition: (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves.
-    :param trace: If True, returns a list of Trace objects instead of values.
-    :param item_condition: (optional) ItemCondition or boolean function that filters which Items are accumulated.
-    :return: list containing all leaves in the struct hierarchy
+    Generates a list of all leaves by recursively iterating over the given struct.
+
+    Args:
+      struct: struct or leaf
+      leaf_condition: optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves. (Default value = None)
+      trace: If True, returns a list of Trace objects instead of values. (Default value = False)
+      item_condition: optional) ItemCondition or boolean function that filters which Items are accumulated. (Default value = None)
+
+    Returns:
+      list containing all leaves in the struct hierarchy
+
     """
     def map_leaf(value):
         result.append(value)
@@ -28,12 +33,16 @@ def unflatten(flat, struct, leaf_condition=None, item_condition=None, content_ty
     """
     Undoes a `flatten` operation, restoring the contents of a struct from a list.
 
-    :param flat: list holding the flattened contents of a struct compatible with `struct`
-    :param struct: structure to restore data to
-    :param leaf_condition:  (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves.
-    :param item_condition:  (optional) ItemCondition or boolean function that filters which Items are accumulated.
-    :param content_type:  (optional) Type key to use for new Structs. Defaults to VALID. Item-specific overrides can be defined by calling Item.override using the content_type as key. Override functions must have the signature (parent_struct, value).
-    :return: struct compatible with `struct` holding the values from the `flat` list
+    Args:
+      flat: list holding the flattened contents of a struct compatible with `struct`
+      struct: structure to restore data to
+      leaf_condition: optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves. (Default value = None)
+      item_condition: optional) ItemCondition or boolean function that filters which Items are accumulated. (Default value = None)
+      content_type: optional) Type key to use for new Structs. Defaults to VALID. Item-specific overrides can be defined by calling Item.override using the content_type as key. Override functions must have the signature (parent_struct, value).
+
+    Returns:
+      struct compatible with `struct` holding the values from the `flat` list
+
     """
     flat = list(flat)
     return map(lambda _: flat.pop(0), struct, leaf_condition=leaf_condition, item_condition=item_condition, content_type=content_type)
@@ -50,16 +59,21 @@ def names(struct, leaf_condition=None, full_path=True, basename=None, separator=
 
 def zip(structs, leaf_condition=None, item_condition=None, zip_parents_if_incompatible=False):
     """
-Builds a single struct containing LeaefZip entries from a list of compatible structs.
-Passing zipped structs to 'map' will call the mapping function with the all leaves at equal positions in the structure.
+    Builds a single struct containing LeaefZip entries from a list of compatible structs.
+    Passing zipped structs to 'map' will call the mapping function with the all leaves at equal positions in the structure.
+    
+    Example `struct.map(lambda x, y: x+y, struct.zip([{0: 'Hello'}, {0: ' World'}]))` returns `{0: 'Hello World'}`.
 
-Example `struct.map(lambda x, y: x+y, struct.zip([{0: 'Hello'}, {0: ' World'}]))` returns `{0: 'Hello World'}`.
-    :param structs: iterable collection of structs or leaves
-    :param leaf_condition: (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves.
-    :param item_condition: (optional) ItemCondition or boolean function that filters which Items are zipped. Excluded items should have the same values among all structs.
-    :param zip_parents_if_incompatible: If True, suppresses IncompatibleStructs errors if structs with non-matching excluded items are encountered. Instead, these structs are treated as leaves and zipped.
-    :return: Single struct matching the structure of any of the given structs and holding LeafZip objects as leaves for non-excluded items
-    :raise IncompatibleStructs: If structs with non-matching excluded items are encountered and zip_parents_if_incompatible=False
+    Args:
+      structs: iterable collection of structs or leaves
+      leaf_condition: optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves. (Default value = None)
+      item_condition: optional) ItemCondition or boolean function that filters which Items are zipped. Excluded items should have the same values among all structs. (Default value = None)
+      zip_parents_if_incompatible: If True, suppresses IncompatibleStructs errors if structs with non-matching excluded items are encountered. Instead, these structs are treated as leaves and zipped. (Default value = False)
+
+    Returns:
+      Single struct matching the structure of any of the given structs and holding LeafZip objects as leaves for non-excluded items
+      :raise IncompatibleStructs: If structs with non-matching excluded items are encountered and zip_parents_if_incompatible=False
+
     """
     # pylint: disable-msg = redefined-builtin
     assert len(structs) > 0
@@ -92,8 +106,13 @@ Example `struct.map(lambda x, y: x+y, struct.zip([{0: 'Hello'}, {0: ' World'}]))
 
 class LeafZip(object):
     """
-Created by struct.zip to replace data.
-When a LeafZip is mapped using 'map', the values are passed as multiple arguments (*args).
+    Created by struct.zip to replace data.
+    When a LeafZip is mapped using 'map', the values are passed as multiple arguments (*args).
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, values):
@@ -110,9 +129,7 @@ When a LeafZip is mapped using 'map', the values are passed as multiple argument
 
 
 class IncompatibleStructs(Exception):
-    """
-Thrown when two or more structs are required to have the same structure but do not, e.g. when trying to zip incompatible structs.
-    """
+    """Thrown when two or more structs are required to have the same structure but do not, e.g. when trying to zip incompatible structs."""
 
     def __init__(self, *args):
         Exception.__init__(self, *args)
@@ -120,16 +137,21 @@ Thrown when two or more structs are required to have the same structure but do n
 
 def map(function, struct, leaf_condition=None, recursive=True, trace=False, item_condition=None, content_type=None):
     """
-Iterates over all items of the struct and maps their values according to the specified function.
-Preserves the hierarchical structure of struct, returning an object of the same type and leaving struct untouched.
-    :param function: function mapping from leaf values to new values. If not otherwise specified, the new values will be validated before map returns. If trace=True, Trace objects will be passed instead of values. For zipped structs, multiple values or a Trace containing multiple values is passed to function.
-    :param struct: struct or leaf value
-    :param leaf_condition: (optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves. Leaf structs are not iterated over but directly passed to function.
-    :param recursive: If True, recursively iterates over all non-leaf sub-structs, passing only leaves to function. Otherwise only iterates over direct items of struct; all sub-structs are treated as leaves.
-    :param trace: If True, passes a Trace object to function instead of the value. Traces contain additional information.
-    :param item_condition: (optional) ItemCondition or boolean function that filters which Items are iterated over. Excluded items are left untouched. If None, the context item condition is used (data-holding items by default).
-    :param content_type: (optional) Type key to use for new Structs. Defaults to VALID. Item-specific overrides can be defined by calling Item.override using the content_type as key. Override functions must have the signature (parent_struct, value).
-    :return: object of the same type and hierarchy as struct
+    Iterates over all items of the struct and maps their values according to the specified function.
+    Preserves the hierarchical structure of struct, returning an object of the same type and leaving struct untouched.
+
+    Args:
+      function: function mapping from leaf values to new values. If not otherwise specified, the new values will be validated before map returns. If trace=True, Trace objects will be passed instead of values. For zipped structs, multiple values or a Trace containing multiple values is passed to function.
+      struct: struct or leaf value
+      leaf_condition: optional) function that determines which structs are treated as leaves. Non-structs are always treated as leaves. Leaf structs are not iterated over but directly passed to function. (Default value = None)
+      recursive: If True, recursively iterates over all non-leaf sub-structs, passing only leaves to function. Otherwise only iterates over direct items of struct; all sub-structs are treated as leaves. (Default value = True)
+      trace: If True, passes a Trace object to function instead of the value. Traces contain additional information. (Default value = False)
+      item_condition: optional) ItemCondition or boolean function that filters which Items are iterated over. Excluded items are left untouched. If None, the context item condition is used (data-holding items by default).
+      content_type: optional) Type key to use for new Structs. Defaults to VALID. Item-specific overrides can be defined by calling Item.override using the content_type as key. Override functions must have the signature (parent_struct, value).
+
+    Returns:
+      object of the same type and hierarchy as struct
+
     """
     # pylint: disable-msg = redefined-builtin
     if trace is True:
@@ -185,8 +207,13 @@ def foreach(function, *structs, leaf_condition=None, recursive=True, trace=False
 
 class Trace(object):
     """
-Used in struct.map if trace=True.
-Trace objects can be used to reference a specific item of a struct or sub-struct as well as gather information about it.
+    Used in struct.map if trace=True.
+    Trace objects can be used to reference a specific item of a struct or sub-struct as well as gather information about it.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, value, key, parent_trace):
@@ -280,12 +307,17 @@ def mappable(leaf_condition=None, recursive=True, item_condition=None, unsafe_co
 
 def shape(obj, leaf_condition=None, item_condition=None):
     """
-Maps all values of a struct to their respective dynamic shapes using `math.shape()`.
-To specify custom shapes, add an override with key struct.shape to the Item.
-    :param obj: struct or leaf
-    :param leaf_condition: (optional) leaf_condition passed to `map`
-    :param item_condition: (optional) item_condition passed to `map`
-    :return: Struct of same type holding shapes instead of data
+    Maps all values of a struct to their respective dynamic shapes using `math.shape()`.
+    To specify custom shapes, add an override with key struct.shape to the Item.
+
+    Args:
+      obj: struct or leaf
+      leaf_condition: optional) leaf_condition passed to `map` (Default value = None)
+      item_condition: optional) item_condition passed to `map` (Default value = None)
+
+    Returns:
+      Struct of same type holding shapes instead of data
+
     """
     def get_shape(obj):
         try:
@@ -300,12 +332,17 @@ To specify custom shapes, add an override with key struct.shape to the Item.
 
 def staticshape(obj, leaf_condition=None, item_condition=None):
     """
-Maps all values of a struct to their respective static shapes using `math.staticshape()`.
-To specify custom static shapes, add an override with key struct.staticshape to the Item.
-    :param obj: struct or leaf
-    :param leaf_condition: (optional) leaf_condition passed to `map`
-    :param item_condition: (optional) item_condition passed to `map`
-    :return: Struct of same type holding shapes instead of data
+    Maps all values of a struct to their respective static shapes using `math.staticshape()`.
+    To specify custom static shapes, add an override with key struct.staticshape to the Item.
+
+    Args:
+      obj: struct or leaf
+      leaf_condition: optional) leaf_condition passed to `map` (Default value = None)
+      item_condition: optional) item_condition passed to `map` (Default value = None)
+
+    Returns:
+      Struct of same type holding shapes instead of data
+
     """
     def get_staticshape(obj):
         try:
@@ -320,12 +357,17 @@ To specify custom static shapes, add an override with key struct.staticshape to 
 
 def dtype(obj, leaf_condition=None, item_condition=None):
     """
-Maps all values of a struct to their respective data types using `math.dtype()`.
-To specify custom dtypes, add an override with key struct.dtype to the Item.
-    :param obj: struct or leaf
-    :param leaf_condition: (optional) leaf_condition passed to `map`
-    :param item_condition: (optional) item_condition passed to `map`
-    :return: Struct of same type holding data types instead of data
+    Maps all values of a struct to their respective data types using `math.dtype()`.
+    To specify custom dtypes, add an override with key struct.dtype to the Item.
+
+    Args:
+      obj: struct or leaf
+      leaf_condition: optional) leaf_condition passed to `map` (Default value = None)
+      item_condition: optional) item_condition passed to `map` (Default value = None)
+
+    Returns:
+      Struct of same type holding data types instead of data
+
     """
     def get_dtype(obj):
         try:

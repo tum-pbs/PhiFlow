@@ -27,7 +27,17 @@ def gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='vector')
 
 
 def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
-    """ Wraps :func:`math.shift` for CenteredGrid. """
+    """
+    Wraps :func:`math.shift` for CenteredGrid.
+
+    Args:
+      grid: CenteredGrid: 
+      offsets: tuple: 
+      stack_dim:  (Default value = 'shift')
+
+    Returns:
+
+    """
     data = math.shift(grid.values, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
 
@@ -36,16 +46,24 @@ def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.ex
     """
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
     One layer of missing cells is inferred from the extrapolation.
-
+    
     This method returns a Field of type `type` which must be either StaggeredGrid or CenteredGrid.
     When returning a StaggeredGrid, the new values are sampled at the faces of neighbouring cells.
     When returning a CenteredGrid, the new grid has the same resolution as `field`.
 
-    :param field: centered grid
-    :param face_function: function mapping (value1: Tensor, value2: Tensor) -> center_value: Tensor
-    :param extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
-    :param type: one of (StaggeredGrid, CenteredGrid)
-    :return: grid of type matching the `type` argument
+    Args:
+      field: centered grid
+      face_function: function mapping (value1: Tensor, value2: Tensor) -> center_value: Tensor
+      extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
+      type: one of (StaggeredGrid, CenteredGrid)
+      field: CenteredGrid: 
+      face_function: callable: 
+      extrapolation: math.extrapolation.Extrapolation: 
+      type: type:  (Default value = StaggeredGrid)
+
+    Returns:
+      grid of type matching the `type` argument
+
     """
     all_lower = []
     all_upper = []
@@ -90,16 +108,20 @@ GridType = TypeVar('GridType', bound=Grid)
 def diffuse(field: FieldType, diffusivity, dt, substeps=1) -> FieldType:
     """
     Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` FieldType with diffusion coefficient α.
-
+    
     If `field` is periodic (set via `extrapolation='periodic'`), diffusion may be simulated in Fourier space.
     Otherwise, finite differencing is used to approximate the
 
-    :param field: CenteredGrid, StaggeredGrid or ConstantField
-    :param diffusivity: diffusion amount = diffusivity * dt
-    :param dt: diffusion amount = diffusivity * dt
-    :param substeps: number of iterations to use
-    :return: Field of same type as `field`
-    :rtype: Field
+    Args:
+      field: CenteredGrid, StaggeredGrid or ConstantField
+      diffusivity: diffusion amount = diffusivity * dt
+      dt: diffusion amount = diffusivity * dt
+      substeps: number of iterations to use (Default value = 1)
+      field: FieldType: 
+
+    Returns:
+      Field: Field of same type as `field`
+
     """
     if isinstance(field, ConstantField):
         return field
@@ -175,12 +197,19 @@ def divergence_free(vector_field: Grid, solve_params: math.LinearSolve = math.Li
     """
     Returns the divergence-free part of the given vector field.
     The boundary conditions are taken from `vector_field`.
-
+    
     This function solves for a scalar potential with an iterative solver.
 
-    :param vector_field: vector grid
-    :param solve_params:
-    :return: divergence-free vector field, scalar potential, number of iterations performed, divergence
+    Args:
+      vector_field: vector grid
+      solve_params: return: divergence-free vector field, scalar potential, number of iterations performed, divergence
+      vector_field: Grid: 
+      solve_params: math.LinearSolve:  (Default value = math.LinearSolve(None)
+      1e-5): 
+
+    Returns:
+      divergence-free vector field, scalar potential, number of iterations performed, divergence
+
     """
     div = divergence(vector_field)
     div -= mean(div)

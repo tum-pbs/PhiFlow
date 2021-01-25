@@ -39,10 +39,16 @@ VALID = _DataType('valid')
 
 
 class Struct(object):
-    """ Deprecated.
-
+    """
+    Deprecated.
+    
     Base class for all custom structs.
     To implement a custom struct, extend this class and add the decorator @struct.definition().
+
+    Args:
+
+    Returns:
+
     """
 
     __items__ = None
@@ -65,13 +71,18 @@ class Struct(object):
     @derived()
     def shape(self):
         """
-Retrieves the dynamic shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
-Shapes of sub-structs are obtained using `struct.shape` while shapes of non-structs are obtained using `math.shape()`.
-
-To override the shapes of items, use `Item.override` with key `struct.shape` instead of overriding this method.
-
-The result of `x.shape` is equivalent to calling `struct.shape(x)`.
+        Retrieves the dynamic shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+        Shapes of sub-structs are obtained using `struct.shape` while shapes of non-structs are obtained using `math.shape()`.
+        
+        To override the shapes of items, use `Item.override` with key `struct.shape` instead of overriding this method.
+        
+        The result of `x.shape` is equivalent to calling `struct.shape(x)`.
         :return: Struct of same type holding shapes instead of data
+
+        Args:
+
+        Returns:
+
         """
         from ._struct_functions import shape
         return shape(self)
@@ -79,13 +90,18 @@ The result of `x.shape` is equivalent to calling `struct.shape(x)`.
     @derived()
     def staticshape(self):
         """
-Retrieves the static shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
-Shapes of sub-structs are obtained using `struct.staticshape` while shapes of non-structs are obtained using `math.staticshape()`.
-
-To override the static shapes of items, use `Item.override` with key `struct.staticshape` instead of overriding this method.
-
-The result of `x.staticshape` is equivalent to calling `struct.staticshape(x)`.
+        Retrieves the static shapes of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+        Shapes of sub-structs are obtained using `struct.staticshape` while shapes of non-structs are obtained using `math.staticshape()`.
+        
+        To override the static shapes of items, use `Item.override` with key `struct.staticshape` instead of overriding this method.
+        
+        The result of `x.staticshape` is equivalent to calling `struct.staticshape(x)`.
         :return: Struct of same type holding shapes instead of data
+
+        Args:
+
+        Returns:
+
         """
         from ._struct_functions import staticshape
         return staticshape(self)
@@ -93,35 +109,71 @@ The result of `x.staticshape` is equivalent to calling `struct.staticshape(x)`.
     @derived()
     def dtype(self):
         """
-Retrieves the data types of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
-Data types of sub-structs are obtained using `struct.dtype` while types of non-structs are obtained using `math.dtype()`.
-
-To override the dtype of items, use `Item.override` with key `struct.dtype` instead of overriding this method.
-
-The result of `x.dtype` is equivalent to calling `struct.dtype(x)`.
+        Retrieves the data types of items specified through the context (see :class:`phi.struct.item_condition.ItemCondition`).
+        Data types of sub-structs are obtained using `struct.dtype` while types of non-structs are obtained using `math.dtype()`.
+        
+        To override the dtype of items, use `Item.override` with key `struct.dtype` instead of overriding this method.
+        
+        The result of `x.dtype` is equivalent to calling `struct.dtype(x)`.
         :return: Struct of same type holding data types instead of data
+
+        Args:
+
+        Returns:
+
         """
         from ._struct_functions import dtype
         return dtype(self)
 
     def map(self, function, leaf_condition=None, recursive=True, trace=False, item_condition=None, content_type=None):
-        """Alias for struct.map()"""
+        """
+        Alias for struct.map()
+
+        Args:
+          function: 
+          leaf_condition:  (Default value = None)
+          recursive:  (Default value = True)
+          trace:  (Default value = False)
+          item_condition:  (Default value = None)
+          content_type:  (Default value = None)
+
+        Returns:
+
+        """
         from ._struct_functions import map
         return map(function, self, leaf_condition=leaf_condition, recursive=recursive, trace=trace, item_condition=item_condition, content_type=content_type)
 
     def map_item(self, item, function, leaf_condition=None, recursive=True, content_type=None):
-        """Alias for struct.map_item()"""
+        """
+        Alias for struct.map_item()
+
+        Args:
+          item: 
+          function: 
+          leaf_condition:  (Default value = None)
+          recursive:  (Default value = True)
+          content_type:  (Default value = None)
+
+        Returns:
+
+        """
         from ._struct_functions import map_item
         return map_item(item, function, self, leaf_condition=leaf_condition, recursive=recursive, content_type=content_type)
 
     def copied_with(self, change_type=None, **kwargs):
         """
-Returns a copy of this Struct with some items values changed.
-The Struct, this method is invoked on, remains unaltered.
-The returned struct will be validated unless this struct is not valid or the content_type is set to something different than VALID.
-        :param change_type: content type of the returned struct
-        :param kwargs: Items to change, in the form item_name=new_value.
-        :return: Altered copy of this object
+        Returns a copy of this Struct with some items values changed.
+        The Struct, this method is invoked on, remains unaltered.
+        The returned struct will be validated unless this struct is not valid or the content_type is set to something different than VALID.
+
+        Args:
+          change_type: content type of the returned struct (Default value = None)
+          kwargs: Items to change, in the form item_name=new_value.
+          **kwargs: 
+
+        Returns:
+          Altered copy of this object
+
         """
         duplicate = copy(self)
         duplicate._set_items(**kwargs)  # pylint: disable-msg = protected-access
@@ -147,9 +199,14 @@ The returned struct will be validated unless this struct is not valid or the con
 
     def validate(self):
         """
-Performs validation on this struct if it holds data and is invalid.
-Data-holding structs should always be valid while structs holding non-data content such as shapes or data types are not regarded as valid.
+        Performs validation on this struct if it holds data and is invalid.
+        Data-holding structs should always be valid while structs holding non-data content such as shapes or data types are not regarded as valid.
         :return: True if validation was performed, False otherwise
+
+        Args:
+
+        Returns:
+
         """
         if not skip_validate() and self.__can_validate__():
             self.__validate__()

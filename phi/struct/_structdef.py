@@ -7,7 +7,13 @@ from ._trait import Trait
 
 def definition(traits=()):
     """
-Required decorator for custom struct classes.
+    Required decorator for custom struct classes.
+
+    Args:
+      traits:  (Default value = ())
+
+    Returns:
+
     """
     if isinstance(traits, Trait):
         traits = (traits,)
@@ -58,12 +64,18 @@ Required decorator for custom struct classes.
 
 def variable(default=None, dependencies=(), holds_data=True, **trait_kwargs):
     """
-Required decorator for data_dict of custom structs.
-The enclosing class must be decorated with struct.definition().
-    :param default: default value passed to validation if no other value is specified
-    :param dependencies: other items (string or reference for inherited constants_dict)
-    :param holds_data: determines whether the variable is considered by data-related functions
-    :return: read-only property
+    Required decorator for data_dict of custom structs.
+    The enclosing class must be decorated with struct.definition().
+
+    Args:
+      default: default value passed to validation if no other value is specified
+      dependencies: other items (string or reference for inherited constants_dict) (Default value = ())
+      holds_data: determines whether the variable is considered by data-related functions (Default value = True)
+      **trait_kwargs: 
+
+    Returns:
+      read-only property
+
     """
     def decorator(validate):
         return Item(validate.__name__, validate, True, default, dependencies, holds_data, **trait_kwargs)
@@ -72,12 +84,18 @@ The enclosing class must be decorated with struct.definition().
 
 def constant(default=None, dependencies=(), holds_data=False, **trait_kwargs):
     """
-Required decorator for constants_dict of custom structs.
-The enclosing class must be decorated with struct.definition().
-    :param default: default value passed to validation if no other value is specified
-    :param dependencies: other items (string or reference for inherited constants_dict)
-    :param holds_data: determines whether the constant is considered by data-related functions
-    :return: read-only property
+    Required decorator for constants_dict of custom structs.
+    The enclosing class must be decorated with struct.definition().
+
+    Args:
+      default: default value passed to validation if no other value is specified
+      dependencies: other items (string or reference for inherited constants_dict) (Default value = ())
+      holds_data: determines whether the constant is considered by data-related functions (Default value = False)
+      **trait_kwargs: 
+
+    Returns:
+      read-only property
+
     """
     def decorator(validate):
         return Item(validate.__name__, validate, False, default, dependencies, holds_data, **trait_kwargs)
@@ -86,8 +104,13 @@ The enclosing class must be decorated with struct.definition().
 
 def derived():
     """
-Derived properties work similar to @property but can be easily broadcast across many instances.
+    Derived properties work similar to @property but can be easily broadcast across many instances.
     :return: read-only property
+
+    Args:
+
+    Returns:
+
     """
     def decorator(getter):
         return DerivedProperty(getter.__name__, getter)
@@ -95,9 +118,7 @@ Derived properties work similar to @property but can be easily broadcast across 
 
 
 class Item(object):
-    """
-Represents an item type of a struct, a variable or a constant.
-    """
+    """Represents an item type of a struct, a variable or a constant."""
 
     def __init__(self, name, validation_function, is_variable, default_value, dependencies, holds_data, **trait_kwargs):
         assert callable(validation_function) or validation_function is None
@@ -161,16 +182,21 @@ Represents an item type of a struct, a variable or a constant.
 
     def override(self, content_type, override_function):
         """
-Override a property or behaviour of this item and/or its values.
-This affects all instances of the associated Struct.
-The override function is called instead of the usual function in `struct.map` to obtain a leaf value.
+        Override a property or behaviour of this item and/or its values.
+        This affects all instances of the associated Struct.
+        The override function is called instead of the usual function in `struct.map` to obtain a leaf value.
+        
+        Overrides can also be used to specify custom property getters, e.g. to override shape, staticshape, dtype.
+        As this method is called on an Item, it must be invoked outside the item it affects.
+        
+        Example: to override the shape of an item, put the following just below its declaration: `item.override(struct.shape, lambda self, value: custom_shape)`
 
-Overrides can also be used to specify custom property getters, e.g. to override shape, staticshape, dtype.
-As this method is called on an Item, it must be invoked outside the item it affects.
+        Args:
+          content_type: custom name or Item/DerivedItem reference
+          override_function: function, signature depends on the overridden property.
 
-Example: to override the shape of an item, put the following just below its declaration: `item.override(struct.shape, lambda self, value: custom_shape)`
-        :param content_type: custom name or Item/DerivedItem reference
-        :param override_function: function, signature depends on the overridden property.
+        Returns:
+
         """
         self._overrides[self._attribute_name(content_type)] = override_function
 

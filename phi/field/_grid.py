@@ -13,12 +13,17 @@ from ..math._tensors import TensorStack, Tensor
 class Grid(SampledField):
     """
     Base class for CenteredGrid, StaggeredGrid.
-
+    
     Grids are defined by
-
+    
     * data: Tensor, defines resolution
     * bounds: physical size of the grid, defines dx
     * extrapolation: values of virtual grid points lying outside the data bounds
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, values: Tensor, resolution: Shape, bounds: Box, extrapolation=math.extrapolation.ZERO):
@@ -53,10 +58,15 @@ class CenteredGrid(Grid):
     """
     N-dimensional grid with values sampled at the cell centers.
     A centered grid is defined through its data tensor, its bounds describing the physical size and extrapolation.
-
+    
     Centered grids support arbitrary batch, spatial and channel dimensions.
-
+    
     See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, values, bounds: Box, extrapolation=math.extrapolation.ZERO):
@@ -136,10 +146,15 @@ class StaggeredGrid(Grid):
     """
     N-dimensional grid whose vector components are sampled at the respective face centers.
     A staggered grid is defined through its values tensor, its bounds describing the physical size and extrapolation.
-
+    
     Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
-
+    
     See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
@@ -156,18 +171,25 @@ class StaggeredGrid(Grid):
         """
         Creates a StaggeredGrid from `value`.
         `value` has to be one of the following:
-
+        
         * Geometry: sets inside values to 1, outside to 0
         * Field: resamples the Field to the staggered sample points
         * float, int: uses the value for all sample points
         * tuple, list: interprets the sequence as vector, used for all sample points
         * Tensor compatible with grid dims: uses tensor values as grid values
 
-        :param value: values to use for the grid
-        :param resolution: grid resolution
-        :param bounds: physical grid bounds
-        :param extrapolation:
-        :return: Sampled values in staggered grid form matching domain resolution
+        Args:
+          value: values to use for the grid
+          resolution: grid resolution
+          bounds: physical grid bounds
+          extrapolation: return: Sampled values in staggered grid form matching domain resolution (Default value = math.extrapolation.ZERO)
+          value: Field or Geometry or callable or Tensor or float or int: 
+          resolution: Shape: 
+          bounds: Box: 
+
+        Returns:
+          Sampled values in staggered grid form matching domain resolution
+
         """
         if isinstance(value, Geometry):
             value = HardGeometryMask(value)

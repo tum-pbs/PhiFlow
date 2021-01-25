@@ -61,8 +61,14 @@ def equiangular_to_cubemap(equiangular, resolution=None):
 
     def lookup(theta, phi):
         """
-        :param theta: [-pi, pi]
-        :param phi: [0, 2 pi]
+        
+
+        Args:
+          theta: pi, pi]
+          phi: 0, 2 pi]
+
+        Returns:
+
         """
         flip = np.where((theta > np.pi/2) | (theta < -np.pi/2), -1, 1)
         phi *= flip

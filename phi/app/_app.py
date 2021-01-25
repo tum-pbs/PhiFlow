@@ -55,13 +55,18 @@ class TimeDependentField(object):
 class App(object):
     """
     Main class for defining an application that can be displayed in the user interface.
-
+    
     To display data, call App.add_field().
     All fields need to be registered before the app is prepared or shown.
-
+    
     To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
-
+    
     See the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self,
@@ -158,13 +163,17 @@ class App(object):
         """
         Specifies the current physics state of the app and optionally the solver step function.
         The current physics state of the app is stored in `app.state`.
-
+        
         This method replaces `world.add()` calls from Φ-Flow 1.
 
-        :param initial_state: dict mapping names (str) to Fields or Tensors
-        :param step_function: function to progress the state. Called as step_function(dt=dt, **current_state)
-        :param show: list of names to expose to the user interface
-        :param dt: (optional) value of dt to be passed to step_function
+        Args:
+          initial_state: dict mapping names (str) to Fields or Tensors
+          step_function: function to progress the state. Called as step_function(dt=dt, **current_state) (Default value = None)
+          show: list of names to expose to the user interface (Default value = ())
+          dt: optional) value of dt to be passed to step_function (Default value = None)
+
+        Returns:
+
         """
         self.state = initial_state
         self.step_function = step_function
@@ -209,13 +218,18 @@ class App(object):
         """
         Performs a single step.
         You may override this method to specify what happens when the user presses the buttons `Step` or `Play`.
-
+        
         If a step function has been passed to `App.set_state()`, the state is progressed using that function.
-
+        
         Otherwise, `world.step()` is executed (for phiflow 1 style simulations).
-
+        
         App.steps automatically counts how many steps have been completed.
         If this method is not overridden, `App.time` is additionally increased by `App.dt`.
+
+        Args:
+
+        Returns:
+
         """
         dt = self.dt  # prevent race conditions
         if self.step_function is None:
@@ -240,15 +254,20 @@ class App(object):
         """
         Expose data to be displayed in the user interface.
         This method must be called before the user interface is launched, i.e. before `show(app)` or `app.prepare()` are invoked.
-
+        
         `value` must be one of the following
-
+        
         * Field
         * tensor
         * function without arguments returning one of the former. This function will be called each time the interface is updated.
 
-        :param name: unique human-readable name
-        :param value: data to display
+        Args:
+          name: unique human-readable name
+          value: data to display
+          name: str: 
+
+        Returns:
+
         """
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if isinstance(value, StateProxy):
@@ -298,17 +317,22 @@ class App(object):
     def prepare(self):
         """
         Prepares the app to be displayed in a user interface.
-
+        
         This method can only be called once.
         If not invoked manually, it is automatically called before the user interface is launched.
-
+        
         Preparation includes:
-
+        
         * Detecting editable values from member variables that start with 'value_'
         * Detecting actions from member functions that start with 'action_'
         * Initializing the scene directory with a JSON file and copying related Python source files
-
+        
         :return: self
+
+        Args:
+
+        Returns:
+
         """
         if self.prepared:
             return

@@ -60,8 +60,13 @@ def union(*geometries) -> Geometry:
     Union of the given geometries.
     A point lies inside the union if it lies within at least one of the geometries.
 
-    :param geometries: arbitrary geometries with same spatial dims. Arbitrary batch dims are allowed.
-    :return: union Geometry
+    Args:
+      geometries: arbitrary geometries with same spatial dims. Arbitrary batch dims are allowed.
+      *geometries: 
+
+    Returns:
+      union Geometry
+
     """
     if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)):
         geometries = geometries[0]

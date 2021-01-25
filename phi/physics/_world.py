@@ -21,10 +21,15 @@ class StateProxy(object):
     While State objects are generally immutable, StateProxy also implements setting any attribute of the state.
     When an attribute is set, a copy of the state with the new value replaces the old state in the world.
     This object then mirrors the values of the new state.
-
+    
     After world.step() is invoked, all Proxies of that world will mirror the state after stepping.
-
+    
     To reference the current immutable state of
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, enclosing_world, state_name):
@@ -34,8 +39,13 @@ class StateProxy(object):
     @property
     def state(self):
         """
-Finds and returns the state in the referenced world that matches the StateProxy's state_name.
+        Finds and returns the state in the referenced world that matches the StateProxy's state_name.
         :return: State
+
+        Args:
+
+        Returns:
+
         """
         state = self.world.state[self.state_name]
         assert state is not None
@@ -44,7 +54,13 @@ Finds and returns the state in the referenced world that matches the StateProxy'
     @state.setter
     def state(self, state):
         """
-Replaces the State in the referenced world.
+        Replaces the State in the referenced world.
+
+        Args:
+          state: 
+
+        Returns:
+
         """
         assert state.name == self.state_name
         self.world.state = self.world.state.state_replaced(state)
@@ -52,8 +68,13 @@ Replaces the State in the referenced world.
     @property
     def physics(self):
         """
-Returns the Physics object used by the referenced world for the system.
-If not specified manually, the default physics is returned.
+        Returns the Physics object used by the referenced world for the system.
+        If not specified manually, the default physics is returned.
+
+        Args:
+
+        Returns:
+
         """
         physics = self.world.physics.for_(self.state)
         assert physics is not None
@@ -62,17 +83,27 @@ If not specified manually, the default physics is returned.
     @physics.setter
     def physics(self, physics):
         """
-Sets a specific Physics object for the system in the referenced world.
-        :param physics: Physics
+        Sets a specific Physics object for the system in the referenced world.
+
+        Args:
+          physics: Physics
+
+        Returns:
+
         """
         assert isinstance(physics, Physics)
         self.world.physics.add(self.state_name, physics)
 
     def step(self, dt=1.0, physics=None):
         """
-Steps this system in the referenced world. Other states are not affected.
-        :param dt: time increment
-        :param physics: specific Physics object to use, defaults to self.physics
+        Steps this system in the referenced world. Other states are not affected.
+
+        Args:
+          dt: time increment (Default value = 1.0)
+          physics: specific Physics object to use, defaults to self.physics
+
+        Returns:
+
         """
         self.world.step(self, dt=dt, physics=physics)
 
@@ -103,10 +134,15 @@ S = TypeVar('S', bound=State)
 class World(object):
     """
     A world object defines a global state as well as a set of rules (Physics objects) that definition how the state evolves.
-
+    
     The world manages dependencies among the contained simulations and provides convenience methods for creating proxies for specific simulations.
-
+    
     The method world.step() evolves the whole state or optionally a specific state in time.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, batch_size=None, add_default_objects=True):
@@ -116,10 +152,15 @@ class World(object):
 
     def reset(self, batch_size=None, add_default_objects=True):
         """
-Resets the world to the default configuration.
-This removes all States and observers.
-        :param batch_size: int or None
-        :param add_default_objects: if True, adds defaults like Gravity
+        Resets the world to the default configuration.
+        This removes all States and observers.
+
+        Args:
+          batch_size: int or None (Default value = None)
+          add_default_objects: if True, adds defaults like Gravity
+
+        Returns:
+
         """
         self._state = StateCollection()
         self.physics = self._state.default_physics()
@@ -131,23 +172,31 @@ This removes all States and observers.
     @property
     def state(self):
         """
-Returns the current state of the world.
+        Returns the current state of the world.
         :return: StateCollection
+
+        Args:
+
+        Returns:
+
         """
         return self._state
 
     @property
     def age(self):
-        """
-Alias for world.state.age
-        """
+        """Alias for world.state.age"""
         return self._state.age
 
     @state.setter
     def state(self, state):
         """
-Sets the current state of the world and informs all observers.
-        :param state: StateCollection
+        Sets the current state of the world and informs all observers.
+
+        Args:
+          state: StateCollection
+
+        Returns:
+
         """
         assert state is not None
         assert isinstance(state, StateCollection)
@@ -161,14 +210,19 @@ Sets the current state of the world and informs all observers.
         If state is provided, only that state is evolved, leaving the others untouched.
         The optional physics parameter can then be used to override the default physics.
         Otherwise, all states are evolved.
-
+        
         Calling World.step resolves all dependencies among simulations and then calls Physics.step on each simulation to evolve the states.
-
+        
         Invoking this method alters the world state. To to_field a copy of the state, use :func:`World.stepped <~world.World.stepped>` instead.
-            :param state: State, StateProxy or None
-            :param dt: time increment
-            :param physics: Physics object for the state or None for default
-            :return: evolved state if a specific state was provided
+
+        Args:
+          state: State, StateProxy or None (Default value = None)
+          dt: time increment (Default value = 1.0)
+          physics: Physics object for the state or None for default
+
+        Returns:
+          evolved state if a specific state was provided
+
         """
         if state is None:
             if physics is None:
@@ -184,7 +238,15 @@ Sets the current state of the world and informs all observers.
 
     def stepped(self, state=None, dt=1.0, physics=None):
         """
-Similar to step() but does not change the state of the world. Instead, the new state is returned.
+        Similar to step() but does not change the state of the world. Instead, the new state is returned.
+
+        Args:
+          state:  (Default value = None)
+          dt:  (Default value = 1.0)
+          physics:  (Default value = None)
+
+        Returns:
+
         """
         if state is None:
             if physics is None:
@@ -219,7 +281,13 @@ Adds a State to the world that will be stepped forward in time each time world.s
 
     def add_all(self, *states):
         """
-Add a collection of states to the system using world.add(state).
+        Add a collection of states to the system using world.add(state).
+
+        Args:
+          *states: 
+
+        Returns:
+
         """
         warnings.warn('World.add_all() is deprecated. Use World.add(list_of_states) instead.', DeprecationWarning)
         for state in states:
@@ -227,8 +295,13 @@ Add a collection of states to the system using world.add(state).
 
     def remove(self, obj):
         """
-Remove a system or collection of systems from the world.
-        :param obj: one of the following: State, state name, subclass of State, tuple or list thereof
+        Remove a system or collection of systems from the world.
+
+        Args:
+          obj: one of the following: State, state name, subclass of State, tuple or list thereof
+
+        Returns:
+
         """
         if inspect.isclass(obj):
             states = self.state.all_instances(obj)
@@ -246,8 +319,12 @@ Remove a system or collection of systems from the world.
         Looks up the Physics object associated with a given State or StateProxy.
         If no Physics object was registered manually, the state.default_physics() object is used.
 
-        :param state: State or StateProxy contained in this world
-        :return: Physics
+        Args:
+          state: State or StateProxy contained in this world
+
+        Returns:
+          Physics
+
         """
         if isinstance(state, StateProxy):
             state = state.state
@@ -262,9 +339,14 @@ Remove a system or collection of systems from the world.
 
 def obstacle_mask(world_or_proxy):
     """
-Builds a binary Field, masking all obstacles in the world.
-    :param world_or_proxy: World or StateProxy object
-    :return: Field
+    Builds a binary Field, masking all obstacles in the world.
+
+    Args:
+      world_or_proxy: World or StateProxy object
+
+    Returns:
+      Field
+
     """
     world = world_or_proxy.world if isinstance(world_or_proxy, StateProxy) else world_or_proxy
     assert isinstance(world, World)
@@ -276,9 +358,10 @@ class StateCollection(dict):
 
     def __init__(self, states=None):
         """
-Create a state collection from a dictionary of states.
-        :param states: dict mapping from state names to states
-        :type states: dict or list or tuple None
+        Create a state collection from a dictionary of states.
+
+        Args:
+          states(dict or list or tuple None): dict mapping from state names to states
         """
         if states is None:
             states = {}

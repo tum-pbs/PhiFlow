@@ -12,25 +12,35 @@ from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM
 class Field:
     """
     Base class for all fields.
-
+    
     Important implementations:
-
+    
     * CenteredGrid
     * StaggeredGrid
     * PointCloud
     * Noise
-
+    
     See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+
+    Args:
+
+    Returns:
+
     """
 
     @property
     def shape(self) -> Shape:
         """
         Returns a shape with the following properties
-
+        
         * The spatial dimension names match the dimensions of this Field
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
+
+        Args:
+
+        Returns:
+
         """
         raise NotImplementedError()
 
@@ -39,25 +49,34 @@ class Field:
         """
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.
+
+        Args:
+
+        Returns:
+
         """
         return self.shape.spatial.rank
 
     def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         """
         Approximates the mean field value inside the volume of the geometry (batch).
-
+        
         For small volumes, the value at the volume's center may be sampled.
         The batch dimensions of the geometry are matched with this Field.
         Spatial dimensions can be used to sample a grid of geometries.
-
+        
         The default implementation of this method samples this Field at the center point of the geometry.
 
-        :param geometry: single or batched Geometry object
-        :param reduce_channels: (optional) dimension of `points` to be reduced against the vector dimension of this Field.
+        Args:
+          geometry: single or batched Geometry object
+          reduce_channels: optional) dimension of `points` to be reduced against the vector dimension of this Field.
         Causes the components of this field to be sampled at different locations.
-        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
+        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])` (Default value = ())
+          geometry: Geometry: 
 
-        :return: sampled values
+        Returns:
+          sampled values
+
         """
         return self.sample_at(geometry.center, reduce_channels)
 
@@ -67,12 +86,16 @@ class Field:
         Points must have a single channel dimension named `vector`.
         It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
 
-        :param points: world-space locations
-        :param reduce_channels: (optional) dimension of `points` to be reduced against the vector dimension of this Field.
+        Args:
+          points: world-space locations
+          reduce_channels: optional) dimension of `points` to be reduced against the vector dimension of this Field.
         Causes the components of this field to be sampled at different locations.
-        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
+        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])` (Default value = ())
+          points: Tensor: 
 
-        :return: sampled values
+        Returns:
+          sampled values
+
         """
         raise NotImplementedError(self)
 
@@ -80,11 +103,16 @@ class Field:
         """
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
-
+        
         Unlike Field.sample_at(), this method returns a Field object, not a Tensor.
 
-        :param representation: Field object defining the sample points. The values of `representation` are ignored.
-        :return: Field object of same type as `representation`
+        Args:
+          representation: Field object defining the sample points. The values of `representation` are ignored.
+          representation: SampledField: 
+
+        Returns:
+          Field object of same type as `representation`
+
         """
         elements = representation.elements
         resampled = self.sample_in(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
@@ -105,8 +133,13 @@ class Field:
         Unstack the field along one of its dimensions.
         The dimension can be batch, spatial or channel.
 
-        :param dimension: name of the dimension to unstack, must be part of `self.shape`
-        :return: tuple of Fields
+        Args:
+          dimension: name of the dimension to unstack, must be part of `self.shape`
+          dimension: str: 
+
+        Returns:
+          tuple of Fields
+
         """
         raise NotImplementedError()
 
@@ -165,8 +198,12 @@ class Field:
         """
         Perform an operation on the data of this field.
 
-        :param operator: function that accepts tensors and extrapolations and returns objects of the same type and dimensions
-        :return: Field of same type
+        Args:
+          operator: function that accepts tensors and extrapolations and returns objects of the same type and dimensions
+
+        Returns:
+          Field of same type
+
         """
         raise NotImplementedError()
 
@@ -180,9 +217,10 @@ class SampledField(Field):
         """
         Base class for fields that are sampled at specific locations such as grids or point clouds.
 
-        :param elements: Geometry object specifying the sample points and sizes
-        :param values: values corresponding to elements
-        :param extrapolation: values outside elements
+        Args:
+          elements: Geometry object specifying the sample points and sizes
+          values: values corresponding to elements
+          extrapolation: values outside elements
         """
         assert isinstance(extrapolation, (Extrapolation, tuple, list)), extrapolation
         assert isinstance(elements, Geometry), elements
@@ -196,12 +234,17 @@ class SampledField(Field):
         """
         Returns a geometrical representation of the discretized volume elements.
         The result is a tuple of Geometry objects, each of which can have additional spatial (but not batch) dimensions.
-
+        
         For grids, the geometries are boxes while particle fields may be represented as spheres.
-
+        
         If this Field has no discrete points, this method returns an empty geometry.
-
+        
         :return: Geometry with all batch/spatial dimensions of this Field. Staggered sample points are modelled using extra batch dimensions.
+
+        Args:
+
+        Returns:
+
         """
         return self._elements
 

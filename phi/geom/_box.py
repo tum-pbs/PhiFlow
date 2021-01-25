@@ -29,10 +29,15 @@ class AbstractBox(Geometry):
     def center(self) -> Tensor:
         """
         Center point of the geometry or geometry batch.
-
+        
         The shape of the location extends the shape of the Geometry by a `vector` dimension.
-
+        
         :return: Tensor describing the center location(s)
+
+        Args:
+
+        Returns:
+
         """
         raise NotImplementedError()
 
@@ -73,11 +78,16 @@ class AbstractBox(Geometry):
 
     def approximate_signed_distance(self, location):
         """
-Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
-For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
-For inside locations it is `-max(abs(l - s))`.
-        :param location: float tensor of shape (batch_size, ..., rank)
-        :return: float tensor of shape (*location.shape[:-1], 1).
+        Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
+        For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
+        For inside locations it is `-max(abs(l - s))`.
+
+        Args:
+          location: float tensor of shape (batch_size, ..., rank)
+
+        Returns:
+          float tensor of shape (*location.shape[:-1], 1).
+
         """
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
@@ -116,14 +126,19 @@ For inside locations it is `-max(abs(l - s))`.
 class BoxType(type):
     """
     Convenience function for creating N-dimensional boxes / cuboids.
-
+    
     Examples to create a box from (0, 0) to (10, 20):
-
+    
     * box[0:10, 0:20]
     * box((0, 0), (10, 20))
     * box((5, 10), size=(10, 20))
     * box(center=(5, 10), size=(10, 20))
     * box((10, 20))
+
+    Args:
+
+    Returns:
+
     """
 
     def __getitem__(self, item):
@@ -140,23 +155,25 @@ class BoxType(type):
 
 
 class Box(AbstractBox, metaclass=BoxType):
+    """
+    Simple cuboid defined by location of lower and upper corner in physical space.
+
+    In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, `Box[slice1, slice2,...]`
+    Each slice marks the lower and upper edge of the box along one dimension.
+    Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
+    The parameter slice.step has no effect.
+
+    **Examples**:
+
+        Box[0:1, 0:1]  # creates a two-dimensional unit box.
+        Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
+    """
 
     def __init__(self, lower: Tensor or float or int, upper: Tensor or float or int):
         """
-        Simple cuboid defined by location of lower and upper corner in physical space.
-
-        In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, `Box[slice1, slice2,...]`
-        Each slice marks the lower and upper edge of the box along one dimension.
-        Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
-        The parameter slice.step has no effect.
-
-        **Examples**:
-
-        * Box[0:1, 0:1] creates a two-dimensional unit box.
-        * Box[:, 0:1] creates an infinite-height Box from x=0 to x=1.
-
-        :param lower: physical location of lower corner
-        :param upper: physical location of upper corner
+        Args:
+          lower: physical location of lower corner
+          upper: physical location of upper corner
         """
         self._lower = tensor(lower)
         self._upper = tensor(upper)
@@ -275,10 +292,15 @@ class GridCell(AbstractBox):
     def center(self):
         """
         Center point of the box or batch of boxes.
-
+        
         The shape of the location extends the shape of the Box instance by a `vector` dimension.
-
+        
         :return: Tensor describing the center location(s)
+
+        Args:
+
+        Returns:
+
         """
         local_coords = math.meshgrid(**{dim: np.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
         points = self.bounds.local_to_global(local_coords)

@@ -18,7 +18,7 @@ class Material:
     """
     Defines the extrapolation modes / boundary conditions for a surface.
     The surface can be an Obstacle or a Domain boundary.
-
+    
     Use Material.as_material() to mix different materials for different sides.
     """
 
@@ -26,12 +26,13 @@ class Material:
         """
         Create a Material for a Domain or Obstacle.
 
-        :param name: material name
-        :param grid_extrapolation: extrapolation mode of grids created via Domain.grid()
-        :param vector_extrapolation: extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
-        :param near_vector_extrapolation: Used in pressure solve.
-        :param active_extrapolation: Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.
-        :param accessible_extrapolation: Whether quantities can move in and out of the domain. Used in pressure solve.
+        Args:
+          name: material name
+          grid_extrapolation: extrapolation mode of grids created via Domain.grid()
+          vector_extrapolation: extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
+          near_vector_extrapolation: Used in pressure solve.
+          active_extrapolation: Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.
+          accessible_extrapolation: Whether quantities can move in and out of the domain. Used in pressure solve.
         """
         self.name = name
         """ Material name """
@@ -55,10 +56,11 @@ class Material:
         Construct a mixed material from from a sequence of materials.
 
         Args:
-            obj: sequence of materials
+          obj: sequence of materials
+          obj: Material or tuple or list or dict: 
 
         Returns:
-            Single mixed Material
+          : Single mixed Material
 
         """
         if isinstance(obj, Material):
@@ -98,15 +100,16 @@ class Domain:
         """
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
-        It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
+            It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
 
-        Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
+            Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
 
-        :param resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.
-        :param boundaries: specifies the extrapolation modes of grids created from this Domain as a Material instance.
+        Args:
+          resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.
+          boundaries: specifies the extrapolation modes of grids created from this Domain as a Material instance.
             Default materials include OPEN, CLOSED, PERIODIC.
             To specify boundary conditions per face of the domain, pass a sequence of Materials or Material pairs (lower, upper)., e.g. [CLOSED, (CLOSED, OPEN)].
-        :param bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
+          bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
         self.resolution = spatial_shape(resolution) & spatial_shape(resolution_)
         """ Grid dimensions as `Shape` object """
@@ -120,12 +123,12 @@ class Domain:
 
     @property
     def rank(self):
-        """ Number of spatial dimensions of the simulation; spatial rank. 1 = 1D, 2 = 2D, 3 = 3D, etc. """
+        """Number of spatial dimensions of the simulation; spatial rank. 1 = 1D, 2 = 2D, 3 = 3D, etc."""
         return self.resolution.rank
 
     @property
     def dx(self):
-        """ Size of a single grid cell (physical size divided by resolution) as `Tensor` """
+        """Size of a single grid cell (physical size divided by resolution) as `Tensor`"""
         return self.bounds.size / self.resolution
 
     @property
@@ -133,6 +136,11 @@ class Domain:
         """
         Returns the geometry of all cells as a `Box` object.
         The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
+
+        Args:
+
+        Returns:
+
         """
         return GridCell(self.resolution, self.bounds)
 
@@ -140,8 +148,13 @@ class Domain:
         """
         Returns a Tensor enumerating the physical center locations of all cells within the Domain.
         This is equivalent to calling `domain.cells.center`.
-
+        
         The shape of the returned Tensor extends the domain resolution by one vector dimension.
+
+        Args:
+
+        Returns:
+
         """
         return self.cells.center
 
@@ -151,17 +164,24 @@ class Domain:
         """
         Creates a grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
-
+        
         * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
         * Field: the given value is resampled to the grid cells of this Domain.
         * Tensor with spatial dimensions matching the domain resolution: grid values will equal `value`.
         * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
         * function(location: Tensor) returning one of the above.
 
-        :param value: constant, Field, Tensor or function specifying the grid values
-        :param type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
-        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-        :return: Grid of specified type
+        Args:
+          value: constant, Field, Tensor or function specifying the grid values
+          type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
+          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+          type: type:  (Default value = CenteredGrid)
+          extrapolation: math.Extrapolation:  (Default value = None)
+
+        Returns:
+          Grid of specified type
+
         """
         extrapolation = extrapolation or self.boundaries.grid_extrapolation
         if type is CenteredGrid:
@@ -177,21 +197,28 @@ class Domain:
         """
         Creates a vector grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
-
+        
         * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
         * Field: the given value is resampled to the grid cells of this Domain.
         * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
         * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
         * function(location: Tensor) returning one of the above.
-
+        
         The returned grid will have a vector dimension with size equal to the rank of the domain.
-
+        
         Aliases: `vector_grid`, `vgrid`
 
-        :param value: constant, Field, Tensor or function specifying the grid values
-        :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-        :return: Grid of specified type
+        Args:
+          value: constant, Field, Tensor or function specifying the grid values
+          type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+          type: type:  (Default value = CenteredGrid)
+          extrapolation: math.Extrapolation:  (Default value = None)
+
+        Returns:
+          Grid of specified type
+
         """
         extrapolation = extrapolation or self.boundaries.vector_extrapolation
         if type is CenteredGrid:
@@ -213,23 +240,29 @@ class Domain:
         """
         Creates a staggered grid matching the resolution and bounds of the domain.
         This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
-
+        
         The grid is created from the given `value` which must be one of the following:
-
+        
         * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
         * Field: the given value is resampled to the grid cells of this Domain.
         * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
         * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
         * function(location: Tensor) returning one of the above.
-
+        
         The returned grid will have a vector dimension with size equal to the rank of the domain.
-
+        
         Aliases: `staggered_grid`, `sgrid`
 
-        :param value: constant, Field, Tensor or function specifying the grid values
-        :param type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-        :param extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-        :return: Grid of specified type
+        Args:
+          value: constant, Field, Tensor or function specifying the grid values
+          type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+          extrapolation: math.Extrapolation:  (Default value = None)
+
+        Returns:
+          Grid of specified type
+
         """
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
 

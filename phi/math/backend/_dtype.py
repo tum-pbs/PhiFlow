@@ -7,8 +7,9 @@ class DType:
         """
         Data type for tensors.
 
-        :param kind: Python type, one of bool, int, float, complex
-        :param bits: number of bits, typically a multiple of 8.
+        Args:
+          kind: Python type, one of bool, int, float, complex
+          bits: number of bits, typically a multiple of 8.
         """
         assert kind in (bool, int, float, complex)
         if kind is bool:

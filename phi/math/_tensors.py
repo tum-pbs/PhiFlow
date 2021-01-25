@@ -11,40 +11,55 @@ from ._shape import Shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
 class Tensor:
     """
     Tensors with grouped and named dimensions.
-
+    
     All tensors are editable.
-
+    
     The internal data representation of a tensor can change, even without being edited.
+
+    Args:
+
+    Returns:
+
     """
 
     def native(self, order: str or tuple or list = None):
         """
         Returns a native tensor object with the dimensions ordered according to `order`.
-
+        
         Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-
+        
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
-        :param order: (optional) list of dimension names. If not given, the current order is kept.
-        :return: native tensor object
-        :raise: ValueError if the tensor cannot be transposed to match target_shape
+        Args:
+          order: optional) list of dimension names. If not given, the current order is kept.
+          order: str or tuple or list:  (Default value = None)
+
+        Returns:
+          native tensor object
+          :raise: ValueError if the tensor cannot be transposed to match target_shape
+
         """
         raise NotImplementedError()
 
     def numpy(self, order: str or tuple or list = None) -> np.ndarray:
         """
         Returns this tensor as a NumPy ndarray object with dimensions ordered according to `order`.
-
+        
         *Note*: Using this function breaks the autograd chain. The returned tensor is not differentiable.
         To get a differentiable tensor, use :func:`Tensor.native` instead.
-
+        
         Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-
+        
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
-        :param order: (optional) list of dimension names. If not given, the current order is kept.
-        :return: NumPy representation
-        :raise: ValueError if the tensor cannot be transposed to match target_shape
+        Args:
+          order: optional) list of dimension names. If not given, the current order is kept.
+          order: str or tuple or list:  (Default value = None)
+
+        Returns:
+          NumPy representation
+          :raise: ValueError if the tensor cannot be transposed to match target_shape
+
         """
         native = self.native(order=order)
         return choose_backend(native).numpy(native)
@@ -73,10 +88,15 @@ class Tensor:
         """
         Special tensors store additional internal information.
         They should not be converted to native() in intermediate operations.
-
+        
         Tracking tensors are special tensors.
-
+        
         TensorStack prevents performing the actual stack operation if one of its component tensors is special.
+
+        Args:
+
+        Returns:
+
         """
         raise NotImplementedError()
 
@@ -145,7 +165,12 @@ class Tensor:
         """
         Slice the tensor along specified dimensions.
 
-        :param selection: dim_name: str -> int or slice
+        Args:
+          selection: dim_name: str -> int or slice
+          selection: dict: 
+
+        Returns:
+
         """
         raise NotImplementedError()
 
@@ -167,9 +192,12 @@ class Tensor:
         Splits this tensor along the specified dimension.
         The returned tensors have the same dimensions as this tensor save the unstacked dimension.
 
-        :param dimension: name of dimension or Dimension or None for component dimension
-        :type dimension: str or int or _TensorDim
-        :return: tuple of tensors
+        Args:
+          dimension(str or int or _TensorDim): name of dimension or Dimension or None for component dimension
+
+        Returns:
+          tuple of tensors
+
         """
         raise NotImplementedError()
 
@@ -317,14 +345,29 @@ class Tensor:
         """
         Apply a broadcast operation on two tensors.
 
-        :param other: second argument
-        :param operator: function (Tensor, Tensor) -> Tensor, used to propagate the operation to children tensors to have Python choose the callee
-        :param native_function: function (native tensor, native tensor) -> native tensor
+        Args:
+          other: second argument
+          operator: function (Tensor, Tensor) -> Tensor, used to propagate the operation to children tensors to have Python choose the callee
+          native_function: function (native tensor, native tensor) -> native tensor
+          other: 'Tensor': 
+          operator: callable: 
+          native_function: callable: 
+
+        Returns:
+
         """
         raise NotImplementedError()
 
     def _op1(self, native_function):
-        """ Transform the values of this tensor given a function that can be applied to any native tensor. """
+        """
+        Transform the values of this tensor given a function that can be applied to any native tensor.
+
+        Args:
+          native_function: 
+
+        Returns:
+
+        """
         raise NotImplementedError(self.__class__)
 
 
@@ -489,9 +532,7 @@ class NativeTensor(Tensor):
 
 
 class CollapsedTensor(Tensor):
-    """
-    Tiled / Repeated tensor along additional dimensions.
-    """
+    """Tiled / Repeated tensor along additional dimensions."""
 
     def __init__(self, tensor: Tensor, shape: Shape):
         for name in tensor.shape.names:
@@ -584,6 +625,11 @@ class TensorStack(Tensor):
     """
     Implicit stack of multiple tensors.
     List of tensors, does not store stacked tensor in memory.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, components, dim_name, dim_type):
@@ -709,22 +755,27 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     """
     Create a Tensor from the specified data.
     `data` must be one of the following:
-
+    
     * Number: returns a dimensionless Tensor
     * Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor
     * tuple or list of numbers: backs the Tensor with a NumPy array
     * Tensor: renames dimensions and dimension types if `names` is specified, otherwise returns the tensor.
     * Shape: creates a 1D tensor listing the dimension sizes
-
+    
     While specifying `names` is optional in some cases, it is recommended to always specify them.
-
+    
     Dimension types are always inferred from the dimension names if specified.
 
-
-    :param data: native tensor, scalar, sequence, Shape or Tensor
-    :param names: Dimension names. Dimension types are inferred from the names.
+    Args:
+      data: native tensor, scalar, sequence, Shape or Tensor
+      names: Dimension names. Dimension types are inferred from the names.
     :raise: AssertionError if dimension names are not provided and cannot automatically be inferred
-    :return: Tensor containing same values as data
+      data: Tensor or Shape or tuple or list or numbers.Number: 
+      names: str or tuple or list:  (Default value = None)
+
+    Returns:
+      Tensor containing same values as data
+
     """
     if isinstance(data, Tensor):
         if names is None:
@@ -767,8 +818,13 @@ def broadcastable_native_tensors(*tensors):
     """
     Expands and transposes the dimensions of the given tensors so that they all have the same dimension order.
 
-    :param tensors: sequence of Tensors
-    :return: (shape, native tensors)
+    Args:
+      tensors: sequence of Tensors
+      *tensors: 
+
+    Returns:
+      shape, native tensors)
+
     """
     broadcast_shape = _shape.combine_safe(*[t.shape for t in tensors])
     natives = [t.native(order=broadcast_shape.names) for t in tensors]
@@ -785,6 +841,17 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
     """
     Perform a custom operator on two tensors.
     This method first tries calling _op2() on the first tensor and if that fails, tries it on the second tensor.
+
+    Args:
+      x: Tensor or float: 
+      y: Tensor or float: 
+      l_operator: 
+      l_native_function: 
+      r_operator:  (Default value = None)
+      r_native_function:  (Default value = None)
+
+    Returns:
+
     """
     x, y = tensors(x, y)
     result = x._op2(y, l_operator, l_native_function)
