@@ -7,7 +7,7 @@ from phi.geom import Sphere, Box
 from phi.physics import Domain, CLOSED, OPEN, Obstacle
 from phi.field import StaggeredGrid, Noise
 from phi.physics._effect import Fan, Inflow
-from phi.physics.fluid import Fluid, IncompressibleFlow
+from phi.physics._fluid_legacy import Fluid, IncompressibleFlow
 from phi.physics._world import World
 
 
