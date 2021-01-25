@@ -259,15 +259,18 @@ class StaggeredGrid(Grid):
             raise NotImplementedError(f"dimension={dimension}. Only 'vector' allowed.")
 
     @property
-    def x(self):
+    def x(self) -> CenteredGrid:
+        """ x component """
         return self.unstack()[self.resolution.index('x')]
 
     @property
-    def y(self):
+    def y(self) -> CenteredGrid:
+        """ y component """
         return self.unstack()[self.resolution.index('y')]
 
     @property
-    def z(self):
+    def z(self) -> CenteredGrid:
+        """ z component """
         return self.unstack()[self.resolution.index('z')]
 
     @property

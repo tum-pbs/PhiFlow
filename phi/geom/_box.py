@@ -66,7 +66,7 @@ class AbstractBox(Geometry):
     def bounding_half_extent(self):
         return self.size * 0.5
 
-    def global_to_local(self, global_position):
+    def global_to_local(self, global_position: Tensor) -> Tensor:
         return (global_position - self.lower) / self.size
 
     def local_to_global(self, local_position):
@@ -94,30 +94,20 @@ class AbstractBox(Geometry):
         distance = math.abs(location - center) - extent * 0.5
         return math.max(distance, 'vector')
 
-    def get_lower(self, axis):
-        return self._get(self.lower, axis)
+    def project(self, *dimensions: str):
+        """ Project this box into a lower-dimensional space. """
+        indices = self.shape.spatial.index(dimensions)
+        return Box(self.lower[indices], self.upper[indices])
 
-    def get_upper(self, axis):
-        return self._get(self.upper, axis)
-
-    @staticmethod
-    def _get(vector, axis):
-        if vector.shape[-1] == 1:
-            return vector[...,0]
-        else:
-            return vector[...,axis]
-
-    def corner_representation(self):
+    def corner_representation(self) -> 'Box':
         return Box(self.lower, self.upper)
 
-    def center_representation(self):
+    def center_representation(self) -> 'Cuboid':
         return Cuboid(self.center, self.half_size)
 
-    def contains(self, other):
-        if isinstance(other, AbstractBox):
-            return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
-        else:
-            raise NotImplementedError(f"{type(other)} not supported. Only AbstractBox allowed.")
+    def contains(self, other: 'AbstractBox'):
+        """ Tests if the other box lies fully inside this box. """
+        return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
     def rotated(self, angle):
         return rotate(self, angle)

@@ -1,6 +1,6 @@
 # pylint: disable-msg = unused-import
 """
-Main PhiFlow import: `from phi.flow import *`
+*Main PhiFlow import:* `from phi.flow import *`
 
 Contains:
 

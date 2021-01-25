@@ -21,11 +21,6 @@ class Field:
     * Noise
     
     See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
-
-    Args:
-
-    Returns:
-
     """
 
     @property
@@ -106,6 +101,8 @@ class Field:
         
         Unlike Field.sample_at(), this method returns a Field object, not a Tensor.
 
+        Equal to `self >> representation`.
+
         Args:
           representation: Field object defining the sample points. The values of `representation` are ignored.
           representation: SampledField: 
@@ -143,7 +140,23 @@ class Field:
         """
         raise NotImplementedError()
 
-    def dimension(self, name):
+    def dimension(self, name: str):
+        """
+        Returns a reference to one of the dimensions of this field.
+
+        The dimension reference can be used the same way as a `Tensor` dimension reference.
+        Notable properties and methods of a dimension reference are:
+        indexing using `[index]`, `unstack()`, `size`, `exists`, `is_batch`, `is_spatial`, `is_channel`.
+
+        A shortcut to calling this function is the syntax `field.<dim_name>` which calls `field.dimension(<dim_name>)`.
+
+        Args:
+            name: dimension name
+
+        Returns:
+            dimension reference
+
+        """
         return _FieldDim(self, name)
 
     def __getattr__(self, name: str) -> _FieldDim:

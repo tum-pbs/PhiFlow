@@ -8,11 +8,6 @@ class HardGeometryMask(AnalyticField):
     """
     Field that takes the value 1 inside a Geometry object and 0 outside.
     For volume sampling, performs sampling at the center points.
-
-    Args:
-
-    Returns:
-
     """
 
     def __init__(self, geometry: Geometry):
@@ -32,7 +27,9 @@ class HardGeometryMask(AnalyticField):
 
 
 class SoftGeometryMask(HardGeometryMask):
-    """When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1."""
+    """
+    When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.
+    """
 
     def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
         raise NotImplementedError("Use HardGeometryMask to sample at points")

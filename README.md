@@ -66,6 +66,10 @@ The following introductory demos are also helpful to get started with writing yo
 ### API Documentation
 
 The [API documentation](./documentation/pdoc/phi/index.html) is generated using [pdoc](https://pdoc3.github.io/pdoc/).
+To manually generate the documentation, add the PhiFlow directory to your Python path and run
+```
+$ pdoc --html --output-dir documentation/pdoc --force phi
+```
 
 ### Other Documentation
 

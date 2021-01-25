@@ -17,6 +17,24 @@ def laplace(field: Grid, axes=None):
 
 
 def gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='vector'):
+    """
+    Finite difference gradient.
+
+    This function can operate in two modes:
+
+    * `type=CenteredGrid` approximates the gradient at cell centers using central differences
+    * `type=StaggeredGrid` computes the gradient at face centers of neighbouring cells
+
+    Args:
+        field: centered grid of any number of dimensions (scalar field, vector field, tensor field)
+        type: either `CenteredGrid` or `StaggeredGrid`
+        stack_dim: name of dimension to be added. This dimension lists the gradient w.r.t. the spatial dimensions.
+            The `field` must not have a dimension of the same name.
+
+    Returns:
+        gradient field of type `type`.
+
+    """
     if type == CenteredGrid:
         values = math.gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
         return CenteredGrid(values, field.bounds, field.extrapolation.gradient())
@@ -83,7 +101,21 @@ def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.ex
         raise ValueError(type)
 
 
-def divergence(field: Grid):
+def divergence(field: Grid) -> CenteredGrid:
+    """
+    Computes the divergence of a grid using finite differences.
+
+    This function can operate in two modes depending on the type of `field`:
+
+    * `CenteredGrid` approximates the divergence at cell centers using central differences
+    * `StaggeredGrid` exactly computes the divergence at cell centers
+
+    Args:
+        field: vector field as `CenteredGrid` or `StaggeredGrid`
+
+    Returns:
+        Divergence field as `CenteredGrid`
+    """
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):

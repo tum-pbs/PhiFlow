@@ -1,4 +1,6 @@
 """
+*Deprecated*.
+
 Simplifies working with nested structures of lists, tuples, dicts and objects.
 
 Main functions:

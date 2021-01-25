@@ -1,5 +1,6 @@
+# pylint: disable-msg = unused-import
 """
-Compatibility import for PhiFlow 1 projects: `from phi.flow1 import *`
+*Compatibility import for PhiFlow 1 projects:* `from phi.flow1 import *`
 """
 
 from .flow import *

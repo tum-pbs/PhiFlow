@@ -303,8 +303,8 @@ def vector_field(field2d, settings):
         x -= 0.5 * data_x
         y -= 0.5 * data_y
 
-    x_range = [field2d.box.get_lower(1).numpy(), field2d.box.get_upper(1).numpy()]
-    y_range = [field2d.box.get_lower(0).numpy(), field2d.box.get_upper(0).numpy()]
+    x_range = [field2d.bounds.project('x').lower.numpy(), field2d.bounds.project('x').upper.numpy()]
+    y_range = [field2d.bounds.project('y').lower.numpy(), field2d.bounds.project('y').upper.numpy()]
     if physics_config.is_x_first:
         x_range, y_range = y_range, x_range
 

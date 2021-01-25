@@ -82,9 +82,13 @@ class App(object):
                  framerate=None,
                  dt=1.0):
         self.start_time = time.time()
+        """ Time of creation (`App` constructor invocation) """
         self.name = name if name is not None else self.__class__.__name__
+        """ Human-readable name. """
         self.subtitle = subtitle
+        """ Description to be displayed. """
         self.summary = summary if summary else name
+        """ The scene directory is derived from the summary. Defaults to `name`. """
         if fields:
             self.fields = {name: TimeDependentField(name, generator) for (name, generator) in fields.items()}
         else:
@@ -93,11 +97,13 @@ class App(object):
         self.steps = 0
         """ Counts the number of times `step()` has been called. May be set by the user. """
         self.time = 0
+        """ Time variable for simulations. Can be set by the user. """
         self._invalidation_counter = 0
         self._controls = []
         self._actions = []
         self._traits = []
         self.prepared = False
+        """ Wheter `prepare()` has been called. """
         self.current_action = None
         self._pause = False
         self.detect_fields = 'default'  # False, True, 'default'
@@ -142,6 +148,7 @@ class App(object):
         # Framerate
         self.sequence_stride = stride if stride is not None else 1
         self.framerate = framerate if framerate is not None else stride
+        """ Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate. """
         self._custom_properties = custom_properties if custom_properties else {}
         # State
         self.state = None
@@ -151,6 +158,9 @@ class App(object):
 
     @property
     def dt(self):
+        """
+        Current time increment per step.
+        Used for `step_function` set by `set_state()` or for `world.step()` in legacy-style simulations. """
         return self._dt
 
     @dt.setter
@@ -188,6 +198,7 @@ class App(object):
 
     @property
     def frame(self):
+        """ Alias for `steps`. """
         return self.steps
 
     def new_scene(self, count=None):
@@ -197,21 +208,17 @@ class App(object):
 
     @property
     def directory(self):
+        """ This directory is automatically created upon `App` creation. Equal to `scene.path`. """
         return self.scene.path
 
-    @property
-    def image_dir(self):
-        return self.scene.subpath('images')
-
-    def get_image_dir(self):
-        return self.scene.subpath('images', create=True)
-
-    def progress(self):
+    def _progress(self):
+        # actual method called to step.
         self.step()
         self.steps += 1
         self.invalidate()
 
     def invalidate(self):
+        """ Causes the user interface to update. """
         self._invalidation_counter += 1
 
     def step(self):
@@ -243,9 +250,16 @@ class App(object):
 
     @property
     def fieldnames(self):
+        """ Alphabetical list of field names. See `get_field()`. """
         return sorted(self.fields.keys())
 
     def get_field(self, fieldname):
+        """
+        Reads the current value of a field.
+        Fields can be added using `add_field()`.
+
+        If a generator function was registered as the field data, this method may invoke the function which may take some time to complete.
+        """
         if fieldname not in self.fields:
             raise KeyError('Field %s not declared. Available fields are %s' % (fieldname, self.fields.keys()))
         return self.fields[fieldname].get(self._invalidation_counter)
@@ -286,6 +300,10 @@ class App(object):
 
     @property
     def actions(self):
+        """
+        List of all custom actions that can be invoked at runtime by the user.
+        Actions can be registered using `add_action()` or by defining a method with prefix `action_`.
+        """
         return self._actions
 
     def add_action(self, name, methodcall):
@@ -433,12 +451,30 @@ class App(object):
     def custom_properties(self):
         return self._custom_properties
 
-    def info(self, message):
+    def info(self, message: str):
+        """
+        Update the status message.
+        The status message is written to the console and the log file.
+        Additionally, it may be displayed by the user interface.
+
+        See `debug()`.
+
+        Args:
+            message: Message to display
+        """
         message = str(message)
         self.message = message
         self.logger.info(message)
 
     def debug(self, message):
+        """
+        Prints a message to the log file but does not display it.
+
+        See `info()`.
+
+        Args:
+            message: Message to log.
+        """
         logging.info(message)
 
     def scene_summary(self):
@@ -460,11 +496,11 @@ class App(object):
         commas = int(np.ceil(np.abs(np.log10(self.min_dt))))
         return ("{time:," + f".{commas}f" + "}").format(time=time)
 
-    def run_step(self, framerate=None, allow_recording=True):
+    def run_step(self, framerate=None):
         self.current_action = 'Running'
         starttime = time.time()
         try:
-            self.progress()
+            self._progress()
             if framerate is not None:
                 duration = time.time() - starttime
                 rest = 1.0 / framerate - duration
@@ -477,7 +513,19 @@ class App(object):
         finally:
             self.current_action = None
 
-    def play(self, max_steps=None, callback=None, framerate=None, allow_recording=True, callback_if_aborted=False):
+    def play(self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
+        """
+        Run a number of steps.
+
+        Args:
+            max_steps: (optional) stop when this many steps have been completed (independent of the `steps` variable) or `pause()` is called.
+            callback: Function to be run after all steps have been completed.
+            framerate: Target frame rate in Hz.
+            callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
+
+        Returns:
+            self
+        """
         if framerate is None:
             framerate = self.framerate
 
@@ -485,7 +533,7 @@ class App(object):
             self._pause = False
             step_count = 0
             while not self._pause:
-                self.run_step(framerate=framerate, allow_recording=allow_recording)
+                self.run_step(framerate=framerate)
                 step_count += 1
                 if max_steps and step_count >= max_steps:
                     break
@@ -498,10 +546,12 @@ class App(object):
         return self
 
     def pause(self):
+        """ Causes the `play()` method to stop after finishing the current step. """
         self._pause = True
 
     @property
     def running(self):
+        """ Whether `play()` is currently executing. """
         return self.current_action is not None
 
     def benchmark(self, sequence_count):
@@ -509,7 +559,7 @@ class App(object):
         step_count = 0
         starttime = time.time()
         for i in range(sequence_count):
-            self.run_step(framerate=np.inf, allow_recording=False)
+            self.run_step(framerate=np.inf)
             step_count += 1
             if self._pause:
                 break

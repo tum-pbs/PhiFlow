@@ -117,7 +117,7 @@ def derived():
     return decorator
 
 
-class Item(object):
+class Item:
     """Represents an item type of a struct, a variable or a constant."""
 
     def __init__(self, name, validation_function, is_variable, default_value, dependencies, holds_data, **trait_kwargs):
@@ -146,6 +146,7 @@ class Item(object):
         self.trait_kwargs = trait_kwargs
         self.struct_class = None
         self._overrides = {}
+        self.__doc__ = validation_function.__doc__
 
     def __initialize_for__(self, struct_class):
         self.struct_class = struct_class
@@ -245,11 +246,12 @@ class _IndexItem(Item):
         struct[self.index] = value
 
 
-class DerivedProperty(object):
+class DerivedProperty:
 
     def __init__(self, name, getter):
         self.name = name
         self.getter = getter
+        self.__doc__ = getter.__doc__
 
     def __get__(self, instance, owner):
         if instance is not None:

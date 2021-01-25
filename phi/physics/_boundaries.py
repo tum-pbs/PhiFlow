@@ -281,24 +281,29 @@ class Obstacle(State):
 
     @struct.constant()
     def geometry(self, geometry):
+        """ Physical shape and size of the obstacle. """
         assert isinstance(geometry, Geometry)
         return geometry
 
     @struct.constant(default=CLOSED)
     def material(self, material):
+        """ Boundary conditions to apply inside and on the surface of the obstacle. """
         assert isinstance(material, Material)
         return material
 
     @struct.constant(default=0)
     def velocity(self, velocity):
+        """ Linear velocity vector of the obstacle. """
         return velocity
 
     @struct.constant(default=0)
     def angular_velocity(self, av):
+        """ Rotation speed of the obstacle. Scalar value in 2D, vector in 3D. """
         return av
 
     @struct.derived()
     def is_stationary(self):
+        """ Test whether the obstacle is completely still. """
         return self.velocity is 0 and self.angular_velocity is 0
 
 
