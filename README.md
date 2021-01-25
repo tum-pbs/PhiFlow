@@ -39,7 +39,7 @@ See the [detailed installation instructions](documentation/Installation_Instruct
 
 ## Documentation and Guides
 
-| [API](./docs/phi/index.html) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
+| [API](https://tum-pbs.github.io/PhiFlow/) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
 |------------------------|---------------------------------|---------------|
 
 If you would like to get right into it and have a look at some code, check out the
@@ -65,7 +65,7 @@ The following introductory demos are also helpful to get started with writing yo
 
 ### API Documentation
 
-The [API documentation](./docs/phi/index.html) is generated using [pdoc](https://pdoc3.github.io/pdoc/).
+The [API documentation](https://tum-pbs.github.io/PhiFlow/) is generated using [pdoc](https://pdoc3.github.io/pdoc/).
 To manually generate the documentation, add the PhiFlow directory to your Python path and run
 ```
 $ pdoc --html --output-dir documentation/pdoc --force phi
