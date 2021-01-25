@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>phi.physics API documentation</title>
+<meta name="description" content="Contains built-in physics functions, e.g. for fluids …" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>phi.physics</code></h1>
+</header>
+<section id="section-intro">
+<p>Contains built-in physics functions, e.g. for fluids.</p>
+<p>Main class: <code><a title="phi.physics.Domain" href="#phi.physics.Domain">Domain</a></code></p>
+<p>See the <code><a title="phi.physics" href="#phi.physics">phi.physics</a></code> module documentation at <a href="https://github.com/tum-pbs/PhiFlow/blob/develop/phi/physics">https://github.com/tum-pbs/PhiFlow/blob/develop/phi/physics</a></p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;
+Contains built-in physics functions, e.g. for fluids.
+
+Main class: `Domain`
+
+See the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/phi/physics
+&#34;&#34;&#34;
+from ._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle
+
+__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
+</details>
+</section>
+<section>
+<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+<dl>
+<dt><code class="name"><a title="phi.physics.advect" href="advect.html">phi.physics.advect</a></code></dt>
+<dd>
+<div class="desc"><p>Container for different advection schemes for grids and particles …</p></div>
+</dd>
+<dt><code class="name"><a title="phi.physics.fluid" href="fluid.html">phi.physics.fluid</a></code></dt>
+<dd>
+<div class="desc"><p>Definition of Fluid, IncompressibleFlow as well as fluid-related functions.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="phi.physics.Domain"><code class="flex name class">
+<span>class <span class="ident">Domain</span></span>
+<span>(</span><span>resolution: math.Shape = (), boundaries: <a title="phi.physics.Material" href="#phi.physics.Material">Material</a> or tuple or list = open, bounds: Box = None, **resolution_)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.</p>
+<pre><code>It provides convenience methods for creating Grids fitting the domain, e.g. &lt;code&gt;grid()&lt;/code&gt;, &lt;code&gt;vector\_grid()&lt;/code&gt; and &lt;code&gt;staggered\_grid()&lt;/code&gt;.
+
+Also see the &lt;code&gt;&lt;a title="phi.physics" href="#phi.physics"&gt;phi.physics&lt;/a&gt;&lt;/code&gt; module documentation at &lt;https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md&gt;
+</code></pre>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>resolution</code></strong></dt>
+<dd>grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.</dd>
+<dt><strong><code>boundaries</code></strong></dt>
+<dd>specifies the extrapolation modes of grids created from this Domain as a Material instance.
+Default materials include OPEN, CLOSED, PERIODIC.
+To specify boundary conditions per face of the domain, pass a sequence of Materials or Material pairs (lower, upper)., e.g. [CLOSED, (CLOSED, OPEN)].</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Domain:
+
+    def __init__(self, resolution: math.Shape = math.EMPTY_SHAPE, boundaries: Material or tuple or list = OPEN, bounds: Box = None, **resolution_):
+        &#34;&#34;&#34;
+        The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
+
+            It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
+
+            Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
+
+        Args:
+          resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.
+          boundaries: specifies the extrapolation modes of grids created from this Domain as a Material instance.
+            Default materials include OPEN, CLOSED, PERIODIC.
+            To specify boundary conditions per face of the domain, pass a sequence of Materials or Material pairs (lower, upper)., e.g. [CLOSED, (CLOSED, OPEN)].
+          bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
+        &#34;&#34;&#34;
+        self.resolution = spatial_shape(resolution) &amp; spatial_shape(resolution_)
+        &#34;&#34;&#34; Grid dimensions as `Shape` object &#34;&#34;&#34;
+        self.boundaries = Material.as_material(boundaries)
+        &#34;&#34;&#34; Outer boundary condition as `Material` object &#34;&#34;&#34;
+        self.bounds = Box(0, math.tensor(self.resolution, names=&#39;vector&#39;)) if bounds is None else bounds
+        &#34;&#34;&#34; Physical dimensions of the domain as `Box` object &#34;&#34;&#34;
+
+    def __repr__(self):
+        return &#39;(%s, size=%s)&#39; % (self.resolution, self.bounds.size)
+
+    @property
+    def rank(self):
+        &#34;&#34;&#34;Number of spatial dimensions of the simulation; spatial rank. 1 = 1D, 2 = 2D, 3 = 3D, etc.&#34;&#34;&#34;
+        return self.resolution.rank
+
+    @property
+    def dx(self):
+        &#34;&#34;&#34;Size of a single grid cell (physical size divided by resolution) as `Tensor`&#34;&#34;&#34;
+        return self.bounds.size / self.resolution
+
+    @property
+    def cells(self):
+        &#34;&#34;&#34;
+        Returns the geometry of all cells as a `Box` object.
+        The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
+
+        Args:
+
+        Returns:
+
+        &#34;&#34;&#34;
+        return GridCell(self.resolution, self.bounds)
+
+    def center_points(self):
+        &#34;&#34;&#34;
+        Returns a Tensor enumerating the physical center locations of all cells within the Domain.
+        This is equivalent to calling `domain.cells.center`.
+        
+        The shape of the returned Tensor extends the domain resolution by one vector dimension.
+
+        Args:
+
+        Returns:
+
+        &#34;&#34;&#34;
+        return self.cells.center
+
+    def grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+             type: type = CenteredGrid,
+             extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
+        &#34;&#34;&#34;
+        Creates a grid matching the resolution and bounds of the domain.
+        The grid is created from the given `value` which must be one of the following:
+        
+        * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+        * Field: the given value is resampled to the grid cells of this Domain.
+        * Tensor with spatial dimensions matching the domain resolution: grid values will equal `value`.
+        * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+        * function(location: Tensor) returning one of the above.
+
+        Args:
+          value: constant, Field, Tensor or function specifying the grid values
+          type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
+          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+          type: type:  (Default value = CenteredGrid)
+          extrapolation: math.Extrapolation:  (Default value = None)
+
+        Returns:
+          Grid of specified type
+
+        &#34;&#34;&#34;
+        extrapolation = extrapolation or self.boundaries.grid_extrapolation
+        if type is CenteredGrid:
+            return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        elif type is StaggeredGrid:
+            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        else:
+            raise ValueError(&#39;Unknown grid type: %s&#39; % type)
+
+    def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                    type: type = CenteredGrid,
+                    extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
+        &#34;&#34;&#34;
+        Creates a vector grid matching the resolution and bounds of the domain.
+        The grid is created from the given `value` which must be one of the following:
+        
+        * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+        * Field: the given value is resampled to the grid cells of this Domain.
+        * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+        * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+        * function(location: Tensor) returning one of the above.
+        
+        The returned grid will have a vector dimension with size equal to the rank of the domain.
+        
+        Aliases: `vector_grid`, `vgrid`
+
+        Args:
+          value: constant, Field, Tensor or function specifying the grid values
+          type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+          type: type:  (Default value = CenteredGrid)
+          extrapolation: math.Extrapolation:  (Default value = None)
+
+        Returns:
+          Grid of specified type
+
+        &#34;&#34;&#34;
+        extrapolation = extrapolation or self.boundaries.vector_extrapolation
+        if type is CenteredGrid:
+            grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+            if grid.shape.channel.rank == 0:
+                grid = grid._with(math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+            else:
+                assert grid.shape.channel.sizes[0] == self.rank
+            return grid
+        elif type is StaggeredGrid:
+            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        else:
+            raise ValueError(&#39;Unknown grid type: %s&#39; % type)
+
+    vgrid = vector_grid
+
+    def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                       extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid:
+        &#34;&#34;&#34;
+        Creates a staggered grid matching the resolution and bounds of the domain.
+        This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
+        
+        The grid is created from the given `value` which must be one of the following:
+        
+        * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+        * Field: the given value is resampled to the grid cells of this Domain.
+        * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+        * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+        * function(location: Tensor) returning one of the above.
+        
+        The returned grid will have a vector dimension with size equal to the rank of the domain.
+        
+        Aliases: `staggered_grid`, `sgrid`
+
+        Args:
+          value: constant, Field, Tensor or function specifying the grid values
+          type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+          extrapolation: math.Extrapolation:  (Default value = None)
+
+        Returns:
+          Grid of specified type
+
+        &#34;&#34;&#34;
+        return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
+
+    sgrid = staggered_grid</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.physics.Domain.boundaries"><code class="name">var <span class="ident">boundaries</span></code></dt>
+<dd>
+<div class="desc"><p>Outer boundary condition as <code><a title="phi.physics.Material" href="#phi.physics.Material">Material</a></code> object</p></div>
+</dd>
+<dt id="phi.physics.Domain.bounds"><code class="name">var <span class="ident">bounds</span></code></dt>
+<dd>
+<div class="desc"><p>Physical dimensions of the domain as <code>Box</code> object</p></div>
+</dd>
+<dt id="phi.physics.Domain.cells"><code class="name">var <span class="ident">cells</span></code></dt>
+<dd>
+<div class="desc"><p>Returns the geometry of all cells as a <code>Box</code> object.
+The box will have spatial dimensions matching the resolution of the Domain, i.e. <code>domain.cells.shape == domain.resolution</code>.</p>
+<p>Args:</p>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def cells(self):
+    &#34;&#34;&#34;
+    Returns the geometry of all cells as a `Box` object.
+    The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
+
+    Args:
+
+    Returns:
+
+    &#34;&#34;&#34;
+    return GridCell(self.resolution, self.bounds)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.dx"><code class="name">var <span class="ident">dx</span></code></dt>
+<dd>
+<div class="desc"><p>Size of a single grid cell (physical size divided by resolution) as <code>Tensor</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def dx(self):
+    &#34;&#34;&#34;Size of a single grid cell (physical size divided by resolution) as `Tensor`&#34;&#34;&#34;
+    return self.bounds.size / self.resolution</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.rank"><code class="name">var <span class="ident">rank</span></code></dt>
+<dd>
+<div class="desc"><p>Number of spatial dimensions of the simulation; spatial rank. 1 = 1D, 2 = 2D, 3 = 3D, etc.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def rank(self):
+    &#34;&#34;&#34;Number of spatial dimensions of the simulation; spatial rank. 1 = 1D, 2 = 2D, 3 = 3D, etc.&#34;&#34;&#34;
+    return self.resolution.rank</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.resolution"><code class="name">var <span class="ident">resolution</span></code></dt>
+<dd>
+<div class="desc"><p>Grid dimensions as <code>Shape</code> object</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.physics.Domain.center_points"><code class="name flex">
+<span>def <span class="ident">center_points</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a Tensor enumerating the physical center locations of all cells within the Domain.
+This is equivalent to calling <code>domain.cells.center</code>.</p>
+<p>The shape of the returned Tensor extends the domain resolution by one vector dimension.</p>
+<p>Args:</p>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def center_points(self):
+    &#34;&#34;&#34;
+    Returns a Tensor enumerating the physical center locations of all cells within the Domain.
+    This is equivalent to calling `domain.cells.center`.
+    
+    The shape of the returned Tensor extends the domain resolution by one vector dimension.
+
+    Args:
+
+    Returns:
+
+    &#34;&#34;&#34;
+    return self.cells.center</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.grid"><code class="name flex">
+<span>def <span class="ident">grid</span></span>(<span>self, value: Tensor or float or int or complex or callable or Geometry = 0, type: type = phi.field._grid.CenteredGrid, extrapolation: math.Extrapolation = None) ‑> phi.field._grid.StaggeredGrid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a grid matching the resolution and bounds of the domain.
+The grid is created from the given <code>value</code> which must be one of the following:</p>
+<ul>
+<li>Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to <code>value</code>. This has a near-zero memory footprint.</li>
+<li>Field: the given value is resampled to the grid cells of this Domain.</li>
+<li>Tensor with spatial dimensions matching the domain resolution: grid values will equal <code>value</code>.</li>
+<li>Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.</li>
+<li>function(location: Tensor) returning one of the above.</li>
+</ul>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>constant, Field, Tensor or function specifying the grid values</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>type of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor or float or int or complex or callable or Geometry:
+(Default value = 0)</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>type:
+(Default value = CenteredGrid)</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>math.Extrapolation:
+(Default value = None)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Grid of specified type</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+         type: type = CenteredGrid,
+         extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
+    &#34;&#34;&#34;
+    Creates a grid matching the resolution and bounds of the domain.
+    The grid is created from the given `value` which must be one of the following:
+    
+    * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+    * Field: the given value is resampled to the grid cells of this Domain.
+    * Tensor with spatial dimensions matching the domain resolution: grid values will equal `value`.
+    * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+    * function(location: Tensor) returning one of the above.
+
+    Args:
+      value: constant, Field, Tensor or function specifying the grid values
+      type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
+      extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+      type: type:  (Default value = CenteredGrid)
+      extrapolation: math.Extrapolation:  (Default value = None)
+
+    Returns:
+      Grid of specified type
+
+    &#34;&#34;&#34;
+    extrapolation = extrapolation or self.boundaries.grid_extrapolation
+    if type is CenteredGrid:
+        return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+    elif type is StaggeredGrid:
+        return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+    else:
+        raise ValueError(&#39;Unknown grid type: %s&#39; % type)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.sgrid"><code class="name flex">
+<span>def <span class="ident">sgrid</span></span>(<span>self, value: Tensor or float or int or complex or callable or Geometry = 0, extrapolation: math.Extrapolation = None) ‑> phi.field._grid.StaggeredGrid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a staggered grid matching the resolution and bounds of the domain.
+This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGrid</code>.</p>
+<p>The grid is created from the given <code>value</code> which must be one of the following:</p>
+<ul>
+<li>Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to <code>value</code>. This has a near-zero memory footprint.</li>
+<li>Field: the given value is resampled to the grid cells of this Domain.</li>
+<li>Tensor with spatial dimensions matcing the domain resolution: grid values will equal <code>value</code>.</li>
+<li>Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.</li>
+<li>function(location: Tensor) returning one of the above.</li>
+</ul>
+<p>The returned grid will have a vector dimension with size equal to the rank of the domain.</p>
+<p>Aliases: <code>staggered_grid</code>, <code>sgrid</code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>constant, Field, Tensor or function specifying the grid values</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor or float or int or complex or callable or Geometry:
+(Default value = 0)</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>math.Extrapolation:
+(Default value = None)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Grid of specified type</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                   extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid:
+    &#34;&#34;&#34;
+    Creates a staggered grid matching the resolution and bounds of the domain.
+    This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
+    
+    The grid is created from the given `value` which must be one of the following:
+    
+    * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+    * Field: the given value is resampled to the grid cells of this Domain.
+    * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+    * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+    * function(location: Tensor) returning one of the above.
+    
+    The returned grid will have a vector dimension with size equal to the rank of the domain.
+    
+    Aliases: `staggered_grid`, `sgrid`
+
+    Args:
+      value: constant, Field, Tensor or function specifying the grid values
+      type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+      extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+      extrapolation: math.Extrapolation:  (Default value = None)
+
+    Returns:
+      Grid of specified type
+
+    &#34;&#34;&#34;
+    return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.staggered_grid"><code class="name flex">
+<span>def <span class="ident">staggered_grid</span></span>(<span>self, value: Tensor or float or int or complex or callable or Geometry = 0, extrapolation: math.Extrapolation = None) ‑> phi.field._grid.StaggeredGrid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a staggered grid matching the resolution and bounds of the domain.
+This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGrid</code>.</p>
+<p>The grid is created from the given <code>value</code> which must be one of the following:</p>
+<ul>
+<li>Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to <code>value</code>. This has a near-zero memory footprint.</li>
+<li>Field: the given value is resampled to the grid cells of this Domain.</li>
+<li>Tensor with spatial dimensions matcing the domain resolution: grid values will equal <code>value</code>.</li>
+<li>Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.</li>
+<li>function(location: Tensor) returning one of the above.</li>
+</ul>
+<p>The returned grid will have a vector dimension with size equal to the rank of the domain.</p>
+<p>Aliases: <code>staggered_grid</code>, <code>sgrid</code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>constant, Field, Tensor or function specifying the grid values</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor or float or int or complex or callable or Geometry:
+(Default value = 0)</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>math.Extrapolation:
+(Default value = None)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Grid of specified type</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                   extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid:
+    &#34;&#34;&#34;
+    Creates a staggered grid matching the resolution and bounds of the domain.
+    This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
+    
+    The grid is created from the given `value` which must be one of the following:
+    
+    * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+    * Field: the given value is resampled to the grid cells of this Domain.
+    * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+    * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+    * function(location: Tensor) returning one of the above.
+    
+    The returned grid will have a vector dimension with size equal to the rank of the domain.
+    
+    Aliases: `staggered_grid`, `sgrid`
+
+    Args:
+      value: constant, Field, Tensor or function specifying the grid values
+      type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+      extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+      extrapolation: math.Extrapolation:  (Default value = None)
+
+    Returns:
+      Grid of specified type
+
+    &#34;&#34;&#34;
+    return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.vector_grid"><code class="name flex">
+<span>def <span class="ident">vector_grid</span></span>(<span>self, value: Tensor or float or int or complex or callable or Geometry = 0, type: type = phi.field._grid.CenteredGrid, extrapolation: math.Extrapolation = None) ‑> phi.field._grid.StaggeredGrid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a vector grid matching the resolution and bounds of the domain.
+The grid is created from the given <code>value</code> which must be one of the following:</p>
+<ul>
+<li>Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to <code>value</code>. This has a near-zero memory footprint.</li>
+<li>Field: the given value is resampled to the grid cells of this Domain.</li>
+<li>Tensor with spatial dimensions matcing the domain resolution: grid values will equal <code>value</code>.</li>
+<li>Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.</li>
+<li>function(location: Tensor) returning one of the above.</li>
+</ul>
+<p>The returned grid will have a vector dimension with size equal to the rank of the domain.</p>
+<p>Aliases: <code>vector_grid</code>, <code>vgrid</code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>constant, Field, Tensor or function specifying the grid values</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor or float or int or complex or callable or Geometry:
+(Default value = 0)</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>type:
+(Default value = CenteredGrid)</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>math.Extrapolation:
+(Default value = None)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Grid of specified type</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                type: type = CenteredGrid,
+                extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
+    &#34;&#34;&#34;
+    Creates a vector grid matching the resolution and bounds of the domain.
+    The grid is created from the given `value` which must be one of the following:
+    
+    * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+    * Field: the given value is resampled to the grid cells of this Domain.
+    * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+    * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+    * function(location: Tensor) returning one of the above.
+    
+    The returned grid will have a vector dimension with size equal to the rank of the domain.
+    
+    Aliases: `vector_grid`, `vgrid`
+
+    Args:
+      value: constant, Field, Tensor or function specifying the grid values
+      type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+      extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+      type: type:  (Default value = CenteredGrid)
+      extrapolation: math.Extrapolation:  (Default value = None)
+
+    Returns:
+      Grid of specified type
+
+    &#34;&#34;&#34;
+    extrapolation = extrapolation or self.boundaries.vector_extrapolation
+    if type is CenteredGrid:
+        grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        if grid.shape.channel.rank == 0:
+            grid = grid._with(math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+        else:
+            assert grid.shape.channel.sizes[0] == self.rank
+        return grid
+    elif type is StaggeredGrid:
+        return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+    else:
+        raise ValueError(&#39;Unknown grid type: %s&#39; % type)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.vgrid"><code class="name flex">
+<span>def <span class="ident">vgrid</span></span>(<span>self, value: Tensor or float or int or complex or callable or Geometry = 0, type: type = phi.field._grid.CenteredGrid, extrapolation: math.Extrapolation = None) ‑> phi.field._grid.StaggeredGrid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a vector grid matching the resolution and bounds of the domain.
+The grid is created from the given <code>value</code> which must be one of the following:</p>
+<ul>
+<li>Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to <code>value</code>. This has a near-zero memory footprint.</li>
+<li>Field: the given value is resampled to the grid cells of this Domain.</li>
+<li>Tensor with spatial dimensions matcing the domain resolution: grid values will equal <code>value</code>.</li>
+<li>Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.</li>
+<li>function(location: Tensor) returning one of the above.</li>
+</ul>
+<p>The returned grid will have a vector dimension with size equal to the rank of the domain.</p>
+<p>Aliases: <code>vector_grid</code>, <code>vgrid</code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>constant, Field, Tensor or function specifying the grid values</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor or float or int or complex or callable or Geometry:
+(Default value = 0)</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>type:
+(Default value = CenteredGrid)</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>math.Extrapolation:
+(Default value = None)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Grid of specified type</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+                type: type = CenteredGrid,
+                extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
+    &#34;&#34;&#34;
+    Creates a vector grid matching the resolution and bounds of the domain.
+    The grid is created from the given `value` which must be one of the following:
+    
+    * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+    * Field: the given value is resampled to the grid cells of this Domain.
+    * Tensor with spatial dimensions matcing the domain resolution: grid values will equal `value`.
+    * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+    * function(location: Tensor) returning one of the above.
+    
+    The returned grid will have a vector dimension with size equal to the rank of the domain.
+    
+    Aliases: `vector_grid`, `vgrid`
+
+    Args:
+      value: constant, Field, Tensor or function specifying the grid values
+      type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+      extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
+      type: type:  (Default value = CenteredGrid)
+      extrapolation: math.Extrapolation:  (Default value = None)
+
+    Returns:
+      Grid of specified type
+
+    &#34;&#34;&#34;
+    extrapolation = extrapolation or self.boundaries.vector_extrapolation
+    if type is CenteredGrid:
+        grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        if grid.shape.channel.rank == 0:
+            grid = grid._with(math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+        else:
+            assert grid.shape.channel.sizes[0] == self.rank
+        return grid
+    elif type is StaggeredGrid:
+        return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+    else:
+        raise ValueError(&#39;Unknown grid type: %s&#39; % type)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.physics.Material"><code class="flex name class">
+<span>class <span class="ident">Material</span></span>
+<span>(</span><span>name: str, grid_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Defines the extrapolation modes / boundary conditions for a surface.
+The surface can be an Obstacle or a Domain boundary.</p>
+<p>Use Material.as_material() to mix different materials for different sides.</p>
+<p>Create a Material for a Domain or Obstacle.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>material name</dd>
+<dt><strong><code>grid_extrapolation</code></strong></dt>
+<dd>extrapolation mode of grids created via Domain.grid()</dd>
+<dt><strong><code>vector_extrapolation</code></strong></dt>
+<dd>extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()</dd>
+<dt><strong><code>near_vector_extrapolation</code></strong></dt>
+<dd>Used in pressure solve.</dd>
+<dt><strong><code>active_extrapolation</code></strong></dt>
+<dd>Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.</dd>
+<dt><strong><code>accessible_extrapolation</code></strong></dt>
+<dd>Whether quantities can move in and out of the domain. Used in pressure solve.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Material:
+    &#34;&#34;&#34;
+    Defines the extrapolation modes / boundary conditions for a surface.
+    The surface can be an Obstacle or a Domain boundary.
+    
+    Use Material.as_material() to mix different materials for different sides.
+    &#34;&#34;&#34;
+
+    def __init__(self, name: str, grid_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
+        &#34;&#34;&#34;
+        Create a Material for a Domain or Obstacle.
+
+        Args:
+          name: material name
+          grid_extrapolation: extrapolation mode of grids created via Domain.grid()
+          vector_extrapolation: extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
+          near_vector_extrapolation: Used in pressure solve.
+          active_extrapolation: Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.
+          accessible_extrapolation: Whether quantities can move in and out of the domain. Used in pressure solve.
+        &#34;&#34;&#34;
+        self.name = name
+        &#34;&#34;&#34; Material name &#34;&#34;&#34;
+        self.grid_extrapolation = grid_extrapolation
+        &#34;&#34;&#34; Extrapolation mode of grids created via Domain.grid() &#34;&#34;&#34;
+        self.vector_extrapolation = vector_extrapolation
+        &#34;&#34;&#34; Extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid() &#34;&#34;&#34;
+        self.near_vector_extrapolation = near_vector_extrapolation
+        &#34;&#34;&#34; Used in pressure solve. &#34;&#34;&#34;
+        self.active_extrapolation = active_extrapolation
+        &#34;&#34;&#34; Whether cells outside the domain bounds also belong to the domain. Used in pressure solve. &#34;&#34;&#34;
+        self.accessible_extrapolation = accessible_extrapolation
+        &#34;&#34;&#34; Whether quantities can move in and out of the domain. Used in pressure solve. &#34;&#34;&#34;
+
+    def __repr__(self):
+        return self.name
+
+    @staticmethod
+    def as_material(obj: Material or tuple or list or dict) -&gt; Material:
+        &#34;&#34;&#34;
+        Construct a mixed material from from a sequence of materials.
+
+        Args:
+          obj: sequence of materials
+          obj: Material or tuple or list or dict: 
+
+        Returns:
+          : Single mixed Material
+
+        &#34;&#34;&#34;
+        if isinstance(obj, Material):
+            return obj
+        if isinstance(obj, (tuple, list)):
+            dims = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
+            obj = {dim: mat for dim, mat in zip(dims, obj)}
+        if isinstance(obj, dict):
+            grid_extrapolation = _mix(obj, &#39;grid_extrapolation&#39;)
+            near_vector_extrapolation = _mix(obj, &#39;near_vector_extrapolation&#39;)
+            vector_extrapolation = _mix(obj, &#39;vector_extrapolation&#39;)
+            active_extrapolation = _mix(obj, &#39;active_extrapolation&#39;)
+            accessible_extrapolation = _mix(obj, &#39;accessible_extrapolation&#39;)
+            return Material(&#39;mixed&#39;, grid_extrapolation, near_vector_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
+        raise NotImplementedError()</code></pre>
+</details>
+<h3>Static methods</h3>
+<dl>
+<dt id="phi.physics.Material.as_material"><code class="name flex">
+<span>def <span class="ident">as_material</span></span>(<span>obj: <a title="phi.physics.Material" href="#phi.physics.Material">Material</a> or tuple or list or dict) ‑> phi.physics._boundaries.Material</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Construct a mixed material from from a sequence of materials.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd>sequence of materials</dd>
+<dt><strong><code>obj</code></strong></dt>
+<dd>Material or tuple or list or dict: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dd>Single mixed Material</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def as_material(obj: Material or tuple or list or dict) -&gt; Material:
+    &#34;&#34;&#34;
+    Construct a mixed material from from a sequence of materials.
+
+    Args:
+      obj: sequence of materials
+      obj: Material or tuple or list or dict: 
+
+    Returns:
+      : Single mixed Material
+
+    &#34;&#34;&#34;
+    if isinstance(obj, Material):
+        return obj
+    if isinstance(obj, (tuple, list)):
+        dims = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
+        obj = {dim: mat for dim, mat in zip(dims, obj)}
+    if isinstance(obj, dict):
+        grid_extrapolation = _mix(obj, &#39;grid_extrapolation&#39;)
+        near_vector_extrapolation = _mix(obj, &#39;near_vector_extrapolation&#39;)
+        vector_extrapolation = _mix(obj, &#39;vector_extrapolation&#39;)
+        active_extrapolation = _mix(obj, &#39;active_extrapolation&#39;)
+        accessible_extrapolation = _mix(obj, &#39;accessible_extrapolation&#39;)
+        return Material(&#39;mixed&#39;, grid_extrapolation, near_vector_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.physics.Material.accessible_extrapolation"><code class="name">var <span class="ident">accessible_extrapolation</span></code></dt>
+<dd>
+<div class="desc"><p>Whether quantities can move in and out of the domain. Used in pressure solve.</p></div>
+</dd>
+<dt id="phi.physics.Material.active_extrapolation"><code class="name">var <span class="ident">active_extrapolation</span></code></dt>
+<dd>
+<div class="desc"><p>Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.</p></div>
+</dd>
+<dt id="phi.physics.Material.grid_extrapolation"><code class="name">var <span class="ident">grid_extrapolation</span></code></dt>
+<dd>
+<div class="desc"><p>Extrapolation mode of grids created via Domain.grid()</p></div>
+</dd>
+<dt id="phi.physics.Material.name"><code class="name">var <span class="ident">name</span></code></dt>
+<dd>
+<div class="desc"><p>Material name</p></div>
+</dd>
+<dt id="phi.physics.Material.near_vector_extrapolation"><code class="name">var <span class="ident">near_vector_extrapolation</span></code></dt>
+<dd>
+<div class="desc"><p>Used in pressure solve.</p></div>
+</dd>
+<dt id="phi.physics.Material.vector_extrapolation"><code class="name">var <span class="ident">vector_extrapolation</span></code></dt>
+<dd>
+<div class="desc"><p>Extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="phi.physics.Obstacle"><code class="flex name class">
+<span>class <span class="ident">Obstacle</span></span>
+<span>(</span><span>geometry, material=slippery, velocity=0, tags=('obstacle',), **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An obstacle defines boundary conditions inside a geometry.
+It can also have a linear and angular velocity.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Obstacle(State):
+    &#34;&#34;&#34;
+    An obstacle defines boundary conditions inside a geometry.
+    It can also have a linear and angular velocity.
+    &#34;&#34;&#34;
+
+    def __init__(self, geometry, material=CLOSED, velocity=0, tags=(&#39;obstacle&#39;,), **kwargs):
+        State.__init__(self, **struct.kwargs(locals()))
+
+    @struct.constant()
+    def geometry(self, geometry):
+        &#34;&#34;&#34; Physical shape and size of the obstacle. &#34;&#34;&#34;
+        assert isinstance(geometry, Geometry)
+        return geometry
+
+    @struct.constant(default=CLOSED)
+    def material(self, material):
+        &#34;&#34;&#34; Boundary conditions to apply inside and on the surface of the obstacle. &#34;&#34;&#34;
+        assert isinstance(material, Material)
+        return material
+
+    @struct.constant(default=0)
+    def velocity(self, velocity):
+        &#34;&#34;&#34; Linear velocity vector of the obstacle. &#34;&#34;&#34;
+        return velocity
+
+    @struct.constant(default=0)
+    def angular_velocity(self, av):
+        &#34;&#34;&#34; Rotation speed of the obstacle. Scalar value in 2D, vector in 3D. &#34;&#34;&#34;
+        return av
+
+    @struct.derived()
+    def is_stationary(self):
+        &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
+        return self.velocity is 0 and self.angular_velocity is 0</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.physics._physics.State</li>
+<li>phi.struct._struct.Struct</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.physics.Obstacle.angular_velocity"><code class="name">var <span class="ident">angular_velocity</span></code></dt>
+<dd>
+<div class="desc"><p>Rotation speed of the obstacle. Scalar value in 2D, vector in 3D.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __get__(self, instance, owner):
+    if instance is not None:
+        return getattr(instance, &#39;_&#39; + self.name)
+    else:
+        return self</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Obstacle.geometry"><code class="name">var <span class="ident">geometry</span></code></dt>
+<dd>
+<div class="desc"><p>Physical shape and size of the obstacle.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __get__(self, instance, owner):
+    if instance is not None:
+        return getattr(instance, &#39;_&#39; + self.name)
+    else:
+        return self</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Obstacle.is_stationary"><code class="name">var <span class="ident">is_stationary</span></code></dt>
+<dd>
+<div class="desc"><p>Test whether the obstacle is completely still.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __get__(self, instance, owner):
+    if instance is not None:
+        return self.getter(instance)
+    else:
+        self.owner = owner
+        return self</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Obstacle.material"><code class="name">var <span class="ident">material</span></code></dt>
+<dd>
+<div class="desc"><p>Boundary conditions to apply inside and on the surface of the obstacle.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __get__(self, instance, owner):
+    if instance is not None:
+        return getattr(instance, &#39;_&#39; + self.name)
+    else:
+        return self</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Obstacle.velocity"><code class="name">var <span class="ident">velocity</span></code></dt>
+<dd>
+<div class="desc"><p>Linear velocity vector of the obstacle.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __get__(self, instance, owner):
+    if instance is not None:
+        return getattr(instance, &#39;_&#39; + self.name)
+    else:
+        return self</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="phi" href="../index.html">phi</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<ul>
+<li><code><a title="phi.physics.advect" href="advect.html">phi.physics.advect</a></code></li>
+<li><code><a title="phi.physics.fluid" href="fluid.html">phi.physics.fluid</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="phi.physics.Domain" href="#phi.physics.Domain">Domain</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.physics.Domain.boundaries" href="#phi.physics.Domain.boundaries">boundaries</a></code></li>
+<li><code><a title="phi.physics.Domain.bounds" href="#phi.physics.Domain.bounds">bounds</a></code></li>
+<li><code><a title="phi.physics.Domain.cells" href="#phi.physics.Domain.cells">cells</a></code></li>
+<li><code><a title="phi.physics.Domain.center_points" href="#phi.physics.Domain.center_points">center_points</a></code></li>
+<li><code><a title="phi.physics.Domain.dx" href="#phi.physics.Domain.dx">dx</a></code></li>
+<li><code><a title="phi.physics.Domain.grid" href="#phi.physics.Domain.grid">grid</a></code></li>
+<li><code><a title="phi.physics.Domain.rank" href="#phi.physics.Domain.rank">rank</a></code></li>
+<li><code><a title="phi.physics.Domain.resolution" href="#phi.physics.Domain.resolution">resolution</a></code></li>
+<li><code><a title="phi.physics.Domain.sgrid" href="#phi.physics.Domain.sgrid">sgrid</a></code></li>
+<li><code><a title="phi.physics.Domain.staggered_grid" href="#phi.physics.Domain.staggered_grid">staggered_grid</a></code></li>
+<li><code><a title="phi.physics.Domain.vector_grid" href="#phi.physics.Domain.vector_grid">vector_grid</a></code></li>
+<li><code><a title="phi.physics.Domain.vgrid" href="#phi.physics.Domain.vgrid">vgrid</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.physics.Material" href="#phi.physics.Material">Material</a></code></h4>
+<ul class="">
+<li><code><a title="phi.physics.Material.accessible_extrapolation" href="#phi.physics.Material.accessible_extrapolation">accessible_extrapolation</a></code></li>
+<li><code><a title="phi.physics.Material.active_extrapolation" href="#phi.physics.Material.active_extrapolation">active_extrapolation</a></code></li>
+<li><code><a title="phi.physics.Material.as_material" href="#phi.physics.Material.as_material">as_material</a></code></li>
+<li><code><a title="phi.physics.Material.grid_extrapolation" href="#phi.physics.Material.grid_extrapolation">grid_extrapolation</a></code></li>
+<li><code><a title="phi.physics.Material.name" href="#phi.physics.Material.name">name</a></code></li>
+<li><code><a title="phi.physics.Material.near_vector_extrapolation" href="#phi.physics.Material.near_vector_extrapolation">near_vector_extrapolation</a></code></li>
+<li><code><a title="phi.physics.Material.vector_extrapolation" href="#phi.physics.Material.vector_extrapolation">vector_extrapolation</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.physics.Obstacle" href="#phi.physics.Obstacle">Obstacle</a></code></h4>
+<ul class="">
+<li><code><a title="phi.physics.Obstacle.angular_velocity" href="#phi.physics.Obstacle.angular_velocity">angular_velocity</a></code></li>
+<li><code><a title="phi.physics.Obstacle.geometry" href="#phi.physics.Obstacle.geometry">geometry</a></code></li>
+<li><code><a title="phi.physics.Obstacle.is_stationary" href="#phi.physics.Obstacle.is_stationary">is_stationary</a></code></li>
+<li><code><a title="phi.physics.Obstacle.material" href="#phi.physics.Obstacle.material">material</a></code></li>
+<li><code><a title="phi.physics.Obstacle.velocity" href="#phi.physics.Obstacle.velocity">velocity</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>
