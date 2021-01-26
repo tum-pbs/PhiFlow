@@ -6,7 +6,7 @@
 [![Code Coverage](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/graph/badge.svg)](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/)
 [![Google Collab Book](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true)
 
-![Gui](documentation/figures/WebInterface.png)
+![Gui](https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png)
 
 Φ<sub>Flow</sub> is an open-source simulation toolkit built for optimization and machine learning applications.
 It is written mostly in Python and can be used with NumPy, TensorFlow or PyTorch.
@@ -16,8 +16,8 @@ making it easy to build end-to-end differentiable functions involving both learn
 ## Features
 
 * Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
-* Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) for straightforward neural network training with fully differentiable simulations that [run on the GPU](documentation/GPU_Execution.md).
-* Flexible, easy-to-use [web interface](documentation/Web_Interface.md) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
+* Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) for straightforward neural network training with fully differentiable simulations that [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html).
+* Flexible, easy-to-use [web interface](https://tum-pbs.github.io/PhiFlow/Web_Interface.html) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 * Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
 * High-level linear equation solver with automated sparse matrix generation.
@@ -35,53 +35,23 @@ Installation with pip on Python 3.7 or newer:
 $ pip install phiflow
 ```
 Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
-See the [detailed installation instructions](documentation/Installation_Instructions.md) on how to compile the custom CUDA operators and verify your installation.
+See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html) on how to compile the custom CUDA operators and verify your installation.
 
 ## Documentation and Guides
 
-| [API](https://tum-pbs.github.io/PhiFlow/phi/index.html) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
-|------------------------|---------------------------------|---------------|
+| [Documentation](https://tum-pbs.github.io/PhiFlow/) | [API](https://tum-pbs.github.io/PhiFlow/phi/) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
+|----|----|----|----|
 
 If you would like to get right into it and have a look at some code, check out the
 [tutorial notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
 It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
 
-An introduction to writing fluid simulations can be found [here](documentation/Fluid_Simulation.md).
+An introduction to writing fluid simulations can be found [here](https://tum-pbs.github.io/PhiFlow/Fluid_Simulation.html).
 
 The following introductory demos are also helpful to get started with writing your own scripts using Φ<sub>Flow</sub>:
 
 * [smoke_plume.py](demos/smoke_plume.py) runs a smoke simulation and displays it in the web interface.
 * [optimize_pressure.py](demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field and displays it in the web interface.
-
-### Module Overview
-
-| Module      | Documentation                                        |
-|-------------|------------------------------------------------------|
-| [phi.app](phi/app)     | [Interactive application development, web interface](documentation/Web_Interface.md)   |
-| [phi.physics](phi/physics) | [Domains, built-in physics functions](documentation/Physics.md)         |
-| [phi.field](phi/field)   | [Grids, particles, analytic representations](documentation/Fields.md)           |
-| [phi.geom](phi/geom)    | [Differentiable Geometry](documentation/Geometry.md)                              |
-| [phi.math](phi/math)    | [Vectorized operations, tensors with named dimensions](documentation/Math.md) |
-
-### API Documentation
-
-The [API documentation](https://tum-pbs.github.io/PhiFlow/phi/index.html) is generated using [pdoc](https://pdoc3.github.io/pdoc/).
-To manually generate the documentation, add the PhiFlow directory to your Python path and run
-```
-$ pdoc --html --output-dir docs --force phi
-```
-
-### Other Documentation
-
-* [Writing Fluid Simulations](documentation/Fluid_Simulation.md)
-* [Staggered grids](documentation/Staggered_Grids.md)
-
-Not yet updated:
-
-* [GPU execution](documentation/GPU_Execution.md)
-* [NumPy or TensorFlow](documentation/NumPy_and_TensorFlow_Execution.md)
-* [Data](documentation/Reading_and_Writing_Data.md)
-* [Pressure solvers](documentation/Pressure_Solvers.md)
 
 ## Version History
 
