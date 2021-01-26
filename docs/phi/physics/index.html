@@ -67,10 +67,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </code></dt>
 <dd>
 <div class="desc"><p>The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.</p>
-<pre><code>It provides convenience methods for creating Grids fitting the domain, e.g. &lt;code&gt;grid()&lt;/code&gt;, &lt;code&gt;vector\_grid()&lt;/code&gt; and &lt;code&gt;staggered\_grid()&lt;/code&gt;.
-
-Also see the &lt;code&gt;&lt;a title="phi.physics" href="#phi.physics"&gt;phi.physics&lt;/a&gt;&lt;/code&gt; module documentation at &lt;https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md&gt;
-</code></pre>
+<p>It provides convenience methods for creating Grids fitting the domain, e.g. <code>grid()</code>, <code>vector_grid()</code> and <code>staggered_grid()</code>.</p>
+<p>Also see the <code><a title="phi.physics" href="#phi.physics">phi.physics</a></code> module documentation at <a href="https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md">https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md</a></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>resolution</code></strong></dt>
@@ -92,9 +90,9 @@ To specify boundary conditions per face of the domain, pass a sequence of Materi
         &#34;&#34;&#34;
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
-            It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
+        It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
 
-            Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
+        Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
 
         Args:
           resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.

@@ -100,9 +100,9 @@ class Domain:
         """
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
-            It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
+        It provides convenience methods for creating Grids fitting the domain, e.g. `grid()`, `vector_grid()` and `staggered_grid()`.
 
-            Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
+        Also see the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Physics.md
 
         Args:
           resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.
