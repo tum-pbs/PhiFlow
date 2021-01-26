@@ -3,7 +3,7 @@ Contains built-in physics functions, e.g. for fluids.
 
 Main class: `Domain`
 
-See the `phi.physics` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/phi/physics
+See the `phi.physics` module documentation at https://tum-pbs.github.io/PhiFlow/Physics.html
 """
 from ._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle
 
