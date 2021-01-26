@@ -61,7 +61,7 @@ class CenteredGrid(Grid):
     
     Centered grids support arbitrary batch, spatial and channel dimensions.
     
-    See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 
     Args:
 
@@ -149,7 +149,7 @@ class StaggeredGrid(Grid):
     
     Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
     
-    See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 
     Args:
 

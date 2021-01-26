@@ -592,7 +592,7 @@ def to_float(x: Tensor) -> Tensor:
     
     The precision can be set globally using `math.set_global_precision()` and locally using `with math.precision()`.
     
-    See the `phi.math` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Math.md
+    See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 
     Args:
       x: values to convert

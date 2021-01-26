@@ -474,7 +474,10 @@ class TorchBackend(Backend):
         return torch.cos(x)
 
     def dtype(self, array) -> DType:
-        return from_torch_dtype(array.dtype)
+        if self.is_tensor(array, only_native=True):
+            return from_torch_dtype(array.dtype)
+        else:
+            return SCIPY_BACKEND.dtype(array)
 
     def tile(self, value, multiples):
         if isinstance(multiples, np.ndarray):

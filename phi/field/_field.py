@@ -20,7 +20,7 @@ class Field:
     * PointCloud
     * Noise
     
-    See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
 
     @property

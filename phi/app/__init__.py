@@ -1,7 +1,7 @@
 """
 Interactive application development and web interface.
 
-See the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 """
 from ._value import EditableValue, EditableFloat, EditableInt, EditableBool, EditableString
 from ._app import App

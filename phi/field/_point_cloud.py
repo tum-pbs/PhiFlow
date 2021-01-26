@@ -22,7 +22,7 @@ class PointCloud(SampledField):
             Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
             When sampling this field on a grid, scatter functions may be used.
 
-            See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+            See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 
         Args:
           elements: Geometry object specifying the sample points and sizes

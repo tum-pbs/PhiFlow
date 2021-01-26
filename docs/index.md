@@ -1,6 +1,6 @@
 
-| [Homepage](https://github.com/tum-pbs/PhiFlow) | [API](phi) | [Demos](../demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
-|----|----|----|----|
+| [Homepage](https://github.com/tum-pbs/PhiFlow) | [API](phi) | [Demos](https://github.com/tum-pbs/PhiFlow/tree/develop/demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
+|------------------------------------------------|------------|----------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 If you would like to get right into it and have a look at some code, check out the
 [tutorial notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
@@ -10,8 +10,8 @@ An introduction to writing fluid simulations can be found [here](https://tum-pbs
 
 The following introductory demos are also helpful to get started with writing your own scripts using Φ<sub>Flow</sub>:
 
-* [smoke_plume.py](../demos/smoke_plume.py) runs a smoke simulation and displays it in the web interface.
-* [optimize_pressure.py](../demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field and displays it in the web interface.
+* [smoke_plume.py](https://github.com/tum-pbs/PhiFlow/tree/develop/demos/smoke_plume.py) runs a smoke simulation and displays it in the web interface.
+* [optimize_pressure.py](https://github.com/tum-pbs/PhiFlow/tree/develop/demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field and displays it in the web interface.
 
 ### Module Overview
 

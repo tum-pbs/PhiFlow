@@ -9,7 +9,7 @@ The most commonly used field types are
 * StaggeredGrid samples the vector components at face centers instead of at cell centers.
 * Noise is a function that produces a procedurally generated noise field
 
-See the `phi.field` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Fields.md
+See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 """
 
 from ._field import Field, SampledField

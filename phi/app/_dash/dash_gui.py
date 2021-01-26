@@ -37,7 +37,7 @@ class DashGui(AppDisplay):
                 # ' - ',
                 # dcc.Link('Scripting', href='/scripting'),
                 ' - ',
-                html.A('Help', href='https://github.com/tum-pbs/PhiFlow/blob/master/documentation/Web_Interface.md', target='_blank'),
+                html.A('Help', href='https://tum-pbs.github.io/PhiFlow/Web_Interface.html', target='_blank'),
             ])
         dash_app = self.dash_app = DashApp(self.app, self.config, header_layout)
 

@@ -96,14 +96,14 @@ def show(app: App or None = None, autorun=AUTORUN, **config):
     
     This method prepares the app before showing it. No more fields should be added to the app after this method is invoked.
     
-    Also see the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
     Args:
       autorun: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
       app: optional) the application to display.
     If unspecified, searches the calling script for a subclass of App and instantiates it.
       config: additional GUI configuration parameters.
-    For a full list of parameters, see https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+    For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
       app: App or None:  (Default value = None)
       **config: 
 

@@ -18,7 +18,7 @@ Main classes:
 * Tensor
 * Shape
 
-See the `phi.math` module documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Math.md
+See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 """
 
 from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, choose_backend

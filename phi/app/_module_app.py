@@ -30,7 +30,7 @@ class ModuleViewer(App):
 
         Use ModuleViewer.range() as a for-loop iteratable to control the loop execution from within the GUI.
 
-        Also see the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+        Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
         :param fields: (Optional) names of global variables to be displayed.
           If not provided, searches all global variables for Field or Tensor values.
