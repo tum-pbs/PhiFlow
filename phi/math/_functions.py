@@ -904,7 +904,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     loop_time = time.time()
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
     loop_time = time.time() - loop_time
-    print(f"CG   track: {round(track_time * 1000)} ms    build: {round(build_time * 1000)} ms    loop: {round(loop_time * 1000)} ms / {iterations} iterations")
+    print(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations")
     converged = choose_backend(converged).reshape(converged, batch.sizes)
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     iterations = choose_backend(iterations).reshape(iterations, batch.sizes)

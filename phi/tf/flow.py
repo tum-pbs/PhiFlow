@@ -7,7 +7,7 @@ New tensors created via `phi.math` functions will be backed by TensorFlow tensor
 """
 
 from phi.flow import *
-from ._util import *
+from ._util import cuda_device_count, GradientTape, gradients, variable, constant
 from ._tf_backend import TF_BACKEND
 import tensorflow
 from tensorflow import keras
