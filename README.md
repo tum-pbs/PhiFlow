@@ -42,6 +42,8 @@ See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/I
 | [Documentation](https://tum-pbs.github.io/PhiFlow/) | [API](https://tum-pbs.github.io/PhiFlow/phi/) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
 |----|----|----|----|
 
+An overview of all available documentation can be found [here](https://tum-pbs.github.io/PhiFlow/).
+
 If you would like to get right into it and have a look at some code, check out the
 [tutorial notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
 It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
