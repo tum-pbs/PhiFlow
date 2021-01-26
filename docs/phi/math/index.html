@@ -69,8 +69,7 @@ See the `phi.math` module documentation at https://github.com/tum-pbs/PhiFlow/bl
 from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, choose_backend
 from .backend._scipy_backend import SCIPY_BACKEND
 
-from . import _extrapolation as extrapolation
-from ._extrapolation import Extrapolation
+from .extrapolation import Extrapolation
 
 from ._config import GLOBAL_AXIS_ORDER
 
@@ -94,7 +93,7 @@ from ._functions import (
     einsum,
     abs,
     sign,
-    round, ceil, floor,
+    round_ as round, ceil, floor,
     max_ as max, min_ as min, maximum, minimum, clip,
     with_custom_gradient,
     sqrt, exp, sin, cos,
@@ -137,6 +136,10 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dt><code class="name"><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code></dt>
 <dd>
 <div class="desc"><p>Low-level library wrappers for delegating vector operations.</p></div>
+</dd>
+<dt><code class="name"><a title="phi.math.extrapolation" href="extrapolation.html">phi.math.extrapolation</a></code></dt>
+<dd>
+<div class="desc"><p>Defines standard extrapolations …</p></div>
 </dd>
 </dl>
 </section>
@@ -619,7 +622,7 @@ Tensors with different shapes are reshaped before comparing.</p>
 </details>
 </dd>
 <dt id="phi.math.closest_grid_values"><code class="name flex">
-<span>def <span class="ident">closest_grid_values</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: extrapolation.Extrapolation)</span>
+<span>def <span class="ident">closest_grid_values</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds the neighboring grid points in all spatial directions and returns their values.
@@ -812,7 +815,7 @@ The shapes of all values must be equal, except for the size of the concat dimens
 </details>
 </dd>
 <dt id="phi.math.downsample2x"><code class="name flex">
-<span>def <span class="ident">downsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: phi.math._extrapolation.Extrapolation = boundary, dims: tuple = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">downsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Resamples a regular grid to half the number of spatial sample points per dimension.
@@ -1181,7 +1184,7 @@ The precision can be set globally using <code><a title="phi.math.set_global_prec
 </details>
 </dd>
 <dt id="phi.math.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: phi.math._extrapolation.Extrapolation = boundary, dims: tuple = None, stack_dim: str = 'gradient')</span>
+<span>def <span class="ident">gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: str = 'gradient')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the gradient of a scalar channel from finite differences.
@@ -1267,7 +1270,7 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
 </details>
 </dd>
 <dt id="phi.math.grid_sample"><code class="name flex">
-<span>def <span class="ident">grid_sample</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: extrapolation.Extrapolation)</span>
+<span>def <span class="ident">grid_sample</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1460,7 +1463,7 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
 </details>
 </dd>
 <dt id="phi.math.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor = 1, padding: phi.math._extrapolation.Extrapolation = boundary, dims: tuple = None)</span>
+<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor = 1, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spatial Laplace operator as defined for scalar fields.
@@ -1791,7 +1794,7 @@ If channel dimensions are present, this method returns the indices where any ent
 </details>
 </dd>
 <dt id="phi.math.pad"><code class="name flex">
-<span>def <span class="ident">pad</span></span>(<span>value: phi.math._tensors.Tensor, widths: dict, mode: extrapolation.Extrapolation) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">pad</span></span>(<span>value: phi.math._tensors.Tensor, widths: dict, mode: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.</p>
@@ -2016,7 +2019,7 @@ def precision(floating_point_bits):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round(x: Tensor):
+<pre><code class="python">def round_(x: Tensor):
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
 </dd>
@@ -2224,7 +2227,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: tuple = None, padding: phi.math._extrapolation.Extrapolation = boundary, stack_dim: str = 'shift') ‑> list</span>
+<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: tuple = None, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: str = 'shift') ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>shift Tensor by a fixed offset and abiding by extrapolation</p>
@@ -2356,14 +2359,16 @@ The output of math operations has the same precision as its inputs.</p>
     if callable(operator):
         operator_or_matrix = None
         if solve_params.solver_arguments[&#39;bake&#39;] == &#39;sparse&#39;:
-            build_time = time.time()
+            track_time = time.time()
             x_track = lin_placeholder(x0)
             Ax_track = operator(x_track)
             assert isinstance(Ax_track, ShiftLinOp), &#39;Baking sparse matrix failed. Make sure only supported linear operations are used.&#39;
+            track_time = time.time() - track_time
+            build_time = time.time()
             operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
-            # print_(tensor(operator_or_matrix.todense(), names=&#39;x,y&#39;))
             # TODO reshape x0, y so that independent dimensions are batch
-            print(&#34;CG: matrix build time: %d ms&#34; % (1000 * (time.time() - build_time),))
+            build_time = time.time() - build_time
+            # print_(tensor(operator_or_matrix.todense(), names=&#39;x,y&#39;))
         if operator_or_matrix is None:
             def operator_or_matrix(native_x):
                 native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
@@ -2374,9 +2379,10 @@ The output of math operations has the same precision as its inputs.</p>
     else:
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
-    cg_time = time.time()
+    loop_time = time.time()
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, &#39;implicit&#39;, callback)
-    print(&#34;CG: loop time: %d ms (%s iterations)&#34; % (1000 * (time.time() - cg_time), iterations))
+    loop_time = time.time() - loop_time
+    print(f&#34;CG   track: {round(track_time * 1000)} ms    build: {round(build_time * 1000)} ms    loop: {round(loop_time * 1000)} ms / {iterations} iterations&#34;)
     converged = choose_backend(converged).reshape(converged, batch.sizes)
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     iterations = choose_backend(iterations).reshape(iterations, batch.sizes)
@@ -2397,7 +2403,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.spatial_pad"><code class="name flex">
-<span>def <span class="ident">spatial_pad</span></span>(<span>value, pad_width: tuple, mode: extrapolation.Extrapolation) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">spatial_pad</span></span>(<span>value, pad_width: tuple, mode: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2760,7 +2766,7 @@ names: str or tuple or list:
 </details>
 </dd>
 <dt id="phi.math.upsample2x"><code class="name flex">
-<span>def <span class="ident">upsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: phi.math._extrapolation.Extrapolation = boundary, dims: tuple = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">upsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Resamples a regular grid to double the number of spatial sample points per dimension.
@@ -3103,14 +3109,9 @@ def precision(self):
 
     def to_dict(self) -&gt; dict:
         &#34;&#34;&#34;
-        Serialize this extrapolation to a dictionary that is JSON-writable.
+        Serialize this extrapolation to a dictionary that is serializable (JSON-writable).
         
-        Use extrapolation.from_dict() to restore the Extrapolation object.
-
-        Args:
-
-        Returns:
-
+        Use `from_dict()` to restore the Extrapolation object.
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -3191,9 +3192,9 @@ def precision(self):
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li>phi.math._extrapolation.ConstantExtrapolation</li>
-<li>phi.math._extrapolation.MixedExtrapolation</li>
-<li>phi.math._extrapolation._CopyExtrapolation</li>
+<li><a title="phi.math.extrapolation.ConstantExtrapolation" href="extrapolation.html#phi.math.extrapolation.ConstantExtrapolation">ConstantExtrapolation</a></li>
+<li>phi.math.extrapolation._CopyExtrapolation</li>
+<li>phi.math.extrapolation._MixedExtrapolation</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -3214,7 +3215,7 @@ def is_copy_pad(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.math.Extrapolation.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>self) ‑> phi.math._extrapolation.Extrapolation</span>
+<span>def <span class="ident">gradient</span></span>(<span>self) ‑> <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.</p></div>
@@ -3327,24 +3328,17 @@ def is_copy_pad(self):
 <span>def <span class="ident">to_dict</span></span>(<span>self) ‑> dict</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Serialize this extrapolation to a dictionary that is JSON-writable.</p>
-<p>Use extrapolation.from_dict() to restore the Extrapolation object.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<div class="desc"><p>Serialize this extrapolation to a dictionary that is serializable (JSON-writable).</p>
+<p>Use <code>from_dict()</code> to restore the Extrapolation object.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def to_dict(self) -&gt; dict:
     &#34;&#34;&#34;
-    Serialize this extrapolation to a dictionary that is JSON-writable.
+    Serialize this extrapolation to a dictionary that is serializable (JSON-writable).
     
-    Use extrapolation.from_dict() to restore the Extrapolation object.
-
-    Args:
-
-    Returns:
-
+    Use `from_dict()` to restore the Extrapolation object.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -5825,6 +5819,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code></li>
+<li><code><a title="phi.math.extrapolation" href="extrapolation.html">phi.math.extrapolation</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>

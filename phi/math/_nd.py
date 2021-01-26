@@ -4,10 +4,10 @@ from __future__ import division
 import numpy as np
 
 from phi import struct
-from . import _extrapolation as extrapolation
+from . import extrapolation as extrapolation
 from . import _functions as math
 from ._config import GLOBAL_AXIS_ORDER
-from ._extrapolation import Extrapolation
+from .extrapolation import Extrapolation
 from ._functions import channel_stack
 from ._shape import Shape
 from ._tensors import Tensor

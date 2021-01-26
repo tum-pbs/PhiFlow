@@ -11,7 +11,7 @@ from phi.math import spatial_shape
 from ._effect import FieldEffect
 from ._physics import Physics
 from ._physics import State
-from ..math._extrapolation import mixed_extrapolation
+from ..math.extrapolation import combine_sides
 
 
 class Material:
@@ -85,7 +85,7 @@ def _mix(material_dict, ext_property: str):
             extrapolations[dim] = getattr(material, ext_property)
         else:
             extrapolations[dim] = (getattr(material[0], ext_property), getattr(material[1], ext_property))
-    return mixed_extrapolation(extrapolations)
+    return combine_sides(extrapolations)
 
 
 OPEN = Material('open', extrapolation.ZERO, extrapolation.ZERO, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ONE)

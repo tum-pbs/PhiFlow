@@ -8,7 +8,7 @@ import numpy as np
 
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_
-from . import _extrapolation as extrapolation
+from . import extrapolation as extrapolation
 from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, \
     custom_op2, tensors
 from phi.math.backend._scipy_backend import SCIPY_BACKEND
@@ -566,7 +566,7 @@ def sign(x: Tensor):
     return _backend_op1(x, Backend.sign)
 
 
-def round(x: Tensor):
+def round_(x: Tensor):
     return _backend_op1(x, Backend.round)
 
 
@@ -881,14 +881,16 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     if callable(operator):
         operator_or_matrix = None
         if solve_params.solver_arguments['bake'] == 'sparse':
-            build_time = time.time()
+            track_time = time.time()
             x_track = lin_placeholder(x0)
             Ax_track = operator(x_track)
             assert isinstance(Ax_track, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
+            track_time = time.time() - track_time
+            build_time = time.time()
             operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
-            # print_(tensor(operator_or_matrix.todense(), names='x,y'))
             # TODO reshape x0, y so that independent dimensions are batch
-            print("CG: matrix build time: %d ms" % (1000 * (time.time() - build_time),))
+            build_time = time.time() - build_time
+            # print_(tensor(operator_or_matrix.todense(), names='x,y'))
         if operator_or_matrix is None:
             def operator_or_matrix(native_x):
                 native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
@@ -899,9 +901,10 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     else:
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
-    cg_time = time.time()
+    loop_time = time.time()
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
-    print("CG: loop time: %d ms (%s iterations)" % (1000 * (time.time() - cg_time), iterations))
+    loop_time = time.time() - loop_time
+    print(f"CG   track: {round(track_time * 1000)} ms    build: {round(build_time * 1000)} ms    loop: {round(loop_time * 1000)} ms / {iterations} iterations")
     converged = choose_backend(converged).reshape(converged, batch.sizes)
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     iterations = choose_backend(iterations).reshape(iterations, batch.sizes)

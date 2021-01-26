@@ -1,3 +1,8 @@
+"""
+Defines standard extrapolations.
+
+Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.
+"""
 from __future__ import annotations
 
 from . import _functions as math
@@ -26,14 +31,9 @@ class Extrapolation:
 
     def to_dict(self) -> dict:
         """
-        Serialize this extrapolation to a dictionary that is JSON-writable.
+        Serialize this extrapolation to a dictionary that is serializable (JSON-writable).
         
-        Use extrapolation.from_dict() to restore the Extrapolation object.
-
-        Args:
-
-        Returns:
-
+        Use `from_dict()` to restore the Extrapolation object.
         """
         raise NotImplementedError()
 
@@ -114,10 +114,14 @@ class Extrapolation:
 
 
 class ConstantExtrapolation(Extrapolation):
+    """
+    Extrapolate with a constant value.
+    """
 
-    def __init__(self, value):
+    def __init__(self, value: Tensor):
         Extrapolation.__init__(self, 5)
         self.value = tensor(value)
+        """ Extrapolation value """
 
     def __repr__(self):
         return repr(self.value)
@@ -483,14 +487,20 @@ class _ReflectExtrapolation(_CopyExtrapolation):
 
 
 ZERO = ConstantExtrapolation(0)
+""" Extrapolates with the constant value 0 """
 ONE = ConstantExtrapolation(1)
+""" Extrapolates with the constant value 1 """
 PERIODIC = _PeriodicExtrapolation(1)
+""" Extends a grid by tiling it """
 BOUNDARY = _BoundaryExtrapolation(2)
+""" Extends a grid with its edge values. The value of a point lying outside the grid is determined by the closest grid value(s). """
 SYMMETRIC = _SymmetricExtrapolation(3)
+""" Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
 REFLECT = _ReflectExtrapolation(4)
+""" Like SYMMETRIC but the edge values are not copied and only occur once per seam. """
 
 
-def mixed_extrapolation(extrapolations: dict):
+def combine_sides(extrapolations: dict) -> Extrapolation:
     """
     Create a single Extrapolation object that uses different extrapolations for different sides of a box.
 
@@ -512,10 +522,10 @@ def mixed_extrapolation(extrapolations: dict):
     if len(values) == 1:
         return next(iter(values))
     else:
-        return MixedExtrapolation(extrapolations)
+        return _MixedExtrapolation(extrapolations)
 
 
-class MixedExtrapolation(Extrapolation):
+class _MixedExtrapolation(Extrapolation):
 
     def __init__(self, extrapolations: dict):
         """
@@ -534,18 +544,18 @@ class MixedExtrapolation(Extrapolation):
         }
 
     def __eq__(self, other):
-        if isinstance(other, MixedExtrapolation):
+        if isinstance(other, _MixedExtrapolation):
             return self.ext == other.ext
         else:
-            simplified = mixed_extrapolation(self.ext)
-            if not isinstance(simplified, MixedExtrapolation):
+            simplified = combine_sides(self.ext)
+            if not isinstance(simplified, _MixedExtrapolation):
                 return simplified == other
             else:
                 return False
 
     def __hash__(self):
-        simplified = mixed_extrapolation(self.ext)
-        if not isinstance(simplified, MixedExtrapolation):
+        simplified = combine_sides(self.ext)
+        if not isinstance(simplified, _MixedExtrapolation):
             return hash(simplified)
         else:
             return hash(frozenset(self.ext.items()))
@@ -554,8 +564,8 @@ class MixedExtrapolation(Extrapolation):
         return repr(self.ext)
 
     def gradient(self) -> Extrapolation:
-        return mixed_extrapolation({ax: (es[0].gradient(), es[1].gradient())
-                                   for ax, es in self.ext.items()})
+        return combine_sides({ax: (es[0].gradient(), es[1].gradient())
+                              for ax, es in self.ext.items()})
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         """
@@ -622,14 +632,23 @@ class MixedExtrapolation(Extrapolation):
         return self._op2(other, lambda e1, e2: e2 * e1)
 
     def _op2(self, other, operator):
-        if isinstance(other, MixedExtrapolation):
+        if isinstance(other, _MixedExtrapolation):
             assert self.ext.keys() == other.ext.keys()
-            return mixed_extrapolation({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
+            return combine_sides({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
         else:
-            return mixed_extrapolation({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
+            return combine_sides({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
 
 
 def from_dict(dictionary: dict) -> Extrapolation:
+    """
+    Loads an `Extrapolation` object from a dictionary that was created using `Extrapolation.to_dict()`.
+
+    Args:
+        dictionary: serializable dictionary holding all extrapolation properties
+
+    Returns:
+        Loaded extrapolation
+    """
     etype = dictionary['type']
     if etype == 'constant':
         return ConstantExtrapolation(dictionary['value'])

@@ -24,8 +24,7 @@ See the `phi.math` module documentation at https://github.com/tum-pbs/PhiFlow/bl
 from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, choose_backend
 from .backend._scipy_backend import SCIPY_BACKEND
 
-from . import _extrapolation as extrapolation
-from ._extrapolation import Extrapolation
+from .extrapolation import Extrapolation
 
 from ._config import GLOBAL_AXIS_ORDER
 
@@ -49,7 +48,7 @@ from ._functions import (
     einsum,
     abs,
     sign,
-    round, ceil, floor,
+    round_ as round, ceil, floor,
     max_ as max, min_ as min, maximum, minimum, clip,
     with_custom_gradient,
     sqrt, exp, sin, cos,
