@@ -94,7 +94,7 @@ class TestExtrapolationOperators(TestCase):
                 math.assert_close(p.x[0].y[:-1], a.x[0])
                 math.assert_close(p.x[-2:].y[:-1], a.x[-1])
                 # mixed
-                p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, _MixedExtrapolation({'x': PERIODIC, 'y': (ONE, REFLECT)}))
+                p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, combine_sides({'x': PERIODIC, 'y': (ONE, REFLECT)}))
                 math.print(p)
                 self.assertEqual((7, 4, 2), p.shape.sizes)  # dimension check
                 math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner

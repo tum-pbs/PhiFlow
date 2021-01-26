@@ -1,13 +1,11 @@
 import warnings
 
 from phi import math, struct, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient, where, HardGeometryMask, \
-    StaggeredGrid
-from phi.geom import union
+from phi.field import CenteredGrid, StaggeredGrid
 from . import advect
-from ._boundaries import Domain
 from ._effect import Gravity, effect_applied, gravity_tensor
 from ._physics import Physics, StateDependency, State
+from .fluid import make_incompressible
 
 
 @struct.definition()
