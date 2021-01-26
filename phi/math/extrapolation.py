@@ -18,7 +18,7 @@ class Extrapolation:
         """
         Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
 
-            They play a pivotal role in padding and sampling.
+        They play a vital role in padding and sampling.
 
         Args:
           pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.

@@ -9,6 +9,8 @@ Use one of the following imports:
 
 Project homepage: https://github.com/tum-pbs/PhiFlow
 
+Documentation overview: https://tum-pbs.github.io/PhiFlow
+
 PyPI: https://pypi.org/project/phiflow/
 """
 

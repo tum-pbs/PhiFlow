@@ -59,6 +59,8 @@ The following introductory demos are also helpful to get started with writing yo
 
 The [Version history](https://github.com/tum-pbs/PhiFlow/releases) lists all major changes since release.
 
+The releases are also listed on [PyPI](https://pypi.org/project/phiflow/).
+
 ## Contributions
 
 Contributions are welcome! Check out [this document](CONTRIBUTING.md) for guidelines.

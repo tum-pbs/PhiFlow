@@ -23,7 +23,7 @@
 </header>
 <section id="section-intro">
 <p>Interactive application development and web interface.</p>
-<p>See the user interface documentation at <a href="https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md">https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md</a></p>
+<p>See the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -31,7 +31,7 @@
 <pre><code class="python">&#34;&#34;&#34;
 Interactive application development and web interface.
 
-See the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 &#34;&#34;&#34;
 from ._value import EditableValue, EditableFloat, EditableInt, EditableBool, EditableString
 from ._app import App
@@ -54,7 +54,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <div class="desc"><p>Launch the registered user interface (web interface by default).</p>
 <p>This method may block until the GUI is closed.</p>
 <p>This method prepares the app before showing it. No more fields should be added to the app after this method is invoked.</p>
-<p>Also see the user interface documentation at <a href="https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md">https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md</a></p>
+<p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>autorun</code></strong></dt>
@@ -64,7 +64,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </dl>
 <p>If unspecified, searches the calling script for a subclass of App and instantiates it.
 config: additional GUI configuration parameters.
-For a full list of parameters, see <a href="https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md">https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md</a>
+For a full list of parameters, see <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a>
 app: App or None:
 (Default value = None)
 **config: </p>
@@ -82,14 +82,14 @@ app: App or None:
     
     This method prepares the app before showing it. No more fields should be added to the app after this method is invoked.
     
-    Also see the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
     Args:
       autorun: If true, invokes `App.play()`. The default value is False unless &#34;autorun&#34; is passed as a command line argument.
       app: optional) the application to display.
     If unspecified, searches the calling script for a subclass of App and instantiates it.
       config: additional GUI configuration parameters.
-    For a full list of parameters, see https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+    For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
       app: App or None:  (Default value = None)
       **config: 
 
@@ -147,7 +147,7 @@ app: App or None:
 <p>To display data, call App.add_field().
 All fields need to be registered before the app is prepared or shown.</p>
 <p>To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.</p>
-<p>See the user interface documentation at <a href="https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md">https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md</a></p>
+<p>See the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p>
 <p>Args:</p>
 <p>Returns:</p></div>
 <details class="source">
@@ -163,7 +163,7 @@ All fields need to be registered before the app is prepared or shown.</p>
     
     To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
     
-    See the user interface documentation at https://github.com/tum-pbs/PhiFlow/blob/develop/documentation/Web_Interface.md
+    See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
     Args:
 

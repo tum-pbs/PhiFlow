@@ -8,8 +8,7 @@
 For GPU acceleration, deep learning and optimization,
 [TensorFlow](https://www.tensorflow.org/install/) or [PyTorch](https://pytorch.org/)
 must be registered with your Python installation.
-Note that TensorFlow also requires a CUDA SDK with *cuDNN* libraries for GPU execution.
-The PyTorch binaries already include these.
+Note that these also require a CUDA installation with *cuDNN* libraries for GPU execution.
 
 ## Installing a pre-built Φ<sub>Flow</sub> version
 
