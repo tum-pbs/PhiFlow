@@ -378,16 +378,6 @@ def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name
     return NativeTensor(native, new_shape)
 
 
-def prod(value, axis=None):
-    if axis is None and isinstance(value, (tuple, list)) and all(isinstance(v, numbers.Number) for v in value):
-        return SCIPY_BACKEND.prod(value)
-    if isinstance(value, Tensor):
-        native = value.native()
-        native = choose_backend(native).prod(native, value.shape.index(axis))
-        return NativeTensor(native, value.shape.without(axis))
-    raise NotImplementedError(f"{type(value)} not supported. Only Tensor allowed.")
-
-
 def where(condition: Tensor or float or int, value_true: Tensor or float or int, value_false: Tensor or float or int):
     """
     Builds a tensor by choosing either values from `value_true` or `value_false` depending on `condition`.
@@ -446,7 +436,21 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
 
 def _reduce(value: Tensor or list or tuple,
             dim: str or tuple or list or Shape or None,
-            native_function):
+            native_function: callable,
+            collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+            unaffected_function: callable = lambda value: value) -> Tensor:
+    """
+
+    Args:
+        value:
+        dim:
+        native_function:
+        collapsed_function: handles collapsed dimensions, called as `collapsed_function(inner_reduced, collapsed_dims_to_reduce)`
+        unaffected_function: returns `unaffected_function(value)` if `len(dims) > 0` but none of them are part of `value`
+
+    Returns:
+
+    """
     if dim in ((), [], EMPTY_SHAPE):
         return value
     if isinstance(value, (tuple, list)):
@@ -462,22 +466,28 @@ def _reduce(value: Tensor or list or tuple,
         value = tensor(value)
     dims = _resolve_dims(dim, value.shape)
     if all([dim not in value.shape for dim in dims]):
-        return value  # no axis to sum over
+        return unaffected_function(value)  # no dim to sum over
     if isinstance(value, NativeTensor):
         native = value.native()
-        result = native_function(choose_backend(native), native, axis=value.shape.index(dims))
+        result = native_function(choose_backend(native), native, dim=value.shape.index(dims))
         return NativeTensor(result, value.shape.without(dims))
+    if isinstance(value, CollapsedTensor):
+        inner_reduce = _reduce(value.tensor, dims, native_function, collapsed_function, unaffected_function)
+        collapsed_dims = value.shape.without(value.tensor.shape)
+        final_shape = value.shape.without(dims)
+        total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
+        return CollapsedTensor(total_reduce, final_shape)
     elif isinstance(value, TensorStack):
         # --- inner reduce ---
         inner_axes = [dim for dim in dims if dim != value.stack_dim_name]
-        red_inners = [_reduce(t, inner_axes, native_function) for t in value.tensors]
+        red_inners = [_reduce(t, inner_axes, native_function, collapsed_function, unaffected_function) for t in value.tensors]
         # --- outer reduce ---
         from ._track import ShiftLinOp, sum_operators
         if value.stack_dim_name in dims:
             if any([isinstance(t, ShiftLinOp) for t in red_inners]):
                 return sum(red_inners[1:], red_inners[0])
             natives = [t.native() for t in red_inners]
-            result = native_function(choose_backend(*natives), natives, axis=0)
+            result = native_function(choose_backend(*natives), natives, dim=0)  # TODO not necessary if tensors are CollapsedTensors
             return NativeTensor(result, red_inners[0].shape)
         else:
             return TensorStack(red_inners, value.stack_dim_name, value.stack_dim_type)
@@ -499,47 +509,55 @@ def _resolve_dims(dim: str or tuple or list or Shape or None,
 
 
 def sum_(value: Tensor or list or tuple,
-         axis: str or int or tuple or list or None or Shape = None):
-    if isinstance(value, CollapsedTensor):
-        inner_sum = sum_(value.tensor, axis)
-        sum_dims = _resolve_dims(axis, value.shape)
-        collapsed_dims = value.shape.without(value.tensor.shape)
-        factor = collapsed_dims.only(sum_dims).volume
-        total_sum = inner_sum * factor
-        return CollapsedTensor(total_sum, value.shape.without(sum_dims))
-    return _reduce(value, axis, lambda backend, native, axis: backend.sum(native, axis))
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim,
+                   native_function=lambda backend, native, dim: backend.sum(native, dim),
+                   collapsed_function=lambda inner, red_shape: inner * red_shape.volume)
 
 
-def mean(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, lambda backend, native, axis: backend.mean(native, axis))
+def prod(value: Tensor or list or tuple,
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim,
+                   native_function=lambda backend, native, dim: backend.prod(native, dim),
+                   collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)
 
 
-def std(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, lambda backend, native, axis: backend.std(native, axis))
+def mean(value: Tensor or list or tuple,
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim,
+                   native_function=lambda backend, native, dim: backend.mean(native, dim))
 
 
-def any_(boolean_tensor: Tensor or list or tuple, axis=None):
-    return _reduce(boolean_tensor, axis, lambda backend, native, axis: backend.any(native, axis))
+def std(value: Tensor or list or tuple,
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim,
+                   native_function=lambda backend, native, dim: backend.std(native, dim),
+                   collapsed_function=lambda inner, red_shape: inner,
+                   unaffected_function=lambda value: value * 0)
 
 
-def all_(boolean_tensor: Tensor or list or tuple, axis=None):
-    return _reduce(boolean_tensor, axis, lambda backend, native, axis: backend.all(native, axis))
+def any_(boolean_tensor: Tensor or list or tuple,
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(boolean_tensor, dim,
+                   native_function=lambda backend, native, dim: backend.any(native, dim))
 
 
-def max_(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, lambda backend, native, axis: backend.max(native, axis))
+def all_(boolean_tensor: Tensor or list or tuple,
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(boolean_tensor, dim,
+                   native_function=lambda backend, native, dim: backend.all(native, dim))
 
 
-def min_(value: Tensor or list or tuple, axis=None):
-    return _reduce(value, axis, lambda backend, native, axis: backend.min(native, axis))
+def max_(value: Tensor or list or tuple,
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim,
+                   native_function=lambda backend, native, dim: backend.max(native, dim))
 
 
-def zeros_like(tensor: Tensor):
-    return zeros(tensor.shape, dtype=tensor.dtype)
-
-
-def ones_like(tensor: Tensor):
-    return zeros(tensor.shape, dtype=tensor.dtype) + 1
+def min_(value: Tensor or list or tuple,
+         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim,
+                   native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
 def dot(a, b, axes):

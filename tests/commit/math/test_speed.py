@@ -11,14 +11,14 @@ def rnpv(size=64, d=2):
 
 
 def _assert_equally_fast(f1, f2, n=100, tolerance_per_round=0.001):
-    start = time.time()
+    start = time.perf_counter()
     for _ in range(n):
         f1()
-    np_time = time.time() - start
-    start = time.time()
+    np_time = time.perf_counter() - start
+    start = time.perf_counter()
     for _ in range(n):
         f2()
-    t_time = time.time() - start
+    t_time = time.perf_counter() - start
     print(np_time, t_time)
     assert abs(t_time - np_time) / n <= tolerance_per_round
 

@@ -18,7 +18,7 @@ class TestMathFunctions(TestCase):
         math.assert_close(math.zeros(a=10), math.zeros(a=10), math.zeros(a=10), rel_tolerance=0, abs_tolerance=0)
         assert_not_close(math.zeros(a=10), math.ones(a=10), rel_tolerance=0, abs_tolerance=0)
         for scale in (1, 0.1, 10):
-            math.assert_close(math.zeros(a=10), math.ones(a=10) * scale, rel_tolerance=0, abs_tolerance=scale)
+            math.assert_close(math.zeros(a=10), math.ones(a=10) * scale, rel_tolerance=0, abs_tolerance=scale * 1.001)
             math.assert_close(math.zeros(a=10), math.ones(a=10) * scale, rel_tolerance=1, abs_tolerance=0)
             assert_not_close(math.zeros(a=10), math.ones(a=10) * scale, rel_tolerance=0.9, abs_tolerance=0)
             assert_not_close(math.zeros(a=10), math.ones(a=10) * scale, rel_tolerance=0, abs_tolerance=0.9 * scale)
@@ -41,7 +41,6 @@ class TestMathFunctions(TestCase):
 
     def test_maximum(self):
         v = math.ones(x=4, y=3, vector=2)
-        maximum = math.maximum(0, v)
         math.assert_close(math.maximum(0, v), 1)
         math.assert_close(math.maximum(0, -v), 0)
 
@@ -59,6 +58,24 @@ class TestMathFunctions(TestCase):
         self.assertEqual(('batch', 'nonzero', 'vector'), nz.shape.names)
         self.assertEqual(1, nz.batch[0].shape.nonzero)
         self.assertEqual(0, nz.batch[1].shape.nonzero)
+
+    def test_sum_collapsed(self):
+        ones = math.ones(x=40000, y=30000)
+        self.assertEqual(40000 * 30000, math.sum(ones))
+
+    def test_prod_collapsed(self):
+        ones = math.ones(x=40000, y=30000)
+        math.assert_close(1, math.prod(ones))
+
+    def test_mean_collapsed(self):
+        ones = math.ones(x=40000, y=30000)
+        data = math.spatial_stack([ones, ones * 2], 'vector')
+        self.assertEqual(1.5, math.mean(data))
+
+    def test_std_collapsed(self):
+        ones = math.ones(x=40000, y=30000)
+        std = math.std(ones)
+        self.assertEqual(0, std)
 
 # Legacy test to be fixed
 # def _resample_test(mode, constant_values, expected):
