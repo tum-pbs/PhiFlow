@@ -188,7 +188,9 @@ def expose_tensors(field_function, *proto_fields):
     @wraps(field_function)
     def wrapper(*field_data):
         fields = [proto._with(data) for data, proto in zip(field_data, proto_fields)]
-        return field_function(*fields).values
+        result = field_function(*fields)
+        assert isinstance(result, SampledField), f"function must return an instance of SampledField but returned {result}"
+        return result.values
     return wrapper
 
 

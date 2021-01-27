@@ -133,6 +133,18 @@ class ShiftLinOp(Tensor):
         return self.shift(starts, lambda v: v[selection], new_shape)
 
     def shift(self, shifts: dict, val_fun, new_shape):
+        """
+        Shifts all values of this tensor by `shifts`.
+        Values shifted outside will be mapped with periodic boundary conditions when the matrix is built, see `build_sparse_coordinate_matrix()`.
+
+        Args:
+            shifts: Offsets by dimension
+            val_fun: Function to apply to the matrix values, may change the tensor shapes
+            new_shape: Shape of the shifted tensor, must match the shape returned by `val_fun`.
+
+        Returns:
+            Shifted tensor, possibly with altered values.
+        """
         val = {}
         for shift, values in self.val.items():
             assert isinstance(shift, Shape)
@@ -153,7 +165,30 @@ class ShiftLinOp(Tensor):
     def _op1(self, native_function):  # only __neg__ is linear
         raise NotImplementedError('Only linear operations are supported')
 
-    def _op2(self, other: Tensor, operator: callable, native_function: callable) -> Tensor:
+    def __add__(self, other):
+        return self._op2(other, lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), zeros_for_missing_self=False, zeros_for_missing_other=False)
+
+    def __sub__(self, other):
+        return self._op2(other, lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), zeros_for_missing_other=False)
+
+    def __rsub__(self, other):
+        return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), zeros_for_missing_self=False)
+
+    def _op2(self, other: Tensor,
+             operator: callable,
+             native_function: callable,
+             zeros_for_missing_self=True,
+             zeros_for_missing_other=True) -> 'ShiftLinOp':
+        """
+        Tensor-tensor operation.
+
+        Args:
+            other:
+            operator:
+            native_function:
+            zeros_for_missing_self: perform `operator` where `self == 0`
+            zeros_for_missing_other: perform `operator` where `other == 0`
+        """
         if isinstance(other, ShiftLinOp):
             assert self.source is other.source
             assert self._shape == other._shape
@@ -162,10 +197,16 @@ class ShiftLinOp(Tensor):
                 if dim_shift in other.val:
                     values[dim_shift] = operator(self.val[dim_shift], other.val[dim_shift])
                 else:
-                    values[dim_shift] = operator(self.val[dim_shift], math.zeros_like(self.val[dim_shift]))
+                    if zeros_for_missing_other:
+                        values[dim_shift] = operator(self.val[dim_shift], math.zeros_like(self.val[dim_shift]))
+                    else:
+                        values[dim_shift] = self.val[dim_shift]
             for dim_shift, other_values in other.val.items():
                 if dim_shift not in self.val:
-                    values[dim_shift] = operator(math.zeros_like(other_values), other_values)
+                    if zeros_for_missing_self:
+                        values[dim_shift] = operator(math.zeros_like(other_values), other_values)
+                    else:
+                        values[dim_shift] = other_values
             return ShiftLinOp(self.source, values, self._shape)
         else:
             other = self._tensor(other)
