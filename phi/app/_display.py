@@ -8,7 +8,7 @@ from phi.app._app import App
 
 class AppDisplay(object):
 
-    def __init__(self, app):
+    def __init__(self, app: App):
         """
         Creates a display for the given app and initializes the configuration.
         This method does not set up the display. It only sets up the AppDisplay object and returns as quickly as possible.
@@ -19,8 +19,7 @@ class AppDisplay(object):
         self.app = app
         self.config = {}
 
-    def configure(self, config):
-        # type: (dict) -> None
+    def configure(self, config: dict):
         """
         Updates the GUI configuration.
         This method may only be called while the GUI is not yet visible, i.e. before show() is called.
@@ -51,8 +50,7 @@ class AppDisplay(object):
         """
         pass
 
-    def show(self, caller_is_main):
-        # type: (bool) -> bool
+    def show(self, caller_is_main: bool) -> bool:
         """
         Displays the previously setup GUI.
         This method is blocking and returns only when the GUI is hidden.
@@ -88,7 +86,7 @@ if 'headless' not in sys.argv:
 AUTORUN = 'autorun' in sys.argv
 
 
-def show(app: App or None = None, autorun=AUTORUN, **config):
+def show(app: App or None = None, autorun=AUTORUN, gui: AppDisplay = None, **config):
     """
     Launch the registered user interface (web interface by default).
     
@@ -100,8 +98,8 @@ def show(app: App or None = None, autorun=AUTORUN, **config):
 
     Args:
       autorun: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-      app: optional) the application to display.
-    If unspecified, searches the calling script for a subclass of App and instantiates it.
+      app: optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
+      gui: (optional) class of GUI to use
       config: additional GUI configuration parameters.
     For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
       app: App or None:  (Default value = None)
@@ -128,8 +126,9 @@ def show(app: App or None = None, autorun=AUTORUN, **config):
     app.prepare()
 
     display = None
-    if DEFAULT_DISPLAY_CLASS is not None:
-        display = DEFAULT_DISPLAY_CLASS(app)
+    gui = gui or DEFAULT_DISPLAY_CLASS
+    if gui is not None:
+        display = gui(app)
         display.configure(config)
         display.setup()
     # --- Autorun ---

@@ -1,7 +1,5 @@
-# coding=utf-8
 import dash_core_components as dcc
 import dash_html_components as html
-import six
 
 from phi.math.backend.tensorop import collapsed_gather_nd
 from .board import build_benchmark, build_tf_profiler, build_tensorboard_launcher, build_system_controls
@@ -13,6 +11,7 @@ from .info import build_app_details, build_description, build_phiflow_info, buil
 from .viewer import build_viewer
 from .player_controls import build_status_bar, build_player_controls
 from .._display import AppDisplay
+from .._display_util import ordered_field_names
 
 
 class DashGui(AppDisplay):
@@ -60,18 +59,7 @@ class DashGui(AppDisplay):
         dash_app.add_page('/', layout)
 
         # --- Side by Side ---
-        if 'display' in self.config:
-            sbs_fieldnames = self.config['display']
-            if sbs_fieldnames is None:
-                sbs_fieldnames = [None, None]
-            elif isinstance(sbs_fieldnames, six.string_types):
-                sbs_fieldnames = [sbs_fieldnames] * 2
-        else:
-            sbs_fieldnames = self.app.fieldnames
-            if len(sbs_fieldnames) == 0:
-                sbs_fieldnames = ['None', 'None']
-            elif len(sbs_fieldnames) < 2:
-                sbs_fieldnames = list(sbs_fieldnames) + ['None']
+        sbs_fieldnames = ordered_field_names(self.app, self.config.get('display'), min_count=4, fill_with='None')
         layout = html.Div([
             build_view_selection(dash_app),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
@@ -96,10 +84,10 @@ class DashGui(AppDisplay):
                 build_viewer(dash_app, id='top-right', initial_field_name=sbs_fieldnames[1], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='bottom-left', initial_field_name=sbs_fieldnames[0], config=self.config),
+                build_viewer(dash_app, id='bottom-left', initial_field_name=sbs_fieldnames[2], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='bottom-right', initial_field_name=sbs_fieldnames[1], config=self.config),
+                build_viewer(dash_app, id='bottom-right', initial_field_name=sbs_fieldnames[3], config=self.config),
             ]),
             status_bar,
             player_controls,
