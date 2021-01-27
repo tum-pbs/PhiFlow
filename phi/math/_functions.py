@@ -40,7 +40,7 @@ def print_(value: Tensor = None, name: str = None):
     """
     Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.
     
-    Unlike regular printing, the primary axis, typically x, is oriented to the right.
+    Unlike regular printing, the primary dimension, typically x, is oriented to the right.
 
     Args:
       name: name of the tensor
@@ -57,20 +57,20 @@ def print_(value: Tensor = None, name: str = None):
     if name is not None:
         print(" " * 16 + name)
     value = tensor(value)
-    axis_order = tuple(sorted(value.shape.spatial.names, reverse=True))
+    dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
     if value.shape.spatial_rank == 0:
         print(value.numpy())
     elif value.shape.spatial_rank == 1:
         for index_dict in value.shape.non_spatial.meshgrid():
             if value.shape.non_spatial.volume > 1:
                 print(f"--- {', '.join('%s=%d' % (name, idx) for name, idx in index_dict.items())} ---")
-            text = np.array2string(value[index_dict].numpy(axis_order), precision=2, separator=', ', max_line_width=np.inf)
+            text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\[\]]', '', text))
     elif value.shape.spatial_rank == 2:
         for index_dict in value.shape.non_spatial.meshgrid():
             if value.shape.non_spatial.volume > 1:
                 print(f"--- {', '.join('%s=%d' % (name, idx) for name, idx in index_dict.items())} ---")
-            text = np.array2string(value[index_dict].numpy(axis_order), precision=2, separator=', ', max_line_width=np.inf)
+            text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\[\]]', '', re.sub('\],', '', text)))
     else:
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
@@ -106,6 +106,10 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
 
 
+def zeros_like(tensor: Tensor):
+    return zeros(tensor.shape, dtype=tensor.dtype)
+
+
 def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     """
     Define a tensor with specified shape with value 1 / True everywhere.
@@ -123,6 +127,10 @@ def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
 
     """
     return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
+
+
+def ones_like(tensor: Tensor):
+    return zeros(tensor.shape, dtype=tensor.dtype) + 1
 
 
 def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
@@ -188,16 +196,16 @@ def meshgrid(**dimensions):
     return TensorStack(channels, 'vector', CHANNEL_DIM)
 
 
-def channel_stack(values, axis: str):
-    return _stack(values, axis, CHANNEL_DIM)
+def channel_stack(values, dim: str):
+    return _stack(values, dim, CHANNEL_DIM)
 
 
-def batch_stack(values, axis: str = 'batch'):
-    return _stack(values, axis, BATCH_DIM)
+def batch_stack(values, dim: str = 'batch'):
+    return _stack(values, dim, BATCH_DIM)
 
 
-def spatial_stack(values, axis: str):
-    return _stack(values, axis, SPATIAL_DIM)
+def spatial_stack(values, dim: str):
+    return _stack(values, dim, SPATIAL_DIM)
 
 
 def _stack(values: tuple or list,
@@ -212,7 +220,7 @@ def _stack(values: tuple or list,
 
 def concat(values: tuple or list, dim: str) -> Tensor:
     """
-    Concatenates a sequence of tensors along one axis.
+    Concatenates a sequence of tensors along one dimension.
     The shapes of all values must be equal, except for the size of the concat dimension.
 
     Args:
@@ -315,7 +323,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')
-    result = sum_(neighbors * weights, axis=grid.shape.spatial.names)
+    result = sum_(neighbors * weights, dim=grid.shape.spatial.names)
     result_names = [dim.name[7:] if dim.is_spatial else dim.name for dim in result.shape.unstack()]
     result = result._with_shape_replaced(result.shape.with_names(result_names))
     return result
@@ -683,9 +691,9 @@ def conv(value: Tensor, kernel: Tensor, padding='same'):
     raise NotImplementedError()
 
 
-def unstack(value: Tensor, axis=0):
+def unstack(value: Tensor, dim=0):
     assert isinstance(value, Tensor)
-    return value.unstack(value.shape.names[axis])
+    return value.unstack(value.shape.names[dim])
 
 
 def boolean_mask(x: Tensor, mask):
@@ -864,6 +872,7 @@ def assert_close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
         tensors = [tensor(t) for t in tensors]
     else:  # use Tensor to infer dimensions
         tensors = [any_tensor._tensor(t) for t in tensors]
+    tensors = [t.tensor if isinstance(t, CollapsedTensor) else t for t in tensors]
     for other in tensors[1:]:
         _assert_close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
 

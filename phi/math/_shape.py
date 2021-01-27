@@ -657,7 +657,7 @@ class Shape:
             return None
         if self.rank == 0:
             return 1
-        return math.prod(self.sizes)
+        return math.prod(math.tensor(self.sizes))
 
     @property
     def is_empty(self) -> bool:

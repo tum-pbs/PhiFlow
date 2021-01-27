@@ -122,25 +122,26 @@ class Tensor:
     def __index__(self):
         return int(self.native()) if self.rank == 0 and np.issubdtype(self.dtype, int) else NotImplemented
 
-    def __repr__(self):
-        try:
-            content = self.numpy()
-            dtype = content.dtype
-        except ValueError as e:
-            try:
-                dtype = self.dtype
-            except AttributeError:
-                return repr(self.shape)
-            return "%s %s" % (self.shape, dtype)
-        if self.rank == 0:
-            return str(content)
-        if self.shape.volume is not None and self.shape.volume <= 4:
-            content = list(np.reshape(content, [-1]))
-            content = ', '.join([repr(number) for number in content])
-            return "%s %s  %s" % (self.shape, dtype, content)
+    def _summary_str(self) -> str:
+        from ._functions import all_available, min_, max_
+        if all_available(self):
+            if self.rank == 0:
+                return str(self.numpy())
+            elif self.shape.volume is not None and self.shape.volume <= 4:
+                content = list(np.reshape(self.numpy(), [-1]))
+                content = ', '.join([repr(number) for number in content])
+                return f"{self.shape} {self.dtype}  {content}"
+            else:
+                min_val, max_val = min_(self), max_(self)
+                return f"{self.shape} {self.dtype}  {min_val} < ... < {max_val}"
         else:
-            min_, max_ = np.min(content), np.max(content)
-            return "%s %s  %s < ... < %s" % (self.shape, content.dtype, min_, max_)
+            if self.rank == 0:
+                return f"scalar {self.dtype}"
+            else:
+                return f"{self.shape} {self.dtype}"
+
+    def __repr__(self):
+        return self._summary_str()
 
     def __getitem__(self, item):
         if isinstance(item, Tensor):
