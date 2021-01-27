@@ -15,15 +15,15 @@ from ._tensors import tensor
 
 
 def spatial_sum(value: Tensor):
-    return math.sum_(value, axis=value.shape.spatial.names)
+    return math.sum_(value, dim=value.shape.spatial.names)
 
 
 def vec_abs(vec: Tensor):
-    return math.sqrt(math.sum_(vec ** 2, axis=vec.shape.channel.names))
+    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel.names))
 
 
 def vec_squared(vec: Tensor):
-    return math.sum_(vec ** 2, axis=vec.shape.channel.names)
+    return math.sum_(vec ** 2, dim=vec.shape.channel.names)
 
 
 def cross_product(vec1: Tensor, vec2: Tensor):
@@ -57,9 +57,9 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
       normalized tensor of the same shape as target
 
     """
-    target_total = math.sum_(target, axis=target.shape.non_batch.names)
+    target_total = math.sum_(target, dim=target.shape.non_batch.names)
     denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
-    source_total = math.sum_(source, axis=source.shape.non_batch.names)
+    source_total = math.sum_(source, dim=source.shape.non_batch.names)
     return target * (source_total / denominator)
 
 
@@ -81,7 +81,7 @@ def l1_loss(tensor: Tensor, batch_norm=True, reduce_batches=True):
     if reduce_batches:
         total_loss = math.sum_(math.abs(tensor))
     else:
-        total_loss = math.sum_(math.abs(tensor), axis=list(range(1, len(tensor.shape))))
+        total_loss = math.sum_(math.abs(tensor), dim=list(range(1, len(tensor.shape))))
     if batch_norm and reduce_batches:
         batch_size = tensor.shape.sizes[0]
         return math.divide_no_nan(total_loss, math.to_float(batch_size))

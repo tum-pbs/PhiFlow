@@ -70,7 +70,7 @@ class _SymbolicOpField(AnalyticField):
             if isinstance(arg, Field):
                 unstacked[arg] = arg.unstack()
             elif math.is_tensor(arg) and math.ndims(arg) > 0:
-                unstacked[arg] = math.unstack(arg, axis=-1, keepdims=True)
+                unstacked[arg] = math.unstack(arg, dim=-1, keepdims=True)
             else:
                 unstacked[arg] = [arg] * self.component_count
             assert len(unstacked[arg]) == self.component_count

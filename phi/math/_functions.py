@@ -908,15 +908,15 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     if callable(operator):
         operator_or_matrix = None
         if solve_params.solver_arguments['bake'] == 'sparse':
-            track_time = time.time()
+            track_time = time.perf_counter()
             x_track = lin_placeholder(x0)
             Ax_track = operator(x_track)
             assert isinstance(Ax_track, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
-            track_time = time.time() - track_time
-            build_time = time.time()
+            track_time = time.perf_counter() - track_time
+            build_time = time.perf_counter()
             operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
             # TODO reshape x0, y so that independent dimensions are batch
-            build_time = time.time() - build_time
+            build_time = time.perf_counter() - build_time
             # print_(tensor(operator_or_matrix.todense(), names='x,y'))
         if operator_or_matrix is None:
             def operator_or_matrix(native_x):
@@ -928,9 +928,9 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     else:
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
-    loop_time = time.time()
+    loop_time = time.perf_counter()
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
-    loop_time = time.time() - loop_time
+    loop_time = time.perf_counter() - loop_time
     print(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations")
     converged = choose_backend(converged).reshape(converged, batch.sizes)
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)

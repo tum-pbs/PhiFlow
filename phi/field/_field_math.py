@@ -196,8 +196,8 @@ def expose_tensors(field_function, *proto_fields):
 
 def data_bounds(field: SampledField):
     data = field.points
-    min_vec = math.min(data, axis=data.shape.spatial.names)
-    max_vec = math.max(data, axis=data.shape.spatial.names)
+    min_vec = math.min(data, dim=data.shape.spatial.names)
+    max_vec = math.max(data, dim=data.shape.spatial.names)
     return Box(min_vec, max_vec)
 
 

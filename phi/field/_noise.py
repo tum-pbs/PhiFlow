@@ -50,8 +50,8 @@ class Noise(AnalyticField):
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))
-        array /= math.std(array, axis=array.shape.non_batch)
-        array -= math.mean(array, axis=array.shape.non_batch)
+        array /= math.std(array, dim=array.shape.non_batch)
+        array -= math.mean(array, dim=array.shape.non_batch)
         array = math.to_float(array)
         return array
 

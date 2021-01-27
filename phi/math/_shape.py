@@ -645,7 +645,7 @@ class Shape:
         return perm
 
     @property
-    def volume(self):
+    def volume(self) -> int or None:
         """
         Returns the total number of values contained in a tensor of this shape.
         This is the product of all dimension sizes.
@@ -657,7 +657,7 @@ class Shape:
             return None
         if self.rank == 0:
             return 1
-        return math.prod(math.tensor(self.sizes))
+        return int(math.prod(math.tensor(self.sizes)))
 
     @property
     def is_empty(self) -> bool:

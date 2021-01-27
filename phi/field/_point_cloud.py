@@ -110,7 +110,7 @@ def _distribute_points(density, particles_per_cell=1, distribution='uniform'):
                 temp.append(indices + 0.5)
             elif distribution == 'uniform':
                 temp.append(indices + math.random_uniform(math.shape(indices)))
-        index_array.append(math.concat(temp, axis=0))
+        index_array.append(math.concat(temp, dim=0))
     try:
         index_array = math.stack(index_array)
         return index_array
