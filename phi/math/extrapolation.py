@@ -355,6 +355,9 @@ class _CopyExtrapolation(Extrapolation):
 class _BoundaryExtrapolation(_CopyExtrapolation):
     """Uses the closest defined value for points lying outside the defined region."""
 
+    _CACHED_LOWER_MASKS = {}
+    _CACHED_UPPER_MASKS = {}
+
     def __repr__(self):
         return 'boundary'
 
@@ -383,35 +386,42 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
 
         """
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values
+        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values  ~half the computation time
         for bound_dim, (bound_lo, bound_hi) in widths.items():
             for i in range(bound_lo):  # i=0 means outer
                 # this sets corners to 0
                 lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
-                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (bound_lo - i - 1, 0)})
-                mask = ONE.pad(mask, {bound_dim: (1, 0)})
-                mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
-
-                # lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
-                # inner_widths = {dim: (lo, hi) for dim, (lo, hi) in widths.items() if dim not in finished_dims}
-                # inner_widths[bound_dim] = (bound_lo-i-1, 0)
-                # outer_widths = {dim: (lo, hi) for dim, (lo, hi) in widths.items() if dim in finished_dims}
-                # outer_widths[bound_dim] = (i, 0)
-                # mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), inner_widths)
-                # mask = ONE.pad(mask, {bound_dim: (1, 0)})
-                # mask = ZERO.pad(mask, outer_widths)
-
+                mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
                 boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
                 result += boundary
             for i in range(bound_hi):
                 lower = {dim: i - lo - hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
-                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (0, bound_hi - i - 1)})
-                mask = ONE.pad(mask, {bound_dim: (0, 1)})
-                mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
-                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
-                result += boundary
+                mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)  # ~ half the computation time
+                result += boundary  # this does basically nothing if value is the identity
         return result
 
+    def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
+            return _BoundaryExtrapolation._CACHED_LOWER_MASKS[key]
+        else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (bound_lo - i - 1, 0)})
+            mask = ONE.pad(mask, {bound_dim: (1, 0)})
+            mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = mask
+            return mask
+
+    def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
+            return _BoundaryExtrapolation._CACHED_UPPER_MASKS[key]
+        else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (0, bound_hi - i - 1)})
+            mask = ONE.pad(mask, {bound_dim: (0, 1)})
+            mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
+            return mask
 
 class _PeriodicExtrapolation(_CopyExtrapolation):
     def __repr__(self):
