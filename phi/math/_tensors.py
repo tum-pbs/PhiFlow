@@ -341,6 +341,18 @@ class Tensor:
             else:
                 raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (backend.ndims(other), self.shape))
 
+    def _op1(self, native_function):
+        """
+        Transform the values of this tensor given a function that can be applied to any native tensor.
+
+        Args:
+          native_function:
+
+        Returns:
+
+        """
+        raise NotImplementedError(self.__class__)
+
     def _op2(self, other: 'Tensor', operator: callable, native_function: callable) -> 'Tensor':
         """
         Apply a broadcast operation on two tensors.
@@ -358,16 +370,7 @@ class Tensor:
         """
         raise NotImplementedError()
 
-    def _op1(self, native_function):
-        """
-        Transform the values of this tensor given a function that can be applied to any native tensor.
-
-        Args:
-          native_function: 
-
-        Returns:
-
-        """
+    def _natives(self) -> tuple:
         raise NotImplementedError(self.__class__)
 
 
@@ -530,6 +533,9 @@ class NativeTensor(Tensor):
         else:
             return NotImplemented
 
+    def _natives(self) -> tuple:
+        return self._native,
+
 
 class CollapsedTensor(Tensor):
     """Tiled / Repeated tensor along additional dimensions."""
@@ -619,6 +625,9 @@ class CollapsedTensor(Tensor):
                 return CollapsedTensor(inner, self.shape.combined(other.shape).with_sizes(inner.shape))
         else:
             return NotImplemented
+
+    def _natives(self) -> tuple:
+        return self.tensor._natives()
 
 
 class TensorStack(Tensor):
@@ -721,6 +730,13 @@ class TensorStack(Tensor):
             else:
                 return self._cache().unstack(dimension=dimension)
 
+    def _op1(self, native_function):
+        if self.requires_broadcast:
+            tensors = [t._op1(native_function) for t in self.tensors]
+            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+        else:
+            return self._cache()._op1(native_function)
+
     def _op2(self, other, operator, native_function):
         other = self._tensor(other)
         if self.requires_broadcast:
@@ -737,13 +753,8 @@ class TensorStack(Tensor):
         else:
             return NotImplemented
 
-    def _op1(self, native_function):
-        if self.requires_broadcast:
-            tensors = [t._op1(native_function) for t in self.tensors]
-            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
-        else:
-            return self._cache()._op1(native_function)
-
+    def _natives(self) -> tuple:
+        return sum([t._natives() for t in self.tensors], ())
 
 
 def tensors(*objects, names=None):

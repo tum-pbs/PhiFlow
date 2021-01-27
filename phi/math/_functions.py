@@ -29,8 +29,8 @@ def all_available(*values: Tensor):
 
     """
     for value in values:
-        natives_available = []
-        value._op1(lambda native: natives_available.append(choose_backend(native).is_available(native)))
+        natives = value._natives()
+        natives_available = [choose_backend(native).is_available(native) for native in natives]
         if not all(natives_available):
             return False
     return True

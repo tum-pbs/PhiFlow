@@ -216,6 +216,10 @@ class ShiftLinOp(Tensor):
                 values[dim_shift] = operator(val_, other_)
             return ShiftLinOp(self.source, values, self._shape & other.shape)
 
+    def _natives(self) -> tuple:
+        raise NotImplementedError()  # should not be used, this tensor should be regarded as not available
+        # return (self.source._natives(),) + sum([v._natives() for v in self.val.values()], ())
+
 
 class SparseLinearOperation(Tensor):
 
