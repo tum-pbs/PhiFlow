@@ -28,7 +28,7 @@ class Shape:
             names: Ordered dimension names, either strings (spatial, batch) or integers (channel)
             types: Ordered types, all values should be one of (CHANNEL_DIM, SPATIAL_DIM, BATCH_DIM)
         """
-        assert len(sizes) == len(names) == len(types), "sizes=%s, names=%s, types=%s" % (sizes, names, types)
+        assert len(sizes) == len(names) == len(types), f"sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})"
         self.sizes = tuple(sizes)
         """ Ordered dimension sizes as `tuple`  """
         self.names = tuple(names)
