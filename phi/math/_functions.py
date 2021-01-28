@@ -1,17 +1,15 @@
 import functools
-import numbers
 import re
 import time
-from functools import partial
+from typing import Tuple
 
 import numpy as np
 
-from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend
+from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
+from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_
-from . import extrapolation as extrapolation
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, \
-    custom_op2, tensors
-from phi.math.backend._scipy_backend import SCIPY_BACKEND
+from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, custom_op2, tensors
+from . import extrapolation
 
 
 def all_available(*values: Tensor):
@@ -568,47 +566,47 @@ def min_(value: Tensor or list or tuple,
                    native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
-def dot(a, b, axes):
+def dot(a, b, axes) -> Tensor:
     raise NotImplementedError()
 
 
-def matmul(A, b):
+def matmul(A, b) -> Tensor:
     raise NotImplementedError()
 
 
-def einsum(equation, *tensors):
+def einsum(equation, *tensors) -> Tensor:
     raise NotImplementedError()
 
 
-def _backend_op1(x: Tensor, unbound_method):
+def _backend_op1(x: Tensor, unbound_method) -> Tensor:
     return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
 
 
-def abs(x: Tensor):
+def abs(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.abs)
 
 
-def sign(x: Tensor):
+def sign(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.sign)
 
 
-def round_(x: Tensor):
+def round_(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.round)
 
 
-def ceil(x: Tensor):
+def ceil(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.ceil)
 
 
-def floor(x: Tensor):
+def floor(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.floor)
 
 
-def sqrt(x: Tensor):
+def sqrt(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.sqrt)
 
 
-def exp(x: Tensor):
+def exp(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.exp)
 
 
@@ -631,36 +629,42 @@ def to_float(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.to_float)
 
 
-def to_int(x: Tensor, int64=False):
+def to_int(x: Tensor, int64=False) -> Tensor:
     return x._op1(lambda native: choose_backend(native).to_int(native, int64=int64))
 
 
-def to_complex(x: Tensor):
+def to_complex(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.to_complex)
 
 
-def isfinite(x: Tensor):
+def isfinite(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.isfinite)
 
 
-def imag(complex: Tensor):
+def imag(complex: Tensor) -> Tensor:
     return _backend_op1(complex, Backend.imag)
 
 
-def real(complex: Tensor):
+def real(complex: Tensor) -> Tensor:
     return _backend_op1(complex, Backend.real)
 
 
-def cast(x: Tensor, dtype):
-    return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
-
-
-def sin(x):
+def sin(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.sin)
 
 
-def cos(x):
+def cos(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.cos)
+
+
+def cast(x: Tensor, dtype: DType) -> Tensor:
+    return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
+
+
+def cast_same(*values: Tensor) -> Tuple[Tensor]:
+    natives = sum([v._natives() for v in values], ())
+    common_type = combine_types(*[choose_backend(n).dtype(n) for n in natives], fp_precision=get_precision())
+    return tuple([cast(v, common_type) for v in values])
 
 
 def divide_no_nan(x, y):
@@ -893,7 +897,21 @@ def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
-def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
+def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[Tensor]:
+    """
+
+    Args:
+        operator: Function `operator(x)` or matrix
+        y: Desired output of `operator · x`
+        x0: Initial guess for `x`
+        solve_params: Specifies solver type and parameters such as desired accuracy and maximum iterations.
+        callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
+
+    Returns:
+        converged: scalar bool tensor representing whether the solve found a solution within the specified accuracy within the allowed iterations
+        x: solution of the linear system of equations `operator · x = y`.
+        iterations: number of iterations performed
+    """
     if not isinstance(solve_params, LinearSolve):
         raise NotImplementedError("Only linear solve is currently supported. Pass a LinearSolve object")
     if solve_params.solver not in (None, 'CG'):
@@ -932,7 +950,5 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None):
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
     loop_time = time.perf_counter() - loop_time
     print(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations")
-    converged = choose_backend(converged).reshape(converged, batch.sizes)
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
-    iterations = choose_backend(iterations).reshape(iterations, batch.sizes)
-    return NativeTensor(converged, batch), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, batch)
+    return NativeTensor(converged, EMPTY_SHAPE), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, EMPTY_SHAPE)

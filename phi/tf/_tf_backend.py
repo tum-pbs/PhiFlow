@@ -8,6 +8,7 @@ import tensorflow as tf
 from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype
 from phi.math.backend._scipy_backend import SCIPY_BACKEND, SciPyBackend
 from ._tf_cuda_resample import resample_cuda, use_cuda
+from ..math.backend._backend_helper import combined_dim
 
 
 class TFBackend(Backend):
@@ -435,8 +436,17 @@ class TFBackend(Backend):
         else:
             raise NotImplementedError()
 
-    def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0,
+                           relative_tolerance: float = 1e-5,
+                           absolute_tolerance: float = 0.0,
+                           max_iterations: int = 1000,
+                           gradient: str = 'implicit',
+                           callback=None):
         backend = self
+
+        batch_size = combined_dim(x0.shape[0], y.shape[0])
+        if x0.shape[0] < batch_size:
+            x0 = tf.tile(x0, [batch_size, 1])
 
         class LinOp(tf.linalg.LinearOperator):
             def __init__(self):

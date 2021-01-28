@@ -81,11 +81,11 @@ if 'headless' not in sys.argv:
         DEFAULT_DISPLAY_CLASS = DashGui
     except ImportError as import_error:
         warnings.warn(f"Web interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
-    try:
-        from ._matplotlib.matplotlib_gui import MatplotlibGui
-        DEFAULT_DISPLAY_CLASS = MatplotlibGui
-    except ImportError as import_error:
-        warnings.warn(f"Matplotlib interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
+        try:
+            from ._matplotlib.matplotlib_gui import MatplotlibGui
+            DEFAULT_DISPLAY_CLASS = MatplotlibGui
+        except ImportError as import_error:
+            warnings.warn(f"Matplotlib interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
 
 
 AUTORUN = 'autorun' in sys.argv

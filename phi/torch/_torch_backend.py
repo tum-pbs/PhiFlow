@@ -7,8 +7,8 @@ import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math.backend import Backend, DType
-from phi.math.backend._scipy_backend import SciPyBackend, SCIPY_BACKEND
+from phi.math.backend import Backend, DType, SCIPY_BACKEND
+from phi.math.backend._backend_helper import combined_dim
 
 
 class TorchBackend(Backend):
@@ -93,6 +93,7 @@ class TorchBackend(Backend):
         return torch.stack(values, dim=axis)
 
     def concat(self, values, axis):
+        values = [self.as_tensor(v) for v in values]
         return torch.cat(values, dim=axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
@@ -203,6 +204,10 @@ class TorchBackend(Backend):
         return torch.sum(value, dim=axis, keepdim=keepdims)
 
     def prod(self, value, axis=None):
+        if isinstance(axis, (tuple, list)):
+            for dim in axis:
+                value = torch.prod(value, dim=dim)
+            return value
         return torch.prod(value, dim=axis)
 
     def divide_no_nan(self, x, y):
@@ -387,7 +392,7 @@ class TorchBackend(Backend):
             dim_indices = self.unstack(indices, axis=-1)
             result = values[list(dim_indices)]
         elif batch_dims == 1:
-            batch_size = combined_dim(self.staticshape(values)[0], self.staticshape(indices)[0])
+            batch_size = combined_dim(values.shape[0], indices.shape[0])
             result = []
             for i in range(batch_size):
                 dim_indices = self.unstack(indices[i], axis=-1)
@@ -490,7 +495,12 @@ class TorchBackend(Backend):
         result = torch.sparse.FloatTensor(indices_, values_, shape)
         return result
 
-    def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0,
+                           relative_tolerance: float = 1e-5,
+                           absolute_tolerance: float = 0.0,
+                           max_iterations: int = 1000,
+                           gradient: str = 'implicit',
+                           callback=None):
         if callable(A):
             function = A
         else:
@@ -502,10 +512,15 @@ class TorchBackend(Backend):
             def function(vec):
                 return self.matmul(A, vec)
 
-        tolerance_sq = self.maximum(relative_tolerance * self.sum(y ** 2, -1), absolute_tolerance ** 2)
+        # from SciPy: max(float(atol), tol * float(bnrm2))
+        tolerance_sq = self.maximum(relative_tolerance ** 2 * torch.sum(y ** 2, -1), absolute_tolerance ** 2)
 
         y = self.to_float(y)
         x = self.to_float(x0)
+        batch_size = combined_dim(x.shape[0], y.shape[0])
+        if x.shape[0] < batch_size:
+            x = x.repeat([batch_size, 1])
+
         dx = residual = y - function(x)
         dy = function(dx)
         iterations = 0

@@ -803,8 +803,15 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         if array.dtype != np.object:
             data = array
         else:
-            raise NotImplementedError(f"{array.dtype} dtype for iterable not allowed. Only np.object supported.")
-            return TensorStack(tensor(data), dim_name=None, dim_type=CHANNEL_DIM)
+            elements = tensors(*data, names=None if names is None else names[1:])
+            common_shape = _shape.combine_safe(*[e.shape for e in elements])
+            rank = 1 + common_shape.rank
+            stack_dim = 'vector' if names is None else _shape.parse_dim_names(names, rank)[0]
+            assert all(stack_dim not in t.shape for t in elements), f"Cannot stack tensors with dimension {stack_dim} because a tensor already has that dimension."
+            elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in elements]
+            from ._functions import cast_same
+            elements = cast_same(*elements)
+            return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
     if isinstance(data, numbers.Number):
         assert not names
         return NativeTensor(data, EMPTY_SHAPE)

@@ -1,6 +1,6 @@
 import numpy
 
-from ._dtype import DType
+from ._dtype import DType, combine_types
 
 
 class Backend:
@@ -35,22 +35,9 @@ class Backend:
         return DType(complex, max(64, self.precision))
 
     def combine_types(self, *dtypes: DType):
-        # all bool?
-        if all(dt.kind == bool for dt in dtypes):
-            return dtypes[0]
-        # all int / bool?
-        if all(dt.kind in (bool, int) for dt in dtypes):
-            largest = max(dtypes, key=lambda dt: dt.bits)
-            return largest
-        # all real?
-        if all(dt.kind in (float, int, bool) for dt in dtypes):
-            return self.float_type
-        # complex
-        if all(dt.kind in (complex, float, int, bool) for dt in dtypes):
-            return self.complex_type
-        raise ValueError(dtypes)
+        return combine_types(*dtypes, fp_precision=self.precision)
 
-    def auto_cast(self, *tensors):
+    def auto_cast(self, *tensors) -> list:
         """
         Determins the appropriate values type resulting from operations involving the tensors as input.
         
@@ -58,10 +45,10 @@ class Backend:
         Backends can override this method to prevent unnecessary casting.
 
         Args:
-          *tensors: 
+          *tensors: tensors to cast and to consider when determining the common data type
 
         Returns:
-
+            tensors cast to a common data type
         """
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)

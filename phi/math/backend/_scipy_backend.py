@@ -463,7 +463,7 @@ class SciPyBackend(Backend):
             x, ret_val = cg(A, y_, x0_, tol=relative_tolerance, atol=absolute_tolerance, maxiter=max_iterations, callback=count_callback)
             converged.append(ret_val == 0)
             results.append(x)
-        return np.array(converged), self.stack(results), np.array(iterations)
+        return all(converged), self.stack(results), max(iterations)
 
 
 def clamp(coordinates, shape):

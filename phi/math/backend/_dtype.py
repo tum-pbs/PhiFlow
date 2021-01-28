@@ -17,10 +17,13 @@ class DType:
         else:
             assert isinstance(bits, int)
         self.kind = kind
+        """ Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex) """
         self.bits = bits
+        """ Number of bits used to store a single value of this type. See `DType.itemsize`. """
 
     @property
     def precision(self):
+        """ Floating point precision. Only defined if `kind in (float, complex)`. For complex values, returns half of `DType.bits`. """
         if self.kind == float:
             return self.bits
         if self.kind == complex:
@@ -30,6 +33,7 @@ class DType:
 
     @property
     def itemsize(self):
+        """ Number of bytes used to storea single value of this type. See `DType.bits`. """
         assert self.bits % 8 == 0
         return self.bits // 8
 
@@ -76,3 +80,20 @@ _TO_NUMPY = {
 }
 _FROM_NUMPY = {np: dtype for dtype, np in _TO_NUMPY.items()}
 _FROM_NUMPY[np.bool] = DType(bool)
+
+
+def combine_types(*dtypes: DType, fp_precision: int):
+    # all bool?
+    if all(dt.kind == bool for dt in dtypes):
+        return dtypes[0]
+    # all int / bool?
+    if all(dt.kind in (bool, int) for dt in dtypes):
+        largest = max(dtypes, key=lambda dt: dt.bits)
+        return largest
+    # all real?
+    if all(dt.kind in (float, int, bool) for dt in dtypes):
+        return DType(float, fp_precision)
+    # complex
+    if all(dt.kind in (complex, float, int, bool) for dt in dtypes):
+        return DType(complex, 2 * fp_precision)
+    raise ValueError(dtypes)
