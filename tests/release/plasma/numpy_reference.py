@@ -166,8 +166,7 @@ class HW:
 
     def get_phi(self, plasma, guess=None):
         # Fourier Poisson Solve for Phi
-        centered_omega = plasma.omega  # (plasma.omega - np.mean(plasma.omega))
-        phi = fourier_poisson(centered_omega, plasma.dx)
+        phi = fourier_poisson(plasma.omega, plasma.dx)
         return phi
 
     def diffuse(self, arr, N, dx):
@@ -193,7 +192,7 @@ class HW:
         if self.kappa_coeff:
             n += - self.kappa_coeff * dy_p
         if self.nu:
-            n += + self.nu * self.diffuse(plasma.density, self.N, plasma.dx)
+            n += self.nu * self.diffuse(plasma.density, self.N, plasma.dx)
         return Namespace(
             density=n,
             omega=o,
@@ -263,7 +262,7 @@ def periodic_arakawa(zeta, psi, d):
     return arakawa_nb(np.pad(zeta, 1, mode='wrap'), np.pad(psi, 1, mode='wrap'), d)[1:-1, 1:-1]
 
 
-@jit
+# @jit
 def nb_gradient_run(padded, dx):
     fdy = (padded[2:, 1:-1] - padded[0:-2, 1:-1]) / (2 * dx)
     fdx = (padded[1:-1, 2:] - padded[1:-1, 0:-2]) / (2 * dx)
@@ -275,7 +274,7 @@ def periodic_gradient(input_field, dx):
     return nb_gradient_run(padded, dx)
 
 
-@jit(nopython=True, nogil=True, parallel=True)
+# @jit(nopython=True, nogil=True, parallel=True)
 def laplace_np_numba(padded, dx):
     return (
         padded[0:-2, 1:-1]  # above
@@ -290,7 +289,7 @@ def periodic_laplace_func(a, dx):
     return laplace_np_numba(np.pad(a, 1, 'wrap'), dx)
 
 
-@jit(nopython=True, nogil=True, parallel=True)
+# @jit(nopython=True, nogil=True, parallel=True)
 def grad2d_np_numba(padded, dx):
     return -(
         - padded[0:-2, 1:-1] / 2  # above

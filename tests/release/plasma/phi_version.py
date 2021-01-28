@@ -1,6 +1,8 @@
 from .numpy_reference import HW, Namespace
 from phi import math, field
 
+math.set_global_precision(64)
+
 
 def get_domain_phi(plasma, domain):
     return domain.grid(math.fourier_poisson(plasma.omega.values, plasma.dx))
@@ -31,7 +33,7 @@ def step_gradient_2d(params, plasma, phi, dt=0):
     if params['kappa_coeff']:
         n += - params['kappa_coeff'] * dy_p
     if nu:
-        n += +nu * diffuse(plasma.density, params['N'], plasma.dx)
+        n += nu * diffuse(plasma.density, params['N'], plasma.dx)
     return Namespace(
         density=n,
         omega=o,
