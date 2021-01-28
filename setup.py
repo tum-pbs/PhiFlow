@@ -221,9 +221,10 @@ class CudaCommand(distutils.cmd.Command):
 
 
 try:
-    with open(os.path.join(os.path.dirname(__file__), 'documentation/Package_Info.md'), 'r') as readme:
+    with open(os.path.join(os.path.dirname(__file__), 'docs/Package_Info.md'), 'r') as readme:
         long_description = readme.read()
 except FileNotFoundError:
+    long_description = ""
     pass
 
 with open(os.path.join(os.path.dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
