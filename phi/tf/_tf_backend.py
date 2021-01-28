@@ -170,6 +170,9 @@ class TFBackend(Backend):
         result = tf.meshgrid(*coordinates, indexing='ij')
         return result
 
+    def linspace(self, start, stop, number):
+        return self.to_float(tf.linspace(start, stop, number))
+
     def dot(self, a, b, axes):
         return tf.tensordot(a, b, axes)
 

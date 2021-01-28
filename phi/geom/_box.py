@@ -67,7 +67,10 @@ class AbstractBox(Geometry):
         return self.size * 0.5
 
     def global_to_local(self, global_position: Tensor) -> Tensor:
-        return (global_position - self.lower) / self.size
+        if math.close(self.lower, 0):
+            return global_position / self.size
+        else:
+            return (global_position - self.lower) / self.size
 
     def local_to_global(self, local_position):
         return local_position * self.size + self.lower
@@ -292,7 +295,7 @@ class GridCell(AbstractBox):
         Returns:
 
         """
-        local_coords = math.meshgrid(**{dim: np.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
+        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
         points = self.bounds.local_to_global(local_coords)
         return points
 

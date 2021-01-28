@@ -7,9 +7,11 @@ import numpy as np
 
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
-from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_
+from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
+    _infer_dim_type_from_name
 from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, custom_op2, tensors
 from . import extrapolation
+from .backend._profile import get_current_profile
 
 
 def all_available(*values: Tensor):
@@ -187,11 +189,24 @@ def meshgrid(**dimensions):
 
     """
     assert 'vector' not in dimensions
-    dimensions = {dim: tuple(range(val)) if isinstance(val, int) else val for dim, val in dimensions.items()}
-    indices_list = choose_backend(*dimensions.values(), prefer_default=True).meshgrid(*dimensions.values())
-    single_shape = Shape([len(val) for val in dimensions.values()], dimensions.keys(), [SPATIAL_DIM] * len(dimensions))
+    dim_values = {}
+    for dim, spec in dimensions.items():
+        if isinstance(spec, int):
+            dim_values[dim] = tuple(range(spec))
+        elif isinstance(spec, Tensor):
+            dim_values[dim] = spec.native()
+        else:
+            dim_values[dim] = spec
+    backend = choose_backend(*dim_values.values(), prefer_default=True)
+    indices_list = backend.meshgrid(*dim_values.values())
+    single_shape = Shape([len(val) for val in dim_values.values()], dim_values.keys(), [SPATIAL_DIM] * len(dim_values))
     channels = [NativeTensor(t, single_shape) for t in indices_list]
     return TensorStack(channels, 'vector', CHANNEL_DIM)
+
+
+def linspace(start, stop, number: int, dim='linspace'):
+    native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
+    return NativeTensor(native, shape_(**{dim: number}))
 
 
 def channel_stack(values, dim: str):
@@ -314,6 +329,19 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrap
 
 
 def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation'):
+    if extrap.native_grid_sample_mode and grid.shape.batch == coordinates.shape.batch:
+        grid_batched = join_dimensions(join_dimensions(grid, grid.shape.batch, 'batch'), grid.shape.channel, 'vector')
+        grid_native = grid_batched.native()
+        coordinates_batched = join_dimensions(coordinates, coordinates.shape.batch, 'batch')
+        coordinates_native = coordinates_batched.native()
+        result = choose_backend(grid_native).grid_sample(grid_native, grid.shape.index(grid.shape.spatial), coordinates_native, extrap.native_grid_sample_mode)
+        if result != NotImplemented:
+            result_shape = grid_batched.shape.non_spatial & coordinates_batched.shape.spatial
+            result = NativeTensor(result, result_shape)
+            result = split_dimension(result, 'batch', grid.shape.batch)
+            result = split_dimension(result, 'vector', grid.shape.channel)
+            return result
+    # fallback to slower grid sampling
     coord_names = ['_coord_' + dim.name if dim.is_spatial else dim.name for dim in coordinates.shape.unstack()]
     coordinates = coordinates._with_shape_replaced(coordinates.shape.with_names(coord_names))
     neighbors = closest_grid_values(grid, coordinates, extrap)
@@ -368,17 +396,34 @@ def broadcast_op(operation: callable,
             return TensorStack(result_unstacked, dim, dim_type)
 
 
-def reshape(value: Tensor, *operations: str):
-    # '(x, y) -> list', 'batch -> (batch=5, group=2)'
+def split_dimension(value: Tensor, dim: str, split_dimensions: Shape):
+    if split_dimensions.rank == 0:
+        return value.dimension(dim)[0]
+    if split_dimensions.rank == 1:
+        new_shape = value.shape.with_names([split_dimensions.name if name == dim else name for name in value.shape.names])
+        return value._with_shape_replaced(new_shape)
     raise NotImplementedError()
 
 
 def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
+    """
+    Stacks multiple dimensions into a single dimension.
+
+    Args:
+        value:
+        dims:
+        joined_dim_name:
+
+    Returns:
+
+    """
+    if len(dims) == 0:
+        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name)))
     order = value.shape.order_group(dims)
     native = value.native(order)
     types = value.shape.get_type(dims)
     dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
-    first_dim_index = min(*value.shape.index(dims))
+    first_dim_index = min(value.shape.indices(dims))
     new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos=first_dim_index)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
@@ -679,12 +724,8 @@ def minimum(x, y):
     return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_))
 
 
-def clip(x, minimum, maximum):
-    def _clip(x, minimum, maximum):
-        new_shape, (x_, min_, max_) = broadcastable_native_tensors(*tensors(x, minimum, maximum))
-        result_tensor = choose_backend(x_, min_, max_).clip(x_, min_, max_)
-        return NativeTensor(result_tensor, new_shape)
-    return broadcast_op(_clip, tensors(x, minimum, maximum))
+def clip(x: Tensor, clip_min: float, clip_max: float):
+    return x._op1(lambda native: choose_backend(native).clip(native, clip_min, clip_max))
 
 
 def with_custom_gradient(function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
@@ -949,6 +990,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
     loop_time = time.perf_counter()
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
     loop_time = time.perf_counter() - loop_time
-    print(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations")
+    if get_current_profile():
+        get_current_profile().add_external_message(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations")
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     return NativeTensor(converged, EMPTY_SHAPE), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, EMPTY_SHAPE)

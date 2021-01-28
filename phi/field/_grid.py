@@ -110,8 +110,7 @@ class CenteredGrid(Grid):
         return self.sample_at(geometry.center, reduce_channels)
 
     def sample_at(self, points, reduce_channels=()) -> Tensor:
-        local_points = self.box.global_to_local(points)
-        local_points = local_points * self.resolution - 0.5
+        local_points = self.box.global_to_local(points) * self.resolution - 0.5
         if len(reduce_channels) == 0:
             return math.grid_sample(self.values, local_points, self.extrapolation)
         else:

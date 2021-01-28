@@ -177,6 +177,9 @@ class SciPyBackend(Backend):
     def meshgrid(self, *coordinates):
         return np.meshgrid(*coordinates, indexing='ij')
 
+    def linspace(self, start, stop, number):
+        return np.linspace(start, stop, number, dtype=self.precision_dtype)
+
     def mean(self, value, axis=None, keepdims=False):
         return np.mean(value, axis, keepdims=keepdims)
 

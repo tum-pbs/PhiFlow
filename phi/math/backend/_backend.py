@@ -238,6 +238,9 @@ class Backend:
     def meshgrid(self, *coordinates):
         raise NotImplementedError(self)
 
+    def linspace(self, start, stop, number):
+        raise NotImplementedError(self)
+
     def dot(self, a, b, axes):
         raise NotImplementedError(self)
 
@@ -485,19 +488,18 @@ class Backend:
 
     # --- Math function with default implementation ---
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
+    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
         """
         Interpolates a regular grid at the specified coordinates.
 
         Args:
-          inputs: grid values
-          sample_coords: tensor of floating grid indices. The last dimension must match the dimensions of inputs. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-          interpolation: only 'linear' is currently supported (Default value = 'linear')
-          boundary: values to use for coordinates outside the grid, can be specified for each face, options are 'constant', 'boundary', 'periodic', 'symmetric', 'reflect' (Default value = 'constant')
-          constant_values: Value used for constant boundaries, can be specified for each face (Default value = 0)
+          grid: Tensor
+          spatial_dims: Dimension indices that correspond to coordinate vectors
+          coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+          extrapolation: Values to use for coordinates outside the grid. One of `('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')`.
 
         Returns:
-
+            sampled values with linear interpolation
         """
         return NotImplemented
 

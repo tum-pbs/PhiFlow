@@ -5,6 +5,8 @@ Extrapolations are used for padding tensors and sampling coordinates lying outsi
 """
 from __future__ import annotations
 
+from typing import Union
+
 from . import _functions as math
 from .backend import choose_backend
 from ._track import SparseLinearOperation, ShiftLinOp
@@ -109,6 +111,10 @@ class Extrapolation:
         """:return: True if all pad values are copies of existing values in the tensor to be padded"""
         return False
 
+    @property
+    def native_grid_sample_mode(self) -> Union[str, None]:
+        return None
+
     def __getitem__(self, item):
         return self
 
@@ -208,6 +214,10 @@ class ConstantExtrapolation(Extrapolation):
 
     def is_one(self):
         return self == ONE
+
+    @property
+    def native_grid_sample_mode(self) -> Union[str, None]:
+        return 'zeros' if self.is_zero() else None
 
     def __add__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -317,6 +327,10 @@ class _CopyExtrapolation(Extrapolation):
 
     def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
         raise NotImplementedError()
+
+    @property
+    def native_grid_sample_mode(self) -> Union[str, None]:
+        return str(self)
 
     def __eq__(self, other):
         return type(other) == type(self)

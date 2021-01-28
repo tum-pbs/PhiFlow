@@ -1,13 +1,14 @@
 """
 Low-level library wrappers for delegating vector operations.
 """
-
+import time
 from contextlib import contextmanager
 
 from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import Backend
 from ._scipy_backend import SCIPY_BACKEND, SciPyBackend
 from ._optim import Solve, LinearSolve
+from ._profile import profile
 
 BACKENDS = [SCIPY_BACKEND]
 _DEFAULT = [SCIPY_BACKEND]  # [0] = global default, [1:] from 'with' blocks

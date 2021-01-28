@@ -9,7 +9,6 @@ New tensors created via `phi.math` functions will be backed by PyTorch tensors.
 import torch
 from phi.flow import *
 from ._torch_util import cuda_device_count, variable
-from ._torch_app import App
 from ._torch_backend import TORCH_BACKEND
 
 from phi.math import backend

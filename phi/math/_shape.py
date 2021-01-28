@@ -69,7 +69,7 @@ class Shape:
     def __contains__(self, item):
         return item in self.names
 
-    def index(self, name: str or list or tuple or Shape):
+    def index(self, name: str or list or tuple or Shape or None):
         """
         Finds the index of the dimension(s) within this Shape.
 
@@ -91,6 +91,14 @@ class Shape:
             if dim_name == name:
                 return idx
         raise ValueError("Shape %s does not contain dimension with name '%s'" % (self, name))
+
+    def indices(self, names: tuple or list or Shape):
+        if isinstance(names, (list, tuple)):
+            return tuple(self.index(n) for n in names)
+        if isinstance(names, Shape):
+            return tuple(self.index(n) for n in names.names)
+        else:
+            raise ValueError(names)
 
     def get_size(self, dim: str or tuple or list):
         """
@@ -114,11 +122,13 @@ class Shape:
             return self.get_size(name)
         raise AttributeError("Shape has no attribute '%s'" % (name,))
 
-    def get_type(self, name):
+    def get_type(self, name: str or tuple or list or Shape):
         if isinstance(name, str):
             return self.types[self.names.index(name)]
         elif isinstance(name, (tuple, list)):
             return tuple(self.get_type(n) for n in name)
+        elif isinstance(name, Shape):
+            return tuple(self.get_type(n) for n in name.names)
         else:
             raise ValueError(name)
 
@@ -391,7 +401,9 @@ class Shape:
         order = [self.index(n) for n in names]
         return self[order]
 
-    def order_group(self, names: tuple or list):
+    def order_group(self, names: tuple or list or Shape):
+        if isinstance(names, Shape):
+            names = names.names
         order = []
         for name in self.names:
             if name not in order:
@@ -461,8 +473,16 @@ class Shape:
         types.insert(pos, dim_type)
         return Shape(sizes, names, types)
 
-    def extend(self, other: Shape) -> Shape:
-        return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
+    def extend(self, other: Shape, pos=-1) -> Shape:
+        if pos == -1:
+            return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
+        elif pos == None:
+            result = self
+            for size, name, dim_type in other.dimensions:
+                result = result.expand(size, name, dim_type)
+            return result
+        else:
+            raise NotImplementedError(pos)
 
     def without(self, dims: str or tuple or list or Shape or None) -> Shape:
         """

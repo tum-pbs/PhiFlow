@@ -1,4 +1,5 @@
 import numbers
+import time
 import warnings
 
 import numpy as np
@@ -108,22 +109,34 @@ class TorchBackend(Backend):
 
         Returns:
           torch.Tensor: padded tensor
-
         """
-        # Valid mode: constant, reflect, replicate, circular
-        pad_width = [item for sublist in reversed(pad_width) for item in sublist]
-        # need at least 3D to perform padding :(
-        value = torch.unsqueeze(value, 0)
-        value = torch.unsqueeze(value, 0)
-        if mode == 'boundary' and np.all(np.array(pad_width) <= 1):
-            mode = 'replicate'
-        elif mode == 'periodic':
-            mode = 'circular'
-        if mode in ('constant', 'replicate', 'circular'):
-            res = torchf.pad(value, pad_width, mode, value=constant_values)
-            return torch.squeeze(torch.squeeze(res, 0), 0)
-        else:
+        mode = {'constant': 'constant', 'reflect': 'reflect', 'boundary': 'replicate', 'periodic': 'circular'}.get(mode, None)
+        if not mode:
             return NotImplemented
+        # transpose for leading zero-pad: [(0, 0), (0, 0), ...]
+        ndims = self.ndims(value)
+        if ndims > 2 and pad_width[0] == pad_width[1] == (0, 0):
+            reordered = value
+            pad_width_reordered = pad_width[2:]
+            undo_transform = lambda x: x
+        elif ndims > 2 and pad_width[0] == (0, 0) and self.ndims(value) < 5:
+            reordered = torch.unsqueeze(value, 0)
+            pad_width_reordered = pad_width[1:]
+            undo_transform = lambda x: torch.squeeze(x, 0)
+        elif ndims < 4:
+            reordered = torch.unsqueeze(torch.unsqueeze(value, 0), 0)
+            pad_width_reordered = pad_width
+            undo_transform = lambda x: torch.squeeze(torch.squeeze(x, 0), 0)
+        else:
+            raise NotImplementedError()  # TODO transpose to get (0, 0) to the front
+        pad_width_spatial = [item for sublist in reversed(pad_width_reordered) for item in sublist]  # flatten
+        try:
+            result = torchf.pad(reordered, pad_width_spatial, mode, value=constant_values)  # supports 3D to 5D (2 + 1D to 3D)
+        except RuntimeError as err:
+            warnings.warn(f"PyTorch error {err}")
+            return NotImplemented
+        result = undo_transform(result)
+        return result
 
     def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
         assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
@@ -142,50 +155,17 @@ class TorchBackend(Backend):
         result = channels_last(result)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
-        assert interpolation == 'linear'
-        assert constant_values == 0
-        return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)
-        # return self._native_resample(inputs, sample_coords, interpolation, boundary)
-
-    def _native_resample(self, inputs, sample_coords, interpolation='linear', boundary='constant'):
-        """
-        Around 5% faster than general_grid_sample_nd on the CPU. Does not support multi-boundary resampling or constant values.
-
-        Args:
-          inputs: 
-          sample_coords: 
-          interpolation:  (Default value = 'linear')
-          boundary:  (Default value = 'constant')
-
-        Returns:
-
-        """
-        inputs = channels_first(self.as_tensor(inputs))
-        sample_coords = self.as_tensor(sample_coords)
-        # --- Interpolation ---
-        if interpolation.lower() == 'linear':
-            interpolation = 'bilinear'
-        elif interpolation.lower() == 'nearest':
-            interpolation = 'nearest'
-        else:
-            raise NotImplementedError(interpolation)
-        # --- Boundary ---
-        if boundary == 'zero' or boundary == 'constant':
-            boundary = 'zeros'
-        elif boundary == 'replicate':
-            boundary = 'border'
-        elif boundary == 'circular':
-            shape = self.to_float(inputs.shape[2:])
-            sample_coords = torch.fmod(sample_coords, shape)
-            inputs = torchf.pad(inputs, [0, 1] * (len(inputs.shape) - 2), mode='circular')
-            boundary = 'zeros'
-        else:
-            raise NotImplementedError(boundary)
-        resolution = torch.Tensor(self.staticshape(inputs)[2:])
-        sample_coords = 2 * sample_coords / (resolution - 1) - 1
-        sample_coords = torch.flip(sample_coords, dims=[-1])
-        result = torchf.grid_sample(inputs, sample_coords, mode=interpolation, padding_mode=boundary, align_corners=True)  # can cause segmentation violation if NaN or inf are present
+    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
+        assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
+        extrapolation = {'undefined': 'zeros', 'zeros': 'zeros', 'boundary': 'border', 'reflect': 'reflection'}.get(extrapolation, None)
+        if not extrapolation:
+            return NotImplemented
+        grid = channels_first(self.as_tensor(grid))
+        coordinates = self.as_tensor(coordinates)
+        resolution = torch.Tensor(self.staticshape(grid)[2:])
+        coordinates = 2 * coordinates / (resolution - 1) - 1
+        coordinates = torch.flip(coordinates, dims=[-1])
+        result = torchf.grid_sample(grid, coordinates, mode='bilinear', padding_mode=extrapolation, align_corners=True)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
         return result
 
@@ -253,6 +233,9 @@ class TorchBackend(Backend):
         coordinates = [self.as_tensor(c) for c in coordinates]
         return torch.meshgrid(coordinates)
 
+    def linspace(self, start, stop, number):
+        return torch.linspace(start, stop, number, dtype=self.precision_dtype)
+
     def dot(self, a, b, axes):
         return torch.tensordot(a, b, axes)
 
@@ -290,29 +273,43 @@ class TorchBackend(Backend):
         return torch.floor(x)
 
     def max(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = torch.stack(x)
         if axis is None:
             result = torch.max(x)
             if keepdims:
                 result = self.expand_dims(result, axis=0, number=self.ndims(x))
             return result
-        return torch.max(x, dim=axis, keepdim=keepdims)
+        elif isinstance(axis, (tuple, list)):
+            for dim in reversed(sorted(axis)):
+                x, _ = torch.max(x, dim=dim, keepdim=keepdims)
+            return x
+        else:
+            return torch.max(x, dim=axis, keepdim=keepdims)[0]
 
     def min(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = torch.stack(x)
         if axis is None:
             result = torch.min(x, keepdim=keepdims)
             if keepdims:
                 result = self.expand_dims(result, axis=0, number=self.ndims(x))
             return result
-        return torch.min(x, dim=axis, keepdim=keepdims)
+        elif isinstance(axis, (tuple, list)):
+            for dim in reversed(sorted(axis)):
+                x, _ = torch.min(x, dim=dim, keepdim=keepdims)
+            return x
+        else:
+            return torch.min(x, dim=axis, keepdim=keepdims)[0]
 
     def maximum(self, a, b):
         a_ = self.as_tensor(a)
-        b_ = self.as_tensor(b).to(a_.dtype)
+        b_ = self.as_tensor(b)
         return torch.max(a_, other=b_)
 
     def minimum(self, a, b):
         a_ = self.as_tensor(a)
-        b_ = self.as_tensor(b).to(a_.dtype)
+        b_ = self.as_tensor(b)
         return torch.min(a_, other=b_)
 
     def clip(self, x, minimum, maximum):
@@ -409,7 +406,7 @@ class TorchBackend(Backend):
         return unstacked
 
     def std(self, x, axis=None, keepdims=False):
-        torch.std(x, dim=axis, keepdim=keepdims)
+        return torch.std(x, dim=axis, keepdim=keepdims)
 
     def boolean_mask(self, x, mask):
         return torch.masked_select(x, mask)
@@ -575,3 +572,134 @@ _TO_TORCH = {
     DType(bool): torch.bool,
 }
 _FROM_TORCH = {np: dtype for dtype, np in _TO_TORCH.items()}
+
+
+def cg_batch(A_bmm, B, M_bmm=None, X0=None, rtol=1e-3, atol=0., maxiter=None, verbose=False):
+    """Solves a batch of PD matrix linear systems using the preconditioned CG algorithm.
+    This function solves a batch of matrix linear systems of the form
+        A_i X_i = B_i,  i=1,...,K,
+    where A_i is a n x n positive definite matrix and B_i is a n x m matrix,
+    and X_i is the n x m matrix representing the solution for the ith system.
+    Args:
+        A_bmm: A callable that performs a batch matrix multiply of A and a K x n x m matrix.
+        B: A K x n x m matrix representing the right hand sides.
+        M_bmm: (optional) A callable that performs a batch matrix multiply of the preconditioning
+            matrices M and a K x n x m matrix. (default=identity matrix)
+        X0: (optional) Initial guess for X, defaults to M_bmm(B). (default=None)
+        rtol: (optional) Relative tolerance for norm of residual. (default=1e-3)
+        atol: (optional) Absolute tolerance for norm of residual. (default=0)
+        maxiter: (optional) Maximum number of iterations to perform. (default=5*n)
+        verbose: (optional) Whether or not to print status messages. (default=False)
+    """
+    K, n, m = B.shape
+
+    if M_bmm is None:
+        M_bmm = lambda x: x
+    if X0 is None:
+        X0 = M_bmm(B)
+    if maxiter is None:
+        maxiter = 5 * n
+
+    assert B.shape == (K, n, m)
+    assert X0.shape == (K, n, m)
+    assert rtol > 0 or atol > 0
+    assert isinstance(maxiter, int)
+
+    X_k = X0
+    R_k = B - A_bmm(X_k)
+    Z_k = M_bmm(R_k)
+
+    P_k = torch.zeros_like(Z_k)
+
+    P_k1 = P_k
+    R_k1 = R_k
+    R_k2 = R_k
+    X_k1 = X0
+    Z_k1 = Z_k
+    Z_k2 = Z_k
+
+    B_norm = torch.norm(B, dim=1)
+    stopping_matrix = torch.max(rtol*B_norm, atol*torch.ones_like(B_norm))
+
+    if verbose:
+        print("%03s | %010s %06s" % ("it", "dist", "it/s"))
+
+    optimal = False
+    start = time.perf_counter()
+    for k in range(1, maxiter + 1):
+        start_iter = time.perf_counter()
+        Z_k = M_bmm(R_k)
+
+        if k == 1:
+            P_k = Z_k
+            R_k1 = R_k
+            X_k1 = X_k
+            Z_k1 = Z_k
+        else:
+            R_k2 = R_k1
+            Z_k2 = Z_k1
+            P_k1 = P_k
+            R_k1 = R_k
+            Z_k1 = Z_k
+            X_k1 = X_k
+            denominator = (R_k2 * Z_k2).sum(1)
+            denominator[denominator == 0] = 1e-8
+            beta = (R_k1 * Z_k1).sum(1) / denominator
+            P_k = Z_k1 + beta.unsqueeze(1) * P_k1
+
+        denominator = (P_k * A_bmm(P_k)).sum(1)
+        denominator[denominator == 0] = 1e-8
+        alpha = (R_k1 * Z_k1).sum(1) / denominator
+        X_k = X_k1 + alpha.unsqueeze(1) * P_k
+        R_k = R_k1 - alpha.unsqueeze(1) * A_bmm(P_k)
+        end_iter = time.perf_counter()
+
+        residual_norm = torch.norm(A_bmm(X_k) - B, dim=1)
+
+        if verbose:
+            print("%03d | %8.4e %4.2f" %
+                  (k, torch.max(residual_norm-stopping_matrix),
+                    1. / (end_iter - start_iter)))
+
+        if (residual_norm <= stopping_matrix).all():
+            optimal = True
+            break
+
+    end = time.perf_counter()
+
+    if verbose:
+        if optimal:
+            print("Terminated in %d steps (reached maxiter). Took %.3f ms." %
+                  (k, (end - start) * 1000))
+        else:
+            print("Terminated in %d steps (optimal). Took %.3f ms." %
+                  (k, (end - start) * 1000))
+
+
+    info = {
+        "niter": k,
+        "optimal": optimal
+    }
+
+    return X_k, info
+
+
+class CG(torch.autograd.Function):
+
+    def __init__(self, A_bmm, M_bmm=None, rtol=1e-3, atol=0., maxiter=None, verbose=False):
+        self.A_bmm = A_bmm
+        self.M_bmm = M_bmm
+        self.rtol = rtol
+        self.atol = atol
+        self.maxiter = maxiter
+        self.verbose = verbose
+
+    def forward(self, B, X0=None):
+        X, _ = cg_batch(self.A_bmm, B, M_bmm=self.M_bmm, X0=X0, rtol=self.rtol,
+                     atol=self.atol, maxiter=self.maxiter, verbose=self.verbose)
+        return X
+
+    def backward(self, dX):
+        dB, _ = cg_batch(self.A_bmm, dX, M_bmm=self.M_bmm, rtol=self.rtol,
+                      atol=self.atol, maxiter=self.maxiter, verbose=self.verbose)
+        return dB
