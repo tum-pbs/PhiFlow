@@ -1,4 +1,5 @@
 import inspect, traceback
+import json
 import sys
 from contextlib import contextmanager
 from time import perf_counter
@@ -8,7 +9,7 @@ from ._backend import Backend
 
 class BackendCall:
 
-    def __init__(self, start: float, stop: float, backend, function_name):
+    def __init__(self, start: float, stop: float, backend: 'ProfilingBackend', function_name):
         self._start = start
         self._stop = stop
         self._backend = backend
@@ -17,7 +18,7 @@ class BackendCall:
     def __repr__(self):
         return f"{1000 * self._duration:.2f} ms  {self._function_name}"
 
-    def print(self, include_parents, depth, min_duration, code_col):
+    def print(self, include_parents, depth, min_duration, code_col, code_len):
         if self._duration >= min_duration:
             print(f"{'  ' * depth}{1000 * self._duration:.2f} ms  {self._backend}.{self._function_name}")
 
@@ -28,6 +29,17 @@ class BackendCall:
     @property
     def _duration(self):
         return self._stop - self._start
+
+    def trace_json_events(self, include_parents) -> list:
+        backend_index = self._backend._index
+        name = f"{self._backend.name}.{self._function_name}"
+        return [
+            {"name": name, "cat": "CALL", "ph": "B", "pid": 1, "tid": backend_index, "ts": int(round(self._start * 1000000))},  # Begin
+            {"name": name, "cat": "CALL", "ph": "E", "pid": 1, "tid": backend_index, "ts": int(round(self._stop * 1000000))}  # End
+        ]
+
+    def call_count(self) -> int:
+        return 1
 
 
 class ExtCall:
@@ -72,8 +84,19 @@ class ExtCall:
             return fun
 
     @property
+    def _start(self):
+        return self._children[0]._start
+
+    @property
+    def _stop(self):
+        return self._children[-1]._stop
+
+    @property
     def _duration(self):
         return sum(c._duration for c in self._children)
+
+    def call_count(self) -> int:
+        return sum(child.call_count() for child in self._children)
 
     def __repr__(self):
         if not self._converted:
@@ -87,22 +110,22 @@ class ExtCall:
     def __len__(self):
         return len(self._children)
 
-    def print(self, include_parents=(), depth=0, min_duration=0., code_col=80):
+    def print(self, include_parents=(), depth=0, min_duration=0., code_col=80, code_len=50):
         if self._duration < min_duration:
             return
         if len(self._children) == 1 and isinstance(self._children[0], ExtCall):
-            self._children[0].print(include_parents + ((self,) if self._parent is not None else ()), depth, min_duration, code_col)
+            self._children[0].print(include_parents + ((self,) if self._parent is not None else ()), depth, min_duration, code_col, code_len)
         else:
             funcs = [par._name for par in include_parents] + [self._name]
             text = f"{'. ' * depth}-> {' -> '.join(funcs)} ({1000 * self._duration:.2f} ms)"
             if len(self._stack) > len(include_parents)+1:
                 code = self._stack[len(include_parents)+1].code_context[0].strip()
-                if len(code) > 50:
-                    code = code[:47] + "..."
+                if len(code) > code_len:
+                    code = code[:code_len-3] + "..."
                 text += " " + "." * max(0, (code_col - len(text))) + " > " + code
             print(text)
             for child in self._children:
-                child.print((), depth + 1, min_duration, code_col)
+                child.print((), depth + 1, min_duration, code_col, code_len)
 
     def children_to_properties(self) -> dict:
         result = {}
@@ -119,6 +142,19 @@ class ExtCall:
             setattr(self, name, child)
         self._converted = True
         return result
+
+    def trace_json_events(self, include_parents=()) -> list:
+        if len(self._children) == 1:
+            return self._children[0].trace_json_events(include_parents + (self,))
+        else:
+            name = ' -> '.join([par._name for par in include_parents] + [self._name]) + f" ({self.call_count()} calls)"
+            result = [
+                {"name": name, "cat": "METHOD", "ph": "B", "pid": 0, "tid": 0, "ts": int(round(self._start * 1000000))},  # Begin
+                {"name": name, "cat": "METHOD", "ph": "E", "pid": 0, "tid": 0, "ts": int(round(self._stop * 1000000))}  # End
+            ]
+            for child in self._children:
+                result.extend(child.trace_json_events(()))
+            return result
 
 
 class Profile:
@@ -148,14 +184,21 @@ class Profile:
     def duration(self):
         return self._stop - self._start if self._stop is not None else None
 
-    def print(self, min_duration=1e-3, code_col=80):
+    def print(self, min_duration=1e-3, code_col=80, code_len=50):
         print(f"Profile: {self.duration:.4f} seconds total. Skipping elements shorter than {1000 * min_duration:.2f} ms")
         if self._messages:
             print("External profiling:")
             for message in self._messages:
                 print(f"  {message}")
             print()
-        self._root.print(min_duration=min_duration, code_col=code_col)
+        self._root.print(min_duration=min_duration, code_col=code_col, code_len=code_len)
+
+    def save_trace(self, json_file):
+        if len(self._root._children) == 0:
+            return
+        data = self._root.trace_json_events()
+        with open(json_file, 'w') as file:
+            json.dump(data, file)
 
     def _children_to_properties(self):
         children = self._root.children_to_properties()
@@ -168,9 +211,10 @@ class Profile:
 
 class ProfilingBackend:
 
-    def __init__(self, prof: Profile, backend: Backend):
+    def __init__(self, prof: Profile, backend: Backend, index: int):
         self._backend = backend
         self._profile = prof
+        self._index = index
         # non-profiling methods
         self.name = backend.name
         self.combine_types = backend.combine_types
@@ -185,12 +229,12 @@ class ProfilingBackend:
         for item_name in dir(backend):
             item = getattr(backend, item_name)
             if callable(item) and not hasattr(self, item_name):
-                def context(item=item, item_name=item_name):
+                def context(item=item, item_name=item_name, profiling_backend=self):
                     def call_fun(*args, **kwargs):
                         start = perf_counter()
                         result = item(*args, **kwargs)
                         stop = perf_counter()
-                        prof.add_call(BackendCall(start, stop, backend, item_name))
+                        prof.add_call(BackendCall(start, stop, profiling_backend, item_name))
                         return result
                     return call_fun
                 setattr(self, item_name, context())
@@ -211,8 +255,8 @@ def profile(backends=None):
     from . import BACKENDS, _DEFAULT
     original_backends = tuple(BACKENDS)
     backends = original_backends if backends is None else backends
-    for backend in backends:
-        prof_backend = ProfilingBackend(prof, backend)
+    for i, backend in enumerate(backends):
+        prof_backend = ProfilingBackend(prof, backend, i)
         BACKENDS[BACKENDS.index(backend)] = prof_backend
         if _DEFAULT[-1] == backend:
             _DEFAULT[-1] = prof_backend
