@@ -263,7 +263,7 @@ def masked_extp(x: Tensor, mask: Tensor, size: int = 1):
     # do not overwrite original values within the mask and keep values which are not affected by extrapolation
     new_x = math.where(mask, x, math.where(new_mask, extp, x))
     # perform multiple extrapolation steps recursively
-    return masked_extp(new_x, new_mask, size=size - 1)
+    return masked_extp(new_x, math.divide_no_nan(new_mask, new_mask), size=size - 1)
 
 
 # Gradient

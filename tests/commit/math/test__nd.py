@@ -6,7 +6,6 @@ from phi.math import tensor, extrapolation, Tensor, PI
 import numpy as np
 import os
 
-
 REF_DATA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'reference_data')
 
 
@@ -23,20 +22,25 @@ class TestMathNDNumpy(TestCase):
     def test_gradient_scalar(self):
         ones = tensor(np.ones([2, 4, 3]), 'batch,x,y')
         cases = dict(difference=('central', 'forward', 'backward'),
-                     padding=(None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
+                     padding=(
+                         None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC,
+                         extrapolation.SYMMETRIC))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             scalar_grad = math.gradient(ones, dx=0.1, **case_dict)
             math.assert_close(scalar_grad, 0)
             self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'gradient'))
-            ref_shape = (2, 4, 3, 2) if case_dict['padding'] is not None else ((2, 2, 1, 2) if case_dict['difference'] == 'central' else (2, 3, 2, 2))
+            ref_shape = (2, 4, 3, 2) if case_dict['padding'] is not None else (
+                (2, 2, 1, 2) if case_dict['difference'] == 'central' else (2, 3, 2, 2))
             self.assertEqual(scalar_grad.shape.sizes, ref_shape)
 
     def test_gradient_vector(self):
         meshgrid = math.meshgrid(x=4, y=3)
         cases = dict(difference=('central', 'forward', 'backward'),
-                     padding=(None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
+                     padding=(
+                         None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC,
+                         extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
-                     dims=(None, ('x', 'y'), ))
+                     dims=(None, ('x', 'y'),))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             grad = math.gradient(meshgrid, **case_dict)
             inner = grad.x[1:-1].y[1:-1]
@@ -46,14 +50,17 @@ class TestMathNDNumpy(TestCase):
             math.assert_close(inner.gradient[1].vector[1], 1 / case_dict['dx'])
             self.assertEqual(grad.shape.vector, 2)
             self.assertEqual(grad.shape.gradient, 2)
-            ref_shape = (4, 3) if case_dict['padding'] is not None else ((2, 1) if case_dict['difference'] == 'central' else (3, 2))
+            ref_shape = (4, 3) if case_dict['padding'] is not None else (
+                (2, 1) if case_dict['difference'] == 'central' else (3, 2))
             self.assertEqual((grad.shape.x, grad.shape.y), ref_shape)
 
     def test_vector_laplace(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
-        cases = dict(padding=(extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
-                     dx=(0.1, 1),
-                     dims=(None, ('x',), ('y',), ('x', 'y')))
+        cases = dict(padding=(
+            extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC,
+            extrapolation.SYMMETRIC),
+            dx=(0.1, 1),
+            dims=(None, ('x',), ('y',), ('x', 'y')))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             laplace = math.laplace(meshgrid, **case_dict)
 
@@ -99,6 +106,66 @@ class TestMathNDNumpy(TestCase):
         math.print(double_size, 'Double size')
         math.print(same_size, 'Same size')
         math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
+
+    def test_masked_extp_sanity(self):
+        ten = tensor(np.zeros((3, 3)), 'x, y')
+        ten.native()[1, 1] = 1
+        res, mask = math.masked_extp(ten, ten)
+        expected = np.ones((3, 3))
+        assert np.all(res.numpy() == expected)
+        assert np.all(mask.numpy() == expected)
+
+    def test_masked_extp_sanity_size(self):
+        ten = tensor(np.zeros((5, 5)), 'x, y')
+        ten.native()[2, 2] = 1
+        res, mask = math.masked_extp(ten, ten, 2)
+        expected = np.ones((5, 5))
+        assert np.all(res.numpy() == expected)
+        assert np.all(mask.numpy() == expected)
+
+    def test_masked_extp_full(self):
+        arr = np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.],
+                        [1., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 1., 1., 0., 0., 0., 0.],
+                        [0., 0., 1., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.]])
+        mask = tensor(arr, 'x, y')
+
+        expected_mask = np.array([[1., 1., 1., 0., 0., 0., 0., 0.],
+                                  [1., 1., 1., 0., 0., 0., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 0., 0., 0.]])
+
+        arr = np.array([[-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-5., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., 0., 2., -1., -1., -1., -1.],
+                        [-1., -1., 5., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.]])
+        ten = tensor(arr, 'x, y')
+
+        expected_res = np.array([[-5., -5., -5., -1., -1., -1., -1., -1.],
+                                 [-5., -5., -5., -1., -1., -1., -1., -1.],
+                                 [-5., -5., -2.5, 2., 2., 2., -1., -1.],
+                                 [-5., -2.5, 0., 2., 2., 2., -1., -1.],
+                                 [-2.5, 0., 0., 2., 2., 2., -1., -1.],
+                                 [5., 5., 5., 3.5, 2., 2., -1., -1.],
+                                 [5., 5., 5., 5., 3.5, 2., -1., -1.],
+                                 [5., 5., 5., 5., 5., -1., -1., -1.]])
+
+        res, mask = math.masked_extp(ten, mask, 2)
+
+        assert np.all(res.numpy() == expected_res)
+        assert np.all(mask.numpy() == expected_mask)
 
     # def test_fourier_poisson_2d_periodic(self):
     #     test_params = {
@@ -190,21 +257,23 @@ class TestMathNDNumpy(TestCase):
     @staticmethod
     def arakawa_reference_implementation(zeta, psi, d):
         """pure Python exact implementation from paper"""
+
         def jpp(zeta, psi, d, i, j):
             return ((zeta[i + 1, j] - zeta[i - 1, j]) * (psi[i, j + 1] - psi[i, j - 1])
-                    - (zeta[i, j + 1] - zeta[i, j - 1]) * (psi[i + 1, j] - psi[i - 1, j])) / (4 * d**2)
+                    - (zeta[i, j + 1] - zeta[i, j - 1]) * (psi[i + 1, j] - psi[i - 1, j])) / (4 * d ** 2)
 
         def jpx(zeta, psi, d, i, j):
             return (zeta[i + 1, j] * (psi[i + 1, j + 1] - psi[i + 1, j - 1])
                     - zeta[i - 1, j] * (psi[i - 1, j + 1] - psi[i - 1, j - 1])
                     - zeta[i, j + 1] * (psi[i + 1, j + 1] - psi[i - 1, j + 1])
-                    + zeta[i, j - 1] * (psi[i + 1, j - 1] - psi[i - 1, j - 1])) / (4 * d**2)
+                    + zeta[i, j - 1] * (psi[i + 1, j - 1] - psi[i - 1, j - 1])) / (4 * d ** 2)
 
         def jxp(zeta, psi, d, i, j):
             return (zeta[i + 1, j + 1] * (psi[i, j + 1] - psi[i + 1, j])
                     - zeta[i - 1, j - 1] * (psi[i - 1, j] - psi[i, j - 1])
                     - zeta[i - 1, j + 1] * (psi[i, j + 1] - psi[i - 1, j])
-                    + zeta[i + 1, j - 1] * (psi[i + 1, j] - psi[i, j - 1])) / (4 * d**2)
+                    + zeta[i + 1, j - 1] * (psi[i + 1, j] - psi[i, j - 1])) / (4 * d ** 2)
+
         val = np.zeros_like(zeta)
         for i in range(0, zeta.shape[0] - 1):
             for j in range(0, zeta.shape[1] - 1):
