@@ -239,6 +239,33 @@ def shift(x: Tensor,
     return offset_tensors
 
 
+def masked_extp(x: Tensor, mask: Tensor, size: int = 1):
+    if size <= 0:
+        return x, mask
+    # ensure binary mask
+    mask = math.divide_no_nan(mask, mask)
+    values_l, values_r = shift(x * mask, (-1, 1))
+    mask_l, mask_r = shift(mask, (-1, 1))
+    overlap = math.sum_(mask_l + mask_r, dim='shift')
+    # calculate mean where extrapolated values overlap
+    extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)
+    # extrapolate diagonally (double y because both, up and down component of the vertical shift
+    # (y-direction) get shifted left and right)
+    values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims='y')
+    mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims='y')
+    values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims='y')
+    mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims='y')
+    overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
+    # calculate mean where extrapolated values overlap (shift axis has only one component)
+    extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]
+    extp = math.where(overlap, extp, extp_diag)
+    new_mask = (mask + overlap + overlap_diag).unstack('shift')[0]
+    # do not overwrite original values within the mask and keep values which are not affected by extrapolation
+    new_x = math.where(mask, x, math.where(new_mask, extp, x))
+    # perform multiple extrapolation steps recursively
+    return masked_extp(new_x, new_mask, size=size - 1)
+
+
 # Gradient
 
 def gradient(grid: Tensor,
