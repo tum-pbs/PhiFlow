@@ -32,3 +32,7 @@ from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, 
 from .app._module_app import ModuleViewer
 from .app._fluidformat import write_sim_frame
 from phi.app._display import show
+
+
+def cuda_device_count():
+    return 0

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.9.2" />
+<meta name="generator" content="pdoc 0.9.1" />
 <title>phi.math.backend API documentation</title>
 <meta name="description" content="Low-level library wrappers for delegating vector operations." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -31,162 +31,37 @@
 Low-level library wrappers for delegating vector operations.
 &#34;&#34;&#34;
 
-from contextlib import contextmanager
-
 from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
-from ._backend import Backend
-from ._scipy_backend import SCIPY_BACKEND, SciPyBackend
+from ._backend import (
+    Backend, choose_backend, NoBackendFound,
+    default_backend, set_global_default_backend, BACKENDS, _DEFAULT,
+    get_precision, precision, set_global_precision,
+)
+from ._scipy_backend import SCIPY_BACKEND
 from ._optim import Solve, LinearSolve
-
-BACKENDS = [SCIPY_BACKEND]
-_DEFAULT = [SCIPY_BACKEND]  # [0] = global default, [1:] from &#39;with&#39; blocks
-_PRECISION = [32]  # [0] = global precision in bits, [1:] from &#39;with&#39; blocks
+from ._profile import Profile, get_current_profile, profile, profile_function
 
 
-def choose_backend(*values, prefer_default=False, raise_error=True) -&gt; Backend:
-    &#34;&#34;&#34;
-    Selects a suitable backend to handle the given values.
+BACKENDS.append(SCIPY_BACKEND)
+_DEFAULT.append(SCIPY_BACKEND)
 
-    This function is used by most math functions operating on `Tensor` objects to delegate the actual computations.
-
-    Args:
-        *values:
-        prefer_default: if True, selects the default backend assuming it can handle handle the values, see `default_backend()`.
-        raise_error: Determines the behavior of this function if no backend can handle the given values.
-            If True, raises a `NoBackendFound` error, else returns `None`.
-
-    Returns:
-        the selected backend
-    &#34;&#34;&#34;
-    # --- Default Backend has priority ---
-    if _is_specific(_DEFAULT[-1], values):
-        return _DEFAULT[-1]
-    if prefer_default and _is_applicable(_DEFAULT[-1], values):
-        return _DEFAULT[-1]
-    # --- Filter out non-applicable ---
-    backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
-    if len(backends) == 0:
-        if raise_error:
-            raise NoBackendFound(&#39;No backend found for values %s; registered backends are %s&#39; % (values, BACKENDS))
-        else:
-            return None
-    # --- Native tensors? ---
-    for backend in backends:
-        if _is_specific(backend, values):
-            return backend
-    else:
-        return backends[0]
+BACKENDS = BACKENDS
+&#34;&#34;&#34; Global list of all registered backends. Register a `Backend` by adding it to the list. &#34;&#34;&#34;
 
 
-class NoBackendFound(Exception):
-    &#34;&#34;&#34;
-    Thrown by `choose_backend` if no backend can handle the given values.
-    &#34;&#34;&#34;
-
-    def __init__(self, msg):
-        Exception.__init__(self, msg)
-
-
-def default_backend():
-    &#34;&#34;&#34;
-    The default backend is preferred by `choose_backend()`.
-
-    The default backend can be set globally using `set_global_default_backend()` and locally using `with backend:`.
-
-    Returns:
-        current default backend
-    &#34;&#34;&#34;
-    return _DEFAULT[-1]
-
-
-def set_global_default_backend(backend: Backend):
-    &#34;&#34;&#34;
-    Sets the given backend as default.
-    This setting can be overridden using `with backend:`.
-
-    See `default_backend()`, `choose_backend()`.
-
-    Args:
-        backend: backend to set as default
-    &#34;&#34;&#34;
-    assert isinstance(backend, Backend)
-    _DEFAULT[0] = backend
-
-
-def set_global_precision(floating_point_bits):
-    &#34;&#34;&#34;
-    Sets the floating point precision of DYNAMIC_BACKEND which affects all registered backends.
-    
-    If `floating_point_bits` is an integer, all floating point tensors created henceforth will be of the corresponding data type, float16, float32 or float64.
-    Operations may also convert floating point values to this precision, even if the input had a different precision.
-    
-    If `floating_point_bits` is None, new tensors will default to float32 unless specified otherwise.
-    The output of math operations has the same precision as its inputs.
-
-    Args:
-      floating_point_bits: one of (16, 32, 64, None)
-    &#34;&#34;&#34;
-    _PRECISION[0] = floating_point_bits
-
-
-def get_precision() -&gt; int:
-    &#34;&#34;&#34;
-    Gets the current target floating point precision in bits.
-    The precision can be set globally using `set_global_precision()` or locally using `with precision(p):`.
-
-    Any Backend method may convert floating point values to this precision, even if the input had a different precision.
-
-    Returns:
-        16 for half, 32 for single, 64 for double
-    &#34;&#34;&#34;
-    return _PRECISION[-1]
-
-
-@contextmanager
-def precision(floating_point_bits):
-    &#34;&#34;&#34;
-    Sets the floating point precision for the local context.
-
-    Usage: `with precision(p):`
-
-    This overrides the global setting, see `set_global_precision()`.
-
-    Args:
-        floating_point_bits: 16 for half, 32 for single, 64 for double
-    &#34;&#34;&#34;
-    _PRECISION.append(floating_point_bits)
-    try:
-        yield None
-    finally:
-        _PRECISION.pop(-1)
-
-
-# Backend choice utility functions
-
-def _is_applicable(backend, values):
-    for value in values:
-        if not backend.is_tensor(value, only_native=False):
-            return False
-    return True
-
-
-def _is_specific(backend, values):
-    for value in values:
-        if backend.is_tensor(value, only_native=True):
-            return True
-    return False</code></pre>
+__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
-<dl>
-<dt><code class="name"><a title="phi.math.backend.tensorop" href="tensorop.html">phi.math.backend.tensorop</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 </section>
 <section>
+<h2 class="section-title" id="header-variables">Global variables</h2>
+<dl>
+<dt id="phi.math.backend.BACKENDS"><code class="name">var <span class="ident">BACKENDS</span></code></dt>
+<dd>
+<div class="desc"><p>Global list of all registered backends. Register a <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> by adding it to the list.</p></div>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
@@ -207,7 +82,7 @@ def _is_specific(backend, values):
 If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.math.backend.NoBackendFound">NoBackendFound</a></code> error, else returns <code>None</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>the selected backend</p></div>
+<p>the selected <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -225,7 +100,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
             If True, raises a `NoBackendFound` error, else returns `None`.
 
     Returns:
-        the selected backend
+        the selected `Backend`
     &#34;&#34;&#34;
     # --- Default Backend has priority ---
     if _is_specific(_DEFAULT[-1], values):
@@ -254,7 +129,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
 <div class="desc"><p>The default backend is preferred by <code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend()</a></code>.</p>
 <p>The default backend can be set globally using <code><a title="phi.math.backend.set_global_default_backend" href="#phi.math.backend.set_global_default_backend">set_global_default_backend()</a></code> and locally using <code>with backend:</code>.</p>
 <h2 id="returns">Returns</h2>
-<p>current default backend</p></div>
+<p>current default <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -266,9 +141,42 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
     The default backend can be set globally using `set_global_default_backend()` and locally using `with backend:`.
 
     Returns:
-        current default backend
+        current default `Backend`
     &#34;&#34;&#34;
     return _DEFAULT[-1]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.from_numpy_dtype"><code class="name flex">
+<span>def <span class="ident">from_numpy_dtype</span></span>(<span>np_dtype) ‑> phi.math.backend._dtype.DType</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def from_numpy_dtype(np_dtype) -&gt; DType:
+    if np_dtype in _FROM_NUMPY:
+        return _FROM_NUMPY[np_dtype]
+    else:
+        for base_np_dtype, dtype in _FROM_NUMPY.items():
+            if np_dtype == base_np_dtype:
+                return dtype
+        raise ValueError(np_dtype)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.get_current_profile"><code class="name flex">
+<span>def <span class="ident">get_current_profile</span></span>(<span>) ‑> Union[phi.math.backend._profile.Profile, NoneType]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the currently active <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> if one is active. Otherwise returns <code>None</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_current_profile() -&gt; Optional[Profile]:
+    &#34;&#34;&#34; Returns the currently active `Profile` if one is active. Otherwise returns `None`.  &#34;&#34;&#34;
+    return _PROFILE[-1] if _PROFILE else None</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.get_precision"><code class="name flex">
@@ -298,7 +206,7 @@ The precision can be set globally using <code><a title="phi.math.backend.set_glo
 </details>
 </dd>
 <dt id="phi.math.backend.precision"><code class="name flex">
-<span>def <span class="ident">precision</span></span>(<span>floating_point_bits)</span>
+<span>def <span class="ident">precision</span></span>(<span>floating_point_bits: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sets the floating point precision for the local context.</p>
@@ -314,7 +222,7 @@ The precision can be set globally using <code><a title="phi.math.backend.set_glo
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@contextmanager
-def precision(floating_point_bits):
+def precision(floating_point_bits: int):
     &#34;&#34;&#34;
     Sets the floating point precision for the local context.
 
@@ -332,6 +240,121 @@ def precision(floating_point_bits):
         _PRECISION.pop(-1)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.profile"><code class="name flex">
+<span>def <span class="ident">profile</span></span>(<span>backends=None, trace=True) ‑> phi.math.backend._profile.Profile</span>
+</code></dt>
+<dd>
+<div class="desc"><p>To be used in <code>with</code> statements, <code>with math.backend.profile() as prof: ...</code>.
+Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for the code executed within the context by tracking calls to the <code>backends</code> and optionally tracing the call.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>backends</code></strong></dt>
+<dd>List of backends to profile, <code>None</code> to profile all.</dd>
+<dt><strong><code>trace</code></strong></dt>
+<dd>Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Created <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@contextmanager
+def profile(backends=None, trace=True) -&gt; Profile:
+    &#34;&#34;&#34;
+    To be used in `with` statements, `with math.backend.profile() as prof: ...`.
+    Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
+
+    Args:
+        backends: List of backends to profile, `None` to profile all.
+        trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+
+    Returns:
+        Created `Profile`
+    &#34;&#34;&#34;
+    backends = BACKENDS if backends is None else backends
+    prof = Profile(trace, backends)
+    restore_data = _start_profiling(prof, backends)
+    try:
+        yield prof
+    finally:
+        _stop_profiling(prof, *restore_data)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.profile_function"><code class="name flex">
+<span>def <span class="ident">profile_function</span></span>(<span>fun: <built-in function callable>, args: tuple = (), kwargs: dict = None, backends=None, trace=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for the function <code>fun(*args, **kwargs)</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>fun</code></strong></dt>
+<dd>Function to be profiled. In case <code>retime=True</code>, this function must perform the same operations each time it is called.
+Use <code>warmup&gt;0</code> to ensure that internal caching does not interfere with the operations.</dd>
+<dt><strong><code>args</code></strong></dt>
+<dd>Arguments to be passed to <code>fun</code>.</dd>
+<dt><strong><code>kwargs</code></strong></dt>
+<dd>Keyword arguments to be passed to <code>fun</code>.</dd>
+<dt><strong><code>backends</code></strong></dt>
+<dd>List of backends to profile, <code>None</code> to profile all.</dd>
+<dt><strong><code>trace</code></strong></dt>
+<dd>Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.</dd>
+<dt><strong><code>retime</code></strong></dt>
+<dd>If true, calls <code>fun</code> another time without tracing the calls and updates the profile.
+This gives a much better indication of the true timing.
+See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Profile.retime">Profile.retime()</a></code>.</dd>
+<dt><strong><code>warmup</code></strong></dt>
+<dd>Number of times to call ´fun` before profiling it.</dd>
+</dl>
+<p>call_count:</p>
+<h2 id="returns">Returns</h2>
+<p>Created <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for <code>fun</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def profile_function(fun: callable,
+                     args: tuple or list = (),
+                     kwargs: dict or None = None,
+                     backends=None,
+                     trace=True,
+                     retime=True,
+                     warmup=1,
+                     call_count=1) -&gt; Profile:
+    &#34;&#34;&#34;
+    Creates a `Profile` for the function `fun(*args, **kwargs)`.
+
+    Args:
+        fun: Function to be profiled. In case `retime=True`, this function must perform the same operations each time it is called.
+            Use `warmup&gt;0` to ensure that internal caching does not interfere with the operations.
+        args: Arguments to be passed to `fun`.
+        kwargs: Keyword arguments to be passed to `fun`.
+        backends: List of backends to profile, `None` to profile all.
+        trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+        retime: If true, calls `fun` another time without tracing the calls and updates the profile.
+            This gives a much better indication of the true timing.
+            See `Profile.retime()`.
+        warmup: Number of times to call ´fun` before profiling it.
+        call_count:
+
+    Returns:
+        Created `Profile` for `fun`.
+    &#34;&#34;&#34;
+    kwargs = kwargs if isinstance(kwargs, dict) else {}
+    for _ in range(warmup):
+        fun(*args, **kwargs)
+    with profile(backends=backends, trace=trace) as prof:
+        fun(*args, **kwargs)
+    if retime:
+        with prof.retime():
+            fun(*args, **kwargs)
+    if call_count &gt; 1:
+        with prof._accumulate_average(call_count):
+            for _ in range(call_count - 1):
+                fun(*args, **kwargs)
+    return prof</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.set_global_default_backend"><code class="name flex">
 <span>def <span class="ident">set_global_default_backend</span></span>(<span>backend: phi.math.backend._backend.Backend)</span>
 </code></dt>
@@ -342,7 +365,7 @@ This setting can be overridden using <code>with backend:</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>backend</code></strong></dt>
-<dd>backend to set as default</dd>
+<dd><code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> to set as default</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -356,14 +379,14 @@ This setting can be overridden using <code>with backend:</code>.</p>
     See `default_backend()`, `choose_backend()`.
 
     Args:
-        backend: backend to set as default
+        backend: `Backend` to set as default
     &#34;&#34;&#34;
     assert isinstance(backend, Backend)
     _DEFAULT[0] = backend</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.set_global_precision"><code class="name flex">
-<span>def <span class="ident">set_global_precision</span></span>(<span>floating_point_bits)</span>
+<span>def <span class="ident">set_global_precision</span></span>(<span>floating_point_bits: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sets the floating point precision of DYNAMIC_BACKEND which affects all registered backends.</p>
@@ -380,13 +403,13 @@ The output of math operations has the same precision as its inputs.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_global_precision(floating_point_bits):
+<pre><code class="python">def set_global_precision(floating_point_bits: int):
     &#34;&#34;&#34;
     Sets the floating point precision of DYNAMIC_BACKEND which affects all registered backends.
-    
+
     If `floating_point_bits` is an integer, all floating point tensors created henceforth will be of the corresponding data type, float16, float32 or float64.
     Operations may also convert floating point values to this precision, even if the input had a different precision.
-    
+
     If `floating_point_bits` is None, new tensors will default to float32 unless specified otherwise.
     The output of math operations has the same precision as its inputs.
 
@@ -396,11 +419,2372 @@ The output of math operations has the same precision as its inputs.</p>
     _PRECISION[0] = floating_point_bits</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.to_numpy_dtype"><code class="name flex">
+<span>def <span class="ident">to_numpy_dtype</span></span>(<span>dtype: phi.math.backend._dtype.DType)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_numpy_dtype(dtype: DType):
+    return _TO_NUMPY[dtype]</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="phi.math.backend.Backend"><code class="flex name class">
+<span>class <span class="ident">Backend</span></span>
+<span>(</span><span>name: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Backends delegate low-level operations to a compute library or emulate them.</p>
+<p>The methods of <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> form a comprehensive list of available operations.</p>
+<p>To support a compute library, subclass <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> and register it by adding it to <code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Backend:
+    &#34;&#34;&#34;
+    Backends delegate low-level operations to a compute library or emulate them.
+
+    The methods of `Backend` form a comprehensive list of available operations.
+
+    To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
+    &#34;&#34;&#34;
+
+    def __init__(self, name: str):
+        self._name = name
+
+    def __enter__(self):
+        _DEFAULT.append(self)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _DEFAULT.pop(-1)
+
+    @property
+    def name(self) -&gt; str:
+        return self._name
+
+    @property
+    def precision(self) -&gt; int:
+        &#34;&#34;&#34; Short for math.backend.get_precision() &#34;&#34;&#34;
+        return get_precision()
+
+    @property
+    def float_type(self) -&gt; DType:
+        return DType(float, self.precision)
+
+    @property
+    def complex_type(self) -&gt; DType:
+        return DType(complex, max(64, self.precision))
+
+    def combine_types(self, *dtypes: DType) -&gt; DType:
+        return combine_types(*dtypes, fp_precision=self.precision)
+
+    def auto_cast(self, *tensors) -&gt; list:
+        &#34;&#34;&#34;
+        Determins the appropriate values type resulting from operations involving the tensors as input.
+        
+        This method is called by the default implementations of basic operators.
+        Backends can override this method to prevent unnecessary casting.
+
+        Args:
+          *tensors: tensors to cast and to consider when determining the common data type
+
+        Returns:
+            tensors cast to a common data type
+        &#34;&#34;&#34;
+        dtypes = [self.dtype(t) for t in tensors]
+        result_type = self.combine_types(*dtypes)
+        tensors = [self.cast(t, result_type) for t in tensors]
+        return tensors
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
+    def matches_name(self, name):
+        return self.name.lower() == name.lower()
+
+    # --- Abstract math functions ---
+
+    def is_tensor(self, x, only_native=False):
+        &#34;&#34;&#34;
+        An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
+        An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
+
+        Args:
+          x: object to check
+          only_native: If True, only accepts true native tensor representations, not Python numbers or others that are also supported as tensors (Default value = False)
+
+        Returns:
+          bool: whether `x` is considered a tensor by this backend
+
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def as_tensor(self, x, convert_external=True):
+        &#34;&#34;&#34;
+        Converts a tensor-like object to the native tensor representation of this backend.
+        If x is a native tensor of this backend, it is returned without modification.
+        If x is a Python number (numbers.Number instance), `convert_numbers` decides whether to convert it unless the backend cannot handle Python numbers.
+        
+        *Note:* There may be objects that are considered tensors by this backend but are not native and thus, will be converted by this method.
+
+        Args:
+          x: tensor-like, e.g. list, tuple, Python number, tensor
+          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+
+        Returns:
+          tensor representation of `x`
+
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def is_available(self, tensor) -&gt; bool:
+        &#34;&#34;&#34;
+        Tests if the value of the tensor is known and can be read at this point.
+        If true, `numpy(tensor)` must return a valid NumPy representation of the value.
+        
+        Tensors are typically available when the backend operates in eager mode.
+
+        Args:
+          tensor: backend-compatible tensor
+
+        Returns:
+          bool
+
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def numpy(self, tensor) -&gt; numpy.ndarray:
+        &#34;&#34;&#34;
+        Returns a NumPy representation of the given tensor.
+        If `tensor` is already a NumPy array, it is returned without modification.
+        
+        This method raises an error if the value of the tensor is not known at this point, e.g. because it represents a node in a graph.
+        Use `is_available(tensor)` to check if the value can be represented as a NumPy array.
+
+        Args:
+          tensor: backend-compatible tensor
+
+        Returns:
+          NumPy representation of the values stored in the tensor
+
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def copy(self, tensor, only_mutable=False):
+        raise NotImplementedError()
+
+    def transpose(self, tensor, axes):
+        raise NotImplementedError()
+
+    def equal(self, x, y):
+        raise NotImplementedError()
+
+    def random_uniform(self, shape):
+        raise NotImplementedError(self)
+
+    def random_normal(self, shape):
+        raise NotImplementedError(self)
+
+    def stack(self, values, axis=0):
+        raise NotImplementedError(self)
+
+    def concat(self, values, axis):
+        raise NotImplementedError(self)
+
+    def pad(self, value, pad_width, mode: str = &#39;constant&#39;, constant_values=0):
+        &#34;&#34;&#34;
+        Pad a tensor with values as specified by `mode` and `constant_values`.
+        
+        If the mode is not supported, returns NotImplemented.
+
+        Args:
+          value: tensor
+          pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[axis 0 lower, axis 0 upper], ...] including batch and component axes.
+          mode: constant&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;
+          constant_values: used for out-of-bounds points if mode=&#39;constant&#39; (Default value = 0)
+          mode: str:  (Default value = &#39;constant&#39;)
+
+        Returns:
+          padded tensor or NotImplemented
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def reshape(self, value, shape):
+        raise NotImplementedError(self)
+
+    def flip(self, value, axes: tuple or list):
+        slices = [slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value))]
+        return value[slices]
+
+    def sum(self, value, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def prod(self, value, axis=None):
+        raise NotImplementedError(self)
+
+    def divide_no_nan(self, x, y):
+        &#34;&#34;&#34;
+        Computes x/y but returns 0 if y=0.
+
+        Args:
+          x: 
+          y: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def where(self, condition, x=None, y=None):
+        raise NotImplementedError(self)
+
+    def nonzero(self, values):
+        &#34;&#34;&#34;
+        
+
+        Args:
+          values: 
+
+        Returns:
+          
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def mean(self, value, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
+        raise NotImplementedError(self)
+
+    def range(self, start, limit=None, delta=1, dtype=None):
+        raise NotImplementedError(self)
+
+    def zeros(self, shape, dtype: DType = None):
+        raise NotImplementedError(self)
+
+    def zeros_like(self, tensor):
+        raise NotImplementedError(self)
+
+    def ones(self, shape, dtype: DType = None):
+        raise NotImplementedError(self)
+
+    def ones_like(self, tensor):
+        raise NotImplementedError(self)
+
+    def meshgrid(self, *coordinates):
+        raise NotImplementedError(self)
+
+    def linspace(self, start, stop, number):
+        raise NotImplementedError(self)
+
+    def dot(self, a, b, axes):
+        raise NotImplementedError(self)
+
+    def matmul(self, A, b):
+        raise NotImplementedError(self)
+
+    def einsum(self, equation, *tensors):
+        raise NotImplementedError(self)
+
+    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
+                   swap_memory=False, name=None, maximum_iterations=None):
+        raise NotImplementedError(self)
+
+    def abs(self, x):
+        raise NotImplementedError(self)
+
+    def sign(self, x):
+        raise NotImplementedError(self)
+
+    def round(self, x):
+        raise NotImplementedError(self)
+
+    def ceil(self, x):
+        raise NotImplementedError(self)
+
+    def floor(self, x):
+        raise NotImplementedError(self)
+
+    def max(self, x, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def min(self, x, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def maximum(self, a, b):
+        raise NotImplementedError(self)
+
+    def minimum(self, a, b):
+        raise NotImplementedError(self)
+
+    def clip(self, x, minimum, maximum):
+        raise NotImplementedError(self)
+
+    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base=&#39;custom_gradient_func&#39;):
+        raise NotImplementedError(self)
+
+    def sqrt(self, x):
+        raise NotImplementedError(self)
+
+    def exp(self, x):
+        raise NotImplementedError(self)
+
+    def conv(self, tensor, kernel, padding=&#39;same&#39;):
+        raise NotImplementedError(self)
+
+    def expand_dims(self, a, axis=0, number=1):
+        raise NotImplementedError(self)
+
+    def shape(self, tensor):
+        raise NotImplementedError(self)
+
+    def staticshape(self, tensor):
+        raise NotImplementedError(self)
+
+    def to_float(self, x):
+        &#34;&#34;&#34;
+        Converts a tensor to floating point values.
+        If this Backend uses a fixed precision, the tensor will be converted to that precision.
+        Otherwise, non-float inputs are converted to float32 (unless `float64=True`).
+        
+        If `x` is mutable and of the correct floating type, returns a copy of `x`.
+        
+        To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
+
+        Args:
+          x: tensor
+
+        Returns:
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def to_int(self, x, int64=False):
+        raise NotImplementedError(self)
+
+    def to_complex(self, x):
+        raise NotImplementedError(self)
+
+    def dimrange(self, tensor):
+        return range(1, len(tensor.shape) - 1)
+
+    def gather(self, values, indices):
+        raise NotImplementedError(self)
+
+    def gather_nd(self, values, indices, batch_dims=0):
+        raise NotImplementedError(self)
+
+    def flatten(self, x):
+        return self.reshape(x, (-1,))
+
+    def std(self, x, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def boolean_mask(self, x, mask):
+        raise NotImplementedError(self)
+
+    def isfinite(self, x):
+        raise NotImplementedError(self)
+
+    def scatter(self, indices, values, shape, duplicates_handling=&#39;undefined&#39;, outside_handling=&#39;undefined&#39;):
+        &#34;&#34;&#34;
+        This method expects the first dimension of indices and values to be the batch dimension.
+        The batch dimension need not be specified in the indices array.
+
+        Args:
+          indices: n-dimensional indices corresponding to values
+          values: values to scatter at indices
+          shape: spatial shape of the result tensor, 1D int array
+          duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
+          outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;undefined&#39;)
+
+        Returns:
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def any(self, boolean_tensor, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def all(self, boolean_tensor, axis=None, keepdims=False):
+        raise NotImplementedError(self)
+
+    def fft(self, x):
+        &#34;&#34;&#34;
+        Computes the n-dimensional FFT along all but the first and last dimensions.
+
+        Args:
+          x: tensor of dimension 3 or higher
+
+        Returns:
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def ifft(self, k):
+        &#34;&#34;&#34;
+        Computes the n-dimensional inverse FFT along all but the first and last dimensions.
+
+        Args:
+          k: tensor of dimension 3 or higher
+
+        Returns:
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def imag(self, complex):
+        raise NotImplementedError(self)
+
+    def real(self, complex):
+        raise NotImplementedError(self)
+
+    def cast(self, x, dtype: DType):
+        raise NotImplementedError(self)
+
+    def sin(self, x):
+        raise NotImplementedError(self)
+
+    def cos(self, x):
+        raise NotImplementedError(self)
+
+    def dtype(self, array) -&gt; DType:
+        raise NotImplementedError(self)
+
+    def tile(self, value, multiples):
+        &#34;&#34;&#34;
+        Repeats the tensor along each axis the number of times given by multiples.
+        If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
+
+        Args:
+          value: tensor
+          multiples: tuple or list of integers
+
+        Returns:
+          tile tensor
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def sparse_tensor(self, indices, values, shape):
+        &#34;&#34;&#34;
+        
+
+        Args:
+          indices: tuple/list matching the dimensions (pair for matrix)
+          values: param shape:
+          shape: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def coordinates(self, tensor, unstack_coordinates=False):
+        &#34;&#34;&#34;
+        Returns the coordinates and values of a tensor.
+        
+        The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
+        In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
+
+        Args:
+          tensor: dense or sparse tensor
+          unstack_coordinates:  (Default value = False)
+
+        Returns:
+          indices (tensor or tuple), values
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = &#39;implicit&#39;, callback=None):
+        &#34;&#34;&#34;
+        Solve the system of linear equations
+          A * x = y
+
+        Args:
+          A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
+          y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+          x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
+          relative_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
+          absolute_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
+          max_iterations: maximum number of iterations or None for unlimited
+          gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
+          callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
+          relative_tolerance: float:  (Default value = 1e-5)
+          absolute_tolerance: float:  (Default value = 0.0)
+          max_iterations: int:  (Default value = 1000)
+          gradient: str:  (Default value = &#39;implicit&#39;)
+
+        Returns:
+          converged, solution, iterations
+
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    # --- Math function with default implementation ---
+
+    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation=&#39;constant&#39;):
+        &#34;&#34;&#34;
+        Interpolates a regular grid at the specified coordinates.
+
+        Args:
+          grid: Tensor
+          spatial_dims: Dimension indices that correspond to coordinate vectors
+          coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+          extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
+
+        Returns:
+            sampled values with linear interpolation
+        &#34;&#34;&#34;
+        return NotImplemented
+
+    def ndims(self, tensor):
+        return len(self.staticshape(tensor))
+
+    def size(self, array):
+        return self.prod(self.shape(array))
+
+    def batch_gather(self, tensor, batches):
+        if isinstance(batches, int):
+            batches = [batches]
+        return tensor[batches, ...]
+
+    def unstack(self, tensor, axis=0, keepdims=False):
+        if axis &lt; 0:
+            axis += len(tensor.shape)
+        if axis &gt;= len(tensor.shape) or axis &lt; 0:
+            raise ValueError(&#34;Illegal axis value&#34;)
+        result = []
+        for slice_idx in range(tensor.shape[axis]):
+            if keepdims:
+                component = tensor[tuple([slice(slice_idx, slice_idx + 1) if d == axis else slice(None) for d in range(len(tensor.shape))])]
+            else:
+                component = tensor[tuple([slice_idx if d == axis else slice(None) for d in range(len(tensor.shape))])]
+            result.append(component)
+        return tuple(result)
+
+    def add(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a + b
+
+    def sub(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a - b
+
+    def mul(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a * b
+
+    def div(self, numerator, denominator):
+        numerator, denominator = self.auto_cast(numerator, denominator)
+        return numerator / denominator
+
+    def pow(self, base, exp):
+        base, exp = self.auto_cast(base, exp)
+        return base ** exp
+
+    def mod(self, dividend, divisor):
+        dividend, divisor = self.auto_cast(dividend, divisor)
+        return dividend % divisor</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li>phi.math.backend._scipy_backend.SciPyBackend</li>
+<li>phi.tf._tf_backend.TFBackend</li>
+<li>phi.torch._torch_backend.TorchBackend</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.Backend.complex_type"><code class="name">var <span class="ident">complex_type</span> : phi.math.backend._dtype.DType</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def complex_type(self) -&gt; DType:
+    return DType(complex, max(64, self.precision))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.float_type"><code class="name">var <span class="ident">float_type</span> : phi.math.backend._dtype.DType</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def float_type(self) -&gt; DType:
+    return DType(float, self.precision)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def name(self) -&gt; str:
+    return self._name</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.precision"><code class="name">var <span class="ident">precision</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Short for math.backend.get_precision()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def precision(self) -&gt; int:
+    &#34;&#34;&#34; Short for math.backend.get_precision() &#34;&#34;&#34;
+    return get_precision()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.backend.Backend.abs"><code class="name flex">
+<span>def <span class="ident">abs</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def abs(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.add"><code class="name flex">
+<span>def <span class="ident">add</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a + b</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.all"><code class="name flex">
+<span>def <span class="ident">all</span></span>(<span>self, boolean_tensor, axis=None, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def all(self, boolean_tensor, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.any"><code class="name flex">
+<span>def <span class="ident">any</span></span>(<span>self, boolean_tensor, axis=None, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def any(self, boolean_tensor, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.as_tensor"><code class="name flex">
+<span>def <span class="ident">as_tensor</span></span>(<span>self, x, convert_external=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Converts a tensor-like object to the native tensor representation of this backend.
+If x is a native tensor of this backend, it is returned without modification.
+If x is a Python number (numbers.Number instance), <code>convert_numbers</code> decides whether to convert it unless the backend cannot handle Python numbers.</p>
+<p><em>Note:</em> There may be objects that are considered tensors by this backend but are not native and thus, will be converted by this method.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>tensor-like, e.g. list, tuple, Python number, tensor</dd>
+<dt><strong><code>convert_external</code></strong></dt>
+<dd>if False and <code>x</code> is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tensor representation of <code>x</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_tensor(self, x, convert_external=True):
+    &#34;&#34;&#34;
+    Converts a tensor-like object to the native tensor representation of this backend.
+    If x is a native tensor of this backend, it is returned without modification.
+    If x is a Python number (numbers.Number instance), `convert_numbers` decides whether to convert it unless the backend cannot handle Python numbers.
+    
+    *Note:* There may be objects that are considered tensors by this backend but are not native and thus, will be converted by this method.
+
+    Args:
+      x: tensor-like, e.g. list, tuple, Python number, tensor
+      convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+
+    Returns:
+      tensor representation of `x`
+
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.auto_cast"><code class="name flex">
+<span>def <span class="ident">auto_cast</span></span>(<span>self, *tensors) ‑> list</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Determins the appropriate values type resulting from operations involving the tensors as input.</p>
+<p>This method is called by the default implementations of basic operators.
+Backends can override this method to prevent unnecessary casting.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*tensors</code></strong></dt>
+<dd>tensors to cast and to consider when determining the common data type</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tensors cast to a common data type</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def auto_cast(self, *tensors) -&gt; list:
+    &#34;&#34;&#34;
+    Determins the appropriate values type resulting from operations involving the tensors as input.
+    
+    This method is called by the default implementations of basic operators.
+    Backends can override this method to prevent unnecessary casting.
+
+    Args:
+      *tensors: tensors to cast and to consider when determining the common data type
+
+    Returns:
+        tensors cast to a common data type
+    &#34;&#34;&#34;
+    dtypes = [self.dtype(t) for t in tensors]
+    result_type = self.combine_types(*dtypes)
+    tensors = [self.cast(t, result_type) for t in tensors]
+    return tensors</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.batch_gather"><code class="name flex">
+<span>def <span class="ident">batch_gather</span></span>(<span>self, tensor, batches)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def batch_gather(self, tensor, batches):
+    if isinstance(batches, int):
+        batches = [batches]
+    return tensor[batches, ...]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.boolean_mask"><code class="name flex">
+<span>def <span class="ident">boolean_mask</span></span>(<span>self, x, mask)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def boolean_mask(self, x, mask):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.cast"><code class="name flex">
+<span>def <span class="ident">cast</span></span>(<span>self, x, dtype: phi.math.backend._dtype.DType)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cast(self, x, dtype: DType):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.ceil"><code class="name flex">
+<span>def <span class="ident">ceil</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ceil(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.clip"><code class="name flex">
+<span>def <span class="ident">clip</span></span>(<span>self, x, minimum, maximum)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clip(self, x, minimum, maximum):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.combine_types"><code class="name flex">
+<span>def <span class="ident">combine_types</span></span>(<span>self, *dtypes: phi.math.backend._dtype.DType) ‑> phi.math.backend._dtype.DType</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def combine_types(self, *dtypes: DType) -&gt; DType:
+    return combine_types(*dtypes, fp_precision=self.precision)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.concat"><code class="name flex">
+<span>def <span class="ident">concat</span></span>(<span>self, values, axis)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def concat(self, values, axis):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, relative_tolerance: float = 1e-05, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Solve the system of linear equations
+A * x = y</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>A</code></strong></dt>
+<dd>batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.</dd>
+<dt><strong><code>y</code></strong></dt>
+<dd>target result of A * x. 2nd order tensor (batch, vector) or list of vectors.</dd>
+<dt><strong><code>x0</code></strong></dt>
+<dd>initial guess for x. 2nd order tensor (batch, vector) or list of vectors.</dd>
+<dt><strong><code>relative_tolerance</code></strong></dt>
+<dd>stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)</dd>
+<dt><strong><code>absolute_tolerance</code></strong></dt>
+<dd>stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)</dd>
+<dt><strong><code>max_iterations</code></strong></dt>
+<dd>maximum number of iterations or None for unlimited</dd>
+<dt><strong><code>gradient</code></strong></dt>
+<dd>one of ('implicit', 'inverse', 'autodiff')</dd>
+<dt><strong><code>callback</code></strong></dt>
+<dd>Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)</dd>
+<dt><strong><code>relative_tolerance</code></strong></dt>
+<dd>float:
+(Default value = 1e-5)</dd>
+<dt><strong><code>absolute_tolerance</code></strong></dt>
+<dd>float:
+(Default value = 0.0)</dd>
+<dt><strong><code>max_iterations</code></strong></dt>
+<dd>int:
+(Default value = 1000)</dd>
+<dt><strong><code>gradient</code></strong></dt>
+<dd>str:
+(Default value = 'implicit')</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>converged, solution, iterations</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = &#39;implicit&#39;, callback=None):
+    &#34;&#34;&#34;
+    Solve the system of linear equations
+      A * x = y
+
+    Args:
+      A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
+      y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+      x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
+      relative_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
+      absolute_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
+      max_iterations: maximum number of iterations or None for unlimited
+      gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
+      callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
+      relative_tolerance: float:  (Default value = 1e-5)
+      absolute_tolerance: float:  (Default value = 0.0)
+      max_iterations: int:  (Default value = 1000)
+      gradient: str:  (Default value = &#39;implicit&#39;)
+
+    Returns:
+      converged, solution, iterations
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.conv"><code class="name flex">
+<span>def <span class="ident">conv</span></span>(<span>self, tensor, kernel, padding='same')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def conv(self, tensor, kernel, padding=&#39;same&#39;):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.coordinates"><code class="name flex">
+<span>def <span class="ident">coordinates</span></span>(<span>self, tensor, unstack_coordinates=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the coordinates and values of a tensor.</p>
+<p>The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
+In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>dense or sparse tensor</dd>
+<dt><strong><code>unstack_coordinates</code></strong></dt>
+<dd>(Default value = False)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>indices (tensor or tuple), values</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def coordinates(self, tensor, unstack_coordinates=False):
+    &#34;&#34;&#34;
+    Returns the coordinates and values of a tensor.
+    
+    The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
+    In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
+
+    Args:
+      tensor: dense or sparse tensor
+      unstack_coordinates:  (Default value = False)
+
+    Returns:
+      indices (tensor or tuple), values
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.copy"><code class="name flex">
+<span>def <span class="ident">copy</span></span>(<span>self, tensor, only_mutable=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy(self, tensor, only_mutable=False):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.cos"><code class="name flex">
+<span>def <span class="ident">cos</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cos(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.dimrange"><code class="name flex">
+<span>def <span class="ident">dimrange</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dimrange(self, tensor):
+    return range(1, len(tensor.shape) - 1)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.div"><code class="name flex">
+<span>def <span class="ident">div</span></span>(<span>self, numerator, denominator)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def div(self, numerator, denominator):
+    numerator, denominator = self.auto_cast(numerator, denominator)
+    return numerator / denominator</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.divide_no_nan"><code class="name flex">
+<span>def <span class="ident">divide_no_nan</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes x/y but returns 0 if y=0.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>&nbsp;</dd>
+<dt><strong><code>y</code></strong></dt>
+<dd>&nbsp;</dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def divide_no_nan(self, x, y):
+    &#34;&#34;&#34;
+    Computes x/y but returns 0 if y=0.
+
+    Args:
+      x: 
+      y: 
+
+    Returns:
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.dot"><code class="name flex">
+<span>def <span class="ident">dot</span></span>(<span>self, a, b, axes)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dot(self, a, b, axes):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.dtype"><code class="name flex">
+<span>def <span class="ident">dtype</span></span>(<span>self, array) ‑> phi.math.backend._dtype.DType</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dtype(self, array) -&gt; DType:
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.einsum"><code class="name flex">
+<span>def <span class="ident">einsum</span></span>(<span>self, equation, *tensors)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def einsum(self, equation, *tensors):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.equal"><code class="name flex">
+<span>def <span class="ident">equal</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def equal(self, x, y):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.exp"><code class="name flex">
+<span>def <span class="ident">exp</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def exp(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.expand_dims"><code class="name flex">
+<span>def <span class="ident">expand_dims</span></span>(<span>self, a, axis=0, number=1)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def expand_dims(self, a, axis=0, number=1):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.fft"><code class="name flex">
+<span>def <span class="ident">fft</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the n-dimensional FFT along all but the first and last dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>tensor of dimension 3 or higher</dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def fft(self, x):
+    &#34;&#34;&#34;
+    Computes the n-dimensional FFT along all but the first and last dimensions.
+
+    Args:
+      x: tensor of dimension 3 or higher
+
+    Returns:
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.flatten"><code class="name flex">
+<span>def <span class="ident">flatten</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def flatten(self, x):
+    return self.reshape(x, (-1,))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.flip"><code class="name flex">
+<span>def <span class="ident">flip</span></span>(<span>self, value, axes: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def flip(self, value, axes: tuple or list):
+    slices = [slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value))]
+    return value[slices]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.floor"><code class="name flex">
+<span>def <span class="ident">floor</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def floor(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.gather"><code class="name flex">
+<span>def <span class="ident">gather</span></span>(<span>self, values, indices)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gather(self, values, indices):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.gather_nd"><code class="name flex">
+<span>def <span class="ident">gather_nd</span></span>(<span>self, values, indices, batch_dims=0)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gather_nd(self, values, indices, batch_dims=0):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.grid_sample"><code class="name flex">
+<span>def <span class="ident">grid_sample</span></span>(<span>self, grid, spatial_dims: tuple, coordinates, extrapolation='constant')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Interpolates a regular grid at the specified coordinates.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd>Tensor</dd>
+<dt><strong><code>spatial_dims</code></strong></dt>
+<dd>Dimension indices that correspond to coordinate vectors</dd>
+<dt><strong><code>coordinates</code></strong></dt>
+<dd>Tensor of floating grid indices. The last dimension must match <code>spaital_dims</code>. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>Values to use for coordinates outside the grid. One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>sampled values with linear interpolation</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation=&#39;constant&#39;):
+    &#34;&#34;&#34;
+    Interpolates a regular grid at the specified coordinates.
+
+    Args:
+      grid: Tensor
+      spatial_dims: Dimension indices that correspond to coordinate vectors
+      coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+      extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
+
+    Returns:
+        sampled values with linear interpolation
+    &#34;&#34;&#34;
+    return NotImplemented</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.ifft"><code class="name flex">
+<span>def <span class="ident">ifft</span></span>(<span>self, k)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the n-dimensional inverse FFT along all but the first and last dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>k</code></strong></dt>
+<dd>tensor of dimension 3 or higher</dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ifft(self, k):
+    &#34;&#34;&#34;
+    Computes the n-dimensional inverse FFT along all but the first and last dimensions.
+
+    Args:
+      k: tensor of dimension 3 or higher
+
+    Returns:
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.imag"><code class="name flex">
+<span>def <span class="ident">imag</span></span>(<span>self, complex)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def imag(self, complex):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.is_available"><code class="name flex">
+<span>def <span class="ident">is_available</span></span>(<span>self, tensor) ‑> bool</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Tests if the value of the tensor is known and can be read at this point.
+If true, <code>numpy(tensor)</code> must return a valid NumPy representation of the value.</p>
+<p>Tensors are typically available when the backend operates in eager mode.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>backend-compatible tensor</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>bool</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_available(self, tensor) -&gt; bool:
+    &#34;&#34;&#34;
+    Tests if the value of the tensor is known and can be read at this point.
+    If true, `numpy(tensor)` must return a valid NumPy representation of the value.
+    
+    Tensors are typically available when the backend operates in eager mode.
+
+    Args:
+      tensor: backend-compatible tensor
+
+    Returns:
+      bool
+
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.is_tensor"><code class="name flex">
+<span>def <span class="ident">is_tensor</span></span>(<span>self, x, only_native=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
+An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>object to check</dd>
+<dt><strong><code>only_native</code></strong></dt>
+<dd>If True, only accepts true native tensor representations, not Python numbers or others that are also supported as tensors (Default value = False)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>bool</code></dt>
+<dd>whether <code>x</code> is considered a tensor by this backend</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_tensor(self, x, only_native=False):
+    &#34;&#34;&#34;
+    An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
+    An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
+
+    Args:
+      x: object to check
+      only_native: If True, only accepts true native tensor representations, not Python numbers or others that are also supported as tensors (Default value = False)
+
+    Returns:
+      bool: whether `x` is considered a tensor by this backend
+
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.isfinite"><code class="name flex">
+<span>def <span class="ident">isfinite</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def isfinite(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.linspace"><code class="name flex">
+<span>def <span class="ident">linspace</span></span>(<span>self, start, stop, number)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def linspace(self, start, stop, number):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.matches_name"><code class="name flex">
+<span>def <span class="ident">matches_name</span></span>(<span>self, name)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def matches_name(self, name):
+    return self.name.lower() == name.lower()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.matmul"><code class="name flex">
+<span>def <span class="ident">matmul</span></span>(<span>self, A, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def matmul(self, A, b):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.max"><code class="name flex">
+<span>def <span class="ident">max</span></span>(<span>self, x, axis=None, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def max(self, x, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.maximum"><code class="name flex">
+<span>def <span class="ident">maximum</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def maximum(self, a, b):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.mean"><code class="name flex">
+<span>def <span class="ident">mean</span></span>(<span>self, value, axis=None, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mean(self, value, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.meshgrid"><code class="name flex">
+<span>def <span class="ident">meshgrid</span></span>(<span>self, *coordinates)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def meshgrid(self, *coordinates):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.min"><code class="name flex">
+<span>def <span class="ident">min</span></span>(<span>self, x, axis=None, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def min(self, x, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.minimum"><code class="name flex">
+<span>def <span class="ident">minimum</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def minimum(self, a, b):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.mod"><code class="name flex">
+<span>def <span class="ident">mod</span></span>(<span>self, dividend, divisor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mod(self, dividend, divisor):
+    dividend, divisor = self.auto_cast(dividend, divisor)
+    return dividend % divisor</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.mul"><code class="name flex">
+<span>def <span class="ident">mul</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mul(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a * b</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.ndims"><code class="name flex">
+<span>def <span class="ident">ndims</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ndims(self, tensor):
+    return len(self.staticshape(tensor))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.nonzero"><code class="name flex">
+<span>def <span class="ident">nonzero</span></span>(<span>self, values)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>&nbsp;</dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def nonzero(self, values):
+    &#34;&#34;&#34;
+    
+
+    Args:
+      values: 
+
+    Returns:
+      
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.numpy"><code class="name flex">
+<span>def <span class="ident">numpy</span></span>(<span>self, tensor) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a NumPy representation of the given tensor.
+If <code>tensor</code> is already a NumPy array, it is returned without modification.</p>
+<p>This method raises an error if the value of the tensor is not known at this point, e.g. because it represents a node in a graph.
+Use <code>is_available(tensor)</code> to check if the value can be represented as a NumPy array.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>backend-compatible tensor</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>NumPy representation of the values stored in the tensor</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def numpy(self, tensor) -&gt; numpy.ndarray:
+    &#34;&#34;&#34;
+    Returns a NumPy representation of the given tensor.
+    If `tensor` is already a NumPy array, it is returned without modification.
+    
+    This method raises an error if the value of the tensor is not known at this point, e.g. because it represents a node in a graph.
+    Use `is_available(tensor)` to check if the value can be represented as a NumPy array.
+
+    Args:
+      tensor: backend-compatible tensor
+
+    Returns:
+      NumPy representation of the values stored in the tensor
+
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.ones"><code class="name flex">
+<span>def <span class="ident">ones</span></span>(<span>self, shape, dtype: phi.math.backend._dtype.DType = None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ones(self, shape, dtype: DType = None):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.ones_like"><code class="name flex">
+<span>def <span class="ident">ones_like</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ones_like(self, tensor):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.pad"><code class="name flex">
+<span>def <span class="ident">pad</span></span>(<span>self, value, pad_width, mode: str = 'constant', constant_values=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Pad a tensor with values as specified by <code>mode</code> and <code>constant_values</code>.</p>
+<p>If the mode is not supported, returns NotImplemented.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>tensor</dd>
+<dt><strong><code>pad_width</code></strong></dt>
+<dd>2D tensor specifying the number of values padded to the edges of each axis in the form [[axis 0 lower, axis 0 upper], &hellip;] including batch and component axes.</dd>
+<dt><strong><code>mode</code></strong></dt>
+<dd>constant', 'boundary', 'periodic', 'symmetric', 'reflect'</dd>
+<dt><strong><code>constant_values</code></strong></dt>
+<dd>used for out-of-bounds points if mode='constant' (Default value = 0)</dd>
+<dt><strong><code>mode</code></strong></dt>
+<dd>str:
+(Default value = 'constant')</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>padded tensor or NotImplemented</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pad(self, value, pad_width, mode: str = &#39;constant&#39;, constant_values=0):
+    &#34;&#34;&#34;
+    Pad a tensor with values as specified by `mode` and `constant_values`.
+    
+    If the mode is not supported, returns NotImplemented.
+
+    Args:
+      value: tensor
+      pad_width: 2D tensor specifying the number of values padded to the edges of each axis in the form [[axis 0 lower, axis 0 upper], ...] including batch and component axes.
+      mode: constant&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;
+      constant_values: used for out-of-bounds points if mode=&#39;constant&#39; (Default value = 0)
+      mode: str:  (Default value = &#39;constant&#39;)
+
+    Returns:
+      padded tensor or NotImplemented
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.pow"><code class="name flex">
+<span>def <span class="ident">pow</span></span>(<span>self, base, exp)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pow(self, base, exp):
+    base, exp = self.auto_cast(base, exp)
+    return base ** exp</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.prod"><code class="name flex">
+<span>def <span class="ident">prod</span></span>(<span>self, value, axis=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def prod(self, value, axis=None):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.py_func"><code class="name flex">
+<span>def <span class="ident">py_func</span></span>(<span>self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.random_normal"><code class="name flex">
+<span>def <span class="ident">random_normal</span></span>(<span>self, shape)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def random_normal(self, shape):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.random_uniform"><code class="name flex">
+<span>def <span class="ident">random_uniform</span></span>(<span>self, shape)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def random_uniform(self, shape):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.range"><code class="name flex">
+<span>def <span class="ident">range</span></span>(<span>self, start, limit=None, delta=1, dtype=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def range(self, start, limit=None, delta=1, dtype=None):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.real"><code class="name flex">
+<span>def <span class="ident">real</span></span>(<span>self, complex)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def real(self, complex):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.reshape"><code class="name flex">
+<span>def <span class="ident">reshape</span></span>(<span>self, value, shape)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reshape(self, value, shape):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.round"><code class="name flex">
+<span>def <span class="ident">round</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def round(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.scatter"><code class="name flex">
+<span>def <span class="ident">scatter</span></span>(<span>self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This method expects the first dimension of indices and values to be the batch dimension.
+The batch dimension need not be specified in the indices array.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>indices</code></strong></dt>
+<dd>n-dimensional indices corresponding to values</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>values to scatter at indices</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>spatial shape of the result tensor, 1D int array</dd>
+<dt><strong><code>duplicates_handling</code></strong></dt>
+<dd>one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')</dd>
+<dt><strong><code>outside_handling</code></strong></dt>
+<dd>one of ('discard', 'clamp', 'undefined') (Default value = 'undefined')</dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def scatter(self, indices, values, shape, duplicates_handling=&#39;undefined&#39;, outside_handling=&#39;undefined&#39;):
+    &#34;&#34;&#34;
+    This method expects the first dimension of indices and values to be the batch dimension.
+    The batch dimension need not be specified in the indices array.
+
+    Args:
+      indices: n-dimensional indices corresponding to values
+      values: values to scatter at indices
+      shape: spatial shape of the result tensor, 1D int array
+      duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
+      outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;undefined&#39;)
+
+    Returns:
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.shape"><code class="name flex">
+<span>def <span class="ident">shape</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shape(self, tensor):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.sign"><code class="name flex">
+<span>def <span class="ident">sign</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sign(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.sin"><code class="name flex">
+<span>def <span class="ident">sin</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sin(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.size"><code class="name flex">
+<span>def <span class="ident">size</span></span>(<span>self, array)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def size(self, array):
+    return self.prod(self.shape(array))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.sparse_tensor"><code class="name flex">
+<span>def <span class="ident">sparse_tensor</span></span>(<span>self, indices, values, shape)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>indices</code></strong></dt>
+<dd>tuple/list matching the dimensions (pair for matrix)</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>param shape:</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>&nbsp;</dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sparse_tensor(self, indices, values, shape):
+    &#34;&#34;&#34;
+    
+
+    Args:
+      indices: tuple/list matching the dimensions (pair for matrix)
+      values: param shape:
+      shape: 
+
+    Returns:
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.sqrt"><code class="name flex">
+<span>def <span class="ident">sqrt</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sqrt(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.stack"><code class="name flex">
+<span>def <span class="ident">stack</span></span>(<span>self, values, axis=0)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stack(self, values, axis=0):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.staticshape"><code class="name flex">
+<span>def <span class="ident">staticshape</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def staticshape(self, tensor):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.std"><code class="name flex">
+<span>def <span class="ident">std</span></span>(<span>self, x, axis=None, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def std(self, x, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.sub"><code class="name flex">
+<span>def <span class="ident">sub</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sub(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a - b</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.sum"><code class="name flex">
+<span>def <span class="ident">sum</span></span>(<span>self, value, axis=None, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sum(self, value, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.tile"><code class="name flex">
+<span>def <span class="ident">tile</span></span>(<span>self, value, multiples)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Repeats the tensor along each axis the number of times given by multiples.
+If <code>multiples</code> has more dimensions than <code>value</code>, these dimensions are added to <code>value</code> as outer dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>tensor</dd>
+<dt><strong><code>multiples</code></strong></dt>
+<dd>tuple or list of integers</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tile tensor</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tile(self, value, multiples):
+    &#34;&#34;&#34;
+    Repeats the tensor along each axis the number of times given by multiples.
+    If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
+
+    Args:
+      value: tensor
+      multiples: tuple or list of integers
+
+    Returns:
+      tile tensor
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.to_complex"><code class="name flex">
+<span>def <span class="ident">to_complex</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_complex(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.to_float"><code class="name flex">
+<span>def <span class="ident">to_float</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Converts a tensor to floating point values.
+If this Backend uses a fixed precision, the tensor will be converted to that precision.
+Otherwise, non-float inputs are converted to float32 (unless <code>float64=True</code>).</p>
+<p>If <code>x</code> is mutable and of the correct floating type, returns a copy of <code>x</code>.</p>
+<p>To convert float tensors to the backend precision but leave non-float tensors untouched, use <code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">Backend.as_tensor()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>tensor</dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_float(self, x):
+    &#34;&#34;&#34;
+    Converts a tensor to floating point values.
+    If this Backend uses a fixed precision, the tensor will be converted to that precision.
+    Otherwise, non-float inputs are converted to float32 (unless `float64=True`).
+    
+    If `x` is mutable and of the correct floating type, returns a copy of `x`.
+    
+    To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
+
+    Args:
+      x: tensor
+
+    Returns:
+
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.to_int"><code class="name flex">
+<span>def <span class="ident">to_int</span></span>(<span>self, x, int64=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_int(self, x, int64=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.transpose"><code class="name flex">
+<span>def <span class="ident">transpose</span></span>(<span>self, tensor, axes)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def transpose(self, tensor, axes):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, tensor, axis=0, keepdims=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, tensor, axis=0, keepdims=False):
+    if axis &lt; 0:
+        axis += len(tensor.shape)
+    if axis &gt;= len(tensor.shape) or axis &lt; 0:
+        raise ValueError(&#34;Illegal axis value&#34;)
+    result = []
+    for slice_idx in range(tensor.shape[axis]):
+        if keepdims:
+            component = tensor[tuple([slice(slice_idx, slice_idx + 1) if d == axis else slice(None) for d in range(len(tensor.shape))])]
+        else:
+            component = tensor[tuple([slice_idx if d == axis else slice(None) for d in range(len(tensor.shape))])]
+        result.append(component)
+    return tuple(result)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.where"><code class="name flex">
+<span>def <span class="ident">where</span></span>(<span>self, condition, x=None, y=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def where(self, condition, x=None, y=None):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.while_loop"><code class="name flex">
+<span>def <span class="ident">while_loop</span></span>(<span>self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
+               swap_memory=False, name=None, maximum_iterations=None):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.with_custom_gradient"><code class="name flex">
+<span>def <span class="ident">with_custom_gradient</span></span>(<span>self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base=&#39;custom_gradient_func&#39;):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.zeros"><code class="name flex">
+<span>def <span class="ident">zeros</span></span>(<span>self, shape, dtype: phi.math.backend._dtype.DType = None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def zeros(self, shape, dtype: DType = None):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.zeros_like"><code class="name flex">
+<span>def <span class="ident">zeros_like</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def zeros_like(self, tensor):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.math.backend.DType"><code class="flex name class">
+<span>class <span class="ident">DType</span></span>
+<span>(</span><span>kind: type, bits: int = 8)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Data type for tensors.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kind</code></strong></dt>
+<dd>Python type, one of <code>(bool, int, float, complex)</code></dd>
+<dt><strong><code>bits</code></strong></dt>
+<dd>number of bits, typically a multiple of 8.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DType:
+
+    def __init__(self, kind: type, bits: int = 8):
+        &#34;&#34;&#34;
+        Data type for tensors.
+
+        Args:
+          kind: Python type, one of `(bool, int, float, complex)`
+          bits: number of bits, typically a multiple of 8.
+        &#34;&#34;&#34;
+        assert kind in (bool, int, float, complex)
+        if kind is bool:
+            assert bits == 8
+        else:
+            assert isinstance(bits, int)
+        self.kind = kind
+        &#34;&#34;&#34; Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex) &#34;&#34;&#34;
+        self.bits = bits
+        &#34;&#34;&#34; Number of bits used to store a single value of this type. See `DType.itemsize`. &#34;&#34;&#34;
+
+    @property
+    def precision(self):
+        &#34;&#34;&#34; Floating point precision. Only defined if `kind in (float, complex)`. For complex values, returns half of `DType.bits`. &#34;&#34;&#34;
+        if self.kind == float:
+            return self.bits
+        if self.kind == complex:
+            return self.bits // 2
+        else:
+            return None
+
+    @property
+    def itemsize(self):
+        &#34;&#34;&#34; Number of bytes used to storea single value of this type. See `DType.bits`. &#34;&#34;&#34;
+        assert self.bits % 8 == 0
+        return self.bits // 8
+
+    def __eq__(self, other):
+        return isinstance(other, DType) and self.kind == other.kind and self.bits == other.bits
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(self.kind) + hash(self.bits)
+
+    def __repr__(self):
+        return f&#34;{self.kind.__name__}{self.bits}&#34;</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.DType.bits"><code class="name">var <span class="ident">bits</span></code></dt>
+<dd>
+<div class="desc"><p>Number of bits used to store a single value of this type. See <code><a title="phi.math.backend.DType.itemsize" href="#phi.math.backend.DType.itemsize">DType.itemsize</a></code>.</p></div>
+</dd>
+<dt id="phi.math.backend.DType.itemsize"><code class="name">var <span class="ident">itemsize</span></code></dt>
+<dd>
+<div class="desc"><p>Number of bytes used to storea single value of this type. See <code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">DType.bits</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def itemsize(self):
+    &#34;&#34;&#34; Number of bytes used to storea single value of this type. See `DType.bits`. &#34;&#34;&#34;
+    assert self.bits % 8 == 0
+    return self.bits // 8</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.DType.kind"><code class="name">var <span class="ident">kind</span></code></dt>
+<dd>
+<div class="desc"><p>Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex)</p></div>
+</dd>
+<dt id="phi.math.backend.DType.precision"><code class="name">var <span class="ident">precision</span></code></dt>
+<dd>
+<div class="desc"><p>Floating point precision. Only defined if <code>kind in (float, complex)</code>. For complex values, returns half of <code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">DType.bits</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def precision(self):
+    &#34;&#34;&#34; Floating point precision. Only defined if `kind in (float, complex)`. For complex values, returns half of `DType.bits`. &#34;&#34;&#34;
+    if self.kind == float:
+        return self.bits
+    if self.kind == complex:
+        return self.bits // 2
+    else:
+        return None</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.math.backend.LinearSolve"><code class="flex name class">
+<span>class <span class="ident">LinearSolve</span></span>
+<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', **solver_arguments)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class LinearSolve(Solve):
+
+    def __init__(self,
+                 solver: str = None,
+                 relative_tolerance=1e-5,
+                 absolute_tolerance=0,
+                 max_iterations=1000,
+                 bake=&#39;sparse&#39;,
+                 **solver_arguments):
+        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake,
+                       **solver_arguments)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.math.backend._optim.Solve</li>
+</ul>
+</dd>
 <dt id="phi.math.backend.NoBackendFound"><code class="flex name class">
 <span>class <span class="ident">NoBackendFound</span></span>
 <span>(</span><span>msg)</span>
@@ -425,6 +2809,336 @@ The output of math operations has the same precision as its inputs.</p>
 <li>builtins.BaseException</li>
 </ul>
 </dd>
+<dt id="phi.math.backend.Profile"><code class="flex name class">
+<span>class <span class="ident">Profile</span></span>
+<span>(</span><span>trace: bool, backends)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Stores information about calls to backends and their timing.</p>
+<p>Profile may be created through <code><a title="phi.math.backend.profile" href="#phi.math.backend.profile">profile()</a></code> or <code><a title="phi.math.backend.profile_function" href="#phi.math.backend.profile_function">profile_function()</a></code>.</p>
+<p>Profiles can be printed or saved to disc.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Profile:
+    &#34;&#34;&#34;
+    Stores information about calls to backends and their timing.
+
+    Profile may be created through `profile()` or `profile_function()`.
+
+    Profiles can be printed or saved to disc.
+    &#34;&#34;&#34;
+
+    def __init__(self, trace: bool, backends):
+        self._start = perf_counter()
+        self._stop = None
+        self._root = ExtCall(None, [])
+        self._last_ext_call = self._root
+        self._messages = []
+        self._trace = trace
+        self._backend_calls = []
+        self._retime_index = -1
+        self._accumulating = False
+        self._backends = backends
+
+    def _add_call(self, backend_call: BackendCall):
+        if self._retime_index &gt;= 0:
+            prev_call = self._backend_calls[self._retime_index]
+            assert prev_call._function_name == backend_call._function_name
+            if self._accumulating:
+                prev_call._start += backend_call._start
+                prev_call._stop += backend_call._stop
+            else:
+                prev_call._start = backend_call._start
+                prev_call._stop = backend_call._stop
+            self._retime_index = (self._retime_index + 1) % len(self._backend_calls)
+        else:
+            self._backend_calls.append(backend_call)
+            if self._trace:
+                stack = inspect.stack()[2:]
+                call = self._last_ext_call.common_call(stack)
+                for i in range(len(call._stack), len(stack)):
+                    sub_call = ExtCall(call, stack[len(stack) - i - 1:])
+                    call.add(sub_call)
+                    call = sub_call
+                call.add(backend_call)
+                self._last_ext_call = call
+
+    def _finish(self):
+        self._stop = perf_counter()
+        self._children_to_properties()
+
+    @property
+    def duration(self) -&gt; float:
+        &#34;&#34;&#34; Total time passed from creation of the profile to the end of the last operation. &#34;&#34;&#34;
+        return self._stop - self._start if self._stop is not None else None
+
+    def print(self, min_duration=1e-3, code_col=80, code_len=50):
+        &#34;&#34;&#34;
+        Prints this profile to the console.
+
+        Args:
+            min_duration: Hides elements with less time spent on backend calls than `min_duration` (seconds)
+            code_col: Formatting option for where the context code is printed.
+            code_len: Formatting option for cropping the context code
+        &#34;&#34;&#34;
+        print(f&#34;Profile: {self.duration:.4f} seconds total. Skipping elements shorter than {1000 * min_duration:.2f} ms&#34;)
+        if self._messages:
+            print(&#34;External profiling:&#34;)
+            for message in self._messages:
+                print(f&#34;  {message}&#34;)
+            print()
+        self._root.print(min_duration=min_duration, code_col=code_col, code_len=code_len)
+
+    def save_trace(self, json_file: str):
+        &#34;&#34;&#34;
+        Saves this profile to disc using the *trace event format* described at
+        https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
+
+        This file can be viewed with external applications such as Google chrome.
+
+        Args:
+            json_file: filename
+        &#34;&#34;&#34;
+        data = [
+            {&#39;name&#39;: &#34;process_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 0, &#39;tid&#39;: 0, &#34;args&#34;: {&#34;name&#34;: &#34;0 Python calls&#34;}},
+            {&#39;name&#39;: &#34;process_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 1, &#39;tid&#39;: 1, &#34;args&#34;: {&#34;name&#34;: &#34;1 Operations&#34;}},
+        ] + [
+            {&#39;name&#39;: &#34;thread_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 1, &#39;tid&#39;: i + 1, &#34;args&#34;: {&#34;name&#34;: backend.name}}
+            for i, backend in enumerate(self._backends)
+        ]
+        if self._trace:
+            if len(self._root._children) &gt; 0:
+                data.extend(self._root.trace_json_events())
+        else:
+            data.extend(sum([call.trace_json_events(()) for call in self._backend_calls], []))
+        with open(json_file, &#39;w&#39;) as file:
+            json.dump(data, file)
+
+    def _children_to_properties(self):
+        children = self._root.children_to_properties()
+        for name, child in children.items():
+            setattr(self, name, child)
+
+    def add_external_message(self, message: str):
+        &#34;&#34;&#34; Stores an external message in this profile. External messages are printed in `Profile.print()`. &#34;&#34;&#34;
+        self._messages.append(message)
+
+    @contextmanager
+    def retime(self):
+        &#34;&#34;&#34;
+        To be used in `with` statements, `with prof.retime(): ...`.
+
+        Updates this profile by running the same operations again but without tracing.
+        This gives a much better indication of the true timing.
+        The code within the `with` block must perform the same operations as the code that created this profile.
+
+        *Warning:* Internal caching may reduce the number of operations after the first time a function is called.
+        To prevent this, run the function before profiling it, see `warmup` in `profile_function()`.
+        &#34;&#34;&#34;
+        self._retime_index = 0
+        restore_data = _start_profiling(self, self._backends)
+        try:
+            yield None
+        finally:
+            _stop_profiling(self, *restore_data)
+            assert self._retime_index == 0, f&#34;Number of calls during retime did not match original profile, originally {len(self._backend_calls)}, now {self._retime_index}, &#34;
+            self._retime_index = -1
+
+    @contextmanager
+    def _accumulate_average(self, n):
+        self._retime_index = 0
+        self._accumulating = True
+        restore_data = _start_profiling(self, self._backends)
+        try:
+            yield None
+        finally:
+            _stop_profiling(self, *restore_data)
+            assert self._retime_index == 0, f&#34;Number of calls during retime did not match original profile, originally {len(self._backend_calls)}, now {self._retime_index}, &#34;
+            self._retime_index = -1
+            for call in self._backend_calls:
+                call._start /= n
+                call._stop /= n
+            self._accumulating = False</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.Profile.duration"><code class="name">var <span class="ident">duration</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Total time passed from creation of the profile to the end of the last operation.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def duration(self) -&gt; float:
+    &#34;&#34;&#34; Total time passed from creation of the profile to the end of the last operation. &#34;&#34;&#34;
+    return self._stop - self._start if self._stop is not None else None</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.backend.Profile.add_external_message"><code class="name flex">
+<span>def <span class="ident">add_external_message</span></span>(<span>self, message: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Stores an external message in this profile. External messages are printed in <code><a title="phi.math.backend.Profile.print" href="#phi.math.backend.Profile.print">Profile.print()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_external_message(self, message: str):
+    &#34;&#34;&#34; Stores an external message in this profile. External messages are printed in `Profile.print()`. &#34;&#34;&#34;
+    self._messages.append(message)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Profile.print"><code class="name flex">
+<span>def <span class="ident">print</span></span>(<span>self, min_duration=0.001, code_col=80, code_len=50)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Prints this profile to the console.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>min_duration</code></strong></dt>
+<dd>Hides elements with less time spent on backend calls than <code>min_duration</code> (seconds)</dd>
+<dt><strong><code>code_col</code></strong></dt>
+<dd>Formatting option for where the context code is printed.</dd>
+<dt><strong><code>code_len</code></strong></dt>
+<dd>Formatting option for cropping the context code</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def print(self, min_duration=1e-3, code_col=80, code_len=50):
+    &#34;&#34;&#34;
+    Prints this profile to the console.
+
+    Args:
+        min_duration: Hides elements with less time spent on backend calls than `min_duration` (seconds)
+        code_col: Formatting option for where the context code is printed.
+        code_len: Formatting option for cropping the context code
+    &#34;&#34;&#34;
+    print(f&#34;Profile: {self.duration:.4f} seconds total. Skipping elements shorter than {1000 * min_duration:.2f} ms&#34;)
+    if self._messages:
+        print(&#34;External profiling:&#34;)
+        for message in self._messages:
+            print(f&#34;  {message}&#34;)
+        print()
+    self._root.print(min_duration=min_duration, code_col=code_col, code_len=code_len)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Profile.retime"><code class="name flex">
+<span>def <span class="ident">retime</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>To be used in <code>with</code> statements, <code>with prof.retime(): ...</code>.</p>
+<p>Updates this profile by running the same operations again but without tracing.
+This gives a much better indication of the true timing.
+The code within the <code>with</code> block must perform the same operations as the code that created this profile.</p>
+<p><em>Warning:</em> Internal caching may reduce the number of operations after the first time a function is called.
+To prevent this, run the function before profiling it, see <code>warmup</code> in <code><a title="phi.math.backend.profile_function" href="#phi.math.backend.profile_function">profile_function()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@contextmanager
+def retime(self):
+    &#34;&#34;&#34;
+    To be used in `with` statements, `with prof.retime(): ...`.
+
+    Updates this profile by running the same operations again but without tracing.
+    This gives a much better indication of the true timing.
+    The code within the `with` block must perform the same operations as the code that created this profile.
+
+    *Warning:* Internal caching may reduce the number of operations after the first time a function is called.
+    To prevent this, run the function before profiling it, see `warmup` in `profile_function()`.
+    &#34;&#34;&#34;
+    self._retime_index = 0
+    restore_data = _start_profiling(self, self._backends)
+    try:
+        yield None
+    finally:
+        _stop_profiling(self, *restore_data)
+        assert self._retime_index == 0, f&#34;Number of calls during retime did not match original profile, originally {len(self._backend_calls)}, now {self._retime_index}, &#34;
+        self._retime_index = -1</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Profile.save_trace"><code class="name flex">
+<span>def <span class="ident">save_trace</span></span>(<span>self, json_file: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Saves this profile to disc using the <em>trace event format</em> described at
+<a href="https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit">https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit</a></p>
+<p>This file can be viewed with external applications such as Google chrome.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>json_file</code></strong></dt>
+<dd>filename</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def save_trace(self, json_file: str):
+    &#34;&#34;&#34;
+    Saves this profile to disc using the *trace event format* described at
+    https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
+
+    This file can be viewed with external applications such as Google chrome.
+
+    Args:
+        json_file: filename
+    &#34;&#34;&#34;
+    data = [
+        {&#39;name&#39;: &#34;process_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 0, &#39;tid&#39;: 0, &#34;args&#34;: {&#34;name&#34;: &#34;0 Python calls&#34;}},
+        {&#39;name&#39;: &#34;process_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 1, &#39;tid&#39;: 1, &#34;args&#34;: {&#34;name&#34;: &#34;1 Operations&#34;}},
+    ] + [
+        {&#39;name&#39;: &#34;thread_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 1, &#39;tid&#39;: i + 1, &#34;args&#34;: {&#34;name&#34;: backend.name}}
+        for i, backend in enumerate(self._backends)
+    ]
+    if self._trace:
+        if len(self._root._children) &gt; 0:
+            data.extend(self._root.trace_json_events())
+    else:
+        data.extend(sum([call.trace_json_events(()) for call in self._backend_calls], []))
+    with open(json_file, &#39;w&#39;) as file:
+        json.dump(data, file)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.math.backend.Solve"><code class="flex name class">
+<span>class <span class="ident">Solve</span></span>
+<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, **solver_arguments)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Solve:
+
+    def __init__(self,
+                 solver: str = None,
+                 relative_tolerance=1e-5,
+                 absolute_tolerance=0,
+                 max_iterations=1000,
+                 **solver_arguments):
+        self.solver = solver
+        self.relative_tolerance = relative_tolerance
+        self.absolute_tolerance = absolute_tolerance
+        self.max_iterations = max_iterations
+        self.solver_arguments = solver_arguments</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li>phi.math.backend._optim.LinearSolve</li>
+</ul>
+</dd>
 </dl>
 </section>
 </article>
@@ -439,25 +3153,152 @@ The output of math operations has the same precision as its inputs.</p>
 <li><code><a title="phi.math" href="../index.html">phi.math</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="phi.math.backend.tensorop" href="tensorop.html">phi.math.backend.tensorop</a></code></li>
+<li><h3><a href="#header-variables">Global variables</a></h3>
+<ul class="">
+<li><code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend</a></code></li>
 <li><code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend</a></code></li>
+<li><code><a title="phi.math.backend.from_numpy_dtype" href="#phi.math.backend.from_numpy_dtype">from_numpy_dtype</a></code></li>
+<li><code><a title="phi.math.backend.get_current_profile" href="#phi.math.backend.get_current_profile">get_current_profile</a></code></li>
 <li><code><a title="phi.math.backend.get_precision" href="#phi.math.backend.get_precision">get_precision</a></code></li>
 <li><code><a title="phi.math.backend.precision" href="#phi.math.backend.precision">precision</a></code></li>
+<li><code><a title="phi.math.backend.profile" href="#phi.math.backend.profile">profile</a></code></li>
+<li><code><a title="phi.math.backend.profile_function" href="#phi.math.backend.profile_function">profile_function</a></code></li>
 <li><code><a title="phi.math.backend.set_global_default_backend" href="#phi.math.backend.set_global_default_backend">set_global_default_backend</a></code></li>
 <li><code><a title="phi.math.backend.set_global_precision" href="#phi.math.backend.set_global_precision">set_global_precision</a></code></li>
+<li><code><a title="phi.math.backend.to_numpy_dtype" href="#phi.math.backend.to_numpy_dtype">to_numpy_dtype</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.backend.Backend.abs" href="#phi.math.backend.Backend.abs">abs</a></code></li>
+<li><code><a title="phi.math.backend.Backend.add" href="#phi.math.backend.Backend.add">add</a></code></li>
+<li><code><a title="phi.math.backend.Backend.all" href="#phi.math.backend.Backend.all">all</a></code></li>
+<li><code><a title="phi.math.backend.Backend.any" href="#phi.math.backend.Backend.any">any</a></code></li>
+<li><code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">as_tensor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
+<li><code><a title="phi.math.backend.Backend.batch_gather" href="#phi.math.backend.Backend.batch_gather">batch_gather</a></code></li>
+<li><code><a title="phi.math.backend.Backend.boolean_mask" href="#phi.math.backend.Backend.boolean_mask">boolean_mask</a></code></li>
+<li><code><a title="phi.math.backend.Backend.cast" href="#phi.math.backend.Backend.cast">cast</a></code></li>
+<li><code><a title="phi.math.backend.Backend.ceil" href="#phi.math.backend.Backend.ceil">ceil</a></code></li>
+<li><code><a title="phi.math.backend.Backend.clip" href="#phi.math.backend.Backend.clip">clip</a></code></li>
+<li><code><a title="phi.math.backend.Backend.combine_types" href="#phi.math.backend.Backend.combine_types">combine_types</a></code></li>
+<li><code><a title="phi.math.backend.Backend.complex_type" href="#phi.math.backend.Backend.complex_type">complex_type</a></code></li>
+<li><code><a title="phi.math.backend.Backend.concat" href="#phi.math.backend.Backend.concat">concat</a></code></li>
+<li><code><a title="phi.math.backend.Backend.conjugate_gradient" href="#phi.math.backend.Backend.conjugate_gradient">conjugate_gradient</a></code></li>
+<li><code><a title="phi.math.backend.Backend.conv" href="#phi.math.backend.Backend.conv">conv</a></code></li>
+<li><code><a title="phi.math.backend.Backend.coordinates" href="#phi.math.backend.Backend.coordinates">coordinates</a></code></li>
+<li><code><a title="phi.math.backend.Backend.copy" href="#phi.math.backend.Backend.copy">copy</a></code></li>
+<li><code><a title="phi.math.backend.Backend.cos" href="#phi.math.backend.Backend.cos">cos</a></code></li>
+<li><code><a title="phi.math.backend.Backend.dimrange" href="#phi.math.backend.Backend.dimrange">dimrange</a></code></li>
+<li><code><a title="phi.math.backend.Backend.div" href="#phi.math.backend.Backend.div">div</a></code></li>
+<li><code><a title="phi.math.backend.Backend.divide_no_nan" href="#phi.math.backend.Backend.divide_no_nan">divide_no_nan</a></code></li>
+<li><code><a title="phi.math.backend.Backend.dot" href="#phi.math.backend.Backend.dot">dot</a></code></li>
+<li><code><a title="phi.math.backend.Backend.dtype" href="#phi.math.backend.Backend.dtype">dtype</a></code></li>
+<li><code><a title="phi.math.backend.Backend.einsum" href="#phi.math.backend.Backend.einsum">einsum</a></code></li>
+<li><code><a title="phi.math.backend.Backend.equal" href="#phi.math.backend.Backend.equal">equal</a></code></li>
+<li><code><a title="phi.math.backend.Backend.exp" href="#phi.math.backend.Backend.exp">exp</a></code></li>
+<li><code><a title="phi.math.backend.Backend.expand_dims" href="#phi.math.backend.Backend.expand_dims">expand_dims</a></code></li>
+<li><code><a title="phi.math.backend.Backend.fft" href="#phi.math.backend.Backend.fft">fft</a></code></li>
+<li><code><a title="phi.math.backend.Backend.flatten" href="#phi.math.backend.Backend.flatten">flatten</a></code></li>
+<li><code><a title="phi.math.backend.Backend.flip" href="#phi.math.backend.Backend.flip">flip</a></code></li>
+<li><code><a title="phi.math.backend.Backend.float_type" href="#phi.math.backend.Backend.float_type">float_type</a></code></li>
+<li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
+<li><code><a title="phi.math.backend.Backend.gather_nd" href="#phi.math.backend.Backend.gather_nd">gather_nd</a></code></li>
+<li><code><a title="phi.math.backend.Backend.grid_sample" href="#phi.math.backend.Backend.grid_sample">grid_sample</a></code></li>
+<li><code><a title="phi.math.backend.Backend.ifft" href="#phi.math.backend.Backend.ifft">ifft</a></code></li>
+<li><code><a title="phi.math.backend.Backend.imag" href="#phi.math.backend.Backend.imag">imag</a></code></li>
+<li><code><a title="phi.math.backend.Backend.is_available" href="#phi.math.backend.Backend.is_available">is_available</a></code></li>
+<li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
+<li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>
+<li><code><a title="phi.math.backend.Backend.matches_name" href="#phi.math.backend.Backend.matches_name">matches_name</a></code></li>
+<li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
+<li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
+<li><code><a title="phi.math.backend.Backend.maximum" href="#phi.math.backend.Backend.maximum">maximum</a></code></li>
+<li><code><a title="phi.math.backend.Backend.mean" href="#phi.math.backend.Backend.mean">mean</a></code></li>
+<li><code><a title="phi.math.backend.Backend.meshgrid" href="#phi.math.backend.Backend.meshgrid">meshgrid</a></code></li>
+<li><code><a title="phi.math.backend.Backend.min" href="#phi.math.backend.Backend.min">min</a></code></li>
+<li><code><a title="phi.math.backend.Backend.minimum" href="#phi.math.backend.Backend.minimum">minimum</a></code></li>
+<li><code><a title="phi.math.backend.Backend.mod" href="#phi.math.backend.Backend.mod">mod</a></code></li>
+<li><code><a title="phi.math.backend.Backend.mul" href="#phi.math.backend.Backend.mul">mul</a></code></li>
+<li><code><a title="phi.math.backend.Backend.name" href="#phi.math.backend.Backend.name">name</a></code></li>
+<li><code><a title="phi.math.backend.Backend.ndims" href="#phi.math.backend.Backend.ndims">ndims</a></code></li>
+<li><code><a title="phi.math.backend.Backend.nonzero" href="#phi.math.backend.Backend.nonzero">nonzero</a></code></li>
+<li><code><a title="phi.math.backend.Backend.numpy" href="#phi.math.backend.Backend.numpy">numpy</a></code></li>
+<li><code><a title="phi.math.backend.Backend.ones" href="#phi.math.backend.Backend.ones">ones</a></code></li>
+<li><code><a title="phi.math.backend.Backend.ones_like" href="#phi.math.backend.Backend.ones_like">ones_like</a></code></li>
+<li><code><a title="phi.math.backend.Backend.pad" href="#phi.math.backend.Backend.pad">pad</a></code></li>
+<li><code><a title="phi.math.backend.Backend.pow" href="#phi.math.backend.Backend.pow">pow</a></code></li>
+<li><code><a title="phi.math.backend.Backend.precision" href="#phi.math.backend.Backend.precision">precision</a></code></li>
+<li><code><a title="phi.math.backend.Backend.prod" href="#phi.math.backend.Backend.prod">prod</a></code></li>
+<li><code><a title="phi.math.backend.Backend.py_func" href="#phi.math.backend.Backend.py_func">py_func</a></code></li>
+<li><code><a title="phi.math.backend.Backend.random_normal" href="#phi.math.backend.Backend.random_normal">random_normal</a></code></li>
+<li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
+<li><code><a title="phi.math.backend.Backend.range" href="#phi.math.backend.Backend.range">range</a></code></li>
+<li><code><a title="phi.math.backend.Backend.real" href="#phi.math.backend.Backend.real">real</a></code></li>
+<li><code><a title="phi.math.backend.Backend.reshape" href="#phi.math.backend.Backend.reshape">reshape</a></code></li>
+<li><code><a title="phi.math.backend.Backend.round" href="#phi.math.backend.Backend.round">round</a></code></li>
+<li><code><a title="phi.math.backend.Backend.scatter" href="#phi.math.backend.Backend.scatter">scatter</a></code></li>
+<li><code><a title="phi.math.backend.Backend.shape" href="#phi.math.backend.Backend.shape">shape</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sign" href="#phi.math.backend.Backend.sign">sign</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sin" href="#phi.math.backend.Backend.sin">sin</a></code></li>
+<li><code><a title="phi.math.backend.Backend.size" href="#phi.math.backend.Backend.size">size</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sparse_tensor" href="#phi.math.backend.Backend.sparse_tensor">sparse_tensor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sqrt" href="#phi.math.backend.Backend.sqrt">sqrt</a></code></li>
+<li><code><a title="phi.math.backend.Backend.stack" href="#phi.math.backend.Backend.stack">stack</a></code></li>
+<li><code><a title="phi.math.backend.Backend.staticshape" href="#phi.math.backend.Backend.staticshape">staticshape</a></code></li>
+<li><code><a title="phi.math.backend.Backend.std" href="#phi.math.backend.Backend.std">std</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sub" href="#phi.math.backend.Backend.sub">sub</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sum" href="#phi.math.backend.Backend.sum">sum</a></code></li>
+<li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_float" href="#phi.math.backend.Backend.to_float">to_float</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_int" href="#phi.math.backend.Backend.to_int">to_int</a></code></li>
+<li><code><a title="phi.math.backend.Backend.transpose" href="#phi.math.backend.Backend.transpose">transpose</a></code></li>
+<li><code><a title="phi.math.backend.Backend.unstack" href="#phi.math.backend.Backend.unstack">unstack</a></code></li>
+<li><code><a title="phi.math.backend.Backend.where" href="#phi.math.backend.Backend.where">where</a></code></li>
+<li><code><a title="phi.math.backend.Backend.while_loop" href="#phi.math.backend.Backend.while_loop">while_loop</a></code></li>
+<li><code><a title="phi.math.backend.Backend.with_custom_gradient" href="#phi.math.backend.Backend.with_custom_gradient">with_custom_gradient</a></code></li>
+<li><code><a title="phi.math.backend.Backend.zeros" href="#phi.math.backend.Backend.zeros">zeros</a></code></li>
+<li><code><a title="phi.math.backend.Backend.zeros_like" href="#phi.math.backend.Backend.zeros_like">zeros_like</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.backend.DType" href="#phi.math.backend.DType">DType</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">bits</a></code></li>
+<li><code><a title="phi.math.backend.DType.itemsize" href="#phi.math.backend.DType.itemsize">itemsize</a></code></li>
+<li><code><a title="phi.math.backend.DType.kind" href="#phi.math.backend.DType.kind">kind</a></code></li>
+<li><code><a title="phi.math.backend.DType.precision" href="#phi.math.backend.DType.precision">precision</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.backend.LinearSolve" href="#phi.math.backend.LinearSolve">LinearSolve</a></code></h4>
+</li>
+<li>
 <h4><code><a title="phi.math.backend.NoBackendFound" href="#phi.math.backend.NoBackendFound">NoBackendFound</a></code></h4>
+</li>
+<li>
+<h4><code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.backend.Profile.add_external_message" href="#phi.math.backend.Profile.add_external_message">add_external_message</a></code></li>
+<li><code><a title="phi.math.backend.Profile.duration" href="#phi.math.backend.Profile.duration">duration</a></code></li>
+<li><code><a title="phi.math.backend.Profile.print" href="#phi.math.backend.Profile.print">print</a></code></li>
+<li><code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Profile.retime">retime</a></code></li>
+<li><code><a title="phi.math.backend.Profile.save_trace" href="#phi.math.backend.Profile.save_trace">save_trace</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code></h4>
 </li>
 </ul>
 </li>
@@ -465,7 +3306,7 @@ The output of math operations has the same precision as its inputs.</p>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.1</a>.</p>
 </footer>
 </body>
 </html>

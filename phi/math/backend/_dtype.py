@@ -3,12 +3,12 @@ import numpy as np
 
 class DType:
 
-    def __init__(self, kind, bits: int = 8):
+    def __init__(self, kind: type, bits: int = 8):
         """
         Data type for tensors.
 
         Args:
-          kind: Python type, one of bool, int, float, complex
+          kind: Python type, one of `(bool, int, float, complex)`
           bits: number of bits, typically a multiple of 8.
         """
         assert kind in (bool, int, float, complex)
@@ -56,7 +56,7 @@ def to_numpy_dtype(dtype: DType):
     return _TO_NUMPY[dtype]
 
 
-def from_numpy_dtype(np_dtype):
+def from_numpy_dtype(np_dtype) -> DType:
     if np_dtype in _FROM_NUMPY:
         return _FROM_NUMPY[np_dtype]
     else:
@@ -82,7 +82,7 @@ _FROM_NUMPY = {np: dtype for dtype, np in _TO_NUMPY.items()}
 _FROM_NUMPY[np.bool] = DType(bool)
 
 
-def combine_types(*dtypes: DType, fp_precision: int):
+def combine_types(*dtypes: DType, fp_precision: int) -> DType:
     # all bool?
     if all(dt.kind == bool for dt in dtypes):
         return dtypes[0]

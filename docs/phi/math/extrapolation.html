@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.9.2" />
+<meta name="generator" content="pdoc 0.9.1" />
 <title>phi.math.extrapolation API documentation</title>
 <meta name="description" content="Defines standard extrapolations …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -34,6 +34,8 @@ Defines standard extrapolations.
 Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.
 &#34;&#34;&#34;
 from __future__ import annotations
+
+from typing import Union
 
 from . import _functions as math
 from .backend import choose_backend
@@ -139,6 +141,10 @@ class Extrapolation:
         &#34;&#34;&#34;:return: True if all pad values are copies of existing values in the tensor to be padded&#34;&#34;&#34;
         return False
 
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return None
+
     def __getitem__(self, item):
         return self
 
@@ -238,6 +244,10 @@ class ConstantExtrapolation(Extrapolation):
 
     def is_one(self):
         return self == ONE
+
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return &#39;zeros&#39; if self.is_zero() else None
 
     def __add__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -348,6 +358,10 @@ class _CopyExtrapolation(Extrapolation):
     def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -&gt; ShiftLinOp:
         raise NotImplementedError()
 
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return str(self)
+
     def __eq__(self, other):
         return type(other) == type(self)
 
@@ -385,6 +399,9 @@ class _CopyExtrapolation(Extrapolation):
 class _BoundaryExtrapolation(_CopyExtrapolation):
     &#34;&#34;&#34;Uses the closest defined value for points lying outside the defined region.&#34;&#34;&#34;
 
+    _CACHED_LOWER_MASKS = {}
+    _CACHED_UPPER_MASKS = {}
+
     def __repr__(self):
         return &#39;boundary&#39;
 
@@ -413,35 +430,42 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
 
         &#34;&#34;&#34;
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values
+        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values  ~half the computation time
         for bound_dim, (bound_lo, bound_hi) in widths.items():
             for i in range(bound_lo):  # i=0 means outer
                 # this sets corners to 0
                 lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
-                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (bound_lo - i - 1, 0)})
-                mask = ONE.pad(mask, {bound_dim: (1, 0)})
-                mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
-
-                # lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
-                # inner_widths = {dim: (lo, hi) for dim, (lo, hi) in widths.items() if dim not in finished_dims}
-                # inner_widths[bound_dim] = (bound_lo-i-1, 0)
-                # outer_widths = {dim: (lo, hi) for dim, (lo, hi) in widths.items() if dim in finished_dims}
-                # outer_widths[bound_dim] = (i, 0)
-                # mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), inner_widths)
-                # mask = ONE.pad(mask, {bound_dim: (1, 0)})
-                # mask = ZERO.pad(mask, outer_widths)
-
+                mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
                 boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
                 result += boundary
             for i in range(bound_hi):
                 lower = {dim: i - lo - hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
-                mask = ZERO.pad(math.zeros(value.shape.only(result.dependent_dims)), {bound_dim: (0, bound_hi - i - 1)})
-                mask = ONE.pad(mask, {bound_dim: (0, 1)})
-                mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
-                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
-                result += boundary
+                mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)  # ~ half the computation time
+                result += boundary  # this does basically nothing if value is the identity
         return result
 
+    def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
+            return _BoundaryExtrapolation._CACHED_LOWER_MASKS[key]
+        else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (bound_lo - i - 1, 0)})
+            mask = ONE.pad(mask, {bound_dim: (1, 0)})
+            mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = mask
+            return mask
+
+    def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
+            return _BoundaryExtrapolation._CACHED_UPPER_MASKS[key]
+        else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (0, bound_hi - i - 1)})
+            mask = ONE.pad(mask, {bound_dim: (0, 1)})
+            mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
+            return mask
 
 class _PeriodicExtrapolation(_CopyExtrapolation):
     def __repr__(self):
@@ -932,6 +956,10 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
     def is_one(self):
         return self == ONE
 
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return &#39;zeros&#39; if self.is_zero() else None
+
     def __add__(self, other):
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value + other.value)
@@ -998,6 +1026,18 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.math.extrapolation.ConstantExtrapolation.native_grid_sample_mode"><code class="name">var <span class="ident">native_grid_sample_mode</span> : Union[str, NoneType]</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def native_grid_sample_mode(self) -&gt; Union[str, None]:
+    return &#39;zeros&#39; if self.is_zero() else None</code></pre>
+</details>
+</dd>
 <dt id="phi.math.extrapolation.ConstantExtrapolation.value"><code class="name">var <span class="ident">value</span></code></dt>
 <dd>
 <div class="desc"><p>Extrapolation value</p></div>
@@ -1243,6 +1283,10 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
         &#34;&#34;&#34;:return: True if all pad values are copies of existing values in the tensor to be padded&#34;&#34;&#34;
         return False
 
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return None
+
     def __getitem__(self, item):
         return self</code></pre>
 </details>
@@ -1265,6 +1309,18 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
 def is_copy_pad(self):
     &#34;&#34;&#34;:return: True if all pad values are copies of existing values in the tensor to be padded&#34;&#34;&#34;
     return False</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.Extrapolation.native_grid_sample_mode"><code class="name">var <span class="ident">native_grid_sample_mode</span> : Union[str, NoneType]</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def native_grid_sample_mode(self) -&gt; Union[str, None]:
+    return None</code></pre>
 </details>
 </dd>
 </dl>
@@ -1484,6 +1540,7 @@ This is the default implementation.</p>
 <ul class="">
 <li><code><a title="phi.math.extrapolation.ConstantExtrapolation.is_one" href="#phi.math.extrapolation.ConstantExtrapolation.is_one">is_one</a></code></li>
 <li><code><a title="phi.math.extrapolation.ConstantExtrapolation.is_zero" href="#phi.math.extrapolation.ConstantExtrapolation.is_zero">is_zero</a></code></li>
+<li><code><a title="phi.math.extrapolation.ConstantExtrapolation.native_grid_sample_mode" href="#phi.math.extrapolation.ConstantExtrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
 <li><code><a title="phi.math.extrapolation.ConstantExtrapolation.pad" href="#phi.math.extrapolation.ConstantExtrapolation.pad">pad</a></code></li>
 <li><code><a title="phi.math.extrapolation.ConstantExtrapolation.value" href="#phi.math.extrapolation.ConstantExtrapolation.value">value</a></code></li>
 </ul>
@@ -1493,6 +1550,7 @@ This is the default implementation.</p>
 <ul class="">
 <li><code><a title="phi.math.extrapolation.Extrapolation.gradient" href="#phi.math.extrapolation.Extrapolation.gradient">gradient</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.is_copy_pad" href="#phi.math.extrapolation.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.native_grid_sample_mode" href="#phi.math.extrapolation.Extrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad" href="#phi.math.extrapolation.Extrapolation.pad">pad</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad_values" href="#phi.math.extrapolation.Extrapolation.pad_values">pad_values</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">to_dict</a></code></li>
@@ -1505,7 +1563,7 @@ This is the default implementation.</p>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.1</a>.</p>
 </footer>
 </body>
 </html>

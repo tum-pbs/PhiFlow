@@ -3,8 +3,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-from phi.math.backend.tensorop import collapsed_gather_nd
-
 # Load Custom Ops
 librariesLoaded = False
 try:
@@ -74,3 +72,16 @@ def resample_cuda(inputs, sample_coords, boundary):
                 boundary_array[i, j] = REFLECT
 
     return resample_op.resample(inputs, sample_coords, boundary_array)
+
+
+def collapsed_gather_nd(collapsed, nd_index, leaf_condition=None):
+    if isinstance(collapsed, (tuple, list, np.ndarray)):
+        if leaf_condition is not None and leaf_condition(collapsed):
+            return collapsed
+        # collapsed = np.array(collapsed)
+        if len(nd_index) == 1:
+            return collapsed[nd_index[0]]
+        else:
+            return collapsed_gather_nd(collapsed[nd_index[0]], nd_index[1:])
+    else:
+        return collapsed

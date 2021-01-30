@@ -3,8 +3,9 @@ import json
 import sys
 from contextlib import contextmanager
 from time import perf_counter
+from typing import Optional
 
-from ._backend import Backend
+from ._backend import Backend, BACKENDS, _DEFAULT
 
 
 class BackendCall:
@@ -32,10 +33,17 @@ class BackendCall:
 
     def trace_json_events(self, include_parents) -> list:
         backend_index = self._backend._index
-        name = f"{self._backend.name}.{self._function_name}"
+        name = self._function_name
         return [
-            {"name": name, "cat": "CALL", "ph": "B", "pid": 1, "tid": backend_index, "ts": int(round(self._start * 1000000))},  # Begin
-            {"name": name, "cat": "CALL", "ph": "E", "pid": 1, "tid": backend_index, "ts": int(round(self._stop * 1000000))}  # End
+            {
+                'name': name,
+                'ph': 'X',
+                'pid': 1,
+                'tid': backend_index+1,
+                'ts': int(round(self._start * 1000000)),
+                'dur': int(round((self._stop - self._start) * 1000000)),
+                'args': {"Backend": self._backend.name}
+            }
         ]
 
     def call_count(self) -> int:
@@ -110,6 +118,22 @@ class ExtCall:
     def __len__(self):
         return len(self._children)
 
+    def _empty_parent_count(self):
+        for i, parent in enumerate(reversed(self._parents)):
+            if len(parent._children) > 1:
+                return i
+        return len(self._parents)
+
+    def _eff_parent_count(self):
+        return len([p for p in self._parents if len(p._children) > 1])
+
+    def _calling_code(self, backtrack=0):
+        if len(self._stack) > backtrack + 1:
+            frame = self._stack[backtrack+1]
+            return frame.code_context[0].strip(), frame.filename, frame.function, frame.lineno
+        else:
+            return "", "", "", -1
+
     def print(self, include_parents=(), depth=0, min_duration=0., code_col=80, code_len=50):
         if self._duration < min_duration:
             return
@@ -119,7 +143,7 @@ class ExtCall:
             funcs = [par._name for par in include_parents] + [self._name]
             text = f"{'. ' * depth}-> {' -> '.join(funcs)} ({1000 * self._duration:.2f} ms)"
             if len(self._stack) > len(include_parents)+1:
-                code = self._stack[len(include_parents)+1].code_context[0].strip()
+                code = self._calling_code(backtrack=len(include_parents))[0]
                 if len(code) > code_len:
                     code = code[:code_len-3] + "..."
                 text += " " + "." * max(0, (code_col - len(text))) + " > " + code
@@ -147,10 +171,24 @@ class ExtCall:
         if len(self._children) == 1:
             return self._children[0].trace_json_events(include_parents + (self,))
         else:
-            name = ' -> '.join([par._name for par in include_parents] + [self._name]) + f" ({self.call_count()} calls)"
+            name = ' -> '.join([par._name for par in include_parents] + [self._name])
+            eff_parent_count = self._eff_parent_count()
+            calling_code, calling_filename, calling_function, lineno = self._calling_code(backtrack=self._empty_parent_count())
             result = [
-                {"name": name, "cat": "METHOD", "ph": "B", "pid": 0, "tid": 0, "ts": int(round(self._start * 1000000))},  # Begin
-                {"name": name, "cat": "METHOD", "ph": "E", "pid": 0, "tid": 0, "ts": int(round(self._stop * 1000000))}  # End
+                {
+                    'name': name,
+                    'ph': "X",  # complete event
+                    'pid': 0,
+                    'tid': eff_parent_count,
+                    'ts': int(self._start * 1000000),
+                    'dur': int((self._stop - self._start) * 1000000),
+                    'args': {
+                        "Calling code snippet": calling_code,
+                        "Called by": f"{calling_function}() in {calling_filename}, line {lineno}",
+                        "Active time (backend calls)": f"{self._duration * 1000:.2f} ms ({100 * self._duration / (self._stop - self._start):.1f} %)",
+                        "Backend calls": f"{self.call_count()} ({100 if self._parent is None else 100 * self.call_count() / self._parent.call_count():.0f} % of parent)"
+                    }
+                }
             ]
             for child in self._children:
                 result.extend(child.trace_json_events(()))
@@ -158,33 +196,67 @@ class ExtCall:
 
 
 class Profile:
+    """
+    Stores information about calls to backends and their timing.
 
-    def __init__(self):
+    Profile may be created through `profile()` or `profile_function()`.
+
+    Profiles can be printed or saved to disc.
+    """
+
+    def __init__(self, trace: bool, backends):
         self._start = perf_counter()
         self._stop = None
         self._root = ExtCall(None, [])
         self._last_ext_call = self._root
         self._messages = []
+        self._trace = trace
+        self._backend_calls = []
+        self._retime_index = -1
+        self._accumulating = False
+        self._backends = backends
 
-    def add_call(self, backend_call: BackendCall):
-        stack = inspect.stack()[2:]
-        call = self._last_ext_call.common_call(stack)
-        for i in range(len(call._stack), len(stack)):
-            sub_call = ExtCall(call, stack[len(stack) - i - 1:])
-            call.add(sub_call)
-            call = sub_call
-        call.add(backend_call)
-        self._last_ext_call = call
+    def _add_call(self, backend_call: BackendCall):
+        if self._retime_index >= 0:
+            prev_call = self._backend_calls[self._retime_index]
+            assert prev_call._function_name == backend_call._function_name
+            if self._accumulating:
+                prev_call._start += backend_call._start
+                prev_call._stop += backend_call._stop
+            else:
+                prev_call._start = backend_call._start
+                prev_call._stop = backend_call._stop
+            self._retime_index = (self._retime_index + 1) % len(self._backend_calls)
+        else:
+            self._backend_calls.append(backend_call)
+            if self._trace:
+                stack = inspect.stack()[2:]
+                call = self._last_ext_call.common_call(stack)
+                for i in range(len(call._stack), len(stack)):
+                    sub_call = ExtCall(call, stack[len(stack) - i - 1:])
+                    call.add(sub_call)
+                    call = sub_call
+                call.add(backend_call)
+                self._last_ext_call = call
 
-    def stop(self):
+    def _finish(self):
         self._stop = perf_counter()
         self._children_to_properties()
 
     @property
-    def duration(self):
+    def duration(self) -> float:
+        """ Total time passed from creation of the profile to the end of the last operation. """
         return self._stop - self._start if self._stop is not None else None
 
     def print(self, min_duration=1e-3, code_col=80, code_len=50):
+        """
+        Prints this profile to the console.
+
+        Args:
+            min_duration: Hides elements with less time spent on backend calls than `min_duration` (seconds)
+            code_col: Formatting option for where the context code is printed.
+            code_len: Formatting option for cropping the context code
+        """
         print(f"Profile: {self.duration:.4f} seconds total. Skipping elements shorter than {1000 * min_duration:.2f} ms")
         if self._messages:
             print("External profiling:")
@@ -193,10 +265,28 @@ class Profile:
             print()
         self._root.print(min_duration=min_duration, code_col=code_col, code_len=code_len)
 
-    def save_trace(self, json_file):
-        if len(self._root._children) == 0:
-            return
-        data = self._root.trace_json_events()
+    def save_trace(self, json_file: str):
+        """
+        Saves this profile to disc using the *trace event format* described at
+        https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
+
+        This file can be viewed with external applications such as Google chrome.
+
+        Args:
+            json_file: filename
+        """
+        data = [
+            {'name': "process_name", 'ph': 'M', 'pid': 0, 'tid': 0, "args": {"name": "0 Python calls"}},
+            {'name': "process_name", 'ph': 'M', 'pid': 1, 'tid': 1, "args": {"name": "1 Operations"}},
+        ] + [
+            {'name': "thread_name", 'ph': 'M', 'pid': 1, 'tid': i + 1, "args": {"name": backend.name}}
+            for i, backend in enumerate(self._backends)
+        ]
+        if self._trace:
+            if len(self._root._children) > 0:
+                data.extend(self._root.trace_json_events())
+        else:
+            data.extend(sum([call.trace_json_events(()) for call in self._backend_calls], []))
         with open(json_file, 'w') as file:
             json.dump(data, file)
 
@@ -205,8 +295,46 @@ class Profile:
         for name, child in children.items():
             setattr(self, name, child)
 
-    def add_external_message(self, message):
+    def add_external_message(self, message: str):
+        """ Stores an external message in this profile. External messages are printed in `Profile.print()`. """
         self._messages.append(message)
+
+    @contextmanager
+    def retime(self):
+        """
+        To be used in `with` statements, `with prof.retime(): ...`.
+
+        Updates this profile by running the same operations again but without tracing.
+        This gives a much better indication of the true timing.
+        The code within the `with` block must perform the same operations as the code that created this profile.
+
+        *Warning:* Internal caching may reduce the number of operations after the first time a function is called.
+        To prevent this, run the function before profiling it, see `warmup` in `profile_function()`.
+        """
+        self._retime_index = 0
+        restore_data = _start_profiling(self, self._backends)
+        try:
+            yield None
+        finally:
+            _stop_profiling(self, *restore_data)
+            assert self._retime_index == 0, f"Number of calls during retime did not match original profile, originally {len(self._backend_calls)}, now {self._retime_index}, "
+            self._retime_index = -1
+
+    @contextmanager
+    def _accumulate_average(self, n):
+        self._retime_index = 0
+        self._accumulating = True
+        restore_data = _start_profiling(self, self._backends)
+        try:
+            yield None
+        finally:
+            _stop_profiling(self, *restore_data)
+            assert self._retime_index == 0, f"Number of calls during retime did not match original profile, originally {len(self._backend_calls)}, now {self._retime_index}, "
+            self._retime_index = -1
+            for call in self._backend_calls:
+                call._start /= n
+                call._stop /= n
+            self._accumulating = False
 
 
 class ProfilingBackend:
@@ -225,6 +353,9 @@ class ProfilingBackend:
         self.shape = backend.shape
         self.staticshape = backend.staticshape
         self.ndims = backend.ndims
+        self.expand_dims = backend.expand_dims
+        self.reshape = backend.reshape
+        # TODO strided slice does not go through backend atm
         # profiling methods
         for item_name in dir(backend):
             item = getattr(backend, item_name)
@@ -234,7 +365,7 @@ class ProfilingBackend:
                         start = perf_counter()
                         result = item(*args, **kwargs)
                         stop = perf_counter()
-                        prof.add_call(BackendCall(start, stop, profiling_backend, item_name))
+                        prof._add_call(BackendCall(start, stop, profiling_backend, item_name))
                         return result
                     return call_fun
                 setattr(self, item_name, context())
@@ -247,29 +378,89 @@ _PROFILE = []
 
 
 @contextmanager
-def profile(backends=None):
-    prof = Profile()
-    _PROFILE.append(prof)
+def profile(backends=None, trace=True) -> Profile:
+    """
+    To be used in `with` statements, `with math.backend.profile() as prof: ...`.
+    Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
 
-    # Replace backends
-    from . import BACKENDS, _DEFAULT
+    Args:
+        backends: List of backends to profile, `None` to profile all.
+        trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+
+    Returns:
+        Created `Profile`
+    """
+    backends = BACKENDS if backends is None else backends
+    prof = Profile(trace, backends)
+    restore_data = _start_profiling(prof, backends)
+    try:
+        yield prof
+    finally:
+        _stop_profiling(prof, *restore_data)
+
+
+def profile_function(fun: callable,
+                     args: tuple or list = (),
+                     kwargs: dict or None = None,
+                     backends=None,
+                     trace=True,
+                     retime=True,
+                     warmup=1,
+                     call_count=1) -> Profile:
+    """
+    Creates a `Profile` for the function `fun(*args, **kwargs)`.
+
+    Args:
+        fun: Function to be profiled. In case `retime=True`, this function must perform the same operations each time it is called.
+            Use `warmup>0` to ensure that internal caching does not interfere with the operations.
+        args: Arguments to be passed to `fun`.
+        kwargs: Keyword arguments to be passed to `fun`.
+        backends: List of backends to profile, `None` to profile all.
+        trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+        retime: If true, calls `fun` another time without tracing the calls and updates the profile.
+            This gives a much better indication of the true timing.
+            See `Profile.retime()`.
+        warmup: Number of times to call ´fun` before profiling it.
+        call_count:
+
+    Returns:
+        Created `Profile` for `fun`.
+    """
+    kwargs = kwargs if isinstance(kwargs, dict) else {}
+    for _ in range(warmup):
+        fun(*args, **kwargs)
+    with profile(backends=backends, trace=trace) as prof:
+        fun(*args, **kwargs)
+    if retime:
+        with prof.retime():
+            fun(*args, **kwargs)
+    if call_count > 1:
+        with prof._accumulate_average(call_count):
+            for _ in range(call_count - 1):
+                fun(*args, **kwargs)
+    return prof
+
+
+def _start_profiling(prof: Profile, backends: tuple or list):
+    _PROFILE.append(prof)
+    original_default = _DEFAULT[-1]
     original_backends = tuple(BACKENDS)
-    backends = original_backends if backends is None else backends
     for i, backend in enumerate(backends):
         prof_backend = ProfilingBackend(prof, backend, i)
         BACKENDS[BACKENDS.index(backend)] = prof_backend
         if _DEFAULT[-1] == backend:
             _DEFAULT[-1] = prof_backend
-
-    try:
-        yield prof
-    finally:
-        prof.stop()
-        BACKENDS.clear()
-        BACKENDS.extend(original_backends)
-        _PROFILE.pop(-1)
-        # print(f'Profiling session lasted for {1000 * (perf_counter() - start)} ms')
+    return original_backends, original_default
 
 
-def get_current_profile():
+def _stop_profiling(prof: Profile, original_backends, original_default):
+    prof._finish()
+    _PROFILE.pop(-1)
+    BACKENDS.clear()
+    BACKENDS.extend(original_backends)
+    _DEFAULT[-1] = original_default
+
+
+def get_current_profile() -> Optional[Profile]:
+    """ Returns the currently active `Profile` if one is active. Otherwise returns `None`.  """
     return _PROFILE[-1] if _PROFILE else None
