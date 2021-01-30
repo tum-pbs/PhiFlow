@@ -9,29 +9,36 @@ Esamples:
 """
 
 from phi import math
-from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Grid, Field, PointCloud
+from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Field, PointCloud, extp_sgrid
 from phi.field._field_math import GridType
 
 
-def advect(field: Field, velocity: Field, dt):
+def advect(field: Field, velocity: Field, dt, mode: str = 'euler', bcs: Field = None, smask: Field = None):
     """
     Advect `field` along the `velocity` vectors using the default advection method.
 
     Args:
       field: any built-in Field
-      velocity: any Field
+      velocity: any Field (must be PointCloud with the same elements as `field` in euler mode or
+        a StaggeredGrid in rk4_extp mode)
       dt: time increment
-      field: Field: 
-      velocity: Field: 
+      mode: type of advection scheme: 'euler', 'rk4' or 'rk4_extp'
+      bcs: boundary conditions used only in 'rk4_extp' mode
 
     Returns:
       Advected field of same type as `field`
 
     """
     if isinstance(field, PointCloud):
-        if isinstance(velocity, PointCloud) and velocity.elements == field.elements:
+        if mode == 'euler':
+            assert isinstance(velocity, PointCloud) and velocity.elements == field.elements, 'Velocity is not valid for euler mode advection.'
             return points(field, velocity, dt)
-        return runge_kutta_4(field, velocity, dt=dt)
+        elif mode == 'rk4':
+            return runge_kutta_4(field, velocity, dt=dt)
+        elif mode == 'rk4_extp':
+            return runge_kutta_4_extp(field, velocity, bcs=bcs, smask=smask, dt=dt)
+        else:
+            raise NotImplementedError(f"Advection mode {mode} is not known.")
     if isinstance(field, ConstantField):
         return field
     if isinstance(field, (CenteredGrid, StaggeredGrid)):
@@ -122,6 +129,47 @@ def runge_kutta_4(field: PointCloud, velocity: Field, dt):
     vel_k2 = velocity.sample_in(points.shifted(0.5 * dt * vel_k1))
     vel_k3 = velocity.sample_in(points.shifted(0.5 * dt * vel_k2))
     vel_k4 = velocity.sample_in(points.shifted(dt * vel_k3))
+    # --- Combine points with RK4 scheme ---
+    vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
+    new_points = points.shifted(dt * vel)
+    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping,
+                      bounds=field.bounds, color=field.color)
+
+
+def runge_kutta_4_extp(field: PointCloud, velocity: Field, bcs: Field, smask: Field, dt: float):
+    assert isinstance(field, SampledField)
+    assert isinstance(velocity, StaggeredGrid), 'runge_kutta advection with extrapolation works for StaggeredGrids only.'
+    assert isinstance(smask, StaggeredGrid), 'extrapolation mask must be of type StaggeredGrid'
+    points = field.elements
+
+    # --- Sample velocity at intermediate points ---
+    # At first step all points are inside velocity region
+    velocity, smask = extp_sgrid(velocity, smask, 2)
+    velocity *= bcs
+    vel_k1 = velocity.sample_in(points)
+
+    # Adjust field extrapolation to maximum shift of secondary intermediate points
+    shifted_points = points.shifted(0.5 * dt * vel_k1)
+    shift = math.ceil(math.max(math.abs(shifted_points.center - points.center)))
+    total_shift = shift
+    velocity, smask = extp_sgrid(velocity, smask, int(shift))
+    velocity *= bcs
+    vel_k2 = velocity.sample_in(shifted_points)
+
+    # Same for points of third and fourth component
+    shifted_points = points.shifted(0.5 * dt * vel_k2)
+    shift = math.ceil(math.max(math.abs(shifted_points.center - points.center))) - total_shift
+    total_shift += shift
+    velocity, smask = extp_sgrid(velocity, smask, int(shift))
+    velocity *= bcs
+    vel_k3 = velocity.sample_in(shifted_points)
+
+    shifted_points = points.shifted(dt * vel_k3)
+    shift = math.ceil(math.max(math.abs(shifted_points.center - points.center))) - total_shift
+    velocity, _ = extp_sgrid(velocity, smask, int(shift))
+    velocity *= bcs
+    vel_k4 = velocity.sample_in(shifted_points)
+
     # --- Combine points with RK4 scheme ---
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     new_points = points.shifted(dt * vel)

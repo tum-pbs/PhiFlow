@@ -16,7 +16,7 @@ from ._field import Field, SampledField
 from ._analytic import AnalyticField
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
-from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
+from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components, extp_cgrid, extp_sgrid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
