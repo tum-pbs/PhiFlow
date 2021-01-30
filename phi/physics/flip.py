@@ -36,7 +36,7 @@ def make_incompressible(v_field, bcs, cmask, smask, pressure):
 
     def laplace(p):
         # TODO: prefactor of pressure should not have any effect, but it has
-        return field.where(cmask, field.divergence(field.gradient(p, type=StaggeredGrid) * bcs), 1e6 * p)
+        return field.where(cmask, field.divergence(field.gradient(p, type=StaggeredGrid) * bcs), -4 * p)
 
     converged, pressure, iterations = field.solve(laplace, div, pressure, solve_params=math.LinearSolve(None, 1e-5))
     gradp = field.gradient(pressure, type=type(v_field))
@@ -72,5 +72,5 @@ def respect_boundaries(domain, obstacles, particles, shift_amount=1):
         shift = obstacle.geometry.shift_points(points.center, shift_amount=shift_amount)
         points = particles.elements.shifted(shift)
     shift = (~domain.bounds).shift_points(points.center, shift_amount=shift_amount)
-    return PointCloud(particles.elements.shifted(shift), add_overlapping=particles.add_overlapping,
+    return PointCloud(points.shifted(shift), add_overlapping=particles.add_overlapping,
                       bounds=particles.bounds, values=particles.values, color=particles.color)

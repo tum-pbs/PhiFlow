@@ -242,6 +242,7 @@ def shift(x: Tensor,
 def masked_extp(x: Tensor, mask: Tensor, size: int = 1):
     if size <= 0:
         return x, mask
+    size = min(size, max(x.shape))
     # ensure binary mask
     mask = math.divide_no_nan(mask, mask)
     values_l, values_r = shift(x * mask, (-1, 1))

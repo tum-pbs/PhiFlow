@@ -108,10 +108,10 @@ class AbstractBox(Geometry):
             # filter points inside
             shift = math.where(shift < 0, shift, 0)
             # get shift direction
-            shift = math.where(loc_to_center < 0, 1, -1) * (shift - math.where(shift != 0, 1, 0) * shift_amount)
+            shift = math.where(loc_to_center < 0, 1, -1) * (shift - math.where(shift != 0, shift_amount, 0))
         else:
             shift = math.where(distance < 0, 0, distance)
-            shift += math.where(shift != 0, 1, 0) * shift_amount
+            shift += math.where(shift != 0, shift_amount, 0)
             # ensure inward shift ends at center
             shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)
             shift = math.where(loc_to_center < 0, 1, -1) * shift

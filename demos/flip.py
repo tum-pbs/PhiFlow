@@ -3,7 +3,7 @@ from phi.flow import *
 inflow = 0
 domain = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box[0:64, 0:64])
 point_mask = domain.grid().values
-point_mask.native()[25:40, 50:55] = 1
+point_mask.native()[35:40, 50:52] = 1
 initial_points = flip.distribute_points(point_mask, 8)
 initial_velocity = math.tensor(np.zeros(initial_points.shape), names=['points', 'vector'])
 initial_particles = PointCloud(Sphere(initial_points, 0), values=initial_velocity, bounds=domain.bounds, color='#5776ff')
