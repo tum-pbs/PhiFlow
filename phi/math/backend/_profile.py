@@ -127,6 +127,14 @@ class ExtCall:
     def _eff_parent_count(self):
         return len([p for p in self._parents if len(p._children) > 1])
 
+    def _closest_non_trivial_parent(self):
+        parent = self._parent
+        while parent._parent is not None:
+            if len(parent._children) > 1:
+                return parent
+            parent = parent._parent
+        return parent
+
     def _calling_code(self, backtrack=0):
         if len(self._stack) > backtrack + 1:
             frame = self._stack[backtrack+1]
@@ -185,8 +193,8 @@ class ExtCall:
                     'args': {
                         "Calling code snippet": calling_code,
                         "Called by": f"{calling_function}() in {calling_filename}, line {lineno}",
-                        "Active time (backend calls)": f"{self._duration * 1000:.2f} ms ({100 * self._duration / (self._stop - self._start):.1f} %)",
-                        "Backend calls": f"{self.call_count()} ({100 if self._parent is None else 100 * self.call_count() / self._parent.call_count():.0f} % of parent)"
+                        "Active time (backend calls)": f"{self._duration * 1000:.2f} ms ({round(100 * self._duration / self._closest_non_trivial_parent()._duration):.0f}% of parent, {100 * self._duration / (self._stop - self._start):.1f}% efficiency)",
+                        "Backend calls": f"{self.call_count()} ({round(100 * self.call_count() / self._closest_non_trivial_parent().call_count()):.0f}% of parent)"
                     }
                 }
             ]
