@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 
 from phi import math
 from phi.geom import Geometry, GridCell, Box
@@ -11,7 +11,7 @@ from ..math import Tensor
 class PointCloud(SampledField):
 
     def __init__(self, elements: Geometry, values: Any = 1, extrapolation=math.extrapolation.ZERO, add_overlapping=False,
-                 bounds: Box = None, color: str = None):
+                 bounds: Box = None, color: Union[Tensor, str] = None):
         """
         A point cloud consists of elements at arbitrary locations.
             A value or vector is associated with each element.
@@ -31,20 +31,30 @@ class PointCloud(SampledField):
           extrapolation: values outside elements
           add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
           bounds: size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
-          color: hex code for color in which points should get plotted. None results in standard color of visualization tool.
+          color: hex code for color or tensor of colors (same length as elements) in which points should get plotted.
+            None results in #000000.
         """
         SampledField.__init__(self, elements, values, extrapolation)
         self._add_overlapping = add_overlapping
+        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
         self._bounds = bounds
-        self._color = color
         assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
+        if isinstance(color, str):
+            self._color = math.tensor([color] * elements.shape.points)
+        elif isinstance(color, Tensor):
+            assert 'vector' in color.shape and len(color.vector) == elements.shape.points, "Each point must be assigned a color."
+            self._color = color
+        elif color is None:
+            self._color = math.tensor(['#000000'] * elements.shape.points)
+        else:
+            raise ValueError('Invalid color.')
 
     @property
     def bounds(self) -> Box:
         return self._bounds
 
     @property
-    def color(self) -> str:
+    def color(self) -> Tensor:
         return self._color
 
     def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
