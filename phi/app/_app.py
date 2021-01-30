@@ -291,7 +291,7 @@ class App(object):
         elif callable(value):
             generator = value
         else:
-            assert isinstance(value, (np.ndarray, Field, float, int, math.Tensor)), 'Unsupported type for field "%s": %s' % (name, type(value))
+            assert isinstance(value, (np.ndarray, Field, float, int, list, math.Tensor)), 'Unsupported type for field "%s": %s' % (name, type(value))
 
             def get_constant():
                 return value

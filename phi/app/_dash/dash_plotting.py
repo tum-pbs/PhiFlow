@@ -1,11 +1,11 @@
 import warnings
 
 import numpy as np
-
+from typing import Union, List
 import plotly.figure_factory as plotly_figures
 
 from phi.math import GLOBAL_AXIS_ORDER as physics_config
-from phi.field import CenteredGrid, StaggeredGrid
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud
 from .colormaps import COLORMAPS
 from ... import math
 from ...geom import Box
@@ -39,6 +39,12 @@ def dash_graph_plot(data, settings):
                 return vector_field(slice_2d(data, settings), settings)
             else:
                 return heatmap(slice_2d(data, settings), settings)
+
+    clouds = False
+    if isinstance(data, list):
+        clouds = len(data) != 0 and all(isinstance(elem, PointCloud) for elem in data)
+    if isinstance(data, PointCloud) or clouds:
+        return cloud_plot(data)
 
     warnings.warn('No figure recipe for data %s' % data)
     return EMPTY_FIGURE
@@ -224,6 +230,45 @@ def plot(field1d, settings):
     data = reduce_component(data, component)
     data = data.native()
     return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
+
+
+def cloud_plot(clouds: Union[PointCloud, List[PointCloud]]) -> dict:
+    """
+    Creates Plotly figure from one or multiple PointCloud objects. Clouds must be 2D and have the
+    same visualization bounds.
+
+    Args:
+        clouds: Single 2D PointCloud or list of 2D PointCloud objects which should get plotted.
+
+    Returns:
+        Plotly figure data type with the data from the PointCloud objects.
+    """
+
+    if not isinstance(clouds, list):
+        clouds = [clouds]
+    x = np.zeros(0)
+    y = np.zeros(0)
+    color = []
+    bounds = clouds[0].bounds
+    for cloud in clouds:
+        assert cloud.bounds == bounds, 'PointCloud bounds are not compatible'
+        data = cloud.elements.center.numpy()
+        assert len(data.shape) == 2 and data.shape[1] == 2, 'PointCloud plotting only supports 2D clouds.'
+        x = np.hstack((x, data[:, 0]))
+        y = np.hstack((y, data[:, 1]))
+        color += [cloud.color] * len(data[:, 0])
+    if bounds is None:
+        return {'data': [{'mode': 'markers', 'type': 'scatter', 'x': x, 'y': y, 'marker': {'color': color}}]}
+    else:
+        lower = bounds.lower.native()
+        upper = bounds.upper.native()
+        if isinstance(lower, int):
+            lower = [lower] * 2
+        if isinstance(upper, int):
+            upper = [upper] * 2
+        return {'data': [{'mode': 'markers', 'type': 'scatter', 'x': x, 'y': y, 'marker': {'color': color}}],
+                'layout': {'xaxis': {'range': [int(lower[0]), int(upper[0])]},
+                           'yaxis': {'range': [int(lower[1]), int(upper[1])]}}}
 
 
 def reduce_component(tensor, component):
