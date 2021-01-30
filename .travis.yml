@@ -2,12 +2,10 @@ language: python
 
 python:
   - "3.7"
-  - "3.8"
   - "3.9"
 
 matrix:
   allow_failures:
-  - python: "3.8"
   - python: "3.9"
 
 before_install:
