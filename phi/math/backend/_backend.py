@@ -58,7 +58,8 @@ class Backend:
         """
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)
-        tensors = [self.cast(t, result_type) for t in tensors]
+        if result_type.kind in (int, float, complex, bool):
+            tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
 
     def __str__(self):

@@ -46,7 +46,7 @@ class SciPyBackend(Backend):
         if only_native:
             return False
         # --- Non-native types
-        if isinstance(x, (numbers.Number, bool)):
+        if isinstance(x, (numbers.Number, bool, str)):
             return True
         if isinstance(x, (tuple, list)):
             return all([self.is_tensor(item, False) for item in x])

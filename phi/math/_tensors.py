@@ -812,7 +812,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             from ._functions import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
-    if isinstance(data, numbers.Number):
+    if isinstance(data, (numbers.Number, str)):
         assert not names
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, Shape):

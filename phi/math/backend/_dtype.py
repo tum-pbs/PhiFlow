@@ -8,10 +8,10 @@ class DType:
         Data type for tensors.
 
         Args:
-          kind: Python type, one of `(bool, int, float, complex)`
+          kind: Python type, one of `(bool, int, float, complex, str)`
           bits: number of bits, typically a multiple of 8.
         """
-        assert kind in (bool, int, float, complex)
+        assert kind in (bool, int, float, complex, str)
         if kind is bool:
             assert bits == 8
         else:
@@ -53,7 +53,11 @@ class DType:
 # --- NumPy Conversion ---
 
 def to_numpy_dtype(dtype: DType):
-    return _TO_NUMPY[dtype]
+    if dtype in _TO_NUMPY:
+        return _TO_NUMPY[dtype]
+    if dtype.kind == str:
+        bytes_per_char = np.dtype('<U1').itemsize
+        return np.dtype(f'<U{dtype.itemsize // bytes_per_char}')
 
 
 def from_numpy_dtype(np_dtype) -> DType:
@@ -63,6 +67,8 @@ def from_numpy_dtype(np_dtype) -> DType:
         for base_np_dtype, dtype in _FROM_NUMPY.items():
             if np_dtype == base_np_dtype:
                 return dtype
+        if np_dtype.char == 'U':
+            return DType(str, 8 * np_dtype.itemsize)
         raise ValueError(np_dtype)
 
 
@@ -96,4 +102,8 @@ def combine_types(*dtypes: DType, fp_precision: int) -> DType:
     # complex
     if all(dt.kind in (complex, float, int, bool) for dt in dtypes):
         return DType(complex, 2 * fp_precision)
+    # string
+    if any(dt.kind == str for dt in dtypes):
+        largest = max([dt for dt in dtypes if dt.kind == str], key=lambda dt: dt.bits)
+        return largest
     raise ValueError(dtypes)
