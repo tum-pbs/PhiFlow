@@ -1,7 +1,7 @@
 import warnings
 
 from phi import math
-from phi.math import GLOBAL_AXIS_ORDER
+from phi.math import GLOBAL_AXIS_ORDER, Tensor
 from ._geom import Geometry
 from ._sphere import Sphere
 
@@ -30,6 +30,16 @@ class RotatedGeometry(Geometry):
     def center(self):
         return self.geometry.center
 
+    def _rotate(self, location):
+        sin = math.sin(self.angle)
+        cos = math.cos(self.angle)
+        y, x = location.vector.unstack()
+        if GLOBAL_AXIS_ORDER.is_x_first:
+            x, y = y, x
+        rot_x = cos * x - sin * y
+        rot_y = sin * x + cos * y
+        return math.channel_stack([rot_y, rot_x], 'vector')
+
     def global_to_child(self, location):
         """
         Inverse transform
@@ -42,20 +52,17 @@ class RotatedGeometry(Geometry):
         """
         delta = location - self.center
         if location.shape.vector == 2:
-            sin = math.sin(self.angle)
-            cos = math.cos(self.angle)
-            y, x = delta.vector.unstack()
-            if GLOBAL_AXIS_ORDER.is_x_first:
-                x, y = y, x
-            rot_x = cos * x - sin * y
-            rot_y = sin * x + cos * y
-            rotated = math.channel_stack([rot_y, rot_x], 'vector')
+            rotated = self._rotate(delta)
         elif location.shape.vector == 3:
             raise NotImplementedError('not yet implemented')  # ToDo apply angle
         else:
             raise NotImplementedError('Rotation only supported in 2D and 3D')
         final = rotated + self.center
         return final
+
+    def shift_points(self, location: Tensor, outward: bool = True, shift_amount: float = 0):
+        shift = self.geometry.shift_points(self.global_to_child(location), outward=outward, shift_amount=shift_amount)
+        return self._rotate(shift)
 
     def lies_inside(self, location):
         return self.geometry.lies_inside(self.global_to_child(location))
