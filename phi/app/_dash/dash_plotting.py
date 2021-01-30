@@ -16,6 +16,7 @@ EMPTY_FIGURE = {'data': [{'z': None, 'type': 'heatmap'}]}
 def dash_graph_plot(data, settings: dict) -> dict:
     if data is None:
         return EMPTY_FIGURE
+
     try:
         if isinstance(data, np.ndarray):
             data = math.tensor(data, convert=False)
@@ -42,6 +43,7 @@ def dash_graph_plot(data, settings: dict) -> dict:
             return cloud_plot(data, settings)
 
         warnings.warn('No figure recipe for data %s' % data)
+
     except BaseException as exc:
         print(exc)
     return EMPTY_FIGURE
