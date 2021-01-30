@@ -50,19 +50,19 @@ def map2particle(v_particle, current_v_field, smask, orig_v_field=None):
         v_change_field, _ = field.extp_sgrid(v_change_field, smask, 1)  # conserves falling shapes (no hard_bcs here!)
         v_change = v_change_field.sample_at(v_particle.elements.center)
         return PointCloud(v_particle.elements, values=v_particle.values + v_change, bounds=v_particle.bounds,
-                          add_overlapping=v_particle.add_overlapping, color=v_particle.color)
+                          add_overlapping=v_particle._add_overlapping, color=v_particle.color)
     else:
         # PIC
         v_div_free_field, _ = field.extp_sgrid(current_v_field, smask, 1)
         v_values = v_div_free_field.sample_at(v_particle.elements.center)
         return PointCloud(v_particle.elements, values=v_values, bounds=v_particle.bounds,
-                          add_overlapping=v_particle.add_overlapping, color=v_particle.color)
+                          add_overlapping=v_particle._add_overlapping, color=v_particle.color)
 
 
 def add_inflow(particles, inflow_points, inflow_values):
     new_points = math.tensor(math.concat([particles.points, inflow_points], dim='points'), names=['points', 'vector'])
     new_values = math.tensor(math.concat([particles.values, inflow_values], dim='points'), names=['points', 'vector'])
-    return PointCloud(Sphere(new_points, 0), add_overlapping=particles.add_overlapping, bounds=particles.bounds,
+    return PointCloud(Sphere(new_points, 0), add_overlapping=particles._add_overlapping, bounds=particles.bounds,
                       values=new_values, color=particles.color)
 
 
@@ -72,5 +72,5 @@ def respect_boundaries(domain, obstacles, particles, shift_amount=1):
         shift = obstacle.geometry.shift_points(points.center, shift_amount=shift_amount)
         points = particles.elements.shifted(shift)
     shift = (~domain.bounds).shift_points(points.center, shift_amount=shift_amount)
-    return PointCloud(points.shifted(shift), add_overlapping=particles.add_overlapping,
+    return PointCloud(points.shifted(shift), add_overlapping=particles._add_overlapping,
                       bounds=particles.bounds, values=particles.values, color=particles.color)
