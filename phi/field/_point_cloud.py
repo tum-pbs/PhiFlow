@@ -3,7 +3,6 @@ from typing import Any, Union
 from phi import math
 from phi.geom import Geometry, GridCell, Box
 from ._field import SampledField
-from ._grid import CenteredGrid
 from ..geom._stack import GeometryStack
 from ..math import Tensor
 

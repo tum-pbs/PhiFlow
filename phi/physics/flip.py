@@ -1,7 +1,21 @@
 from phi import math, field
+from phi.math import Tensor
 from phi.field import StaggeredGrid, HardGeometryMask, PointCloud
 from phi.geom import union, Sphere
 from ._effect import Gravity, gravity_tensor
+
+
+def distribute_points(mask: Tensor, points_per_cell: int = 1, dist: str = 'uniform'):
+    indices = math.to_float(math.nonzero(mask, list_dim='points'))
+    temp = []
+    for _ in range(points_per_cell):
+        if dist == 'center':
+            temp.append(indices + 0.5)
+        elif dist == 'uniform':
+            temp.append(indices + (math.random_uniform(indices.shape)))
+        else:
+            raise NotImplementedError
+    return math.concat(temp, dim='points')
 
 
 def apply_gravity(dt, v_field):
