@@ -31,7 +31,10 @@ def make_incompressible(velocity: Grid,
       pressure_guess: CenteredGrid:  (Default value = None)
 
     Returns:
-      divergence-free velocity, pressure, iterations, divergence of input velocity
+      incompressible_velocity: divergence-free velocity of type `type(velocity)`
+      pressure: solved pressure field, `CenteredGrid`
+      iterations: Number of iterations required to solve for the pressure
+      divergence: divergence field of input velocity, `CenteredGrid`
 
     """
     input_velocity = velocity

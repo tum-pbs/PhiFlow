@@ -212,7 +212,7 @@ class Profile:
     Profiles can be printed or saved to disc.
     """
 
-    def __init__(self, trace: bool, backends):
+    def __init__(self, trace: bool, backends: tuple or list, subtract_trace_time: bool):
         self._start = perf_counter()
         self._stop = None
         self._root = ExtCall(None, [])
@@ -223,6 +223,8 @@ class Profile:
         self._retime_index = -1
         self._accumulating = False
         self._backends = backends
+        self._subtract_trace_time = subtract_trace_time
+        self._total_trace_time = 0
 
     def _add_call(self, backend_call: BackendCall):
         if self._retime_index >= 0:
@@ -246,6 +248,11 @@ class Profile:
                     call = sub_call
                 call.add(backend_call)
                 self._last_ext_call = call
+                if self._subtract_trace_time:
+                    delta_trace_time = perf_counter() - backend_call._stop
+                    backend_call._start -= self._total_trace_time
+                    backend_call._stop -= self._total_trace_time
+                    self._total_trace_time += delta_trace_time
 
     def _finish(self):
         self._stop = perf_counter()
@@ -386,7 +393,7 @@ _PROFILE = []
 
 
 @contextmanager
-def profile(backends=None, trace=True) -> Profile:
+def profile(backends=None, trace=True, subtract_trace_time=True) -> Profile:
     """
     To be used in `with` statements, `with math.backend.profile() as prof: ...`.
     Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
@@ -394,12 +401,13 @@ def profile(backends=None, trace=True) -> Profile:
     Args:
         backends: List of backends to profile, `None` to profile all.
         trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+        subtract_trace_time: If True, subtracts the time it took to trace the call stack from the event times
 
     Returns:
         Created `Profile`
     """
     backends = BACKENDS if backends is None else backends
-    prof = Profile(trace, backends)
+    prof = Profile(trace, backends, subtract_trace_time)
     restore_data = _start_profiling(prof, backends)
     try:
         yield prof
@@ -412,6 +420,7 @@ def profile_function(fun: callable,
                      kwargs: dict or None = None,
                      backends=None,
                      trace=True,
+                     subtract_trace_time=True,
                      retime=True,
                      warmup=1,
                      call_count=1) -> Profile:
@@ -425,11 +434,12 @@ def profile_function(fun: callable,
         kwargs: Keyword arguments to be passed to `fun`.
         backends: List of backends to profile, `None` to profile all.
         trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+        subtract_trace_time: If True, subtracts the time it took to trace the call stack from the event times. Has no effect if `retime=True`.
         retime: If true, calls `fun` another time without tracing the calls and updates the profile.
             This gives a much better indication of the true timing.
             See `Profile.retime()`.
         warmup: Number of times to call ´fun` before profiling it.
-        call_count:
+        call_count: How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if `call_count > 1`.
 
     Returns:
         Created `Profile` for `fun`.
@@ -437,7 +447,7 @@ def profile_function(fun: callable,
     kwargs = kwargs if isinstance(kwargs, dict) else {}
     for _ in range(warmup):
         fun(*args, **kwargs)
-    with profile(backends=backends, trace=trace) as prof:
+    with profile(backends=backends, trace=trace, subtract_trace_time=subtract_trace_time) as prof:
         fun(*args, **kwargs)
     if retime:
         with prof.retime():

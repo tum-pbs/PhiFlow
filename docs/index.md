@@ -21,16 +21,16 @@ The following introductory demos are also helpful to get started with writing yo
 | Module      | Documentation                                        |
 |-------------|------------------------------------------------------|
 | [phi.app](phi/app)     | [Interactive application development, web interface](Web_Interface.md)   |
-| [phi.physics](phi/physics) | [Domains, built-in physics functions](Physics.md)         |
+| [phi.physics](phi/physics) <br /> [phi.physics.advect](phi/physics/advect.html) <br /> [phi.physics.fluid](phi/physics/fluid.html) | [Domains, built-in physics functions](Physics.md)         |
 | [phi.field](phi/field)   | [Grids, particles, analytic representations](Fields.md)           |
 | [phi.geom](phi/geom)    | [Differentiable Geometry](Geometry.md)                              |
-| [phi.math](phi/math)    | [Vectorized operations, tensors with named dimensions](Math.md) |
+| [phi.math](phi/math) <br /> [phi.math.backend](phi/math/backend) <br /> [phi.math.extrapolation](phi/math/extrapolation.html)  | [Vectorized operations, tensors with named dimensions](Math.md) |
 
 ### API Documentation
 
 The [API documentation](phi) is generated using [pdoc](https://pdoc3.github.io/pdoc/).
 To manually generate the documentation, add the PhiFlow directory to your Python path and run
-```
+```bash
 $ pdoc --html --output-dir docs --force phi
 ```
 

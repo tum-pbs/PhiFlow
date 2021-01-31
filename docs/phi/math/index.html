@@ -2707,7 +2707,7 @@ names: str or tuple or list:
             from ._functions import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
-    if isinstance(data, numbers.Number):
+    if isinstance(data, (numbers.Number, str)):
         assert not names
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, Shape):
@@ -3069,7 +3069,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>kind</code></strong></dt>
-<dd>Python type, one of <code>(bool, int, float, complex)</code></dd>
+<dd>Python type, one of <code>(bool, int, float, complex, str)</code></dd>
 <dt><strong><code>bits</code></strong></dt>
 <dd>number of bits, typically a multiple of 8.</dd>
 </dl></div>
@@ -3084,10 +3084,10 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
         Data type for tensors.
 
         Args:
-          kind: Python type, one of `(bool, int, float, complex)`
+          kind: Python type, one of `(bool, int, float, complex, str)`
           bits: number of bits, typically a multiple of 8.
         &#34;&#34;&#34;
-        assert kind in (bool, int, float, complex)
+        assert kind in (bool, int, float, complex, str)
         if kind is bool:
             assert bits == 8
         else:

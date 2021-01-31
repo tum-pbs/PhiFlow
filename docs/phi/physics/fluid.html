@@ -60,7 +60,10 @@ def make_incompressible(velocity: Grid,
       pressure_guess: CenteredGrid:  (Default value = None)
 
     Returns:
-      divergence-free velocity, pressure, iterations, divergence of input velocity
+      incompressible_velocity: divergence-free velocity of type `type(velocity)`
+      pressure: solved pressure field, `CenteredGrid`
+      iterations: Number of iterations required to solve for the pressure
+      divergence: divergence field of input velocity, `CenteredGrid`
 
     &#34;&#34;&#34;
     input_velocity = velocity
@@ -206,7 +209,16 @@ Cells outside will be unaffected.</p>
 (Default value = None)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>divergence-free velocity, pressure, iterations, divergence of input velocity</p></div>
+<dl>
+<dt><code>incompressible_velocity</code></dt>
+<dd>divergence-free velocity of type <code>type(velocity)</code></dd>
+<dt><code>pressure</code></dt>
+<dd>solved pressure field, <code>CenteredGrid</code></dd>
+<dt><code>iterations</code></dt>
+<dd>Number of iterations required to solve for the pressure</dd>
+<dt><code>divergence</code></dt>
+<dd>divergence field of input velocity, <code>CenteredGrid</code></dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -234,7 +246,10 @@ Cells outside will be unaffected.</p>
       pressure_guess: CenteredGrid:  (Default value = None)
 
     Returns:
-      divergence-free velocity, pressure, iterations, divergence of input velocity
+      incompressible_velocity: divergence-free velocity of type `type(velocity)`
+      pressure: solved pressure field, `CenteredGrid`
+      iterations: Number of iterations required to solve for the pressure
+      divergence: divergence field of input velocity, `CenteredGrid`
 
     &#34;&#34;&#34;
     input_velocity = velocity

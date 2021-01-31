@@ -162,6 +162,8 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
         for base_np_dtype, dtype in _FROM_NUMPY.items():
             if np_dtype == base_np_dtype:
                 return dtype
+        if np_dtype.char == &#39;U&#39;:
+            return DType(str, 8 * np_dtype.itemsize)
         raise ValueError(np_dtype)</code></pre>
 </details>
 </dd>
@@ -241,7 +243,7 @@ def precision(floating_point_bits: int):
 </details>
 </dd>
 <dt id="phi.math.backend.profile"><code class="name flex">
-<span>def <span class="ident">profile</span></span>(<span>backends=None, trace=True) ‑> phi.math.backend._profile.Profile</span>
+<span>def <span class="ident">profile</span></span>(<span>backends=None, trace=True, subtract_trace_time=True) ‑> phi.math.backend._profile.Profile</span>
 </code></dt>
 <dd>
 <div class="desc"><p>To be used in <code>with</code> statements, <code>with math.backend.profile() as prof: ...</code>.
@@ -252,6 +254,8 @@ Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Prof
 <dd>List of backends to profile, <code>None</code> to profile all.</dd>
 <dt><strong><code>trace</code></strong></dt>
 <dd>Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.</dd>
+<dt><strong><code>subtract_trace_time</code></strong></dt>
+<dd>If True, subtracts the time it took to trace the call stack from the event times</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Created <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code></p></div>
@@ -260,7 +264,7 @@ Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Prof
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@contextmanager
-def profile(backends=None, trace=True) -&gt; Profile:
+def profile(backends=None, trace=True, subtract_trace_time=True) -&gt; Profile:
     &#34;&#34;&#34;
     To be used in `with` statements, `with math.backend.profile() as prof: ...`.
     Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
@@ -268,12 +272,13 @@ def profile(backends=None, trace=True) -&gt; Profile:
     Args:
         backends: List of backends to profile, `None` to profile all.
         trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+        subtract_trace_time: If True, subtracts the time it took to trace the call stack from the event times
 
     Returns:
         Created `Profile`
     &#34;&#34;&#34;
     backends = BACKENDS if backends is None else backends
-    prof = Profile(trace, backends)
+    prof = Profile(trace, backends, subtract_trace_time)
     restore_data = _start_profiling(prof, backends)
     try:
         yield prof
@@ -282,7 +287,7 @@ def profile(backends=None, trace=True) -&gt; Profile:
 </details>
 </dd>
 <dt id="phi.math.backend.profile_function"><code class="name flex">
-<span>def <span class="ident">profile_function</span></span>(<span>fun: <built-in function callable>, args: tuple = (), kwargs: dict = None, backends=None, trace=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
+<span>def <span class="ident">profile_function</span></span>(<span>fun: <built-in function callable>, args: tuple = (), kwargs: dict = None, backends=None, trace=True, subtract_trace_time=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for the function <code>fun(*args, **kwargs)</code>.</p>
@@ -299,14 +304,17 @@ Use <code>warmup&gt;0</code> to ensure that internal caching does not interfere 
 <dd>List of backends to profile, <code>None</code> to profile all.</dd>
 <dt><strong><code>trace</code></strong></dt>
 <dd>Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.</dd>
+<dt><strong><code>subtract_trace_time</code></strong></dt>
+<dd>If True, subtracts the time it took to trace the call stack from the event times. Has no effect if <code>retime=True</code>.</dd>
 <dt><strong><code>retime</code></strong></dt>
 <dd>If true, calls <code>fun</code> another time without tracing the calls and updates the profile.
 This gives a much better indication of the true timing.
 See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Profile.retime">Profile.retime()</a></code>.</dd>
 <dt><strong><code>warmup</code></strong></dt>
 <dd>Number of times to call ´fun` before profiling it.</dd>
+<dt><strong><code>call_count</code></strong></dt>
+<dd>How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if <code>call_count &gt; 1</code>.</dd>
 </dl>
-<p>call_count:</p>
 <h2 id="returns">Returns</h2>
 <p>Created <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for <code>fun</code>.</p></div>
 <details class="source">
@@ -318,6 +326,7 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
                      kwargs: dict or None = None,
                      backends=None,
                      trace=True,
+                     subtract_trace_time=True,
                      retime=True,
                      warmup=1,
                      call_count=1) -&gt; Profile:
@@ -331,11 +340,12 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
         kwargs: Keyword arguments to be passed to `fun`.
         backends: List of backends to profile, `None` to profile all.
         trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
+        subtract_trace_time: If True, subtracts the time it took to trace the call stack from the event times. Has no effect if `retime=True`.
         retime: If true, calls `fun` another time without tracing the calls and updates the profile.
             This gives a much better indication of the true timing.
             See `Profile.retime()`.
         warmup: Number of times to call ´fun` before profiling it.
-        call_count:
+        call_count: How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if `call_count &gt; 1`.
 
     Returns:
         Created `Profile` for `fun`.
@@ -343,7 +353,7 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
     kwargs = kwargs if isinstance(kwargs, dict) else {}
     for _ in range(warmup):
         fun(*args, **kwargs)
-    with profile(backends=backends, trace=trace) as prof:
+    with profile(backends=backends, trace=trace, subtract_trace_time=subtract_trace_time) as prof:
         fun(*args, **kwargs)
     if retime:
         with prof.retime():
@@ -429,7 +439,11 @@ The output of math operations has the same precision as its inputs.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def to_numpy_dtype(dtype: DType):
-    return _TO_NUMPY[dtype]</code></pre>
+    if dtype in _TO_NUMPY:
+        return _TO_NUMPY[dtype]
+    if dtype.kind == str:
+        bytes_per_char = np.dtype(&#39;&lt;U1&#39;).itemsize
+        return np.dtype(f&#39;&lt;U{dtype.itemsize // bytes_per_char}&#39;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -502,7 +516,8 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)
-        tensors = [self.cast(t, result_type) for t in tensors]
+        if result_type.kind in (int, float, complex, bool):
+            tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
 
     def __str__(self):
@@ -1188,7 +1203,8 @@ Backends can override this method to prevent unnecessary casting.</p>
     &#34;&#34;&#34;
     dtypes = [self.dtype(t) for t in tensors]
     result_type = self.combine_types(*dtypes)
-    tensors = [self.cast(t, result_type) for t in tensors]
+    if result_type.kind in (int, float, complex, bool):
+        tensors = [self.cast(t, result_type) for t in tensors]
     return tensors</code></pre>
 </details>
 </dd>
@@ -2658,7 +2674,7 @@ Otherwise, non-float inputs are converted to float32 (unless <code>float64=True<
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>kind</code></strong></dt>
-<dd>Python type, one of <code>(bool, int, float, complex)</code></dd>
+<dd>Python type, one of <code>(bool, int, float, complex, str)</code></dd>
 <dt><strong><code>bits</code></strong></dt>
 <dd>number of bits, typically a multiple of 8.</dd>
 </dl></div>
@@ -2673,10 +2689,10 @@ Otherwise, non-float inputs are converted to float32 (unless <code>float64=True<
         Data type for tensors.
 
         Args:
-          kind: Python type, one of `(bool, int, float, complex)`
+          kind: Python type, one of `(bool, int, float, complex, str)`
           bits: number of bits, typically a multiple of 8.
         &#34;&#34;&#34;
-        assert kind in (bool, int, float, complex)
+        assert kind in (bool, int, float, complex, str)
         if kind is bool:
             assert bits == 8
         else:
@@ -2811,7 +2827,7 @@ def precision(self):
 </dd>
 <dt id="phi.math.backend.Profile"><code class="flex name class">
 <span>class <span class="ident">Profile</span></span>
-<span>(</span><span>trace: bool, backends)</span>
+<span>(</span><span>trace: bool, backends: tuple, subtract_trace_time: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stores information about calls to backends and their timing.</p>
@@ -2830,7 +2846,7 @@ def precision(self):
     Profiles can be printed or saved to disc.
     &#34;&#34;&#34;
 
-    def __init__(self, trace: bool, backends):
+    def __init__(self, trace: bool, backends: tuple or list, subtract_trace_time: bool):
         self._start = perf_counter()
         self._stop = None
         self._root = ExtCall(None, [])
@@ -2841,6 +2857,8 @@ def precision(self):
         self._retime_index = -1
         self._accumulating = False
         self._backends = backends
+        self._subtract_trace_time = subtract_trace_time
+        self._total_trace_time = 0
 
     def _add_call(self, backend_call: BackendCall):
         if self._retime_index &gt;= 0:
@@ -2864,6 +2882,11 @@ def precision(self):
                     call = sub_call
                 call.add(backend_call)
                 self._last_ext_call = call
+                if self._subtract_trace_time:
+                    delta_trace_time = perf_counter() - backend_call._stop
+                    backend_call._start -= self._total_trace_time
+                    backend_call._stop -= self._total_trace_time
+                    self._total_trace_time += delta_trace_time
 
     def _finish(self):
         self._stop = perf_counter()
