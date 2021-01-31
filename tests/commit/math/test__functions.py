@@ -77,6 +77,19 @@ class TestMathFunctions(TestCase):
         std = math.std(ones)
         self.assertEqual(0, std)
 
+    def test_grid_sample_1d(self):
+        grid = math.tensor([0, 1, 2, 3], names='x')
+        coords = math.tensor([[0], [1], [0.5]], names='x,vector')
+        sampled = math.grid_sample(grid, coords, None)
+        math.print(sampled)
+        math.assert_close(sampled, [0, 1, 0.5])
+
+    def test_closest_grid_values_1d(self):
+        grid = math.tensor([0, 1, 2, 3], names='x')
+        coords = math.tensor([[0.1], [1.9], [0.5], [3.1]], names='x,vector')
+        closest = math.closest_grid_values(grid, coords, extrapolation.ZERO)
+        math.assert_close(closest, math.tensor([(0, 1), (1, 2), (0, 1), (3, 0)], names='x,closest_x'))
+
 # Legacy test to be fixed
 # def _resample_test(mode, constant_values, expected):
 #    grid = np.tile(np.reshape(np.array([[1,2], [4,5]]), [1,2,2,1]), [1, 1, 1, 2])

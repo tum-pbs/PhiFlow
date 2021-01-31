@@ -7,6 +7,10 @@ from phi.physics import Domain, CLOSED, fluid
 from phi.tf import TF_BACKEND
 from phi.torch import TORCH_BACKEND
 
+import tensorflow as tf
+if tf.config.list_physical_devices('GPU'):
+    tf.config.experimental.set_memory_growth(tf.config.list_physical_devices('GPU')[0], True)  # prevent Blas GEMM launch failed
+
 
 class FluidTest(TestCase):
 

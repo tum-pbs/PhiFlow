@@ -673,11 +673,12 @@ class Shape:
         Returns:
             volume as `int` or `Tensor` or `None` if the shape is not `Shape.well_defined`
         """
-        if None in self.sizes:
-            return None
-        if self.rank == 0:
-            return 1
-        return int(math.prod(math.tensor(self.sizes)))
+        result = 1
+        for size in self.sizes:
+            if size is None:
+                return None
+            result *= size
+        return result
 
     @property
     def is_empty(self) -> bool:

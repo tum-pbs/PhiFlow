@@ -61,36 +61,42 @@ def semi_lagrangian(field: GridType, velocity: Field, dt) -> GridType:
     v = velocity.sample_in(field.elements)
     x = field.points - v * dt
     interpolated = field.sample_at(x, reduce_channels=x.shape.non_channel.without(field.shape).names)
-    return field._with(interpolated)
+    return field.with_(interpolated)
 
 
-def mac_cormack(field: CenteredGrid, velocity: Field, dt, correction_strength=1.0) -> CenteredGrid:
+def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength=1.0) -> GridType:
     """
     MacCormack advection uses a forward and backward lookup to determine the first-order error of semi-Lagrangian advection.
     It then uses that error estimate to correct the field values.
     To avoid overshoots, the resulting value is bounded by the neighbouring grid cells of the backward lookup.
 
     Args:
-      correction_strength: the estimated error is multiplied by this factor before being applied. The case correction_strength=0 equals semi-lagrangian advection. Set lower than 1.0 to avoid oscillations. (Default value = 1.0)
-      field: Field to be advected
-      velocity: vector field, need not be compatible with `field`.
-      dt: time increment
-      field: CenteredGrid: 
-      velocity: Field: 
+      field: Field to be advected, one of `(CenteredGrid, StaggeredGrid)`
+      velocity: Vector field, need not be sampled at same locations as `field`.
+      dt: Time increment
+      correction_strength: The estimated error is multiplied by this factor before being applied. The case correction_strength=0 equals semi-lagrangian advection. Set lower than 1.0 to avoid oscillations. (Default value = 1.0)
 
     Returns:
-      Field compatible with input field
+      Advected field of type `type(field)`
 
     """
-    x0 = field.points
     v = velocity.sample_in(field.elements)
+    x0 = field.points
     x_bwd = x0 - v * dt
     x_fwd = x0 + v * dt
-    field_semi_la = field._with(field.sample_at(x_bwd.values, reduce_channels='not yet implemented'))  # semi-Lagrangian advection
-    field_inv_semi_la = field._with(field_semi_la.sample_at(x_fwd.values, reduce_channels='not yet implemented'))  # inverse semi-Lagrangian advection
+    reduce = x0.shape.non_channel.without(field.shape).names
+    # Semi-Lagrangian advection
+    field_semi_la = field.with_(values=field.sample_at(x_bwd, reduce_channels=reduce))
+    # Inverse semi-Lagrangian advection
+    field_inv_semi_la = field.with_(values=field_semi_la.sample_at(x_fwd, reduce_channels=reduce))
+    # correction
     new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
-    field_clamped = math.clip(new_field, *field.general_sample_at(x_bwd.values, 'minmax'))  # Address overshoots
-    return field_clamped
+    # Address overshoots
+    limits = field.closest_values(x_bwd, reduce)
+    lower_limit = math.min(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
+    upper_limit = math.max(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
+    values_clamped = math.clip(new_field.values, lower_limit, upper_limit)
+    return new_field.with_(values=values_clamped)
 
 
 def runge_kutta_4(field: PointCloud, velocity: Field, dt):

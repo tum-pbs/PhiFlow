@@ -31,7 +31,10 @@ class Grid(SampledField):
         self._bounds = bounds
         assert_same_rank(self.values.shape, bounds, 'data dimensions %s do not match box %s' % (self.values.shape, bounds))
 
-    def sample_at(self, points, reduce_channels=()) -> Tensor:
+    def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
+        raise NotImplementedError(self)
+
+    def closest_values(self, points: Tensor, reduce_channels=()):
         raise NotImplementedError(self)
 
     @property
@@ -135,10 +138,9 @@ class CenteredGrid(Grid):
             padded = pad(self, {dim: (int(lower[i]), int(upper[i])) for i, dim in enumerate(self.shape.spatial.names)})
             return padded._shift_resample(resolution, box)
 
-    def closest_values(self, points):
-        local_points = self.box.global_to_local(points)
-        indices = local_points * math.to_float(self.resolution) - 0.5
-        return math.closest_grid_values(self.values, indices, self.extrapolation)
+    def closest_values(self, points: Tensor, reduce_channels=()):
+        local_points = self.box.global_to_local(points) * self.resolution - 0.5
+        return math.closest_grid_values(self.values, local_points, self.extrapolation)
 
 
 class StaggeredGrid(Grid):
@@ -242,6 +244,15 @@ class StaggeredGrid(Grid):
             assert len(reduce_channels) == 1
             points = points.unstack(reduce_channels[0])
             channels = [component.sample_at(p) for p, component in zip(points, self.unstack())]
+        return math.channel_stack(channels, 'vector')
+
+    def closest_values(self, points: Tensor, reduce_channels=()):
+        if not reduce_channels:
+            channels = [component.sample_at(points) for component in self.unstack()]
+        else:
+            assert len(reduce_channels) == 1
+            points = points.unstack(reduce_channels[0])
+            channels = [component.closest_values(p) for p, component in zip(points, self.unstack())]
         return math.channel_stack(channels, 'vector')
 
     def at_centers(self) -> CenteredGrid:
