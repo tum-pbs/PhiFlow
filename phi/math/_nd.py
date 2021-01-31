@@ -2,7 +2,7 @@
 from __future__ import division
 
 import numpy as np
-
+from typing import Tuple
 from phi import struct
 from . import extrapolation as extrapolation
 from . import _functions as math
@@ -239,31 +239,45 @@ def shift(x: Tensor,
     return offset_tensors
 
 
-def masked_extp(x: Tensor, mask: Tensor, size: int = 1):
+def masked_extp(x: Tensor, mask: Tensor, size: int = 1) -> Tuple[Tensor, Tensor]:
+    """
+    Extrapolates the values of `x` which are marked by the nonzero values of `mask` for `size` steps in all directions.
+    Overlapping extrapolated values get averaged. Extrapolation also includes diagonals. Vertical / Horizonal extrapolations
+    take precedence over diagonal ones. Initial values within the mask do not get overwritten.
+
+    Examples (1-step extrapolation), x marks the values for extrapolation:
+        200   000    111        004   00x    044        100   000    144
+        010 + 0x0 => 111        000 + 000 => 234        004 + 00x => 244
+        040   000    111        200   x00    220        200   x00    224
+
+    Args:
+        x: Tensor which holds the values for extrapolation
+        mask: Tensor with same size as `x` marking the values for extrapolation with nonzero values
+        size: Number of extrapolation steps
+
+    Returns:
+        Tensor with extrapolation result and mask marking all extrapolated values.
+    """
     if size <= 0:
         return x, mask
     size = min(size, max(x.shape))
-    # ensure binary mask
-    mask = math.divide_no_nan(mask, mask)
+    mask = math.divide_no_nan(mask, mask)  # ensure binary mask
     values_l, values_r = shift(x * mask, (-1, 1))
     mask_l, mask_r = shift(mask, (-1, 1))
     overlap = math.sum_(mask_l + mask_r, dim='shift')
-    # calculate mean where extrapolated values overlap
-    extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)
-    # extrapolate diagonally (double y because both, up and down component of the vertical shift
-    # (y-direction) get shifted left and right)
+    extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
+
+    # --- extrapolate diagonally (double y to shift up and down component of y-shift left and right) ---
     values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims='y')
     mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims='y')
     values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims='y')
     mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims='y')
     overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
-    # calculate mean where extrapolated values overlap (shift axis has only one component)
-    extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]
-    extp = math.where(overlap, extp, extp_diag)
+
+    extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]  # take mean (shift axis has only one component)
+    extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
     new_mask = (mask + overlap + overlap_diag).unstack('shift')[0]
-    # do not overwrite original values within the mask and keep values which are not affected by extrapolation
-    new_x = math.where(mask, x, math.where(new_mask, extp, x))
-    # perform multiple extrapolation steps recursively
+    new_x = math.where(mask, x, math.where(new_mask, extp, x))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
     return masked_extp(new_x, math.divide_no_nan(new_mask, new_mask), size=size - 1)
 
 

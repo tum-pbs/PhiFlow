@@ -60,8 +60,8 @@ class RotatedGeometry(Geometry):
         final = rotated + self.center
         return final
 
-    def shift_points(self, location: Tensor, outward: bool = True, shift_amount: float = 0):
-        shift = self.geometry.shift_points(self.global_to_child(location), outward=outward, shift_amount=shift_amount)
+    def shift_positions(self, positions: Tensor, outward: bool = True, shift_amount: float = 0):
+        shift = self.geometry.shift_positions(self.global_to_child(positions), outward=outward, shift_amount=shift_amount)
         return self._rotate(shift)
 
     def lies_inside(self, location):

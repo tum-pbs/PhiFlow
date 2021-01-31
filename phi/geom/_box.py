@@ -97,24 +97,20 @@ class AbstractBox(Geometry):
         distance = math.abs(location - center) - extent * 0.5
         return math.max(distance, 'vector')
 
-    def shift_points(self, location: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+    def shift_positions(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
-        loc_to_center = location - center
+        loc_to_center = positions - center
         distance = math.abs(loc_to_center) - extent * 0.5
         if outward:
-            # get shift towards nearest border
-            shift = math.where(distance == math.max(distance, 'vector'), distance, 0)
-            # filter points inside
-            shift = math.where(shift < 0, shift, 0)
-            # get shift direction
-            shift = math.where(loc_to_center < 0, 1, -1) * (shift - math.where(shift != 0, shift_amount, 0))
+            shift = math.where(distance == math.max(distance, 'vector'), distance, 0)  # get shift towards nearest border
+            shift = math.where(shift < 0, shift, 0)  # filter points inside geometry
+            shift = math.where(loc_to_center < 0, 1, -1) * (shift - math.where(shift != 0, shift_amount, 0))  # get shift direction
         else:
             shift = math.where(distance < 0, 0, distance)
             shift += math.where(shift != 0, shift_amount, 0)
-            # ensure inward shift ends at center
-            shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)
-            shift = math.where(loc_to_center < 0, 1, -1) * shift
+            shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
+            shift = math.where(loc_to_center < 0, 1, -1) * shift  # get shift direction
         return shift
 
     def project(self, *dimensions: str):
