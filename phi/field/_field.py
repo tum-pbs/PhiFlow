@@ -162,6 +162,8 @@ class Field:
     def __getattr__(self, name: str) -> _FieldDim:
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
+        if hasattr(self.__class__, name):
+            raise RuntimeError(f"Failed to get attribute '{name}' of {self}")
         return _FieldDim(self, name)
 
     def __mul__(self, other):

@@ -6,6 +6,7 @@ from time import perf_counter
 from typing import Optional
 
 from ._backend import Backend, BACKENDS, _DEFAULT
+from ._dtype import DType
 
 
 class BackendCall:
@@ -15,6 +16,7 @@ class BackendCall:
         self._stop = stop
         self._backend = backend
         self._function_name = function_name
+        self._args = {"Backend": backend.name}
 
     def __repr__(self):
         return f"{1000 * self._duration:.2f} ms  {self._function_name}"
@@ -42,12 +44,16 @@ class BackendCall:
                 'tid': backend_index+1,
                 'ts': int(round(self._start * 1000000)),
                 'dur': int(round((self._stop - self._start) * 1000000)),
-                'args': {"Backend": self._backend.name}
+                'args': self._args
             }
         ]
 
     def call_count(self) -> int:
         return 1
+
+    def add_arg(self, key, value):
+        assert key not in self._args
+        self._args[key] = value
 
 
 class ExtCall:
@@ -226,7 +232,7 @@ class Profile:
         self._subtract_trace_time = subtract_trace_time
         self._total_trace_time = 0
 
-    def _add_call(self, backend_call: BackendCall):
+    def _add_call(self, backend_call: BackendCall, args: tuple, kwargs: dict, result):
         if self._retime_index >= 0:
             prev_call = self._backend_calls[self._retime_index]
             assert prev_call._function_name == backend_call._function_name
@@ -239,6 +245,13 @@ class Profile:
             self._retime_index = (self._retime_index + 1) % len(self._backend_calls)
         else:
             self._backend_calls.append(backend_call)
+            args = {i: arg for i, arg in enumerate(args)}
+            args.update(kwargs)
+            backend_call.add_arg("Inputs", _format_values(args, backend_call._backend))
+            if isinstance(result, (tuple, list)):
+                backend_call.add_arg("Outputs", _format_values({i: res for i, res in enumerate(result)}, backend_call._backend))
+            else:
+                backend_call.add_arg("Outputs", _format_values({0: result}, backend_call._backend))
             if self._trace:
                 stack = inspect.stack()[2:]
                 call = self._last_ext_call.common_call(stack)
@@ -248,11 +261,11 @@ class Profile:
                     call = sub_call
                 call.add(backend_call)
                 self._last_ext_call = call
-                if self._subtract_trace_time:
-                    delta_trace_time = perf_counter() - backend_call._stop
-                    backend_call._start -= self._total_trace_time
-                    backend_call._stop -= self._total_trace_time
-                    self._total_trace_time += delta_trace_time
+            if self._subtract_trace_time:
+                delta_trace_time = perf_counter() - backend_call._stop
+                backend_call._start -= self._total_trace_time
+                backend_call._stop -= self._total_trace_time
+                self._total_trace_time += delta_trace_time
 
     def _finish(self):
         self._stop = perf_counter()
@@ -352,6 +365,26 @@ class Profile:
             self._accumulating = False
 
 
+def _format_values(values: dict, backend):
+
+    def format_val(value):
+        if isinstance(value, str):
+            return f'"{value}"'
+        if isinstance(value, (int, float, complex, bool)):
+            return value
+        if isinstance(value, (tuple, list)):
+            return str([format_val(v) for v in value])
+        try:
+            shape = backend.shape(value)
+            dtype = backend.dtype(value)
+            return f"{tuple(shape)}, {dtype}"
+        except BaseException:
+            return str(value)
+
+    lines = [f"{key}: {format_val(val)}" for key, val in values.items()]
+    return "\n".join(lines)
+
+
 class ProfilingBackend:
 
     def __init__(self, prof: Profile, backend: Backend, index: int):
@@ -368,6 +401,7 @@ class ProfilingBackend:
         self.shape = backend.shape
         self.staticshape = backend.staticshape
         self.ndims = backend.ndims
+        self.dtype = backend.dtype
         self.expand_dims = backend.expand_dims
         self.reshape = backend.reshape
         # TODO strided slice does not go through backend atm
@@ -380,7 +414,7 @@ class ProfilingBackend:
                         start = perf_counter()
                         result = item(*args, **kwargs)
                         stop = perf_counter()
-                        prof._add_call(BackendCall(start, stop, profiling_backend, item_name))
+                        prof._add_call(BackendCall(start, stop, profiling_backend, item_name), args, kwargs, result)
                         return result
                     return call_fun
                 setattr(self, item_name, context())

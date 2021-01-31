@@ -7,8 +7,7 @@ import numpy as np
 
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
-from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
-    _infer_dim_type_from_name
+from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, _infer_dim_type_from_name
 from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, custom_op2, tensors
 from . import extrapolation
 from .backend._profile import get_current_profile
@@ -299,7 +298,8 @@ def closest_grid_values(grid: Tensor, coordinates: Tensor, extrap: 'extrapolatio
     # alternative method: pad array for all 2^d combinations, then stack to simplify gather_nd.
     assert all(name not in grid.shape for name in coordinates.shape.spatial.names), 'grid and coordinates must have different spatial dimensions'
     # --- Pad tensor where transform is not possible ---
-    non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1) for dim in grid.shape.spatial.names}
+    non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
+                    for dim in grid.shape.spatial.names}
     grid = extrap.pad(grid, non_copy_pad)
     coordinates += [not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names]
     # --- Transform coordiantes ---
@@ -328,13 +328,31 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrap
     return result
 
 
-def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation'):
-    if extrap.native_grid_sample_mode and grid.shape.batch == coordinates.shape.batch:
+def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation' or None):
+    if grid.shape.batch == coordinates.shape.batch:
+        # reshape batch dimensions, delegate to backend.grid_sample()
         grid_batched = join_dimensions(join_dimensions(grid, grid.shape.batch, 'batch'), grid.shape.channel, 'vector')
-        grid_native = grid_batched.native()
         coordinates_batched = join_dimensions(coordinates, coordinates.shape.batch, 'batch')
-        coordinates_native = coordinates_batched.native()
-        result = choose_backend(grid_native).grid_sample(grid_native, grid.shape.index(grid.shape.spatial), coordinates_native, extrap.native_grid_sample_mode)
+        backend = choose_backend(*grid._natives())
+        result = NotImplemented
+        if extrap is None:
+            result = backend.grid_sample(grid_batched.native(),
+                                         grid.shape.index(grid.shape.spatial),
+                                         coordinates_batched.native(),
+                                         'undefined')
+        elif extrap.native_grid_sample_mode:
+            result = backend.grid_sample(grid_batched.native(),
+                                         grid.shape.index(grid.shape.spatial),
+                                         coordinates_batched.native(),
+                                         extrap.native_grid_sample_mode)
+        if result == NotImplemented:
+            # pad one layer
+            grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap)
+            coordinates += 1
+            result = backend.grid_sample(grid_batched.native(),
+                                         grid.shape.index(grid.shape.spatial),
+                                         coordinates_batched.native(),
+                                         'undefined')
         if result != NotImplemented:
             result_shape = grid_batched.shape.non_spatial & coordinates_batched.shape.spatial
             result = NativeTensor(result, result_shape)

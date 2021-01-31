@@ -430,7 +430,8 @@ class TorchBackend(Backend):
             x = self.to_complex(x)
         rank = len(x.shape) - 2
         x = channels_first(x)
-        k = torch.fft.fft(torch.view_as_real(x), rank)
+        x = torch.view_as_real(x)
+        k = torch.fft.fft(x, rank)
         if k.is_complex():
             k = self.real(k).contiguous()
         k = torch.view_as_complex(k)
