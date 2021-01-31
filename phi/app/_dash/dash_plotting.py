@@ -17,7 +17,6 @@ def dash_graph_plot(data, settings: dict) -> dict:
     if data is None:
         return EMPTY_FIGURE
 
-<<<<<<< HEAD
     try:
         if isinstance(data, np.ndarray):
             data = math.tensor(data, convert=False)
@@ -47,30 +46,6 @@ def dash_graph_plot(data, settings: dict) -> dict:
 
     except BaseException as exc:
         print(exc)
-=======
-    if isinstance(data, np.ndarray):
-        data = math.tensor(data)
-
-    if isinstance(data, math.Tensor):
-        data = CenteredGrid(data, Box(0, math.tensor(data.shape, 'vector')))
-
-    if isinstance(data, (CenteredGrid, StaggeredGrid)):
-        component = settings.get('component', 'x')
-        if data.spatial_rank == 1:
-            return plot(data, settings)
-        if data.spatial_rank == 2:
-            if component == 'vec2' and data.shape.channel.volume >= 2:
-                return vector_field(data, settings)
-            else:
-                return heatmap(data, settings)
-        if data.spatial_rank == 3:
-            if component == 'vec2' and data.shape.channel.volum >= 2:
-                return vector_field(slice_2d(data, settings), settings)
-            else:
-                return heatmap(slice_2d(data, settings), settings)
-
-    warnings.warn('No figure recipe for data %s' % data)
->>>>>>> Removed PointCloud visualization.
     return EMPTY_FIGURE
 
 
@@ -256,7 +231,6 @@ def plot(field1d, settings):
     return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
 
 
-<<<<<<< HEAD
 def cloud_plot(cloud: PointCloud, settings: dict) -> dict:
     """
     Generates Plotly figure dict for the given PointCloud object.
@@ -303,8 +277,6 @@ def cloud_plot(cloud: PointCloud, settings: dict) -> dict:
     return plot_dict
 
 
-=======
->>>>>>> Removed PointCloud visualization.
 def reduce_component(tensor, component):
     if tensor.shape.channel.rank == 0:
         return tensor
