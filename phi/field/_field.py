@@ -62,35 +62,45 @@ class Field:
         
         The default implementation of this method samples this Field at the center point of the geometry.
 
+        See `Field.sample_at()`, `Field.at()`.
+
         Args:
           geometry: single or batched Geometry object
-          reduce_channels: optional) dimension of `points` to be reduced against the vector dimension of this Field.
-        Causes the components of this field to be sampled at different locations.
-        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])` (Default value = ())
-          geometry: Geometry: 
+          reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
+            Causes the components of this field to be sampled at different locations.
+            The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
+            assuming this field as a single channel dimension called `vector`.
+
+            Example:
+            While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
+            `StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')` samples each component at the corresponding face only.
 
         Returns:
-          sampled values
-
+          Sampled values as a `Tensor`
         """
         return self.sample_at(geometry.center, reduce_channels)
 
     def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
         """
-        Sample this field at the world-space locations (in physical units) given by points.
+        Sample this field at the world-space locations (in physical units) given by `points`.
         Points must have a single channel dimension named `vector`.
         It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
 
+        See `Field.sample_in()`, `Field.at()`.
+
         Args:
           points: world-space locations
-          reduce_channels: optional) dimension of `points` to be reduced against the vector dimension of this Field.
-        Causes the components of this field to be sampled at different locations.
-        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])` (Default value = ())
-          points: Tensor: 
+          reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
+            Causes the components of this field to be sampled at different locations.
+            The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
+            assuming this field as a single channel dimension called `vector`.
+
+            Example:
+            While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
+            `StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')` samples each component at the corresponding face only.
 
         Returns:
-          sampled values
-
+          Sampled values as a `Tensor`
         """
         raise NotImplementedError(self)
 
@@ -99,7 +109,7 @@ class Field:
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
         
-        Unlike Field.sample_at(), this method returns a Field object, not a Tensor.
+        Unlike `Field.sample_at()` or `Field.sample_in()`, this method returns a `Field` object, not a `Tensor`.
 
         Equal to `self >> representation`.
 

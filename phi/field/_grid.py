@@ -35,6 +35,21 @@ class Grid(SampledField):
         raise NotImplementedError(self)
 
     def closest_values(self, points: Tensor, reduce_channels=()):
+        """
+        Sample the closest grid point values of this field at the world-space locations (in physical units) given by `points`.
+        Points must have a single channel dimension named `vector`.
+        It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
+
+        Args:
+          points: world-space locations
+          reduce_channels: (optional) See `Field.sample_at()` for a description.
+
+        Returns:
+          Closest grid point values as a `Tensor`.
+          For each dimension, the grid points immediately left and right of the sample points are evaluated.
+          For each point in `points`, a *2^d* cube of points is determined where *d* is the number of spatial dimensions of this field.
+          These values are stacked along the new dimensions `'closest_<dim>'` where `<dim>` refers to the name of a spatial dimension.
+        """
         raise NotImplementedError(self)
 
     @property

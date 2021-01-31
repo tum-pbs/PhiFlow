@@ -92,7 +92,7 @@ def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength
     # correction
     new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
     # Address overshoots
-    limits = field.closest_values(x_bwd, reduce)
+    limits = field.closest_values(x_bwd, reduce_channels=reduce)
     lower_limit = math.min(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     values_clamped = math.clip(new_field.values, lower_limit, upper_limit)

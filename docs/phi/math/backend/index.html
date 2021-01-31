@@ -2860,7 +2860,7 @@ def precision(self):
         self._subtract_trace_time = subtract_trace_time
         self._total_trace_time = 0
 
-    def _add_call(self, backend_call: BackendCall):
+    def _add_call(self, backend_call: BackendCall, args: tuple, kwargs: dict, result):
         if self._retime_index &gt;= 0:
             prev_call = self._backend_calls[self._retime_index]
             assert prev_call._function_name == backend_call._function_name
@@ -2873,6 +2873,13 @@ def precision(self):
             self._retime_index = (self._retime_index + 1) % len(self._backend_calls)
         else:
             self._backend_calls.append(backend_call)
+            args = {i: arg for i, arg in enumerate(args)}
+            args.update(kwargs)
+            backend_call.add_arg(&#34;Inputs&#34;, _format_values(args, backend_call._backend))
+            if isinstance(result, (tuple, list)):
+                backend_call.add_arg(&#34;Outputs&#34;, _format_values({i: res for i, res in enumerate(result)}, backend_call._backend))
+            else:
+                backend_call.add_arg(&#34;Outputs&#34;, _format_values({0: result}, backend_call._backend))
             if self._trace:
                 stack = inspect.stack()[2:]
                 call = self._last_ext_call.common_call(stack)
@@ -2882,11 +2889,11 @@ def precision(self):
                     call = sub_call
                 call.add(backend_call)
                 self._last_ext_call = call
-                if self._subtract_trace_time:
-                    delta_trace_time = perf_counter() - backend_call._stop
-                    backend_call._start -= self._total_trace_time
-                    backend_call._stop -= self._total_trace_time
-                    self._total_trace_time += delta_trace_time
+            if self._subtract_trace_time:
+                delta_trace_time = perf_counter() - backend_call._stop
+                backend_call._start -= self._total_trace_time
+                backend_call._stop -= self._total_trace_time
+                self._total_trace_time += delta_trace_time
 
     def _finish(self):
         self._stop = perf_counter()

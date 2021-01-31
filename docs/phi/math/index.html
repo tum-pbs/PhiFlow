@@ -564,7 +564,7 @@ If True, raises a <code>NoBackendFound</code> error, else returns <code>None</co
 </details>
 </dd>
 <dt id="phi.math.clip"><code class="name flex">
-<span>def <span class="ident">clip</span></span>(<span>x: phi.math._tensors.Tensor, clip_min: float, clip_max: float)</span>
+<span>def <span class="ident">clip</span></span>(<span>x: phi.math._tensors.Tensor, lower_limit: float, upper_limit: float)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -572,8 +572,15 @@ If True, raises a <code>NoBackendFound</code> error, else returns <code>None</co
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def clip(x: Tensor, clip_min: float, clip_max: float):
-    return x._op1(lambda native: choose_backend(native).clip(native, clip_min, clip_max))</code></pre>
+<pre><code class="python">def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
+    if isinstance(lower_limit, Number) and isinstance(upper_limit, Number):
+
+        def clip_(x, lower_limit, upper_limit):
+            return x._op1(lambda native: choose_backend(native).clip(native, lower_limit, upper_limit))
+
+        return broadcast_op(clip_, [x, lower_limit, upper_limit])
+    else:
+        return maximum(lower_limit, minimum(x, upper_limit))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.close"><code class="name flex">
@@ -623,25 +630,21 @@ Tensors with different shapes are reshaped before comparing.</p>
 </details>
 </dd>
 <dt id="phi.math.closest_grid_values"><code class="name flex">
-<span>def <span class="ident">closest_grid_values</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>def <span class="ident">closest_grid_values</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, stack_dim_prefix='closest_')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds the neighboring grid points in all spatial directions and returns their values.
 The result will have 2^d values for each vector in coordiantes in d dimensions.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>extrap</code></strong></dt>
-<dd>grid extrapolation</dd>
 <dt><strong><code>grid</code></strong></dt>
 <dd>grid data. The grid is spanned by the spatial dimensions of the tensor</dd>
 <dt><strong><code>coordinates</code></strong></dt>
 <dd>tensor with 1 channel dimension holding vectors pointing to locations in grid index space</dd>
-<dt><strong><code>grid</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>coordinates</code></strong></dt>
-<dd>Tensor: </dd>
 <dt><strong><code>extrap</code></strong></dt>
-<dd>'extrapolation.Extrapolation': </dd>
+<dd>grid extrapolation</dd>
+<dt><strong><code>stack_dim_prefix</code></strong></dt>
+<dd>For each spatial dimension <code>dim</code>, stacks lower and upper closest values along dimension <code>stack_dim_prefix+dim</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Tensor of shape (batch, coord_spatial, grid_spatial=(2, 2,&hellip;), grid_channel)</p></div>
@@ -649,48 +652,25 @@ The result will have 2^d values for each vector in coordiantes in d dimensions.<
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def closest_grid_values(grid: Tensor, coordinates: Tensor, extrap: &#39;extrapolation.Extrapolation&#39;):
+<pre><code class="python">def closest_grid_values(grid: Tensor,
+                        coordinates: Tensor,
+                        extrap: &#39;extrapolation.Extrapolation&#39;,
+                        stack_dim_prefix=&#39;closest_&#39;):
     &#34;&#34;&#34;
     Finds the neighboring grid points in all spatial directions and returns their values.
     The result will have 2^d values for each vector in coordiantes in d dimensions.
 
     Args:
-      extrap: grid extrapolation
       grid: grid data. The grid is spanned by the spatial dimensions of the tensor
       coordinates: tensor with 1 channel dimension holding vectors pointing to locations in grid index space
-      grid: Tensor: 
-      coordinates: Tensor: 
-      extrap: &#39;extrapolation.Extrapolation&#39;: 
+      extrap: grid extrapolation
+      stack_dim_prefix: For each spatial dimension `dim`, stacks lower and upper closest values along dimension `stack_dim_prefix+dim`.
 
     Returns:
       Tensor of shape (batch, coord_spatial, grid_spatial=(2, 2,...), grid_channel)
 
     &#34;&#34;&#34;
-    # alternative method: pad array for all 2^d combinations, then stack to simplify gather_nd.
-    assert all(name not in grid.shape for name in coordinates.shape.spatial.names), &#39;grid and coordinates must have different spatial dimensions&#39;
-    # --- Pad tensor where transform is not possible ---
-    non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1) for dim in grid.shape.spatial.names}
-    grid = extrap.pad(grid, non_copy_pad)
-    coordinates += [not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names]
-    # --- Transform coordiantes ---
-    min_coords = to_int(floor(coordinates))
-    max_coords = extrap.transform_coordinates(min_coords + 1, grid.shape)
-    min_coords = extrap.transform_coordinates(min_coords, grid.shape)
-
-    def left_right(is_hi_by_axis_left, ax_idx):
-        is_hi_by_axis_right = is_hi_by_axis_left | np.array([ax == ax_idx for ax in range(grid.shape.spatial_rank)])
-        coords_left = where(is_hi_by_axis_left, max_coords, min_coords)
-        coords_right = where(is_hi_by_axis_right, max_coords, min_coords)
-        if ax_idx == grid.shape.spatial_rank - 1:
-            values_left = gather(grid, coords_left)
-            values_right = gather(grid, coords_right)
-        else:
-            values_left = left_right(is_hi_by_axis_left, ax_idx + 1)
-            values_right = left_right(is_hi_by_axis_right, ax_idx + 1)
-        return spatial_stack([values_left, values_right], grid.shape.spatial.names[ax_idx])
-
-    result = left_right(np.array([False] * grid.shape.spatial_rank), 0)
-    return result</code></pre>
+    return broadcast_op(functools.partial(_closest_grid_values, extrap=extrap, stack_dim_prefix=stack_dim_prefix), [grid, coordinates])</code></pre>
 </details>
 </dd>
 <dt id="phi.math.concat"><code class="name flex">
@@ -1590,7 +1570,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.maximum"><code class="name flex">
-<span>def <span class="ident">maximum</span></span>(<span>x, y)</span>
+<span>def <span class="ident">maximum</span></span>(<span>x: phi.math._tensors.Tensor, y: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1598,7 +1578,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def maximum(x, y):
+<pre><code class="python">def maximum(x: Tensor or float, y: Tensor or float):
     return custom_op2(x, y, maximum, lambda x_, y_: choose_backend(x_, y_).maximum(x_, y_))</code></pre>
 </details>
 </dd>
@@ -1674,7 +1654,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.minimum"><code class="name flex">
-<span>def <span class="ident">minimum</span></span>(<span>x, y)</span>
+<span>def <span class="ident">minimum</span></span>(<span>x: phi.math._tensors.Tensor, y: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1682,7 +1662,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimum(x, y):
+<pre><code class="python">def minimum(x: Tensor or float, y: Tensor or float):
     return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_))</code></pre>
 </details>
 </dd>
@@ -2462,7 +2442,8 @@ The output of math operations has the same precision as its inputs.</p>
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, &#39;implicit&#39;, callback)
     loop_time = time.perf_counter() - loop_time
     if get_current_profile():
-        get_current_profile().add_external_message(f&#34;CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations&#34;)
+        info = &#34;  \tProfile with trace=False to get more accurate results.&#34; if get_current_profile()._trace else &#34;&#34;
+        get_current_profile().add_external_message(f&#34;CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}&#34;)
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     return NativeTensor(converged, EMPTY_SHAPE), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, EMPTY_SHAPE)</code></pre>
 </details>
@@ -4218,11 +4199,12 @@ All arguments must have same length.</p>
         Returns:
             volume as `int` or `Tensor` or `None` if the shape is not `Shape.well_defined`
         &#34;&#34;&#34;
-        if None in self.sizes:
-            return None
-        if self.rank == 0:
-            return 1
-        return int(math.prod(math.tensor(self.sizes)))
+        result = 1
+        for size in self.sizes:
+            if size is None:
+                return None
+            result *= size
+        return result
 
     @property
     def is_empty(self) -&gt; bool:
@@ -4942,11 +4924,12 @@ def volume(self) -&gt; int or None:
     Returns:
         volume as `int` or `Tensor` or `None` if the shape is not `Shape.well_defined`
     &#34;&#34;&#34;
-    if None in self.sizes:
-        return None
-    if self.rank == 0:
-        return 1
-    return int(math.prod(math.tensor(self.sizes)))</code></pre>
+    result = 1
+    for size in self.sizes:
+        if size is None:
+            return None
+        result *= size
+    return result</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.well_defined"><code class="name">var <span class="ident">well_defined</span></code></dt>
@@ -5965,9 +5948,11 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         if all_available(self):
             if self.rank == 0:
                 return str(self.numpy())
-            elif self.shape.volume is not None and self.shape.volume &lt;= 4:
+            elif self.shape.volume is not None and self.shape.volume &lt;= 6:
                 content = list(np.reshape(self.numpy(), [-1]))
                 content = &#39;, &#39;.join([repr(number) for number in content])
+                if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
+                    return f&#34;({content}) along {self.shape.name}&#34;
                 return f&#34;{self.shape} {self.dtype}  {content}&#34;
             else:
                 min_val, max_val = min_(self), max_(self)
