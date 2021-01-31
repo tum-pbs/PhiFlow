@@ -88,14 +88,14 @@ def map2particle(v_particle: PointCloud, projected_v_field: StaggeredGrid, smask
         v_change_field = projected_v_field - initial_v_field
         v_change_field, _ = field.extp_sgrid(v_change_field, smask, 1)  # conserves falling shapes (no hard_bcs here!)
         v_change = v_change_field.sample_at(v_particle.elements.center)
-        return PointCloud(v_particle.elements, values=v_particle.values + v_change, bounds=v_particle.bounds,
-                          add_overlapping=v_particle._add_overlapping, color=v_particle.color)
+        return PointCloud(v_particle.elements, values=v_particle.values + v_change,
+                          add_overlapping=v_particle._add_overlapping)
     else:
         # PIC
         v_div_free_field, _ = field.extp_sgrid(projected_v_field, smask, 1)
         v_values = v_div_free_field.sample_at(v_particle.elements.center)
-        return PointCloud(v_particle.elements, values=v_values, bounds=v_particle.bounds,
-                          add_overlapping=v_particle._add_overlapping, color=v_particle.color)
+        return PointCloud(v_particle.elements, values=v_values,
+                          add_overlapping=v_particle._add_overlapping)
 
 
 def add_inflow(particles: PointCloud, inflow_points: Tensor, inflow_values: Tensor) -> PointCloud:
@@ -112,8 +112,8 @@ def add_inflow(particles: PointCloud, inflow_points: Tensor, inflow_values: Tens
     """
     new_points = math.tensor(math.concat([particles.points, inflow_points], dim='points'), names=['points', 'vector'])
     new_values = math.tensor(math.concat([particles.values, inflow_values], dim='points'), names=['points', 'vector'])
-    return PointCloud(Sphere(new_points, 0), add_overlapping=particles._add_overlapping, bounds=particles.bounds,
-                      values=new_values, color=particles.color)
+    return PointCloud(Sphere(new_points, 0), add_overlapping=particles._add_overlapping,
+                      values=new_values)
 
 
 def respect_boundaries(domain: Domain, obstacles: List[Obstacle], particles: PointCloud, offset: float = 1) -> PointCloud:
@@ -132,8 +132,7 @@ def respect_boundaries(domain: Domain, obstacles: List[Obstacle], particles: Poi
     """
     points = particles.elements
     for obstacle in obstacles:
-        shift = obstacle.geometry.shift_points(points.center, shift_amount=offset)
+        shift = obstacle.geometry.shift_positions(points.center, shift_amount=offset)
         points = particles.elements.shifted(shift)
     shift = (~domain.bounds).shift_positions(points.center, shift_amount=offset)
-    return PointCloud(points.shifted(shift), add_overlapping=particles._add_overlapping,
-                      bounds=particles.bounds, values=particles.values, color=particles.color)
+    return PointCloud(points.shifted(shift), add_overlapping=particles._add_overlapping, values=particles.values)

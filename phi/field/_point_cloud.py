@@ -51,14 +51,6 @@ class PointCloud(SampledField):
     def color(self) -> Tensor:
         return self._color
 
-    @property
-    def bounds(self) -> Box:
-        return self._bounds
-
-    @property
-    def color(self) -> str:
-        return self._color
-
     def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if not reduce_channels:
             if geometry == self.elements:
