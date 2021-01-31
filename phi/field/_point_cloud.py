@@ -97,10 +97,7 @@ class PointCloud(SampledField):
         if self._add_overlapping:
             duplicates_handling = 'add'
         else:
-            if self.values.shape.spatial_rank > 0:
-                duplicates_handling = 'mean'
-            else:
-                duplicates_handling = 'any'  # constant value, no need for interpolation
+            duplicates_handling = 'mean'
         scattered = math.scatter(closest_index, self.values, resolution, duplicates_handling=duplicates_handling, outside_handling='discard', scatter_dims=('points',))
         return scattered
 

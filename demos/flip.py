@@ -3,11 +3,11 @@ from phi.flow import *
 inflow = 0
 domain = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box[0:64, 0:64])
 point_mask = domain.grid().values
-point_mask.native()[35:40, 50:52] = 1
+point_mask.native()[30:34, :40] = 1
 initial_points = flip.distribute_points(point_mask, 8)
 initial_velocity = math.tensor(np.zeros(initial_points.shape), names=['points', 'vector'])
 initial_particles = PointCloud(Sphere(initial_points, 0), values=initial_velocity, bounds=domain.bounds, color='#5776ff')
-obstacles = [Obstacle(Box[25:45, 35:39])]
+obstacles = [Obstacle(Box[:1, 15:16].rotated(math.tensor(-40)))]
 obstacle_mask = domain.grid(HardGeometryMask(union([obstacle.geometry for obstacle in obstacles]))).values
 obstacle_points = flip.distribute_points(obstacle_mask, 2)
 obstacle_particles = PointCloud(Sphere(obstacle_points, 0), bounds=domain.bounds, color='#000000')
