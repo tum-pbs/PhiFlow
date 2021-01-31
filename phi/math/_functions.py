@@ -742,7 +742,11 @@ def minimum(x, y):
     return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_))
 
 
-def clip(x: Tensor, clip_min: float, clip_max: float):
+def clip(x: Tensor, clip_min: float or Tensor, clip_max: float or Tensor):
+    if isinstance(clip_min, Tensor):
+        clip_min = clip_min.native(x.shape.names)
+    if isinstance(clip_max, Tensor):
+        clip_max = clip_max.native(x.shape.names)
     return x._op1(lambda native: choose_backend(native).clip(native, clip_min, clip_max))
 
 
@@ -1009,6 +1013,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
     converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
     loop_time = time.perf_counter() - loop_time
     if get_current_profile():
-        get_current_profile().add_external_message(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations")
+        info = "  \tProfile with trace=False to get more accurate results." if get_current_profile()._trace else ""
+        get_current_profile().add_external_message(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}")
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     return NativeTensor(converged, EMPTY_SHAPE), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, EMPTY_SHAPE)
