@@ -9,7 +9,7 @@ from . import StaggeredGrid, HardGeometryMask
 from ._point_cloud import PointCloud
 from ._field import Field, SampledField
 from ._grid import CenteredGrid, Grid
-from ..math import masked_extp
+from ..math import tensor, extrapolate_valid_values
 
 
 def laplace(field: Grid, axes=None):
@@ -276,7 +276,7 @@ def stop_gradient(field: SampledField):
     raise NotImplementedError()
 
 
-def extrapolate_valid(grid: Grid, valid: Grid, distance_cells: int = 1) -> Tuple[Grid, Grid]:
+def extrapolate_valid(grid: Grid, valid: Grid, distance_cells=1) -> Tuple[Grid, Grid]:
     """
     Extrapolates values of `grid` which are marked by nonzero values in `valid` using the
     `masked_extp` method (see documentation of that method for detailed information). If
@@ -292,7 +292,7 @@ def extrapolate_valid(grid: Grid, valid: Grid, distance_cells: int = 1) -> Tuple
     """
     if isinstance(grid, CenteredGrid):
         assert isinstance(valid, CenteredGrid), 'Type of valid Grid must match type of grid.'
-        new_tensor, new_mask = masked_extp(grid.values, valid.values, distance_cells)
+        new_tensor, new_mask = extrapolate_valid_values(grid.values, valid.values, distance_cells)
         return CenteredGrid(new_tensor, grid.box, grid.extrapolation), \
             CenteredGrid(new_mask, valid.box, valid.extrapolation)
     elif isinstance(grid, StaggeredGrid):

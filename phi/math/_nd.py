@@ -239,9 +239,9 @@ def shift(x: Tensor,
     return offset_tensors
 
 
-def masked_extp(x: Tensor, mask: Tensor, size: int = 1) -> Tuple[Tensor, Tensor]:
+def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -> Tuple[Tensor, Tensor]:
     """
-    Extrapolates the values of `x` which are marked by the nonzero values of `mask` for `size` steps in all directions.
+    Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all directions.
     Overlapping extrapolated values get averaged. Extrapolation also includes diagonals. Vertical / Horizonal extrapolations
     take precedence over diagonal ones. Initial values within the mask do not get overwritten.
 
@@ -251,19 +251,19 @@ def masked_extp(x: Tensor, mask: Tensor, size: int = 1) -> Tuple[Tensor, Tensor]
         040   000    111        200   x00    220        200   x00    224
 
     Args:
-        x: Tensor which holds the values for extrapolation
-        mask: Tensor with same size as `x` marking the values for extrapolation with nonzero values
-        size: Number of extrapolation steps
+        values: Tensor which holds the values for extrapolation
+        valid: Tensor with same size as `x` marking the values for extrapolation with nonzero values
+        distance_cells: Number of extrapolation steps
 
     Returns:
         Tensor with extrapolation result and mask marking all extrapolated values.
     """
-    if size <= 0:
-        return x, mask
-    size = min(size, max(x.shape))
-    mask = math.divide_no_nan(mask, mask)  # ensure binary mask
-    values_l, values_r = shift(x * mask, (-1, 1))
-    mask_l, mask_r = shift(mask, (-1, 1))
+    if distance_cells <= 0:
+        return values, valid
+    distance_cells = min(distance_cells, max(values.shape))
+    valid = math.divide_no_nan(valid, valid)  # ensure binary mask
+    values_l, values_r = shift(values * valid, (-1, 1))
+    mask_l, mask_r = shift(valid, (-1, 1))
     overlap = math.sum_(mask_l + mask_r, dim='shift')
     extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
 
@@ -276,9 +276,9 @@ def masked_extp(x: Tensor, mask: Tensor, size: int = 1) -> Tuple[Tensor, Tensor]
 
     extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]  # take mean (shift axis has only one component)
     extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
-    new_mask = (mask + overlap + overlap_diag).unstack('shift')[0]
-    new_x = math.where(mask, x, math.where(new_mask, extp, x))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
-    return masked_extp(new_x, math.divide_no_nan(new_mask, new_mask), size=size - 1)
+    new_mask = (valid + overlap + overlap_diag).unstack('shift')[0]
+    new_x = math.where(valid, values, math.where(new_mask, extp, values))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
+    return extrapolate_valid_values(new_x, math.divide_no_nan(new_mask, new_mask), distance_cells=distance_cells - 1)
 
 
 # Gradient

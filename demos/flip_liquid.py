@@ -4,7 +4,7 @@ from phi.flow import *
 inflow = 0
 domain = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box[0:64, 0:64])
 obstacles = [Obstacle(Box[30:35, 30:35].rotated(math.tensor(-20)))]
-bcs = flip.get_bcs(domain, obstacles)
+bcs = flip.get_accessible_mask(domain, obstacles)
 
 # --- Initialize particles ---
 point_mask = domain.grid(HardGeometryMask(union([Box[20:40, 50:60], Box[:, :10]])))

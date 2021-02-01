@@ -6,7 +6,7 @@ from phi.field import StaggeredGrid, HardGeometryMask, PointCloud, CenteredGrid,
 from phi.geom import union, Sphere
 
 
-def get_bcs(domain: Domain, obstacles: List[Obstacle]) -> StaggeredGrid:
+def get_accessible_mask(domain: Domain, obstacles: List[Obstacle]) -> StaggeredGrid:
     """
     Unifies domain and obstacles into a binary StaggeredGrid mask which can be used to enforce
     boundary conditions
@@ -23,32 +23,35 @@ def get_bcs(domain: Domain, obstacles: List[Obstacle]) -> StaggeredGrid:
     return field.stagger(accessible_mask, math.minimum, accessible_mask.extrapolation)
 
 
-def make_incompressible(v_field: StaggeredGrid, bcs: StaggeredGrid, cmask: CenteredGrid, smask: StaggeredGrid,
+def make_incompressible(velocity_field: StaggeredGrid,
+                        accessible: StaggeredGrid,
+                        cvalid: CenteredGrid,
+                        svalid: StaggeredGrid,
                         pressure: CenteredGrid) -> Tuple[StaggeredGrid, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its gradient.
 
     Args:
-        v_field: Current velocity field as StaggeredGrid
-        bcs: Boundary conditions as binary StaggeredGrid
-        cmask: Binary CenteredGrid indicating which cells hold particles
-        smask: Binary StaggeredGrid indicating which cells hold particles
+        velocity_field: Current velocity field as StaggeredGrid
+        accessible: Boundary conditions as binary StaggeredGrid
+        cvalid: Binary CenteredGrid indicating which cells hold particles
+        svalid: Binary StaggeredGrid indicating which cells hold particles
         pressure: Initial pressure guess as CenteredGrid
 
     Returns:
         Projected velocity field and corresponding pressure field
     """
-    v_field, _ = extrapolate_valid(v_field, smask, 1)  # extrapolation conserves falling shapes
-    v_field *= bcs  # Enforces boundary conditions after extrapolation
-    div = field.divergence(v_field) * cmask
+    velocity_field, _ = extrapolate_valid(velocity_field, svalid, 1)  # extrapolation conserves falling shapes
+    velocity_field *= accessible  # Enforces boundary conditions after extrapolation
+    div = field.divergence(velocity_field) * cvalid
 
     def laplace(p):
         # TODO: prefactor of pressure should not have any effect
-        return field.where(cmask, field.divergence(field.gradient(p, type=StaggeredGrid) * bcs), -4 * p)
+        return field.where(cvalid, field.divergence(field.gradient(p, type=StaggeredGrid) * accessible), -4 * p)
 
     converged, pressure, iterations = field.solve(laplace, div, pressure, solve_params=math.LinearSolve(None, 1e-5))
-    gradp = field.gradient(pressure, type=type(v_field))
-    return v_field - gradp, pressure
+    gradp = field.gradient(pressure, type=type(velocity_field))
+    return velocity_field - gradp, pressure
 
 
 def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
@@ -72,14 +75,12 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_g
         v_change_field = velocity_grid - previous_velocity_grid
         v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask, 1)
         v_change = v_change_field.sample_at(previous_particle_velocity.elements.center)
-        return PointCloud(previous_particle_velocity.elements, values=previous_particle_velocity.values + v_change,
-                          add_overlapping=previous_particle_velocity._add_overlapping)
+        return previous_particle_velocity.with_(values=previous_particle_velocity.values + v_change)
     else:
         # --- PIC ---
         v_div_free_field, _ = extrapolate_valid(velocity_grid, occupation_mask, 1)
         v_values = v_div_free_field.sample_at(previous_particle_velocity.elements.center)
-        return PointCloud(previous_particle_velocity.elements, values=v_values,
-                          add_overlapping=previous_particle_velocity._add_overlapping)
+        return previous_particle_velocity.with_(values=v_values)
 
 
 def add_inflow(particles: PointCloud, inflow_points: Tensor, inflow_values: Tensor) -> PointCloud:
@@ -96,27 +97,25 @@ def add_inflow(particles: PointCloud, inflow_points: Tensor, inflow_values: Tens
     """
     new_points = math.tensor(math.concat([particles.points, inflow_points], dim='points'), names=['points', 'vector'])
     new_values = math.tensor(math.concat([particles.values, inflow_values], dim='points'), names=['points', 'vector'])
-    return PointCloud(Sphere(new_points, 0), add_overlapping=particles._add_overlapping,
-                      values=new_values)
+    return particles.with_(elements=Sphere(new_points, 0), values=new_values)
 
 
-def respect_boundaries(domain: Domain, obstacles: List[Obstacle], particles: PointCloud, offset: float = 1) -> PointCloud:
+def respect_boundaries(particles: PointCloud, domain: Domain, obstacles: tuple or list, offset=1.0) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 
     obstacles or back into the domain.
     
     Args:
+        particles: PointCloud holding particle positions as elements
         domain: Domain for which any particles outside should get shifted inside
         obstacles: List of obstacles where any particles inside should get shifted outwards
-        particles: PointCloud holding particle positions as elements
-        offset: Offset from domain boundary / obstacle surface after shifting
+        offset: Distance between particles and domain boundary / obstacle surface after particles have been shifted.
 
     Returns:
         PointCloud where all particles are inside the domain / outside of obstacles.
     """
-    points = particles.elements
+    new_positions = particles.elements.center
     for obstacle in obstacles:
-        shift = obstacle.geometry.shift_positions(points.center, shift_amount=offset)
-        points = particles.elements.shifted(shift)
-    shift = (~domain.bounds).shift_positions(points.center, shift_amount=offset)
-    return PointCloud(points.shifted(shift), add_overlapping=particles._add_overlapping, values=particles.values)
+        new_positions = obstacle.geometry.push(new_positions, shift_amount=offset)
+    new_positions = (~domain.bounds).push(new_positions, shift_amount=offset)
+    return particles.with_(elements=Sphere(new_positions, 0))

@@ -63,7 +63,7 @@ from ._nd import (
     l1_loss, l2_loss, l_n_loss, frequency_loss,
     gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
-    downsample2x, upsample2x, sample_subgrid, masked_extp
+    downsample2x, upsample2x, sample_subgrid, extrapolate_valid_values
 )
 
 PI = 3.14159265358979323846

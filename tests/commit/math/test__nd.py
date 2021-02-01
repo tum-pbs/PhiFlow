@@ -110,7 +110,7 @@ class TestMathNDNumpy(TestCase):
     def test_masked_extp_sanity(self):
         ten = tensor(np.zeros((3, 3)), 'x, y')
         ten.native()[1, 1] = 1
-        res, mask = math.masked_extp(ten, ten)
+        res, mask = math.extrapolate_valid_values(ten, ten)
         expected = np.ones((3, 3))
         assert np.all(res.numpy() == expected)
         assert np.all(mask.numpy() == expected)
@@ -118,7 +118,7 @@ class TestMathNDNumpy(TestCase):
     def test_masked_extp_sanity_size(self):
         ten = tensor(np.zeros((5, 5)), 'x, y')
         ten.native()[2, 2] = 1
-        res, mask = math.masked_extp(ten, ten, 2)
+        res, mask = math.extrapolate_valid_values(ten, ten, 2)
         expected = np.ones((5, 5))
         assert np.all(res.numpy() == expected)
         assert np.all(mask.numpy() == expected)
@@ -162,7 +162,7 @@ class TestMathNDNumpy(TestCase):
                                  [5., 5., 5., 5., 3.5, 2., -1., -1.],
                                  [5., 5., 5., 5., 5., -1., -1., -1.]])
 
-        res, mask = math.masked_extp(ten, mask, 2)
+        res, mask = math.extrapolate_valid_values(ten, mask, 2)
 
         assert np.all(res.numpy() == expected_res)
         assert np.all(mask.numpy() == expected_mask)

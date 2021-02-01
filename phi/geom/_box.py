@@ -97,7 +97,18 @@ class AbstractBox(Geometry):
         distance = math.abs(location - center) - extent * 0.5
         return math.max(distance, 'vector')
 
-    def shift_positions(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        """
+        Shifts positions either into or out of geometry.
+
+        Args:
+            positions: Tensor holding positions to shift
+            outward: Flag for indicating inward (False) or outward (True) shift
+            shift_amount: Offset to box boundaries after shifting
+
+        Returns:
+            Tensor holding shifted positions
+        """
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
         loc_to_center = positions - center
@@ -111,7 +122,7 @@ class AbstractBox(Geometry):
             shift += math.where(shift != 0, shift_amount, 0)
             shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
             shift = math.where(loc_to_center < 0, 1, -1) * shift  # get shift direction
-        return shift
+        return positions + shift
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
