@@ -21,11 +21,12 @@ class TFBackend(Backend):
         tf_devices = device_lib.list_local_devices()
         devices = []
         for device in tf_devices:
-            devices.append(ComputeDevice(device.name,
-                                         device.device_type,
-                                         device.memory_limit,
-                                         -1,
-                                         str(device)))
+            if device_type in (None, device.device_type):
+                devices.append(ComputeDevice(device.name,
+                                             device.device_type,
+                                             device.memory_limit,
+                                             -1,
+                                             str(device)))
         return devices
 
     def is_tensor(self, x, only_native=False):

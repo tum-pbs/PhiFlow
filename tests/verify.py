@@ -28,7 +28,8 @@ def test_tensorflow():
     with tf.TF_BACKEND:
         math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
     # TODO cuDNN math.conv(math.ones(batch=8, x=64), math.ones(x=4))
-    return "OK"
+    gpu_count = len(tf.TF_BACKEND.list_devices('GPU'))
+    return f"Installed, {gpu_count} GPUs available."
 
 
 def test_torch():
@@ -39,7 +40,8 @@ def test_torch():
     from phi import torch
     with torch.TORCH_BACKEND:
         math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
-    return "OK"
+    gpu_count = len(torch.TORCH_BACKEND.list_devices('GPU'))
+    return f"Installed, {gpu_count} GPUs available."
 
 
 def test_dash():
