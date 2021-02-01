@@ -9,11 +9,11 @@ Esamples:
 """
 
 from phi import math
-from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Field, PointCloud, extrapolate_valid
+from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Field, PointCloud, extrapolate_valid, Grid
 from phi.field._field_math import GridType
 
 
-def advect(field: Field, velocity: Field, dt, mode: str = 'euler', bcs: Field = None, mask: Field = None):
+def advect(field: Field, velocity: Field, dt, mode: str = 'euler', valid: Field = None, occupied: Field = None):
     """
     Advect `field` along the `velocity` vectors using the default advection method.
 
@@ -22,24 +22,19 @@ def advect(field: Field, velocity: Field, dt, mode: str = 'euler', bcs: Field = 
       velocity: any Field (must be PointCloud with the same elements as `field` in euler mode or
         a StaggeredGrid in rk4_extp mode)
       dt: time increment
-      mode: type of advection scheme: 'euler', 'rk4' or 'rk4_extp'
-      bcs: boundary conditions used only in 'rk4_extp' mode
-      mask: binary field of the same type as velocity indicating particle positions (only used in 'rk4*' modes)
+      mode: type of advection scheme: 'euler', 'rk4'
+      valid: boundary conditions used only in 'rk4' mode
+      occupied: binary field of the same type as velocity indicating particle positions (only used in 'rk4' modes)
 
     Returns:
       Advected field of same type as `field`
-
     """
     if isinstance(field, PointCloud):
         if mode == 'euler':
             assert isinstance(velocity, PointCloud) and velocity.elements == field.elements, 'Velocity is not valid for euler mode advection.'
             return points(field, velocity, dt)
         elif mode == 'rk4':
-            assert mask is not None, 'Mask is necessary for rk4 mode advection'
-            return runge_kutta_4(field, velocity, mask=mask, dt=dt)
-        elif mode == 'rk4_extp':
-            assert mask is not None and bcs is not None, 'Mask and boundary conditions are necessary for rk4_extp mode advection.'
-            return runge_kutta_4_extp(field, velocity, bcs=bcs, mask=mask, dt=dt)
+            return runge_kutta_4(field, velocity, dt=dt, accessible=valid, occupied=occupied)
         else:
             raise NotImplementedError(f"Advection mode {mode} is not known.")
     if isinstance(field, ConstantField):
@@ -109,77 +104,55 @@ def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength
     return new_field.with_(values=values_clamped)
 
 
-def runge_kutta_4(field: PointCloud, velocity: Field, mask: Field, dt: float):
-    """
-    Lagrangian advection of particles using a fourth-order runge-kutta scheme.
-
-    Args:
-      dt: time increment
-      field: PointCloud
-      velocity: Field
-      mask: Binary Field of same type as velocity, indicating particle positions
-
-    Returns:
-      SampledField with same data as `field` but advected points
-    """
-    assert isinstance(field, SampledField)
-    assert isinstance(velocity, Field)
-    velocity * mask
-    points = field.elements
-    # --- Sample velocity at intermediate points ---
-    vel_k1 = velocity.sample_in(points)
-    vel_k2 = velocity.sample_in(points.shifted(0.5 * dt * vel_k1))
-    vel_k3 = velocity.sample_in(points.shifted(0.5 * dt * vel_k2))
-    vel_k4 = velocity.sample_in(points.shifted(dt * vel_k3))
-    # --- Combine points with RK4 scheme ---
-    vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
-    new_points = points.shifted(dt * vel)
-    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)
-
-
-def runge_kutta_4_extp(cloud: PointCloud, velocity: Field, bcs: Field, mask: Field, dt: float):
+def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: Field = None, occupied: Field = None):
     """ 
-    Lagrangian advection of particles using a fourth-order runge-kutta scheme with velocity-dependent extrapolation.
+    Lagrangian advection of particles using a fourth-order runge-kutta scheme. If `accessible` and `occupied` are specified,
+    the advection uses velocity-dependent extrapolation of `velocity`.
     
     Args:
         cloud: PointCloud holding the particle positions as elements
-        velocity: StaggeredGrid velocity field which should get used for advection
-        bcs: Boundary conditions for restricting extrapolation to accessible positions
-        mask: Binary StaggeredGrid indicating particle positions on the grid for extrapolation
+        velocity: velocity Grid which should get used for advection
         dt: Time step for runge-kutta
+        accessible: Boundary conditions for restricting extrapolation to accessible positions
+        occupied: Binary Grid indicating particle positions on the grid for extrapolation
 
     Returns:
         PointCloud with advected particle positions and their corresponding values.
     """
-    assert isinstance(cloud, PointCloud), 'runge_kutta advection with extrapolation works for PointClouds only.'
-    assert isinstance(velocity, StaggeredGrid), 'runge_kutta advection with extrapolation works for StaggeredGrids only.'
-    assert isinstance(mask, StaggeredGrid), 'runge_kutta advection with extrapolation requires a StaggeredGrid mask'
+    assert isinstance(velocity, Grid), 'runge_kutta advection with extrapolation works for Grids only.'
+    assert isinstance(occupied, type(velocity)), 'occupation mask must have same type as velocity.'
+
+    def extrapolation_helper(elements, t_shift, v_field, mask):
+        shift = math.ceil(math.max(math.abs(elements.center - points.center))) - t_shift
+        t_shift += shift
+        v_field, mask = extrapolate_valid(v_field, mask, int(shift))
+        v_field *= accessible
+        return v_field, mask, t_shift
+
     points = cloud.elements
+    total_shift = 0
+    extrapolate = accessible is not None and occupied is not None
 
     # --- Sample velocity at intermediate points and adjust velocity-dependent
     # extrapolation to maximum shift of corresponding component ---
-    velocity, mask = extrapolate_valid(velocity, mask, 2)
-    velocity *= bcs
+    if extrapolate:
+        velocity, occupied = extrapolate_valid(velocity, occupied, 2)
+        velocity *= accessible
     vel_k1 = velocity.sample_in(points)
 
     shifted_points = points.shifted(0.5 * dt * vel_k1)
-    shift = math.ceil(math.max(math.abs(shifted_points.center - points.center)))
-    total_shift = shift
-    velocity, mask = extrapolate_valid(velocity, mask, int(shift))
-    velocity *= bcs
+    if extrapolate:
+        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
     vel_k2 = velocity.sample_in(shifted_points)
 
     shifted_points = points.shifted(0.5 * dt * vel_k2)
-    shift = math.ceil(math.max(math.abs(shifted_points.center - points.center))) - total_shift
-    total_shift += shift
-    velocity, mask = extrapolate_valid(velocity, mask, int(shift))
-    velocity *= bcs
+    if extrapolate:
+        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
     vel_k3 = velocity.sample_in(shifted_points)
 
     shifted_points = points.shifted(dt * vel_k3)
-    shift = math.ceil(math.max(math.abs(shifted_points.center - points.center))) - total_shift
-    velocity, _ = extrapolate_valid(velocity, mask, int(shift))
-    velocity *= bcs
+    if extrapolate:
+        velocity, _, _ = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
     vel_k4 = velocity.sample_in(shifted_points)
 
     # --- Combine points with RK4 scheme ---

@@ -23,7 +23,7 @@ def step(particles, v_field, pressure, dt, t, **kwargs):
     v_force_field = v_field + dt * gravity_tensor(Gravity(), v_field.shape.spatial.rank)
     v_div_free_field, pressure = flip.make_incompressible(v_force_field, bcs, cmask, smask, pressure)
     particles = flip.map_velocity_to_particles(particles, v_div_free_field, smask, previous_velocity_grid=v_field)
-    particles = advect.advect(particles, v_div_free_field, dt, mask=smask, bcs=bcs, mode='rk4_extp')
+    particles = advect.advect(particles, v_div_free_field, dt, occupied=smask, valid=bcs, mode='rk4')
     if t < inflow:
         particles = flip.add_inflow(particles, initial_points, initial_velocity)
     particles = flip.respect_boundaries(domain, obstacles, particles)
