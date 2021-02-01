@@ -2,8 +2,14 @@
 """
 Standard import for TensorFlow mode.
 
+Extends the import `from phi.flow import *` by TensorFlow-related functions and modules.
+
+The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `layers`.
+
 Importing this module registers the TensorFlow backend as the default backend.
 New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
+
+See `phi.flow`, `phi.torch.flow`.
 """
 
 from phi.flow import *
@@ -14,4 +20,4 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 tf = tensorflow
-math.backend.set_global_default_backend(TF_BACKEND)
+backend.set_global_default_backend(TF_BACKEND)

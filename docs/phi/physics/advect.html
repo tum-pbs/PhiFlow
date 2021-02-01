@@ -96,7 +96,7 @@ def semi_lagrangian(field: GridType, velocity: Field, dt) -&gt; GridType:
     v = velocity.sample_in(field.elements)
     x = field.points - v * dt
     interpolated = field.sample_at(x, reduce_channels=x.shape.non_channel.without(field.shape).names)
-    return field.with_(interpolated)
+    return field.with_(values=interpolated)
 
 
 def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength=1.0) -&gt; GridType:
@@ -118,7 +118,7 @@ def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength
     v = velocity.sample_in(field.elements)
     x0 = field.points
     x_bwd = x0 - v * dt
-    x_fwd = x0 + v * dt
+    x_fwd = x0 + v * dt  # TODO before or after advection?
     reduce = x0.shape.non_channel.without(field.shape).names
     # Semi-Lagrangian advection
     field_semi_la = field.with_(values=field.sample_at(x_bwd, reduce_channels=reduce))
@@ -284,7 +284,7 @@ To avoid overshoots, the resulting value is bounded by the neighbouring grid cel
     v = velocity.sample_in(field.elements)
     x0 = field.points
     x_bwd = x0 - v * dt
-    x_fwd = x0 + v * dt
+    x_fwd = x0 + v * dt  # TODO before or after advection?
     reduce = x0.shape.non_channel.without(field.shape).names
     # Semi-Lagrangian advection
     field_semi_la = field.with_(values=field.sample_at(x_bwd, reduce_channels=reduce))
@@ -446,7 +446,7 @@ The new values are then determined by sampling <code>field</code> at these looku
     v = velocity.sample_in(field.elements)
     x = field.points - v * dt
     interpolated = field.sample_at(x, reduce_channels=x.shape.non_channel.without(field.shape).names)
-    return field.with_(interpolated)</code></pre>
+    return field.with_(values=interpolated)</code></pre>
 </details>
 </dd>
 </dl>

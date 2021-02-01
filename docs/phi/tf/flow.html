@@ -23,8 +23,11 @@
 </header>
 <section id="section-intro">
 <p>Standard import for TensorFlow mode.</p>
+<p>Extends the import <code>from phi.flow import *</code> by TensorFlow-related functions and modules.</p>
+<p>The following TensorFlow modules are included: <code>tensorflow</code> / <code>tf</code>, <code>keras</code>, <code>layers</code>.</p>
 <p>Importing this module registers the TensorFlow backend as the default backend.
 New tensors created via <code><a title="phi.math" href="../math/index.html">phi.math</a></code> functions will be backed by TensorFlow tensors.</p>
+<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.torch.flow" href="../torch/flow.html">phi.torch.flow</a></code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -33,19 +36,25 @@ New tensors created via <code><a title="phi.math" href="../math/index.html">phi.
 &#34;&#34;&#34;
 Standard import for TensorFlow mode.
 
+Extends the import `from phi.flow import *` by TensorFlow-related functions and modules.
+
+The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `layers`.
+
 Importing this module registers the TensorFlow backend as the default backend.
 New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
+
+See `phi.flow`, `phi.torch.flow`.
 &#34;&#34;&#34;
 
 from phi.flow import *
-from ._util import cuda_device_count, GradientTape, gradients, variable, constant
+from ._util import GradientTape, gradients, variable, constant
 from ._tf_backend import TF_BACKEND
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers
 
 tf = tensorflow
-math.backend.set_global_default_backend(TF_BACKEND)</code></pre>
+backend.set_global_default_backend(TF_BACKEND)</code></pre>
 </details>
 </section>
 <section>

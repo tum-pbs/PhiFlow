@@ -40,7 +40,7 @@ To make PyTorch the default backend, import `phi.torch.flow`.
 &#34;&#34;&#34;
 from phi import math
 from ._torch_backend import TORCH_BACKEND
-from ._torch_util import cuda_device_count, variable
+from ._torch_util import variable
 
 TORCH_BACKEND = TORCH_BACKEND  # to show up in pdoc
 &#34;&#34;&#34;Backend for PyTorch operations.&#34;&#34;&#34;
@@ -71,19 +71,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="phi.torch.cuda_device_count"><code class="name flex">
-<span>def <span class="ident">cuda_device_count</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cuda_device_count():
-    return torch.cuda.device_count()</code></pre>
-</details>
-</dd>
 <dt id="phi.torch.variable"><code class="name flex">
 <span>def <span class="ident">variable</span></span>(<span>initial_value, dtype=None, requires_grad=True, device=None, item_condition=VARIABLES)</span>
 </code></dt>
@@ -126,7 +113,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="phi.torch.cuda_device_count" href="#phi.torch.cuda_device_count">cuda_device_count</a></code></li>
 <li><code><a title="phi.torch.variable" href="#phi.torch.variable">variable</a></code></li>
 </ul>
 </li>

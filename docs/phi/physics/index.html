@@ -214,7 +214,7 @@ To specify boundary conditions per face of the domain, pass a sequence of Materi
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
             if grid.shape.channel.rank == 0:
-                grid = grid._with(math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+                grid = grid.with_(values=math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
             else:
                 assert grid.shape.channel.sizes[0] == self.rank
             return grid
@@ -634,7 +634,7 @@ The grid is created from the given <code>value</code> which must be one of the f
     if type is CenteredGrid:
         grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         if grid.shape.channel.rank == 0:
-            grid = grid._with(math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+            grid = grid.with_(values=math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
         else:
             assert grid.shape.channel.sizes[0] == self.rank
         return grid
@@ -716,7 +716,7 @@ The grid is created from the given <code>value</code> which must be one of the f
     if type is CenteredGrid:
         grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         if grid.shape.channel.rank == 0:
-            grid = grid._with(math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+            grid = grid.with_(values=math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
         else:
             assert grid.shape.channel.sizes[0] == self.rank
         return grid

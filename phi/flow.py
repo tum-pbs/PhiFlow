@@ -2,33 +2,28 @@
 """
 *Main PhiFlow import:* `from phi.flow import *`
 
-Contains:
+Imports important functions and classes from
+`math`, `geom`, `field`, `physics` and `app` (including sub-modules)
+as well as the modules and sub-modules themselves.
 
-* App class, show()
-* phi.math as math
-* Geometry objects
-* phi.field and common Field classes
-* Common physics functions such as diffuse, divergence_free, advect family
-* I/O functions such as write_sim_frame
+See `phi.tf.flow`, `phi.torch.flow`.
 """
 
 import numpy
 import numpy as np
 
-from phi import math
-from phi.math import extrapolation, PI
+from . import math
+from .math import extrapolation, PI, DType, tensor, shape, backend
 
-from phi import geom
-from phi.geom import Geometry, Sphere, Box, union
+from . import geom
+from .geom import Geometry, Sphere, Box, union
 
-from phi import field
-from phi.field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud
+from . import field
+from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud
 
-from phi import physics
-from phi.physics import _boundaries as boundaries, fluid, advect as advect
-from phi.physics._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, NO_SLIP, NO_STICK, STICKY, SLIPPERY, Obstacle
+from . import physics
+from .physics import fluid, advect, Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle
 
-from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, _display
-from .app._module_app import ModuleViewer
-from .app._fluidformat import write_sim_frame
-from phi.app._display import show
+from . import app
+from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show
+from .app._fluidformat import write_sim_frame, Scene

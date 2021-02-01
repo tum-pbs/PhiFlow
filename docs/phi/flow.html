@@ -23,15 +23,10 @@
 </header>
 <section id="section-intro">
 <p><em>Main PhiFlow import:</em> <code>from phi.flow import *</code></p>
-<p>Contains:</p>
-<ul>
-<li>App class, show()</li>
-<li>phi.math as math</li>
-<li>Geometry objects</li>
-<li>phi.field and common Field classes</li>
-<li>Common physics functions such as diffuse, divergence_free, advect family</li>
-<li>I/O functions such as write_sim_frame</li>
-</ul>
+<p>Imports important functions and classes from
+<code>math</code>, <code>geom</code>, <code>field</code>, <code>physics</code> and <code>app</code> (including sub-modules)
+as well as the modules and sub-modules themselves.</p>
+<p>See <code><a title="phi.tf.flow" href="tf/flow.html">phi.tf.flow</a></code>, <code><a title="phi.torch.flow" href="torch/flow.html">phi.torch.flow</a></code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -40,40 +35,31 @@
 &#34;&#34;&#34;
 *Main PhiFlow import:* `from phi.flow import *`
 
-Contains:
+Imports important functions and classes from
+`math`, `geom`, `field`, `physics` and `app` (including sub-modules)
+as well as the modules and sub-modules themselves.
 
-* App class, show()
-* phi.math as math
-* Geometry objects
-* phi.field and common Field classes
-* Common physics functions such as diffuse, divergence_free, advect family
-* I/O functions such as write_sim_frame
+See `phi.tf.flow`, `phi.torch.flow`.
 &#34;&#34;&#34;
 
 import numpy
 import numpy as np
 
-from phi import math
-from phi.math import extrapolation, PI
+from . import math
+from .math import extrapolation, PI, DType, tensor, shape, backend
 
-from phi import geom
-from phi.geom import Geometry, Sphere, Box, union
+from . import geom
+from .geom import Geometry, Sphere, Box, union
 
-from phi import field
-from phi.field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud
+from . import field
+from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud
 
-from phi import physics
-from phi.physics import _boundaries as boundaries, fluid, advect as advect
-from phi.physics._boundaries import Domain, Material, OPEN, CLOSED, PERIODIC, NO_SLIP, NO_STICK, STICKY, SLIPPERY, Obstacle
+from . import physics
+from .physics import fluid, advect, Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle
 
-from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, _display
-from .app._module_app import ModuleViewer
-from .app._fluidformat import write_sim_frame
-from phi.app._display import show
-
-
-def cuda_device_count():
-    return 0</code></pre>
+from . import app
+from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show
+from .app._fluidformat import write_sim_frame, Scene</code></pre>
 </details>
 </section>
 <section>
@@ -81,22 +67,6 @@ def cuda_device_count():
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="phi.flow.cuda_device_count"><code class="name flex">
-<span>def <span class="ident">cuda_device_count</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cuda_device_count():
-    return 0</code></pre>
-</details>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -110,11 +80,6 @@ def cuda_device_count():
 <li><h3>Super-module</h3>
 <ul>
 <li><code><a title="phi" href="index.html">phi</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="phi.flow.cuda_device_count" href="#phi.flow.cuda_device_count">cuda_device_count</a></code></li>
 </ul>
 </li>
 </ul>

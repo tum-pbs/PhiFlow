@@ -34,6 +34,7 @@ Low-level library wrappers for delegating vector operations.
 from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import (
     Backend, choose_backend, NoBackendFound,
+    ComputeDevice,
     default_backend, set_global_default_backend, BACKENDS, _DEFAULT,
     get_precision, precision, set_global_precision,
 )
@@ -530,6 +531,18 @@ The output of math operations has the same precision as its inputs.</p>
         return self.name.lower() == name.lower()
 
     # --- Abstract math functions ---
+
+    def list_devices(self, device_type: str or None = None) -&gt; List[ComputeDevice]:
+        &#34;&#34;&#34;
+        Fetches information about all available compute devices this backend can use.
+
+        Args:
+            device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;`. See `ComputeDevice.device_type`.
+
+        Returns:
+            Tuple of all currently available devices.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
 
     def is_tensor(self, x, only_native=False):
         &#34;&#34;&#34;
@@ -1855,6 +1868,35 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.list_devices"><code class="name flex">
+<span>def <span class="ident">list_devices</span></span>(<span>self, device_type: str = None) ‑> List[phi.math.backend._backend.ComputeDevice]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Fetches information about all available compute devices this backend can use.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>device_type</code></strong></dt>
+<dd>(optional) Return only devices of this type, e.g. <code>'GPU'</code>. See <code><a title="phi.math.backend.ComputeDevice.device_type" href="#phi.math.backend.ComputeDevice.device_type">ComputeDevice.device_type</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tuple of all currently available devices.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def list_devices(self, device_type: str or None = None) -&gt; List[ComputeDevice]:
+    &#34;&#34;&#34;
+    Fetches information about all available compute devices this backend can use.
+
+    Args:
+        device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;`. See `ComputeDevice.device_type`.
+
+    Returns:
+        Tuple of all currently available devices.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.matches_name"><code class="name flex">
 <span>def <span class="ident">matches_name</span></span>(<span>self, name)</span>
 </code></dt>
@@ -2665,6 +2707,62 @@ Otherwise, non-float inputs are converted to float32 (unless <code>float64=True<
 </dd>
 </dl>
 </dd>
+<dt id="phi.math.backend.ComputeDevice"><code class="flex name class">
+<span>class <span class="ident">ComputeDevice</span></span>
+<span>(</span><span>name: str, device_type: str, memory: int, processor_count: int, description: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A physical device that can be selected to perform backend computations.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ComputeDevice:
+    &#34;&#34;&#34;
+    A physical device that can be selected to perform backend computations.
+    &#34;&#34;&#34;
+
+    def __init__(self, name: str, device_type: str, memory: int, processor_count: int, description: str):
+        self.name = name
+        &#34;&#34;&#34; Name of the compute device. CPUs are typically called `&#39;CPU&#39;`. &#34;&#34;&#34;
+        self.device_type = device_type
+        &#34;&#34;&#34; Type of device such as `&#39;CPU&#39;`, `&#39;GPU&#39;` or `&#39;TPU&#39;`. &#34;&#34;&#34;
+        self.memory = memory
+        &#34;&#34;&#34; Maximum memory of the device that can be allocated (in bytes). &#34;&#34;&#34;
+        self.processor_count = processor_count
+        &#34;&#34;&#34; Number of CPU cores or GPU multiprocessors. &#34;&#34;&#34;
+        self.description = description
+        &#34;&#34;&#34; Further information about the device such as driver version. &#34;&#34;&#34;
+
+    def __repr__(self):
+        mem = f&#34;{(self.memory / 1024 ** 2)} MB&#34; if self.memory &gt; 0 else &#34;memory: n/a&#34;
+        pro = f&#34;{self.processor_count} processors&#34; if self.processor_count &gt; 0 else &#34;processors: n/a&#34;
+        return f&#34;&#39;{self.name}&#39; ({self.device_type}) | {mem} | {pro} | {self.description}&#34;</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.ComputeDevice.description"><code class="name">var <span class="ident">description</span></code></dt>
+<dd>
+<div class="desc"><p>Further information about the device such as driver version.</p></div>
+</dd>
+<dt id="phi.math.backend.ComputeDevice.device_type"><code class="name">var <span class="ident">device_type</span></code></dt>
+<dd>
+<div class="desc"><p>Type of device such as <code>'CPU'</code>, <code>'GPU'</code> or <code>'TPU'</code>.</p></div>
+</dd>
+<dt id="phi.math.backend.ComputeDevice.memory"><code class="name">var <span class="ident">memory</span></code></dt>
+<dd>
+<div class="desc"><p>Maximum memory of the device that can be allocated (in bytes).</p></div>
+</dd>
+<dt id="phi.math.backend.ComputeDevice.name"><code class="name">var <span class="ident">name</span></code></dt>
+<dd>
+<div class="desc"><p>Name of the compute device. CPUs are typically called <code>'CPU'</code>.</p></div>
+</dd>
+<dt id="phi.math.backend.ComputeDevice.processor_count"><code class="name">var <span class="ident">processor_count</span></code></dt>
+<dd>
+<div class="desc"><p>Number of CPU cores or GPU multiprocessors.</p></div>
+</dd>
+</dl>
+</dd>
 <dt id="phi.math.backend.DType"><code class="flex name class">
 <span>class <span class="ident">DType</span></span>
 <span>(</span><span>kind: type, bits: int = 8)</span>
@@ -3250,6 +3348,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>
+<li><code><a title="phi.math.backend.Backend.list_devices" href="#phi.math.backend.Backend.list_devices">list_devices</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matches_name" href="#phi.math.backend.Backend.matches_name">matches_name</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
@@ -3300,6 +3399,16 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.with_custom_gradient" href="#phi.math.backend.Backend.with_custom_gradient">with_custom_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.zeros" href="#phi.math.backend.Backend.zeros">zeros</a></code></li>
 <li><code><a title="phi.math.backend.Backend.zeros_like" href="#phi.math.backend.Backend.zeros_like">zeros_like</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.backend.ComputeDevice" href="#phi.math.backend.ComputeDevice">ComputeDevice</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.backend.ComputeDevice.description" href="#phi.math.backend.ComputeDevice.description">description</a></code></li>
+<li><code><a title="phi.math.backend.ComputeDevice.device_type" href="#phi.math.backend.ComputeDevice.device_type">device_type</a></code></li>
+<li><code><a title="phi.math.backend.ComputeDevice.memory" href="#phi.math.backend.ComputeDevice.memory">memory</a></code></li>
+<li><code><a title="phi.math.backend.ComputeDevice.name" href="#phi.math.backend.ComputeDevice.name">name</a></code></li>
+<li><code><a title="phi.math.backend.ComputeDevice.processor_count" href="#phi.math.backend.ComputeDevice.processor_count">processor_count</a></code></li>
 </ul>
 </li>
 <li>

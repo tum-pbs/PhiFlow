@@ -261,7 +261,7 @@ The boundary conditions are taken from <code>vector_field</code>.</p>
 <pre><code class="python">def expose_tensors(field_function, *proto_fields):
     @wraps(field_function)
     def wrapper(*field_data):
-        fields = [proto._with(data) for data, proto in zip(field_data, proto_fields)]
+        fields = [proto.with_(values=data) for data, proto in zip(field_data, proto_fields)]
         result = field_function(*fields)
         assert isinstance(result, SampledField), f&#34;function must return an instance of SampledField but returned {result}&#34;
         return result.values
@@ -373,7 +373,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 </summary>
 <pre><code class="python">def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
     data = math.normalize_to(field.values, norm.values, epsilon)
-    return field._with(data)</code></pre>
+    return field.with_(values=data)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.pad"><code class="name flex">
@@ -479,14 +479,14 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <pre><code class="python">def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
     if callback is not None:
         def field_callback(x):
-            x = x0._with(x)
+            x = x0.with_(values=x)
             callback(x)
     else:
         field_callback = None
 
     data_function = expose_tensors(function, x0)
     converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params, field_callback)
-    return converged, x0._with(x), iterations</code></pre>
+    return converged, x0.with_(values=x), iterations</code></pre>
 </details>
 </dd>
 <dt id="phi.field.stack_staggered_components"><code class="name flex">
@@ -641,7 +641,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
         raise NotImplementedError(&#39;At least one argument must be a SampledField&#39;)
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
     # values = math.where(mask.values, field_true.values, field_false.values)
-    return field_true._with(values)</code></pre>
+    return field_true.with_(values=values)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.write"><code class="name flex">
@@ -706,7 +706,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
         if isinstance(other, SampledField):
             self_sampled = self.at(other)
             data = operator(self_sampled.values, other.values)
-            return other._with(data)
+            return other.with_(values=data)
         other = math.tensor(other)
         new_shape = self.shape.combined(other.shape)
         return _SymbolicOpField(new_shape, operator, [self, other])
@@ -819,9 +819,7 @@ The dimension can be batch, spatial or channel.</p>
 <li>The spatial dimension names match the dimensions of this Field</li>
 <li>The batch dimensions match the batch dimensions of this Field</li>
 <li>The channel dimensions match the channels of this Field</li>
-</ul>
-<p>Args:</p>
-<p>Returns:</p></div>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1206,9 +1204,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 <li>The spatial dimension names match the dimensions of this Field</li>
 <li>The batch dimensions match the batch dimensions of this Field</li>
 <li>The channel dimensions match the channels of this Field</li>
-</ul>
-<p>Args:</p>
-<p>Returns:</p></div>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1318,11 +1314,6 @@ The dimension can be batch, spatial or channel.</p>
         * The spatial dimension names match the dimensions of this Field
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
-
-        Args:
-
-        Returns:
-
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -1331,11 +1322,6 @@ The dimension can be batch, spatial or channel.</p>
         &#34;&#34;&#34;
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.
-
-        Args:
-
-        Returns:
-
         &#34;&#34;&#34;
         return self.shape.spatial.rank
 
@@ -1537,9 +1523,7 @@ The dimension can be batch, spatial or channel.</p>
 <li>The spatial dimension names match the dimensions of this Field</li>
 <li>The batch dimensions match the batch dimensions of this Field</li>
 <li>The channel dimensions match the channels of this Field</li>
-</ul>
-<p>Args:</p>
-<p>Returns:</p></div>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1552,11 +1536,6 @@ def shape(self) -&gt; Shape:
     * The spatial dimension names match the dimensions of this Field
     * The batch dimensions match the batch dimensions of this Field
     * The channel dimensions match the channels of this Field
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -1564,9 +1543,7 @@ def shape(self) -&gt; Shape:
 <dt id="phi.field.Field.spatial_rank"><code class="name">var <span class="ident">spatial_rank</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
-This is equal to the spatial rank of the <code>data</code>.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+This is equal to the spatial rank of the <code>data</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1576,11 +1553,6 @@ def spatial_rank(self) -&gt; int:
     &#34;&#34;&#34;
     Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
     This is equal to the spatial rank of the `data`.
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
     return self.shape.spatial.rank</code></pre>
 </details>
@@ -2102,9 +2074,7 @@ For volume sampling, performs sampling at the center points.</p></div>
 <li>The spatial dimension names match the dimensions of this Field</li>
 <li>The batch dimensions match the batch dimensions of this Field</li>
 <li>The channel dimensions match the channels of this Field</li>
-</ul>
-<p>Args:</p>
-<p>Returns:</p></div>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2259,9 +2229,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
 <li>The spatial dimension names match the dimensions of this Field</li>
 <li>The batch dimensions match the batch dimensions of this Field</li>
 <li>The channel dimensions match the channels of this Field</li>
-</ul>
-<p>Args:</p>
-<p>Returns:</p></div>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2652,6 +2620,20 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         self._extrapolation = extrapolation
         self._shape = elements.shape.non_channel &amp; self._values.shape.non_spatial
 
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None) -&gt; SampledField:
+        &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
+        copied = copy.copy(self)
+        SampledField.__init__(copied,
+                              elements if elements is not None else self._elements,
+                              values if values is not None else self._values,  # do not use == check
+                              extrapolation if extrapolation is not None else self._extrapolation)
+        return copied
+
+    copied_with = with_
+
     @property
     def elements(self) -&gt; Geometry:
         &#34;&#34;&#34;
@@ -2661,13 +2643,6 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         For grids, the geometries are boxes while particle fields may be represented as spheres.
         
         If this Field has no discrete points, this method returns an empty geometry.
-        
-        :return: Geometry with all batch/spatial dimensions of this Field. Staggered sample points are modelled using extra batch dimensions.
-
-        Args:
-
-        Returns:
-
         &#34;&#34;&#34;
         return self._elements
 
@@ -2678,6 +2653,8 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
     @property
     def values(self) -&gt; Tensor:
         return self._values
+
+    data = values
 
     @property
     def extrapolation(self) -&gt; Extrapolation:
@@ -2692,38 +2669,27 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 
     def unstack(self, dimension: str) -&gt; tuple:
         values = self._values.unstack(dimension)
-        return tuple(self._with(v) for i, v in enumerate(values))
+        return tuple(self.with_(values=v) for i, v in enumerate(values))
 
     def _op1(self, operator) -&gt; Field:
         values = operator(self.values)
         extrapolation_ = operator(self._extrapolation)
-        return self._with(values=values, extrapolation=extrapolation_)
+        return self.with_(values=values, extrapolation=extrapolation_)
 
     def _op2(self, other, operator) -&gt; Field:
         if isinstance(other, Field):
             other_values = other.sample_in(self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self._with(values, extrapolation_)
+            return self.with_(values=values, extrapolation=extrapolation_)
         else:
             other = math.tensor(other)
             values = operator(self._values, other)
-            return self._with(values)
+            return self.with_(values=values)
 
     def __getitem__(self, item):
         values = self._values[item]
-        return self._with(values)
-
-    def with_(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
-        &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
-        copied = copy.copy(self)
-        SampledField.__init__(copied,
-                              self._elements,
-                              values if values is not None else self._values,  # do not use == check
-                              extrapolation if extrapolation is not None else self._extrapolation)
-        return copied
-
-    _with = with_</code></pre>
+        return self.with_(values=values)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2736,15 +2702,24 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.field.SampledField.data"><code class="name">var <span class="ident">data</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def values(self) -&gt; Tensor:
+    return self._values</code></pre>
+</details>
+</dd>
 <dt id="phi.field.SampledField.elements"><code class="name">var <span class="ident">elements</span> : phi.geom._geom.Geometry</code></dt>
 <dd>
 <div class="desc"><p>Returns a geometrical representation of the discretized volume elements.
 The result is a tuple of Geometry objects, each of which can have additional spatial (but not batch) dimensions.</p>
 <p>For grids, the geometries are boxes while particle fields may be represented as spheres.</p>
-<p>If this Field has no discrete points, this method returns an empty geometry.</p>
-<p>:return: Geometry with all batch/spatial dimensions of this Field. Staggered sample points are modelled using extra batch dimensions.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this Field has no discrete points, this method returns an empty geometry.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2758,13 +2733,6 @@ def elements(self) -&gt; Geometry:
     For grids, the geometries are boxes while particle fields may be represented as spheres.
     
     If this Field has no discrete points, this method returns an empty geometry.
-    
-    :return: Geometry with all batch/spatial dimensions of this Field. Staggered sample points are modelled using extra batch dimensions.
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
     return self._elements</code></pre>
 </details>
@@ -2800,9 +2768,7 @@ def points(self) -&gt; Tensor:
 <li>The spatial dimension names match the dimensions of this Field</li>
 <li>The batch dimensions match the batch dimensions of this Field</li>
 <li>The channel dimensions match the channels of this Field</li>
-</ul>
-<p>Args:</p>
-<p>Returns:</p></div>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2827,6 +2793,28 @@ def values(self) -&gt; Tensor:
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="phi.field.SampledField.copied_with"><code class="name flex">
+<span>def <span class="ident">copied_with</span></span>(<span>self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_(self,
+          elements: Geometry or None = None,
+          values: Tensor = None,
+          extrapolation: math.Extrapolation = None) -&gt; SampledField:
+    &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
+    copied = copy.copy(self)
+    SampledField.__init__(copied,
+                          elements if elements is not None else self._elements,
+                          values if values is not None else self._values,  # do not use == check
+                          extrapolation if extrapolation is not None else self._extrapolation)
+    return copied</code></pre>
+</details>
+</dd>
 <dt id="phi.field.SampledField.sample_at"><code class="name flex">
 <span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -2881,11 +2869,11 @@ The dimension can be batch, spatial or channel.</p>
 </summary>
 <pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
     values = self._values.unstack(dimension)
-    return tuple(self._with(v) for i, v in enumerate(values))</code></pre>
+    return tuple(self.with_(values=v) for i, v in enumerate(values))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.SampledField.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, values: Tensor = None, extrapolation: math.Extrapolation = None)</span>
+<span>def <span class="ident">with_</span></span>(<span>self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
@@ -2893,11 +2881,14 @@ The dimension can be batch, spatial or channel.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
+<pre><code class="python">def with_(self,
+          elements: Geometry or None = None,
+          values: Tensor = None,
+          extrapolation: math.Extrapolation = None) -&gt; SampledField:
     &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
     copied = copy.copy(self)
     SampledField.__init__(copied,
-                          self._elements,
+                          elements if elements is not None else self._elements,
                           values if values is not None else self._values,  # do not use == check
                           extrapolation if extrapolation is not None else self._extrapolation)
     return copied</code></pre>
@@ -3219,9 +3210,13 @@ A staggered grid is defined through its values tensor, its bounds describing the
                 tensors.append(math.zeros(comp_cells.resolution) + component)
             return StaggeredGrid(math.channel_stack(tensors, &#39;vector&#39;), bounds, extrapolation)
 
-    def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None) -&gt; SampledField:
+        assert elements is None
         values = _validate_staggered_values(values) if values is not None else None
-        return Grid._with(self, values, extrapolation)
+        return Grid.with_(self, values=values, extrapolation=extrapolation)
 
     @property
     def cells(self):
@@ -3296,7 +3291,7 @@ A staggered grid is defined through its values tensor, its bounds describing the
         if isinstance(other, StaggeredGrid) and self.bounds == other.bounds and self.shape.spatial == other.shape.spatial:
             values = operator(self._values, other.values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self._with(values, extrapolation_)
+            return self.with_(values=values, extrapolation=extrapolation_)
         else:
             return SampledField._op2(self, other, operator)</code></pre>
 </details>
@@ -3419,10 +3414,7 @@ def cells(self):
 <div class="desc"><p>Returns a geometrical representation of the discretized volume elements.
 The result is a tuple of Geometry objects, each of which can have additional spatial (but not batch) dimensions.</p>
 <p>For grids, the geometries are boxes while particle fields may be represented as spheres.</p>
-<p>If this Field has no discrete points, this method returns an empty geometry.</p>
-<p>:return: Geometry with all batch/spatial dimensions of this Field. Staggered sample points are modelled using extra batch dimensions.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this Field has no discrete points, this method returns an empty geometry.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3646,6 +3638,24 @@ The dimension can be batch, spatial or channel.</p>
         raise NotImplementedError(f&#34;dimension={dimension}. Only &#39;vector&#39; allowed.&#34;)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.StaggeredGrid.with_"><code class="name flex">
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_(self,
+          elements: Geometry or None = None,
+          values: Tensor = None,
+          extrapolation: math.Extrapolation = None) -&gt; SampledField:
+    assert elements is None
+    values = _validate_staggered_values(values) if values is not None else None
+    return Grid.with_(self, values=values, extrapolation=extrapolation)</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -3767,6 +3777,8 @@ The dimension can be batch, spatial or channel.</p>
 <li>
 <h4><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></h4>
 <ul class="two-column">
+<li><code><a title="phi.field.SampledField.copied_with" href="#phi.field.SampledField.copied_with">copied_with</a></code></li>
+<li><code><a title="phi.field.SampledField.data" href="#phi.field.SampledField.data">data</a></code></li>
 <li><code><a title="phi.field.SampledField.elements" href="#phi.field.SampledField.elements">elements</a></code></li>
 <li><code><a title="phi.field.SampledField.extrapolation" href="#phi.field.SampledField.extrapolation">extrapolation</a></code></li>
 <li><code><a title="phi.field.SampledField.points" href="#phi.field.SampledField.points">points</a></code></li>
@@ -3803,6 +3815,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.StaggeredGrid.sample_in" href="#phi.field.StaggeredGrid.sample_in">sample_in</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.staggered_tensor" href="#phi.field.StaggeredGrid.staggered_tensor">staggered_tensor</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.unstack" href="#phi.field.StaggeredGrid.unstack">unstack</a></code></li>
+<li><code><a title="phi.field.StaggeredGrid.with_" href="#phi.field.StaggeredGrid.with_">with_</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.x" href="#phi.field.StaggeredGrid.x">x</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.y" href="#phi.field.StaggeredGrid.y">y</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.z" href="#phi.field.StaggeredGrid.z">z</a></code></li>
