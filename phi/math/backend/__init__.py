@@ -5,6 +5,7 @@ Low-level library wrappers for delegating vector operations.
 from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import (
     Backend, choose_backend, NoBackendFound,
+    ComputeDevice,
     default_backend, set_global_default_backend, BACKENDS, _DEFAULT,
     get_precision, precision, set_global_precision,
 )

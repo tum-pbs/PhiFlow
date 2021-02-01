@@ -1,11 +1,12 @@
 import numbers
 import uuid
-import warnings
+from typing import List
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.client import device_lib
 
-from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype
+from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice
 from phi.math.backend._scipy_backend import SCIPY_BACKEND, SciPyBackend
 from ._tf_cuda_resample import resample_cuda, use_cuda
 from ..math.backend._backend_helper import combined_dim
@@ -15,6 +16,17 @@ class TFBackend(Backend):
 
     def __init__(self):
         Backend.__init__(self, "TensorFlow")
+
+    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        tf_devices = device_lib.list_local_devices()
+        devices = []
+        for device in tf_devices:
+            devices.append(ComputeDevice(device.name,
+                                         device.device_type,
+                                         device.memory_limit,
+                                         -1,
+                                         str(device)))
+        return devices
 
     def is_tensor(self, x, only_native=False):
         if only_native:

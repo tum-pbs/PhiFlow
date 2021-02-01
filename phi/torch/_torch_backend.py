@@ -1,6 +1,7 @@
 import numbers
 import time
 import warnings
+from typing import Tuple, List
 
 import numpy as np
 
@@ -8,7 +9,7 @@ import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math.backend import Backend, DType, SCIPY_BACKEND
+from phi.math.backend import Backend, DType, SCIPY_BACKEND, ComputeDevice
 from phi.math.backend._backend_helper import combined_dim
 
 
@@ -17,9 +18,19 @@ class TorchBackend(Backend):
     def __init__(self):
         Backend.__init__(self, 'PyTorch')
 
-    @property
-    def precision_dtype(self):
-        return to_torch_dtype(self.float_type)
+    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        devices = []
+        if device_type in (None, 'CPU'):
+            devices.extend(SCIPY_BACKEND.list_devices(device_type='CPU'))
+        if device_type in (None, 'GPU'):
+            for index in range(torch.cuda.device_count()):
+                properties = torch.cuda.get_device_properties(index)
+                devices.append(ComputeDevice(properties.name,
+                                          'GPU',
+                                          properties.total_memory,
+                                          properties.multi_processor_count,
+                                          f"major={properties.major}, minor={properties.minor}"))
+        return devices
 
     def auto_cast(self, *tensors):
         """
@@ -85,10 +96,10 @@ class TorchBackend(Backend):
         return x == y
 
     def random_uniform(self, shape):
-        return torch.rand(size=shape, dtype=self.precision_dtype)
+        return torch.rand(size=shape, dtype=to_torch_dtype(self.float_type))
 
     def random_normal(self, shape):
-        return torch.randn(size=shape, dtype=self.precision_dtype)
+        return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type))
 
     def stack(self, values, axis=0):
         return torch.stack(values, dim=axis)
@@ -234,7 +245,7 @@ class TorchBackend(Backend):
         return torch.meshgrid(coordinates)
 
     def linspace(self, start, stop, number):
-        return torch.linspace(start, stop, number, dtype=self.precision_dtype)
+        return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type))
 
     def dot(self, a, b, axes):
         return torch.tensordot(a, b, axes)

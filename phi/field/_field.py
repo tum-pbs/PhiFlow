@@ -31,11 +31,6 @@ class Field:
         * The spatial dimension names match the dimensions of this Field
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
-
-        Args:
-
-        Returns:
-
         """
         raise NotImplementedError()
 
@@ -44,11 +39,6 @@ class Field:
         """
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.
-
-        Args:
-
-        Returns:
-
         """
         return self.shape.spatial.rank
 
@@ -281,6 +271,8 @@ class SampledField(Field):
     def values(self) -> Tensor:
         return self._values
 
+    data = values
+
     @property
     def extrapolation(self) -> Extrapolation:
         return self._extrapolation
@@ -326,6 +318,8 @@ class SampledField(Field):
         return copied
 
     _with = with_
+
+    copied_with = with_
 
 
 class _FieldDim:

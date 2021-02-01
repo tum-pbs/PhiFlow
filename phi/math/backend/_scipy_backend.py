@@ -1,12 +1,15 @@
 import numbers
+import os
+import sys
 import warnings
+from typing import List
 
 import numpy as np
 import scipy.signal
 import scipy.sparse
 from scipy.sparse.linalg import cg, LinearOperator
 
-from . import Backend
+from . import Backend, ComputeDevice
 from ._backend_helper import combined_dim
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
@@ -18,11 +21,13 @@ class SciPyBackend(Backend):
     def __init__(self):
         Backend.__init__(self, "SciPy")
 
-    @property
-    def precision_dtype(self):
-        return to_numpy_dtype(self.float_type)
-
-    # --- Abstract math functions ---
+    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        if sys.platform != "win32":
+            mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+        else:
+            mem_bytes = -1
+        processors = os.cpu_count()
+        return [ComputeDevice("CPU", 'CPU', mem_bytes, processors, "")]
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -95,10 +100,10 @@ class SciPyBackend(Backend):
         Returns:
 
         """
-        return np.random.random(shape).astype(self.precision_dtype)
+        return np.random.random(shape).astype(to_numpy_dtype(self.float_type))
 
     def random_normal(self, shape):
-        return np.random.standard_normal(shape).astype(self.precision_dtype)
+        return np.random.standard_normal(shape).astype(to_numpy_dtype(self.float_type))
 
     def range(self, start, limit=None, delta=1, dtype=None):
         """
@@ -178,7 +183,7 @@ class SciPyBackend(Backend):
         return np.meshgrid(*coordinates, indexing='ij')
 
     def linspace(self, start, stop, number):
-        return np.linspace(start, stop, number, dtype=self.precision_dtype)
+        return np.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type))
 
     def mean(self, value, axis=None, keepdims=False):
         return np.mean(value, axis, keepdims=keepdims)
@@ -264,10 +269,10 @@ class SciPyBackend(Backend):
         assert tensor.shape[-1] == kernel.shape[-2]
         # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
         if padding.lower() == "same":
-            result = np.zeros(tensor.shape[:-1] + (kernel.shape[-1],), dtype=self.precision_dtype)
+            result = np.zeros(tensor.shape[:-1] + (kernel.shape[-1],), dtype=to_numpy_dtype(self.float_type))
         elif padding.lower() == "valid":
             valid = [tensor.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(tensor))]
-            result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], dtype=self.precision_dtype)
+            result = np.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], dtype=to_numpy_dtype(self.float_type))
         else:
             raise ValueError("Illegal padding: %s" % padding)
         for batch in range(tensor.shape[0]):
@@ -288,7 +293,7 @@ class SciPyBackend(Backend):
         return np.shape(tensor)
 
     def to_float(self, x):
-        return np.array(x).astype(self.precision_dtype)
+        return np.array(x).astype(to_numpy_dtype(self.float_type))
 
     def to_int(self, x, int64=False):
         return np.array(x).astype(np.int64 if int64 else np.int32)
@@ -369,7 +374,7 @@ class SciPyBackend(Backend):
             indices = indices[filter_indices][..., 0, :]
             if values.shape[0] > 1:
                 values = values[filter_indices.reshape(-1)]
-        array = np.zeros(tuple(shape) + values.shape[indices.ndim-1:], self.precision_dtype)
+        array = np.zeros(tuple(shape) + values.shape[indices.ndim-1:], to_numpy_dtype(self.float_type))
         indices = self.unstack(indices, axis=-1)
         if duplicates_handling == 'add':
             np.add.at(array, tuple(indices), values)

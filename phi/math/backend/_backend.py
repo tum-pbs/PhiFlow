@@ -1,8 +1,32 @@
 from contextlib import contextmanager
+from typing import Tuple, List
 
 import numpy
 
 from ._dtype import DType, combine_types
+
+
+class ComputeDevice:
+    """
+    A physical device that can be selected to perform backend computations.
+    """
+
+    def __init__(self, name: str, device_type: str, memory: int, processor_count: int, description: str):
+        self.name = name
+        """ Name of the compute device. CPUs are typically called `'CPU'`. """
+        self.device_type = device_type
+        """ Type of device such as `'CPU'`, `'GPU'` or `'TPU'`. """
+        self.memory = memory
+        """ Maximum memory of the device that can be allocated (in bytes). """
+        self.processor_count = processor_count
+        """ Number of CPU cores or GPU multiprocessors. """
+        self.description = description
+        """ Further information about the device such as driver version. """
+
+    def __repr__(self):
+        mem = f"{(self.memory / 1024 ** 2)} MB" if self.memory > 0 else "memory: n/a"
+        pro = f"{self.processor_count} processors" if self.processor_count > 0 else "processors: n/a"
+        return f"'{self.name}' ({self.device_type}) | {mem} | {pro} | {self.description}"
 
 
 class Backend:
@@ -72,6 +96,18 @@ class Backend:
         return self.name.lower() == name.lower()
 
     # --- Abstract math functions ---
+
+    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        """
+        Fetches information about all available compute devices this backend can use.
+
+        Args:
+            device_type: (optional) Return only devices of this type, e.g. `'GPU'`. See `ComputeDevice.device_type`.
+
+        Returns:
+            Tuple of all currently available devices.
+        """
+        raise NotImplementedError()
 
     def is_tensor(self, x, only_native=False):
         """

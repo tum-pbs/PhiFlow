@@ -4,10 +4,6 @@ from phi import struct
 from ._torch_backend import TORCH_BACKEND
 
 
-def cuda_device_count():
-    return torch.cuda.device_count()
-
-
 def variable(initial_value, dtype=None, requires_grad=True, device=None, item_condition=struct.VARIABLES):
     def f(attr): return torch.tensor(attr.value, dtype=dtype if dtype is not None else TORCH_BACKEND.precision_dtype, requires_grad=requires_grad, device=device)
     return struct.map(f, initial_value, trace=True, item_condition=item_condition)

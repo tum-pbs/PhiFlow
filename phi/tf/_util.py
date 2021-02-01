@@ -9,13 +9,6 @@ from phi.field import StaggeredGrid, CenteredGrid
 from . import TF_BACKEND
 
 
-def cuda_device_count():
-    from tensorflow.python.client import device_lib
-    local_device_protos = device_lib.list_local_devices()
-    gpus = [x.name for x in local_device_protos if x.device_type == 'GPU']
-    return len(gpus)
-
-
 def GradientTape(watch=(), persistent=False) -> tf.GradientTape:
     tape = tf.GradientTape(persistent)
 

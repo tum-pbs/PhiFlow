@@ -8,7 +8,7 @@ To make PyTorch the default backend, import `phi.torch.flow`.
 """
 from phi import math
 from ._torch_backend import TORCH_BACKEND
-from ._torch_util import cuda_device_count, variable
+from ._torch_util import variable
 
 TORCH_BACKEND = TORCH_BACKEND  # to show up in pdoc
 """Backend for PyTorch operations."""
