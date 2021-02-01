@@ -365,6 +365,9 @@ class _CopyExtrapolation(Extrapolation):
     def __gt__(self, other):
         return self._op(other, ConstantExtrapolation.__lt__)
 
+    def __neg__(self):
+        return self  # assume the values are also negated
+
 
 class _BoundaryExtrapolation(_CopyExtrapolation):
     """Uses the closest defined value for points lying outside the defined region."""
