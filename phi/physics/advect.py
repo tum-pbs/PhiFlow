@@ -9,7 +9,7 @@ Esamples:
 """
 
 from phi import math
-from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Field, PointCloud, extp_sgrid
+from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Field, PointCloud, extrapolate_valid
 from phi.field._field_math import GridType
 
 
@@ -158,27 +158,27 @@ def runge_kutta_4_extp(cloud: PointCloud, velocity: Field, bcs: Field, mask: Fie
 
     # --- Sample velocity at intermediate points and adjust velocity-dependent
     # extrapolation to maximum shift of corresponding component ---
-    velocity, mask = extp_sgrid(velocity, mask, 2)
+    velocity, mask = extrapolate_valid(velocity, mask, 2)
     velocity *= bcs
     vel_k1 = velocity.sample_in(points)
 
     shifted_points = points.shifted(0.5 * dt * vel_k1)
     shift = math.ceil(math.max(math.abs(shifted_points.center - points.center)))
     total_shift = shift
-    velocity, mask = extp_sgrid(velocity, mask, int(shift))
+    velocity, mask = extrapolate_valid(velocity, mask, int(shift))
     velocity *= bcs
     vel_k2 = velocity.sample_in(shifted_points)
 
     shifted_points = points.shifted(0.5 * dt * vel_k2)
     shift = math.ceil(math.max(math.abs(shifted_points.center - points.center))) - total_shift
     total_shift += shift
-    velocity, mask = extp_sgrid(velocity, mask, int(shift))
+    velocity, mask = extrapolate_valid(velocity, mask, int(shift))
     velocity *= bcs
     vel_k3 = velocity.sample_in(shifted_points)
 
     shifted_points = points.shifted(dt * vel_k3)
     shift = math.ceil(math.max(math.abs(shifted_points.center - points.center))) - total_shift
-    velocity, _ = extp_sgrid(velocity, mask, int(shift))
+    velocity, _ = extrapolate_valid(velocity, mask, int(shift))
     velocity *= bcs
     vel_k4 = velocity.sample_in(shifted_points)
 

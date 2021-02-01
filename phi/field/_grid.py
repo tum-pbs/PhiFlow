@@ -1,5 +1,4 @@
 import numpy as np
-from typing import Tuple
 
 from phi import math
 from phi.geom import Box, Geometry, assert_same_rank, GridCell
@@ -7,7 +6,7 @@ from ._field import Field
 from ._field import SampledField
 from ._mask import SoftGeometryMask, HardGeometryMask
 from ..geom._stack import GeometryStack
-from ..math import tensor, Shape, masked_extp
+from ..math import tensor, Shape
 from ..math._tensors import TensorStack, Tensor
 
 
@@ -351,43 +350,3 @@ def _validate_staggered_values(values: TensorStack):
             return values.staggered.as_channel('vector')
         else:
             raise ValueError("values needs to have 'vector' or 'staggered' dimension")
-
-
-def extp_cgrid(cgrid: CenteredGrid, mask: CenteredGrid, size: int = 1) -> Tuple[CenteredGrid, CenteredGrid]:
-    """
-    Extrapolates values of the CenteredGrid which are marked in the given mask using the `masked_extp` method (see
-    documentation of that method for detailed information)
-
-    Args:
-        cgrid: CenteredGrid holding the values for extrapolation
-        mask: CenteredGrid marking the positions for extrapolation with nonzero values
-        size: Number of extrapolation steps
-
-    Returns:
-        CenteredGrid with extrapolated values and binary CenteredGrid marking all extrapolated positions.
-    """
-    new_tensor, new_mask = masked_extp(cgrid.values, mask.values, size)
-    return CenteredGrid(new_tensor, cgrid.box, cgrid.extrapolation), CenteredGrid(new_mask, mask.box, mask.extrapolation)
-
-
-def extp_sgrid(sgrid: StaggeredGrid, mask: StaggeredGrid, size: int = 1) -> Tuple[StaggeredGrid, StaggeredGrid]:
-    """
-    Extrapolates the CenteredGrid components of the StaggeredGrid independently using the CenteredGrid components of the
-    given mask and applying the `extp_cgrid` method.
-
-    Args:
-        sgrid: StaggeredGrid holding the CenteredGrids with values for extrapolation
-        mask: StaggeredGrid holding the CenteredGrid masks
-        size: Number of extrapolation steps
-
-    Returns:
-        StaggeredGrid with extrapolated values and binary StaggeredGrid marking all extrapolated positions.
-    """
-    tensors = []
-    masks = []
-    for cgrid, mask in zip(sgrid.unstack('vector'), mask.unstack('vector')):
-        new_tensor, new_mask = extp_cgrid(cgrid, mask=mask, size=size)
-        tensors.append(new_tensor.values)
-        masks.append(new_mask.values)
-    return StaggeredGrid(math.channel_stack(tensors, 'vector'), sgrid.box, sgrid.extrapolation), \
-        StaggeredGrid(math.channel_stack(masks, 'vector'), mask.box, mask.extrapolation)

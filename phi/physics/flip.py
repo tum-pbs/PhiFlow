@@ -2,24 +2,8 @@ from phi import math, field
 from typing import List, Tuple
 from phi.math import Tensor
 from phi.physics import Domain, Obstacle
-from phi.field import StaggeredGrid, HardGeometryMask, PointCloud, CenteredGrid
+from phi.field import StaggeredGrid, HardGeometryMask, PointCloud, CenteredGrid, Grid, extrapolate_valid
 from phi.geom import union, Sphere
-from ._effect import Gravity, gravity_tensor
-
-
-def apply_gravity(dt: float, v_field: StaggeredGrid) -> StaggeredGrid:
-    """
-    Update velocity field with gravitational acceleration.
-
-    Args:
-        dt: The time step for euler integration.
-        v_field: A velocity field as StaggeredGrid
-
-    Returns:
-        The updated velocity field
-    """
-    force = dt * gravity_tensor(Gravity(), v_field.shape.spatial.rank)
-    return v_field + force
 
 
 def get_bcs(domain: Domain, obstacles: List[Obstacle]) -> StaggeredGrid:
@@ -54,7 +38,7 @@ def make_incompressible(v_field: StaggeredGrid, bcs: StaggeredGrid, cmask: Cente
     Returns:
         Projected velocity field and corresponding pressure field
     """
-    v_field, _ = field.extp_sgrid(v_field, smask, 1)  # extrapolation conserves falling shapes
+    v_field, _ = extrapolate_valid(v_field, smask, 1)  # extrapolation conserves falling shapes
     v_field *= bcs  # Enforces boundary conditions after extrapolation
     div = field.divergence(v_field) * cmask
 
@@ -67,35 +51,35 @@ def make_incompressible(v_field: StaggeredGrid, bcs: StaggeredGrid, cmask: Cente
     return v_field - gradp, pressure
 
 
-def map2particle(v_particle: PointCloud, projected_v_field: StaggeredGrid, smask: StaggeredGrid,
-                 initial_v_field: StaggeredGrid = None) -> PointCloud:
+def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
+                              previous_velocity_grid: Grid = None) -> PointCloud:
     """
     Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
     updated by the change between projected and initial grid velocities) and PIC (particle velocities are replaced by the the 
     projected velocities) method depending on the value of the `initial_v_field`.
     
     Args:
-        v_particle: PointCloud with particle positions as elements and their corresponding velocities as values
-        projected_v_field: Divergence-free velocity field as StaggeredGrid
-        smask: Binary StaggeredGrid indicating which cells hold particles
-        initial_v_field: Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise
+        previous_particle_velocity: PointCloud with particle positions as elements and their corresponding velocities as values
+        velocity_grid: Divergence-free velocity grid
+        occupation_mask: Binary grid (same type as `velocity_grid`) indicating which cells hold particles
+        previous_velocity_grid: Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise
 
     Returns:
         PointCloud with particle positions as elements and updated particle velocities as values.
     """
-    if initial_v_field is not None:
-        # FLIP
-        v_change_field = projected_v_field - initial_v_field
-        v_change_field, _ = field.extp_sgrid(v_change_field, smask, 1)  # conserves falling shapes (no hard_bcs here!)
-        v_change = v_change_field.sample_at(v_particle.elements.center)
-        return PointCloud(v_particle.elements, values=v_particle.values + v_change,
-                          add_overlapping=v_particle._add_overlapping)
+    if previous_velocity_grid is not None:
+        # --- FLIP ---
+        v_change_field = velocity_grid - previous_velocity_grid
+        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask, 1)
+        v_change = v_change_field.sample_at(previous_particle_velocity.elements.center)
+        return PointCloud(previous_particle_velocity.elements, values=previous_particle_velocity.values + v_change,
+                          add_overlapping=previous_particle_velocity._add_overlapping)
     else:
-        # PIC
-        v_div_free_field, _ = field.extp_sgrid(projected_v_field, smask, 1)
-        v_values = v_div_free_field.sample_at(v_particle.elements.center)
-        return PointCloud(v_particle.elements, values=v_values,
-                          add_overlapping=v_particle._add_overlapping)
+        # --- PIC ---
+        v_div_free_field, _ = extrapolate_valid(velocity_grid, occupation_mask, 1)
+        v_values = v_div_free_field.sample_at(previous_particle_velocity.elements.center)
+        return PointCloud(previous_particle_velocity.elements, values=v_values,
+                          add_overlapping=previous_particle_velocity._add_overlapping)
 
 
 def add_inflow(particles: PointCloud, inflow_points: Tensor, inflow_values: Tensor) -> PointCloud:

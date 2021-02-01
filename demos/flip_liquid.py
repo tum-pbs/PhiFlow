@@ -7,10 +7,8 @@ obstacles = [Obstacle(Box[30:35, 30:35].rotated(math.tensor(-20)))]
 bcs = flip.get_bcs(domain, obstacles)
 
 # --- Initialize particles ---
-point_mask = domain.grid().values
-point_mask.native()[20:40, 50:60] = 1
-point_mask.native()[:, :10] = 1
-initial_points = distribute_points(point_mask, 8)
+point_mask = domain.grid(HardGeometryMask(union([Box[20:40, 50:60], Box[:, :10]])))
+initial_points = distribute_points(point_mask.values, 8)
 initial_velocity = math.tensor(np.zeros(initial_points.shape), names=['points', 'vector'])
 initial_particles = PointCloud(Sphere(initial_points, 0), values=initial_velocity)
 
@@ -20,11 +18,11 @@ state = dict(particles=initial_particles, v_field=initial_particles.at(domain.sg
 
 def step(particles, v_field, pressure, dt, t, **kwargs):
     points = PointCloud(particles.elements, values=1)
-    cmask = points.at(domain.grid())
-    smask = points.at(domain.sgrid())
-    v_force_field = flip.apply_gravity(dt, v_field)
+    cmask = points >> domain.grid()
+    smask = points >> domain.sgrid()
+    v_force_field = v_field + dt * gravity_tensor(Gravity(), v_field.shape.spatial.rank)
     v_div_free_field, pressure = flip.make_incompressible(v_force_field, bcs, cmask, smask, pressure)
-    particles = flip.map2particle(particles, v_div_free_field, smask, initial_v_field=v_field)
+    particles = flip.map_velocity_to_particles(particles, v_div_free_field, smask, previous_velocity_grid=v_field)
     particles = advect.advect(particles, v_div_free_field, dt, mask=smask, bcs=bcs, mode='rk4_extp')
     if t < inflow:
         particles = flip.add_inflow(particles, initial_points, initial_velocity)

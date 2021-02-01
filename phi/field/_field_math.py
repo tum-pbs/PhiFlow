@@ -1,13 +1,15 @@
 from functools import wraps
-from typing import TypeVar
+from typing import TypeVar, Tuple
 
 from phi import math
 from phi import geom
 from phi.geom import Box, Geometry
-from ._field import Field, SampledField
-from ._grid import CenteredGrid, Grid, StaggeredGrid
+
+from . import StaggeredGrid, HardGeometryMask
 from ._point_cloud import PointCloud
-from ._mask import HardGeometryMask
+from ._field import Field, SampledField
+from ._grid import CenteredGrid, Grid
+from ..math import masked_extp
 
 
 def laplace(field: Grid, axes=None):
@@ -272,3 +274,36 @@ def stop_gradient(field: SampledField):
     if isinstance(field, Grid):
         return field.with_(values=math.stop_gradient(field.values))
     raise NotImplementedError()
+
+
+def extrapolate_valid(grid: Grid, valid: Grid, distance_cells: int = 1) -> Tuple[Grid, Grid]:
+    """
+    Extrapolates values of `grid` which are marked by nonzero values in `valid` using the
+    `masked_extp` method (see documentation of that method for detailed information). If
+    `values` is a StaggeredGrid, its CenteredGrid components get extrapolated independently.
+
+    Args:
+        grid: Grid holding the values for extrapolation
+        valid: Grid (same type as `values`) marking the positions for extrapolation with nonzero values
+        distance_cells: Number of extrapolation steps
+
+    Returns:
+        Grid with extrapolated values and binary Grid marking all extrapolated positions.
+    """
+    if isinstance(grid, CenteredGrid):
+        assert isinstance(valid, CenteredGrid), 'Type of valid Grid must match type of grid.'
+        new_tensor, new_mask = masked_extp(grid.values, valid.values, distance_cells)
+        return CenteredGrid(new_tensor, grid.box, grid.extrapolation), \
+            CenteredGrid(new_mask, valid.box, valid.extrapolation)
+    elif isinstance(grid, StaggeredGrid):
+        assert isinstance(valid, StaggeredGrid), 'Type of valid Grid must match type of grid.'
+        tensors = []
+        masks = []
+        for cgrid, valid in zip(grid.unstack('vector'), valid.unstack('vector')):
+            new_tensor, new_mask = extrapolate_valid(cgrid, valid=valid, distance_cells=distance_cells)
+            tensors.append(new_tensor.values)
+            masks.append(new_mask.values)
+        return StaggeredGrid(math.channel_stack(tensors, 'vector'), grid.box, grid.extrapolation), \
+            StaggeredGrid(math.channel_stack(masks, 'vector'), valid.box, valid.extrapolation)
+    else:
+        raise NotImplementedError()
