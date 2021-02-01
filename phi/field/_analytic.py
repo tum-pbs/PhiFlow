@@ -24,7 +24,7 @@ class AnalyticField(Field):
         if isinstance(other, SampledField):
             self_sampled = self.at(other)
             data = operator(self_sampled.values, other.values)
-            return other._with(data)
+            return other.with_(values=data)
         other = math.tensor(other)
         new_shape = self.shape.combined(other.shape)
         return _SymbolicOpField(new_shape, operator, [self, other])

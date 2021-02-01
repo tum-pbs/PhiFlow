@@ -233,9 +233,13 @@ class StaggeredGrid(Grid):
                 tensors.append(math.zeros(comp_cells.resolution) + component)
             return StaggeredGrid(math.channel_stack(tensors, 'vector'), bounds, extrapolation)
 
-    def _with(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None) -> SampledField:
+        assert elements is None
         values = _validate_staggered_values(values) if values is not None else None
-        return Grid._with(self, values, extrapolation)
+        return Grid.with_(self, values=values, extrapolation=extrapolation)
 
     @property
     def cells(self):
@@ -310,7 +314,7 @@ class StaggeredGrid(Grid):
         if isinstance(other, StaggeredGrid) and self.bounds == other.bounds and self.shape.spatial == other.shape.spatial:
             values = operator(self._values, other.values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self._with(values, extrapolation_)
+            return self.with_(values=values, extrapolation=extrapolation_)
         else:
             return SampledField._op2(self, other, operator)
 
@@ -321,7 +325,7 @@ class StaggeredGrid(Grid):
     #         grid = grid[tuple([slice(None, None, 2) if d - 1 == axis else slice(None) for d in range(self.rank + 2)])]  # Discard odd indices along axis
     #         grid = math.downsample2x(grid, dims=tuple(filter(lambda ax2: ax2 != axis, range(self.rank))))  # Interpolate values along other dims
     #         values.append(grid)
-    #     return self._with(values)
+    #     return self.with_(values=values)
 
 
 def unstack_staggered_tensor(data: Tensor) -> TensorStack:

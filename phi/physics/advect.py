@@ -61,7 +61,7 @@ def semi_lagrangian(field: GridType, velocity: Field, dt) -> GridType:
     v = velocity.sample_in(field.elements)
     x = field.points - v * dt
     interpolated = field.sample_at(x, reduce_channels=x.shape.non_channel.without(field.shape).names)
-    return field.with_(interpolated)
+    return field.with_(values=interpolated)
 
 
 def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength=1.0) -> GridType:

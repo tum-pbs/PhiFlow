@@ -174,20 +174,20 @@ def diffuse(field: FieldType, diffusivity, dt, substeps=1) -> FieldType:
 def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
     if callback is not None:
         def field_callback(x):
-            x = x0._with(x)
+            x = x0.with_(values=x)
             callback(x)
     else:
         field_callback = None
 
     data_function = expose_tensors(function, x0)
     converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params, field_callback)
-    return converged, x0._with(x), iterations
+    return converged, x0.with_(values=x), iterations
 
 
 def expose_tensors(field_function, *proto_fields):
     @wraps(field_function)
     def wrapper(*field_data):
-        fields = [proto._with(data) for data, proto in zip(field_data, proto_fields)]
+        fields = [proto.with_(values=data) for data, proto in zip(field_data, proto_fields)]
         result = field_function(*fields)
         assert isinstance(result, SampledField), f"function must return an instance of SampledField but returned {result}"
         return result.values
@@ -207,7 +207,7 @@ def mean(field: Grid):
 
 def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
     data = math.normalize_to(field.values, norm.values, epsilon)
-    return field._with(data)
+    return field.with_(values=data)
 
 
 def pad(grid: Grid, widths: int or tuple or list or dict):
@@ -305,7 +305,7 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field):
         raise NotImplementedError('At least one argument must be a SampledField')
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
     # values = math.where(mask.values, field_true.values, field_false.values)
-    return field_true._with(values)
+    return field_true.with_(values=values)
 
 
 def l2_loss(field: SampledField, batch_norm=True):

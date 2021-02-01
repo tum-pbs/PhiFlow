@@ -749,10 +749,10 @@ def minimum(x: Tensor or float, y: Tensor or float):
 def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
     if isinstance(lower_limit, Number) and isinstance(upper_limit, Number):
 
-        def clip_(x, lower_limit, upper_limit):
+        def clip_(x):
             return x._op1(lambda native: choose_backend(native).clip(native, lower_limit, upper_limit))
 
-        return broadcast_op(clip_, [x, lower_limit, upper_limit])
+        return broadcast_op(clip_, [x])
     else:
         return maximum(lower_limit, minimum(x, upper_limit))
 

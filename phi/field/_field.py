@@ -244,6 +244,20 @@ class SampledField(Field):
         self._extrapolation = extrapolation
         self._shape = elements.shape.non_channel & self._values.shape.non_spatial
 
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None) -> SampledField:
+        """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
+        copied = copy.copy(self)
+        SampledField.__init__(copied,
+                              elements if elements is not None else self._elements,
+                              values if values is not None else self._values,  # do not use == check
+                              extrapolation if extrapolation is not None else self._extrapolation)
+        return copied
+
+    copied_with = with_
+
     @property
     def elements(self) -> Geometry:
         """
@@ -253,13 +267,6 @@ class SampledField(Field):
         For grids, the geometries are boxes while particle fields may be represented as spheres.
         
         If this Field has no discrete points, this method returns an empty geometry.
-        
-        :return: Geometry with all batch/spatial dimensions of this Field. Staggered sample points are modelled using extra batch dimensions.
-
-        Args:
-
-        Returns:
-
         """
         return self._elements
 
@@ -286,40 +293,27 @@ class SampledField(Field):
 
     def unstack(self, dimension: str) -> tuple:
         values = self._values.unstack(dimension)
-        return tuple(self._with(v) for i, v in enumerate(values))
+        return tuple(self.with_(values=v) for i, v in enumerate(values))
 
     def _op1(self, operator) -> Field:
         values = operator(self.values)
         extrapolation_ = operator(self._extrapolation)
-        return self._with(values=values, extrapolation=extrapolation_)
+        return self.with_(values=values, extrapolation=extrapolation_)
 
     def _op2(self, other, operator) -> Field:
         if isinstance(other, Field):
             other_values = other.sample_in(self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self._with(values, extrapolation_)
+            return self.with_(values=values, extrapolation=extrapolation_)
         else:
             other = math.tensor(other)
             values = operator(self._values, other)
-            return self._with(values)
+            return self.with_(values=values)
 
     def __getitem__(self, item):
         values = self._values[item]
-        return self._with(values)
-
-    def with_(self, values: Tensor = None, extrapolation: math.Extrapolation = None):
-        """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
-        copied = copy.copy(self)
-        SampledField.__init__(copied,
-                              self._elements,
-                              values if values is not None else self._values,  # do not use == check
-                              extrapolation if extrapolation is not None else self._extrapolation)
-        return copied
-
-    _with = with_
-
-    copied_with = with_
+        return self.with_(values=values)
 
 
 class _FieldDim:
