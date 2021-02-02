@@ -439,10 +439,17 @@ class TorchBackend(Backend):
     def fft(self, x):
         if not x.is_complex():
             x = self.to_complex(x)
+
+        # Using new torch.fft.fft
+        for i in range(1, len(x.shape) - 1):
+            x = torch.fft.fft(x, dim=i)  # TODO this returns 0.0
+        return x
+
+        # Using old torch.Tensor.fft
         rank = len(x.shape) - 2
         x = channels_first(x)
         x = torch.view_as_real(x)
-        k = torch.fft.fft(x, rank)
+        k = torch.Tensor.fft(x, rank)  # TODO this returns 0.0
         if k.is_complex():
             k = self.real(k).contiguous()
         k = torch.view_as_complex(k)
