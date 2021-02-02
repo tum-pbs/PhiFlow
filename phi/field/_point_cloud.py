@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any
 
 from phi import math
 from phi.geom import Geometry, GridCell, Box

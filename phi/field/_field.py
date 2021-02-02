@@ -1,5 +1,4 @@
 import copy
-from abc import ABC
 
 from phi import math
 from phi.geom import Geometry

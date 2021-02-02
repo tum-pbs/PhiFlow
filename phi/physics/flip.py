@@ -83,23 +83,6 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_g
         return previous_particle_velocity.with_(values=v_values)
 
 
-def add_inflow(particles: PointCloud, inflow_points: Tensor, inflow_values: Tensor) -> PointCloud:
-    """
-    Merges the current particles with inflow particles.
-
-    Args:
-        particles: PointCloud with particle positions as elements and their corresponding velocities as values
-        inflow_points: Tensor of new point positions which should get added (must hold 'points' dimension)
-        inflow_values: Tensor of new points velocities (must hold 'points' dimension)
-
-    Return:
-        PointCloud with merged particle positions as elements and their velocities as values.
-    """
-    new_points = math.tensor(math.concat([particles.points, inflow_points], dim='points'), names=['points', 'vector'])
-    new_values = math.tensor(math.concat([particles.values, inflow_values], dim='points'), names=['points', 'vector'])
-    return particles.with_(elements=Sphere(new_points, 0), values=new_values)
-
-
 def respect_boundaries(particles: PointCloud, domain: Domain, obstacles: tuple or list, offset=1.0) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 

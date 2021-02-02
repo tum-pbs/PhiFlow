@@ -1,7 +1,7 @@
 from phi.flow import *
 
 # --- Setup environment ---
-inflow = 0
+inflow = 1
 domain = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box[0:64, 0:64])
 obstacles = [Obstacle(Box[30:35, 30:35].rotated(math.tensor(-20)))]
 bcs = flip.get_accessible_mask(domain, obstacles)
@@ -25,8 +25,8 @@ def step(particles, v_field, pressure, dt, t, **kwargs):
     particles = flip.map_velocity_to_particles(particles, v_div_free_field, smask, previous_velocity_grid=v_field)
     particles = advect.advect(particles, v_div_free_field, dt, occupied=smask, valid=bcs, mode='rk4')
     if t < inflow:
-        particles = flip.add_inflow(particles, initial_points, initial_velocity)
-    particles = flip.respect_boundaries(domain, obstacles, particles)
+        particles = particles & initial_particles
+    particles = flip.respect_boundaries(particles, domain, obstacles)
     return dict(particles=particles, v_field=particles.at(domain.sgrid()), pressure=pressure, t=t + 1, cmask=cmask)
 
 
