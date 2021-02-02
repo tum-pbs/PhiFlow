@@ -14,6 +14,11 @@ from . import extrapolation
 from .backend._profile import get_current_profile
 
 
+def choose_backend_t(*values, prefer_default=False):
+    values = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
+    return choose_backend(*values, prefer_default=prefer_default)
+
+
 def all_available(*values: Tensor):
     """
     Tests if the values of all given tensors are known and can be read at this point.
@@ -356,11 +361,14 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
         if result == NotImplemented:
             # pad one layer
             grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or extrapolation.ZERO)
-            inner_coordinates = coordinates + 1
+            if extrap is not None:
+                inner_coordinates = extrap.transform_coordinates(coordinates, grid.shape) + 1
+            else:
+                inner_coordinates = coordinates + 1
             result = backend.grid_sample(grid_batched.native(),
                                          grid.shape.index(grid.shape.spatial),
                                          inner_coordinates.native(),
-                                         'undefined')
+                                         'boundary')
         if result != NotImplemented:
             result_shape = grid_batched.shape.non_spatial & coordinates_batched.shape.spatial
             result = NativeTensor(result, result_shape)

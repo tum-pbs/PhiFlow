@@ -17,8 +17,11 @@ from ._profile import Profile, get_current_profile, profile, profile_function
 BACKENDS.append(SCIPY_BACKEND)
 _DEFAULT.append(SCIPY_BACKEND)
 
-BACKENDS = BACKENDS
+BACKENDS = BACKENDS  # to show up in pdoc
 """ Global list of all registered backends. Register a `Backend` by adding it to the list. """
+
+SCIPY_BACKEND = SCIPY_BACKEND  # to show up in pdoc
+"""Default backend for NumPy arrays and SciPy objects."""
 
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

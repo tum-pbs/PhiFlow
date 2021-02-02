@@ -20,7 +20,7 @@ DOMAIN = Domain(x=128, y=128, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 velocity = DOMAIN.staggered_grid(Noise(vector=2))
 pressure = DOMAIN.grid(0)
 
-with math.backend.profile() as prof:
+with backend.profile() as prof:
     for _ in range(2):
         velocity = advect.semi_lagrangian(velocity, velocity, dt=1)
         velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)

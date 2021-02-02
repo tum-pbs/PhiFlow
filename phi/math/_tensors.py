@@ -3,23 +3,25 @@ import warnings
 
 import numpy as np
 
-from . import _shape
-from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision
+from . import _shape, DType
+from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend
 from ._shape import Shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
 
 
 class Tensor:
     """
-    Tensors with grouped and named dimensions.
-    
-    All tensors are editable.
-    
-    The internal data representation of a tensor can change, even without being edited.
+    Abstract base class to represent structured data of one data type.
 
-    Args:
+    Unlike with `numpy.ndarray`, the dimensions of Tensors have names and types.
+    Additionally, tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.
 
-    Returns:
+    To check whether a value is a tensor, use `isinstance(value, Tensor)`.
 
+    To construct a Tensor, use `tensor()` or one of the basic tensor creation functions,
+    see https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation .
+
+    Tensors are not editable.
+    When backed by an editable native tensor, e.g. a `numpy.ndarray`, do not edit the underlying data structure.
     """
 
     def native(self, order: str or tuple or list = None):
@@ -65,11 +67,13 @@ class Tensor:
         return choose_backend(native).numpy(native)
 
     @property
-    def dtype(self):
+    def dtype(self) -> DType:
+        """ Data type of the elements of this `Tensor`. """
         raise NotImplementedError()
 
     @property
     def shape(self) -> Shape:
+        """ The `Shape` lists the dimensions with their sizes, names and types. """
         raise NotImplementedError()
 
     def _with_shape_replaced(self, new_shape):
@@ -77,10 +81,12 @@ class Tensor:
 
     @property
     def ndims(self) -> int:
+        """ Equal to `tensor.rank` and `tensor.shape.rank`. """
         return self.shape.rank
 
     @property
     def rank(self) -> int:
+        """ Equal to `tensor.ndims` and `tensor.shape.rank`. """
         return self.shape.rank
 
     @property
@@ -178,6 +184,15 @@ class Tensor:
         raise NotImplementedError()
 
     def flip(self, *dims: str) -> 'Tensor':
+        """
+        Reverses the order of elements along one or multiple dimensions.
+
+        Args:
+            *dims: dimensions to flip
+
+        Returns:
+            `Tensor` of the same `Shape`
+        """
         raise NotImplementedError()
 
     # def __setitem__(self, key, value):
@@ -205,6 +220,27 @@ class Tensor:
         raise NotImplementedError()
 
     def dimension(self, name):
+        """
+        Returns a reference to a specific dimension of this tensor.
+        This is equivalent to the syntax `tensor.<name>`.
+
+        The dimension need not be part of the `Tensor.shape` in which case its size is 1.
+
+        Dimension references can be used for the following operations:
+
+        * Indexing: `tensor_dim[start:stop:step]` returns a sliced version of the original tensor
+        * Flipping: `tensor_dim.flip()` reverses the element order along that dimension
+        * Unstacking: `tensor_dim.unstack()` returns a tuple of sliced tensors
+        * Changing dimension type: `tensor_dim.as_batch()`, `tensor_dim.as_spatial()` and `tensor_dim.as_channel()` return a `Tensor` with a new `Shape`.
+        * Renaming: `tensor_dim.as_batch(name)` and the other methods allow a new name to be specified.
+
+        Properties of dimension references:
+
+        * `size: int`
+        * `exists: bool`
+        * `index: int` index in shape
+        * `is_batch`, `is_spatial`, `is_channel`
+        """
         return _TensorDim(self, name)
 
     def __getattr__(self, name):
@@ -291,15 +327,6 @@ class Tensor:
 
     def __abs__(self):
         return self._op1(lambda t: choose_backend(t).abs(t))
-
-    def as_complex(self):
-        return self._op1(lambda t: choose_backend(t).to_complex(t))
-
-    def as_float(self):
-        return self._op1(lambda t: choose_backend(t).to_float(t))
-
-    def as_int(self, int64=False):
-        return self._op1(lambda t: choose_backend(t).to_int(t, int64=int64))
 
     def __copy__(self):
         return self._op1(lambda t: choose_backend(t).copy(t, only_mutable=True))
@@ -453,6 +480,9 @@ class _TensorDim:
 
     def __getitem__(self, item):
         return self.tensor[{self.name: item}]
+
+    def flip(self):
+        return self.tensor.flip(self.name)
 
 
 class NativeTensor(Tensor):
@@ -760,21 +790,37 @@ class TensorStack(Tensor):
         return sum([t._natives() for t in self.tensors], ())
 
 
-def tensors(*objects, names=None):
-    return [tensor(obj, names) for obj in objects]
+def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
+            names: str or tuple or list = None,
+            convert: bool = False):
+    """
+    Calls `tensor()` on multiple arguments independently.
+
+    Example:
+
+        scalar_tensor, vector_tensor = tensors(0, (1, 2, 3))
+
+    Returns:
+        Sequence of same length as `objects`.
+    """
+    return [tensor(obj, names, convert) for obj in objects]
 
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
-           names: str or tuple or list = None) -> Tensor:
+           names: str or tuple or list = None,
+           convert: bool = False) -> Tensor:
     """
-    Create a Tensor from the specified data.
+    Create a Tensor from the specified `data`.
+    If `convert=True`, converts `data` to the preferred format of the default backend.
+
     `data` must be one of the following:
     
-    * Number: returns a dimensionless Tensor
-    * Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor
-    * tuple or list of numbers: backs the Tensor with a NumPy array
-    * Tensor: renames dimensions and dimension types if `names` is specified, otherwise returns the tensor.
-    * Shape: creates a 1D tensor listing the dimension sizes
+    * Number: returns a dimensionless Tensor.
+    * Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor.
+    * `tuple` or `list` of numbers: backs the Tensor with native tensor.
+    * `tuple` or `list` of non-numbers: creates tensors for the items and stacks them.
+    * Tensor: renames dimensions and dimension types if `names` is specified. Converts all internal native values of the tensor if `convert=True`.
+    * Shape: creates a 1D tensor listing the dimension sizes.
     
     While specifying `names` is optional in some cases, it is recommended to always specify them.
     
@@ -783,15 +829,20 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
       names: Dimension names. Dimension types are inferred from the names.
-    :raise: AssertionError if dimension names are not provided and cannot automatically be inferred
-      data: Tensor or Shape or tuple or list or numbers.Number: 
-      names: str or tuple or list:  (Default value = None)
+      convert: If True, converts the data to the native format of the current default backend.
+        If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
+
+    Raises:
+      AssertionError if dimension names are not provided and cannot automatically be inferred
 
     Returns:
       Tensor containing same values as data
-
     """
     if isinstance(data, Tensor):
+        if convert:
+            backend = choose_backend(*data._natives())
+            if backend != default_backend():
+                data = data._op1(lambda native: default_backend().as_tensor(backend.numpy(native), convert_external=True))
         if names is None:
             return data
         else:
@@ -800,26 +851,28 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             types = [_shape._infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
-    if isinstance(data, (tuple, list)):
+    elif isinstance(data, (tuple, list)):
         array = np.array(data)
         if array.dtype != np.object:
             data = array
         else:
-            elements = tensors(*data, names=None if names is None else names[1:])
+            elements = tensors(*data, names=None if names is None else names[1:], convert=convert)
             common_shape = _shape.combine_safe(*[e.shape for e in elements])
             rank = 1 + common_shape.rank
             stack_dim = 'vector' if names is None else _shape.parse_dim_names(names, rank)[0]
-            assert all(stack_dim not in t.shape for t in elements), f"Cannot stack tensors with dimension {stack_dim} because a tensor already has that dimension."
+            assert all(stack_dim not in t.shape for t in elements), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in elements]
             from ._functions import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
-    if isinstance(data, (numbers.Number, str)):
-        assert not names
+    elif isinstance(data, (numbers.Number, bool, str)):
+        assert not names, f"Trying to create a zero-dimensional Tensor from value '{data}' but names={names}"
+        if convert:
+            data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, EMPTY_SHAPE)
-    if isinstance(data, Shape):
+    elif isinstance(data, Shape):
         assert names is not None
-        return tensor(data.sizes, names)
+        return tensor(data.sizes, names, convert=convert)
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
@@ -831,6 +884,9 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             assert None not in names, f"All names must be specified but got {names}"
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
+        if convert and backend != default_backend():
+            data = backend.numpy(data)
+            data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, shape)
     raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
 

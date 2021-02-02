@@ -4,25 +4,16 @@ Vectorized operations, tensors with named dimensions.
 This package provides a common interface for tensor operations.
 Is internally uses NumPy, TensorFlow or PyTorch.
 
-Provides
-
-* A tensor base class with multiple implementations
-* A NumPy-like API for mathematical operations over tensors as well as tensor generation
+Main classes: `Tensor`, `Shape`, `DType`, `Extrapolation`.
 
 The provided operations are not implemented directly.
 Instead, they delegate the actual computation to either NumPy, TensorFlow or PyTorch, depending on the configuration.
 This allows the user to write simulation code once and have it run with various computation backends.
 
-Main classes:
-
-* Tensor
-* Shape
-
-See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
+See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 """
 
-from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, choose_backend
-from .backend._scipy_backend import SCIPY_BACKEND
+from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, SCIPY_BACKEND
 
 from .extrapolation import Extrapolation
 
@@ -31,6 +22,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import tensor, tensors, Tensor
 from ._functions import (
+    choose_backend_t as choose_backend,
     all_available,
     print_ as print,
     transpose,

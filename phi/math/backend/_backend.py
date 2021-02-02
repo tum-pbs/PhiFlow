@@ -645,7 +645,7 @@ class NoBackendFound(Exception):
         Exception.__init__(self, msg)
 
 
-def default_backend():
+def default_backend() -> Backend:
     """
     The default backend is preferred by `choose_backend()`.
 

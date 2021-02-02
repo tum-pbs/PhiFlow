@@ -46,8 +46,11 @@ from ._profile import Profile, get_current_profile, profile, profile_function
 BACKENDS.append(SCIPY_BACKEND)
 _DEFAULT.append(SCIPY_BACKEND)
 
-BACKENDS = BACKENDS
+BACKENDS = BACKENDS  # to show up in pdoc
 &#34;&#34;&#34; Global list of all registered backends. Register a `Backend` by adding it to the list. &#34;&#34;&#34;
+
+SCIPY_BACKEND = SCIPY_BACKEND  # to show up in pdoc
+&#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
 
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
@@ -61,6 +64,10 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dt id="phi.math.backend.BACKENDS"><code class="name">var <span class="ident">BACKENDS</span></code></dt>
 <dd>
 <div class="desc"><p>Global list of all registered backends. Register a <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> by adding it to the list.</p></div>
+</dd>
+<dt id="phi.math.backend.SCIPY_BACKEND"><code class="name">var <span class="ident">SCIPY_BACKEND</span></code></dt>
+<dd>
+<div class="desc"><p>Default backend for NumPy arrays and SciPy objects.</p></div>
 </dd>
 </dl>
 </section>
@@ -124,7 +131,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
 </details>
 </dd>
 <dt id="phi.math.backend.default_backend"><code class="name flex">
-<span>def <span class="ident">default_backend</span></span>(<span>)</span>
+<span>def <span class="ident">default_backend</span></span>(<span>) ‑> phi.math.backend._backend.Backend</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The default backend is preferred by <code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend()</a></code>.</p>
@@ -135,7 +142,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def default_backend():
+<pre><code class="python">def default_backend() -&gt; Backend:
     &#34;&#34;&#34;
     The default backend is preferred by `choose_backend()`.
 
@@ -1033,8 +1040,6 @@ The output of math operations has the same precision as its inputs.</p>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li>phi.math.backend._scipy_backend.SciPyBackend</li>
-<li>phi.tf._tf_backend.TFBackend</li>
-<li>phi.torch._torch_backend.TorchBackend</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -3284,6 +3289,7 @@ def retime(self):
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
 <li><code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code></li>
+<li><code><a title="phi.math.backend.SCIPY_BACKEND" href="#phi.math.backend.SCIPY_BACKEND">SCIPY_BACKEND</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>

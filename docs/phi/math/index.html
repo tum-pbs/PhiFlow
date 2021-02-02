@@ -19,26 +19,17 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>phi.math</code></h1>
+<h1 class="title">Package <code>phi.math</code></h1>
 </header>
 <section id="section-intro">
 <p>Vectorized operations, tensors with named dimensions.</p>
 <p>This package provides a common interface for tensor operations.
 Is internally uses NumPy, TensorFlow or PyTorch.</p>
-<p>Provides</p>
-<ul>
-<li>A tensor base class with multiple implementations</li>
-<li>A NumPy-like API for mathematical operations over tensors as well as tensor generation</li>
-</ul>
+<p>Main classes: <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, <code><a title="phi.math.DType" href="#phi.math.DType">DType</a></code>, <code><a title="phi.math.Extrapolation" href="#phi.math.Extrapolation">Extrapolation</a></code>.</p>
 <p>The provided operations are not implemented directly.
 Instead, they delegate the actual computation to either NumPy, TensorFlow or PyTorch, depending on the configuration.
 This allows the user to write simulation code once and have it run with various computation backends.</p>
-<p>Main classes:</p>
-<ul>
-<li>Tensor</li>
-<li>Shape</li>
-</ul>
-<p>See the <code><a title="phi.math" href="#phi.math">phi.math</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Math.html">https://tum-pbs.github.io/PhiFlow/Math.html</a></p>
+<p>See the documentation at <a href="https://tum-pbs.github.io/PhiFlow/Math.html">https://tum-pbs.github.io/PhiFlow/Math.html</a></p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -49,25 +40,16 @@ Vectorized operations, tensors with named dimensions.
 This package provides a common interface for tensor operations.
 Is internally uses NumPy, TensorFlow or PyTorch.
 
-Provides
-
-* A tensor base class with multiple implementations
-* A NumPy-like API for mathematical operations over tensors as well as tensor generation
+Main classes: `Tensor`, `Shape`, `DType`, `Extrapolation`.
 
 The provided operations are not implemented directly.
 Instead, they delegate the actual computation to either NumPy, TensorFlow or PyTorch, depending on the configuration.
 This allows the user to write simulation code once and have it run with various computation backends.
 
-Main classes:
-
-* Tensor
-* Shape
-
-See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
+See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 &#34;&#34;&#34;
 
-from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, choose_backend
-from .backend._scipy_backend import SCIPY_BACKEND
+from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, SCIPY_BACKEND
 
 from .extrapolation import Extrapolation
 
@@ -76,6 +58,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import tensor, tensors, Tensor
 from ._functions import (
+    choose_backend_t as choose_backend,
     all_available,
     print_ as print,
     transpose,
@@ -508,59 +491,17 @@ Tensors with different shapes are reshaped before comparing.</p>
 </details>
 </dd>
 <dt id="phi.math.choose_backend"><code class="name flex">
-<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False, raise_error=True) ‑> phi.math.backend._backend.Backend</span>
+<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Selects a suitable backend to handle the given values.</p>
-<p>This function is used by most math functions operating on <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> objects to delegate the actual computations.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt>*values:</dt>
-<dt><strong><code>prefer_default</code></strong></dt>
-<dd>if True, selects the default backend assuming it can handle handle the values, see <code>default_backend()</code>.</dd>
-<dt><strong><code>raise_error</code></strong></dt>
-<dd>Determines the behavior of this function if no backend can handle the given values.
-If True, raises a <code>NoBackendFound</code> error, else returns <code>None</code>.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>the selected <code>Backend</code></p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def choose_backend(*values, prefer_default=False, raise_error=True) -&gt; Backend:
-    &#34;&#34;&#34;
-    Selects a suitable backend to handle the given values.
-
-    This function is used by most math functions operating on `Tensor` objects to delegate the actual computations.
-
-    Args:
-        *values:
-        prefer_default: if True, selects the default backend assuming it can handle handle the values, see `default_backend()`.
-        raise_error: Determines the behavior of this function if no backend can handle the given values.
-            If True, raises a `NoBackendFound` error, else returns `None`.
-
-    Returns:
-        the selected `Backend`
-    &#34;&#34;&#34;
-    # --- Default Backend has priority ---
-    if _is_specific(_DEFAULT[-1], values):
-        return _DEFAULT[-1]
-    if prefer_default and _is_applicable(_DEFAULT[-1], values):
-        return _DEFAULT[-1]
-    # --- Filter out non-applicable ---
-    backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
-    if len(backends) == 0:
-        if raise_error:
-            raise NoBackendFound(&#39;No backend found for values %s; registered backends are %s&#39; % (values, BACKENDS))
-        else:
-            return None
-    # --- Native tensors? ---
-    for backend in backends:
-        if _is_specific(backend, values):
-            return backend
-    else:
-        return backends[0]</code></pre>
+<pre><code class="python">def choose_backend_t(*values, prefer_default=False):
+    values = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
+    return choose_backend(*values, prefer_default=prefer_default)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.clip"><code class="name flex">
@@ -2607,17 +2548,19 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.tensor"><code class="name flex">
-<span>def <span class="ident">tensor</span></span>(<span>data: phi.math._tensors.Tensor, names: str = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">tensor</span></span>(<span>data: phi.math._tensors.Tensor, names: str = None, convert: bool = False) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Create a Tensor from the specified data.
-<code>data</code> must be one of the following:</p>
+<div class="desc"><p>Create a Tensor from the specified <code>data</code>.
+If <code>convert=True</code>, converts <code>data</code> to the preferred format of the default backend.</p>
+<p><code>data</code> must be one of the following:</p>
 <ul>
-<li>Number: returns a dimensionless Tensor</li>
-<li>Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor</li>
-<li>tuple or list of numbers: backs the Tensor with a NumPy array</li>
-<li>Tensor: renames dimensions and dimension types if <code>names</code> is specified, otherwise returns the tensor.</li>
-<li>Shape: creates a 1D tensor listing the dimension sizes</li>
+<li>Number: returns a dimensionless Tensor.</li>
+<li>Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor.</li>
+<li><code>tuple</code> or <code>list</code> of numbers: backs the Tensor with native tensor.</li>
+<li><code>tuple</code> or <code>list</code> of non-numbers: creates tensors for the items and stacks them.</li>
+<li>Tensor: renames dimensions and dimension types if <code>names</code> is specified. Converts all internal native values of the tensor if <code>convert=True</code>.</li>
+<li>Shape: creates a 1D tensor listing the dimension sizes.</li>
 </ul>
 <p>While specifying <code>names</code> is optional in some cases, it is recommended to always specify them.</p>
 <p>Dimension types are always inferred from the dimension names if specified.</p>
@@ -2627,11 +2570,12 @@ The output of math operations has the same precision as its inputs.</p>
 <dd>native tensor, scalar, sequence, Shape or Tensor</dd>
 <dt><strong><code>names</code></strong></dt>
 <dd>Dimension names. Dimension types are inferred from the names.</dd>
+<dt><strong><code>convert</code></strong></dt>
+<dd>If True, converts the data to the native format of the current default backend.
+If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> but keeps the given data reference if possible.</dd>
 </dl>
-<p>:raise: AssertionError if dimension names are not provided and cannot automatically be inferred
-data: Tensor or Shape or tuple or list or numbers.Number:
-names: str or tuple or list:
-(Default value = None)</p>
+<h2 id="raises">Raises</h2>
+<p>AssertionError if dimension names are not provided and cannot automatically be inferred</p>
 <h2 id="returns">Returns</h2>
 <p>Tensor containing same values as data</p></div>
 <details class="source">
@@ -2639,16 +2583,20 @@ names: str or tuple or list:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
-           names: str or tuple or list = None) -&gt; Tensor:
+           names: str or tuple or list = None,
+           convert: bool = False) -&gt; Tensor:
     &#34;&#34;&#34;
-    Create a Tensor from the specified data.
+    Create a Tensor from the specified `data`.
+    If `convert=True`, converts `data` to the preferred format of the default backend.
+
     `data` must be one of the following:
     
-    * Number: returns a dimensionless Tensor
-    * Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor
-    * tuple or list of numbers: backs the Tensor with a NumPy array
-    * Tensor: renames dimensions and dimension types if `names` is specified, otherwise returns the tensor.
-    * Shape: creates a 1D tensor listing the dimension sizes
+    * Number: returns a dimensionless Tensor.
+    * Native tensor such as NumPy array, TensorFlow tensor or PyTorch tensor.
+    * `tuple` or `list` of numbers: backs the Tensor with native tensor.
+    * `tuple` or `list` of non-numbers: creates tensors for the items and stacks them.
+    * Tensor: renames dimensions and dimension types if `names` is specified. Converts all internal native values of the tensor if `convert=True`.
+    * Shape: creates a 1D tensor listing the dimension sizes.
     
     While specifying `names` is optional in some cases, it is recommended to always specify them.
     
@@ -2657,15 +2605,19 @@ names: str or tuple or list:
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
       names: Dimension names. Dimension types are inferred from the names.
-    :raise: AssertionError if dimension names are not provided and cannot automatically be inferred
-      data: Tensor or Shape or tuple or list or numbers.Number: 
-      names: str or tuple or list:  (Default value = None)
+      convert: If True, converts the data to the native format of the current default backend.
+        If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
+
+    Raises:
+      AssertionError if dimension names are not provided and cannot automatically be inferred
 
     Returns:
       Tensor containing same values as data
-
     &#34;&#34;&#34;
     if isinstance(data, Tensor):
+        backend = choose_backend(*data._natives())
+        if convert and backend != default_backend():
+            data = data._op1(lambda native: default_backend().as_tensor(backend.numpy(native), convert_external=True))
         if names is None:
             return data
         else:
@@ -2674,26 +2626,28 @@ names: str or tuple or list:
             types = [_shape._infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
-    if isinstance(data, (tuple, list)):
+    elif isinstance(data, (tuple, list)):
         array = np.array(data)
         if array.dtype != np.object:
             data = array
         else:
-            elements = tensors(*data, names=None if names is None else names[1:])
+            elements = tensors(*data, names=None if names is None else names[1:], convert=convert)
             common_shape = _shape.combine_safe(*[e.shape for e in elements])
             rank = 1 + common_shape.rank
             stack_dim = &#39;vector&#39; if names is None else _shape.parse_dim_names(names, rank)[0]
-            assert all(stack_dim not in t.shape for t in elements), f&#34;Cannot stack tensors with dimension {stack_dim} because a tensor already has that dimension.&#34;
+            assert all(stack_dim not in t.shape for t in elements), f&#34;Cannot stack tensors with dimension &#39;{stack_dim}&#39; because a tensor already has that dimension.&#34;
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank &lt; common_shape.rank else e for e in elements]
             from ._functions import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
-    if isinstance(data, (numbers.Number, str)):
-        assert not names
+    elif isinstance(data, (numbers.Number, bool, str)):
+        assert not names, f&#34;Trying to create a zero-dimensional Tensor from value &#39;{data}&#39; but names={names}&#34;
+        if convert:
+            data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, EMPTY_SHAPE)
-    if isinstance(data, Shape):
+    elif isinstance(data, Shape):
         assert names is not None
-        return tensor(data.sizes, names)
+        return tensor(data.sizes, names, convert=convert)
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
@@ -2705,21 +2659,40 @@ names: str or tuple or list:
             assert None not in names, f&#34;All names must be specified but got {names}&#34;
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
+        if convert and backend != default_backend():
+            data = backend.numpy(data)
+            data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, shape)
     raise ValueError(f&#34;{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.tensors"><code class="name flex">
-<span>def <span class="ident">tensors</span></span>(<span>*objects, names=None)</span>
+<span>def <span class="ident">tensors</span></span>(<span>*objects: phi.math._tensors.Tensor, names: str = None, convert: bool = False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Calls <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code> on multiple arguments independently.</p>
+<h2 id="example">Example</h2>
+<p>scalar_tensor, vector_tensor = tensors(0, (1, 2, 3))</p>
+<h2 id="returns">Returns</h2>
+<p>Sequence of same length as <code>objects</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def tensors(*objects, names=None):
-    return [tensor(obj, names) for obj in objects]</code></pre>
+<pre><code class="python">def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
+            names: str or tuple or list = None,
+            convert: bool = False):
+    &#34;&#34;&#34;
+    Calls `tensor()` on multiple arguments independently.
+
+    Example:
+
+        scalar_tensor, vector_tensor = tensors(0, (1, 2, 3))
+
+    Returns:
+        Sequence of same length as `objects`.
+    &#34;&#34;&#34;
+    return [tensor(obj, names, convert) for obj in objects]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.tile"><code class="name flex">
@@ -5820,27 +5793,32 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <span>class <span class="ident">Tensor</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Tensors with grouped and named dimensions.</p>
-<p>All tensors are editable.</p>
-<p>The internal data representation of a tensor can change, even without being edited.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<div class="desc"><p>Abstract base class to represent structured data of one data type.</p>
+<p>Unlike with <code>numpy.ndarray</code>, the dimensions of Tensors have names and types.
+Additionally, tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.</p>
+<p>To check whether a value is a tensor, use <code>isinstance(value, <a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a>)</code>.</p>
+<p>To construct a Tensor, use <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code> or one of the basic tensor creation functions,
+see <a href="https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation">https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation</a> .</p>
+<p>Tensors are not editable.
+When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do not edit the underlying data structure.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Tensor:
     &#34;&#34;&#34;
-    Tensors with grouped and named dimensions.
-    
-    All tensors are editable.
-    
-    The internal data representation of a tensor can change, even without being edited.
+    Abstract base class to represent structured data of one data type.
 
-    Args:
+    Unlike with `numpy.ndarray`, the dimensions of Tensors have names and types.
+    Additionally, tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.
 
-    Returns:
+    To check whether a value is a tensor, use `isinstance(value, Tensor)`.
 
+    To construct a Tensor, use `tensor()` or one of the basic tensor creation functions,
+    see https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation .
+
+    Tensors are not editable.
+    When backed by an editable native tensor, e.g. a `numpy.ndarray`, do not edit the underlying data structure.
     &#34;&#34;&#34;
 
     def native(self, order: str or tuple or list = None):
@@ -5886,11 +5864,13 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         return choose_backend(native).numpy(native)
 
     @property
-    def dtype(self):
+    def dtype(self) -&gt; DType:
+        &#34;&#34;&#34; Data type of the elements of this `Tensor`. &#34;&#34;&#34;
         raise NotImplementedError()
 
     @property
     def shape(self) -&gt; Shape:
+        &#34;&#34;&#34; The `Shape` lists the dimensions with their sizes, names and types. &#34;&#34;&#34;
         raise NotImplementedError()
 
     def _with_shape_replaced(self, new_shape):
@@ -5898,10 +5878,12 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 
     @property
     def ndims(self) -&gt; int:
+        &#34;&#34;&#34; Equal to `tensor.rank` and `tensor.shape.rank`. &#34;&#34;&#34;
         return self.shape.rank
 
     @property
     def rank(self) -&gt; int:
+        &#34;&#34;&#34; Equal to `tensor.ndims` and `tensor.shape.rank`. &#34;&#34;&#34;
         return self.shape.rank
 
     @property
@@ -5999,6 +5981,15 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         raise NotImplementedError()
 
     def flip(self, *dims: str) -&gt; &#39;Tensor&#39;:
+        &#34;&#34;&#34;
+        Reverses the order of elements along one or multiple dimensions.
+
+        Args:
+            *dims: dimensions to flip
+
+        Returns:
+            `Tensor` of the same `Shape`
+        &#34;&#34;&#34;
         raise NotImplementedError()
 
     # def __setitem__(self, key, value):
@@ -6026,6 +6017,27 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         raise NotImplementedError()
 
     def dimension(self, name):
+        &#34;&#34;&#34;
+        Returns a reference to a specific dimension of this tensor.
+        This is equivalent to the syntax `tensor.&lt;name&gt;`.
+
+        The dimension need not be part of the `Tensor.shape` in which case its size is 1.
+
+        Dimension references can be used for the following operations:
+
+        * Indexing: `tensor_dim[start:stop:step]` returns a sliced version of the original tensor
+        * Flipping: `tensor_dim.flip()` reverses the element order along that dimension
+        * Unstacking: `tensor_dim.unstack()` returns a tuple of sliced tensors
+        * Changing dimension type: `tensor_dim.as_batch()`, `tensor_dim.as_spatial()` and `tensor_dim.as_channel()` return a `Tensor` with a new `Shape`.
+        * Renaming: `tensor_dim.as_batch(name)` and the other methods allow a new name to be specified.
+
+        Properties of dimension references:
+
+        * `size: int`
+        * `exists: bool`
+        * `index: int` index in shape
+        * `is_batch`, `is_spatial`, `is_channel`
+        &#34;&#34;&#34;
         return _TensorDim(self, name)
 
     def __getattr__(self, name):
@@ -6113,15 +6125,6 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     def __abs__(self):
         return self._op1(lambda t: choose_backend(t).abs(t))
 
-    def as_complex(self):
-        return self._op1(lambda t: choose_backend(t).to_complex(t))
-
-    def as_float(self):
-        return self._op1(lambda t: choose_backend(t).to_float(t))
-
-    def as_int(self, int64=False):
-        return self._op1(lambda t: choose_backend(t).to_int(t, int64=int64))
-
     def __copy__(self):
         return self._op1(lambda t: choose_backend(t).copy(t, only_mutable=True))
 
@@ -6207,106 +6210,109 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.math.Tensor.dtype"><code class="name">var <span class="ident">dtype</span></code></dt>
+<dt id="phi.math.Tensor.dtype"><code class="name">var <span class="ident">dtype</span> : phi.math.backend._dtype.DType</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Data type of the elements of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def dtype(self):
+def dtype(self) -&gt; DType:
+    &#34;&#34;&#34; Data type of the elements of this `Tensor`. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.ndims"><code class="name">var <span class="ident">ndims</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Equal to <code>tensor.rank</code> and <code>tensor.shape.rank</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def ndims(self) -&gt; int:
+    &#34;&#34;&#34; Equal to `tensor.rank` and `tensor.shape.rank`. &#34;&#34;&#34;
     return self.shape.rank</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Equal to <code>tensor.ndims</code> and <code>tensor.shape.rank</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def rank(self) -&gt; int:
+    &#34;&#34;&#34; Equal to `tensor.ndims` and `tensor.shape.rank`. &#34;&#34;&#34;
     return self.shape.rank</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> lists the dimensions with their sizes, names and types.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
+    &#34;&#34;&#34; The `Shape` lists the dimensions with their sizes, names and types. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.math.Tensor.as_complex"><code class="name flex">
-<span>def <span class="ident">as_complex</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def as_complex(self):
-    return self._op1(lambda t: choose_backend(t).to_complex(t))</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Tensor.as_float"><code class="name flex">
-<span>def <span class="ident">as_float</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def as_float(self):
-    return self._op1(lambda t: choose_backend(t).to_float(t))</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Tensor.as_int"><code class="name flex">
-<span>def <span class="ident">as_int</span></span>(<span>self, int64=False)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def as_int(self, int64=False):
-    return self._op1(lambda t: choose_backend(t).to_int(t, int64=int64))</code></pre>
-</details>
-</dd>
 <dt id="phi.math.Tensor.dimension"><code class="name flex">
 <span>def <span class="ident">dimension</span></span>(<span>self, name)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns a reference to a specific dimension of this tensor.
+This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
+<p>The dimension need not be part of the <code><a title="phi.math.Tensor.shape" href="#phi.math.Tensor.shape">Tensor.shape</a></code> in which case its size is 1.</p>
+<p>Dimension references can be used for the following operations:</p>
+<ul>
+<li>Indexing: <code>tensor_dim[start:stop:step]</code> returns a sliced version of the original tensor</li>
+<li>Flipping: <code>tensor_dim.flip()</code> reverses the element order along that dimension</li>
+<li>Unstacking: <code>tensor_dim.unstack()</code> returns a tuple of sliced tensors</li>
+<li>Changing dimension type: <code>tensor_dim.as_batch()</code>, <code>tensor_dim.as_spatial()</code> and <code>tensor_dim.as_channel()</code> return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</li>
+<li>Renaming: <code>tensor_dim.as_batch(name)</code> and the other methods allow a new name to be specified.</li>
+</ul>
+<p>Properties of dimension references:</p>
+<ul>
+<li><code>size: int</code></li>
+<li><code>exists: bool</code></li>
+<li><code>index: int</code> index in shape</li>
+<li><code>is_batch</code>, <code>is_spatial</code>, <code>is_channel</code></li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def dimension(self, name):
+    &#34;&#34;&#34;
+    Returns a reference to a specific dimension of this tensor.
+    This is equivalent to the syntax `tensor.&lt;name&gt;`.
+
+    The dimension need not be part of the `Tensor.shape` in which case its size is 1.
+
+    Dimension references can be used for the following operations:
+
+    * Indexing: `tensor_dim[start:stop:step]` returns a sliced version of the original tensor
+    * Flipping: `tensor_dim.flip()` reverses the element order along that dimension
+    * Unstacking: `tensor_dim.unstack()` returns a tuple of sliced tensors
+    * Changing dimension type: `tensor_dim.as_batch()`, `tensor_dim.as_spatial()` and `tensor_dim.as_channel()` return a `Tensor` with a new `Shape`.
+    * Renaming: `tensor_dim.as_batch(name)` and the other methods allow a new name to be specified.
+
+    Properties of dimension references:
+
+    * `size: int`
+    * `exists: bool`
+    * `index: int` index in shape
+    * `is_batch`, `is_spatial`, `is_channel`
+    &#34;&#34;&#34;
     return _TensorDim(self, name)</code></pre>
 </details>
 </dd>
@@ -6314,12 +6320,28 @@ def shape(self) -&gt; Shape:
 <span>def <span class="ident">flip</span></span>(<span>self, *dims: str) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Reverses the order of elements along one or multiple dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*dims</code></strong></dt>
+<dd>dimensions to flip</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of the same <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def flip(self, *dims: str) -&gt; &#39;Tensor&#39;:
+    &#34;&#34;&#34;
+    Reverses the order of elements along one or multiple dimensions.
+
+    Args:
+        *dims: dimensions to flip
+
+    Returns:
+        `Tensor` of the same `Shape`
+    &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -6453,11 +6475,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <ul></ul>
 </div>
 <ul id="index">
-<li><h3>Super-module</h3>
-<ul>
-<li><code><a title="phi" href="../index.html">phi</a></code></li>
-</ul>
-</li>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code></li>
@@ -6668,9 +6685,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li>
 <h4><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></h4>
 <ul class="two-column">
-<li><code><a title="phi.math.Tensor.as_complex" href="#phi.math.Tensor.as_complex">as_complex</a></code></li>
-<li><code><a title="phi.math.Tensor.as_float" href="#phi.math.Tensor.as_float">as_float</a></code></li>
-<li><code><a title="phi.math.Tensor.as_int" href="#phi.math.Tensor.as_int">as_int</a></code></li>
 <li><code><a title="phi.math.Tensor.dimension" href="#phi.math.Tensor.dimension">dimension</a></code></li>
 <li><code><a title="phi.math.Tensor.dtype" href="#phi.math.Tensor.dtype">dtype</a></code></li>
 <li><code><a title="phi.math.Tensor.flip" href="#phi.math.Tensor.flip">flip</a></code></li>

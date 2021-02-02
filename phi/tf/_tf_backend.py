@@ -7,7 +7,7 @@ import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice
-from phi.math.backend._scipy_backend import SCIPY_BACKEND, SciPyBackend
+from phi.math.backend._scipy_backend import SCIPY_BACKEND
 from ._tf_cuda_resample import resample_cuda, use_cuda
 from ..math.backend._backend_helper import combined_dim
 
@@ -39,14 +39,14 @@ class TFBackend(Backend):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = tf.convert_to_tensor(SciPyBackend(precision=self.precision).as_tensor(x))
+            tensor = tf.convert_to_tensor(SCIPY_BACKEND.as_tensor(x))
         else:
             tensor = tf.convert_to_tensor(x)
         # --- Enforce Precision ---
         if not isinstance(tensor, numbers.Number):
             if isinstance(tensor, np.ndarray):
-                tensor = SciPyBackend(precision=self.precision).as_tensor(tensor)
-            elif tensor.dtype.is_floating and self.has_fixed_precision:
+                tensor = SCIPY_BACKEND.as_tensor(tensor)
+            elif tensor.dtype.is_floating:
                 tensor = self.to_float(tensor)
         return tensor
 
