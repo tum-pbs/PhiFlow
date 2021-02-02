@@ -24,7 +24,7 @@ math.ones(x=5) + math.ones(batch=10)
 
 ## Shapes
 
-The shape of a `Tensor` is represented by a `Shape` object which can be accessed as `tensor.shape`.
+The shape of a `Tensor` is represented by a [`Shape` object](phi/math/#phi.math.Shape) which can be accessed as `tensor.shape`.
 In addition to the integer sizes of the dimensions, the shape also stores the names of the dimensions as strings as well as their types.
 
 There are three types of dimensions
@@ -89,7 +89,8 @@ Additional tips and tricks
 
 ## Tensor Creation
 
-The `tensor()` function converts a scalar, a `list`, a `tuple`, a NumPy array or a TensorFlow/PyTorch tensor to a `Tensor`.
+The [`tensor()` function](phi/math/#phi.math.tensor)
+converts a scalar, a `list`, a `tuple`, a NumPy array or a TensorFlow/PyTorch tensor to a `Tensor`.
 The dimension names can be specified using the `names` keyword and dimension types are inferred from the names.
 Otherwise, they are determined automatically.
 
@@ -106,11 +107,12 @@ math.tensor(numpy.zeros([3, 3, 1]), names=['y', 'x', 'time'])
 
 There are a couple of functions in the `phi.math` module for creating basic tensors.
 
-* `zeros()`
-* `ones()`
-* `random_normal()`
-* `random_uniform()`
-* `meshgrid()`
+* [`zeros()`](phi/math/#phi.math.zeros)
+* [`ones()`](phi/math/#phi.math.ones)
+* [`linspace()`](phi/math/#phi.math.linspace)
+* [`random_normal()`](phi/math/#phi.math.random_normal)
+* [`random_uniform()`](phi/math/#phi.math.random_uniform)
+* [`meshgrid()`](phi/math/#phi.math.meshgrid)
 
 Most functions allow the shape of the tensor to be specified via a `Shape` object or alternatively through the keyword arguments.
 In the latter case, the dimension types are inferred from the names.
@@ -134,9 +136,9 @@ These are referred to as *backends*.
 
 The easiest way to use a certain backend is via the import statement:
 
-* `phi.flow` &rarr; NumPy/SciPy
-* `phi.tf.flow` &rarr; TensorFlow
-* `phi.torch.flow` &rarr; PyTorch
+* [`phi.flow`](phi/flow.html) &rarr; NumPy/SciPy
+* [`phi.tf.flow`](phi/tf/flow.html) &rarr; TensorFlow
+* [`phi.torch.flow`](phi/torch/flow.html) &rarr; PyTorch
 
 This determines what backend is used to create new tensors.
 Existing tensors created with a different backend will keep using that backend.
@@ -199,7 +201,7 @@ math.channel_stack([math.zeros(a=4, b=2), math.zeros(b=2, a=5)], 'c').shape.shap
 
 ## Data Types and Precision
 
-The package `phi.math` provides a custom `DataType` class that can be used with all backends.
+The package `phi.math` provides a custom [`DataType` class](phi/math/#phi.math.DType) that can be used with all backends.
 There are no global variables for common data types; instead you can create one by specifying the kind and length in bits.
 ```python
 float32 = math.DType(float, 32)
@@ -224,7 +226,10 @@ complex128.precision
 ```
 
 By default, floating point operations use 32 bit (single precision).
-This can be changed globally using `math.set_global_precision(64)` or locally using `with math.precision(64):`.
+This can be changed globally using
+[`math.set_global_precision(64)`](phi/math/#phi.math.set_global_precision)
+or locally using [`with math.precision(64):`](phi/math/#phi.math.precision).
 
 This setting does not affect integers.
-To specify the number of integer bits, use `math.to_int()` or cast the data type directly using `math.cast()`.
+To specify the number of integer bits, use [`math.to_int()`](phi/math/#phi.math.to_int)
+or cast the data type directly using [`math.cast()`](phi/math/#phi.math.cast).
