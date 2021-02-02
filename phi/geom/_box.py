@@ -99,7 +99,7 @@ class AbstractBox(Geometry):
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         """
-        Shifts positions either into or out of geometry.
+        Shifts positions either into or out of the Box.
 
         Args:
             positions: Tensor holding positions to shift
@@ -107,7 +107,7 @@ class AbstractBox(Geometry):
             shift_amount: Minimal distance between positions and box boundaries after shifting
 
         Returns:
-            Tensor holding shifted positions
+            Tensor holding shifted positions.
         """
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower

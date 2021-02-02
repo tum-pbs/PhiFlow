@@ -9,7 +9,7 @@ from phi.geom import union, Sphere
 def get_accessible_mask(domain: Domain, obstacles: List[Obstacle]) -> StaggeredGrid:
     """
     Unifies domain and obstacles into a binary StaggeredGrid mask which can be used to enforce
-    boundary conditions
+    boundary conditions.
 
     Args:
         domain: Domain object
@@ -46,8 +46,7 @@ def make_incompressible(velocity_field: StaggeredGrid,
     div = field.divergence(velocity_field) * cvalid
 
     def laplace(p):
-        # TODO: prefactor of pressure should not have any effect
-        return field.where(cvalid, field.divergence(field.gradient(p, type=StaggeredGrid) * accessible), -4 * p)
+        return field.where(cvalid, field.divergence(field.gradient(p, type=StaggeredGrid) * accessible), p)
 
     converged, pressure, iterations = field.solve(laplace, div, pressure, solve_params=math.LinearSolve(None, 1e-5))
     gradp = field.gradient(pressure, type=type(velocity_field))
@@ -64,7 +63,7 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_g
     Args:
         previous_particle_velocity: PointCloud with particle positions as elements and their corresponding velocities as values
         velocity_grid: Divergence-free velocity grid
-        occupation_mask: Binary grid (same type as `velocity_grid`) indicating which cells hold particles
+        occupation_mask: Binary Grid (same type as `velocity_grid`) indicating which cells hold particles
         previous_velocity_grid: Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise
 
     Returns:
@@ -92,7 +91,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, obstacles: tuple o
         particles: PointCloud holding particle positions as elements
         domain: Domain for which any particles outside should get shifted inside
         obstacles: List of obstacles where any particles inside should get shifted outwards
-        offset: Distance between particles and domain boundary / obstacle surface after particles have been shifted.
+        offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
 
     Returns:
         PointCloud where all particles are inside the domain / outside of obstacles.

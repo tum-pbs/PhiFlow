@@ -69,7 +69,7 @@ class Sphere(Geometry):
         and the same leading dimension along which the radii get concatenated in this case.
 
         Args:
-            other: The other Sphere
+            other: Second Sphere
             dim: The dimension along which the centers should get concatenated
 
         Returns:
