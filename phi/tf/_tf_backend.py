@@ -74,9 +74,7 @@ class TFBackend(Backend):
         return tf.equal(x, y)
 
     def divide_no_nan(self, x, y):
-        if x.dtype != y.dtype:
-            # TODO: cast to complex is somehow broken
-            x, y = self.auto_cast((x, y))
+        x, y = self.auto_cast(x, y)
         return tf.math.divide_no_nan(x, y)
 
     def random_uniform(self, shape):
