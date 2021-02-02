@@ -1,7 +1,7 @@
 from phi.flow import *
 
 # --- Setup environment ---
-inflow = 1
+inflow = 0
 domain = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box[0:64, 0:64])
 obstacles = [Obstacle(Box[30:35, 30:35].rotated(math.tensor(-20)))]
 bcs = flip.get_accessible_mask(domain, obstacles)

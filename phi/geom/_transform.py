@@ -61,8 +61,9 @@ class RotatedGeometry(Geometry):
         return final
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0):
-        shift = self.geometry.push(self.global_to_child(positions), outward=outward, shift_amount=shift_amount)
-        return positions + self._rotate(shift)
+        rotated = self.global_to_child(positions)
+        shifted_positions = self.geometry.push(rotated, outward=outward, shift_amount=shift_amount)
+        return positions + self._rotate(shifted_positions - rotated)
 
     def lies_inside(self, location):
         return self.geometry.lies_inside(self.global_to_child(location))
