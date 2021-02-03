@@ -13,36 +13,37 @@ from .viewsettings import FRONT, RIGHT, TOP
 EMPTY_FIGURE = {'data': [{'z': None, 'type': 'heatmap'}]}
 
 
-def dash_graph_plot(data, settings):
-    # type: (object, dict) -> dict
+def dash_graph_plot(data, settings: dict) -> dict:
     if data is None:
         return EMPTY_FIGURE
+    try:
+        if isinstance(data, np.ndarray):
+            data = math.tensor(data, convert=False)
 
-    if isinstance(data, np.ndarray):
-        data = math.tensor(data)
+        if isinstance(data, math.Tensor):
+            data = CenteredGrid(data, Box(0, math.tensor(data.shape, 'vector')))
 
-    if isinstance(data, math.Tensor):
-        data = CenteredGrid(data, Box(0, math.tensor(data.shape, 'vector')))
+        if isinstance(data, (CenteredGrid, StaggeredGrid)):
+            component = settings.get('component', 'x')
+            if data.spatial_rank == 1:
+                return plot(data, settings)
+            if data.spatial_rank == 2:
+                if component == 'vec2' and data.shape.channel.volume >= 2:
+                    return vector_field(data, settings)
+                else:
+                    return heatmap(data, settings)
+            if data.spatial_rank == 3:
+                if component == 'vec2' and data.shape.channel.volum >= 2:
+                    return vector_field(slice_2d(data, settings), settings)
+                else:
+                    return heatmap(slice_2d(data, settings), settings)
 
-    if isinstance(data, (CenteredGrid, StaggeredGrid)):
-        component = settings.get('component', 'x')
-        if data.spatial_rank == 1:
-            return plot(data, settings)
-        if data.spatial_rank == 2:
-            if component == 'vec2' and data.shape.channel.volume >= 2:
-                return vector_field(data, settings)
-            else:
-                return heatmap(data, settings)
-        if data.spatial_rank == 3:
-            if component == 'vec2' and data.shape.channel.volum >= 2:
-                return vector_field(slice_2d(data, settings), settings)
-            else:
-                return heatmap(slice_2d(data, settings), settings)
+        if isinstance(data, PointCloud):
+            return cloud_plot(data, settings)
 
-    if isinstance(data, PointCloud):
-        return cloud_plot(data)
-
-    warnings.warn('No figure recipe for data %s' % data)
+        warnings.warn('No figure recipe for data %s' % data)
+    except BaseException as exc:
+        print(exc)
     return EMPTY_FIGURE
 
 
@@ -228,32 +229,50 @@ def plot(field1d, settings):
     return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
 
 
-def cloud_plot(cloud: PointCloud) -> dict:
+def cloud_plot(cloud: PointCloud, settings: dict) -> dict:
     """
     Generates Plotly figure dict for the given PointCloud object.
 
     Args:
+        settings: plot settings
         cloud: Single 2D PointCloud which should get plotted.
 
     Returns:
         Plotly figure dict with the data from the PointCloud.
     """
-    data = cloud.elements.center.numpy()
-    assert len(data.shape) == 2 and data.shape[1] == 2, 'PointCloud plotting only supports 2D clouds.'
-    x = data[:, 0]
-    y = data[:, 1]
-    if cloud.bounds is None:
-        return {'data': [{'mode': 'markers', 'type': 'scatter', 'x': x, 'y': y, 'marker': {'color': list(cloud.color)}}]}
+    points = cloud.points
+    points = math.join_dimensions(points, points.shape.batch.without('points'), 'batch').batch[settings.get('batch', 0)]
+    x, y = points.vector.unstack_spatial('x,y', to_numpy=True)
+    color = cloud.color.points.unstack(len(x), to_python=True)
+    if cloud.bounds:
+        lower = cloud.bounds.lower.vector.unstack_spatial('x,y', to_python=True)
+        upper = cloud.bounds.upper.vector.unstack_spatial('x,y', to_python=True)
     else:
-        lower = cloud.bounds.lower.native()
-        upper = cloud.bounds.upper.native()
-        if isinstance(lower, int):
-            lower = [lower] * 2
-        if isinstance(upper, int):
-            upper = [upper] * 2
-        return {'data': [{'mode': 'markers', 'type': 'scatter', 'x': x, 'y': y, 'marker': {'color': list(cloud.color)}}],
-                'layout': {'xaxis': {'range': [int(lower[0]), int(upper[0])]},
-                           'yaxis': {'range': [int(lower[1]), int(upper[1])]}}}
+        lower = [np.min(x), np.min(y)]
+        upper = [np.max(x), np.max(y)]
+    radius = cloud.elements.bounding_radius() * settings['figsize'] / (upper[1] - lower[1])
+    radius = math.maximum(radius, 2)
+    plot_dict = {
+        'data':
+            [{
+                'mode': 'markers',
+                'type': 'scatter',
+                'x': x,
+                'y': y,
+                'marker':
+                    {
+                        'color': color,
+                        'size': (2 * radius).points.optional_unstack(to_python=True),
+                        'sizemode': 'diameter',
+                    },
+            }],
+        'layout':
+            {
+                'xaxis': {'range': [lower[0], upper[0]]},
+                'yaxis': {'range': [lower[1], upper[1]]}
+            }
+    }
+    return plot_dict
 
 
 def reduce_component(tensor, component):

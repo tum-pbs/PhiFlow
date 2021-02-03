@@ -51,7 +51,7 @@ class DashGui(AppDisplay):
             build_description(dash_app),
             build_view_selection(dash_app),
             html.Div(style={'width': 1000, 'height': 800, 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
-                build_viewer(dash_app, id='home', initial_field_name=disp_fields[0], config=self.config),
+                build_viewer(dash_app, 800, id='home', initial_field_name=disp_fields[0], config=self.config),
             ]),
             status_bar,
             player_controls,
@@ -63,10 +63,10 @@ class DashGui(AppDisplay):
         layout = html.Div([
             build_view_selection(dash_app),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='left', initial_field_name=disp_fields[0], config=self.config),
+                build_viewer(dash_app, 700, id='left', initial_field_name=disp_fields[0], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='right', initial_field_name=disp_fields[1], config=self.config),
+                build_viewer(dash_app, 700, id='right', initial_field_name=disp_fields[1], config=self.config),
             ]),
             status_bar,
             player_controls,
@@ -78,16 +78,16 @@ class DashGui(AppDisplay):
         layout = html.Div([
             build_view_selection(dash_app),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='top-left', initial_field_name=disp_fields[0], config=self.config),
+                build_viewer(dash_app, 700, id='top-left', initial_field_name=disp_fields[0], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='top-right', initial_field_name=disp_fields[1], config=self.config),
+                build_viewer(dash_app, 700, id='top-right', initial_field_name=disp_fields[1], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='bottom-left', initial_field_name=disp_fields[2], config=self.config),
+                build_viewer(dash_app, 700, id='bottom-left', initial_field_name=disp_fields[2], config=self.config),
             ]),
             html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, id='bottom-right', initial_field_name=disp_fields[3], config=self.config),
+                build_viewer(dash_app, 700, id='bottom-right', initial_field_name=disp_fields[3], config=self.config),
             ]),
             status_bar,
             player_controls,

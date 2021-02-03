@@ -11,7 +11,7 @@ from .webgl_util import default_sky, EMPTY_GRID, webgl_prepare_data
 
 # --- Viewer ---
 
-def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
+def build_viewer(dashapp, height, initial_field_name=None, id='viewer', config=None):
 
     field_options = [{'label': item, 'value': item} for item in dashapp.app.fieldnames] + [{'label': '<None>', 'value': 'None'}]
     if initial_field_name is None:
@@ -48,6 +48,7 @@ def build_viewer(dashapp, initial_field_name=None, id='viewer', config=None):
             return EMPTY_FIGURE
         settings_dict = parse_view_settings(config, *settings)
         settings_dict['minmax'] = dashapp.get_minmax(field)
+        settings_dict['figsize'] = height
         return dash_graph_plot(data, settings_dict)
 
     @dashapp.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS + tuple(model_controls.MODEL_CONTROLS + model_controls.MODEL_ACTIONS))
