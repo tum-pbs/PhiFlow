@@ -1,11 +1,10 @@
 import warnings
 
 import numpy as np
-
 import plotly.figure_factory as plotly_figures
 
 from phi.math import GLOBAL_AXIS_ORDER as physics_config
-from phi.field import CenteredGrid, StaggeredGrid
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud
 from .colormaps import COLORMAPS
 from ... import math
 from ...geom import Box
@@ -39,6 +38,9 @@ def dash_graph_plot(data, settings):
                 return vector_field(slice_2d(data, settings), settings)
             else:
                 return heatmap(slice_2d(data, settings), settings)
+
+    if isinstance(data, PointCloud):
+        return cloud_plot(data)
 
     warnings.warn('No figure recipe for data %s' % data)
     return EMPTY_FIGURE
@@ -224,6 +226,34 @@ def plot(field1d, settings):
     data = reduce_component(data, component)
     data = data.native()
     return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
+
+
+def cloud_plot(cloud: PointCloud) -> dict:
+    """
+    Generates Plotly figure dict for the given PointCloud object.
+
+    Args:
+        cloud: Single 2D PointCloud which should get plotted.
+
+    Returns:
+        Plotly figure dict with the data from the PointCloud.
+    """
+    data = cloud.elements.center.numpy()
+    assert len(data.shape) == 2 and data.shape[1] == 2, 'PointCloud plotting only supports 2D clouds.'
+    x = data[:, 0]
+    y = data[:, 1]
+    if cloud.bounds is None:
+        return {'data': [{'mode': 'markers', 'type': 'scatter', 'x': x, 'y': y, 'marker': {'color': list(cloud.color)}}]}
+    else:
+        lower = cloud.bounds.lower.native()
+        upper = cloud.bounds.upper.native()
+        if isinstance(lower, int):
+            lower = [lower] * 2
+        if isinstance(upper, int):
+            upper = [upper] * 2
+        return {'data': [{'mode': 'markers', 'type': 'scatter', 'x': x, 'y': y, 'marker': {'color': list(cloud.color)}}],
+                'layout': {'xaxis': {'range': [int(lower[0]), int(upper[0])]},
+                           'yaxis': {'range': [int(lower[1]), int(upper[1])]}}}
 
 
 def reduce_component(tensor, component):
