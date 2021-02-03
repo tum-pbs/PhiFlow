@@ -181,7 +181,8 @@ To specify boundary conditions per face of the domain, pass a sequence of Materi
         else:
             raise ValueError(&#39;Unknown grid type: %s&#39; % type)
 
-    def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+    def vector_grid(self,
+                    value: Tensor or float or int or complex or callable or Geometry = 0,
                     type: type = CenteredGrid,
                     extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
         &#34;&#34;&#34;
@@ -202,9 +203,6 @@ To specify boundary conditions per face of the domain, pass a sequence of Materi
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
           extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-          type: type:  (Default value = CenteredGrid)
-          extrapolation: math.Extrapolation:  (Default value = None)
 
         Returns:
           Grid of specified type
@@ -225,7 +223,8 @@ To specify boundary conditions per face of the domain, pass a sequence of Materi
 
     vgrid = vector_grid
 
-    def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+    def staggered_grid(self,
+                       value: Tensor or float or int or complex or callable or Geometry = 0,
                        extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid:
         &#34;&#34;&#34;
         Creates a staggered grid matching the resolution and bounds of the domain.
@@ -246,17 +245,46 @@ To specify boundary conditions per face of the domain, pass a sequence of Materi
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-          extrapolation: math.Extrapolation:  (Default value = None)
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
 
         Returns:
           Grid of specified type
-
         &#34;&#34;&#34;
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
 
-    sgrid = staggered_grid</code></pre>
+    sgrid = staggered_grid
+
+    def points(self,
+               points: Tensor or Number or tuple or list,
+               radius: Tensor or float or int or None = None,
+               extrapolation: math.Extrapolation = None,
+               color: str or Tensor or tuple or list = &#39;#0060ff&#39;) -&gt; PointCloud:
+        &#34;&#34;&#34;
+        Create a `phi.field.PointCloud` from the given `points`.
+        The created field has no channel dimensions and all points carry the value `1`.
+
+        Args:
+            points: point locations in physical units
+            radius: (optional) size of the particles
+            extrapolation: (optional) extrapolation to use, defaults to Domain.boundaries.grid_extrapolation
+            color: (optional) color used when plotting the points
+
+        Returns:
+            `phi.field.PointCloud` object
+        &#34;&#34;&#34;
+        extrapolation = extrapolation or self.boundaries.grid_extrapolation
+        if radius is None:
+            radius = math.mean(self.bounds.size) * 0.005
+        # --- Parse points: tuple / list ---
+        if isinstance(points, (tuple, list)):
+            if len(points) == 0:  # no points
+                points = math.zeros(points=0, vector=1)
+            elif isinstance(points[0], Number):  # single point
+                points = math.tensor([points], &#39;points, vector&#39;)
+            else:
+                points = math.tensor(points, &#39;points, vector&#39;)
+        elements = Sphere(points, radius)
+        return PointCloud(elements, 1, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -424,6 +452,62 @@ The grid is created from the given <code>value</code> which must be one of the f
         raise ValueError(&#39;Unknown grid type: %s&#39; % type)</code></pre>
 </details>
 </dd>
+<dt id="phi.physics.Domain.points"><code class="name flex">
+<span>def <span class="ident">points</span></span>(<span>self, points: Tensor or Number or tuple or list, radius: Tensor or float or int or None = None, extrapolation: math.Extrapolation = None, color: str or Tensor or tuple or list = '#0060ff') ‑> phi.field._point_cloud.PointCloud</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a <code><a title="phi.field.PointCloud" href="../field/index.html#phi.field.PointCloud">PointCloud</a></code> from the given <code>points</code>.
+The created field has no channel dimensions and all points carry the value <code>1</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>points</code></strong></dt>
+<dd>point locations in physical units</dd>
+<dt><strong><code>radius</code></strong></dt>
+<dd>(optional) size of the particles</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>(optional) extrapolation to use, defaults to Domain.boundaries.grid_extrapolation</dd>
+<dt><strong><code>color</code></strong></dt>
+<dd>(optional) color used when plotting the points</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.PointCloud" href="../field/index.html#phi.field.PointCloud">PointCloud</a></code> object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def points(self,
+           points: Tensor or Number or tuple or list,
+           radius: Tensor or float or int or None = None,
+           extrapolation: math.Extrapolation = None,
+           color: str or Tensor or tuple or list = &#39;#0060ff&#39;) -&gt; PointCloud:
+    &#34;&#34;&#34;
+    Create a `phi.field.PointCloud` from the given `points`.
+    The created field has no channel dimensions and all points carry the value `1`.
+
+    Args:
+        points: point locations in physical units
+        radius: (optional) size of the particles
+        extrapolation: (optional) extrapolation to use, defaults to Domain.boundaries.grid_extrapolation
+        color: (optional) color used when plotting the points
+
+    Returns:
+        `phi.field.PointCloud` object
+    &#34;&#34;&#34;
+    extrapolation = extrapolation or self.boundaries.grid_extrapolation
+    if radius is None:
+        radius = math.mean(self.bounds.size) * 0.005
+    # --- Parse points: tuple / list ---
+    if isinstance(points, (tuple, list)):
+        if len(points) == 0:  # no points
+            points = math.zeros(points=0, vector=1)
+        elif isinstance(points[0], Number):  # single point
+            points = math.tensor([points], &#39;points, vector&#39;)
+        else:
+            points = math.tensor(points, &#39;points, vector&#39;)
+    elements = Sphere(points, radius)
+    return PointCloud(elements, 1, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)</code></pre>
+</details>
+</dd>
 <dt id="phi.physics.Domain.sgrid"><code class="name flex">
 <span>def <span class="ident">sgrid</span></span>(<span>self, value: Tensor or float or int or complex or callable or Geometry = 0, extrapolation: math.Extrapolation = None) ‑> phi.field._grid.StaggeredGrid</span>
 </code></dt>
@@ -447,13 +531,7 @@ This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGri
 <dt><strong><code>type</code></strong></dt>
 <dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor or float or int or complex or callable or Geometry:
-(Default value = 0)</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>math.Extrapolation:
-(Default value = None)</dd>
+<dd>(optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Grid of specified type</p></div>
@@ -461,7 +539,8 @@ This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGri
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+<pre><code class="python">def staggered_grid(self,
+                   value: Tensor or float or int or complex or callable or Geometry = 0,
                    extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid:
     &#34;&#34;&#34;
     Creates a staggered grid matching the resolution and bounds of the domain.
@@ -482,13 +561,10 @@ This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGri
     Args:
       value: constant, Field, Tensor or function specifying the grid values
       type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-      extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-      extrapolation: math.Extrapolation:  (Default value = None)
+      extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
 
     Returns:
       Grid of specified type
-
     &#34;&#34;&#34;
     return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)</code></pre>
 </details>
@@ -516,13 +592,7 @@ This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGri
 <dt><strong><code>type</code></strong></dt>
 <dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor or float or int or complex or callable or Geometry:
-(Default value = 0)</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>math.Extrapolation:
-(Default value = None)</dd>
+<dd>(optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Grid of specified type</p></div>
@@ -530,7 +600,8 @@ This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGri
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+<pre><code class="python">def staggered_grid(self,
+                   value: Tensor or float or int or complex or callable or Geometry = 0,
                    extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid:
     &#34;&#34;&#34;
     Creates a staggered grid matching the resolution and bounds of the domain.
@@ -551,13 +622,10 @@ This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGri
     Args:
       value: constant, Field, Tensor or function specifying the grid values
       type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-      extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-      extrapolation: math.Extrapolation:  (Default value = None)
+      extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
 
     Returns:
       Grid of specified type
-
     &#34;&#34;&#34;
     return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)</code></pre>
 </details>
@@ -585,15 +653,6 @@ The grid is created from the given <code>value</code> which must be one of the f
 <dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor or float or int or complex or callable or Geometry:
-(Default value = 0)</dd>
-<dt><strong><code>type</code></strong></dt>
-<dd>type:
-(Default value = CenteredGrid)</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>math.Extrapolation:
-(Default value = None)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Grid of specified type</p></div>
@@ -601,7 +660,8 @@ The grid is created from the given <code>value</code> which must be one of the f
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+<pre><code class="python">def vector_grid(self,
+                value: Tensor or float or int or complex or callable or Geometry = 0,
                 type: type = CenteredGrid,
                 extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
     &#34;&#34;&#34;
@@ -622,9 +682,6 @@ The grid is created from the given <code>value</code> which must be one of the f
       value: constant, Field, Tensor or function specifying the grid values
       type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
       extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-      type: type:  (Default value = CenteredGrid)
-      extrapolation: math.Extrapolation:  (Default value = None)
 
     Returns:
       Grid of specified type
@@ -667,15 +724,6 @@ The grid is created from the given <code>value</code> which must be one of the f
 <dd>class of Grid to create, must be either CenteredGrid or StaggeredGrid</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor or float or int or complex or callable or Geometry:
-(Default value = 0)</dd>
-<dt><strong><code>type</code></strong></dt>
-<dd>type:
-(Default value = CenteredGrid)</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>math.Extrapolation:
-(Default value = None)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Grid of specified type</p></div>
@@ -683,7 +731,8 @@ The grid is created from the given <code>value</code> which must be one of the f
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+<pre><code class="python">def vector_grid(self,
+                value: Tensor or float or int or complex or callable or Geometry = 0,
                 type: type = CenteredGrid,
                 extrapolation: math.Extrapolation = None) -&gt; StaggeredGrid or CenteredGrid:
     &#34;&#34;&#34;
@@ -704,9 +753,6 @@ The grid is created from the given <code>value</code> which must be one of the f
       value: constant, Field, Tensor or function specifying the grid values
       type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
       extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-      value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-      type: type:  (Default value = CenteredGrid)
-      extrapolation: math.Extrapolation:  (Default value = None)
 
     Returns:
       Grid of specified type
@@ -1056,6 +1102,7 @@ It can also have a linear and angular velocity.</p></div>
 <li><code><a title="phi.physics.Domain.center_points" href="#phi.physics.Domain.center_points">center_points</a></code></li>
 <li><code><a title="phi.physics.Domain.dx" href="#phi.physics.Domain.dx">dx</a></code></li>
 <li><code><a title="phi.physics.Domain.grid" href="#phi.physics.Domain.grid">grid</a></code></li>
+<li><code><a title="phi.physics.Domain.points" href="#phi.physics.Domain.points">points</a></code></li>
 <li><code><a title="phi.physics.Domain.rank" href="#phi.physics.Domain.rank">rank</a></code></li>
 <li><code><a title="phi.physics.Domain.resolution" href="#phi.physics.Domain.resolution">resolution</a></code></li>
 <li><code><a title="phi.physics.Domain.sgrid" href="#phi.physics.Domain.sgrid">sgrid</a></code></li>

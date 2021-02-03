@@ -38,14 +38,14 @@ Without this, PyTorch tensors cannot be handled by `phi.math` functions.
 
 To make PyTorch the default backend, import `phi.torch.flow`.
 &#34;&#34;&#34;
-from phi import math
+from phi import math as _math
 from ._torch_backend import TORCH_BACKEND
 from ._torch_util import variable
 
 TORCH_BACKEND = TORCH_BACKEND  # to show up in pdoc
 &#34;&#34;&#34;Backend for PyTorch operations.&#34;&#34;&#34;
 
-math.backend.BACKENDS.append(TORCH_BACKEND)
+_math.backend.BACKENDS.append(TORCH_BACKEND)
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>

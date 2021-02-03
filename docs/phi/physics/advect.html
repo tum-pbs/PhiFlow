@@ -118,7 +118,7 @@ def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength
     v = velocity.sample_in(field.elements)
     x0 = field.points
     x_bwd = x0 - v * dt
-    x_fwd = x0 + v * dt  # TODO before or after advection?
+    x_fwd = x0 + v * dt
     reduce = x0.shape.non_channel.without(field.shape).names
     # Semi-Lagrangian advection
     field_semi_la = field.with_(values=field.sample_at(x_bwd, reduce_channels=reduce))
@@ -160,7 +160,8 @@ def runge_kutta_4(field: PointCloud, velocity: Field, dt):
     # --- Combine points with RK4 scheme ---
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     new_points = points.shifted(dt * vel)
-    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)
+    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping,
+                      bounds=field.bounds, color=field.color)
 
 
 def points(field: PointCloud, velocity: PointCloud, dt):
@@ -181,7 +182,8 @@ def points(field: PointCloud, velocity: PointCloud, dt):
     &#34;&#34;&#34;
     assert field.elements == velocity.elements
     new_points = field.elements.shifted(dt * velocity.values)
-    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)</code></pre>
+    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping,
+                      bounds=field.bounds, color=field.color)</code></pre>
 </details>
 </section>
 <section>
@@ -284,7 +286,7 @@ To avoid overshoots, the resulting value is bounded by the neighbouring grid cel
     v = velocity.sample_in(field.elements)
     x0 = field.points
     x_bwd = x0 - v * dt
-    x_fwd = x0 + v * dt  # TODO before or after advection?
+    x_fwd = x0 + v * dt
     reduce = x0.shape.non_channel.without(field.shape).names
     # Semi-Lagrangian advection
     field_semi_la = field.with_(values=field.sample_at(x_bwd, reduce_channels=reduce))
@@ -343,7 +345,8 @@ Each point moves by an amount equal to the local velocity times <code>dt</code>.
     &#34;&#34;&#34;
     assert field.elements == velocity.elements
     new_points = field.elements.shifted(dt * velocity.values)
-    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)</code></pre>
+    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping,
+                      bounds=field.bounds, color=field.color)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.runge_kutta_4"><code class="name flex">
@@ -394,7 +397,8 @@ Each point moves by an amount equal to the local velocity times <code>dt</code>.
     # --- Combine points with RK4 scheme ---
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     new_points = points.shifted(dt * vel)
-    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping)</code></pre>
+    return PointCloud(new_points, field.values, field.extrapolation, add_overlapping=field._add_overlapping,
+                      bounds=field.bounds, color=field.color)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.semi_lagrangian"><code class="name flex">

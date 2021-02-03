@@ -2371,7 +2371,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=0, add_overlapping=False)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = '#0060ff')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -2385,15 +2385,11 @@ The dimension can be batch, spatial or channel.</p>
 <p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
 <p>A point cloud consists of elements at arbitrary locations.
 A value or vector is associated with each element.</p>
-<pre><code>Outside of elements, the value of the field is determined by the extrapolation.
-
-All points belonging to one example must be listed in the 'points' dimension.
-
-Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-When sampling this field on a grid, scatter functions may be used.
-
-See the &lt;code&gt;&lt;a title="phi.field" href="#phi.field"&gt;phi.field&lt;/a&gt;&lt;/code&gt; module documentation at &lt;https://tum-pbs.github.io/PhiFlow/Fields.html&gt;
-</code></pre>
+<p>Outside of elements, the value of the field is determined by the extrapolation.</p>
+<p>All points belonging to one example must be listed in the 'points' dimension.</p>
+<p>Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+When sampling this field on a grid, scatter functions may be used.</p>
+<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>elements</code></strong></dt>
@@ -2404,6 +2400,10 @@ See the &lt;code&gt;&lt;a title="phi.field" href="#phi.field"&gt;phi.field&lt;/a
 <dd>values outside elements</dd>
 <dt><strong><code>add_overlapping</code></strong></dt>
 <dd>True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>(optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.</dd>
+<dt><strong><code>color</code></strong></dt>
+<dd>(optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2411,29 +2411,47 @@ See the &lt;code&gt;&lt;a title="phi.field" href="#phi.field"&gt;phi.field&lt;/a
 </summary>
 <pre><code class="python">class PointCloud(SampledField):
 
-    def __init__(self, elements: Geometry, values: Any = 1, extrapolation=math.extrapolation.ZERO, add_overlapping=False):
+    def __init__(self, elements: Geometry,
+                 values: Any = 1,
+                 extrapolation=math.extrapolation.ZERO,
+                 add_overlapping=False,
+                 bounds: Box = None,
+                 color: str or Tensor or tuple or list = &#39;#0060ff&#39;):
         &#34;&#34;&#34;
         A point cloud consists of elements at arbitrary locations.
-            A value or vector is associated with each element.
+        A value or vector is associated with each element.
 
-            Outside of elements, the value of the field is determined by the extrapolation.
+        Outside of elements, the value of the field is determined by the extrapolation.
 
-            All points belonging to one example must be listed in the &#39;points&#39; dimension.
+        All points belonging to one example must be listed in the &#39;points&#39; dimension.
 
-            Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-            When sampling this field on a grid, scatter functions may be used.
+        Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+        When sampling this field on a grid, scatter functions may be used.
 
-            See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+        See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
           add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
+          bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
+          color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         &#34;&#34;&#34;
         SampledField.__init__(self, elements, values, extrapolation)
         self._add_overlapping = add_overlapping
+        assert bounds is None or isinstance(bounds, Box), &#39;Invalid bounds.&#39;
+        self._bounds = bounds
         assert &#39;points&#39; in self.shape, &#34;Cannot create PointCloud without &#39;points&#39; dimension. Add it either to elements or to values as batch dimension.&#34;
+        self._color = math.tensor(color, names=&#39;points&#39;) if isinstance(color, (tuple, list)) else math.tensor(color)
+
+    @property
+    def bounds(self) -&gt; Box:
+        return self._bounds
+
+    @property
+    def color(self) -&gt; Tensor:
+        return self._color
 
     def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
         if not reduce_channels:
@@ -2488,6 +2506,33 @@ See the &lt;code&gt;&lt;a title="phi.field" href="#phi.field"&gt;phi.field&lt;/a
 <li>phi.field._field.SampledField</li>
 <li>phi.field._field.Field</li>
 </ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.field.PointCloud.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def bounds(self) -&gt; Box:
+    return self._bounds</code></pre>
+</details>
+</dd>
+<dt id="phi.field.PointCloud.color"><code class="name">var <span class="ident">color</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def color(self) -&gt; Tensor:
+    return self._color</code></pre>
+</details>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.PointCloud.sample_at"><code class="name flex">
@@ -3770,6 +3815,8 @@ The dimension can be batch, spatial or channel.</p>
 <li>
 <h4><code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code></h4>
 <ul class="">
+<li><code><a title="phi.field.PointCloud.bounds" href="#phi.field.PointCloud.bounds">bounds</a></code></li>
+<li><code><a title="phi.field.PointCloud.color" href="#phi.field.PointCloud.color">color</a></code></li>
 <li><code><a title="phi.field.PointCloud.sample_at" href="#phi.field.PointCloud.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.PointCloud.sample_in" href="#phi.field.PointCloud.sample_in">sample_in</a></code></li>
 </ul>

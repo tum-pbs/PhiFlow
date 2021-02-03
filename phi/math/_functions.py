@@ -1,6 +1,7 @@
 import functools
 import re
 import time
+import warnings
 from numbers import Number
 from typing import Tuple
 
@@ -773,9 +774,9 @@ def conv(value: Tensor, kernel: Tensor, padding='same'):
     raise NotImplementedError()
 
 
-def unstack(value: Tensor, dim=0):
-    assert isinstance(value, Tensor)
-    return value.unstack(value.shape.names[dim])
+def unstack(value: Tensor, dim: str):
+    """ Alias for `Tensor.unstack()` """
+    return value.unstack(dim)
 
 
 def boolean_mask(x: Tensor, mask):

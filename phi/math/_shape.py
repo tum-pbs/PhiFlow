@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Tuple
 
 from phi import math
 
@@ -319,20 +320,33 @@ class Shape:
         """
         return self[[i for i, size in enumerate(self.sizes) if size is not None]]
 
-    def unstack(self, name='dims'):
-        if name == 'dims':
+    def unstack(self, dim='dims') -> Tuple[Shape]:
+        """
+        Slices this `Shape` along a dimension.
+        The dimension listing the sizes of the shape is referred to as `'dims'`.
+
+        Non-uniform tensor shapes may be unstacked along other dimensions as well, see
+        https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors
+
+        Args:
+            dim: dimension to unstack
+
+        Returns:
+            slices of this shape
+        """
+        if dim == 'dims':
             return tuple(Shape([self.sizes[i]], [self.names[i]], [self.types[i]]) for i in range(self.rank))
-        if name not in self:
+        if dim not in self:
             return tuple([self])
         else:
             from ._tensors import Tensor
-            inner = self.without(name)
+            inner = self.without(dim)
             sizes = []
-            dim_size = self.get_size(name)
+            dim_size = self.get_size(dim)
             for size in inner.sizes:
-                if isinstance(size, Tensor) and name in size.shape:
-                    sizes.append(size.unstack(name))
-                    dim_size = size.shape.get_size(name)
+                if isinstance(size, Tensor) and dim in size.shape:
+                    sizes.append(size.unstack(dim))
+                    dim_size = size.shape.get_size(dim)
                 else:
                     sizes.append(size)
             assert isinstance(dim_size, int)
@@ -412,6 +426,9 @@ class Shape:
                 else:
                     order.append(name)
         return order
+
+    def alphabetically(self):
+        return self.reorder(sorted(self.names))
 
     def combined(self, other: Shape, combine_spatial=False) -> Shape:
         """

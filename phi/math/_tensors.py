@@ -1,8 +1,10 @@
 import numbers
 import warnings
+from typing import Tuple
 
 import numpy as np
 
+from._config import GLOBAL_AXIS_ORDER
 from . import _shape, DType
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend
 from ._shape import Shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
@@ -205,13 +207,18 @@ class Tensor:
     #     """
     #     raise NotImplementedError()
 
-    def unstack(self, dimension):
+    def unstack(self, dimension: str):
         """
         Splits this tensor along the specified dimension.
         The returned tensors have the same dimensions as this tensor save the unstacked dimension.
 
+        Raises an error if the dimension is not part of the `Shape` of this `Tensor`.
+
+        See Also:
+            `TensorDim.unstack()`
+
         Args:
-          dimension(str or int or _TensorDim): name of dimension or Dimension or None for component dimension
+          dimension(str or int or TensorDim): name of dimension or Dimension or None for component dimension
 
         Returns:
           tuple of tensors
@@ -241,13 +248,13 @@ class Tensor:
         * `index: int` index in shape
         * `is_batch`, `is_spatial`, `is_channel`
         """
-        return _TensorDim(self, name)
+        return TensorDim(self, name)
 
     def __getattr__(self, name):
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
         assert name not in ('shape', '_shape')
-        return _TensorDim(self, name)
+        return TensorDim(self, name)
 
     def __add__(self, other):
         return self._op2(other, lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y))
@@ -404,7 +411,7 @@ class Tensor:
         raise NotImplementedError(self.__class__)
 
 
-class _TensorDim:
+class TensorDim:
 
     def __init__(self, tensor: Tensor, name: str):
         self.tensor = tensor
@@ -417,16 +424,75 @@ class _TensorDim:
     def __str__(self):
         return self.name
 
-    def unstack(self, size: int or None = None):
+    def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -> tuple:
+        """
+        See `unstack_spatial`.
+
+        Args:
+            size: (optional)
+                None: unstack along this dimension, error if dimension does not exist
+                int: repeating unstack if dimension does not exist
+            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+        Returns:
+            sliced tensors
+        """
         if size is None:
-            return self.tensor.unstack(self.name)
+            result = self.tensor.unstack(self.name)
         else:
             if self.exists:
                 unstacked = self.tensor.unstack(self.name)
                 assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
-                return unstacked
+                result = unstacked
             else:
-                return (self.tensor,) * size
+                result = (self.tensor,) * size
+        if to_numpy or to_python:
+            result = tuple(component.numpy() for component in result)
+            if to_python:
+                result = tuple(component.tolist() for component in result)
+        return result
+
+    def optional_unstack(self, to_numpy=False, to_python=False):
+        if self.exists:
+            return self.unstack(to_numpy=to_numpy, to_python=to_python)
+        else:
+            if to_numpy or to_python:
+                result = self.tensor.numpy()
+                if to_python:
+                    return result.tolist()
+                return result
+            return self.tensor
+
+    def unstack_spatial(self, components: str or tuple or list, to_numpy=False, to_python=False) -> tuple:
+        """
+        Slices the tensor along this dimension, returning only the selected components in the specified order.
+
+        Args:
+            components:
+            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+        Returns:
+            selected components
+        """
+        if isinstance(components, str):
+            components = _shape.parse_dim_order(components)
+        if self.exists:
+            spatial = self.tensor.shape.spatial
+            result = []
+            if spatial.is_empty:
+                spatial = [GLOBAL_AXIS_ORDER.axis_name(i, len(components)) for i in range(len(components))]
+            for dim in components:
+                component_index = spatial.index(dim)
+                result.append(self.tensor[{self.name: component_index}])
+        else:
+            result = [self.tensor] * len(components)
+        if to_numpy or to_python:
+            result = tuple(component.numpy() for component in result)
+            if to_python:
+                result = tuple(component.tolist() for component in result)
+        return tuple(result)
 
     @property
     def index(self):

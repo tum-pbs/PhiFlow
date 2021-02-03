@@ -19,7 +19,7 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Package <code>phi.math</code></h1>
+<h1 class="title">Module <code>phi.math</code></h1>
 </header>
 <section id="section-intro">
 <p>Vectorized operations, tensors with named dimensions.</p>
@@ -2615,9 +2615,10 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
       Tensor containing same values as data
     &#34;&#34;&#34;
     if isinstance(data, Tensor):
-        backend = choose_backend(*data._natives())
-        if convert and backend != default_backend():
-            data = data._op1(lambda native: default_backend().as_tensor(backend.numpy(native), convert_external=True))
+        if convert:
+            backend = choose_backend(*data._natives())
+            if backend != default_backend():
+                data = data._op1(lambda native: default_backend().as_tensor(backend.numpy(native), convert_external=True))
         if names is None:
             return data
         else:
@@ -2790,17 +2791,17 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>value: phi.math._tensors.Tensor, dim=0)</span>
+<span>def <span class="ident">unstack</span></span>(<span>value: phi.math._tensors.Tensor, dim: str)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Alias for <code><a title="phi.math.Tensor.unstack" href="#phi.math.Tensor.unstack">Tensor.unstack()</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(value: Tensor, dim=0):
-    assert isinstance(value, Tensor)
-    return value.unstack(value.shape.names[dim])</code></pre>
+<pre><code class="python">def unstack(value: Tensor, dim: str):
+    &#34;&#34;&#34; Alias for `Tensor.unstack()` &#34;&#34;&#34;
+    return value.unstack(dim)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.upsample2x"><code class="name flex">
@@ -3818,20 +3819,33 @@ All arguments must have same length.</p>
         &#34;&#34;&#34;
         return self[[i for i, size in enumerate(self.sizes) if size is not None]]
 
-    def unstack(self, name=&#39;dims&#39;):
-        if name == &#39;dims&#39;:
+    def unstack(self, dim=&#39;dims&#39;) -&gt; Tuple[Shape]:
+        &#34;&#34;&#34;
+        Slices this `Shape` along a dimension.
+        The dimension listing the sizes of the shape is referred to as `&#39;dims&#39;`.
+
+        Non-uniform tensor shapes may be unstacked along other dimensions as well, see
+        https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors
+
+        Args:
+            dim: dimension to unstack
+
+        Returns:
+            slices of this shape
+        &#34;&#34;&#34;
+        if dim == &#39;dims&#39;:
             return tuple(Shape([self.sizes[i]], [self.names[i]], [self.types[i]]) for i in range(self.rank))
-        if name not in self:
+        if dim not in self:
             return tuple([self])
         else:
             from ._tensors import Tensor
-            inner = self.without(name)
+            inner = self.without(dim)
             sizes = []
-            dim_size = self.get_size(name)
+            dim_size = self.get_size(dim)
             for size in inner.sizes:
-                if isinstance(size, Tensor) and name in size.shape:
-                    sizes.append(size.unstack(name))
-                    dim_size = size.shape.get_size(name)
+                if isinstance(size, Tensor) and dim in size.shape:
+                    sizes.append(size.unstack(dim))
+                    dim_size = size.shape.get_size(dim)
                 else:
                     sizes.append(size)
             assert isinstance(dim_size, int)
@@ -3911,6 +3925,9 @@ All arguments must have same length.</p>
                 else:
                     order.append(name)
         return order
+
+    def alphabetically(self):
+        return self.reorder(sorted(self.names))
 
     def combined(self, other: Shape, combine_spatial=False) -&gt; Shape:
         &#34;&#34;&#34;
@@ -4993,6 +5010,19 @@ def zero(self) -&gt; Shape:
     return Shape(sizes, self.names, self.types)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.Shape.alphabetically"><code class="name flex">
+<span>def <span class="ident">alphabetically</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def alphabetically(self):
+    return self.reorder(sorted(self.names))</code></pre>
+</details>
+</dd>
 <dt id="phi.math.Shape.combined"><code class="name flex">
 <span>def <span class="ident">combined</span></span>(<span>self, other: <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>, combine_spatial=False) ‑> phi.math._shape.Shape</span>
 </code></dt>
@@ -5620,28 +5650,51 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </details>
 </dd>
 <dt id="phi.math.Shape.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, name='dims')</span>
+<span>def <span class="ident">unstack</span></span>(<span>self, dim='dims') ‑> Tuple[phi.math._shape.Shape]</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Slices this <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> along a dimension.
+The dimension listing the sizes of the shape is referred to as <code>'dims'</code>.</p>
+<p>Non-uniform tensor shapes may be unstacked along other dimensions as well, see
+<a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors</a></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dim</code></strong></dt>
+<dd>dimension to unstack</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>slices of this shape</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(self, name=&#39;dims&#39;):
-    if name == &#39;dims&#39;:
+<pre><code class="python">def unstack(self, dim=&#39;dims&#39;) -&gt; Tuple[Shape]:
+    &#34;&#34;&#34;
+    Slices this `Shape` along a dimension.
+    The dimension listing the sizes of the shape is referred to as `&#39;dims&#39;`.
+
+    Non-uniform tensor shapes may be unstacked along other dimensions as well, see
+    https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors
+
+    Args:
+        dim: dimension to unstack
+
+    Returns:
+        slices of this shape
+    &#34;&#34;&#34;
+    if dim == &#39;dims&#39;:
         return tuple(Shape([self.sizes[i]], [self.names[i]], [self.types[i]]) for i in range(self.rank))
-    if name not in self:
+    if dim not in self:
         return tuple([self])
     else:
         from ._tensors import Tensor
-        inner = self.without(name)
+        inner = self.without(dim)
         sizes = []
-        dim_size = self.get_size(name)
+        dim_size = self.get_size(dim)
         for size in inner.sizes:
-            if isinstance(size, Tensor) and name in size.shape:
-                sizes.append(size.unstack(name))
-                dim_size = size.shape.get_size(name)
+            if isinstance(size, Tensor) and dim in size.shape:
+                sizes.append(size.unstack(dim))
+                dim_size = size.shape.get_size(dim)
             else:
                 sizes.append(size)
         assert isinstance(dim_size, int)
@@ -6002,13 +6055,18 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     #     &#34;&#34;&#34;
     #     raise NotImplementedError()
 
-    def unstack(self, dimension):
+    def unstack(self, dimension: str):
         &#34;&#34;&#34;
         Splits this tensor along the specified dimension.
         The returned tensors have the same dimensions as this tensor save the unstacked dimension.
 
+        Raises an error if the dimension is not part of the `Shape` of this `Tensor`.
+
+        See Also:
+            `TensorDim.unstack()`
+
         Args:
-          dimension(str or int or _TensorDim): name of dimension or Dimension or None for component dimension
+          dimension(str or int or TensorDim): name of dimension or Dimension or None for component dimension
 
         Returns:
           tuple of tensors
@@ -6038,13 +6096,13 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         * `index: int` index in shape
         * `is_batch`, `is_spatial`, `is_channel`
         &#34;&#34;&#34;
-        return _TensorDim(self, name)
+        return TensorDim(self, name)
 
     def __getattr__(self, name):
         if name.startswith(&#39;_&#39;):
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         assert name not in (&#39;shape&#39;, &#39;_shape&#39;)
-        return _TensorDim(self, name)
+        return TensorDim(self, name)
 
     def __add__(self, other):
         return self._op2(other, lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y))
@@ -6313,7 +6371,7 @@ This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
     * `index: int` index in shape
     * `is_batch`, `is_spatial`, `is_channel`
     &#34;&#34;&#34;
-    return _TensorDim(self, name)</code></pre>
+    return TensorDim(self, name)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.flip"><code class="name flex">
@@ -6436,26 +6494,34 @@ To get a differentiable tensor, use :func:<code><a title="phi.math.Tensor.native
 </details>
 </dd>
 <dt id="phi.math.Tensor.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension)</span>
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Splits this tensor along the specified dimension.
 The returned tensors have the same dimensions as this tensor save the unstacked dimension.</p>
+<p>Raises an error if the dimension is not part of the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
+<p>See Also:
+<code>TensorDim.unstack()</code></p>
 <h2 id="args">Args</h2>
-<p>dimension(str or int or _TensorDim): name of dimension or Dimension or None for component dimension</p>
+<p>dimension(str or int or TensorDim): name of dimension or Dimension or None for component dimension</p>
 <h2 id="returns">Returns</h2>
 <p>tuple of tensors</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(self, dimension):
+<pre><code class="python">def unstack(self, dimension: str):
     &#34;&#34;&#34;
     Splits this tensor along the specified dimension.
     The returned tensors have the same dimensions as this tensor save the unstacked dimension.
 
+    Raises an error if the dimension is not part of the `Shape` of this `Tensor`.
+
+    See Also:
+        `TensorDim.unstack()`
+
     Args:
-      dimension(str or int or _TensorDim): name of dimension or Dimension or None for component dimension
+      dimension(str or int or TensorDim): name of dimension or Dimension or None for component dimension
 
     Returns:
       tuple of tensors
@@ -6475,6 +6541,11 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <ul></ul>
 </div>
 <ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="phi" href="../index.html">phi</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code></li>
@@ -6618,6 +6689,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <ul class="two-column">
 <li><code><a title="phi.math.Shape.after_gather" href="#phi.math.Shape.after_gather">after_gather</a></code></li>
 <li><code><a title="phi.math.Shape.after_pad" href="#phi.math.Shape.after_pad">after_pad</a></code></li>
+<li><code><a title="phi.math.Shape.alphabetically" href="#phi.math.Shape.alphabetically">alphabetically</a></code></li>
 <li><code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">batch</a></code></li>
 <li><code><a title="phi.math.Shape.batch_rank" href="#phi.math.Shape.batch_rank">batch_rank</a></code></li>
 <li><code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">channel</a></code></li>
