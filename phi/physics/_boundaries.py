@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from functools import partialmethod
+from numbers import Number
 
 from phi import math, struct
-from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, Grid
-from phi.geom import Box, GridCell
+from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, Grid, PointCloud
+from phi.geom import Box, GridCell, Sphere
 from phi.geom import Geometry
 from phi.math import extrapolation, Tensor
 from phi.math import spatial_shape
@@ -191,7 +192,8 @@ class Domain:
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
-    def vector_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+    def vector_grid(self,
+                    value: Tensor or float or int or complex or callable or Geometry = 0,
                     type: type = CenteredGrid,
                     extrapolation: math.Extrapolation = None) -> StaggeredGrid or CenteredGrid:
         """
@@ -212,9 +214,6 @@ class Domain:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
           extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-          type: type:  (Default value = CenteredGrid)
-          extrapolation: math.Extrapolation:  (Default value = None)
 
         Returns:
           Grid of specified type
@@ -235,7 +234,8 @@ class Domain:
 
     vgrid = vector_grid
 
-    def staggered_grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+    def staggered_grid(self,
+                       value: Tensor or float or int or complex or callable or Geometry = 0,
                        extrapolation: math.Extrapolation = None) -> StaggeredGrid:
         """
         Creates a staggered grid matching the resolution and bounds of the domain.
@@ -256,17 +256,46 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-          extrapolation: math.Extrapolation:  (Default value = None)
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
 
         Returns:
           Grid of specified type
-
         """
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
 
     sgrid = staggered_grid
+
+    def points(self,
+               points: Tensor or Number or tuple or list,
+               radius: Tensor or float or int or None = None,
+               extrapolation: math.Extrapolation = None,
+               color: str or Tensor or tuple or list = '#0060ff') -> PointCloud:
+        """
+        Create a `phi.field.PointCloud` from the given `points`.
+        The created field has no channel dimensions and all points carry the value `1`.
+
+        Args:
+            points: point locations in physical units
+            radius: (optional) size of the particles
+            extrapolation: (optional) extrapolation to use, defaults to Domain.boundaries.grid_extrapolation
+            color: (optional) color used when plotting the points
+
+        Returns:
+            `phi.field.PointCloud` object
+        """
+        extrapolation = extrapolation or self.boundaries.grid_extrapolation
+        if radius is None:
+            radius = math.mean(self.bounds.size) * 0.005
+        # --- Parse points: tuple / list ---
+        if isinstance(points, (tuple, list)):
+            if len(points) == 0:  # no points
+                points = math.zeros(points=0, vector=1)
+            elif isinstance(points[0], Number):  # single point
+                points = math.tensor([points], 'points, vector')
+            else:
+                points = math.tensor(points, 'points, vector')
+        elements = Sphere(points, radius)
+        return PointCloud(elements, 1, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
 
 @struct.definition()

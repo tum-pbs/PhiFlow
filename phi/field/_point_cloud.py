@@ -10,44 +10,39 @@ from ..math import Tensor
 
 class PointCloud(SampledField):
 
-    def __init__(self, elements: Geometry, values: Any = 1, extrapolation=math.extrapolation.ZERO, add_overlapping=False,
-                 bounds: Box = None, color: Union[Tensor, str] = None):
+    def __init__(self, elements: Geometry,
+                 values: Any = 1,
+                 extrapolation=math.extrapolation.ZERO,
+                 add_overlapping=False,
+                 bounds: Box = None,
+                 color: str or Tensor or tuple or list = '#0060ff'):
         """
         A point cloud consists of elements at arbitrary locations.
-            A value or vector is associated with each element.
+        A value or vector is associated with each element.
 
-            Outside of elements, the value of the field is determined by the extrapolation.
+        Outside of elements, the value of the field is determined by the extrapolation.
 
-            All points belonging to one example must be listed in the 'points' dimension.
+        All points belonging to one example must be listed in the 'points' dimension.
 
-            Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-            When sampling this field on a grid, scatter functions may be used.
+        Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+        When sampling this field on a grid, scatter functions may be used.
 
-            See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+        See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
           add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
-          bounds: size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
-          color: hex code for color or tensor of colors (same length as elements) in which points should get plotted.
-            None results in #000000.
+          bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
+          color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         """
         SampledField.__init__(self, elements, values, extrapolation)
         self._add_overlapping = add_overlapping
         assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
         self._bounds = bounds
         assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
-        if isinstance(color, str):
-            self._color = math.tensor([color] * elements.shape.points)
-        elif isinstance(color, Tensor):
-            assert 'vector' in color.shape and len(color.vector) == elements.shape.points, "Each point must be assigned a color."
-            self._color = color
-        elif color is None:
-            self._color = math.tensor(['#000000'] * elements.shape.points)
-        else:
-            raise ValueError('Invalid color.')
+        self._color = math.tensor(color, names='points') if isinstance(color, (tuple, list)) else math.tensor(color)
 
     @property
     def bounds(self) -> Box:
