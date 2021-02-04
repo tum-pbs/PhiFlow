@@ -410,6 +410,10 @@ class Tensor:
     def _natives(self) -> tuple:
         raise NotImplementedError(self.__class__)
 
+    def _expand(self):
+        """ Expands all compressed tensors to their defined size as if they were being used in `Tensor.native()`. """
+        raise NotImplementedError(self.__class__)
+
 
 class TensorDim:
 
@@ -635,6 +639,9 @@ class NativeTensor(Tensor):
     def _natives(self) -> tuple:
         return self._native,
 
+    def _expand(self):
+        pass
+
 
 class CollapsedTensor(Tensor):
     """Tiled / Repeated tensor along additional dimensions."""
@@ -650,6 +657,8 @@ class CollapsedTensor(Tensor):
         self._cached = None
 
     def _cache(self):
+        if self.tensor._is_special:
+            return None
         if self._cached is None:
             native = self.tensor.native(order=self.shape.names)
             multiples = [1 if name in self.tensor.shape else size for size, name, _ in self.shape.dimensions]
@@ -679,6 +688,8 @@ class CollapsedTensor(Tensor):
         return self._shape
 
     def unstack(self, dimension):
+        if self._cached is not None:
+            return self._cached.unstack(dimension)
         unstacked_shape = self.shape.without(dimension)
         if dimension in self.tensor.shape:
             unstacked = self.tensor.unstack(dimension)
@@ -687,26 +698,39 @@ class CollapsedTensor(Tensor):
             return (CollapsedTensor(self.tensor, unstacked_shape),) * self.shape.get_size(dimension)
 
     def _with_shape_replaced(self, new_shape):
-        return CollapsedTensor(self.tensor, new_shape)
+        result = CollapsedTensor(self.tensor, new_shape)
+        result._cached = self._cached
+        return result
 
     @property
     def _is_special(self) -> bool:
         return self.tensor._is_special
 
     def _getitem(self, selection: dict):
-        inner_dict = {name: selection for name, selection in selection.items() if name in self.tensor.shape}
-        inner = self.tensor._getitem(inner_dict)
-        new_shape = self.shape.after_gather(selection)
-        inner.shape.combined(new_shape)  # check that sizes match
-        return CollapsedTensor(inner, new_shape)
+        if self._cached is not None:
+            return self._cached._getitem(selection)
+        else:
+            inner_dict = {name: selection for name, selection in selection.items() if name in self.tensor.shape}
+            inner = self.tensor._getitem(inner_dict)
+            new_shape = self.shape.after_gather(selection)
+            inner.shape.combined(new_shape)  # check that sizes match
+            return CollapsedTensor(inner, new_shape)
 
     def flip(self, *dims: str) -> 'Tensor':
-        return CollapsedTensor(self.tensor.flip(*dims), self._shape)
+        if self._cached is not None:
+            return self._cached.flip(*dims)
+        else:
+            return CollapsedTensor(self.tensor.flip(*dims), self._shape)
 
     def _op1(self, native_function):
-        return CollapsedTensor(self.tensor._op1(native_function), self._shape)
+        if self._cached is not None:
+            return self._cached._op1(native_function)
+        else:
+            return CollapsedTensor(self.tensor._op1(native_function), self._shape)
 
     def _op2(self, other, operator, native_function):
+        if self._cached is not None:
+            return self._cached._op2(other, operator, native_function)
         other = self._tensor(other)
         if isinstance(other, NativeTensor):
             if all([dim in other.shape for dim in self._shape.names]):
@@ -726,7 +750,13 @@ class CollapsedTensor(Tensor):
             return NotImplemented
 
     def _natives(self) -> tuple:
-        return self.tensor._natives()
+        if self._cached is not None:
+            return self._cached._natives()
+        else:
+            return self.tensor._natives()
+
+    def _expand(self):
+        self._cache()
 
 
 class TensorStack(Tensor):
@@ -854,6 +884,10 @@ class TensorStack(Tensor):
 
     def _natives(self) -> tuple:
         return sum([t._natives() for t in self.tensors], ())
+
+    def _expand(self):
+        for t in self.tensors:
+            t._expand()
 
 
 def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,

@@ -9,13 +9,15 @@ from phi.field import StaggeredGrid, CenteredGrid
 from . import TF_BACKEND
 
 
-def GradientTape(watch=(), persistent=False) -> tf.GradientTape:
+def GradientTape(*watch: math.Tensor, persistent=False) -> tf.GradientTape:
     tape = tf.GradientTape(persistent)
 
     with tape:
         for value in watch:
             assert isinstance(value, math.Tensor), value
-            value._op1(lambda native: tape.watch(native))
+            value._expand()
+            for native in value._natives():
+                tape.watch(native)
     return tape
 
 
