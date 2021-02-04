@@ -4,7 +4,7 @@
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/phiflow.svg)](https://pypi.org/project/phiflow/)
 [![PyPI license](https://img.shields.io/pypi/l/phiflow.svg)](https://pypi.org/project/phiflow/)
 [![Code Coverage](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/graph/badge.svg)](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/)
-[![Google Collab Book](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true)
+[![Google Collab Book](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1LNPpHoZSTNN1L1Jt9MjLZ0r3Ejg0u7hY#offline=true&sandboxMode=true)
 
 ![Gui](https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png)
 
@@ -39,7 +39,7 @@ See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/I
 
 ## Documentation and Guides
 
-| [Documentation](https://tum-pbs.github.io/PhiFlow/) | [API](https://tum-pbs.github.io/PhiFlow/phi/) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
+| [Documentation](https://tum-pbs.github.io/PhiFlow/) | [API](https://tum-pbs.github.io/PhiFlow/phi/) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1LNPpHoZSTNN1L1Jt9MjLZ0r3Ejg0u7hY#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
 |----|----|----|----|
 
 An overview of all available documentation can be found [here](https://tum-pbs.github.io/PhiFlow/).
