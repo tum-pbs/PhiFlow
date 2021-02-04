@@ -1060,6 +1060,7 @@ def _check_exact_match(*shapes: Shape, check_types: tuple or list = ()):
 
 
 def shape_stack(stack_dim: str, stack_type: str, *shapes: Shape):
+    """ Returns the shape of a tensor created by stacking tensors with `shapes`. """
     names = list(shapes[0].names)
     types = list(shapes[0].types)
     for other in shapes[1:]:

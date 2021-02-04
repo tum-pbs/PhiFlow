@@ -230,6 +230,8 @@ def spatial_stack(values, dim: str):
 def _stack(values: tuple or list,
            dim: str,
            dim_type: str):
+    values = cast_same(*values)
+
     def inner_stack(*values):
         return TensorStack(values, dim, dim_type)
 
@@ -738,9 +740,23 @@ def cast(x: Tensor, dtype: DType) -> Tensor:
 
 
 def cast_same(*values: Tensor) -> Tuple[Tensor]:
-    natives = sum([v._natives() for v in values], ())
-    common_type = combine_types(*[choose_backend(n).dtype(n) for n in natives], fp_precision=get_precision())
-    return tuple([cast(v, common_type) for v in values])
+    """
+    Casts all tensors to the same `DType`.
+    If all data types are of the same kind, returns the largest occurring data type.
+    Otherwise casts `bool` &rarr; `int` &rarr; `float` &rarr; `complex`.
+
+    Args:
+        *values: tensors to cast
+
+    Returns:
+        Tuple of Tensors with same data type.
+    """
+    dtypes = [v.dtype for v in values]
+    if any(dt != dtypes[0] for dt in dtypes):
+        common_type = combine_types(*dtypes, fp_precision=get_precision())
+        return tuple([cast(v, common_type) for v in values])
+    else:
+        return values
 
 
 def divide_no_nan(x, y):

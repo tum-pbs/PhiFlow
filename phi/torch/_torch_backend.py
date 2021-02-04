@@ -32,24 +32,6 @@ class TorchBackend(Backend):
                                           f"major={properties.major}, minor={properties.minor}"))
         return devices
 
-    def auto_cast(self, *tensors):
-        """
-        Determins the appropriate values type resulting from operations involving the tensors as input.
-        
-        This method is called by the default implementations of basic operators.
-        Backends can override this method to prevent unnecessary casting.
-
-        Args:
-          *tensors: 
-
-        Returns:
-
-        """
-        dtypes = [self.dtype(t) for t in tensors]
-        result_type = self.combine_types(*dtypes)
-        tensors = [self.cast(t, result_type) for t in tensors]
-        return tensors
-
     def is_tensor(self, x, only_native=False):
         if isinstance(x, torch.Tensor):
             return True
