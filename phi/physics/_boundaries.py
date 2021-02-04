@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-from functools import partialmethod
 from numbers import Number
 
 from phi import math, struct
@@ -52,7 +49,7 @@ class Material:
         return self.name
 
     @staticmethod
-    def as_material(obj: Material or tuple or list or dict) -> Material:
+    def as_material(obj: 'Material' or tuple or list or dict) -> 'Material':
         """
         Construct a mixed material from from a sequence of materials.
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import copy
 from abc import ABC
 
@@ -94,7 +92,7 @@ class Field:
         """
         raise NotImplementedError(self)
 
-    def at(self, representation: SampledField) -> SampledField:
+    def at(self, representation: 'SampledField') -> 'SampledField':
         """
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
@@ -116,7 +114,7 @@ class Field:
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
-    def __rshift__(self, other: SampledField):
+    def __rshift__(self, other: 'SampledField'):
         """
         Resampling operator.
 
@@ -159,7 +157,7 @@ class Field:
         """
         return _FieldDim(self, name)
 
-    def __getattr__(self, name: str) -> _FieldDim:
+    def __getattr__(self, name: str) -> '_FieldDim':
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
         if hasattr(self.__class__, name):
@@ -209,7 +207,7 @@ class Field:
     def __abs__(self):
         return self._op1(lambda x: abs(x))
 
-    def _op1(self, operator) -> Field:
+    def _op1(self, operator) -> 'Field':
         """
         Perform an operation on the data of this field.
 
@@ -222,7 +220,7 @@ class Field:
         """
         raise NotImplementedError()
 
-    def _op2(self, other, operator) -> Field:
+    def _op2(self, other, operator) -> 'Field':
         raise NotImplementedError()
 
 
@@ -247,7 +245,7 @@ class SampledField(Field):
     def with_(self,
               elements: Geometry or None = None,
               values: Tensor = None,
-              extrapolation: math.Extrapolation = None) -> SampledField:
+              extrapolation: math.Extrapolation = None) -> 'SampledField':
         """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
         copied = copy.copy(self)
         SampledField.__init__(copied,

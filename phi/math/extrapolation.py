@@ -3,8 +3,6 @@ Defines standard extrapolations.
 
 Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.
 """
-from __future__ import annotations
-
 from typing import Union
 
 from . import _functions as math
@@ -39,7 +37,7 @@ class Extrapolation:
         """
         raise NotImplementedError()
 
-    def gradient(self) -> Extrapolation:
+    def gradient(self) -> 'Extrapolation':
         """Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation."""
         raise NotImplementedError()
 

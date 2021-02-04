@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import warnings
 from typing import Tuple
 
@@ -70,7 +68,7 @@ class Shape:
     def __contains__(self, item):
         return item in self.names
 
-    def index(self, name: str or list or tuple or Shape or None):
+    def index(self, name: str or list or tuple or 'Shape' or None):
         """
         Finds the index of the dimension(s) within this Shape.
 
@@ -93,7 +91,7 @@ class Shape:
                 return idx
         raise ValueError("Shape %s does not contain dimension with name '%s'" % (self, name))
 
-    def indices(self, names: tuple or list or Shape):
+    def indices(self, names: tuple or list or 'Shape'):
         if isinstance(names, (list, tuple)):
             return tuple(self.index(n) for n in names)
         if isinstance(names, Shape):
@@ -123,7 +121,7 @@ class Shape:
             return self.get_size(name)
         raise AttributeError("Shape has no attribute '%s'" % (name,))
 
-    def get_type(self, name: str or tuple or list or Shape):
+    def get_type(self, name: str or tuple or list or 'Shape'):
         if isinstance(name, str):
             return self.types[self.names.index(name)]
         elif isinstance(name, (tuple, list)):
@@ -141,7 +139,7 @@ class Shape:
         return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
 
     @property
-    def batch(self) -> Shape:
+    def batch(self) -> 'Shape':
         """
         Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
@@ -156,7 +154,7 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t == BATCH_DIM]]
 
     @property
-    def non_batch(self) -> Shape:
+    def non_batch(self) -> 'Shape':
         """
         Filters this shape, returning only the spatial and channel dimensions as a new `Shape` object.
 
@@ -171,7 +169,7 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t != BATCH_DIM]]
 
     @property
-    def spatial(self) -> Shape:
+    def spatial(self) -> 'Shape':
         """
         Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
@@ -186,7 +184,7 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t == SPATIAL_DIM]]
 
     @property
-    def non_spatial(self) -> Shape:
+    def non_spatial(self) -> 'Shape':
         """
         Filters this shape, returning only the batch and channel dimensions as a new `Shape` object.
 
@@ -201,7 +199,7 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]
 
     @property
-    def channel(self) -> Shape:
+    def channel(self) -> 'Shape':
         """
         Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
@@ -216,7 +214,7 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t == CHANNEL_DIM]]
 
     @property
-    def non_channel(self) -> Shape:
+    def non_channel(self) -> 'Shape':
         """
         Filters this shape, returning only the batch and spatial dimensions as a new `Shape` object.
 
@@ -231,7 +229,7 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t != CHANNEL_DIM]]
 
     @property
-    def singleton(self) -> Shape:
+    def singleton(self) -> 'Shape':
         """
         Filters this shape, returning only the dimensions with a size of 1 as a new `Shape` object.
 
@@ -246,7 +244,7 @@ class Shape:
         return self[[i for i, size in enumerate(self.sizes) if size == 1]]
 
     @property
-    def non_singleton(self) -> Shape:
+    def non_singleton(self)-> 'Shape':
         """
         Filters this shape, returning only the dimensions with a size different from 1 as a new `Shape` object.
 
@@ -261,7 +259,7 @@ class Shape:
         return self[[i for i, size in enumerate(self.sizes) if size != 1]]
 
     @property
-    def zero(self) -> Shape:
+    def zero(self)-> 'Shape':
         """
         Filters this shape, returning only the dimensions with a size of 0 as a new `Shape` object.
 
@@ -276,7 +274,7 @@ class Shape:
         return self[[i for i, size in enumerate(self.sizes) if size == 0]]
 
     @property
-    def non_zero(self) -> Shape:
+    def non_zero(self)-> 'Shape':
         """
         Filters this shape, returning only the dimensions with a size different from 0 as a new `Shape` object.
 
@@ -291,7 +289,7 @@ class Shape:
         return self[[i for i, size in enumerate(self.sizes) if size != 0]]
 
     @property
-    def undefined(self) -> Shape:
+    def undefined(self)-> 'Shape':
         """
         Filters this shape, returning only the dimensions with a size of `None` as a new `Shape` object.
 
@@ -306,7 +304,7 @@ class Shape:
         return self[[i for i, size in enumerate(self.sizes) if size is None]]
 
     @property
-    def defined(self) -> Shape:
+    def defined(self)-> 'Shape':
         """
         Filters this shape, returning only the dimensions with a size different from `None` as a new `Shape` object.
 
@@ -320,7 +318,7 @@ class Shape:
         """
         return self[[i for i, size in enumerate(self.sizes) if size is not None]]
 
-    def unstack(self, dim='dims') -> Tuple[Shape]:
+    def unstack(self, dim='dims') -> Tuple['Shape']:
         """
         Slices this `Shape` along a dimension.
         The dimension listing the sizes of the shape is referred to as `'dims'`.
@@ -415,7 +413,7 @@ class Shape:
         order = [self.index(n) for n in names]
         return self[order]
 
-    def order_group(self, names: tuple or list or Shape):
+    def order_group(self, names: tuple or list or 'Shape'):
         if isinstance(names, Shape):
             names = names.names
         order = []
@@ -430,7 +428,7 @@ class Shape:
     def alphabetically(self):
         return self.reorder(sorted(self.names))
 
-    def combined(self, other: Shape, combine_spatial=False) -> Shape:
+    def combined(self, other: 'Shape', combine_spatial=False)-> 'Shape':
         """
         Returns a Shape object that both `self` and `other` can be broadcast to.
         If `self` and `other` are incompatible, raises a ValueError.
@@ -450,16 +448,16 @@ class Shape:
     def __and__(self, other):
         return combine_safe(self, other, check_exact=[SPATIAL_DIM])
 
-    def expand_batch(self, size, name: str, pos=None) -> Shape:
+    def expand_batch(self, size, name: str, pos=None)-> 'Shape':
         return self.expand(size, name, BATCH_DIM, pos)
 
-    def expand_spatial(self, size, name: str, pos=None) -> Shape:
+    def expand_spatial(self, size, name: str, pos=None)-> 'Shape':
         return self.expand(size, name, SPATIAL_DIM, pos)
 
-    def expand_channel(self, size, name: str, pos=None) -> Shape:
+    def expand_channel(self, size, name: str, pos=None)-> 'Shape':
         return self.expand(size, name, CHANNEL_DIM, pos)
 
-    def expand(self, size, name: str, dim_type: str, pos=None) -> Shape:
+    def expand(self, size, name: str, dim_type: str, pos=None)-> 'Shape':
         """
         Add a dimension to the shape.
         
@@ -490,7 +488,7 @@ class Shape:
         types.insert(pos, dim_type)
         return Shape(sizes, names, types)
 
-    def extend(self, other: Shape, pos=-1) -> Shape:
+    def extend(self, other: 'Shape', pos=-1)-> 'Shape':
         if pos == -1:
             return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
         elif pos == None:
@@ -501,7 +499,7 @@ class Shape:
         else:
             raise NotImplementedError(pos)
 
-    def without(self, dims: str or tuple or list or Shape or None) -> Shape:
+    def without(self, dims: str or tuple or list or 'Shape' or None)-> 'Shape':
         """
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -529,7 +527,7 @@ class Shape:
 
     reduce = without
 
-    def only(self, dims: str or tuple or list or Shape):
+    def only(self, dims: str or tuple or list or 'Shape'):
         """
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -596,7 +594,7 @@ class Shape:
                 r += 1
         return r
 
-    def to_batch(self, dims: tuple or list or None = None) -> Shape:
+    def to_batch(self, dims: tuple or list or None = None)-> 'Shape':
         """
         Returns a shape like this Shape but with `dims` being of type `batch`.
         
@@ -621,7 +619,7 @@ class Shape:
         return None not in self.sizes
 
     @property
-    def shape(self, list_dim='dims') -> Shape:
+    def shape(self, list_dim='dims')-> 'Shape':
         """
         Returns the shape of this `Shape`.
         The returned shape will always contain the dimension `list_dim` with a size equal to the `Shape.rank` of this shape.
@@ -654,7 +652,7 @@ class Shape:
                 return True
         return False
 
-    def with_sizes(self, sizes: tuple or list or Shape):
+    def with_sizes(self, sizes: tuple or list or 'Shape'):
         if isinstance(sizes, Shape):
             sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
             return Shape(sizes, self.names, self.types)
@@ -673,7 +671,7 @@ class Shape:
             names = [n if n is not None else o for n, o in zip(names, self.names)]
         return Shape(self.sizes, names, self.types)
 
-    def with_types(self, types: Shape):
+    def with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, [types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)])
 
     def perm(self, names):
@@ -702,7 +700,7 @@ class Shape:
         """ True if this shape has no dimensions. Equivalent to `Shape.rank` `== 0`. """
         return len(self.sizes) == 0
 
-    def order(self, sequence, default=None) -> Shape:
+    def order(self, sequence, default=None)-> 'Shape':
         """
         If sequence is a dict with dimension names as keys, orders its values according to this shape.
         

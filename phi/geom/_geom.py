@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import numpy as np
 
 from phi import math
@@ -86,7 +84,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: Geometry) -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: 'Geometry') -> Tensor:
         """
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
@@ -147,7 +145,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def shifted(self, delta: Tensor) -> Geometry:
+    def shifted(self, delta: Tensor) -> 'Geometry':
         """
         Returns a translated version of this geometry.
 
@@ -161,7 +159,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def rotated(self, angle) -> Geometry:
+    def rotated(self, angle) -> 'Geometry':
         """
         Returns a rotated version of this geometry.
         The geometry is rotated about its center point.
