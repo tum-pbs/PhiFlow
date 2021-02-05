@@ -530,10 +530,13 @@ class Backend:
         raise NotImplementedError(self)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def record_gradients(self, xs: tuple or list, persistent=False):
-        raise NotImplementedError()
+        raise NotImplementedError(self)
+
+    def stop_gradient(self, value):
+        raise NotImplementedError(self)
 
     # --- Math function with default implementation ---
 

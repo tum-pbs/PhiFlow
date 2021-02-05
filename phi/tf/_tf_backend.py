@@ -506,7 +506,6 @@ class TFBackend(Backend):
         tape = tf.GradientTape(persistent=persistent)
         tape.__enter__()
         for x in xs:
-            print(f"watching {self.staticshape(x)}")
             tape.watch(x)
         _TAPES.append(tape)
 
@@ -515,6 +514,9 @@ class TFBackend(Backend):
         finally:
             tape.__exit__(None, None, None)
             _TAPES.pop(-1)
+
+    def stop_gradient(self, value):
+        return tf.stop_gradient(value)
 
 
 TF_BACKEND = TFBackend()

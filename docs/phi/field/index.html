@@ -66,6 +66,7 @@ from ._field_math import (
     diffuse,
     where,
     l2_loss,
+    stop_gradient,
 )
 from ._field_io import write, read
 
@@ -326,12 +327,13 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <span>def <span class="ident">l2_loss</span></span>(<span>field: phi.field._field.SampledField, batch_norm=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>L2 loss for the unweighted values of the field. See <code><a title="phi.math.l2_loss" href="../math/index.html#phi.math.l2_loss">l2_loss()</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def l2_loss(field: SampledField, batch_norm=True):
+    &#34;&#34;&#34; L2 loss for the unweighted values of the field. See `phi.math.l2_loss()`. &#34;&#34;&#34;
     return math.l2_loss(field.values, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
@@ -598,6 +600,22 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     scalar_potential = grid.padded([pad_width, pad_width]).values
     vector_field = math.conv(scalar_potential, kernel, padding=&#39;valid&#39;)
     return StaggeredGrid(vector_field, bounds=grid.box)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.stop_gradient"><code class="name flex">
+<span>def <span class="ident">stop_gradient</span></span>(<span>field: phi.field._field.SampledField)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.stop_gradient" href="../math/index.html#phi.math.stop_gradient">stop_gradient()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stop_gradient(field: SampledField):
+    &#34;&#34;&#34; See `phi.math.stop_gradient()` &#34;&#34;&#34;
+    if isinstance(field, Grid):
+        return field.with_(values=math.stop_gradient(field.values))
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.field.unstack_staggered_tensor"><code class="name flex">
@@ -1377,7 +1395,7 @@ The dimension can be batch, spatial or channel.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def at(self, representation: SampledField) -&gt; SampledField:
+    def at(self, representation: &#39;SampledField&#39;) -&gt; &#39;SampledField&#39;:
         &#34;&#34;&#34;
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
@@ -1399,7 +1417,7 @@ The dimension can be batch, spatial or channel.</p>
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
-    def __rshift__(self, other: SampledField):
+    def __rshift__(self, other: &#39;SampledField&#39;):
         &#34;&#34;&#34;
         Resampling operator.
 
@@ -1442,7 +1460,7 @@ The dimension can be batch, spatial or channel.</p>
         &#34;&#34;&#34;
         return _FieldDim(self, name)
 
-    def __getattr__(self, name: str) -&gt; _FieldDim:
+    def __getattr__(self, name: str) -&gt; &#39;_FieldDim&#39;:
         if name.startswith(&#39;_&#39;):
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         if hasattr(self.__class__, name):
@@ -1492,7 +1510,7 @@ The dimension can be batch, spatial or channel.</p>
     def __abs__(self):
         return self._op1(lambda x: abs(x))
 
-    def _op1(self, operator) -&gt; Field:
+    def _op1(self, operator) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Perform an operation on the data of this field.
 
@@ -1505,7 +1523,7 @@ The dimension can be batch, spatial or channel.</p>
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def _op2(self, other, operator) -&gt; Field:
+    def _op2(self, other, operator) -&gt; &#39;Field&#39;:
         raise NotImplementedError()</code></pre>
 </details>
 <h3>Subclasses</h3>
@@ -1581,7 +1599,7 @@ The result will approximate the values of this field on the data structure of <c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def at(self, representation: SampledField) -&gt; SampledField:
+<pre><code class="python">def at(self, representation: &#39;SampledField&#39;) -&gt; &#39;SampledField&#39;:
     &#34;&#34;&#34;
     Samples this field at the sample points of `representation`.
     The result will approximate the values of this field on the data structure of `representation`.
@@ -1645,7 +1663,7 @@ indexing using <code>[index]</code>, <code>unstack()</code>, <code>size</code>, 
 </details>
 </dd>
 <dt id="phi.field.Field.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points: Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sample_at</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
@@ -1699,7 +1717,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 </details>
 </dd>
 <dt id="phi.field.Field.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
@@ -2621,7 +2639,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 </dd>
 <dt id="phi.field.SampledField"><code class="flex name class">
 <span>class <span class="ident">SampledField</span></span>
-<span>(</span><span>elements: Geometry, values: Tensor or float or int, extrapolation: math.Extrapolation)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: phi.math._tensors.Tensor, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -2668,7 +2686,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
     def with_(self,
               elements: Geometry or None = None,
               values: Tensor = None,
-              extrapolation: math.Extrapolation = None) -&gt; SampledField:
+              extrapolation: math.Extrapolation = None) -&gt; &#39;SampledField&#39;:
         &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
         copied = copy.copy(self)
         SampledField.__init__(copied,
@@ -2839,7 +2857,7 @@ def values(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.SampledField.copied_with"><code class="name flex">
-<span>def <span class="ident">copied_with</span></span>(<span>self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">copied_with</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
@@ -2850,7 +2868,7 @@ def values(self) -&gt; Tensor:
 <pre><code class="python">def with_(self,
           elements: Geometry or None = None,
           values: Tensor = None,
-          extrapolation: math.Extrapolation = None) -&gt; SampledField:
+          extrapolation: math.Extrapolation = None) -&gt; &#39;SampledField&#39;:
     &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
     copied = copy.copy(self)
     SampledField.__init__(copied,
@@ -2918,7 +2936,7 @@ The dimension can be batch, spatial or channel.</p>
 </details>
 </dd>
 <dt id="phi.field.SampledField.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
@@ -2929,7 +2947,7 @@ The dimension can be batch, spatial or channel.</p>
 <pre><code class="python">def with_(self,
           elements: Geometry or None = None,
           values: Tensor = None,
-          extrapolation: math.Extrapolation = None) -&gt; SampledField:
+          extrapolation: math.Extrapolation = None) -&gt; &#39;SampledField&#39;:
     &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
     copied = copy.copy(self)
     SampledField.__init__(copied,
@@ -3735,6 +3753,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
 <li><code><a title="phi.field.staggered_curl_2d" href="#phi.field.staggered_curl_2d">staggered_curl_2d</a></code></li>
+<li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
 <li><code><a title="phi.field.where" href="#phi.field.where">where</a></code></li>
 <li><code><a title="phi.field.write" href="#phi.field.write">write</a></code></li>

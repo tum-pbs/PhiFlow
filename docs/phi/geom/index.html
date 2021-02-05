@@ -953,7 +953,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: Geometry) -&gt; Tensor:
+    def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;) -&gt; Tensor:
         &#34;&#34;&#34;
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
@@ -1014,7 +1014,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def shifted(self, delta: Tensor) -&gt; Geometry:
+    def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
         &#34;&#34;&#34;
         Returns a translated version of this geometry.
 
@@ -1028,7 +1028,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def rotated(self, angle) -&gt; Geometry:
+    def rotated(self, angle) -&gt; &#39;Geometry&#39;:
         &#34;&#34;&#34;
         Returns a rotated version of this geometry.
         The geometry is rotated about its center point.
@@ -1137,7 +1137,7 @@ The given geometries may be approximated as spheres or boxes using <code>boundin
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_fraction_inside(self, other_geometry: Geometry) -&gt; Tensor:
+<pre><code class="python">def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the approximate overlap between the geometry and a small other geometry.
     Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
@@ -1169,7 +1169,7 @@ The given geometries may be approximated as spheres or boxes using <code>boundin
 </details>
 </dd>
 <dt id="phi.geom.Geometry.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
@@ -1272,7 +1272,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.lies_inside"><code class="name flex">
-<span>def <span class="ident">lies_inside</span></span>(<span>self, location: Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -1324,7 +1324,7 @@ The geometry is rotated about its center point.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotated(self, angle) -&gt; Geometry:
+<pre><code class="python">def rotated(self, angle) -&gt; &#39;Geometry&#39;:
     &#34;&#34;&#34;
     Returns a rotated version of this geometry.
     The geometry is rotated about its center point.
@@ -1340,7 +1340,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta: Tensor) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -1360,7 +1360,7 @@ The geometry is rotated about its center point.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shifted(self, delta: Tensor) -&gt; Geometry:
+<pre><code class="python">def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
     &#34;&#34;&#34;
     Returns a translated version of this geometry.
 

@@ -1063,8 +1063,6 @@ def record_gradients(*x: Tensor, persistent=False):
 
     The function `gradients()` may be called within the context to evaluate the gradients of a Tensor derived from `x` w.r.t. `x`.
 
-    Alternatively, `variable()` can be used to mark Tensors for which gradients should be recorded.
-
     Args:
         *x: Parameters for which gradients of the form dL/dx may be computed
         persistent: if `False`, `gradients()` may only be called once within the context
@@ -1081,7 +1079,7 @@ def gradients(y: Tensor,
               grad_y: Tensor or None = None):
     """
     Computes the gradients dy/dx for each `x`.
-    The parameters `x` must be marked prior to all operations for which gradients should be recorded using either `variable()` or `record_gradients()`.
+    The parameters `x` must be marked prior to all operations for which gradients should be recorded using `record_gradients()`.
 
     Args:
         y: Target / output / loss Tensor
@@ -1099,3 +1097,17 @@ def gradients(y: Tensor,
         assert grad is not None, f"Missing gradient for source with shape {x_natives[i].shape}"
     grads = [x_._op1(lambda native: native_gradients.pop(0)) for x_ in x]
     return grads[0] if len(x) == 1 else grads
+
+
+def stop_gradient(value: Tensor):
+    """
+    Disables gradients for the given tensor.
+    This may switch off the gradients for `value` itself or create a copy of `value` with disabled gradients.
+
+    Args:
+        value: tensor for which gradients should be disabled.
+
+    Returns:
+        Copy of `value` or `value`.
+    """
+    return value._op1(lambda native: choose_backend(native).stop_gradient(native))

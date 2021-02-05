@@ -33,8 +33,6 @@ Defines standard extrapolations.
 
 Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.
 &#34;&#34;&#34;
-from __future__ import annotations
-
 from typing import Union
 
 from . import _functions as math
@@ -69,7 +67,7 @@ class Extrapolation:
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def gradient(self) -&gt; Extrapolation:
+    def gradient(self) -&gt; &#39;Extrapolation&#39;:
         &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -181,6 +179,7 @@ class ConstantExtrapolation(Extrapolation):
         Returns:
 
         &#34;&#34;&#34;
+        value = value.__simplify__()
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -189,8 +188,8 @@ class ConstantExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value.tensor.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value.tensor):
-                return self.pad(value.expand(), widths)
+            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+                return self.pad(value._expand(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
                 for size, dim, dim_type in value.shape.dimensions:
@@ -200,7 +199,7 @@ class ConstantExtrapolation(Extrapolation):
                         delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                         new_sizes.append(size + int(delta))
                 new_shape = value.shape.with_sizes(new_sizes)
-                return CollapsedTensor(value.tensor, new_shape)
+                return CollapsedTensor(value._inner, new_shape)
         # elif isinstance(value, SparseLinearOperation):
         #     return pad_operator(value, pad_width, mode)
         elif isinstance(value, TensorStack):
@@ -320,6 +319,7 @@ class _CopyExtrapolation(Extrapolation):
         return {&#39;type&#39;: repr(self)}
 
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
+        value = value.__simplify__()
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -329,7 +329,7 @@ class _CopyExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(result_tensor.shape)
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            inner = value.tensor
+            inner = value._inner  # should be fine after __simplify__
             inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
             if len(inner_widths) &gt; 0:
                 inner = self.pad(inner, widths)
@@ -846,7 +846,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
 <dl>
 <dt id="phi.math.extrapolation.ConstantExtrapolation"><code class="flex name class">
 <span>class <span class="ident">ConstantExtrapolation</span></span>
-<span>(</span><span>value: Tensor)</span>
+<span>(</span><span>value: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Extrapolate with a constant value.</p>
@@ -895,6 +895,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
         Returns:
 
         &#34;&#34;&#34;
+        value = value.__simplify__()
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -903,8 +904,8 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value.tensor.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value.tensor):
-                return self.pad(value.expand(), widths)
+            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+                return self.pad(value._expand(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
                 for size, dim, dim_type in value.shape.dimensions:
@@ -914,7 +915,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
                         delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                         new_sizes.append(size + int(delta))
                 new_shape = value.shape.with_sizes(new_sizes)
-                return CollapsedTensor(value.tensor, new_shape)
+                return CollapsedTensor(value._inner, new_shape)
         # elif isinstance(value, SparseLinearOperation):
         #     return pad_operator(value, pad_width, mode)
         elif isinstance(value, TensorStack):
@@ -1075,7 +1076,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 </details>
 </dd>
 <dt id="phi.math.extrapolation.ConstantExtrapolation.pad"><code class="name flex">
-<span>def <span class="ident">pad</span></span>(<span>self, value: Tensor, widths: dict)</span>
+<span>def <span class="ident">pad</span></span>(<span>self, value: phi.math._tensors.Tensor, widths: dict)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Pads a tensor using CONSTANT values</p>
@@ -1108,6 +1109,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
     Returns:
 
     &#34;&#34;&#34;
+    value = value.__simplify__()
     if isinstance(value, NativeTensor):
         native = value.native()
         ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -1116,8 +1118,8 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
         new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
         return NativeTensor(result_tensor, new_shape)
     elif isinstance(value, CollapsedTensor):
-        if value.tensor.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value.tensor):
-            return self.pad(value.expand(), widths)
+        if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+            return self.pad(value._expand(), widths)
         else:  # Stays constant value, only extend shape
             new_sizes = []
             for size, dim, dim_type in value.shape.dimensions:
@@ -1127,7 +1129,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
                     delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                     new_sizes.append(size + int(delta))
             new_shape = value.shape.with_sizes(new_sizes)
-            return CollapsedTensor(value.tensor, new_shape)
+            return CollapsedTensor(value._inner, new_shape)
     # elif isinstance(value, SparseLinearOperation):
     #     return pad_operator(value, pad_width, mode)
     elif isinstance(value, TensorStack):
@@ -1214,7 +1216,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def gradient(self) -&gt; Extrapolation:
+    def gradient(self) -&gt; &#39;Extrapolation&#39;:
         &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -1338,13 +1340,13 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gradient(self) -&gt; Extrapolation:
+<pre><code class="python">def gradient(self) -&gt; &#39;Extrapolation&#39;:
     &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.extrapolation.Extrapolation.pad"><code class="name flex">
-<span>def <span class="ident">pad</span></span>(<span>self, value: Tensor, widths: dict) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">pad</span></span>(<span>self, value: phi.math._tensors.Tensor, widths: dict) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Pads a tensor using values from self.pad_values()</p>
@@ -1389,7 +1391,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 </details>
 </dd>
 <dt id="phi.math.extrapolation.Extrapolation.pad_values"><code class="name flex">
-<span>def <span class="ident">pad_values</span></span>(<span>self, value: Tensor, width: int, dimension: str, upper_edge: bool) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">pad_values</span></span>(<span>self, value: phi.math._tensors.Tensor, width: int, dimension: str, upper_edge: bool) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Determines the values with which the given tensor would be padded at the specified using this extrapolation.</p>
@@ -1459,7 +1461,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 </details>
 </dd>
 <dt id="phi.math.extrapolation.Extrapolation.transform_coordinates"><code class="name flex">
-<span>def <span class="ident">transform_coordinates</span></span>(<span>self, coordinates: Tensor, shape: Shape) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">transform_coordinates</span></span>(<span>self, coordinates: phi.math._tensors.Tensor, shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>If is_copy_pad, transforms outsider coordinates to point to the index from which the value should be copied.</p>

@@ -40,7 +40,6 @@ To make TensorFlow the default backend, import `phi.tf.flow`.
 &#34;&#34;&#34;
 from phi import math as _math
 from ._tf_backend import TF_BACKEND
-from ._util import GradientTape, gradients, variable, constant
 
 TF_BACKEND = TF_BACKEND  # to show up in pdoc
 &#34;&#34;&#34;Backend for TensorFlow operations.&#34;&#34;&#34;
@@ -69,81 +68,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </dl>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="phi.tf.GradientTape"><code class="name flex">
-<span>def <span class="ident">GradientTape</span></span>(<span>watch=(), persistent=False) ‑> tensorflow.python.eager.backprop.GradientTape</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def GradientTape(watch=(), persistent=False) -&gt; tf.GradientTape:
-    tape = tf.GradientTape(persistent)
-
-    with tape:
-        for value in watch:
-            assert isinstance(value, math.Tensor), value
-            value._op1(lambda native: tape.watch(native))
-    return tape</code></pre>
-</details>
-</dd>
-<dt id="phi.tf.constant"><code class="name flex">
-<span>def <span class="ident">constant</span></span>(<span>value, dtype=None, basename='const')</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constant(value, dtype=None, basename=&#39;const&#39;):
-    def f(trace): return tf.constant(trace.value, dtype=TF_BACKEND.precision_dtype if dtype is None else dtype, name=_tf_name(trace, basename))
-    return struct.map(f, value, trace=True)</code></pre>
-</details>
-</dd>
-<dt id="phi.tf.gradients"><code class="name flex">
-<span>def <span class="ident">gradients</span></span>(<span>target: phi.math._tensors.Tensor, sources: phi.math._tensors.Tensor, gradient_tape: tensorflow.python.eager.backprop.GradientTape = None, output_gradients=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gradients(target: math.Tensor, sources: math.Tensor, gradient_tape: tf.GradientTape = None, output_gradients=None):
-    assert isinstance(target, NativeTensor)
-    target = target.native()
-    if gradient_tape is None:
-        raise NotImplementedError()
-    if output_gradients is not None:
-        raise NotImplementedError()
-    sources_list = []
-    sources._op1(lambda native: sources_list.append(native))
-    grads = list(gradient_tape.gradient(target, sources_list))
-    for i, grad in enumerate(grads):
-        assert grad is not None, f&#34;Missing gradient for source with shape {sources_list[i].shape}&#34;
-    grads = sources._op1(lambda native: grads.pop(0))
-    return grads</code></pre>
-</details>
-</dd>
-<dt id="phi.tf.variable"><code class="name flex">
-<span>def <span class="ident">variable</span></span>(<span>initial_value, dtype=None, basename='Variable', trainable=True)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def variable(initial_value, dtype=None, basename=&#39;Variable&#39;, trainable=True):
-    def f(attr): return tf.Variable(attr.value, name=_tf_name(attr, basename), dtype=TF_BACKEND.precision_dtype if dtype is None else dtype, trainable=trainable)
-    return struct.map(f, initial_value, trace=True)</code></pre>
-</details>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -167,14 +91,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
 <li><code><a title="phi.tf.TF_BACKEND" href="#phi.tf.TF_BACKEND">TF_BACKEND</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="phi.tf.GradientTape" href="#phi.tf.GradientTape">GradientTape</a></code></li>
-<li><code><a title="phi.tf.constant" href="#phi.tf.constant">constant</a></code></li>
-<li><code><a title="phi.tf.gradients" href="#phi.tf.gradients">gradients</a></code></li>
-<li><code><a title="phi.tf.variable" href="#phi.tf.variable">variable</a></code></li>
 </ul>
 </li>
 </ul>

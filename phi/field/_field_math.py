@@ -309,4 +309,12 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field):
 
 
 def l2_loss(field: SampledField, batch_norm=True):
+    """ L2 loss for the unweighted values of the field. See `phi.math.l2_loss()`. """
     return math.l2_loss(field.values, batch_norm=batch_norm)
+
+
+def stop_gradient(field: SampledField):
+    """ See `phi.math.stop_gradient()` """
+    if isinstance(field, Grid):
+        return field.with_(values=math.stop_gradient(field.values))
+    raise NotImplementedError()

@@ -56,7 +56,7 @@ from ._functions import (
     sparse_tensor,
     close, assert_close,
     solve,
-    record_gradients, gradients
+    record_gradients, gradients, stop_gradient
 )
 from ._nd import (
     shift,

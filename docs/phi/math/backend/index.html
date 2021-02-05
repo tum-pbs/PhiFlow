@@ -971,6 +971,15 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
+    def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
+        raise NotImplementedError(self)
+
+    def record_gradients(self, xs: tuple or list, persistent=False):
+        raise NotImplementedError(self)
+
+    def stop_gradient(self, value):
+        raise NotImplementedError(self)
+
     # --- Math function with default implementation ---
 
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation=&#39;constant&#39;):
@@ -986,6 +995,9 @@ The output of math operations has the same precision as its inputs.</p>
         Returns:
             sampled values with linear interpolation
         &#34;&#34;&#34;
+        return NotImplemented
+
+    def variable(self, value):
         return NotImplemented
 
     def ndims(self, tensor):
@@ -1697,6 +1709,19 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.gradients"><code class="name flex">
+<span>def <span class="ident">gradients</span></span>(<span>self, y, xs: tuple, grad_y) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.grid_sample"><code class="name flex">
 <span>def <span class="ident">grid_sample</span></span>(<span>self, grid, spatial_dims: tuple, coordinates, extrapolation='constant')</span>
 </code></dt>
@@ -2278,6 +2303,19 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.record_gradients"><code class="name flex">
+<span>def <span class="ident">record_gradients</span></span>(<span>self, xs: tuple, persistent=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def record_gradients(self, xs: tuple or list, persistent=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.reshape"><code class="name flex">
 <span>def <span class="ident">reshape</span></span>(<span>self, value, shape)</span>
 </code></dt>
@@ -2483,6 +2521,19 @@ The batch dimension need not be specified in the indices array.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.stop_gradient"><code class="name flex">
+<span>def <span class="ident">stop_gradient</span></span>(<span>self, value)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stop_gradient(self, value):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.sub"><code class="name flex">
 <span>def <span class="ident">sub</span></span>(<span>self, a, b)</span>
 </code></dt>
@@ -2644,6 +2695,19 @@ Otherwise, non-float inputs are converted to float32 (unless <code>float64=True<
             component = tensor[tuple([slice_idx if d == axis else slice(None) for d in range(len(tensor.shape))])]
         result.append(component)
     return tuple(result)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.variable"><code class="name flex">
+<span>def <span class="ident">variable</span></span>(<span>self, value)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def variable(self, value):
+    return NotImplemented</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.where"><code class="name flex">
@@ -3349,6 +3413,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather_nd" href="#phi.math.backend.Backend.gather_nd">gather_nd</a></code></li>
+<li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.grid_sample" href="#phi.math.backend.Backend.grid_sample">grid_sample</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ifft" href="#phi.math.backend.Backend.ifft">ifft</a></code></li>
 <li><code><a title="phi.math.backend.Backend.imag" href="#phi.math.backend.Backend.imag">imag</a></code></li>
@@ -3382,6 +3447,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.backend.Backend.range" href="#phi.math.backend.Backend.range">range</a></code></li>
 <li><code><a title="phi.math.backend.Backend.real" href="#phi.math.backend.Backend.real">real</a></code></li>
+<li><code><a title="phi.math.backend.Backend.record_gradients" href="#phi.math.backend.Backend.record_gradients">record_gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.reshape" href="#phi.math.backend.Backend.reshape">reshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.round" href="#phi.math.backend.Backend.round">round</a></code></li>
 <li><code><a title="phi.math.backend.Backend.scatter" href="#phi.math.backend.Backend.scatter">scatter</a></code></li>
@@ -3394,6 +3460,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.stack" href="#phi.math.backend.Backend.stack">stack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.staticshape" href="#phi.math.backend.Backend.staticshape">staticshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.std" href="#phi.math.backend.Backend.std">std</a></code></li>
+<li><code><a title="phi.math.backend.Backend.stop_gradient" href="#phi.math.backend.Backend.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sub" href="#phi.math.backend.Backend.sub">sub</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sum" href="#phi.math.backend.Backend.sum">sum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
@@ -3402,6 +3469,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.to_int" href="#phi.math.backend.Backend.to_int">to_int</a></code></li>
 <li><code><a title="phi.math.backend.Backend.transpose" href="#phi.math.backend.Backend.transpose">transpose</a></code></li>
 <li><code><a title="phi.math.backend.Backend.unstack" href="#phi.math.backend.Backend.unstack">unstack</a></code></li>
+<li><code><a title="phi.math.backend.Backend.variable" href="#phi.math.backend.Backend.variable">variable</a></code></li>
 <li><code><a title="phi.math.backend.Backend.where" href="#phi.math.backend.Backend.where">where</a></code></li>
 <li><code><a title="phi.math.backend.Backend.while_loop" href="#phi.math.backend.Backend.while_loop">while_loop</a></code></li>
 <li><code><a title="phi.math.backend.Backend.with_custom_gradient" href="#phi.math.backend.Backend.with_custom_gradient">with_custom_gradient</a></code></li>
