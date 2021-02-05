@@ -230,8 +230,6 @@ class Domain:
         * function(location: Tensor) returning one of the above.
         
         The returned grid will have a vector dimension with size equal to the rank of the domain.
-        
-        Aliases: `vector_grid`, `vgrid`
 
         Args:
           value: constant, Field, Tensor or function specifying the grid values
@@ -255,8 +253,6 @@ class Domain:
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
-    vgrid = vector_grid
-
     def staggered_grid(self,
                        value: Field or Tensor or Number or Geometry or callable = 0,
                        extrapolation: math.Extrapolation = None) -> StaggeredGrid:
@@ -273,8 +269,6 @@ class Domain:
         * function(location: Tensor) returning one of the above.
         
         The returned grid will have a vector dimension with size equal to the rank of the domain.
-        
-        Aliases: `staggered_grid`, `sgrid`
 
         Args:
           value: constant, Field, Tensor or function specifying the grid values
@@ -285,8 +279,6 @@ class Domain:
           Grid of specified type
         """
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
-
-    sgrid = staggered_grid
 
     def points(self,
                points: Tensor or Number or tuple or list,
