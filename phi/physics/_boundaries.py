@@ -1,7 +1,7 @@
 from numbers import Number
 
 from phi import math, struct
-from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, Grid, PointCloud
+from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, PointCloud, Field
 from phi.geom import Box, GridCell, Sphere
 from phi.geom import Geometry
 from phi.math import extrapolation, Tensor
@@ -110,7 +110,7 @@ class Domain:
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
         self.resolution = spatial_shape(resolution) & spatial_shape(resolution_)
-        """ Grid dimensions as `Shape` object """
+        """ Grid dimensions as `Shape` object containing spatial dimensions only. """
         self.boundaries = Material.as_material(boundaries)
         """ Outer boundary condition as `Material` object """
         self.bounds = Box(0, math.tensor(self.resolution, names='vector')) if bounds is None else bounds
@@ -118,6 +118,11 @@ class Domain:
 
     def __repr__(self):
         return '(%s, size=%s)' % (self.resolution, self.bounds.size)
+
+    @property
+    def shape(self):
+        """ Alias for `Domain.resolution` """
+        return self.resolution
 
     @property
     def rank(self):
@@ -134,11 +139,6 @@ class Domain:
         """
         Returns the geometry of all cells as a `Box` object.
         The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
-
-        Args:
-
-        Returns:
-
         """
         return GridCell(self.resolution, self.bounds)
 
@@ -148,15 +148,11 @@ class Domain:
         This is equivalent to calling `domain.cells.center`.
         
         The shape of the returned Tensor extends the domain resolution by one vector dimension.
-
-        Args:
-
-        Returns:
-
         """
         return self.cells.center
 
-    def grid(self, value: Tensor or float or int or complex or callable or Geometry = 0,
+    def grid(self,
+             value: Field or Tensor or Number or Geometry or callable = 0,
              type: type = CenteredGrid,
              extrapolation: math.Extrapolation = None) -> StaggeredGrid or CenteredGrid:
         """
@@ -172,14 +168,10 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
-          value: Tensor or float or int or complex or callable or Geometry:  (Default value = 0)
-          type: type:  (Default value = CenteredGrid)
-          extrapolation: math.Extrapolation:  (Default value = None)
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
 
         Returns:
           Grid of specified type
-
         """
         extrapolation = extrapolation or self.boundaries.grid_extrapolation
         if type is CenteredGrid:
@@ -189,8 +181,42 @@ class Domain:
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
+    def scalar_grid(self,
+             value: Field or Tensor or Number or Geometry or callable = 0,
+             extrapolation: math.Extrapolation = None) -> CenteredGrid:
+        """
+        Creates a scalar grid matching the resolution and bounds of the domain.
+        The grid is created from the given `value` which must be one of the following:
+
+        * Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to `value`. This has a near-zero memory footprint.
+        * Scalar `Field`: the given value is resampled to the grid cells of this Domain.
+        * Tensor with spatial dimensions matching the domain resolution: grid values will equal `value`.
+        * Geometry: grid values are determined from the volume overlap between grid cells and geometry. Non-overlapping = 0, fully enclosed grid cell = 1.
+        * function(location: Tensor) returning one of the above.
+        * Native tensor: the number and order of axes are matched with the resolution of the domain.
+
+        Args:
+          value: constant, Field, Tensor or function specifying the grid values
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+
+        Returns:
+          `CenteredGrid` with no channel dimensions
+        """
+        extrapolation = extrapolation or self.boundaries.grid_extrapolation
+        if isinstance(value, Field):
+            assert value.spatial_rank == self.rank
+        elif isinstance(value, Tensor):
+            assert value.shape.channel.rank == 0
+        elif isinstance(value, (Number, Geometry)):
+            pass
+        else:
+            value = math.tensor(value, names=self.resolution.names)
+        result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        assert result.shape.channel_rank == 0
+        return result
+
     def vector_grid(self,
-                    value: Tensor or float or int or complex or callable or Geometry = 0,
+                    value: Field or Tensor or Number or Geometry or callable = 0,
                     type: type = CenteredGrid,
                     extrapolation: math.Extrapolation = None) -> StaggeredGrid or CenteredGrid:
         """
@@ -210,7 +236,7 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
 
         Returns:
           Grid of specified type
@@ -232,7 +258,7 @@ class Domain:
     vgrid = vector_grid
 
     def staggered_grid(self,
-                       value: Tensor or float or int or complex or callable or Geometry = 0,
+                       value: Field or Tensor or Number or Geometry or callable = 0,
                        extrapolation: math.Extrapolation = None) -> StaggeredGrid:
         """
         Creates a staggered grid matching the resolution and bounds of the domain.
