@@ -13,7 +13,6 @@ See `phi.flow`, `phi.torch.flow`.
 """
 
 from phi.flow import *
-from ._util import GradientTape, gradients, variable, constant
 from ._tf_backend import TF_BACKEND
 import tensorflow
 from tensorflow import keras

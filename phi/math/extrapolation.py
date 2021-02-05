@@ -149,6 +149,7 @@ class ConstantExtrapolation(Extrapolation):
         Returns:
 
         """
+        value = value.__simplify__()
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -157,8 +158,8 @@ class ConstantExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value.tensor.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value.tensor):
-                return self.pad(value.expand(), widths)
+            if value._inner.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+                return self.pad(value._expand(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
                 for size, dim, dim_type in value.shape.dimensions:
@@ -168,7 +169,7 @@ class ConstantExtrapolation(Extrapolation):
                         delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                         new_sizes.append(size + int(delta))
                 new_shape = value.shape.with_sizes(new_sizes)
-                return CollapsedTensor(value.tensor, new_shape)
+                return CollapsedTensor(value._inner, new_shape)
         # elif isinstance(value, SparseLinearOperation):
         #     return pad_operator(value, pad_width, mode)
         elif isinstance(value, TensorStack):
@@ -288,6 +289,7 @@ class _CopyExtrapolation(Extrapolation):
         return {'type': repr(self)}
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
+        value = value.__simplify__()
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -297,7 +299,7 @@ class _CopyExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(result_tensor.shape)
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            inner = value.tensor
+            inner = value._inner  # should be fine after __simplify__
             inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
             if len(inner_widths) > 0:
                 inner = self.pad(inner, widths)

@@ -157,7 +157,7 @@ class TestTensors(TestCase):
         c = a + b
         self.assertIsInstance(c, CollapsedTensor)
         self.assertEqual(c.shape.volume, 12)
-        self.assertEqual(c.tensor.shape.volume, 1)
+        self.assertEqual(c._inner.shape.volume, 1)
         # Collapsed + Native
         n = math.ones(vector=3) + (0, 1, 2)
         math.assert_close(n, (1, 2, 3))

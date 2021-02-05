@@ -53,5 +53,5 @@ class TestFieldMath(TestCase):
         domain = Domain(x=10000, y=10000, z=10000, w=10000)
         grid = domain.grid()
         self.assertEqual((10000,) * 4, grid.shape.sizes)
-        sgrid = domain.sgrid()
-        self.assertEqual((10000,) * 4, grid.shape.sizes)
+        sgrid = domain.staggered_grid()
+        self.assertEqual((10000, 10000, 10000, 10000, 4), sgrid.shape.sizes)

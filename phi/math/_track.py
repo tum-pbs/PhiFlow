@@ -1,4 +1,5 @@
 from functools import reduce
+from typing import Tuple
 
 import numpy as np
 
@@ -150,7 +151,7 @@ class ShiftLinOp(Tensor):
             assert isinstance(shift, Shape)
             for dim, delta in reversed(tuple(shifts.items())):
                 if dim not in values.shape:
-                    values = math._expand(values, dim, self._shape.get_size(dim), self._shape.get_type(dim))  # dim order may be scrambled
+                    values = math._expand_dim(values, dim, self._shape.get_size(dim), self._shape.get_type(dim))  # dim order may be scrambled
                 if delta:
                     shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand_spatial(delta, dim)
             val[shift] = val_fun(values)
@@ -215,6 +216,15 @@ class ShiftLinOp(Tensor):
                 val_, other_ = math.join_spaces(val, other)
                 values[dim_shift] = operator(val_, other_)
             return ShiftLinOp(self.source, values, self._shape & other.shape)
+
+    def __tensor_reduce__(self,
+                dims: Tuple[str],
+                native_function: callable,
+                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: callable = lambda value: value):
+        if all(dim not in self._shape for dim in dims):
+            return unaffected_function(self)
+        raise NotImplementedError()
 
     def _natives(self) -> tuple:
         raise NotImplementedError()  # should not be used, this tensor should be regarded as not available

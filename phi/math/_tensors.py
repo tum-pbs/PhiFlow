@@ -253,7 +253,7 @@ class Tensor:
     def __getattr__(self, name):
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
-        assert name not in ('shape', '_shape')
+        assert name not in ('shape', '_shape', 'tensor'), name
         return TensorDim(self, name)
 
     def __add__(self, other):
@@ -413,6 +413,16 @@ class Tensor:
     def _expand(self):
         """ Expands all compressed tensors to their defined size as if they were being used in `Tensor.native()`. """
         raise NotImplementedError(self.__class__)
+
+    def __tensor_reduce__(self,
+                dims: Tuple[str],
+                native_function: callable,
+                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: callable = lambda value: value):
+        raise NotImplementedError(self.__class__)
+
+    def __simplify__(self):
+        return self
 
 
 class TensorDim:
@@ -642,9 +652,27 @@ class NativeTensor(Tensor):
     def _expand(self):
         pass
 
+    def __tensor_reduce__(self,
+                dims: Tuple[str],
+                native_function: callable,
+                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: callable = lambda value: value):
+        if all(dim not in self._shape for dim in dims):
+            return unaffected_function(self)
+        backend = choose_backend(self._native)
+        result = native_function(backend, self._native, dim=self._shape.index(dims))
+        return NativeTensor(result, self._shape.without(dims))
 
-class CollapsedTensor(Tensor):
-    """Tiled / Repeated tensor along additional dimensions."""
+
+class CollapsedTensor(Tensor):  # package-private
+    """
+    Tensor that is constant along some dimensions.
+    Non-constant dimensions are represented by `_inner` while `_shape` lists all dimensions.
+
+    When cached via `_cache()`, `_inner` is replaced by `_cached` which is a NativeTensor.
+    From this point on, all operations must use `_cached`, otherwise gradients will be incorrect.
+    The method `Tensor._expand()` causes a full Tensor structure to cache collapsed dimensions and must be called before gradients are recorded.
+    """
 
     def __init__(self, tensor: Tensor, shape: Shape):
         for name in tensor.shape.names:
@@ -652,111 +680,145 @@ class CollapsedTensor(Tensor):
         for size, name, dim_type in tensor.shape.dimensions:
             assert shape.get_size(name) == size
             assert shape.get_type(name) == dim_type
-        self.tensor = tensor
+        self._inner = tensor  # this will be set to None once cached. Otherwise gradients will be incorrect.
         self._shape = shape
-        self._cached = None
+        self._cached = None  # NativeTensor. Once cached, use only _cached
 
     def _cache(self):
-        if self.tensor._is_special:
+        if self._inner._is_special:
             return None
         if self._cached is None:
-            native = self.tensor.native(order=self.shape.names)
-            multiples = [1 if name in self.tensor.shape else size for size, name, _ in self.shape.dimensions]
+            native = self._inner.native(order=self.shape.names)
+            multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape.dimensions]
             tiled = choose_backend(native).tile(native, multiples)
             self._cached = NativeTensor(tiled, self.shape)
+            self._inner = None
         return self._cached
 
-    def expand(self):
-        return self._cache()
+    @property
+    def is_cached(self):
+        return self._cached is not None
+
+    def __simplify__(self):
+        if self.is_cached:
+            return self._cached
+        else:
+            return self
 
     def native(self, order: str or tuple or list = None):
+        if self.is_cached:
+            return self._cached.native(order)
         order = _shape.parse_dim_order(order)
         if order is None or tuple(order) == self.shape.names:
             return self._cache().native()
         else:
-            native = self.tensor.native(order=order)
-            multiples = [1 if name in self.tensor.shape else (self.shape.get_size(name) if name in self.shape else 1) for name in order]
+            native = self._inner.native(order=order)
+            multiples = [1 if name in self._inner.shape else (self.shape.get_size(name) if name in self.shape else 1) for name in order]
             tiled = choose_backend(native).tile(native, multiples)
             return tiled
 
     @property
     def dtype(self):
-        return self.tensor.dtype
+        if self.is_cached:
+            return self._cached.dtype
+        else:
+            return self._inner.dtype
 
     @property
     def shape(self):
         return self._shape
 
     def unstack(self, dimension):
-        if self._cached is not None:
+        if self.is_cached:
             return self._cached.unstack(dimension)
         unstacked_shape = self.shape.without(dimension)
-        if dimension in self.tensor.shape:
-            unstacked = self.tensor.unstack(dimension)
+        if dimension in self._inner.shape:
+            unstacked = self._inner.unstack(dimension)
             return tuple(CollapsedTensor(t, unstacked_shape) for t in unstacked)
         else:
-            return (CollapsedTensor(self.tensor, unstacked_shape),) * self.shape.get_size(dimension)
+            return (CollapsedTensor(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
 
     def _with_shape_replaced(self, new_shape):
-        result = CollapsedTensor(self.tensor, new_shape)
+        result = CollapsedTensor(self._inner, new_shape)
         result._cached = self._cached
         return result
 
     @property
     def _is_special(self) -> bool:
-        return self.tensor._is_special
+        if self.is_cached:
+            return self._cached._is_special
+        else:
+            return self._inner._is_special
 
     def _getitem(self, selection: dict):
-        if self._cached is not None:
+        if self.is_cached:
             return self._cached._getitem(selection)
         else:
-            inner_dict = {name: selection for name, selection in selection.items() if name in self.tensor.shape}
-            inner = self.tensor._getitem(inner_dict)
+            inner_dict = {name: selection for name, selection in selection.items() if name in self._inner.shape}
+            inner = self._inner._getitem(inner_dict)
             new_shape = self.shape.after_gather(selection)
             inner.shape.combined(new_shape)  # check that sizes match
             return CollapsedTensor(inner, new_shape)
 
     def flip(self, *dims: str) -> 'Tensor':
-        if self._cached is not None:
+        if self.is_cached:
             return self._cached.flip(*dims)
         else:
-            return CollapsedTensor(self.tensor.flip(*dims), self._shape)
+            return CollapsedTensor(self._inner.flip(*dims), self._shape)
 
     def _op1(self, native_function):
-        if self._cached is not None:
+        if self.is_cached:
             return self._cached._op1(native_function)
         else:
-            return CollapsedTensor(self.tensor._op1(native_function), self._shape)
+            return CollapsedTensor(self._inner._op1(native_function), self._shape)
 
     def _op2(self, other, operator, native_function):
-        if self._cached is not None:
+        if self.is_cached:
             return self._cached._op2(other, operator, native_function)
         other = self._tensor(other)
+        if isinstance(other, CollapsedTensor) and other.is_cached:
+            other = other._cached
         if isinstance(other, NativeTensor):
             if all([dim in other.shape for dim in self._shape.names]):
                 return op2_native(self, other, native_function)
             else:
                 other = CollapsedTensor(other, other.shape)
         if isinstance(other, CollapsedTensor):
-            self_inner = self.tensor
-            other_inner = other.tensor
+            self_inner = self._inner
+            other_inner = other._inner
             inner = operator(self_inner, other_inner)
-            if inner.shape.rank >= self.rank and inner.shape.rank >= other.rank:
-                result = inner._with_shape_replaced(inner.shape.with_types(self.shape.combined(other.shape)))
+            if all(dim in inner.shape for dim in self.shape.names + other.shape.names):
+                result = inner._with_shape_replaced(inner.shape.with_types(self._shape & other._shape))
                 return result
             else:
-                return CollapsedTensor(inner, self.shape.combined(other.shape).with_sizes(inner.shape))
+                combined_shape = (self._shape & other._shape).with_sizes(inner.shape)
+                return CollapsedTensor(inner, combined_shape)
         else:
             return NotImplemented
 
     def _natives(self) -> tuple:
-        if self._cached is not None:
+        if self.is_cached:
             return self._cached._natives()
         else:
-            return self.tensor._natives()
+            return self._inner._natives()
 
     def _expand(self):
-        self._cache()
+        return self._cache()
+
+    def __tensor_reduce__(self,
+                dims: Tuple[str],
+                native_function: callable,
+                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: callable = lambda value: value):
+        if self.is_cached:
+            return self._cached.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
+        if all(dim not in self._shape for dim in dims):
+            return unaffected_function(self)
+        inner_reduce = self._inner.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
+        collapsed_dims = self._shape.without(self._inner.shape)
+        final_shape = self._shape.without(dims)
+        total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
+        return CollapsedTensor(total_reduce, final_shape)
 
 
 class TensorStack(Tensor):
@@ -888,6 +950,28 @@ class TensorStack(Tensor):
     def _expand(self):
         for t in self.tensors:
             t._expand()
+
+    def __tensor_reduce__(self,
+                dims: Tuple[str],
+                native_function: callable,
+                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: callable = lambda value: value):
+        if all(dim not in self._shape for dim in dims):
+            return unaffected_function(self)
+        # --- inner reduce ---
+        inner_axes = [dim for dim in dims if dim != self.stack_dim_name]
+        red_inners = [t.__tensor_reduce__(inner_axes, native_function, collapsed_function, unaffected_function) for t in self.tensors]
+        # --- outer reduce ---
+        if self.stack_dim_name in dims:
+            if any([t._is_special for t in red_inners]):
+                return sum(red_inners[1:], red_inners[0])
+            else:
+                natives = [t.native() for t in red_inners]
+                result = native_function(choose_backend(*natives), natives, dim=0)  # TODO not necessary if tensors are CollapsedTensors
+                return NativeTensor(result, red_inners[0].shape)
+        else:
+            return TensorStack(red_inners, self.stack_dim_name, self.stack_dim_type)
+
 
 
 def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,

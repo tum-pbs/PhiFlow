@@ -529,6 +529,12 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
+        raise NotImplementedError()
+
+    def record_gradients(self, xs: tuple or list, persistent=False):
+        raise NotImplementedError()
+
     # --- Math function with default implementation ---
 
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
@@ -544,6 +550,9 @@ class Backend:
         Returns:
             sampled values with linear interpolation
         """
+        return NotImplemented
+
+    def variable(self, value):
         return NotImplemented
 
     def ndims(self, tensor):

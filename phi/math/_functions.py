@@ -10,7 +10,7 @@ import numpy as np
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, _infer_dim_type_from_name
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, CollapsedTensor, TensorStack, custom_op2, tensors
+from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors
 from . import extrapolation
 from .backend._profile import get_current_profile
 
@@ -549,44 +549,19 @@ def _reduce(value: Tensor or list or tuple,
     else:
         value = tensor(value)
     dims = _resolve_dims(dim, value.shape)
-    if all([dim not in value.shape for dim in dims]):
-        return unaffected_function(value)  # no dim to sum over
-    if isinstance(value, NativeTensor):
-        native = value.native()
-        result = native_function(choose_backend(native), native, dim=value.shape.index(dims))
-        return NativeTensor(result, value.shape.without(dims))
-    if isinstance(value, CollapsedTensor):
-        inner_reduce = _reduce(value.tensor, dims, native_function, collapsed_function, unaffected_function)
-        collapsed_dims = value.shape.without(value.tensor.shape)
-        final_shape = value.shape.without(dims)
-        total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
-        return CollapsedTensor(total_reduce, final_shape)
-    elif isinstance(value, TensorStack):
-        # --- inner reduce ---
-        inner_axes = [dim for dim in dims if dim != value.stack_dim_name]
-        red_inners = [_reduce(t, inner_axes, native_function, collapsed_function, unaffected_function) for t in value.tensors]
-        # --- outer reduce ---
-        from ._track import ShiftLinOp, sum_operators
-        if value.stack_dim_name in dims:
-            if any([isinstance(t, ShiftLinOp) for t in red_inners]):
-                return sum(red_inners[1:], red_inners[0])
-            natives = [t.native() for t in red_inners]
-            result = native_function(choose_backend(*natives), natives, dim=0)  # TODO not necessary if tensors are CollapsedTensors
-            return NativeTensor(result, red_inners[0].shape)
-        else:
-            return TensorStack(red_inners, value.stack_dim_name, value.stack_dim_type)
-    else:
-        raise NotImplementedError(f"{type(value)} not supported. Only (NativeTensor, TensorStack) allowed.")
+    return value.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
 
 
 def _resolve_dims(dim: str or tuple or list or Shape or None,
-                  shape: Shape) -> tuple or list:
+                  shape: Shape) -> Tuple[str]:
     if dim is None:
         return shape.names
-    if isinstance(dim, (tuple, list)):
+    if isinstance(dim, list):
+        return tuple(dim)
+    if isinstance(dim, tuple):
         return dim
     if isinstance(dim, str):
-        return [dim]
+        return dim,
     if isinstance(dim, Shape):
         return dim.names
     raise ValueError(dim)
@@ -876,16 +851,13 @@ def tile(value, multiples):
 
 
 def expand_channel(value: Tensor, dim_name: str, dim_size: int = 1):
-    return _expand(value, dim_name, dim_size, CHANNEL_DIM)
+    return _expand_dim(value, dim_name, dim_size, CHANNEL_DIM)
 
 
-def _expand(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
+def _expand_dim(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
     value = tensor(value)
     new_shape = value.shape.expand(dim_size, dim_name, dim_type)
-    if isinstance(value, CollapsedTensor):
-        return CollapsedTensor(value.tensor, new_shape)
-    else:
-        return CollapsedTensor(value, new_shape)
+    return CollapsedTensor(value, new_shape)
 
 
 def sparse_tensor(indices, values, shape):
@@ -970,8 +942,7 @@ def assert_close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
     if any_tensor is None:
         tensors = [tensor(t) for t in tensors]
     else:  # use Tensor to infer dimensions
-        tensors = [any_tensor._tensor(t) for t in tensors]
-    tensors = [t.tensor if isinstance(t, CollapsedTensor) else t for t in tensors]
+        tensors = [any_tensor._tensor(t).__simplify__() for t in tensors]
     for other in tensors[1:]:
         _assert_close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
 
@@ -1030,7 +1001,6 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
             operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
             # TODO reshape x0, y so that independent dimensions are batch
             build_time = time.perf_counter() - build_time
-            # print_(tensor(operator_or_matrix.todense(), names='x,y'))
         if operator_or_matrix is None:
             def operator_or_matrix(native_x):
                 native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
@@ -1049,3 +1019,83 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
         get_current_profile().add_external_message(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}")
     x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
     return NativeTensor(converged, EMPTY_SHAPE), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, EMPTY_SHAPE)
+
+
+# def variable(x: Tensor) -> Tensor:
+#     """
+#     Returns a copy of `x` for which gradients are recorded automatically.
+#     The function `gradients()` may be used to compute gradients of a Tensor derived from `x` w.r.t. `x`.
+#
+#     If the backend of `x` does not support variables, converts `x` to the default backend.
+#     If the default backend does not support variables, raises an exception.
+#
+#     Alternatively, `record_gradients()` may be used to record gradients only for specific operations.
+#
+#     Args:
+#         x: Parameter for which gradients of the form dL/dx may be computed
+#
+#     Returns:
+#         copy of `x`
+#     """
+#     x._expand()  # CollapsedTensors need to be expanded early
+#
+#     def create_var(native):
+#         native_backend = choose_backend(native)
+#         native_backend_var = native_backend.variable(native)
+#         if native_backend_var is not NotImplemented:
+#             return native_backend_var
+#         default_be = default_backend()
+#         if default_be == native_backend:
+#             raise AssertionError(f"The backend '{native_backend}' does not support variables.")
+#         native = default_be.as_tensor(native, convert_external=True)
+#         default_backend_var = default_be.variable(native)
+#         if default_backend_var is not NotImplemented:
+#             return default_backend_var
+#         raise AssertionError(f"The default backend '{default_be}' does not support variables.")
+#
+#     result = x._op1(create_var)
+#     return result
+
+
+def record_gradients(*x: Tensor, persistent=False):
+    """
+    Context expression to record gradients for operations within that directly or indirectly depend on `x`.
+
+    The function `gradients()` may be called within the context to evaluate the gradients of a Tensor derived from `x` w.r.t. `x`.
+
+    Alternatively, `variable()` can be used to mark Tensors for which gradients should be recorded.
+
+    Args:
+        *x: Parameters for which gradients of the form dL/dx may be computed
+        persistent: if `False`, `gradients()` may only be called once within the context
+    """
+    for x_ in x:
+        x_._expand()
+    natives = sum([x_._natives() for x_ in x], ())
+    backend = choose_backend(*natives)
+    return backend.record_gradients(natives, persistent=persistent)
+
+
+def gradients(y: Tensor,
+              *x: Tensor,
+              grad_y: Tensor or None = None):
+    """
+    Computes the gradients dy/dx for each `x`.
+    The parameters `x` must be marked prior to all operations for which gradients should be recorded using either `variable()` or `record_gradients()`.
+
+    Args:
+        y: Target / output / loss Tensor
+        *x: Input / source / parameter Tensor
+        grad_y: (optional) Gradient at `y`, defaults to 1.
+
+    Returns:
+        dy/dx as a `Tensor` with the dimensions from `y` and `x`.
+    """
+    assert isinstance(y, NativeTensor)
+    backend = choose_backend_t(y, *x)
+    x_natives = sum([x_._natives() for x_ in x], ())
+    native_gradients = list(backend.gradients(y.native(), x_natives, grad_y.native() if grad_y is not None else None))
+    for i, grad in enumerate(native_gradients):
+        assert grad is not None, f"Missing gradient for source with shape {x_natives[i].shape}"
+    grads = [x_._op1(lambda native: native_gradients.pop(0)) for x_ in x]
+    return grads[0] if len(x) == 1 else grads
