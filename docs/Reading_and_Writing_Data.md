@@ -1,9 +1,9 @@
-# Reading and writing simulation values
+# Reading and Writing Simulation Data
 
 This document describes how simulation values can be written and read using Φ<sub>Flow</sub>.
 The values format itself is described in the [values format specification](Scene_Format_Specification.md).
 
-## Referencing a scene object
+## Referencing a Scene Object
 
 The fluid I/O functionality of Φ<sub>Flow</sub> is located in [phi.values.fluidformat](../phi/data/fluidformat.py).
 
@@ -22,7 +22,7 @@ scenes = Scene.list('~/phi/values/simpleplume')
 New scenes can be created using the function `Scene.create` which appends a new scene to a category.
 It also copies the python script that created that scene into the `src` folder unless otherwise specified.
 
-## Reading from a specific scene
+## Reading from a Specific Scene
 
 The main simulation values is stored in individual files, one for each field and frame.
 Other properties are listed in the accompanying `description.json` (see the [values format specification](Scene_Format_Specification.md)).
@@ -52,14 +52,11 @@ density = scene.read_array(fieldname='density', frame=0)
 
 # Read multiple fieldnames, concatenating the frames in the batch dimension
 densities, velocities = scene.read_sim_frames(fieldnames=['density', 'velocity'], frames=range(16))
-
-# Read a state or struct
-fluid = scene.read(Fluid(...), frame=0)
 ```
 
 The last call makes use of Φ<sub>Flow</sub>'s `struct`.
 
-## Writing to a scene
+## Writing to a Scene
 
 The following methods can be used to store simulation values in a scene.
 
@@ -71,9 +68,6 @@ scene = Scene.create('~/phi/values/simpleplume')
 
 # Write one frame with multiple fields
 scene.write_sim_frame([density, velocity], ['density', 'velocity'], frame=0)
-
-# Write a state
-scene.write(Fluid(...), frame=0)
 ```
 
 Subdirectories in the scene can be created using the method `subpath(name, create)`.
@@ -84,27 +78,3 @@ To copy source files into the `src` folder of a scene:
 scene.copy_calling_script()
 scene.copy_src(path)
 ```
-
-## Reading from a set of scenes
-
-Machine learning applications usually iterate over a large number of scenes while training models.
-Φ<sub>Flow</sub> provides a values management system to simplify values handling.
-
-```python
-from phi.flow import *
-
-whole_dataset = Dataset.load('~/phi/values/simpleplume')
-training_data = Dataset.load('~/phi/values/simpleplume', range(1000), name='train')
-```
-
-### Channels
-
-Registering and processing fields
-
-### Iterating over values
-
-BatchReader
-
-## Data augmentation
-
-Data augmentation is implemented like any other transform -- using channels.

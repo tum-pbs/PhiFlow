@@ -38,10 +38,8 @@ $ pdoc --html --output-dir docs --force phi
 
 * [Writing Fluid Simulations](Fluid_Simulation.md)
 * [Staggered grids](Staggered_Grids.md)
+* [GPU execution](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html)
 
 Not yet updated:
 
-* [GPU execution](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html)
-* [NumPy or TensorFlow](https://tum-pbs.github.io/PhiFlow/NumPy_and_TensorFlow_Execution.html)
-* [Data](https://tum-pbs.github.io/PhiFlow/Reading_and_Writing_Data.html)
-* [Pressure solvers](https://tum-pbs.github.io/PhiFlow/Pressure_Solvers.html)
+* [Reading and Writing Simulation Data](Reading_and_Writing_Data.md)

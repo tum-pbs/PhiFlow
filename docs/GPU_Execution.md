@@ -1,66 +1,71 @@
 
-# Accelerated Simulations on the GPU
+# Optimizing Performance
+Simulation code can be accelerated in multiple ways.
+When optimizing your code, you first have to understand where the time is being spent.
+Φ<sub>Flow</sub> includes an easy-to-use profiler that tells you which operations and functions eat up your computation time.
 
-Simulations run in Φ<sub>Flow</sub> can be computed fully on the GPU.
+Enabling GPU execution may speed up your code when dealing with large tensors,
+especially when using the custom CUDA kernels.
+Switching to Graph mode may also reduce computational overheads.
 
-Requirements
-- [TensorFlow](https://www.tensorflow.org/) with GPU support or [PyTorch](https://pytorch.org/) with GPU support
-- CUDA, cuDNN (matching TensorFlow / PyTorch distribution)
+## Profiler
+The integrated profiler can be used to measure the time spent on each operation, independent of which backend is being used.
+Additionally, it traces the function calls to let you see which high-level function calls the operations belong to.
 
-The preferred way to run simulations on the GPU is using TensorFlow 1.14 or 1.15 with Python 3.6.
+To profile a code block, use `backend.profile()`.
+```python
+from phi.flow import *
 
+with backend.profile() as prof:
+    simulation_step()
+prof.save_trace('Trace.json')
+prof.print(min_duration=1e-2)
+```
+This above code stores the full profile in the *trace event format* described at https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
+and prints all operations and functions that take more than 10 ms to the console.
 
-## Native CUDA Kernels
+To view the profile, open Google Chrome and go to the address `chrome://tracing/`.
+Then drag the file `Trace.json` into the browser window.
+There you may zoom your view and click on any block to view additional information.
 
-Φ<sub>Flow</sub> comes with a number of TensorFlow CUDA kernels that accelerate specific operations such as the pressure / Poisson solve and the advection step.
+## Enabling GPU Execution
+All simulations based on Φ<sub>Flow</sub> can be computed on the GPU without transferring data back to the CPU.
+This requires a GPU-enabled TensorFlow or PyTorch installation, see the [installation instructions](Installation_Instructions.md).
+
+Moving computations to the GPU can greatly increase the performance of simulation code but there are also drawbacks.
+Since GPUs have access to many more processors than a CPU, GPU operations finish much faster than CPU operations.
+However, for each GPU operation, one or multiple CUDA kernels have to be launched which adds a significant overhead.
+This overhead is almost independent of the involved tensor sizes, so the speedup is greatest for large tensors.
+
+Therefore, your code should be vectorized as much as possible.
+Instead of performing an action multiple times, stack the data along a [batch dimension](https://tum-pbs.github.io/PhiFlow/Math.html#shapes).
+Φ<sub>Flow</sub> tensors support arbitrary numbers of named batch dimensions with no reshaping required.
+
+To run your code with either TensorFlow or PyTorch, [select the corresponding backend](https://tum-pbs.github.io/PhiFlow/Math.html#backend-selection) by choosing one of the following imports:
+
+- TensorFlow: `from phi.tf.flow import *`
+- PyTorch: `from phi.torch.flow import *`
+
+**Native CUDA Kernels** (*Experimental*).
+Φ<sub>Flow</sub> comes with a number of CUDA kernels for TensorFlow that accelerate specific operations such as grid interpolation or solving linear systems of equations.
 These GPU operators yield the best overall performance, and are highly recommended for larger scale simulations or training runs in 3D.
 To use them, download the Φ<sub>Flow</sub> sources and compile the kernels, following the [installations instructions](Installation_Instructions.md).
+PyTorch already comes with a fast GPU implementation of grid interpolation.
 
-To use the CUDA pressure solver, pass `pressure_solver=CUDASolver()` when creating `IncompressibleFlow` or pass the solver directly to a function that requires a solve, such as `poisson_solve()`, `solve_pressure()` or `divergence_free()`.
-
-
-## Running the demos on the GPU
-
-Most demos, such as [smoke_plume.py](../demos/smoke_plume.py) use the `App` class to progress the simulation.
-Running these demos on the GPU is as simple as exchanging the import:
-
-- Standard NumPy (CPU) import: `from phi.flow import *`
-- TensorFlow (CPU/GPU) import: `from phi.tf.flow import *`
-- PyTorch (CPU/GPU) import : `from phi.torch.flow import *`
-
-This works because each package defines its own `App` class.
-
-The TensorFlow version of `App` creates a static TensorFlow graph representing one time step of the `world` physics (can be disabled using `app.auto_bake = False`).
-The data stored in `world.state` are still NumPy arrays.
-
-The PyTorch version of `App` converts all data to PyTorch tensors (can be disabled using `app.auto_convert = False`).
-The data stored in `world.state` are PyTorch tensors.
-
-
-## Setting up a TensorFlow / PyTorch Simulation
-
-Φ<sub>Flow</sub> gives you full control over which operations should be performed by TensorFlow or PyTorch.
-You can even have part of the simulation be computed with NumPy and another run on the GPU.
-
-This is because Φ<sub>Flow</sub> determines the appropriate computing library (NumPy, TensorFlow or PyTorch) for each atomic operation (`phi.math` function) separately.
-If all arguments are NumPy compatible, the corresponding NumPy call is made.
-However, if there is at least one TensorFlow or PyTorch tensor involved, these libraries will be used instead of NumPy, converting NumPy arrays to tensors in the process.
-
-*Example:* We create a fluid simulation using a TensorFlow tensor for the density
-```python
-from phi.tf.flow import *
-
-fluid = Fluid([64, 40], density=placeholder)
-```
-Since we have not specified the velocity, it defaults to zero and will be initialized with a NumPy array.
-When we do computations involving the density, TensorFlow functions will be called and the outputs will be TensorFlow tensors.
-But if we only require the velocity for certain computations, functions from NumPy will be invoked.
-The result of `IncompressibleFlow().step(fluid)` will therefore have TensorFlow tensors for both `density` and `velocity` since they mix in the simulation.
-
-
-## Static and Dynamic Graphs
-
+## Eager vs Graph
 Φ<sub>Flow</sub> supports both static and dynamic graphs.
-More precisely, each atomic operation (`phi.math` function) can be run in eager or non-eager mode and will behave exactly like you would expect from TensorFlow or PyTorch functions.
+In graph mode, execution is usually faster, but an additional overhead is required for setting up the graph.
+Also, certain checks and optimizations are skipped in graph mode.
 
-When using an `App`, the preferred way of TensorFlow execution are static graphs. Φ<sub>Flow</sub> will disable TensorFlow's eager execution by default.
+Since all Φ<sub>Flow</sub> functions are composed of TensorFlow / PyTorch operations, switching between eager and graph mode works the same way as using the backends directly.
+
+**Gradients.**
+Computing gradients may be easier in graph mode since no special actions are required for recording the operations.
+In eager execution mode, gradient recording needs to be enabled using one of the following methods:
+
+1. Code within a `with math.record_gradients():` block will enable gradient recording for both TensorFlow and PyTorch.
+2. For TensorFlow, a `GradientTape` may be used directly. Retrieve TensorFlow tensors to watch using `Tensor.native()`.
+3. For PyTorch, the `requires_grad` attribute may be set to `True` manually. Retrieve PyTorch tensors using `Tensor.native()`.
+
+Methods 2 and 3 require special handling for non-uniform tensors. Manually iterate over the contained uniform tensors using `tensor.<dim>.unstack()`
+and watch each element using `native()`.

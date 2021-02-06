@@ -6,7 +6,7 @@
 * [pip](https://pip.pypa.io/en/stable/) (included in many Python distributions)
 
 For GPU acceleration, deep learning and optimization,
-[TensorFlow](https://www.tensorflow.org/install/) or [PyTorch](https://pytorch.org/)
+[TensorFlow 2.x](https://www.tensorflow.org/install/) or [PyTorch](https://pytorch.org/)
 must be registered with your Python installation.
 Note that these also require a CUDA installation with *cuDNN* libraries for GPU execution.
 
