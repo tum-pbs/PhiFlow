@@ -2,7 +2,7 @@
 
 ## Requirements
 
-* [Python](https://www.python.org/downloads/) 3.7 or newer (e.g. [Anaconda](https://www.anaconda.com/products/individual))
+* [Python](https://www.python.org/downloads/) 3.6 or newer (e.g. [Anaconda](https://www.anaconda.com/products/individual))
 * [pip](https://pip.pypa.io/en/stable/) (included in many Python distributions)
 
 For GPU acceleration, deep learning and optimization,
@@ -38,11 +38,12 @@ This can be done in one of multiple ways:
 * Installing Φ<sub>Flow</sub> using pip: `$ pip install <target directory>/`. This command needs to be rerun after you make changes to the source code.
 
 
-## Compiling the CUDA Kernels
+## Compiling the CUDA Kernels for TensorFlow
 
 The Φ<sub>Flow</sub> source includes several custom CUDA kernels to speed up certain operations when using TensorFlow.
-To use these, you must have a TensorFlow compatible CUDA SDK with cuDNN as well as a compatible C++ compiler installed.
-We strongly recommend using Linux with GCC 4.8 (`apt-get install gcc-4.8`) for this.
+To use these, you must have a [TensorFlow compatible CUDA SDK with cuDNN](https://www.tensorflow.org/install/gpu#software_requirements) as well as a compatible C++ compiler installed.
+We strongly recommend using Linux with GCC 7.3.1 (`apt-get install gcc-4.8`) for this.
+See the [tested TensorFlow build configurations](https://www.tensorflow.org/install/source#tested_build_configurations).
 
 To compile the CUDA kernels for TensorFlow, clone the repository as described above, then run `$ python <target directory>/setup.py tf_cuda`.
 This will add the compiled CUDA binaries to the \<target directory\>.

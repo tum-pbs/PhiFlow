@@ -13,6 +13,10 @@ It is written mostly in Python and can be used with NumPy, TensorFlow or PyTorch
 The close integration with machine learning frameworks allows it to leverage their automatic differentiation functionality,
 making it easy to build end-to-end differentiable functions involving both learning models and physics simulations.
 
+This is major version 2 of Φ<sub>Flow</sub>.
+Version 1 is available in the [branch `1.5`](https://github.com/tum-pbs/PhiFlow/tree/1.5) but will not receive new features anymore.
+Older versions are available through the [release history](https://github.com/tum-pbs/PhiFlow/releases).
+
 ## Features
 
 * Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
@@ -30,7 +34,7 @@ making it easy to build end-to-end differentiable functions involving both learn
 
 ## Installation
 
-Installation with pip on Python 3.7 or newer:
+Installation with pip on Python 3.6 or newer:
 ``` bash
 $ pip install phiflow
 ```
