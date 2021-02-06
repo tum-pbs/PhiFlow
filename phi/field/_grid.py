@@ -112,7 +112,7 @@ class CenteredGrid(Grid):
         if reduce_channels:
             assert len(reduce_channels) == 1
             geometries = geometry.unstack(reduce_channels[0])
-            components = self.unstack('vector')
+            components = self.vector.unstack(len(geometries))
             sampled = [c.sample_in(g) for c, g in zip(components, geometries)]
             return math.channel_stack(sampled, 'vector')
         if isinstance(geometry, GeometryStack):

@@ -36,9 +36,9 @@ $ pdoc --html --output-dir docs --force phi
 
 ### Other Documentation
 
-* [Writing Fluid Simulations](Fluid_Simulation.md)
-* [Staggered grids](Staggered_Grids.md)
-* [GPU execution](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html)
+* [Writing Fluid Simulations](Fluid_Simulation.md): Advection, projection, diffusion
+* [Staggered grids](Staggered_Grids.md): Data layout, usage
+* [Optimizing Performance](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html): GPU, graph mode, profiler
 
 Not yet updated:
 

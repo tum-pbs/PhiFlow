@@ -21,8 +21,8 @@ with backend.profile() as prof:
 prof.save_trace('Trace.json')
 prof.print(min_duration=1e-2)
 ```
-This above code stores the full profile in the *trace event format* described at https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
-and prints all operations and functions that take more than 10 ms to the console.
+This above code stores the full profile in the [trace event format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU)
+and prints all operations and functions that take more than 10 ms (`min_duration=1e-2`) to the console.
 
 To view the profile, open Google Chrome and go to the address `chrome://tracing/`.
 Then drag the file `Trace.json` into the browser window.
