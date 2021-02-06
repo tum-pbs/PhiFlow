@@ -1,3 +1,6 @@
+import copy
+from typing import Dict
+
 import numpy as np
 
 from phi import math
@@ -184,6 +187,15 @@ class Geometry:
 
     def __hash__(self):
         raise NotImplementedError(self.__class__)
+
+    def __characteristics__(self) -> Dict[str, math.Tensor]:
+        raise NotImplementedError(self.__class__)
+
+    def __with__(self, **attributes):
+        copied = copy.copy(self)
+        for name, val in attributes.items():
+            setattr(copied, name, val)
+        return copied
 
 
 class _InvertedGeometry(Geometry):

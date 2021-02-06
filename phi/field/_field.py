@@ -245,13 +245,19 @@ class SampledField(Field):
     def with_(self,
               elements: Geometry or None = None,
               values: Tensor = None,
-              extrapolation: math.Extrapolation = None) -> 'SampledField':
+              extrapolation: math.Extrapolation = None,
+              **other_attributes) -> 'SampledField':
         """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
         copied = copy.copy(self)
         SampledField.__init__(copied,
                               elements if elements is not None else self._elements,
                               values if values is not None else self._values,  # do not use == check
                               extrapolation if extrapolation is not None else self._extrapolation)
+        for name, val in other_attributes.items():
+            try:
+                setattr(copied, name, val)
+            except AttributeError:
+                setattr(copied, f'_{name}', val)
         return copied
 
     copied_with = with_

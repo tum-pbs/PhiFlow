@@ -60,3 +60,7 @@ class GeometryStack(Geometry):
 
     def __hash__(self):
         return hash(self.geometries)
+
+
+def stack(*geometries: Geometry, dim: str):
+    return GeometryStack(geometries, dim)

@@ -1,14 +1,13 @@
-import warnings
 from functools import wraps
 from typing import TypeVar
 
-import numpy as np
 from phi import math
+from phi import geom
 from phi.geom import Box, Geometry
-from . import StaggeredGrid, ConstantField, HardGeometryMask
 from ._field import Field, SampledField
-from ._grid import CenteredGrid, Grid
-from ..math import tensor
+from ._grid import CenteredGrid, Grid, StaggeredGrid
+from ._point_cloud import PointCloud
+from ._mask import HardGeometryMask
 
 
 def laplace(field: Grid, axes=None):
@@ -199,11 +198,27 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
     widths_list = [widths[axis] for axis in grid.shape.spatial.names]
     if isinstance(grid, Grid):
         data = math.pad(grid.values, widths, grid.extrapolation)
-        w_lower = tensor([w[0] for w in widths_list])
-        w_upper = tensor([w[1] for w in widths_list])
+        w_lower = math.tensor([w[0] for w in widths_list])
+        w_upper = math.tensor([w[1] for w in widths_list])
         box = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
         return type(grid)(data, box, grid.extrapolation)
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
+
+
+def concat(*fields: SampledField, dim: str):
+    assert all(isinstance(f, SampledField) for f in fields)
+    assert all(isinstance(f, type(fields[0])) for f in fields)
+    if any(f.extrapolation != fields[0].extrapolation for f in fields):
+        raise NotImplementedError("Concatenating extrapolations not supported")
+    if isinstance(fields[0], Grid):
+        values = math.concat([f.values for f in fields], dim=dim)
+        return fields[0].with_(values=values)
+    if isinstance(fields[0], PointCloud):
+        elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
+        values = math.concat([math.expand(f.values, dim, f.shape.get_size(dim)) for f in fields], dim)
+        colors = math.concat([math.expand(f.color, dim, f.shape.get_size(dim)) for f in fields], dim)
+        return fields[0].with_(elements=elements, values=values, color=colors)
+    raise NotImplementedError(type(fields[0]))
 
 
 def real(field: Field):

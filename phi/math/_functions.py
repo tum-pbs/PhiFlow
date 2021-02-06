@@ -850,12 +850,29 @@ def tile(value, multiples):
     raise NotImplementedError()
 
 
+def expand_batch(value: Tensor, dim_name: str, dim_size: int = 1):
+    return _expand_dim(value, dim_name, dim_size, BATCH_DIM)
+
+
+def expand_spatial(value: Tensor, dim_name: str, dim_size: int = 1):
+    return _expand_dim(value, dim_name, dim_size, SPATIAL_DIM)
+
+
 def expand_channel(value: Tensor, dim_name: str, dim_size: int = 1):
     return _expand_dim(value, dim_name, dim_size, CHANNEL_DIM)
 
 
+def expand(value: Tensor, dim_name: str, dim_size: int = 1):
+    dim_type = _infer_dim_type_from_name(dim_name)
+    return _expand_dim(value, dim_name, dim_size, dim_type)
+
+
 def _expand_dim(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
     value = tensor(value)
+    if dim_name in value.shape:
+        assert value.shape.get_size(dim_name) == dim_size
+        assert value.shape.get_type(dim_name) == dim_type
+        return value
     new_shape = value.shape.expand(dim_size, dim_name, dim_type)
     return CollapsedTensor(value, new_shape)
 

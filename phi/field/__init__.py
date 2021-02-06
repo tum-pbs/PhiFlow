@@ -23,6 +23,7 @@ from ._angular_velocity import AngularVelocity
 from ._field_math import (
     laplace, gradient, divergence, stagger,
     mean, pad, shift, normalize,
+    concat,
     real, imag,
     solve,
     where,

@@ -100,6 +100,11 @@ class PointCloud(SampledField):
     def __repr__(self):
         return "PointCloud[%s]" % (self.shape,)
 
+    def __and__(self, other):
+        assert isinstance(other, PointCloud)
+        from ._field_math import concat
+        return concat(self, other, dim='points')
+
 
 def _distribute_points(density, particles_per_cell=1, distribution='uniform'):
     """

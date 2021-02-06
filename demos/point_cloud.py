@@ -6,7 +6,8 @@ points = DOMAIN.points([(10, 10), (20, 20)], color=['#ba0a04', '#344feb'])
 
 points1 = DOMAIN.points((10, 10), color='#ba0a04')
 points2 = DOMAIN.points((20, 20), color='#344feb')
-points = field.concat([points1, points2], 'points')
+points = points1 & points2
+points = field.concat(points1, points2, dim='points')
 
 # Advection
 velocity = DOMAIN.grid([-1, 1])

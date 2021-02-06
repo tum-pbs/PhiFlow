@@ -1,3 +1,5 @@
+from typing import Dict
+
 from phi import math, struct
 
 from ._geom import Geometry, _fill_spatial_with_singleton
@@ -70,3 +72,13 @@ class Sphere(Geometry):
                and self._shape == other.shape \
                and math.all(self._radius == other.radius) \
                and math.all(self._center == other.center)
+
+    def __characteristics__(self) -> Dict[str, math.Tensor]:
+        return {
+            'radius': self._radius,
+            'center': self._center,
+        }
+
+    def __with__(self, center=None, radius=None):
+        return Sphere(center if center is not None else self._center,
+                      radius if radius is not None else self._radius)
