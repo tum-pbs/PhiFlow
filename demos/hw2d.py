@@ -1,3 +1,6 @@
+""" Hasegawa-Wakatani
+Simple plasma flow model.
+"""
 # from phi.torch.flow import *
 # from phi.tf.flow import *
 from phi.flow import *
@@ -193,7 +196,7 @@ def rk4_step(dt, gradient_func=step_gradient_2d, **kwargs):
     )
 
 
-app = App('Hasegawa Wakatani', framerate=10, dt=EditableFloat('dt', dt))
+app = App("Hasegawa-Wakatani", "Simple plasma flow model.", framerate=10, dt=EditableFloat('dt', dt))
 app.set_state(state, step_function=rk4_step, show=['density', 'omega', 'phi'])
 app.prepare()
 show(app, display=('density', 'omega', 'phi'))

@@ -58,12 +58,10 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
-    laplace, gradient, divergence, stagger, staggered_curl_2d,
+    laplace, gradient, divergence, stagger,
     mean, pad, shift, normalize,
-    expose_tensors,
+    real, imag,
     solve,
-    divergence_free,
-    diffuse,
     where,
     l2_loss,
     stop_gradient,
@@ -80,69 +78,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="phi.field.diffuse"><code class="name flex">
-<span>def <span class="ident">diffuse</span></span>(<span>field: ~FieldType, diffusivity, dt, substeps=1) ‑> ~FieldType</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> FieldType with diffusion coefficient α.</p>
-<p>If <code>field</code> is periodic (set via <code>extrapolation='periodic'</code>), diffusion may be simulated in Fourier space.
-Otherwise, finite differencing is used to approximate the</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>field</code></strong></dt>
-<dd>CenteredGrid, StaggeredGrid or ConstantField</dd>
-<dt><strong><code>diffusivity</code></strong></dt>
-<dd>diffusion amount = diffusivity * dt</dd>
-<dt><strong><code>dt</code></strong></dt>
-<dd>diffusion amount = diffusivity * dt</dd>
-<dt><strong><code>substeps</code></strong></dt>
-<dd>number of iterations to use (Default value = 1)</dd>
-<dt><strong><code>field</code></strong></dt>
-<dd>FieldType: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></dt>
-<dd>Field of same type as <code>field</code></dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def diffuse(field: FieldType, diffusivity, dt, substeps=1) -&gt; FieldType:
-    &#34;&#34;&#34;
-    Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` FieldType with diffusion coefficient α.
-    
-    If `field` is periodic (set via `extrapolation=&#39;periodic&#39;`), diffusion may be simulated in Fourier space.
-    Otherwise, finite differencing is used to approximate the
-
-    Args:
-      field: CenteredGrid, StaggeredGrid or ConstantField
-      diffusivity: diffusion amount = diffusivity * dt
-      dt: diffusion amount = diffusivity * dt
-      substeps: number of iterations to use (Default value = 1)
-      field: FieldType: 
-
-    Returns:
-      Field: Field of same type as `field`
-
-    &#34;&#34;&#34;
-    if isinstance(field, ConstantField):
-        return field
-    assert isinstance(field, Grid), &#34;Cannot diffuse field of type &#39;%s&#39;&#34; % type(field)
-    amount = diffusivity * dt
-    if field.extrapolation == &#39;periodic&#39; and not isinstance(amount, Field):
-        fft_laplace = -(2 * np.pi) ** 2 * squared(fftfreq(field))
-        diffuse_kernel = math.exp(fft_laplace * amount)
-        return real(ifft(fft(field) * diffuse_kernel))
-    else:
-        if isinstance(amount, Field):
-            amount = amount.at(field)
-        for i in range(substeps):
-            field += amount / substeps * laplace(field)
-        return field</code></pre>
-</details>
-</dd>
 <dt id="phi.field.divergence"><code class="name flex">
 <span>def <span class="ident">divergence</span></span>(<span>field: phi.field._grid.Grid) ‑> phi.field._grid.CenteredGrid</span>
 </code></dt>
@@ -194,79 +129,6 @@ Otherwise, finite differencing is used to approximate the</p>
         return result
     else:
         raise NotImplementedError(f&#34;{type(field)} not supported. Only StaggeredGrid allowed.&#34;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.divergence_free"><code class="name flex">
-<span>def <span class="ident">divergence_free</span></span>(<span>vector_field: phi.field._grid.Grid, solve_params: phi.math.backend._optim.LinearSolve = &lt;phi.math.backend._optim.LinearSolve object&gt;)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the divergence-free part of the given vector field.
-The boundary conditions are taken from <code>vector_field</code>.</p>
-<p>This function solves for a scalar potential with an iterative solver.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>vector_field</code></strong></dt>
-<dd>vector grid</dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>return: divergence-free vector field, scalar potential, number of iterations performed, divergence</dd>
-<dt><strong><code>vector_field</code></strong></dt>
-<dd>Grid: </dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>math.LinearSolve:
-(Default value = math.LinearSolve(None)</dd>
-</dl>
-<p>1e-5): </p>
-<h2 id="returns">Returns</h2>
-<p>divergence-free vector field, scalar potential, number of iterations performed, divergence</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def divergence_free(vector_field: Grid, solve_params: math.LinearSolve = math.LinearSolve(None, 1e-5)):
-    &#34;&#34;&#34;
-    Returns the divergence-free part of the given vector field.
-    The boundary conditions are taken from `vector_field`.
-    
-    This function solves for a scalar potential with an iterative solver.
-
-    Args:
-      vector_field: vector grid
-      solve_params: return: divergence-free vector field, scalar potential, number of iterations performed, divergence
-      vector_field: Grid: 
-      solve_params: math.LinearSolve:  (Default value = math.LinearSolve(None)
-      1e-5): 
-
-    Returns:
-      divergence-free vector field, scalar potential, number of iterations performed, divergence
-
-    &#34;&#34;&#34;
-    div = divergence(vector_field)
-    div -= mean(div)
-    pressure_extrapolation = vector_field.extrapolation  # periodic -&gt; periodic, closed -&gt; boundary, open -&gt; zero
-    pressure_guess = CenteredGrid.sample(0, vector_field.resolution, vector_field.box, extrapolation=pressure_extrapolation)
-    converged, potential, iterations = solve(laplace, div, pressure_guess, solve_params)
-    gradp = gradient(potential, type=StaggeredGrid)
-    vector_field -= gradp
-    return vector_field, potential, iterations, div</code></pre>
-</details>
-</dd>
-<dt id="phi.field.expose_tensors"><code class="name flex">
-<span>def <span class="ident">expose_tensors</span></span>(<span>field_function, *proto_fields)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def expose_tensors(field_function, *proto_fields):
-    @wraps(field_function)
-    def wrapper(*field_data):
-        fields = [proto.with_(values=data) for data, proto in zip(field_data, proto_fields)]
-        result = field_function(*fields)
-        assert isinstance(result, SampledField), f&#34;function must return an instance of SampledField but returned {result}&#34;
-        return result.values
-    return wrapper</code></pre>
 </details>
 </dd>
 <dt id="phi.field.gradient"><code class="name flex">
@@ -321,6 +183,21 @@ The <code>field</code> must not have a dimension of the same name.</dd>
         assert stack_dim == &#39;vector&#39;
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
     raise NotImplementedError(f&#34;{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.imag"><code class="name flex">
+<span>def <span class="ident">imag</span></span>(<span>field: phi.field._field.Field)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def imag(field: Field):
+    if isinstance(field, SampledField):
+        return field.with_(values=math.imag(field.values))
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
@@ -434,6 +311,21 @@ The <code>field</code> must not have a dimension of the same name.</dd>
     raise NotImplementedError(f&#34;{ftype} not implemented ({implemented_types})&#34;)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.real"><code class="name flex">
+<span>def <span class="ident">real</span></span>(<span>field: phi.field._field.Field)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def real(field: Field):
+    if isinstance(field, SampledField):
+        return field.with_(values=math.real(field.values))
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.field.shift"><code class="name flex">
 <span>def <span class="ident">shift</span></span>(<span>grid: phi.field._grid.CenteredGrid, offsets: tuple, stack_dim='shift')</span>
 </code></dt>
@@ -486,7 +378,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
     else:
         field_callback = None
 
-    data_function = expose_tensors(function, x0)
+    data_function = _operate_on_values(function, x0)
     converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params, field_callback)
     return converged, x0.with_(values=x), iterations</code></pre>
 </details>
@@ -581,25 +473,6 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
         return CenteredGrid(values, field.bounds, extrapolation)
     else:
         raise ValueError(type)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.staggered_curl_2d"><code class="name flex">
-<span>def <span class="ident">staggered_curl_2d</span></span>(<span>grid, pad_width=(1, 2))</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def staggered_curl_2d(grid, pad_width=(1, 2)):
-    assert isinstance(grid, CenteredGrid)
-    kernel = math.zeros((3, 3, 1, 2))
-    kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
-    kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
-    scalar_potential = grid.padded([pad_width, pad_width]).values
-    vector_field = math.conv(scalar_potential, kernel, padding=&#39;valid&#39;)
-    return StaggeredGrid(vector_field, bounds=grid.box)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.stop_gradient"><code class="name flex">
@@ -3737,22 +3610,20 @@ The dimension can be batch, spatial or channel.</p>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="phi.field.diffuse" href="#phi.field.diffuse">diffuse</a></code></li>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
-<li><code><a title="phi.field.divergence_free" href="#phi.field.divergence_free">divergence_free</a></code></li>
-<li><code><a title="phi.field.expose_tensors" href="#phi.field.expose_tensors">expose_tensors</a></code></li>
 <li><code><a title="phi.field.gradient" href="#phi.field.gradient">gradient</a></code></li>
+<li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>
 <li><code><a title="phi.field.mean" href="#phi.field.mean">mean</a></code></li>
 <li><code><a title="phi.field.normalize" href="#phi.field.normalize">normalize</a></code></li>
 <li><code><a title="phi.field.pad" href="#phi.field.pad">pad</a></code></li>
 <li><code><a title="phi.field.read" href="#phi.field.read">read</a></code></li>
+<li><code><a title="phi.field.real" href="#phi.field.real">real</a></code></li>
 <li><code><a title="phi.field.shift" href="#phi.field.shift">shift</a></code></li>
 <li><code><a title="phi.field.solve" href="#phi.field.solve">solve</a></code></li>
 <li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
-<li><code><a title="phi.field.staggered_curl_2d" href="#phi.field.staggered_curl_2d">staggered_curl_2d</a></code></li>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
 <li><code><a title="phi.field.where" href="#phi.field.where">where</a></code></li>

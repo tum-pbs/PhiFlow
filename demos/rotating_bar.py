@@ -1,18 +1,18 @@
+""" Rotating Bar
+This demo shows how to simulate fluid flow with moving or rotating obstacles.
+"""
 from phi.flow import *
 
 
-def step(dt, velocity, obstacle):
-    obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(- obstacle.angular_velocity * dt))  # rotate bar
-    velocity = advect.semi_lagrangian(velocity, velocity, dt)
-    velocity, pressure, iterations, divergence = fluid.make_incompressible(velocity, domain, (obstacle,))
-    return dict(velocity=velocity, obstacle=obstacle)
+DOMAIN = Domain(x=100, y=100, boundaries=OPEN, bounds=Box[0:100, 0:100])
+DT = 1.0
+obstacle = Obstacle(Box[47:53, 20:70], angular_velocity=0.05)
+obstacle_mask = DOMAIN.grid(obstacle.geometry)  # to show in user interface
+velocity = DOMAIN.staggered_grid((1, 0))
 
-
-domain = Domain(x=128, y=128, boundaries=OPEN, bounds=Box[0:100, 0:100])
-state = dict(velocity=domain.sgrid((1, 0)), obstacle=Obstacle(Box[48:52, 10:90], angular_velocity=0.1))
-state = step(1, **state)
-
-app = App('Moving Objects Demo', framerate=10)
-app.set_state(state, step, show=['velocity'])
-app.add_field('Domain', lambda: domain.grid(app.state['obstacle'].geometry))
-show(app, display=('Domain', 'velocity'))
+for frame in ModuleViewer(framerate=10, display=('velocity', 'obstacle_mask'), autorun=True).range():
+    obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(- obstacle.angular_velocity * DT))  # rotate bar
+    velocity = advect.mac_cormack(velocity, velocity, DT)
+    velocity, pressure, _iter, _ = fluid.make_incompressible(velocity, DOMAIN, (obstacle,), solve_params=math.LinearSolve(absolute_tolerance=1e-2, max_iterations=1e5))
+    print(f"{frame}: {_iter}")
+    obstacle_mask = DOMAIN.grid(obstacle.geometry)

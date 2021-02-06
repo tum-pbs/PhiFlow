@@ -21,12 +21,10 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
-    laplace, gradient, divergence, stagger, staggered_curl_2d,
+    laplace, gradient, divergence, stagger,
     mean, pad, shift, normalize,
-    expose_tensors,
+    real, imag,
     solve,
-    divergence_free,
-    diffuse,
     where,
     l2_loss,
     stop_gradient,

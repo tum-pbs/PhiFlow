@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.1" />
 <title>phi.physics API documentation</title>
-<meta name="description" content="Contains built-in physics functions, e.g. for fluids …" />
+<meta name="description" content="Contains built-in physics functions, e.g. for fluids.
+The actual physics functions are located in the sub-modules of `phi.physics`.
+A common trait of …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,7 +24,9 @@
 <h1 class="title">Module <code>phi.physics</code></h1>
 </header>
 <section id="section-intro">
-<p>Contains built-in physics functions, e.g. for fluids.</p>
+<p>Contains built-in physics functions, e.g. for fluids.
+The actual physics functions are located in the sub-modules of <code><a title="phi.physics" href="#phi.physics">phi.physics</a></code>.
+A common trait of many physics functions is the time increment (<code>dt</code>) argument.</p>
 <p>Main class: <code><a title="phi.physics.Domain" href="#phi.physics.Domain">Domain</a></code></p>
 <p>See the <code><a title="phi.physics" href="#phi.physics">phi.physics</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Physics.html">https://tum-pbs.github.io/PhiFlow/Physics.html</a></p>
 <details class="source">
@@ -31,6 +35,8 @@
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
 Contains built-in physics functions, e.g. for fluids.
+The actual physics functions are located in the sub-modules of `phi.physics`.
+A common trait of many physics functions is the time increment (`dt`) argument.
 
 Main class: `Domain`
 
@@ -47,6 +53,10 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dt><code class="name"><a title="phi.physics.advect" href="advect.html">phi.physics.advect</a></code></dt>
 <dd>
 <div class="desc"><p>Container for different advection schemes for grids and particles …</p></div>
+</dd>
+<dt><code class="name"><a title="phi.physics.diffuse" href="diffuse.html">phi.physics.diffuse</a></code></dt>
+<dd>
+<div class="desc"><p>Functions to simulate diffusion processes on <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code> objects.</p></div>
 </dd>
 <dt><code class="name"><a title="phi.physics.fluid" href="fluid.html">phi.physics.fluid</a></code></dt>
 <dd>
@@ -1017,6 +1027,7 @@ It can also have a linear and angular velocity.</p></div>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="phi.physics.advect" href="advect.html">phi.physics.advect</a></code></li>
+<li><code><a title="phi.physics.diffuse" href="diffuse.html">phi.physics.diffuse</a></code></li>
 <li><code><a title="phi.physics.fluid" href="fluid.html">phi.physics.fluid</a></code></li>
 </ul>
 </li>

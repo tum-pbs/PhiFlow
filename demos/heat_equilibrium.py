@@ -20,7 +20,7 @@ class HeatEquilibriumDemo(App):
     def sim_step(self, temperature, dt):
         temperature -= dt * DOMAIN.grid(Box[0:64, 44:46])
         temperature += dt * DOMAIN.grid(Sphere([self.x, self.y], radius=self.radius))
-        return {'temperature': field.diffuse(temperature, 0.5, dt, substeps=4)}
+        return {'temperature': diffuse.explicit(temperature, 0.5, dt, substeps=4)}
 
 
 show(port=8050, autorun=True)

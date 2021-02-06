@@ -137,40 +137,6 @@ FieldType = TypeVar('FieldType', bound=Field)
 GridType = TypeVar('GridType', bound=Grid)
 
 
-def diffuse(field: FieldType, diffusivity, dt, substeps=1) -> FieldType:
-    """
-    Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` FieldType with diffusion coefficient α.
-    
-    If `field` is periodic (set via `extrapolation='periodic'`), diffusion may be simulated in Fourier space.
-    Otherwise, finite differencing is used to approximate the
-
-    Args:
-      field: CenteredGrid, StaggeredGrid or ConstantField
-      diffusivity: diffusion amount = diffusivity * dt
-      dt: diffusion amount = diffusivity * dt
-      substeps: number of iterations to use (Default value = 1)
-      field: FieldType: 
-
-    Returns:
-      Field: Field of same type as `field`
-
-    """
-    if isinstance(field, ConstantField):
-        return field
-    assert isinstance(field, Grid), "Cannot diffuse field of type '%s'" % type(field)
-    amount = diffusivity * dt
-    if field.extrapolation == 'periodic' and not isinstance(amount, Field):
-        fft_laplace = -(2 * np.pi) ** 2 * squared(fftfreq(field))
-        diffuse_kernel = math.exp(fft_laplace * amount)
-        return real(ifft(fft(field) * diffuse_kernel))
-    else:
-        if isinstance(amount, Field):
-            amount = amount.at(field)
-        for i in range(substeps):
-            field += amount / substeps * laplace(field)
-        return field
-
-
 def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
     if callback is not None:
         def field_callback(x):
@@ -179,12 +145,25 @@ def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
     else:
         field_callback = None
 
-    data_function = expose_tensors(function, x0)
+    data_function = _operate_on_values(function, x0)
     converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params, field_callback)
     return converged, x0.with_(values=x), iterations
 
 
-def expose_tensors(field_function, *proto_fields):
+def _operate_on_values(field_function, *proto_fields):
+    """
+    Constructs a wrapper function operating on field values from a function operating on fields.
+    The wrapper function assembles fields and calls `field_function`.
+
+    This is useful when passing functions to a `phi.math` operation, e.g. `phi.math.solve()`.
+
+    Args:
+        field_function: Function whose arguments are fields
+        *proto_fields: To specify non-value properties of the fields.
+
+    Returns:
+        Wrapper for `field_function` that takes the field values of as input and returns the field values of the result.
+    """
     @wraps(field_function)
     def wrapper(*field_data):
         fields = [proto.with_(values=data) for data, proto in zip(field_data, proto_fields)]
@@ -227,66 +206,26 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
 
 
-def divergence_free(vector_field: Grid, solve_params: math.LinearSolve = math.LinearSolve(None, 1e-5)):
-    """
-    Returns the divergence-free part of the given vector field.
-    The boundary conditions are taken from `vector_field`.
-    
-    This function solves for a scalar potential with an iterative solver.
-
-    Args:
-      vector_field: vector grid
-      solve_params: return: divergence-free vector field, scalar potential, number of iterations performed, divergence
-      vector_field: Grid: 
-      solve_params: math.LinearSolve:  (Default value = math.LinearSolve(None)
-      1e-5): 
-
-    Returns:
-      divergence-free vector field, scalar potential, number of iterations performed, divergence
-
-    """
-    div = divergence(vector_field)
-    div -= mean(div)
-    pressure_extrapolation = vector_field.extrapolation  # periodic -> periodic, closed -> boundary, open -> zero
-    pressure_guess = CenteredGrid.sample(0, vector_field.resolution, vector_field.box, extrapolation=pressure_extrapolation)
-    converged, potential, iterations = solve(laplace, div, pressure_guess, solve_params)
-    gradp = gradient(potential, type=StaggeredGrid)
-    vector_field -= gradp
-    return vector_field, potential, iterations, div
-
-
-def squared(field: Field):
-    raise NotImplementedError()
-
-
 def real(field: Field):
+    if isinstance(field, SampledField):
+        return field.with_(values=math.real(field.values))
     raise NotImplementedError()
 
 
 def imag(field: Field):
+    if isinstance(field, SampledField):
+        return field.with_(values=math.imag(field.values))
     raise NotImplementedError()
 
 
-def fftfreq(grid: Grid):
-    raise NotImplementedError()
-
-
-def fft(grid: Grid):
-    raise NotImplementedError()
-
-
-def ifft(grid: Grid):
-    raise NotImplementedError()
-
-
-def staggered_curl_2d(grid, pad_width=(1, 2)):
-    assert isinstance(grid, CenteredGrid)
-    kernel = math.zeros((3, 3, 1, 2))
-    kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
-    kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
-    scalar_potential = grid.padded([pad_width, pad_width]).values
-    vector_field = math.conv(scalar_potential, kernel, padding='valid')
-    return StaggeredGrid(vector_field, bounds=grid.box)
+# def staggered_curl_2d(grid, pad_width=(1, 2)):
+#     assert isinstance(grid, CenteredGrid)
+#     kernel = math.zeros((3, 3, 1, 2))
+#     kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
+#     kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
+#     scalar_potential = grid.padded([pad_width, pad_width]).values
+#     vector_field = math.conv(scalar_potential, kernel, padding='valid')
+#     return StaggeredGrid(vector_field, bounds=grid.box)
 
 
 def where(mask: Field or Geometry, field_true: Field, field_false: Field):

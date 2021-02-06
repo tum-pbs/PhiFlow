@@ -8,11 +8,11 @@ from ._sphere import Sphere
 
 class RotatedGeometry(Geometry):
 
-    def __init__(self, geometry: Geometry, angle):
+    def __init__(self, geometry: Geometry, angle: float or math.Tensor):
         if isinstance(geometry, RotatedGeometry):
             warnings.warn('Using RotatedGeometry of RotatedGeometry. Consider simplifying your setup.')
         self._geometry = geometry
-        self._angle = angle
+        self._angle = math.tensor(angle)
 
     @property
     def shape(self):
