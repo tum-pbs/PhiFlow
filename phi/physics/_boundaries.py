@@ -283,7 +283,7 @@ class Domain:
     def points(self,
                points: Tensor or Number or tuple or list,
                radius: Tensor or float or int or None = None,
-               extrapolation: math.Extrapolation = extrapolation.ZERO,
+               extrapolation: math.Extrapolation = None,
                color: str or Tensor or tuple or list or None = None) -> PointCloud:
         """
         Create a `phi.field.PointCloud` from the given `points`.
@@ -298,6 +298,7 @@ class Domain:
         Returns:
             `phi.field.PointCloud` object
         """
+        extrapolation = extrapolation or math.extrapolation.ZERO
         if radius is None:
             radius = math.mean(self.bounds.size) * 0.005
         # --- Parse points: tuple / list ---

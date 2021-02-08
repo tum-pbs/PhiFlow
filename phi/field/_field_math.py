@@ -4,12 +4,11 @@ from typing import TypeVar, Tuple
 from phi import math
 from phi import geom
 from phi.geom import Box, Geometry
-
-from . import StaggeredGrid, HardGeometryMask
-from ._point_cloud import PointCloud
+from phi.math import extrapolate_valid_values
 from ._field import Field, SampledField
-from ._grid import CenteredGrid, Grid
-from ..math import tensor, extrapolate_valid_values
+from ._grid import CenteredGrid, Grid, StaggeredGrid
+from ._point_cloud import PointCloud
+from ._mask import HardGeometryMask
 
 
 def laplace(field: Grid, axes=None):

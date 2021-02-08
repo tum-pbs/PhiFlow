@@ -1,6 +1,6 @@
 """ FLIP simulation for liquids
 
-A liquid block is coliding with a rotated obstacle and falling into a liquid pool.
+A liquid block collides with a rotated obstacle and falls into a liquid pool.
 """
 
 from phi.flow import *

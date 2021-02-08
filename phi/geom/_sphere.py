@@ -10,6 +10,11 @@ class Sphere(Geometry):
     """
     N-dimensional sphere.
     Defined through center position and radius.
+
+    Args:
+
+    Returns:
+
     """
 
     def __init__(self, center, radius):

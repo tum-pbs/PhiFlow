@@ -1,7 +1,7 @@
 import numpy as np
 
 from phi import math
-from phi.geom import Box, Geometry, assert_same_rank, GridCell
+from phi.geom import Box, Geometry, assert_same_rank, GridCell, AbstractBox
 from ._field import Field
 from ._field import SampledField
 from ._mask import SoftGeometryMask, HardGeometryMask

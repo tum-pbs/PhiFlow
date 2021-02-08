@@ -19,8 +19,7 @@ def advect(field: Field, velocity: Field, dt: float or int, accessible: Field = 
 
     Args:
       field: any built-in Field
-      velocity: any Field (must be PointCloud with the same elements as `field` in euler mode or
-        a StaggeredGrid in rk4_extp mode)
+      velocity: any Field
       dt: time increment
       accessible: boundary conditions used only in 'rk4' mode
       occupied: binary field of the same type as velocity indicating particle positions (only used in 'rk4' modes)
