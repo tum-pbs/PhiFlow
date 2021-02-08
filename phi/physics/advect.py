@@ -13,7 +13,7 @@ from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, 
 from phi.field._field_math import GridType
 
 
-def advect(field: Field, velocity: Field, dt, mode: str = 'euler', valid: Field = None, occupied: Field = None):
+def advect(field: Field, velocity: Field, dt: float or int, accessible: Field = None, occupied: Field = None):
     """
     Advect `field` along the `velocity` vectors using the default advection method.
 
@@ -22,21 +22,16 @@ def advect(field: Field, velocity: Field, dt, mode: str = 'euler', valid: Field 
       velocity: any Field (must be PointCloud with the same elements as `field` in euler mode or
         a StaggeredGrid in rk4_extp mode)
       dt: time increment
-      mode: type of advection scheme: 'euler', 'rk4'
-      valid: boundary conditions used only in 'rk4' mode
+      accessible: boundary conditions used only in 'rk4' mode
       occupied: binary field of the same type as velocity indicating particle positions (only used in 'rk4' modes)
 
     Returns:
       Advected field of same type as `field`
     """
     if isinstance(field, PointCloud):
-        if mode == 'euler':
-            assert isinstance(velocity, PointCloud) and velocity.elements == field.elements, 'Velocity is not valid for euler mode advection.'
+        if isinstance(velocity, PointCloud) and velocity.elements == field.elements:
             return points(field, velocity, dt)
-        elif mode == 'rk4':
-            return runge_kutta_4(field, velocity, dt=dt, accessible=valid, occupied=occupied)
-        else:
-            raise NotImplementedError(f"Advection mode {mode} is not known.")
+        return runge_kutta_4(field, velocity, dt=dt, accessible=accessible, occupied=occupied)
     if isinstance(field, ConstantField):
         return field
     if isinstance(field, (CenteredGrid, StaggeredGrid)):
@@ -120,7 +115,6 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
         PointCloud with advected particle positions and their corresponding values.
     """
     assert isinstance(velocity, Grid), 'runge_kutta advection with extrapolation works for Grids only.'
-    assert isinstance(occupied, type(velocity)), 'occupation mask must have same type as velocity.'
 
     def extrapolation_helper(elements, t_shift, v_field, mask):
         shift = math.ceil(math.max(math.abs(elements.center - points.center))) - t_shift
@@ -136,6 +130,7 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
     # --- Sample velocity at intermediate points and adjust velocity-dependent
     # extrapolation to maximum shift of corresponding component ---
     if extrapolate:
+        assert isinstance(occupied, type(velocity)), 'occupation mask must have same type as velocity.'
         velocity, occupied = extrapolate_valid(velocity, occupied, 2)
         velocity *= accessible
     vel_k1 = velocity.sample_in(points)

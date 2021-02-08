@@ -1,55 +1,97 @@
 from phi import math, field
-from typing import List, Tuple
+from typing import Tuple
 from phi.physics import Domain, Obstacle
-from phi.field import StaggeredGrid, HardGeometryMask, PointCloud, CenteredGrid, Grid, extrapolate_valid
-from phi.geom import union, Sphere
+from phi.field import StaggeredGrid, CenteredGrid, PointCloud, HardGeometryMask, Grid, extrapolate_valid
+from phi.geom import union, Sphere, Geometry
 
 
-def get_accessible_mask(domain: Domain, obstacles: List[Obstacle]) -> StaggeredGrid:
+def get_points(domain: Domain, geometries: Geometry or Obstacle or list,
+               points_per_cell: int = 8,
+               color: str = None,
+               initial_velocity: tuple = (0, 0)) -> PointCloud:
     """
-    Unifies domain and obstacles into a binary StaggeredGrid mask which can be used to enforce
-    boundary conditions.
+    Transforms Geometry or Obstacle objects into a PointCloud.
 
     Args:
         domain: Domain object
-        obstacles: List of Obstacles
+        geometries: Single or multiple Geometry or Obstacle objects
+        points_per_cell: Number of points for each cell of `geometries`
+        color (Optional): Color of PointCloud
+        initial_velocity (Optional): Tuple with x, y velocities
+
+    Returns:
+         PointCloud representation of `geometries`.
+    """
+    if not isinstance(geometries, list):
+        geometries = [geometries]
+    for ix in range(len(geometries)):
+        if isinstance(geometries[ix], Obstacle):
+            geometries[ix] = geometries[ix].geometry
+    point_mask = domain.grid(HardGeometryMask(union(geometries)))
+    initial_points = math.distribute_points(point_mask.values, points_per_cell)
+    return domain.points(initial_points, color=color) * initial_velocity
+
+
+def get_accessible_mask(domain: Domain, not_accessible: Geometry or Obstacle or list) -> StaggeredGrid:
+    """
+    Unifies domain and Obstacle or Geometry objects into a binary StaggeredGrid mask which can be used
+    to enforce boundary conditions.
+
+    Args:
+        domain: Domain object
+        not_accessible: Obstacle or Geometry objects which are not accessible
 
     Returns:
         Binary mask indicating valid fields w.r.t. the boundary conditions.
     """
-    accessible = domain.grid(1 - HardGeometryMask(union([obstacle.geometry for obstacle in obstacles])))
+    if not isinstance(not_accessible, list):
+        not_accessible = [not_accessible]
+    for ix in range(len(not_accessible)):
+        if isinstance(not_accessible[ix], Obstacle):
+            not_accessible[ix] = not_accessible[ix].geometry
+    accessible = domain.grid(1 - HardGeometryMask(union(not_accessible)))
     accessible_mask = domain.grid(accessible, extrapolation=domain.boundaries.accessible_extrapolation)
     return field.stagger(accessible_mask, math.minimum, accessible_mask.extrapolation)
 
 
 def make_incompressible(velocity_field: StaggeredGrid,
                         accessible: StaggeredGrid,
-                        cvalid: CenteredGrid,
-                        svalid: StaggeredGrid,
-                        pressure: CenteredGrid) -> Tuple[StaggeredGrid, CenteredGrid]:
+                        particles: PointCloud = None,
+                        domain: Domain = None,
+                        pressure: CenteredGrid = None,
+                        occupied_centered: CenteredGrid = None,
+                        occupied_staggered: StaggeredGrid = None) -> Tuple[StaggeredGrid, CenteredGrid, StaggeredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its gradient.
 
     Args:
         velocity_field: Current velocity field as StaggeredGrid
         accessible: Boundary conditions as binary StaggeredGrid
-        cvalid: Binary CenteredGrid indicating which cells hold particles
-        svalid: Binary StaggeredGrid indicating which cells hold particles
-        pressure: Initial pressure guess as CenteredGrid
+        particles (Optional if occupation masks are provided): Pointcloud holding the current positions of the particles
+        domain (Optional if occupation masks are provided): Domain object
+        pressure (Optional): Initial pressure guess as CenteredGrid
+        occupied_centered (Optional): Binary mask indicating CenteredGrid cells which hold particles
+        occupied_staggered (Optional): Binary mask indicating StaggeredGrid cells which hold particles
 
     Returns:
-        Projected velocity field and corresponding pressure field
+        Projected velocity field, pressure field and occupation_mask
     """
-    velocity_field, _ = extrapolate_valid(velocity_field, svalid, 1)  # extrapolation conserves falling shapes
+    if occupied_centered is None or occupied_staggered is None:
+        assert particles is not None and domain is not None, 'Particles and Domain are necessary if occupation masks are not provided.'
+        points = domain.points(particles.elements.center)  # ensure values == 1
+    occupied_centered = occupied_centered or points >> domain.grid()
+    occupied_staggered = occupied_staggered or points >> domain.staggered_grid()
+
+    velocity_field, _ = extrapolate_valid(velocity_field, occupied_staggered, 1)  # extrapolation conserves falling shapes
     velocity_field *= accessible  # Enforces boundary conditions after extrapolation
-    div = field.divergence(velocity_field) * cvalid
+    div = field.divergence(velocity_field) * occupied_centered
 
-    def laplace(p):
-        return field.where(cvalid, field.divergence(field.gradient(p, type=StaggeredGrid) * accessible), p)
+    def matrix_eq(p):
+        return field.where(occupied_centered, field.divergence(field.gradient(p, type=StaggeredGrid) * accessible), p)
 
-    converged, pressure, iterations = field.solve(laplace, div, pressure, solve_params=math.LinearSolve(None, 1e-5))
+    converged, pressure, iterations = field.solve(matrix_eq, div, pressure or domain.grid(), solve_params=math.LinearSolve(None, 1e-5))
     gradp = field.gradient(pressure, type=type(velocity_field))
-    return velocity_field - gradp, pressure
+    return velocity_field - gradp, pressure, occupied_staggered
 
 
 def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
@@ -81,22 +123,24 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_g
         return previous_particle_velocity.with_(values=v_values)
 
 
-def respect_boundaries(particles: PointCloud, domain: Domain, obstacles: tuple or list, offset=1.0) -> PointCloud:
+def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: list, offset: float = 1.0) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 
     obstacles or back into the domain.
     
     Args:
         particles: PointCloud holding particle positions as elements
-        domain: Domain for which any particles outside should get shifted inside
-        obstacles: List of obstacles where any particles inside should get shifted outwards
+        domain: Domain for which any particles outside should get shifted inwards
+        not_accessible: List of Obstacle or Geometry objects where any particles inside should get shifted outwards
         offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
 
     Returns:
         PointCloud where all particles are inside the domain / outside of obstacles.
     """
     new_positions = particles.elements.center
-    for obstacle in obstacles:
-        new_positions = obstacle.geometry.push(new_positions, shift_amount=offset)
+    for obj in not_accessible:
+        if isinstance(obj, Obstacle):
+            obj = obj.geometry
+        new_positions = obj.push(new_positions, shift_amount=offset)
     new_positions = (~domain.bounds).push(new_positions, shift_amount=offset)
-    return particles.with_(elements=Sphere(new_positions, 0))
+    return particles.with_(elements=Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))

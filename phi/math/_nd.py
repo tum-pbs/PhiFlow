@@ -281,6 +281,30 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
     return extrapolate_valid_values(new_x, math.divide_no_nan(new_mask, new_mask), distance_cells=distance_cells - 1)
 
 
+def distribute_points(mask: Tensor, points_per_cell: int = 1, dist: str = 'uniform') -> Tensor:
+    """
+    Generates points from a random distribution according to the given tensor mask.
+
+    Args:
+        mask: Tensor with nonzero values at the indices where particles should get generated.
+        points_per_cell: Number of particles to generate at each marked index
+        dist: Random distribution from which point positions get drawn ('center' or 'uniform').
+
+    Returns:
+        A tensor containing the positions of the generated points.
+    """
+    indices = math.to_float(math.nonzero(mask, list_dim='points'))
+    temp = []
+    for _ in range(points_per_cell):
+        if dist == 'center':
+            temp.append(indices + 0.5)
+        elif dist == 'uniform':
+            temp.append(indices + (math.random_uniform(indices.shape)))
+        else:
+            raise NotImplementedError
+    return math.concat(temp, dim='points')
+
+
 # Gradient
 
 def gradient(grid: Tensor,

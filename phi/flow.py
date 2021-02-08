@@ -22,7 +22,7 @@ from . import field
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, distribute_points
 
 from . import physics
-from .physics import fluid, flip, advect, diffuse, Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle, Gravity, gravity_tensor
+from .physics import fluid, flip, advect, diffuse, Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle
 
 from . import app
 from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show

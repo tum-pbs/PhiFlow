@@ -283,8 +283,8 @@ class Domain:
     def points(self,
                points: Tensor or Number or tuple or list,
                radius: Tensor or float or int or None = None,
-               extrapolation: math.Extrapolation = None,
-               color: str or Tensor or tuple or list = '#0060ff') -> PointCloud:
+               extrapolation: math.Extrapolation = extrapolation.ZERO,
+               color: str or Tensor or tuple or list or None = None) -> PointCloud:
         """
         Create a `phi.field.PointCloud` from the given `points`.
         The created field has no channel dimensions and all points carry the value `1`.
@@ -292,13 +292,12 @@ class Domain:
         Args:
             points: point locations in physical units
             radius: (optional) size of the particles
-            extrapolation: (optional) extrapolation to use, defaults to Domain.boundaries.grid_extrapolation
+            extrapolation: (optional) extrapolation to use, defaults to extrapolation.ZERO
             color: (optional) color used when plotting the points
 
         Returns:
             `phi.field.PointCloud` object
         """
-        extrapolation = extrapolation or self.boundaries.grid_extrapolation
         if radius is None:
             radius = math.mean(self.bounds.size) * 0.005
         # --- Parse points: tuple / list ---

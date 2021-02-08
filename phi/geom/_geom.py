@@ -190,17 +190,6 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def add(self, other, dim: str):
-        """
-        Adds the tensors of another Geometry with this one by concatenating
-        the tensors along `dim`
-
-        Args:
-             other: The other Geometry
-             dim: The dimension along which tensors should get concatenated
-        """
-        raise NotImplementedError(self.__class__)
-
     def __invert__(self):
         return _InvertedGeometry(self)
 

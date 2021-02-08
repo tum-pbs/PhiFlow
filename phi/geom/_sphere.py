@@ -62,29 +62,6 @@ class Sphere(Geometry):
     def rotated(self, angle):
         return self
 
-    def add(self, other: Geometry, dim: str):
-        """
-        Concatenates centers of `other` Geometry with the ones of this one along `dim`.
-        Radii of both Geometries must be equal and of rank 0 or must have the same rank
-        and the same leading dimension along which the radii get concatenated in this case.
-
-        Args:
-            other: Second Sphere
-            dim: The dimension along which the centers should get concatenated
-
-        Returns:
-            A new Sphere holding the concatenated tensors.
-        """
-        assert isinstance(other, Sphere), f'Geometries sphere and {type(other)} are not compatible.'
-        new_center = math.concat([self.center, other.center], dim=dim)
-        if self._radius.rank == 0:
-            assert self._radius == other.radius, 'Radii of Spheres are not compatible.'
-            new_radius = self._radius
-        else:
-            assert self._radius.shape[0] == other.radius.shape[0], 'Radii of Spheres are not compatible.'
-            new_radius = math.concat([self.radius, other.radius], dim=self._radius.shape[0])
-        return Sphere(new_center, new_radius)
-
     def __eq__(self, other):
         return isinstance(other, Sphere) \
                and self._shape == other.shape \
