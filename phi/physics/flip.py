@@ -1,6 +1,5 @@
 from phi import math, field
 from typing import List, Tuple
-from phi.math import Tensor
 from phi.physics import Domain, Obstacle
 from phi.field import StaggeredGrid, HardGeometryMask, PointCloud, CenteredGrid, Grid, extrapolate_valid
 from phi.geom import union, Sphere

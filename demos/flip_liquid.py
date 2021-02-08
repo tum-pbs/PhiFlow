@@ -9,15 +9,14 @@ bcs = flip.get_accessible_mask(domain, obstacles)
 # --- Initialize particles ---
 point_mask = domain.grid(HardGeometryMask(union([Box[20:40, 50:60], Box[:, :10]])))
 initial_points = distribute_points(point_mask.values, 8)
-initial_velocity = math.tensor(np.zeros(initial_points.shape), names=['points', 'vector'])
-initial_particles = PointCloud(Sphere(initial_points, 0), values=initial_velocity)
+initial_particles = domain.points(Sphere(initial_points, 0))
 
 state = dict(particles=initial_particles, v_field=initial_particles.at(domain.sgrid()), pressure=domain.grid(0),
-             t=0, c_occupied=PointCloud(initial_particles.elements).at(domain.grid()))
+             t=0, c_occupied=domain.points(initial_particles.elements).at(domain.grid()))
 
 
 def step(particles, v_field, dt, t, **kwargs):
-    points = PointCloud(particles.elements, values=1)
+    points = domain.points(particles.elements)
     c_occupied = points >> domain.grid()
     s_occupied = points >> domain.sgrid()
     v_force_field = v_field + dt * gravity_tensor(Gravity(), v_field.shape.spatial.rank)

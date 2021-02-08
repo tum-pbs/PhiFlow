@@ -13,6 +13,7 @@ See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fi
 """
 
 from ._field import Field, SampledField
+from ._point_cloud import distribute_points, PointCloud
 from ._analytic import AnalyticField
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask

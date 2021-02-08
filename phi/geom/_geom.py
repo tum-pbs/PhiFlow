@@ -190,7 +190,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def add(self, other: Geometry, dim: str):
+    def add(self, other, dim: str):
         """
         Adds the tensors of another Geometry with this one by concatenating
         the tensors along `dim`

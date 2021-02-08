@@ -100,9 +100,9 @@ class PointCloud(SampledField):
         assert isinstance(other, PointCloud)
         from ._field_math import concat
         return concat(self, other, dim='points')
-    
 
-def _distribute_points(density, particles_per_cell=1, distribution='uniform'):
+
+def distribute_points(density, particles_per_cell=1, distribution='uniform'):
     """
     Distribute points according to the distribution specified in density.
 
