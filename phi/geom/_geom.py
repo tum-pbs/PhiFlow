@@ -124,7 +124,7 @@ class Geometry:
         Args:
             positions: Tensor holding positions to shift
             outward: Flag for indicating inward (False) or outward (True) shift
-            shift_amount: Offset to box boundaries after shifting
+            shift_amount: Minimum distance between positions and box boundaries after shifting
 
         Returns:
             Tensor holding shifted positions

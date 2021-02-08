@@ -10,7 +10,7 @@ from ._boundaries import Domain
 
 def make_incompressible(velocity: Grid,
                         domain: Domain,
-                        obstacles=(),
+                        obstacles: tuple or list = (),
                         solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
                         pressure_guess: CenteredGrid = None):
     """
@@ -19,27 +19,21 @@ def make_incompressible(velocity: Grid,
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
-      velocity: vector field sampled on a grid
-      domain: used to specify boundary conditions
-      obstacles: list of Obstacles to specify boundary conditions inside the domain (Default value = ())
-      pressure_guess: initial guess for the pressure solve
-      solve_params: parameters for the pressure solve
-      velocity: Grid: 
-      domain: Domain: 
-      solve_params: math.LinearSolve:  (Default value = math.LinearSolve(None)
-      1e-3): 
-      pressure_guess: CenteredGrid:  (Default value = None)
+      velocity: Vector field sampled on a grid
+      domain: Used to specify boundary conditions
+      obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
+      pressure_guess: Initial guess for the pressure solve
+      solve_params: Parameters for the pressure solve
 
     Returns:
-      incompressible_velocity: divergence-free velocity of type `type(velocity)`
+      velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
       iterations: Number of iterations required to solve for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
 
     """
     input_velocity = velocity
-    active = 1 - HardGeometryMask(union([obstacle.geometry for obstacle in obstacles]))
-    active = domain.grid(active, extrapolation=domain.boundaries.active_extrapolation)
+    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries.active_extrapolation)
     accessible = domain.grid(active, extrapolation=domain.boundaries.accessible_extrapolation)
     hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries.accessible_extrapolation, type=type(velocity))
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries.near_vector_extrapolation)

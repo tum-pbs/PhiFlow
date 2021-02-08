@@ -13,7 +13,7 @@ from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, 
 from phi.field._field_math import GridType
 
 
-def advect(field: Field, velocity: Field, dt: float or int, accessible: Field = None, occupied: Field = None):
+def advect(field: Field, velocity: Field, dt: float) -> Field:
     """
     Advect `field` along the `velocity` vectors using the default advection method.
 
@@ -21,8 +21,6 @@ def advect(field: Field, velocity: Field, dt: float or int, accessible: Field = 
       field: any built-in Field
       velocity: any Field
       dt: time increment
-      accessible: boundary conditions used only in 'rk4' mode
-      occupied: binary field of the same type as velocity indicating particle positions (only used in 'rk4' modes)
 
     Returns:
       Advected field of same type as `field`
@@ -30,7 +28,7 @@ def advect(field: Field, velocity: Field, dt: float or int, accessible: Field = 
     if isinstance(field, PointCloud):
         if isinstance(velocity, PointCloud) and velocity.elements == field.elements:
             return points(field, velocity, dt)
-        return runge_kutta_4(field, velocity, dt=dt, accessible=accessible, occupied=occupied)
+        return runge_kutta_4(field, velocity, dt=dt)
     if isinstance(field, ConstantField):
         return field
     if isinstance(field, (CenteredGrid, StaggeredGrid)):

@@ -98,27 +98,14 @@ class AbstractBox(Geometry):
         return math.max(distance, 'vector')
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        """
-        Shifts positions either into or out of the Box.
-
-        Args:
-            positions: Tensor holding positions to shift
-            outward: Flag for indicating inward (False) or outward (True) shift
-            shift_amount: Minimal distance between positions and box boundaries after shifting
-
-        Returns:
-            Tensor holding shifted positions.
-        """
-        center = 0.5 * (self.lower + self.upper)
-        extent = self.upper - self.lower
-        loc_to_center = positions - center
-        distance = math.abs(loc_to_center) - extent * 0.5
+        loc_to_center = positions - self.center
+        sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
         if outward:
-            shift = math.where(distance == math.max(distance, 'vector'), distance, 0)  # get shift towards nearest border
+            shift = math.where(sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector'), sgn_dist_from_surface, 0)  # get shift towards nearest border
             shift = math.where(shift < 0, shift, 0)  # filter points inside geometry
             shift = math.where(loc_to_center < 0, 1, -1) * (shift - math.where(shift != 0, shift_amount, 0))  # get shift direction
         else:
-            shift = math.where(distance < 0, 0, distance)
+            shift = math.where(sgn_dist_from_surface < 0, 0, sgn_dist_from_surface)
             shift += math.where(shift != 0, shift_amount, 0)
             shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
             shift = math.where(loc_to_center < 0, 1, -1) * shift  # get shift direction

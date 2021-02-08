@@ -344,6 +344,9 @@ class Tensor:
     def __neg__(self):
         return self._op1(lambda t: -t)
 
+    def __invert__(self):
+        return self._op1(lambda t: ~t)
+
     def __reversed__(self):
         assert self.shape.channel.rank == 1
         return self[::-1]

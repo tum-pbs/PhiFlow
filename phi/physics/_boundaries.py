@@ -1,8 +1,8 @@
 from numbers import Number
 
-from phi import math, struct
-from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, PointCloud, Field
-from phi.geom import Box, GridCell, Sphere
+from phi import math, struct, field
+from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, PointCloud, Field, HardGeometryMask, Grid
+from phi.geom import Box, GridCell, Sphere, union
 from phi.geom import Geometry
 from phi.math import extrapolation, Tensor
 from phi.math import spatial_shape
@@ -154,7 +154,7 @@ class Domain:
     def grid(self,
              value: Field or Tensor or Number or Geometry or callable = 0,
              type: type = CenteredGrid,
-             extrapolation: math.Extrapolation = None) -> StaggeredGrid or CenteredGrid:
+             extrapolation: math.Extrapolation = None) -> CenteredGrid or StaggeredGrid:
         """
         Creates a grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -218,7 +218,7 @@ class Domain:
     def vector_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0,
                     type: type = CenteredGrid,
-                    extrapolation: math.Extrapolation = None) -> StaggeredGrid or CenteredGrid:
+                    extrapolation: math.Extrapolation = None) -> CenteredGrid or StaggeredGrid:
         """
         Creates a vector grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -280,6 +280,26 @@ class Domain:
         """
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
 
+    def accessible_mask(self, not_accessible: Geometry, type: type = CenteredGrid) -> CenteredGrid or StaggeredGrid:
+        """
+        Unifies domain and Obstacle or Geometry objects into a binary StaggeredGrid mask which can be used
+        to enforce boundary conditions.
+
+        Args:
+            not_accessible: blocked region(s) of space
+
+        Returns:
+            Binary mask indicating valid fields w.r.t. the boundary conditions.
+        """
+        accessible = HardGeometryMask(~not_accessible) >> self.grid()
+        accessible_mask = self.grid(accessible, extrapolation=self.boundaries.accessible_extrapolation)
+        if type is CenteredGrid:
+            return accessible_mask
+        elif type is StaggeredGrid:
+            return field.stagger(accessible_mask, math.minimum, self.boundaries.accessible_extrapolation)
+        else:
+            raise ValueError('Unknown grid type: %s' % type)
+
     def points(self,
                points: Tensor or Number or tuple or list,
                radius: Tensor or float or int or None = None,
@@ -311,6 +331,27 @@ class Domain:
                 points = math.tensor(points, 'points, vector')
         elements = Sphere(points, radius)
         return PointCloud(elements, 1, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
+
+    def distribute_points(self,
+                          distribution: Field or Geometry,
+                          points_per_cell: int = 8,
+                          color: str = None) -> PointCloud:
+        """
+        Transforms Geometry or Obstacle objects into a PointCloud.
+
+        Args:
+            distribution: Single or multiple Geometry or Obstacle objects
+            points_per_cell: Number of points for each cell of `geometries`
+            color (Optional): Color of PointCloud
+
+        Returns:
+             PointCloud representation of `geometries`.
+        """
+        if isinstance(distribution, Geometry):
+            distribution = HardGeometryMask(distribution)
+        distribution >>= self.grid()
+        initial_points = _distribute_points(distribution.values, points_per_cell)
+        return self.points(initial_points, color=color)
 
 
 @struct.definition()
@@ -368,3 +409,27 @@ class GeometryMovement(Physics):
             with struct.ALL_ITEMS:
                 next_field = struct.map(lambda x: x.copied_with(geometries=next_geometry) if isinstance(x, GeometryMask) else x, obj.field, leaf_condition=lambda x: isinstance(x, GeometryMask))
             return obj.copied_with(field=next_field, age=obj.age + dt)
+
+
+def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, dist: str = 'uniform') -> math.Tensor:
+    """
+    Generates points from a random distribution according to the given tensor mask.
+
+    Args:
+        mask: Tensor with nonzero values at the indices where particles should get generated.
+        points_per_cell: Number of particles to generate at each marked index
+        dist: Random distribution from which point positions get drawn ('center' or 'uniform').
+
+    Returns:
+        A tensor containing the positions of the generated points.
+    """
+    indices = math.to_float(math.nonzero(mask, list_dim='points'))
+    temp = []
+    for _ in range(points_per_cell):
+        if dist == 'center':
+            temp.append(indices + 0.5)
+        elif dist == 'uniform':
+            temp.append(indices + (math.random_uniform(indices.shape)))
+        else:
+            raise NotImplementedError
+    return math.concat(temp, dim='points')

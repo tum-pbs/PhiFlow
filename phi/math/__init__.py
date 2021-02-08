@@ -65,7 +65,6 @@ from ._nd import (
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
     extrapolate_valid_values,
-    distribute_points
 )
 
 PI = 3.14159265358979323846

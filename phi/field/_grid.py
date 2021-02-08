@@ -236,7 +236,7 @@ class StaggeredGrid(Grid):
     def with_(self,
               elements: Geometry or None = None,
               values: Tensor = None,
-              extrapolation: math.Extrapolation = None) -> SampledField:
+              extrapolation: math.Extrapolation = None) -> 'StaggeredGrid':
         assert elements is None
         values = _validate_staggered_values(values) if values is not None else None
         return Grid.with_(self, values=values, extrapolation=extrapolation)
