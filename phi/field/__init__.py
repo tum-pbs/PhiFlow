@@ -29,6 +29,7 @@ from ._field_math import (
     where,
     l2_loss,
     stop_gradient,
+    extrapolate_valid,
 )
 from ._field_io import write, read
 

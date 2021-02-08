@@ -100,6 +100,66 @@ class TestMathNDNumpy(TestCase):
         math.print(same_size, 'Same size')
         math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
 
+    def test_masked_extp_sanity(self):
+        ten = tensor(np.zeros((3, 3)), 'x, y')
+        ten.native()[1, 1] = 1
+        res, mask = math.extrapolate_valid_values(ten, ten)
+        expected = np.ones((3, 3))
+        assert np.all(res.numpy() == expected)
+        assert np.all(mask.numpy() == expected)
+
+    def test_masked_extp_sanity_size(self):
+        ten = tensor(np.zeros((5, 5)), 'x, y')
+        ten.native()[2, 2] = 1
+        res, mask = math.extrapolate_valid_values(ten, ten, 2)
+        expected = np.ones((5, 5))
+        assert np.all(res.numpy() == expected)
+        assert np.all(mask.numpy() == expected)
+
+    def test_masked_extp_full(self):
+        arr = np.array([[0., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.],
+                        [1., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 1., 1., 0., 0., 0., 0.],
+                        [0., 0., 1., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.],
+                        [0., 0., 0., 0., 0., 0., 0., 0.]])
+        mask = tensor(arr, 'x, y')
+
+        expected_mask = np.array([[1., 1., 1., 0., 0., 0., 0., 0.],
+                                  [1., 1., 1., 0., 0., 0., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 1., 0., 0.],
+                                  [1., 1., 1., 1., 1., 0., 0., 0.]])
+
+        arr = np.array([[-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-5., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., 0., 2., -1., -1., -1., -1.],
+                        [-1., -1., 5., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.],
+                        [-1., -1., -1., -1., -1., -1., -1., -1.]])
+        ten = tensor(arr, 'x, y')
+
+        expected_res = np.array([[-5., -5., -5., -1., -1., -1., -1., -1.],
+                                 [-5., -5., -5., -1., -1., -1., -1., -1.],
+                                 [-5., -5., -2.5, 2., 2., 2., -1., -1.],
+                                 [-5., -2.5, 0., 2., 2., 2., -1., -1.],
+                                 [-2.5, 0., 0., 2., 2., 2., -1., -1.],
+                                 [5., 5., 5., 3.5, 2., 2., -1., -1.],
+                                 [5., 5., 5., 5., 3.5, 2., -1., -1.],
+                                 [5., 5., 5., 5., 5., -1., -1., -1.]])
+
+        res, mask = math.extrapolate_valid_values(ten, mask, 2)
+
+        assert np.all(res.numpy() == expected_res)
+        assert np.all(mask.numpy() == expected_mask)
+
     # def test_fourier_poisson_2d_periodic(self):
     #     test_params = {
     #         'size': [16, 32, 40],

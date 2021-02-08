@@ -2,7 +2,7 @@
 from __future__ import division
 
 import numpy as np
-
+from typing import Tuple
 from phi import struct
 from . import extrapolation as extrapolation
 from . import _functions as math
@@ -237,6 +237,72 @@ def shift(x: Tensor,
             components.append(x[slices])
         offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors
+
+
+def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -> Tuple[Tensor, Tensor]:
+    """
+    Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all directions.
+    Overlapping extrapolated values get averaged. Extrapolation also includes diagonals. Vertical / Horizonal extrapolations
+    take precedence over diagonal ones. Initial values within the mask do not get overwritten.
+
+    Examples (1-step extrapolation), x marks the values for extrapolation:
+        200   000    111        004   00x    044        100   000    144
+        010 + 0x0 => 111        000 + 000 => 234        004 + 00x => 244
+        040   000    111        200   x00    220        200   x00    224
+
+    Args:
+        values: Tensor which holds the values for extrapolation
+        valid: Tensor with same size as `x` marking the values for extrapolation with nonzero values
+        distance_cells: Number of extrapolation steps
+
+    Returns:
+        Tensor with extrapolation result and mask marking all extrapolated values.
+    """
+    if distance_cells <= 0:
+        return values, valid
+    distance_cells = min(distance_cells, max(values.shape))
+    valid = math.divide_no_nan(valid, valid)  # ensure binary mask
+    values_l, values_r = shift(values * valid, (-1, 1))
+    mask_l, mask_r = shift(valid, (-1, 1))
+    overlap = math.sum_(mask_l + mask_r, dim='shift')
+    extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
+
+    # --- extrapolate diagonally (double y to shift up and down component of y-shift left and right) ---
+    values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims='y')
+    mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims='y')
+    values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims='y')
+    mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims='y')
+    overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
+
+    extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]  # take mean (shift axis has only one component)
+    extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
+    new_mask = (valid + overlap + overlap_diag).unstack('shift')[0]
+    new_x = math.where(valid, values, math.where(new_mask, extp, values))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
+    return extrapolate_valid_values(new_x, math.divide_no_nan(new_mask, new_mask), distance_cells=distance_cells - 1)
+
+
+def distribute_points(mask: Tensor, points_per_cell: int = 1, dist: str = 'uniform') -> Tensor:
+    """
+    Generates points from a random distribution according to the given tensor mask.
+
+    Args:
+        mask: Tensor with nonzero values at the indices where particles should get generated.
+        points_per_cell: Number of particles to generate at each marked index
+        dist: Random distribution from which point positions get drawn ('center' or 'uniform').
+
+    Returns:
+        A tensor containing the positions of the generated points.
+    """
+    indices = math.to_float(math.nonzero(mask, list_dim='points'))
+    temp = []
+    for _ in range(points_per_cell):
+        if dist == 'center':
+            temp.append(indices + 0.5)
+        elif dist == 'uniform':
+            temp.append(indices + (math.random_uniform(indices.shape)))
+        else:
+            raise NotImplementedError
+    return math.concat(temp, dim='points')
 
 
 # Gradient

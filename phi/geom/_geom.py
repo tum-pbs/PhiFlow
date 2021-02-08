@@ -117,6 +117,20 @@ class Geometry:
         inside_fraction = math.clip(inside_fraction, 0, 1)
         return inside_fraction
 
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        """
+        Shifts positions either into or out of geometry.
+
+        Args:
+            positions: Tensor holding positions to shift
+            outward: Flag for indicating inward (False) or outward (True) shift
+            shift_amount: Offset to box boundaries after shifting
+
+        Returns:
+            Tensor holding shifted positions
+        """
+        raise NotImplementedError(self.__class__)
+
     def bounding_radius(self) -> Tensor:
         """
         Returns the radius of a Sphere object that fully encloses this geometry.
@@ -219,6 +233,9 @@ class _InvertedGeometry(Geometry):
 
     def approximate_fraction_inside(self, other_geometry: Geometry) -> Tensor:
         return 1 - self.geometry.approximate_fraction_inside(other_geometry)
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        return self.geometry.push(positions, outward=not outward, shift_amount=shift_amount)
 
     def bounding_radius(self) -> Tensor:
         raise NotImplementedError()
