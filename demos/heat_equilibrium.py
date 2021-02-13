@@ -3,6 +3,7 @@ from phi.flow import *
 
 DESCRIPTION = """
 A horizontal plate at the top is heated and a sphere at the bottom is cooled.
+Control the heat source using the sliders at the bottom.
 """
 
 DOMAIN = Domain(x=64, y=64)

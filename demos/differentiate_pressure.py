@@ -10,10 +10,10 @@ from phi.tf.flow import *
 DOMAIN = Domain(x=62, y=62, boundaries=CLOSED)
 LEFT = DOMAIN.staggered_grid(HardGeometryMask(Box[:31, :]))
 RIGHT = DOMAIN.staggered_grid(HardGeometryMask(Box[31:, :]))
+CELL_CENTERS = DOMAIN.cells.center
 
 velocity = incompressible_velocity = DOMAIN.staggered_grid(lambda x: math.random_normal(x.shape.without('vector'))) * 0.2 * LEFT
-centers = DOMAIN.cells.center
-target = 2 * math.exp(-0.5 * ((centers.vector[0] - 40) ** 2 + (centers.vector[1] - 10) ** 2) / 32 ** 2) * (0, 1)
+target = 2 * math.exp(-0.5 * ((CELL_CENTERS.vector[0] - 40) ** 2 + (CELL_CENTERS.vector[1] - 10) ** 2) / 32 ** 2) * (0, 1)
 target = DOMAIN.staggered_grid(DOMAIN.vector_grid(target)) * RIGHT
 pressure_guess = None
 for _iter in ModuleViewer(['velocity', 'target', 'incompressible_velocity']).range():

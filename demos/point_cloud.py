@@ -1,3 +1,6 @@
+""" Point Cloud Demo
+Demonstrates working with PointCloud objects and plotting them.
+"""
 from phi.flow import *
 
 
