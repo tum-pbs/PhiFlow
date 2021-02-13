@@ -1,6 +1,7 @@
 import numbers
 import time
 import warnings
+from contextlib import contextmanager
 from typing import Tuple, List
 
 import numpy as np
@@ -66,7 +67,10 @@ class TorchBackend(Backend):
         return True  # ToDo may require different handling for TorchScript
 
     def numpy(self, tensor):
-        return tensor.numpy()
+        if tensor.requires_grad:
+            return tensor.detach().numpy()
+        else:
+            return tensor.numpy()
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
@@ -184,8 +188,7 @@ class TorchBackend(Backend):
         return torch.prod(value, dim=axis)
 
     def divide_no_nan(self, x, y):
-        if not isinstance(y, torch.Tensor):
-            y = torch.Tensor(y)
+        x, y = self.auto_cast(x, y)
         result = self.as_tensor(x) / self.as_tensor(y)
         return torch.where(y == 0, torch.zeros_like(result), result)
 
@@ -535,6 +538,28 @@ class TorchBackend(Backend):
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             dy = function(dx)
         return converged, x, iterations
+
+    def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
+        grad = torch.autograd.grad(y, xs, grad_y)
+        return grad
+
+    @contextmanager
+    def record_gradients(self, xs: tuple or list, persistent=False):
+        for x in xs:
+            assert self.is_tensor(x, only_native=True), f"Must be a PyTorch tensor but got {x}"
+        xs = [x if x.is_leaf else x.detach_() for x in xs]
+        assert not any(x.requires_grad for x in xs)
+        for x in xs:
+            x.requires_grad = True
+        try:
+            yield None
+        finally:
+            for x in xs:
+                x.requires_grad = False
+
+    def stop_gradient(self, value):
+        return value.detach()
+
 
 
 TORCH_BACKEND = TorchBackend()
