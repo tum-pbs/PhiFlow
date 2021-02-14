@@ -29,8 +29,15 @@ class Noise(AnalyticField):
         return self._shape
 
     def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+        shape = self._shape.without(reduce_channels)
+        if reduce_channels:
+            assert len(reduce_channels) == 1
+            geoms = geometry.unstack(reduce_channels[0])
+            assert all(isinstance(g, GridCell) for g in geoms)
+            components = [self.grid_sample(g.resolution, g.grid_size, shape) for g in geoms]
+            return math.channel_stack(components, 'vector')
         if isinstance(geometry, GridCell):
-            return self.grid_sample(geometry.resolution, geometry.grid_size, self._shape.without(reduce_channels))
+            return self.grid_sample(geometry.resolution, geometry.grid_size, shape)
         raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")
 
     def sample_at(self, points, reduce_channels=()) -> math.Tensor:
