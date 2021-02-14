@@ -12,7 +12,7 @@ class ColabNotebookTest(TestCase):
             INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], 'inflow_loc,vector', convert=True)
             INFLOW = DOMAIN.grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
 
-            smoke = DOMAIN.grid(math.zeros(inflow_loc=4))
+            smoke = DOMAIN.scalar_grid(math.zeros(inflow_loc=4))
             velocity = initial_velocity = DOMAIN.staggered_grid(0) * math.ones(inflow_loc=4)
 
             with math.record_gradients(velocity.values):

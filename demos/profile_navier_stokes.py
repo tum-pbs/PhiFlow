@@ -18,7 +18,7 @@ from phi.flow import *
 
 DOMAIN = Domain(x=128, y=128, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 velocity = DOMAIN.staggered_grid(Noise(vector=2))
-pressure = DOMAIN.grid(0)
+pressure = DOMAIN.scalar_grid(0)
 
 with backend.profile() as prof:
     for _ in range(2):

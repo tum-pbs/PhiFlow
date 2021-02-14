@@ -15,7 +15,7 @@ _OBSTACLE_POINTS = DOMAIN.distribute_points(OBSTACLE, color='#000000')  # only f
 
 particles = DOMAIN.distribute_points(union(Box[20:40, 50:60], Box[:, :5])) * (0, 0)
 velocity = particles >> DOMAIN.staggered_grid()
-pressure = DOMAIN.grid()
+pressure = DOMAIN.scalar_grid()
 scene = particles & _OBSTACLE_POINTS * (0, 0)  # only for plotting
 
 for _ in ModuleViewer(display='scene').range():

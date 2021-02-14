@@ -9,7 +9,7 @@ DOMAIN = Domain(x=50, y=32, boundaries=[OPEN, STICKY])
 DT = 1.0
 BOUNDARY_MASK = HardGeometryMask(Box[:0.5, :]) >> DOMAIN.staggered_grid()
 velocity = DOMAIN.staggered_grid(0)
-pressure = DOMAIN.grid(0)
+pressure = DOMAIN.scalar_grid(0)
 
 for _ in ModuleViewer(display='velocity').range():
     velocity = advect.semi_lagrangian(velocity, velocity, DT)

@@ -1,3 +1,4 @@
+import warnings
 from numbers import Number
 
 from phi import math, struct, field
@@ -20,13 +21,13 @@ class Material:
     Use Material.as_material() to mix different materials for different sides.
     """
 
-    def __init__(self, name: str, grid_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
+    def __init__(self, name: str, scalar_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
         """
         Create a Material for a Domain or Obstacle.
 
         Args:
           name: material name
-          grid_extrapolation: extrapolation mode of grids created via Domain.grid()
+          scalar_extrapolation: extrapolation mode of grids created via Domain.grid()
           vector_extrapolation: extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
           near_vector_extrapolation: Used in pressure solve.
           active_extrapolation: Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.
@@ -34,8 +35,8 @@ class Material:
         """
         self.name = name
         """ Material name """
-        self.grid_extrapolation = grid_extrapolation
-        """ Extrapolation mode of grids created via Domain.grid() """
+        self.scalar_extrapolation = scalar_extrapolation
+        """ Extrapolation mode of grids created via Domain.scalar_grid() """
         self.vector_extrapolation = vector_extrapolation
         """ Extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid() """
         self.near_vector_extrapolation = near_vector_extrapolation
@@ -67,7 +68,7 @@ class Material:
             dims = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
             obj = {dim: mat for dim, mat in zip(dims, obj)}
         if isinstance(obj, dict):
-            grid_extrapolation = _mix(obj, 'grid_extrapolation')
+            grid_extrapolation = _mix(obj, 'scalar_extrapolation')
             near_vector_extrapolation = _mix(obj, 'near_vector_extrapolation')
             vector_extrapolation = _mix(obj, 'vector_extrapolation')
             active_extrapolation = _mix(obj, 'active_extrapolation')
@@ -156,6 +157,8 @@ class Domain:
              type: type = CenteredGrid,
              extrapolation: math.Extrapolation = None) -> CenteredGrid or StaggeredGrid:
         """
+        *Deprecated* due to inconsistent extrapolation selection. Use `scalar_grid()` or `vector_grid()` instead.
+
         Creates a grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
         
@@ -168,12 +171,13 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
 
         Returns:
           Grid of specified type
         """
-        extrapolation = extrapolation or self.boundaries.grid_extrapolation
+        warnings.warn("Domain.grid is deprecated. Use scalar_grid or vector_grid instead.", DeprecationWarning)
+        extrapolation = extrapolation or self.boundaries.scalar_extrapolation
         if type is CenteredGrid:
             return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         elif type is StaggeredGrid:
@@ -197,12 +201,12 @@ class Domain:
 
         Args:
           value: constant, Field, Tensor or function specifying the grid values
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
 
         Returns:
           `CenteredGrid` with no channel dimensions
         """
-        extrapolation = extrapolation or self.boundaries.grid_extrapolation
+        extrapolation = extrapolation or self.boundaries.scalar_extrapolation
         if isinstance(value, Field):
             assert value.spatial_rank == self.rank
         elif isinstance(value, Tensor):
@@ -234,7 +238,7 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
 
         Returns:
           Grid of specified type
@@ -273,7 +277,7 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.grid_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
 
         Returns:
           Grid of specified type

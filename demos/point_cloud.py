@@ -13,13 +13,13 @@ points = points1 & points2
 points = field.concat(points1, points2, dim='points')
 
 # Advection
-velocity = DOMAIN.grid([-1, 1])
+velocity = DOMAIN.vector_grid([-1, 1])
 points = advect.advect(points, velocity, 10)  # RK4
 points = advect.advect(points, points * (-1, 1), -5)  # Euler
 
 # Grid sampling
 scattered_data = points.sample_in(DOMAIN.cells)
-scattered_grid = points >> DOMAIN.grid()
+scattered_grid = points >> DOMAIN.vector_grid()
 scattered_sgrid = points >> DOMAIN.staggered_grid()
 
 ModuleViewer()

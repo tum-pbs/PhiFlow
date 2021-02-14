@@ -95,9 +95,9 @@ class Namespace(dict):
 domain = Domain(x=x, y=y,
                 boundaries=PERIODIC,
                 bounds=Box[0:L, 0:L])
-state = Namespace(density=domain.grid(math.random_normal(x=x, y=y)),
-                  omega=domain.grid(math.random_normal(x=x, y=y)),
-                  phi=domain.grid(math.random_normal(x=x, y=y)),
+state = Namespace(density=domain.scalar_grid(math.random_normal(x=x, y=y)),
+                  omega=domain.scalar_grid(math.random_normal(x=x, y=y)),
+                  phi=domain.scalar_grid(math.random_normal(x=x, y=y)),
                   age=0,
                   dx=dx)
 
@@ -106,7 +106,7 @@ def get_phi(plasma, guess=None):
     """Fourier Poisson Solve for Phi"""
     centered_omega = plasma.omega  # (plasma.omega - np.mean(plasma.omega))
     phi = math.fourier_poisson(centered_omega.values, plasma.dx)
-    return domain.grid(phi)
+    return domain.scalar_grid(phi)
 
 
 def step_gradient_2d(plasma, phi, dt=0):

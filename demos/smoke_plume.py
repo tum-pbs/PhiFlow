@@ -6,9 +6,9 @@ The simulation computes the resulting air flow in a closed box.
 from phi.flow import *
 
 DOMAIN = Domain(x=80, y=80, boundaries=CLOSED, bounds=Box[0:100, 0:100])
-INFLOW = DOMAIN.grid(Sphere(center=(50, 10), radius=5)) * 0.2
+INFLOW = DOMAIN.scalar_grid(Sphere(center=(50, 10), radius=5)) * 0.2
 velocity = DOMAIN.staggered_grid(0)  # alternatively vector_grid(0)
-smoke = pressure = divergence = DOMAIN.grid(0)
+smoke = pressure = divergence = DOMAIN.scalar_grid(0)
 
 for _ in ModuleViewer(display=('smoke', 'velocity')).range():
     smoke = advect.semi_lagrangian(smoke, velocity, 1) + INFLOW
