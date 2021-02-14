@@ -399,14 +399,15 @@ class SciPyBackend(Backend):
             return np.fft.fftn(x, axes=list(range(1, rank + 1)))
 
     def ifft(self, k):
+        assert self.dtype(k).kind == complex
         rank = len(k.shape) - 2
         assert rank >= 1
         if rank == 1:
-            return np.fft.ifft(k, axis=1)
+            return np.fft.ifft(k, axis=1).astype(k.dtype)
         elif rank == 2:
-            return np.fft.ifft2(k, axes=[1, 2])
+            return np.fft.ifft2(k, axes=[1, 2]).astype(k.dtype)
         else:
-            return np.fft.ifftn(k, axes=list(range(1, rank + 1)))
+            return np.fft.ifftn(k, axes=list(range(1, rank + 1))).astype(k.dtype)
 
     def imag(self, complex_arr):
         return np.imag(complex_arr)

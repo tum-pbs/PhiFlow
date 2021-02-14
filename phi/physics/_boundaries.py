@@ -3,7 +3,7 @@ from numbers import Number
 
 from phi import math, struct, field
 from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, PointCloud, Field, HardGeometryMask, Grid
-from phi.geom import Box, GridCell, Sphere, union
+from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
 from phi.math import extrapolation, Tensor
 from phi.math import spatial_shape
@@ -208,7 +208,7 @@ class Domain:
         """
         extrapolation = extrapolation or self.boundaries.scalar_extrapolation
         if isinstance(value, Field):
-            assert value.spatial_rank == self.rank
+            assert_same_rank(value.spatial_rank, self.rank, f"Cannot resample {value.spatial_rank}D field to {self.rank}D domain.")
         elif isinstance(value, Tensor):
             assert value.shape.channel.rank == 0
         elif isinstance(value, (Number, Geometry)):

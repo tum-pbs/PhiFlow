@@ -1016,7 +1016,8 @@ def minimize(function, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[
         return y.native()
 
     method = solve_params.solver or 'L-BFGS-B'
-    converged, x_native, iterations = backend.minimize(native_function, x0_flat, method, solve_params.relative_tolerance, solve_params.max_iterations)
+    tolerance = max(solve_params.relative_tolerance, solve_params.absolute_tolerance)
+    converged, x_native, iterations = backend.minimize(native_function, x0_flat, method, tolerance, solve_params.max_iterations)
     x = unflatten_assemble(x_native)
     return tensor(converged), x, tensor(iterations)
 
@@ -1045,6 +1046,8 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
             l2 = l2_loss(diff)
             return l2
 
+        rel_tol_to_abs = solve_params.relative_tolerance * l2_loss(y, batch_norm=True)
+        solve_params.relative_tolerance = solve_params.absolute_tolerance = rel_tol_to_abs
         return minimize(min_func, x0, solve_params=solve_params, callback=callback)
     if solve_params.solver not in (None, 'CG'):
         raise NotImplementedError("Only 'CG' solver currently supported")

@@ -424,34 +424,26 @@ class TorchBackend(Backend):
     def fft(self, x):
         if not x.is_complex():
             x = self.to_complex(x)
-
-        # Using new torch.fft.fft
         for i in range(1, len(x.shape) - 1):
-            x = torch.fft.fft(x, dim=i)  # TODO this returns 0.0
+            x = torch.fft.fft(x, dim=i)
         return x
-
         # Using old torch.Tensor.fft
-        rank = len(x.shape) - 2
-        x = channels_first(x)
-        x = torch.view_as_real(x)
-        k = torch.Tensor.fft(x, rank)  # TODO this returns 0.0
-        if k.is_complex():
-            k = self.real(k).contiguous()
-        k = torch.view_as_complex(k)
-        k = channels_last(k)
-        return k
+        # rank = len(x.shape) - 2
+        # x = channels_first(x)
+        # x = torch.view_as_real(x)
+        # k = torch.Tensor.fft(x, rank)
+        # if k.is_complex():
+        #     k = self.real(k).contiguous()
+        # k = torch.view_as_complex(k)
+        # k = channels_last(k)
+        # return k
 
     def ifft(self, k):
         if not k.is_complex():
             k = self.to_complex(k)
-        rank = len(k.shape) - 2
-        k = channels_first(k)
-        x = torch.fft.ifft(torch.view_as_real(k), rank)
-        if x.is_complex():
-            x = self.real(x).contiguous()
-        x = torch.view_as_complex(x)
-        x = channels_last(x)
-        return x
+        for i in range(1, len(k.shape) - 1):
+            k = torch.fft.ifft(k, dim=i)
+        return k
 
     def imag(self, complex):
         if isinstance(complex, torch.Tensor):
