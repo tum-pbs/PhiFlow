@@ -53,7 +53,7 @@ from ._functions import (
     tile,
     sparse_tensor,
     close, assert_close,
-    solve,
+    solve, minimize,
     record_gradients, gradients, stop_gradient
 )
 from ._nd import (

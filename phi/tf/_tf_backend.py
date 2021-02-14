@@ -1,14 +1,14 @@
 import numbers
 import uuid
 from contextlib import contextmanager
-from typing import List
+from typing import List, Tuple, Any
 
 import numpy as np
+import scipy.optimize as sopt
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice
-from phi.math.backend._scipy_backend import SCIPY_BACKEND
+from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, SCIPY_BACKEND
 from ._tf_cuda_resample import resample_cuda, use_cuda
 from ..math.backend._backend_helper import combined_dim
 
@@ -485,6 +485,25 @@ class TFBackend(Backend):
         converged = result.i < max_iterations
         iterations = result.i
         return converged, result.x, iterations
+
+    def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -> Tuple[bool, Any, int]:
+        x0 = self.numpy(x0)
+
+        # @tf.function
+        def val_and_grad(x):
+            with tf.GradientTape() as tape:
+                tape.watch(x)
+                loss = function(x)
+            grad = tape.gradient(loss, x)
+            return loss, grad
+
+        def min_target(x):
+            x = self.as_tensor(x, convert_external=True)
+            val, grad = val_and_grad(x)
+            return val.numpy().astype(np.float64), grad.numpy().astype(np.float64)
+
+        res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=tolerance, options={'maxiter': max_iterations})
+        return res.success, res.x, res.nit
 
     def add(self, a, b):
         if isinstance(a, tf.SparseTensor) or isinstance(b, tf.SparseTensor):

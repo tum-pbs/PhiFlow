@@ -137,6 +137,12 @@ FieldType = TypeVar('FieldType', bound=Field)
 GridType = TypeVar('GridType', bound=Grid)
 
 
+def minimize(function, x0: Grid, solve_params: math.Solve):
+    data_function = _operate_on_values(function, x0)
+    converged, x, iterations = math.minimize(data_function, x0.values, solve_params=solve_params)
+    return converged, x0.with_(values=x), iterations
+
+
 def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
     if callback is not None:
         def field_callback(x):
@@ -144,9 +150,8 @@ def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
             callback(x)
     else:
         field_callback = None
-
     data_function = _operate_on_values(function, x0)
-    converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params, field_callback)
+    converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params=solve_params, callback=field_callback)
     return converged, x0.with_(values=x), iterations
 
 
@@ -168,8 +173,12 @@ def _operate_on_values(field_function, *proto_fields):
     def wrapper(*field_data):
         fields = [proto.with_(values=data) for data, proto in zip(field_data, proto_fields)]
         result = field_function(*fields)
-        assert isinstance(result, SampledField), f"function must return an instance of SampledField but returned {result}"
-        return result.values
+        if isinstance(result, math.Tensor):
+            return result
+        elif isinstance(result, SampledField):
+            return result.values
+        else:
+            raise ValueError(f"function must return an instance of SampledField or Tensor but returned {result}")
     return wrapper
 
 

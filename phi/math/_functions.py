@@ -16,6 +16,7 @@ from .backend._profile import get_current_profile
 
 
 def choose_backend_t(*values, prefer_default=False):
+    """ Choose backend for given `Tensor` or native tensor values. """
     values = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
     return choose_backend(*values, prefer_default=prefer_default)
 
@@ -980,8 +981,47 @@ def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
-def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[Tensor]:
+def minimize(function, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[Tensor, Tensor, Tensor]:
     """
+    Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
+
+    Args:
+        function: Function to be minimized
+        x0: Initial guess for `x`
+        solve_params: Specifies solver type and parameters such as desired accuracy and maximum iterations.
+        callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
+
+    Returns:
+        The minimum point `x`.
+    """
+    backend = choose_backend_t(x0)
+    x0._expand()
+    natives = x0._natives()
+    natives_flat = [backend.flatten(n) for n in natives]
+    x0_flat = backend.concat(natives_flat, 0)
+
+    def native_function(native_x):
+        native_x_reshaped = backend.reshape(native_x, x0.shape.sizes)
+        x = NativeTensor(native_x_reshaped, x0.shape)
+        y = function(x)
+        return y.native()
+
+    method = solve_params.solver or 'L-BFGS-B'
+    converged, x_native, iterations = backend.minimize(native_function, x0_flat, method, solve_params.relative_tolerance, solve_params.max_iterations)
+    # slice x_native
+    i = 0
+    x_natives = []
+    for native, native_flat in zip(natives, natives_flat):
+        vol = backend.shape(native_flat)[0]
+        x_natives.append(backend.reshape(x_native[i:i+vol], backend.shape(native)))
+        i += vol
+    x = x0._op1(lambda _: x_natives.pop(0))  # assemble x0 structure
+    return tensor(converged), x, tensor(iterations)
+
+
+def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[Tensor, Tensor, Tensor]:
+    """
+    Solves the system of linear or nonlinear equations *operator · x = y*.
 
     Args:
         operator: Function `operator(x)` or matrix
@@ -996,16 +1036,24 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
         iterations: number of iterations performed
     """
     if not isinstance(solve_params, LinearSolve):
-        raise NotImplementedError("Only linear solve is currently supported. Pass a LinearSolve object")
+        from ._nd import l2_loss
+
+        def min_func(x):
+            diff = operator(x) - y
+            l2 = l2_loss(diff)
+            return l2
+
+        return minimize(min_func, x0, solve_params=solve_params, callback=callback)
     if solve_params.solver not in (None, 'CG'):
         raise NotImplementedError("Only 'CG' solver currently supported")
 
     from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
+    backend = choose_backend(*x0._natives(), *y._natives())
     batch = (y.shape & x0.shape).batch
-    backend = choose_backend(x0.native(), y.native())
-    x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
-    y_native = backend.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))
+    x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
+    y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
+
     if callable(operator):
         operator_or_matrix = None
         if solve_params.solver_arguments['bake'] == 'sparse':

@@ -25,7 +25,7 @@ from ._field_math import (
     mean, pad, shift, normalize,
     concat,
     real, imag,
-    solve,
+    solve, minimize,
     where,
     l2_loss,
     stop_gradient,

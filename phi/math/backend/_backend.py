@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Tuple, List
+from typing import Tuple, List, Any
 
 import numpy
 
@@ -502,6 +502,9 @@ class Backend:
           indices (tensor or tuple), values
 
         """
+        raise NotImplementedError(self)
+
+    def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -> Tuple[bool, Any, int]:
         raise NotImplementedError(self)
 
     def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None):
