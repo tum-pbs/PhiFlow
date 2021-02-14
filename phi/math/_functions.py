@@ -366,9 +366,9 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
             # pad one layer
             grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or extrapolation.ZERO)
             if extrap is not None:
-                inner_coordinates = extrap.transform_coordinates(coordinates, grid.shape) + 1
+                inner_coordinates = extrap.transform_coordinates(coordinates_batched, grid.shape) + 1
             else:
-                inner_coordinates = coordinates + 1
+                inner_coordinates = coordinates_batched + 1
             result = backend.grid_sample(grid_batched.native(),
                                          grid.shape.index(grid.shape.spatial),
                                          inner_coordinates.native(),
@@ -1000,22 +1000,24 @@ def minimize(function, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[
     natives_flat = [backend.flatten(n) for n in natives]
     x0_flat = backend.concat(natives_flat, 0)
 
+    def unflatten_assemble(x_native):
+        i = 0
+        x_natives = []
+        for native, native_flat in zip(natives, natives_flat):
+            vol = backend.shape(native_flat)[0]
+            x_natives.append(backend.reshape(x_native[i:i + vol], backend.shape(native)))
+            i += vol
+        x = x0._op1(lambda _: x_natives.pop(0))  # assemble x0 structure
+        return x
+
     def native_function(native_x):
-        native_x_reshaped = backend.reshape(native_x, x0.shape.sizes)
-        x = NativeTensor(native_x_reshaped, x0.shape)
+        x = unflatten_assemble(native_x)
         y = function(x)
         return y.native()
 
     method = solve_params.solver or 'L-BFGS-B'
     converged, x_native, iterations = backend.minimize(native_function, x0_flat, method, solve_params.relative_tolerance, solve_params.max_iterations)
-    # slice x_native
-    i = 0
-    x_natives = []
-    for native, native_flat in zip(natives, natives_flat):
-        vol = backend.shape(native_flat)[0]
-        x_natives.append(backend.reshape(x_native[i:i+vol], backend.shape(native)))
-        i += vol
-    x = x0._op1(lambda _: x_natives.pop(0))  # assemble x0 structure
+    x = unflatten_assemble(x_native)
     return tensor(converged), x, tensor(iterations)
 
 

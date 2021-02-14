@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi import math
+from phi import math, tf, torch
 from phi.math import extrapolation
 
 
@@ -83,6 +83,20 @@ class TestMathFunctions(TestCase):
         sampled = math.grid_sample(grid, coords, None)
         math.print(sampled)
         math.assert_close(sampled, [0, 1, 0.5])
+
+    def test_grid_sample_backend_equality_2d(self):
+        grid = math.random_normal(y=10, x=7)
+        coords = math.random_uniform(mybatch=10, x=3, y=2) * (12, 9)
+        grid_ = math.tensor(grid.native('x,y'), 'x,y')
+        coords_ = coords.vector.flip()
+        for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):
+            sampled = []
+            for backend in (math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
+                with backend:
+                    grid, coords, grid_, coords_ = math.tensors(grid, coords, grid_, coords_, convert=True)
+                    sampled.append(math.grid_sample(grid, coords, extrap))
+                    sampled.append(math.grid_sample(grid_, coords_, extrap))
+            math.assert_close(*sampled)
 
     def test_closest_grid_values_1d(self):
         grid = math.tensor([0, 1, 2, 3], names='x')
