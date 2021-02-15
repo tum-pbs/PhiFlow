@@ -309,19 +309,19 @@ class Tensor:
         return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y))
 
     def __ne__(self, other):
-        return self._op2(other, lambda x, y: x != y, lambda x, y: x != y)
+        return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y))
 
     def __lt__(self, other):
-        return self._op2(other, lambda x, y: x < y, lambda x, y: x < y)
+        return self._op2(other, lambda x, y: x < y, lambda x, y: choose_backend(x, y).greater_than(y, x))
 
     def __le__(self, other):
-        return self._op2(other, lambda x, y: x <= y, lambda x, y: x <= y)
+        return self._op2(other, lambda x, y: x <= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x))
 
     def __gt__(self, other):
-        return self._op2(other, lambda x, y: x > y, lambda x, y: x > y)
+        return self._op2(other, lambda x, y: x > y, lambda x, y: choose_backend(x, y).greater_than(x, y))
 
     def __ge__(self, other):
-        return self._op2(other, lambda x, y: x >= y, lambda x, y: x >= y)
+        return self._op2(other, lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y))
 
     def __abs__(self):
         return self._op1(lambda t: choose_backend(t).abs(t))

@@ -73,16 +73,6 @@ class SciPyBackend(Backend):
         return np.transpose(tensor, axes)
 
     def equal(self, x, y):
-        """
-        array equality comparison
-
-        Args:
-          x: 
-          y: 
-
-        Returns:
-
-        """
         return np.equal(x, y)
 
     def divide_no_nan(self, x, y):
@@ -91,15 +81,6 @@ class SciPyBackend(Backend):
         return np.where(y == 0, 0, result)
 
     def random_uniform(self, shape):
-        """
-        random array [0.0, 1.0)
-
-        Args:
-          shape: 
-
-        Returns:
-
-        """
         return np.random.random(shape).astype(to_numpy_dtype(self.float_type))
 
     def random_normal(self, shape):

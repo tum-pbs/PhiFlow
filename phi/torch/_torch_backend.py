@@ -175,17 +175,37 @@ class TorchBackend(Backend):
         return torch.flip(value, axes)
 
     def sum(self, value, axis=None, keepdims=False):
-        value = self.as_tensor(value)
+        if isinstance(value, (tuple, list)):
+            assert axis == 0
+            return sum(value[1:], value[0])
         if axis is None:
             axis = tuple(range(len(value.shape)))
         return torch.sum(value, dim=axis, keepdim=keepdims)
 
     def prod(self, value, axis=None):
         if isinstance(axis, (tuple, list)):
-            for dim in axis:
+            for dim in reversed(sorted(axis)):
                 value = torch.prod(value, dim=dim)
             return value
         return torch.prod(value, dim=axis)
+
+    def any(self, boolean_tensor, axis=None, keepdims=False):
+        if axis is None:
+            return torch.any(boolean_tensor)
+        else:
+            axes = axis if isinstance(axis, (tuple, list)) else [axis]
+            for axis in reversed(sorted(axes)):
+                boolean_tensor = torch.any(boolean_tensor, dim=axis, keepdim=keepdims)
+            return boolean_tensor
+
+    def all(self, boolean_tensor, axis=None, keepdims=False):
+        if axis is None:
+            return torch.all(boolean_tensor)
+        else:
+            axes = axis if isinstance(axis, (tuple, list)) else [axis]
+            for axis in reversed(sorted(axes)):
+                boolean_tensor = torch.all(boolean_tensor, dim=axis, keepdim=keepdims)
+            return boolean_tensor
 
     def divide_no_nan(self, x, y):
         x, y = self.auto_cast(x, y)
@@ -412,14 +432,6 @@ class TorchBackend(Backend):
 
     def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
         raise NotImplementedError()
-
-    def any(self, boolean_tensor, axis=None, keepdims=False):
-        return torch.any(boolean_tensor, dim=axis, keepdim=keepdims)
-
-    def all(self, boolean_tensor, axis=None, keepdims=False):
-        if axis is None:
-            return torch.all(boolean_tensor)
-        return torch.all(boolean_tensor, dim=axis, keepdim=keepdims)
 
     def fft(self, x):
         if not x.is_complex():

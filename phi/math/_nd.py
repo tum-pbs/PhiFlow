@@ -120,7 +120,7 @@ def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
         return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
     total_loss = math.sum_(tensor ** n) / n
     if batch_norm:
-        batch_size = tensor.shape.sizes[0]
+        batch_size = tensor.shape.batch.volume
         return math.divide_no_nan(total_loss, batch_size)
     else:
         return total_loss

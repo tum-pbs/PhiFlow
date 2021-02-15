@@ -181,13 +181,12 @@ class Backend:
     def transpose(self, tensor, axes):
         raise NotImplementedError()
 
-    def equal(self, x, y):
-        raise NotImplementedError()
-
     def random_uniform(self, shape):
+        """ Float tensor of selected precision containing random values in the range [0, 1) """
         raise NotImplementedError(self)
 
     def random_normal(self, shape):
+        """ Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1. """
         raise NotImplementedError(self)
 
     def stack(self, values, axis=0):
@@ -585,6 +584,21 @@ class Backend:
                 component = tensor[tuple([slice_idx if d == axis else slice(None) for d in range(len(tensor.shape))])]
             result.append(component)
         return tuple(result)
+
+    def equal(self, x, y):
+        """ Element-wise equality check """
+        raise NotImplementedError(self)
+
+    def not_equal(self, x, y):
+        return ~self.equal(x, y)
+
+    def greater_than(self, x, y):
+        x, y = self.auto_cast(x, y)
+        return x > y
+
+    def greater_or_equal(self, x, y):
+        x, y = self.auto_cast(x, y)
+        return x >= y
 
     def add(self, a, b):
         a, b = self.auto_cast(a, b)
