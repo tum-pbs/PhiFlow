@@ -155,16 +155,23 @@ e.g. NumPy arrays will be converted to TensorFlow or PyTorch tensors.
 
 ## Indexing, Slicing, Unstacking
 
+Indexing is read-only.
 The recommended way of indexing or slicing tensors is using the syntax
 ```python
 tensor.<dim>[start:end:step]
 ```
-This can be chained to index multiple dimensions.
+where `start >= 0`, `end` and `step > 0` are integers.
+The access `tensor.<dim>` returns a temporary [`TensorDim`](https://tum-pbs.github.io/PhiFlow/phi/math/#phi.math.TensorDim)
+object which can be used for slicing and unstacking along a specific dimension.
+This syntax can be chained to index or slice multiple dimensions.
 ```python
 tensor.x[:2].y[1:-1]
 ```
 
-Alternatively tensors can be indexed using a dictionary of the form `tensor[{dim: slice or int}]`.
+Alternatively tensors can be indexed using a dictionary of the form `tensor[{'dim': slice or int}]`.
+
+Do not use negative values for `step`. Instead use `Tensor.flip(dim)` or `Tensor.<dim>.flip()`.
+
 
 Tensors can be unstacked along any dimension using `t.unstack(dim)` or `t.<dim>.unstack()`.
 When passing the dimension size to the latter, tensors can even be unstacked along dimensions they do not posess.

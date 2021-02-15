@@ -56,7 +56,7 @@ from .extrapolation import Extrapolation
 from ._config import GLOBAL_AXIS_ORDER
 
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
-from ._tensors import tensor, tensors, Tensor
+from ._tensors import tensor, tensors, Tensor, TensorDim
 from ._functions import (
     choose_backend_t as choose_backend,
     all_available,
@@ -65,11 +65,10 @@ from ._functions import (
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad, spatial_pad,
-    join_dimensions,
-    prod,
+    join_dimensions, split_dimension, expand, expand_batch, expand_spatial, expand_channel,  # reshape operations
     divide_no_nan,
     where, nonzero,
-    sum_ as sum, mean, std,
+    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
     zeros_like, ones_like,
     dot,
     matmul,
@@ -77,7 +76,7 @@ from ._functions import (
     abs,
     sign,
     round_ as round, ceil, floor,
-    max_ as max, min_ as min, maximum, minimum, clip,
+    maximum, minimum, clip,
     with_custom_gradient,
     sqrt, exp, sin, cos,
     conv,
@@ -85,13 +84,12 @@ from ._functions import (
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter,
-    any_ as any, all_ as all,
     fft, ifft,
     dtype, cast,
-    tile, expand_channel,
+    tile,
     sparse_tensor,
     close, assert_close,
-    solve,
+    solve, minimize,
     record_gradients, gradients, stop_gradient
 )
 from ._nd import (
@@ -102,6 +100,7 @@ from ._nd import (
     gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
+    extrapolate_valid_values,
 )
 
 PI = 3.14159265358979323846
@@ -494,12 +493,13 @@ Tensors with different shapes are reshaped before comparing.</p>
 <span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Choose backend for given <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or native tensor values.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def choose_backend_t(*values, prefer_default=False):
+    &#34;&#34;&#34; Choose backend for given `Tensor` or native tensor values. &#34;&#34;&#34;
     values = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
     return choose_backend(*values, prefer_default=prefer_default)</code></pre>
 </details>
@@ -834,6 +834,33 @@ The grid values at the new points are determined via linear interpolation.</p>
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.expand"><code class="name flex">
+<span>def <span class="ident">expand</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def expand(value: Tensor, dim_name: str, dim_size: int = 1):
+    dim_type = _infer_dim_type_from_name(dim_name)
+    return _expand_dim(value, dim_name, dim_size, dim_type)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.expand_batch"><code class="name flex">
+<span>def <span class="ident">expand_batch</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def expand_batch(value: Tensor, dim_name: str, dim_size: int = 1):
+    return _expand_dim(value, dim_name, dim_size, BATCH_DIM)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.expand_channel"><code class="name flex">
 <span>def <span class="ident">expand_channel</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
 </code></dt>
@@ -845,6 +872,113 @@ The grid values at the new points are determined via linear interpolation.</p>
 </summary>
 <pre><code class="python">def expand_channel(value: Tensor, dim_name: str, dim_size: int = 1):
     return _expand_dim(value, dim_name, dim_size, CHANNEL_DIM)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.expand_spatial"><code class="name flex">
+<span>def <span class="ident">expand_spatial</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def expand_spatial(value: Tensor, dim_name: str, dim_size: int = 1):
+    return _expand_dim(value, dim_name, dim_size, SPATIAL_DIM)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolate_valid_values"><code class="name flex">
+<span>def <span class="ident">extrapolate_valid_values</span></span>(<span>values: phi.math._tensors.Tensor, valid: phi.math._tensors.Tensor, distance_cells: int = 1) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Extrapolates the values of <code>values</code> which are marked by the nonzero values of <code>valid</code> for <code>distance_cells</code> steps in all spatial directions.
+Overlapping extrapolated values get averaged.
+Extrapolation also includes diagonals.
+Vertical / Horizonal extrapolations take precedence over diagonal ones.</p>
+<p>Examples (1-step extrapolation), x marks the values for extrapolation:
+200
+000
+111
+004
+00x
+044
+100
+000
+144
+010 + 0x0 =&gt; 111
+000 + 000 =&gt; 234
+004 + 00x =&gt; 244
+040
+000
+111
+200
+x00
+220
+200
+x00
+224</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>Tensor which holds the values for extrapolation</dd>
+<dt><strong><code>valid</code></strong></dt>
+<dd>Tensor with same size as <code>x</code> marking the values for extrapolation with nonzero values</dd>
+<dt><strong><code>distance_cells</code></strong></dt>
+<dd>Number of extrapolation steps</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>values</code></dt>
+<dd>Extrapolation result</dd>
+<dt><code>valid</code></dt>
+<dd>mask marking all valid values after extrapolation</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -&gt; Tuple[Tensor, Tensor]:
+    &#34;&#34;&#34;
+    Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
+    Overlapping extrapolated values get averaged.
+    Extrapolation also includes diagonals.
+    Vertical / Horizonal extrapolations take precedence over diagonal ones.
+
+    Examples (1-step extrapolation), x marks the values for extrapolation:
+        200   000    111        004   00x    044        100   000    144
+        010 + 0x0 =&gt; 111        000 + 000 =&gt; 234        004 + 00x =&gt; 244
+        040   000    111        200   x00    220        200   x00    224
+
+    Args:
+        values: Tensor which holds the values for extrapolation
+        valid: Tensor with same size as `x` marking the values for extrapolation with nonzero values
+        distance_cells: Number of extrapolation steps
+
+    Returns:
+        values: Extrapolation result
+        valid: mask marking all valid values after extrapolation
+    &#34;&#34;&#34;
+    if distance_cells &lt;= 0:  # TODO use a loop instead of recursion
+        return values, valid
+    distance_cells = min(distance_cells, max(values.shape))
+    valid = math.divide_no_nan(valid, valid)  # ensure binary mask
+    values_l, values_r = shift(values * valid, (-1, 1))
+    mask_l, mask_r = shift(valid, (-1, 1))
+    overlap = math.sum_(mask_l + mask_r, dim=&#39;shift&#39;)
+    extp = math.divide_no_nan(math.sum_(values_l + values_r, dim=&#39;shift&#39;), overlap)  # take mean where extrapolated values overlap
+
+    # --- extrapolate diagonally (double y to shift up and down component of y-shift left and right) ---
+    values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims=&#39;y&#39;)  # TODO generalize to n spatial dimensions
+    mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims=&#39;y&#39;)
+    values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims=&#39;y&#39;)
+    mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims=&#39;y&#39;)
+    overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
+
+    extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack(&#39;shift&#39;)[0]  # take mean (shift axis has only one component)
+    extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
+    new_mask = (valid + overlap + overlap_diag).unstack(&#39;shift&#39;)[0]
+    new_x = math.where(valid, values, math.where(new_mask, extp, values))  # don&#39;t overwrite initial values within the mask / keep values not affected by extrapolation
+    return extrapolate_valid_values(new_x, math.divide_no_nan(new_mask, new_mask), distance_cells=distance_cells - 1)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.fft"><code class="name flex">
@@ -1640,6 +1774,69 @@ If a vector field is passed, the laplace is computed component-wise.</p>
                    native_function=lambda backend, native, dim: backend.min(native, dim))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.minimize"><code class="name flex">
+<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, callback=None) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Finds a minimum of the scalar function <code>function(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> like <code>x0</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>function</code></strong></dt>
+<dd>Function to be minimized</dd>
+<dt><strong><code>x0</code></strong></dt>
+<dd>Initial guess for <code>x</code></dd>
+<dt><strong><code>solve_params</code></strong></dt>
+<dd>Specifies solver type and parameters such as desired accuracy and maximum iterations.</dd>
+<dt><strong><code>callback</code></strong></dt>
+<dd>Function to be called after each iteration as <code>callback(x_n)</code>. <em>This argument may be ignored by some backends.</em></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>The minimum point <code>x</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def minimize(function, x0: Tensor, solve_params: Solve, callback=None) -&gt; Tuple[Tensor, Tensor, Tensor]:
+    &#34;&#34;&#34;
+    Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
+
+    Args:
+        function: Function to be minimized
+        x0: Initial guess for `x`
+        solve_params: Specifies solver type and parameters such as desired accuracy and maximum iterations.
+        callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
+
+    Returns:
+        The minimum point `x`.
+    &#34;&#34;&#34;
+    backend = choose_backend_t(x0)
+    x0._expand()
+    natives = x0._natives()
+    natives_flat = [backend.flatten(n) for n in natives]
+    x0_flat = backend.concat(natives_flat, 0)
+
+    def unflatten_assemble(x_native):
+        i = 0
+        x_natives = []
+        for native, native_flat in zip(natives, natives_flat):
+            vol = backend.shape(native_flat)[0]
+            x_natives.append(backend.reshape(x_native[i:i + vol], backend.shape(native)))
+            i += vol
+        x = x0._op1(lambda _: x_natives.pop(0))  # assemble x0 structure
+        return x
+
+    def native_function(native_x):
+        x = unflatten_assemble(native_x)
+        y = function(x)
+        return y.native()
+
+    method = solve_params.solver or &#39;L-BFGS-B&#39;
+    tolerance = max(solve_params.relative_tolerance, solve_params.absolute_tolerance)
+    converged, x_native, iterations = backend.minimize(native_function, x0_flat, method, tolerance, solve_params.max_iterations)
+    x = unflatten_assemble(x_native)
+    return tensor(converged), x, tensor(iterations)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.minimum"><code class="name flex">
 <span>def <span class="ident">minimum</span></span>(<span>x: phi.math._tensors.Tensor, y: phi.math._tensors.Tensor)</span>
 </code></dt>
@@ -2381,10 +2578,11 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.solve"><code class="name flex">
-<span>def <span class="ident">solve</span></span>(<span>operator, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, callback=None) ‑> Tuple[phi.math._tensors.Tensor]</span>
+<span>def <span class="ident">solve</span></span>(<span>operator, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, callback=None) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
-<div class="desc"><h2 id="args">Args</h2>
+<div class="desc"><p>Solves the system of linear or nonlinear equations <em>operator · x = y</em>.</p>
+<h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>operator</code></strong></dt>
 <dd>Function <code>operator(x)</code> or matrix</dd>
@@ -2410,8 +2608,9 @@ The output of math operations has the same precision as its inputs.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -&gt; Tuple[Tensor]:
+<pre><code class="python">def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -&gt; Tuple[Tensor, Tensor, Tensor]:
     &#34;&#34;&#34;
+    Solves the system of linear or nonlinear equations *operator · x = y*.
 
     Args:
         operator: Function `operator(x)` or matrix
@@ -2426,16 +2625,26 @@ The output of math operations has the same precision as its inputs.</p>
         iterations: number of iterations performed
     &#34;&#34;&#34;
     if not isinstance(solve_params, LinearSolve):
-        raise NotImplementedError(&#34;Only linear solve is currently supported. Pass a LinearSolve object&#34;)
+        from ._nd import l2_loss
+
+        def min_func(x):
+            diff = operator(x) - y
+            l2 = l2_loss(diff)
+            return l2
+
+        rel_tol_to_abs = solve_params.relative_tolerance * l2_loss(y, batch_norm=True)
+        solve_params.relative_tolerance = solve_params.absolute_tolerance = rel_tol_to_abs
+        return minimize(min_func, x0, solve_params=solve_params, callback=callback)
     if solve_params.solver not in (None, &#39;CG&#39;):
         raise NotImplementedError(&#34;Only &#39;CG&#39; solver currently supported&#34;)
 
     from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
+    backend = choose_backend(*x0._natives(), *y._natives())
     batch = (y.shape &amp; x0.shape).batch
-    backend = choose_backend(x0.native(), y.native())
-    x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, x0.shape.non_batch.volume))
-    y_native = backend.reshape(y.native(), (y.shape.batch.volume, y.shape.non_batch.volume))
+    x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
+    y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
+
     if callable(operator):
         operator_or_matrix = None
         if solve_params.solver_arguments[&#39;bake&#39;] == &#39;sparse&#39;:
@@ -2578,6 +2787,24 @@ The output of math operations has the same precision as its inputs.</p>
 </summary>
 <pre><code class="python">def spatial_sum(value: Tensor):
     return math.sum_(value, dim=value.shape.spatial.names)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.split_dimension"><code class="name flex">
+<span>def <span class="ident">split_dimension</span></span>(<span>value: phi.math._tensors.Tensor, dim: str, split_dimensions: phi.math._shape.Shape)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def split_dimension(value: Tensor, dim: str, split_dimensions: Shape):
+    if split_dimensions.rank == 0:
+        return value.dimension(dim)[0]
+    if split_dimensions.rank == 1:
+        new_shape = value.shape.with_names([split_dimensions.name if name == dim else name for name in value.shape.names])
+        return value._with_shape_replaced(new_shape)
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sqrt"><code class="name flex">
@@ -6184,27 +6411,18 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def dimension(self, name):
+    def dimension(self, name) -&gt; &#39;TensorDim&#39;:
         &#34;&#34;&#34;
         Returns a reference to a specific dimension of this tensor.
         This is equivalent to the syntax `tensor.&lt;name&gt;`.
 
         The dimension need not be part of the `Tensor.shape` in which case its size is 1.
 
-        Dimension references can be used for the following operations:
+        Args:
+            name: dimension name
 
-        * Indexing: `tensor_dim[start:stop:step]` returns a sliced version of the original tensor
-        * Flipping: `tensor_dim.flip()` reverses the element order along that dimension
-        * Unstacking: `tensor_dim.unstack()` returns a tuple of sliced tensors
-        * Changing dimension type: `tensor_dim.as_batch()`, `tensor_dim.as_spatial()` and `tensor_dim.as_channel()` return a `Tensor` with a new `Shape`.
-        * Renaming: `tensor_dim.as_batch(name)` and the other methods allow a new name to be specified.
-
-        Properties of dimension references:
-
-        * `size: int`
-        * `exists: bool`
-        * `index: int` index in shape
-        * `is_batch`, `is_spatial`, `is_channel`
+        Returns:
+            `TensorDim` corresponding to a dimension of this tensor
         &#34;&#34;&#34;
         return TensorDim(self, name)
 
@@ -6301,6 +6519,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def __neg__(self):
         return self._op1(lambda t: -t)
+
+    def __invert__(self):
+        return self._op1(lambda t: ~t)
 
     def __reversed__(self):
         assert self.shape.channel.rank == 1
@@ -6448,52 +6669,35 @@ def shape(self) -&gt; Shape:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.math.Tensor.dimension"><code class="name flex">
-<span>def <span class="ident">dimension</span></span>(<span>self, name)</span>
+<span>def <span class="ident">dimension</span></span>(<span>self, name) ‑> phi.math._tensors.TensorDim</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a reference to a specific dimension of this tensor.
 This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
 <p>The dimension need not be part of the <code><a title="phi.math.Tensor.shape" href="#phi.math.Tensor.shape">Tensor.shape</a></code> in which case its size is 1.</p>
-<p>Dimension references can be used for the following operations:</p>
-<ul>
-<li>Indexing: <code>tensor_dim[start:stop:step]</code> returns a sliced version of the original tensor</li>
-<li>Flipping: <code>tensor_dim.flip()</code> reverses the element order along that dimension</li>
-<li>Unstacking: <code>tensor_dim.unstack()</code> returns a tuple of sliced tensors</li>
-<li>Changing dimension type: <code>tensor_dim.as_batch()</code>, <code>tensor_dim.as_spatial()</code> and <code>tensor_dim.as_channel()</code> return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</li>
-<li>Renaming: <code>tensor_dim.as_batch(name)</code> and the other methods allow a new name to be specified.</li>
-</ul>
-<p>Properties of dimension references:</p>
-<ul>
-<li><code>size: int</code></li>
-<li><code>exists: bool</code></li>
-<li><code>index: int</code> index in shape</li>
-<li><code>is_batch</code>, <code>is_spatial</code>, <code>is_channel</code></li>
-</ul></div>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>dimension name</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.TensorDim" href="#phi.math.TensorDim">TensorDim</a></code> corresponding to a dimension of this tensor</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def dimension(self, name):
+<pre><code class="python">def dimension(self, name) -&gt; &#39;TensorDim&#39;:
     &#34;&#34;&#34;
     Returns a reference to a specific dimension of this tensor.
     This is equivalent to the syntax `tensor.&lt;name&gt;`.
 
     The dimension need not be part of the `Tensor.shape` in which case its size is 1.
 
-    Dimension references can be used for the following operations:
+    Args:
+        name: dimension name
 
-    * Indexing: `tensor_dim[start:stop:step]` returns a sliced version of the original tensor
-    * Flipping: `tensor_dim.flip()` reverses the element order along that dimension
-    * Unstacking: `tensor_dim.unstack()` returns a tuple of sliced tensors
-    * Changing dimension type: `tensor_dim.as_batch()`, `tensor_dim.as_spatial()` and `tensor_dim.as_channel()` return a `Tensor` with a new `Shape`.
-    * Renaming: `tensor_dim.as_batch(name)` and the other methods allow a new name to be specified.
-
-    Properties of dimension references:
-
-    * `size: int`
-    * `exists: bool`
-    * `index: int` index in shape
-    * `is_batch`, `is_spatial`, `is_channel`
+    Returns:
+        `TensorDim` corresponding to a dimension of this tensor
     &#34;&#34;&#34;
     return TensorDim(self, name)</code></pre>
 </details>
@@ -6625,7 +6829,7 @@ To get a differentiable tensor, use :func:<code><a title="phi.math.Tensor.native
 The returned tensors have the same dimensions as this tensor save the unstacked dimension.</p>
 <p>Raises an error if the dimension is not part of the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
 <p>See Also:
-<code>TensorDim.unstack()</code></p>
+<code><a title="phi.math.TensorDim.unstack" href="#phi.math.TensorDim.unstack">TensorDim.unstack()</a></code></p>
 <h2 id="args">Args</h2>
 <p>dimension(str or int or TensorDim): name of dimension or Dimension or None for component dimension</p>
 <h2 id="returns">Returns</h2>
@@ -6652,6 +6856,480 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.math.TensorDim"><code class="flex name class">
+<span>class <span class="ident">TensorDim</span></span>
+<span>(</span><span>tensor: phi.math._tensors.Tensor, name: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Reference to a specific dimension of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
+<p>To obtain a <code><a title="phi.math.TensorDim" href="#phi.math.TensorDim">TensorDim</a></code>, use <code><a title="phi.math.Tensor.dimension" href="#phi.math.Tensor.dimension">Tensor.dimension()</a></code> or the syntax <code>tensor.&lt;dim&gt;</code>.</p>
+<p>Indexing a <code><a title="phi.math.TensorDim" href="#phi.math.TensorDim">TensorDim</a></code> as <code>tdim[start:stop:step]</code> returns a sliced <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
+<p>See the documentation at <a href="https://tum-pbs.github.io/PhiFlow/Math.html#indexing-slicing-unstacking">https://tum-pbs.github.io/PhiFlow/Math.html#indexing-slicing-unstacking</a> .</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TensorDim:
+    &#34;&#34;&#34;
+    Reference to a specific dimension of a `Tensor`.
+
+    To obtain a `TensorDim`, use `Tensor.dimension()` or the syntax `tensor.&lt;dim&gt;`.
+
+    Indexing a `TensorDim` as `tdim[start:stop:step]` returns a sliced `Tensor`.
+
+    See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html#indexing-slicing-unstacking .
+    &#34;&#34;&#34;
+
+    def __init__(self, tensor: Tensor, name: str):
+        self.tensor = tensor
+        self.name = name
+
+    @property
+    def exists(self):
+        &#34;&#34;&#34; Whether the dimension is listed in the `Shape` of the `Tensor`. &#34;&#34;&#34;
+        return self.name in self.tensor.shape
+
+    def __str__(self):
+        &#34;&#34;&#34; Dimension name. &#34;&#34;&#34;
+        return self.name
+
+    def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -&gt; tuple:
+        &#34;&#34;&#34;
+        See `unstack_spatial()`.
+
+        Args:
+            size: (optional)
+                None: unstack along this dimension, error if dimension does not exist
+                int: repeating unstack if dimension does not exist
+            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+        Returns:
+            sliced tensors
+        &#34;&#34;&#34;
+        if size is None:
+            result = self.tensor.unstack(self.name)
+        else:
+            if self.exists:
+                unstacked = self.tensor.unstack(self.name)
+                assert len(unstacked) == size, f&#34;Size of dimension {self.name} does not match {size}.&#34;
+                result = unstacked
+            else:
+                result = (self.tensor,) * size
+        if to_numpy or to_python:
+            result = tuple(component.numpy() for component in result)
+            if to_python:
+                result = tuple(component.tolist() for component in result)
+        return result
+
+    def optional_unstack(self, to_numpy=False, to_python=False):
+        &#34;&#34;&#34;
+        Unstacks the `Tensor` along this dimension if the dimension is listed in the `Shape`.
+        Otherwise returns the original `Tensor`.
+
+        Args:
+            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+        Returns:
+            `tuple` of sliced tensors or original `Tensor`
+        &#34;&#34;&#34;
+        if self.exists:
+            return self.unstack(to_numpy=to_numpy, to_python=to_python)
+        else:
+            if to_numpy or to_python:
+                result = self.tensor.numpy()
+                if to_python:
+                    return result.tolist()
+                return result
+            return self.tensor
+
+    def unstack_spatial(self, components: str or tuple or list, to_numpy=False, to_python=False) -&gt; tuple:
+        &#34;&#34;&#34;
+        Slices the tensor along this dimension, returning only the selected components in the specified order.
+
+        Args:
+            components:
+            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+        Returns:
+            selected components
+        &#34;&#34;&#34;
+        if isinstance(components, str):
+            components = _shape.parse_dim_order(components)
+        if self.exists:
+            spatial = self.tensor.shape.spatial
+            result = []
+            if spatial.is_empty:
+                spatial = [GLOBAL_AXIS_ORDER.axis_name(i, len(components)) for i in range(len(components))]
+            for dim in components:
+                component_index = spatial.index(dim)
+                result.append(self.tensor[{self.name: component_index}])
+        else:
+            result = [self.tensor] * len(components)
+        if to_numpy or to_python:
+            result = tuple(component.numpy() for component in result)
+            if to_python:
+                result = tuple(component.tolist() for component in result)
+        return tuple(result)
+
+    @property
+    def index(self):
+        &#34;&#34;&#34; The index of this dimension in the `Shape` of the `Tensor`. &#34;&#34;&#34;
+        return self.tensor.shape.index(self.name)
+
+    def __int__(self):
+        return self.index
+
+    def __len__(self):
+        return self.tensor.shape.get_size(self.name)
+
+    @property
+    def size(self):
+        &#34;&#34;&#34; Length of this tensor dimension as listed in the `Shape`, otherwise `1`. &#34;&#34;&#34;
+        if self.exists:
+            return self.tensor.shape.get_size(self.name)
+        else:
+            return 1
+
+    def as_batch(self, name: str or None = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
+        return self._as(BATCH_DIM, name)
+
+    def as_spatial(self, name: str or None = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
+        return self._as(SPATIAL_DIM, name)
+
+    def as_channel(self, name: str or None = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
+        return self._as(CHANNEL_DIM, name)
+
+    def _as(self, dim_type: int, name: str or None):
+        shape = self.tensor.shape
+        new_types = list(shape.types)
+        new_types[self.index] = dim_type
+        new_names = shape.names
+        if name is not None:
+            new_names = list(new_names)
+            new_names[self.index] = name
+        new_shape = Shape(shape.sizes, new_names, new_types)
+        return self.tensor._with_shape_replaced(new_shape)
+
+    @property
+    def _dim_type(self):
+        return self.tensor.shape.get_type(self.name)
+
+    @property
+    def is_spatial(self):
+        &#34;&#34;&#34; Whether the type of this dimension as listed in the `Shape` is *spatial*. Only defined for existing dimensions. &#34;&#34;&#34;
+        return self._dim_type == SPATIAL_DIM
+
+    @property
+    def is_batch(self):
+        &#34;&#34;&#34; Whether the type of this dimension as listed in the `Shape` is *batch*. Only defined for existing dimensions. &#34;&#34;&#34;
+        return self._dim_type == BATCH_DIM
+
+    @property
+    def is_channel(self):
+        &#34;&#34;&#34; Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. &#34;&#34;&#34;
+        return self._dim_type == CHANNEL_DIM
+
+    def __getitem__(self, item):
+        return self.tensor[{self.name: item}]
+
+    def flip(self):
+        &#34;&#34;&#34; Flips the element order along this dimension and returns the result as a `Tensor`. &#34;&#34;&#34;
+        return self.tensor.flip(self.name)</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.TensorDim.exists"><code class="name">var <span class="ident">exists</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the dimension is listed in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def exists(self):
+    &#34;&#34;&#34; Whether the dimension is listed in the `Shape` of the `Tensor`. &#34;&#34;&#34;
+    return self.name in self.tensor.shape</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.index"><code class="name">var <span class="ident">index</span></code></dt>
+<dd>
+<div class="desc"><p>The index of this dimension in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def index(self):
+    &#34;&#34;&#34; The index of this dimension in the `Shape` of the `Tensor`. &#34;&#34;&#34;
+    return self.tensor.shape.index(self.name)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.is_batch"><code class="name">var <span class="ident">is_batch</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the type of this dimension as listed in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> is <em>batch</em>. Only defined for existing dimensions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_batch(self):
+    &#34;&#34;&#34; Whether the type of this dimension as listed in the `Shape` is *batch*. Only defined for existing dimensions. &#34;&#34;&#34;
+    return self._dim_type == BATCH_DIM</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.is_channel"><code class="name">var <span class="ident">is_channel</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the type of this dimension as listed in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> is <em>channel</em>. Only defined for existing dimensions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_channel(self):
+    &#34;&#34;&#34; Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. &#34;&#34;&#34;
+    return self._dim_type == CHANNEL_DIM</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.is_spatial"><code class="name">var <span class="ident">is_spatial</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the type of this dimension as listed in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> is <em>spatial</em>. Only defined for existing dimensions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_spatial(self):
+    &#34;&#34;&#34; Whether the type of this dimension as listed in the `Shape` is *spatial*. Only defined for existing dimensions. &#34;&#34;&#34;
+    return self._dim_type == SPATIAL_DIM</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.size"><code class="name">var <span class="ident">size</span></code></dt>
+<dd>
+<div class="desc"><p>Length of this tensor dimension as listed in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, otherwise <code>1</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def size(self):
+    &#34;&#34;&#34; Length of this tensor dimension as listed in the `Shape`, otherwise `1`. &#34;&#34;&#34;
+    if self.exists:
+        return self.tensor.shape.get_size(self.name)
+    else:
+        return 1</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.TensorDim.as_batch"><code class="name flex">
+<span>def <span class="ident">as_batch</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> where the type of this dimension is <em>batch</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_batch(self, name: str or None = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
+    return self._as(BATCH_DIM, name)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.as_channel"><code class="name flex">
+<span>def <span class="ident">as_channel</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> where the type of this dimension is <em>channel</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_channel(self, name: str or None = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
+    return self._as(CHANNEL_DIM, name)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.as_spatial"><code class="name flex">
+<span>def <span class="ident">as_spatial</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> where the type of this dimension is <em>spatial</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_spatial(self, name: str or None = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
+    return self._as(SPATIAL_DIM, name)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.flip"><code class="name flex">
+<span>def <span class="ident">flip</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Flips the element order along this dimension and returns the result as a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def flip(self):
+    &#34;&#34;&#34; Flips the element order along this dimension and returns the result as a `Tensor`. &#34;&#34;&#34;
+    return self.tensor.flip(self.name)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.optional_unstack"><code class="name flex">
+<span>def <span class="ident">optional_unstack</span></span>(<span>self, to_numpy=False, to_python=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstacks the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> along this dimension if the dimension is listed in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.
+Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>to_numpy</code></strong></dt>
+<dd>Whether to convert the selected data to <code>numpy.ndarray</code> objects.</dd>
+<dt><strong><code>to_python</code></strong></dt>
+<dd>Whether to convert the selected data to Python types, i.e. <code>int, float, complex, bool, tuple, list</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of sliced tensors or original <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def optional_unstack(self, to_numpy=False, to_python=False):
+    &#34;&#34;&#34;
+    Unstacks the `Tensor` along this dimension if the dimension is listed in the `Shape`.
+    Otherwise returns the original `Tensor`.
+
+    Args:
+        to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+        to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+    Returns:
+        `tuple` of sliced tensors or original `Tensor`
+    &#34;&#34;&#34;
+    if self.exists:
+        return self.unstack(to_numpy=to_numpy, to_python=to_python)
+    else:
+        if to_numpy or to_python:
+            result = self.tensor.numpy()
+            if to_python:
+                return result.tolist()
+            return result
+        return self.tensor</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, size: int = None, to_numpy=False, to_python=False) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code>unstack_spatial()</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>size</code></strong></dt>
+<dd>(optional)
+None: unstack along this dimension, error if dimension does not exist
+int: repeating unstack if dimension does not exist</dd>
+<dt><strong><code>to_numpy</code></strong></dt>
+<dd>Whether to convert the selected data to <code>numpy.ndarray</code> objects.</dd>
+<dt><strong><code>to_python</code></strong></dt>
+<dd>Whether to convert the selected data to Python types, i.e. <code>int, float, complex, bool, tuple, list</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>sliced tensors</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -&gt; tuple:
+    &#34;&#34;&#34;
+    See `unstack_spatial()`.
+
+    Args:
+        size: (optional)
+            None: unstack along this dimension, error if dimension does not exist
+            int: repeating unstack if dimension does not exist
+        to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+        to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+    Returns:
+        sliced tensors
+    &#34;&#34;&#34;
+    if size is None:
+        result = self.tensor.unstack(self.name)
+    else:
+        if self.exists:
+            unstacked = self.tensor.unstack(self.name)
+            assert len(unstacked) == size, f&#34;Size of dimension {self.name} does not match {size}.&#34;
+            result = unstacked
+        else:
+            result = (self.tensor,) * size
+    if to_numpy or to_python:
+        result = tuple(component.numpy() for component in result)
+        if to_python:
+            result = tuple(component.tolist() for component in result)
+    return result</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.unstack_spatial"><code class="name flex">
+<span>def <span class="ident">unstack_spatial</span></span>(<span>self, components: str, to_numpy=False, to_python=False) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Slices the tensor along this dimension, returning only the selected components in the specified order.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt>components:</dt>
+<dt><strong><code>to_numpy</code></strong></dt>
+<dd>Whether to convert the selected data to <code>numpy.ndarray</code> objects.</dd>
+<dt><strong><code>to_python</code></strong></dt>
+<dd>Whether to convert the selected data to Python types, i.e. <code>int, float, complex, bool, tuple, list</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>selected components</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack_spatial(self, components: str or tuple or list, to_numpy=False, to_python=False) -&gt; tuple:
+    &#34;&#34;&#34;
+    Slices the tensor along this dimension, returning only the selected components in the specified order.
+
+    Args:
+        components:
+        to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+        to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+    Returns:
+        selected components
+    &#34;&#34;&#34;
+    if isinstance(components, str):
+        components = _shape.parse_dim_order(components)
+    if self.exists:
+        spatial = self.tensor.shape.spatial
+        result = []
+        if spatial.is_empty:
+            spatial = [GLOBAL_AXIS_ORDER.axis_name(i, len(components)) for i in range(len(components))]
+        for dim in components:
+            component_index = spatial.index(dim)
+            result.append(self.tensor[{self.name: component_index}])
+    else:
+        result = [self.tensor] * len(components)
+    if to_numpy or to_python:
+        result = tuple(component.numpy() for component in result)
+        if to_python:
+            result = tuple(component.tolist() for component in result)
+    return tuple(result)</code></pre>
 </details>
 </dd>
 </dl>
@@ -6711,7 +7389,11 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.dtype" href="#phi.math.dtype">dtype</a></code></li>
 <li><code><a title="phi.math.einsum" href="#phi.math.einsum">einsum</a></code></li>
 <li><code><a title="phi.math.exp" href="#phi.math.exp">exp</a></code></li>
+<li><code><a title="phi.math.expand" href="#phi.math.expand">expand</a></code></li>
+<li><code><a title="phi.math.expand_batch" href="#phi.math.expand_batch">expand_batch</a></code></li>
 <li><code><a title="phi.math.expand_channel" href="#phi.math.expand_channel">expand_channel</a></code></li>
+<li><code><a title="phi.math.expand_spatial" href="#phi.math.expand_spatial">expand_spatial</a></code></li>
+<li><code><a title="phi.math.extrapolate_valid_values" href="#phi.math.extrapolate_valid_values">extrapolate_valid_values</a></code></li>
 <li><code><a title="phi.math.fft" href="#phi.math.fft">fft</a></code></li>
 <li><code><a title="phi.math.fftfreq" href="#phi.math.fftfreq">fftfreq</a></code></li>
 <li><code><a title="phi.math.floor" href="#phi.math.floor">floor</a></code></li>
@@ -6737,6 +7419,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.mean" href="#phi.math.mean">mean</a></code></li>
 <li><code><a title="phi.math.meshgrid" href="#phi.math.meshgrid">meshgrid</a></code></li>
 <li><code><a title="phi.math.min" href="#phi.math.min">min</a></code></li>
+<li><code><a title="phi.math.minimize" href="#phi.math.minimize">minimize</a></code></li>
 <li><code><a title="phi.math.minimum" href="#phi.math.minimum">minimum</a></code></li>
 <li><code><a title="phi.math.nonzero" href="#phi.math.nonzero">nonzero</a></code></li>
 <li><code><a title="phi.math.normalize_to" href="#phi.math.normalize_to">normalize_to</a></code></li>
@@ -6764,6 +7447,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.spatial_shape" href="#phi.math.spatial_shape">spatial_shape</a></code></li>
 <li><code><a title="phi.math.spatial_stack" href="#phi.math.spatial_stack">spatial_stack</a></code></li>
 <li><code><a title="phi.math.spatial_sum" href="#phi.math.spatial_sum">spatial_sum</a></code></li>
+<li><code><a title="phi.math.split_dimension" href="#phi.math.split_dimension">split_dimension</a></code></li>
 <li><code><a title="phi.math.sqrt" href="#phi.math.sqrt">sqrt</a></code></li>
 <li><code><a title="phi.math.std" href="#phi.math.std">std</a></code></li>
 <li><code><a title="phi.math.stop_gradient" href="#phi.math.stop_gradient">stop_gradient</a></code></li>
@@ -6893,6 +7577,24 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.Tensor.rank" href="#phi.math.Tensor.rank">rank</a></code></li>
 <li><code><a title="phi.math.Tensor.shape" href="#phi.math.Tensor.shape">shape</a></code></li>
 <li><code><a title="phi.math.Tensor.unstack" href="#phi.math.Tensor.unstack">unstack</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.TensorDim" href="#phi.math.TensorDim">TensorDim</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.math.TensorDim.as_batch" href="#phi.math.TensorDim.as_batch">as_batch</a></code></li>
+<li><code><a title="phi.math.TensorDim.as_channel" href="#phi.math.TensorDim.as_channel">as_channel</a></code></li>
+<li><code><a title="phi.math.TensorDim.as_spatial" href="#phi.math.TensorDim.as_spatial">as_spatial</a></code></li>
+<li><code><a title="phi.math.TensorDim.exists" href="#phi.math.TensorDim.exists">exists</a></code></li>
+<li><code><a title="phi.math.TensorDim.flip" href="#phi.math.TensorDim.flip">flip</a></code></li>
+<li><code><a title="phi.math.TensorDim.index" href="#phi.math.TensorDim.index">index</a></code></li>
+<li><code><a title="phi.math.TensorDim.is_batch" href="#phi.math.TensorDim.is_batch">is_batch</a></code></li>
+<li><code><a title="phi.math.TensorDim.is_channel" href="#phi.math.TensorDim.is_channel">is_channel</a></code></li>
+<li><code><a title="phi.math.TensorDim.is_spatial" href="#phi.math.TensorDim.is_spatial">is_spatial</a></code></li>
+<li><code><a title="phi.math.TensorDim.optional_unstack" href="#phi.math.TensorDim.optional_unstack">optional_unstack</a></code></li>
+<li><code><a title="phi.math.TensorDim.size" href="#phi.math.TensorDim.size">size</a></code></li>
+<li><code><a title="phi.math.TensorDim.unstack" href="#phi.math.TensorDim.unstack">unstack</a></code></li>
+<li><code><a title="phi.math.TensorDim.unstack_spatial" href="#phi.math.TensorDim.unstack_spatial">unstack_spatial</a></code></li>
 </ul>
 </li>
 </ul>

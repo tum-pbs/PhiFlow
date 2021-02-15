@@ -8,8 +8,7 @@
 If you would like to get right into it and have a look at some code, check out the
 [tutorial notebook on Google Colab](https://colab.research.google.com/drive/1LNPpHoZSTNN1L1Jt9MjLZ0r3Ejg0u7hY#offline=true&sandboxMode=true).
 It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
-
-An introduction to writing fluid simulations can be found [here](https://tum-pbs.github.io/PhiFlow/Fluid_Simulation.html).
+Also check out the [explanation of common fluid simulation operations](https://tum-pbs.github.io/PhiFlow/Fluid_Simulation.html).
 
 The following introductory demos are also helpful to get started with writing your own scripts using Φ<sub>Flow</sub>:
 
@@ -20,11 +19,11 @@ The following introductory demos are also helpful to get started with writing yo
 
 | Module      | Documentation                                        |
 |-------------|------------------------------------------------------|
-| [phi.app](phi/app)     | [Interactive application development, web interface](Web_Interface.md)   |
-| [phi.physics](phi/physics) <br /> [phi.physics.advect](phi/physics/advect.html) <br /> [phi.physics.fluid](phi/physics/fluid.html) <br /> [phi.physics.diffuse](phi/physics/diffuse.html) | [Domains, built-in physics functions](Physics.md)         |
-| [phi.field](phi/field)   | [Grids, particles, analytic representations](Fields.md)           |
+| [phi.app](phi/app)     | [Web interface](Web_Interface.md): Interactive application development <br /> [Reading and Writing Simulation Data](Reading_and_Writing_Data.md)   |
+| [phi.physics](phi/physics) <br /> [phi.physics.advect](phi/physics/advect.html) <br /> [phi.physics.fluid](phi/physics/fluid.html) <br /> [phi.physics.diffuse](phi/physics/diffuse.html) | [Overview](Physics.md): Domains, built-in physics functions <br /> [Writing Fluid Simulations](Fluid_Simulation.md): Advection, projection, diffusion        |
+| [phi.field](phi/field)   | [Overview](Fields.md): Grids, particles <br /> [Staggered Grids](Staggered_Grids.md): Data layout, usage           |
 | [phi.geom](phi/geom)    | [Differentiable Geometry](Geometry.md)                              |
-| [phi.math](phi/math) <br /> [phi.math.backend](phi/math/backend) <br /> [phi.math.extrapolation](phi/math/extrapolation.html)  | [Vectorized operations, tensors with named dimensions](Math.md) |
+| [phi.math](phi/math) <br /> [phi.math.backend](phi/math/backend) <br /> [phi.math.extrapolation](phi/math/extrapolation.html)  | [Vectorized operations, tensors with named dimensions](Math.md) <br /> [Optimizing Performance](GPU_Execution.md): GPU, graph mode, profiler |
 
 ### API Documentation
 
@@ -36,10 +35,4 @@ $ pdoc --html --output-dir docs --force phi
 
 ### Other Documentation
 
-* [Writing Fluid Simulations](Fluid_Simulation.md): Advection, projection, diffusion
-* [Staggered grids](Staggered_Grids.md): Data layout, usage
-* [Optimizing Performance](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html): GPU, graph mode, profiler
-
-Not yet updated:
-
-* [Reading and Writing Simulation Data](Reading_and_Writing_Data.md)
+* [Scene Format Specification](Scene_Format_Specification.md)

@@ -946,6 +946,9 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
+    def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -&gt; Tuple[bool, Any, int]:
+        raise NotImplementedError(self)
+
     def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = &#39;implicit&#39;, callback=None):
         &#34;&#34;&#34;
         Solve the system of linear equations
@@ -2017,6 +2020,19 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def min(self, x, axis=None, keepdims=False):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.minimize"><code class="name flex">
+<span>def <span class="ident">minimize</span></span>(<span>self, function, x0, method: str, tolerance: float, max_iterations: int) ‑> Tuple[bool, Any, int]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -&gt; Tuple[bool, Any, int]:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3429,6 +3445,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.mean" href="#phi.math.backend.Backend.mean">mean</a></code></li>
 <li><code><a title="phi.math.backend.Backend.meshgrid" href="#phi.math.backend.Backend.meshgrid">meshgrid</a></code></li>
 <li><code><a title="phi.math.backend.Backend.min" href="#phi.math.backend.Backend.min">min</a></code></li>
+<li><code><a title="phi.math.backend.Backend.minimize" href="#phi.math.backend.Backend.minimize">minimize</a></code></li>
 <li><code><a title="phi.math.backend.Backend.minimum" href="#phi.math.backend.Backend.minimum">minimum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.mod" href="#phi.math.backend.Backend.mod">mod</a></code></li>
 <li><code><a title="phi.math.backend.Backend.mul" href="#phi.math.backend.Backend.mul">mul</a></code></li>

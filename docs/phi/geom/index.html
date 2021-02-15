@@ -38,6 +38,8 @@ from ._geom import Geometry, assert_same_rank
 from ._union import union  # Union is private
 from ._box import Box, GridCell, AbstractBox
 from ._sphere import Sphere
+from ._stack import stack
+from ._geom_math import concat, invert
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>
@@ -62,6 +64,96 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     rank1_, rank2_ = _rank(rank1), _rank(rank2)
     if rank1_ is not None and rank2_ is not None:
         assert rank1_ == rank2_, &#39;Ranks do not match: %s and %s. %s&#39; % (rank1_, rank2_, error_message)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.concat"><code class="name flex">
+<span>def <span class="ident">concat</span></span>(<span>geometries: tuple, dim: str, sizes: tuple = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Concatenates multiple geometries of the same type.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>geometries</code></strong></dt>
+<dd>sequence of <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> objects of the same type</dd>
+<dt><strong><code>sizes</code></strong></dt>
+<dd>implicit</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>dimension to concatenate</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>New <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def concat(geometries: tuple or list,
+                   dim: str,
+                   sizes: tuple or list or None = None):
+    &#34;&#34;&#34;
+    Concatenates multiple geometries of the same type.
+
+    Args:
+        geometries: sequence of `phi.geom.Geometry` objects of the same type
+        sizes: implicit
+        dim: dimension to concatenate
+
+    Returns:
+        New `phi.geom.Geometry` object
+    &#34;&#34;&#34;
+    if all(isinstance(g, type(geometries[0])) for g in geometries):
+        characteristics = [g.__characteristics__() for g in geometries]
+        if sizes is not None:
+            characteristics = [{key: math.expand(val, dim, size) for key, val in c.items()}
+                               for c, size in zip(characteristics, sizes)]
+        new_attributes = {}
+        for key in characteristics[0].keys():
+            concatenated = math.concat([c[key] for c in characteristics], dim)
+            new_attributes[key] = concatenated
+        return geometries[0].__with__(**new_attributes)
+    else:
+        raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.invert"><code class="name flex">
+<span>def <span class="ident">invert</span></span>(<span>geometry: phi.geom._geom.Geometry)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Swaps inside and outside.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>geometry</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> to swap</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>New <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> object with same surface but swapped normals</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def invert(geometry: Geometry):
+    &#34;&#34;&#34;
+    Swaps inside and outside.
+
+    Args:
+        geometry: `phi.geom.Geometry` to swap
+
+    Returns:
+        New `phi.geom.Geometry` object with same surface but swapped normals
+    &#34;&#34;&#34;
+    return ~geometry</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.stack"><code class="name flex">
+<span>def <span class="ident">stack</span></span>(<span>*geometries: phi.geom._geom.Geometry, dim: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stack(*geometries: Geometry, dim: str):
+    return GeometryStack(geometries, dim)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">
@@ -220,6 +312,20 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         extent = self.upper - self.lower
         distance = math.abs(location - center) - extent * 0.5
         return math.max(distance, &#39;vector&#39;)
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+        loc_to_center = positions - self.center
+        sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
+        if outward:
+            shift = math.where(sgn_dist_from_surface == math.max(sgn_dist_from_surface, &#39;vector&#39;), sgn_dist_from_surface, 0)  # get shift towards nearest border
+            shift = math.where(shift &lt; 0, shift, 0)  # filter points inside geometry
+            shift = math.where(loc_to_center &lt; 0, 1, -1) * (shift - math.where(shift != 0, shift_amount, 0))  # get shift direction
+        else:
+            shift = math.where(sgn_dist_from_surface &lt; 0, 0, sgn_dist_from_surface)
+            shift += math.where(shift != 0, shift_amount, 0)
+            shift = math.where(math.abs(shift) &gt; math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
+            shift = math.where(loc_to_center &lt; 0, 1, -1) * shift  # get shift direction
+        return positions + shift
 
     def project(self, *dimensions: str):
         &#34;&#34;&#34; Project this box into a lower-dimensional space. &#34;&#34;&#34;
@@ -520,6 +626,41 @@ The sphere is centered at the center of this geometry.</p>
     &#34;&#34;&#34; Project this box into a lower-dimensional space. &#34;&#34;&#34;
     indices = self.shape.spatial.index(dimensions)
     return Box(self.lower[indices], self.upper[indices])</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.AbstractBox.push"><code class="name flex">
+<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Shifts positions either into or out of geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>positions</code></strong></dt>
+<dd>Tensor holding positions to shift</dd>
+<dt><strong><code>outward</code></strong></dt>
+<dd>Flag for indicating inward (False) or outward (True) shift</dd>
+<dt><strong><code>shift_amount</code></strong></dt>
+<dd>Minimum distance between positions and box boundaries after shifting</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor holding shifted positions</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+    loc_to_center = positions - self.center
+    sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
+    if outward:
+        shift = math.where(sgn_dist_from_surface == math.max(sgn_dist_from_surface, &#39;vector&#39;), sgn_dist_from_surface, 0)  # get shift towards nearest border
+        shift = math.where(shift &lt; 0, shift, 0)  # filter points inside geometry
+        shift = math.where(loc_to_center &lt; 0, 1, -1) * (shift - math.where(shift != 0, shift_amount, 0))  # get shift direction
+    else:
+        shift = math.where(sgn_dist_from_surface &lt; 0, 0, sgn_dist_from_surface)
+        shift += math.where(shift != 0, shift_amount, 0)
+        shift = math.where(math.abs(shift) &gt; math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
+        shift = math.where(loc_to_center &lt; 0, 1, -1) * shift  # get shift direction
+    return positions + shift</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.AbstractBox.rotated"><code class="name flex">
@@ -983,6 +1124,20 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         inside_fraction = math.clip(inside_fraction, 0, 1)
         return inside_fraction
 
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Shifts positions either into or out of geometry.
+
+        Args:
+            positions: Tensor holding positions to shift
+            outward: Flag for indicating inward (False) or outward (True) shift
+            shift_amount: Minimum distance between positions and box boundaries after shifting
+
+        Returns:
+            Tensor holding shifted positions
+        &#34;&#34;&#34;
+        raise NotImplementedError(self.__class__)
+
     def bounding_radius(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Returns the radius of a Sphere object that fully encloses this geometry.
@@ -1052,7 +1207,16 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         return not self == other
 
     def __hash__(self):
-        raise NotImplementedError(self.__class__)</code></pre>
+        raise NotImplementedError(self.__class__)
+
+    def __characteristics__(self) -&gt; Dict[str, math.Tensor]:
+        raise NotImplementedError(self.__class__)
+
+    def __with__(self, **attributes):
+        copied = copy.copy(self)
+        for name, val in attributes.items():
+            setattr(copied, name, val)
+        return copied</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1300,6 +1464,41 @@ The sphere is centered at the center of this geometry.</p>
     Returns:
       bool tensor of shape (*location.shape[:-1], 1).
 
+    &#34;&#34;&#34;
+    raise NotImplementedError(self.__class__)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Geometry.push"><code class="name flex">
+<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Shifts positions either into or out of geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>positions</code></strong></dt>
+<dd>Tensor holding positions to shift</dd>
+<dt><strong><code>outward</code></strong></dt>
+<dd>Flag for indicating inward (False) or outward (True) shift</dd>
+<dt><strong><code>shift_amount</code></strong></dt>
+<dd>Minimum distance between positions and box boundaries after shifting</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor holding shifted positions</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Shifts positions either into or out of geometry.
+
+    Args:
+        positions: Tensor holding positions to shift
+        outward: Flag for indicating inward (False) or outward (True) shift
+        shift_amount: Minimum distance between positions and box boundaries after shifting
+
+    Returns:
+        Tensor holding shifted positions
     &#34;&#34;&#34;
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
@@ -1857,7 +2056,17 @@ Defined through center position and radius.</p>
         return isinstance(other, Sphere) \
                and self._shape == other.shape \
                and math.all(self._radius == other.radius) \
-               and math.all(self._center == other.center)</code></pre>
+               and math.all(self._center == other.center)
+
+    def __characteristics__(self) -&gt; Dict[str, math.Tensor]:
+        return {
+            &#39;radius&#39;: self._radius,
+            &#39;center&#39;: self._center,
+        }
+
+    def __with__(self, center=None, radius=None):
+        return Sphere(center if center is not None else self._center,
+                      radius if radius is not None else self._radius)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2066,6 +2275,9 @@ The geometry is rotated about its center point.</p>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.geom.assert_same_rank" href="#phi.geom.assert_same_rank">assert_same_rank</a></code></li>
+<li><code><a title="phi.geom.concat" href="#phi.geom.concat">concat</a></code></li>
+<li><code><a title="phi.geom.invert" href="#phi.geom.invert">invert</a></code></li>
+<li><code><a title="phi.geom.stack" href="#phi.geom.stack">stack</a></code></li>
 <li><code><a title="phi.geom.union" href="#phi.geom.union">union</a></code></li>
 </ul>
 </li>
@@ -2087,6 +2299,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.AbstractBox.local_to_global" href="#phi.geom.AbstractBox.local_to_global">local_to_global</a></code></li>
 <li><code><a title="phi.geom.AbstractBox.lower" href="#phi.geom.AbstractBox.lower">lower</a></code></li>
 <li><code><a title="phi.geom.AbstractBox.project" href="#phi.geom.AbstractBox.project">project</a></code></li>
+<li><code><a title="phi.geom.AbstractBox.push" href="#phi.geom.AbstractBox.push">push</a></code></li>
 <li><code><a title="phi.geom.AbstractBox.rotated" href="#phi.geom.AbstractBox.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.AbstractBox.shape" href="#phi.geom.AbstractBox.shape">shape</a></code></li>
 <li><code><a title="phi.geom.AbstractBox.shifted" href="#phi.geom.AbstractBox.shifted">shifted</a></code></li>
@@ -2118,6 +2331,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.Geometry.bounding_radius" href="#phi.geom.Geometry.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Geometry.center" href="#phi.geom.Geometry.center">center</a></code></li>
 <li><code><a title="phi.geom.Geometry.lies_inside" href="#phi.geom.Geometry.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.Geometry.push" href="#phi.geom.Geometry.push">push</a></code></li>
 <li><code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Geometry.shifted" href="#phi.geom.Geometry.shifted">shifted</a></code></li>

@@ -226,27 +226,18 @@ class Tensor:
         """
         raise NotImplementedError()
 
-    def dimension(self, name):
+    def dimension(self, name) -> 'TensorDim':
         """
         Returns a reference to a specific dimension of this tensor.
         This is equivalent to the syntax `tensor.<name>`.
 
         The dimension need not be part of the `Tensor.shape` in which case its size is 1.
 
-        Dimension references can be used for the following operations:
+        Args:
+            name: dimension name
 
-        * Indexing: `tensor_dim[start:stop:step]` returns a sliced version of the original tensor
-        * Flipping: `tensor_dim.flip()` reverses the element order along that dimension
-        * Unstacking: `tensor_dim.unstack()` returns a tuple of sliced tensors
-        * Changing dimension type: `tensor_dim.as_batch()`, `tensor_dim.as_spatial()` and `tensor_dim.as_channel()` return a `Tensor` with a new `Shape`.
-        * Renaming: `tensor_dim.as_batch(name)` and the other methods allow a new name to be specified.
-
-        Properties of dimension references:
-
-        * `size: int`
-        * `exists: bool`
-        * `index: int` index in shape
-        * `is_batch`, `is_spatial`, `is_channel`
+        Returns:
+            `TensorDim` corresponding to a dimension of this tensor
         """
         return TensorDim(self, name)
 
@@ -429,6 +420,15 @@ class Tensor:
 
 
 class TensorDim:
+    """
+    Reference to a specific dimension of a `Tensor`.
+
+    To obtain a `TensorDim`, use `Tensor.dimension()` or the syntax `tensor.<dim>`.
+
+    Indexing a `TensorDim` as `tdim[start:stop:step]` returns a sliced `Tensor`.
+
+    See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html#indexing-slicing-unstacking .
+    """
 
     def __init__(self, tensor: Tensor, name: str):
         self.tensor = tensor
@@ -436,14 +436,16 @@ class TensorDim:
 
     @property
     def exists(self):
+        """ Whether the dimension is listed in the `Shape` of the `Tensor`. """
         return self.name in self.tensor.shape
 
     def __str__(self):
+        """ Dimension name. """
         return self.name
 
     def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -> tuple:
         """
-        See `unstack_spatial`.
+        See `unstack_spatial()`.
 
         Args:
             size: (optional)
@@ -471,6 +473,17 @@ class TensorDim:
         return result
 
     def optional_unstack(self, to_numpy=False, to_python=False):
+        """
+        Unstacks the `Tensor` along this dimension if the dimension is listed in the `Shape`.
+        Otherwise returns the original `Tensor`.
+
+        Args:
+            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
+            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+
+        Returns:
+            `tuple` of sliced tensors or original `Tensor`
+        """
         if self.exists:
             return self.unstack(to_numpy=to_numpy, to_python=to_python)
         else:
@@ -513,6 +526,7 @@ class TensorDim:
 
     @property
     def index(self):
+        """ The index of this dimension in the `Shape` of the `Tensor`. """
         return self.tensor.shape.index(self.name)
 
     def __int__(self):
@@ -523,15 +537,22 @@ class TensorDim:
 
     @property
     def size(self):
-        return self.tensor.shape.get_size(self.name)
+        """ Length of this tensor dimension as listed in the `Shape`, otherwise `1`. """
+        if self.exists:
+            return self.tensor.shape.get_size(self.name)
+        else:
+            return 1
 
     def as_batch(self, name: str or None = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. """
         return self._as(BATCH_DIM, name)
 
     def as_spatial(self, name: str or None = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. """
         return self._as(SPATIAL_DIM, name)
 
     def as_channel(self, name: str or None = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. """
         return self._as(CHANNEL_DIM, name)
 
     def _as(self, dim_type: int, name: str or None):
@@ -546,25 +567,29 @@ class TensorDim:
         return self.tensor._with_shape_replaced(new_shape)
 
     @property
-    def dim_type(self):
+    def _dim_type(self):
         return self.tensor.shape.get_type(self.name)
 
     @property
     def is_spatial(self):
-        return self.dim_type == SPATIAL_DIM
+        """ Whether the type of this dimension as listed in the `Shape` is *spatial*. Only defined for existing dimensions. """
+        return self._dim_type == SPATIAL_DIM
 
     @property
     def is_batch(self):
-        return self.dim_type == BATCH_DIM
+        """ Whether the type of this dimension as listed in the `Shape` is *batch*. Only defined for existing dimensions. """
+        return self._dim_type == BATCH_DIM
 
     @property
     def is_channel(self):
-        return self.dim_type == CHANNEL_DIM
+        """ Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. """
+        return self._dim_type == CHANNEL_DIM
 
     def __getitem__(self, item):
         return self.tensor[{self.name: item}]
 
     def flip(self):
+        """ Flips the element order along this dimension and returns the result as a `Tensor`. """
         return self.tensor.flip(self.name)
 
 

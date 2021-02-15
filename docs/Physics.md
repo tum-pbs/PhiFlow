@@ -43,7 +43,7 @@ from phi.flow import *
 
 DOMAIN = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 velocity = DOMAIN.staggered_grid(Noise())
-pressure = DOMAIN.grid(0)
+pressure = DOMAIN.scalar_grid(0)
 ```
 
 
@@ -58,7 +58,7 @@ from phi.flow import *
 
 DOMAIN = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 velocity = DOMAIN.staggered_grid(Noise())
-pressure = DOMAIN.grid(0)
+pressure = DOMAIN.scalar_grid(0)
 for _ in range(100):
     velocity = advect.semi_lagrangian(velocity, velocity, dt=1)
     velocity, pressure, iterations, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)
@@ -81,10 +81,6 @@ Slightly more complex examples can be found in
 [fluid_logo.py](../demos/fluid_logo.py) which adds obstacles to the scene and
 [rotating_bar.py](../demos/rotating_bar.py) which adds geometry movement.
 
-
-## Running on the GPU
-
-See the [GPU execution guide](GPU_Execution.md).
 
 ## Differences to MantaFlow
 
