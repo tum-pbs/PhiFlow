@@ -12,6 +12,7 @@ from scipy.sparse.linalg import cg, LinearOperator
 from . import Backend, ComputeDevice
 from ._backend_helper import combined_dim
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
+from ._optim import Solve, LinearSolve
 
 
 class SciPyBackend(Backend):
@@ -428,7 +429,7 @@ class SciPyBackend(Backend):
         else:
             raise NotImplementedError("Only sparse tensors supported.")
 
-    def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
@@ -450,7 +451,7 @@ class SciPyBackend(Backend):
         for batch in range(batch_size):
             y_ = y[min(batch, bs_y - 1)]
             x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(A, y_, x0_, tol=relative_tolerance, atol=absolute_tolerance, maxiter=max_iterations, callback=count_callback)
+            x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations, callback=count_callback)
             converged.append(ret_val == 0)
             results.append(x)
         return all(converged), self.stack(results), max(iterations)

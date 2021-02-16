@@ -1082,7 +1082,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     loop_time = time.perf_counter()
-    converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, 'implicit', callback)
+    converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, 'implicit', callback)
     loop_time = time.perf_counter() - loop_time
     if get_current_profile():
         info = "  \tProfile with trace=False to get more accurate results." if get_current_profile()._trace else ""

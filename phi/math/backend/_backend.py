@@ -4,6 +4,7 @@ from typing import Tuple, List, Any
 import numpy
 
 from ._dtype import DType, combine_types
+from ._optim import Solve, LinearSolve
 
 
 class ComputeDevice:
@@ -506,7 +507,7 @@ class Backend:
     def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -> Tuple[bool, Any, int]:
         raise NotImplementedError(self)
 
-    def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
         """
         Solve the system of linear equations
           A * x = y
@@ -515,15 +516,9 @@ class Backend:
           A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
           y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
           x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-          relative_tolerance: stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance)
-          absolute_tolerance: stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance)
-          max_iterations: maximum number of iterations or None for unlimited
+          solve_params: Determines stop criteria. Stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
           gradient: one of ('implicit', 'inverse', 'autodiff')
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
-          relative_tolerance: float:  (Default value = 1e-5)
-          absolute_tolerance: float:  (Default value = 0.0)
-          max_iterations: int:  (Default value = 1000)
-          gradient: str:  (Default value = 'implicit')
 
         Returns:
           converged, solution, iterations

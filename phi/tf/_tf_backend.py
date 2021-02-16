@@ -10,6 +10,7 @@ from tensorflow.python.client import device_lib
 
 from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, SCIPY_BACKEND
 from ._tf_cuda_resample import resample_cuda, use_cuda
+from ..math import LinearSolve
 from ..math.backend._backend_helper import combined_dim
 
 
@@ -452,39 +453,52 @@ class TFBackend(Backend):
             raise NotImplementedError()
 
     def conjugate_gradient(self, A, y, x0,
-                           relative_tolerance: float = 1e-5,
-                           absolute_tolerance: float = 0.0,
-                           max_iterations: int = 1000,
+                           solve_params=LinearSolve(),
                            gradient: str = 'implicit',
                            callback=None):
-        backend = self
+        if callable(A):
+            function = A
+        else:
+            A = self.as_tensor(A)
+            A_shape = self.staticshape(A)
+            assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
+            assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
+
+            def function(vec):
+                return self.matmul(A, vec)
+
+        tolerance_sq = self.maximum(solve_params.relative_tolerance ** 2 * tf.reduce_sum(y ** 2, -1), solve_params.absolute_tolerance ** 2)
 
         batch_size = combined_dim(x0.shape[0], y.shape[0])
         if x0.shape[0] < batch_size:
             x0 = tf.tile(x0, [batch_size, 1])
 
-        class LinOp(tf.linalg.LinearOperator):
-            def __init__(self):
-                tf.linalg.LinearOperator.__init__(self, y.dtype, graph_parents=None, is_non_singular=True, is_self_adjoint=True, is_positive_definite=True, is_square=True)
+        def cg_forward(y):
+            x = x0
+            dx = residual = y - function(x)
+            dy = function(dx)
+            iterations = 0
+            converged = True
+            while self.all(self.sum(residual ** 2, -1) > tolerance_sq):
+                if iterations == solve_params.max_iterations:
+                    converged = False
+                    break
+                iterations += 1
+                dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+                step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+                x += step_size * dx
+                residual -= step_size * dy
+                dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+                dy = function(dx)
+            return self.as_tensor(converged, True), x, self.as_tensor(iterations, True)
 
-            def _matmul(self, x, adjoint=False, adjoint_arg=False):
-                if callable(A):
-                    return A(x)
-                else:
-                    x = tf.reshape(x, x0.shape)
-                    result = backend.matmul(A, x)
-                    return tf.expand_dims(result, -1)
+        @tf.custom_gradient
+        def cg_with_grad(y):
+            def grad(_success, dx, _iterations):
+                return cg_forward(dx)[1]
+            return cg_forward(y), grad
 
-            def _shape(self):
-                return y.shape
-
-            def _shape_tensor(self):
-                return y.shape
-
-        result = tf.linalg.experimental.conjugate_gradient(LinOp(), y, preconditioner=None, x=x0, tol=absolute_tolerance + relative_tolerance, max_iter=max_iterations)
-        converged = result.i < max_iterations
-        iterations = result.i
-        return converged, result.x, iterations
+        return cg_with_grad(y)
 
     def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -> Tuple[bool, Any, int]:
         x0 = self.numpy(x0)

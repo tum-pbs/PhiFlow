@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math
 from phi.geom import Box, Sphere
-from phi.field import StaggeredGrid, CenteredGrid
+from phi.field import StaggeredGrid, CenteredGrid, divergence
 from phi.physics import Domain, CLOSED, fluid
 from phi.tf import TF_BACKEND
 from phi.torch import TORCH_BACKEND
@@ -22,7 +22,8 @@ class FluidTest(TestCase):
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):
             velocity += smoke * (0, 0.1) >> velocity
-            velocity, pressure, iterations, divergence = fluid.make_incompressible(velocity, DOMAIN)
+            velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN)
+        math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
         return velocity.values
 
     def _test_make_incompressible_batched(self, grid_type):
@@ -31,7 +32,8 @@ class FluidTest(TestCase):
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):
             velocity += smoke * (0, 0.1) >> velocity
-            velocity, pressure, iterations, divergence = fluid.make_incompressible(velocity, DOMAIN)
+            velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN)
+        math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
         return velocity.values
 
     # Backend-specific testing
