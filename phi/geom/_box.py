@@ -101,15 +101,13 @@ class AbstractBox(Geometry):
         loc_to_center = positions - self.center
         sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
         if outward:
-            shift = math.where(sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector'), sgn_dist_from_surface, 0)  # get shift towards nearest border
-            shift = math.where(shift < 0, shift, 0)  # filter points inside geometry
-            shift = math.where(loc_to_center < 0, 1, -1) * (shift - math.where(shift != 0, shift_amount, 0))  # get shift direction
+            # --- get negative distances (particles are inside) towards the nearest boundary and add shift_amount ---
+            distances_of_interest = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector')) & (sgn_dist_from_surface < 0)
+            shift = distances_of_interest * (sgn_dist_from_surface - shift_amount)
         else:
-            shift = math.where(sgn_dist_from_surface < 0, 0, sgn_dist_from_surface)
-            shift += math.where(shift != 0, shift_amount, 0)
+            shift = (sgn_dist_from_surface + shift_amount) * (sgn_dist_from_surface > 0)  # get positive distances (particles are outside) and add shift_amount
             shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
-            shift = math.where(loc_to_center < 0, 1, -1) * shift  # get shift direction
-        return positions + shift
+        return positions + math.where(loc_to_center < 0, 1, -1) * shift
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """

@@ -260,27 +260,27 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     """
-    if distance_cells <= 0:  # TODO use a loop instead of recursion
-        return values, valid
     distance_cells = min(distance_cells, max(values.shape))
-    valid = math.divide_no_nan(valid, valid)  # ensure binary mask
-    values_l, values_r = shift(values * valid, (-1, 1))
-    mask_l, mask_r = shift(valid, (-1, 1))
-    overlap = math.sum_(mask_l + mask_r, dim='shift')
-    extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
+    for _ in range(distance_cells):
+        valid = math.divide_no_nan(valid, valid)  # ensure binary mask
+        values_l, values_r = shift(values * valid, (-1, 1))
+        mask_l, mask_r = shift(valid, (-1, 1))
+        overlap = math.sum_(mask_l + mask_r, dim='shift')
+        extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
 
-    # --- extrapolate diagonally (double y to shift up and down component of y-shift left and right) ---
-    values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims='y')  # TODO generalize to n spatial dimensions
-    mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims='y')
-    values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims='y')
-    mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims='y')
-    overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
+        # --- extrapolate diagonally (double y to shift up and down component of y-shift left and right) ---
+        values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims='y')  # TODO generalize to n spatial dimensions
+        mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims='y')
+        values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims='y')
+        mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims='y')
+        overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
 
-    extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]  # take mean (shift axis has only one component)
-    extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
-    new_mask = (valid + overlap + overlap_diag).unstack('shift')[0]
-    new_x = math.where(valid, values, math.where(new_mask, extp, values))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
-    return extrapolate_valid_values(new_x, math.divide_no_nan(new_mask, new_mask), distance_cells=distance_cells - 1)
+        extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]  # take mean (shift axis has only one component)
+        extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
+        new_valid = (valid + overlap + overlap_diag).unstack('shift')[0]
+        values = math.where(valid, values, math.where(new_valid, extp, values))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
+        valid = new_valid
+    return values, valid
 
 
 # Gradient

@@ -33,19 +33,26 @@ def make_incompressible(velocity: StaggeredGrid,
     occupied_centered = points >> domain.grid()
     occupied_staggered = points >> domain.staggered_grid()
 
-    velocity_field, _ = extrapolate_valid(velocity, occupied_staggered, 1)  # extrapolation conserves falling shapes
     if isinstance(obstacles, StaggeredGrid):
         accessible = obstacles
     else:
         accessible = domain.accessible_mask(union(*[obstacle.geometry for obstacle in obstacles]), type=StaggeredGrid)
+
+    # --- Extrapolation is needed to exclude border divergence from the `occupied_centered` mask and thus
+    # from the pressure solve. If particles are randomly distributed, the `occupied_centered` mask
+    # could sometimes include the divergence at the borders (due to single particles right at the edge
+    # which temporarily deform the `occupied_centered` mask when moving into a new cell) which would then
+    # get compensated by the pressure. This is unwanted for falling liquids and therefore prevented by this
+    # extrapolation. ---
+    velocity_field, _ = extrapolate_valid(velocity * occupied_staggered, occupied_staggered, 1)
     velocity_field *= accessible  # Enforces boundary conditions after extrapolation
-    div = field.divergence(velocity_field) * occupied_centered
+    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve
 
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.gradient(p, type=StaggeredGrid) * accessible), p)
 
     converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.grid(), solve_params=solve_params)
-    gradp = field.gradient(pressure, type=type(velocity_field))
+    gradp = field.gradient(pressure, type=type(velocity_field)) * accessible
     return velocity_field - gradp, pressure, iterations, div, occupied_staggered
 
 
@@ -78,7 +85,7 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_g
         return previous_particle_velocity.with_(values=v_values)
 
 
-def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: list, offset: float = 1.0) -> PointCloud:
+def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: list, offset: float = 0.5) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 
     obstacles or back into the domain.

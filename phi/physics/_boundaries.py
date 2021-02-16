@@ -284,18 +284,18 @@ class Domain:
         """
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
 
-    def accessible_mask(self, not_accessible: Geometry, type: type = CenteredGrid) -> CenteredGrid or StaggeredGrid:
+    def accessible_mask(self, not_accessible: tuple or list, type: type = CenteredGrid) -> CenteredGrid or StaggeredGrid:
         """
         Unifies domain and Obstacle or Geometry objects into a binary StaggeredGrid mask which can be used
         to enforce boundary conditions.
 
         Args:
-            not_accessible: blocked region(s) of space
+            not_accessible: blocked region(s) of space specified by geometries
 
         Returns:
             Binary mask indicating valid fields w.r.t. the boundary conditions.
         """
-        accessible = HardGeometryMask(~not_accessible) >> self.grid()
+        accessible = HardGeometryMask(~union(not_accessible)) >> self.grid()
         accessible_mask = self.grid(accessible, extrapolation=self.boundaries.accessible_extrapolation)
         if type is CenteredGrid:
             return accessible_mask
@@ -337,24 +337,24 @@ class Domain:
         return PointCloud(elements, 1, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
     def distribute_points(self,
-                          distribution: Field or Geometry,
+                          geometries: tuple or list,
                           points_per_cell: int = 8,
-                          color: str = None) -> PointCloud:
+                          color: str = None,
+                          center: bool = False) -> PointCloud:
         """
-        Transforms Geometry or Obstacle objects into a PointCloud.
+        Transforms `Geometry` objects into a PointCloud.
 
         Args:
-            distribution: Single or multiple Geometry or Obstacle objects
+            geometries: Geometry objects marking the cells which should contain points
             points_per_cell: Number of points for each cell of `geometries`
             color (Optional): Color of PointCloud
+            center: Set all points to the center of the grid cells.
 
         Returns:
              PointCloud representation of `geometries`.
         """
-        if isinstance(distribution, Geometry):
-            distribution = HardGeometryMask(distribution)
-        distribution >>= self.grid()
-        initial_points = _distribute_points(distribution.values, points_per_cell)
+        geometries = HardGeometryMask(union(geometries)) >> self.grid()
+        initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
         return self.points(initial_points, color=color)
 
 
@@ -415,14 +415,15 @@ class GeometryMovement(Physics):
             return obj.copied_with(field=next_field, age=obj.age + dt)
 
 
-def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, dist: str = 'uniform') -> math.Tensor:
+def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
     """
-    Generates points from a random distribution according to the given tensor mask.
+    Generates points (either uniformly distributed or at the cell centers) according to the given tensor mask.
 
     Args:
         mask: Tensor with nonzero values at the indices where particles should get generated.
         points_per_cell: Number of particles to generate at each marked index
-        dist: Random distribution from which point positions get drawn ('center' or 'uniform').
+        center: Set points to cell centers. If False, points will be distributed using a uniform
+            distribution within each cell.
 
     Returns:
         A tensor containing the positions of the generated points.
@@ -430,10 +431,8 @@ def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, dist: str = 
     indices = math.to_float(math.nonzero(mask, list_dim='points'))
     temp = []
     for _ in range(points_per_cell):
-        if dist == 'center':
+        if center:
             temp.append(indices + 0.5)
-        elif dist == 'uniform':
-            temp.append(indices + (math.random_uniform(indices.shape)))
         else:
-            raise NotImplementedError
+            temp.append(indices + (math.random_uniform(indices.shape)))
     return math.concat(temp, dim='points')
