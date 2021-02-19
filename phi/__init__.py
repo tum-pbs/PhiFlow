@@ -6,6 +6,7 @@ Use one of the following imports:
 * `from phi.flow import *`  for NumPy mode
 * `from phi.tf.flow import *`  for TensorFlow mode
 * `from phi.torch.flow import *` for PyTorch mode
+* `from phi.jax.flow import *` for *experimental* Jax mode
 
 Project homepage: https://github.com/tum-pbs/PhiFlow
 

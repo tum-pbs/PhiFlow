@@ -131,24 +131,27 @@ class Tensor:
         return int(self.native()) if self.rank == 0 and np.issubdtype(self.dtype, int) else NotImplemented
 
     def _summary_str(self) -> str:
-        from ._functions import all_available, min_, max_
-        if all_available(self):
-            if self.rank == 0:
-                return str(self.numpy())
-            elif self.shape.volume is not None and self.shape.volume <= 6:
-                content = list(np.reshape(self.numpy(), [-1]))
-                content = ', '.join([repr(number) for number in content])
-                if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
-                    return f"({content}) along {self.shape.name}"
-                return f"{self.shape} {self.dtype}  {content}"
+        try:
+            from ._functions import all_available, min_, max_
+            if all_available(self):
+                if self.rank == 0:
+                    return str(self.numpy())
+                elif self.shape.volume is not None and self.shape.volume <= 6:
+                    content = list(np.reshape(self.numpy(), [-1]))
+                    content = ', '.join([repr(number) for number in content])
+                    if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
+                        return f"({content}) along {self.shape.name}"
+                    return f"{self.shape} {self.dtype}  {content}"
+                else:
+                    min_val, max_val = min_(self), max_(self)
+                    return f"{self.shape} {self.dtype}  {min_val} < ... < {max_val}"
             else:
-                min_val, max_val = min_(self), max_(self)
-                return f"{self.shape} {self.dtype}  {min_val} < ... < {max_val}"
-        else:
-            if self.rank == 0:
-                return f"scalar {self.dtype}"
-            else:
-                return f"{self.shape} {self.dtype}"
+                if self.rank == 0:
+                    return f"scalar {self.dtype}"
+                else:
+                    return f"{self.shape} {self.dtype}"
+        except BaseException as err:
+            return f"{self.shape}, failed to fetch values with error {err}"
 
     def __repr__(self):
         return self._summary_str()

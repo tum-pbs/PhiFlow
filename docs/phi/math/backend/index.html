@@ -623,13 +623,12 @@ The output of math operations has the same precision as its inputs.</p>
     def transpose(self, tensor, axes):
         raise NotImplementedError()
 
-    def equal(self, x, y):
-        raise NotImplementedError()
-
     def random_uniform(self, shape):
+        &#34;&#34;&#34; Float tensor of selected precision containing random values in the range [0, 1) &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def random_normal(self, shape):
+        &#34;&#34;&#34; Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def stack(self, values, axis=0):
@@ -949,7 +948,7 @@ The output of math operations has the same precision as its inputs.</p>
     def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -&gt; Tuple[bool, Any, int]:
         raise NotImplementedError(self)
 
-    def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = &#39;implicit&#39;, callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = &#39;implicit&#39;, callback=None):
         &#34;&#34;&#34;
         Solve the system of linear equations
           A * x = y
@@ -958,15 +957,9 @@ The output of math operations has the same precision as its inputs.</p>
           A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
           y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
           x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-          relative_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
-          absolute_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
-          max_iterations: maximum number of iterations or None for unlimited
+          solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
           gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
-          relative_tolerance: float:  (Default value = 1e-5)
-          absolute_tolerance: float:  (Default value = 0.0)
-          max_iterations: int:  (Default value = 1000)
-          gradient: str:  (Default value = &#39;implicit&#39;)
 
         Returns:
           converged, solution, iterations
@@ -1028,6 +1021,21 @@ The output of math operations has the same precision as its inputs.</p>
             result.append(component)
         return tuple(result)
 
+    def equal(self, x, y):
+        &#34;&#34;&#34; Element-wise equality check &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def not_equal(self, x, y):
+        return ~self.equal(x, y)
+
+    def greater_than(self, x, y):
+        x, y = self.auto_cast(x, y)
+        return x &gt; y
+
+    def greater_or_equal(self, x, y):
+        x, y = self.auto_cast(x, y)
+        return x &gt;= y
+
     def add(self, a, b):
         a, b = self.auto_cast(a, b)
         return a + b
@@ -1054,6 +1062,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li>phi.jax._jax_backend.JaxBackend</li>
 <li>phi.math.backend._scipy_backend.SciPyBackend</li>
 <li>phi.tf._tf_backend.TFBackend</li>
 <li>phi.torch._torch_backend.TorchBackend</li>
@@ -1337,7 +1346,7 @@ Backends can override this method to prevent unnecessary casting.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, relative_tolerance: float = 1e-05, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = 'implicit', callback=None)</span>
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params=&lt;phi.math.backend._optim.LinearSolve object&gt;, gradient: str = 'implicit', callback=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solve the system of linear equations
@@ -1350,28 +1359,12 @@ A * x = y</p>
 <dd>target result of A * x. 2nd order tensor (batch, vector) or list of vectors.</dd>
 <dt><strong><code>x0</code></strong></dt>
 <dd>initial guess for x. 2nd order tensor (batch, vector) or list of vectors.</dd>
-<dt><strong><code>relative_tolerance</code></strong></dt>
-<dd>stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)</dd>
-<dt><strong><code>absolute_tolerance</code></strong></dt>
-<dd>stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)</dd>
-<dt><strong><code>max_iterations</code></strong></dt>
-<dd>maximum number of iterations or None for unlimited</dd>
+<dt><strong><code>solve_params</code></strong></dt>
+<dd>Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.</dd>
 <dt><strong><code>gradient</code></strong></dt>
 <dd>one of ('implicit', 'inverse', 'autodiff')</dd>
 <dt><strong><code>callback</code></strong></dt>
 <dd>Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)</dd>
-<dt><strong><code>relative_tolerance</code></strong></dt>
-<dd>float:
-(Default value = 1e-5)</dd>
-<dt><strong><code>absolute_tolerance</code></strong></dt>
-<dd>float:
-(Default value = 0.0)</dd>
-<dt><strong><code>max_iterations</code></strong></dt>
-<dd>int:
-(Default value = 1000)</dd>
-<dt><strong><code>gradient</code></strong></dt>
-<dd>str:
-(Default value = 'implicit')</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>converged, solution, iterations</p></div>
@@ -1379,7 +1372,7 @@ A * x = y</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient(self, A, y, x0, relative_tolerance: float = 1e-5, absolute_tolerance: float = 0.0, max_iterations: int = 1000, gradient: str = &#39;implicit&#39;, callback=None):
+<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = &#39;implicit&#39;, callback=None):
     &#34;&#34;&#34;
     Solve the system of linear equations
       A * x = y
@@ -1388,15 +1381,9 @@ A * x = y</p>
       A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
       y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
       x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-      relative_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
-      absolute_tolerance: stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance)
-      max_iterations: maximum number of iterations or None for unlimited
+      solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
       gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
       callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
-      relative_tolerance: float:  (Default value = 1e-5)
-      absolute_tolerance: float:  (Default value = 0.0)
-      max_iterations: int:  (Default value = 1000)
-      gradient: str:  (Default value = &#39;implicit&#39;)
 
     Returns:
       converged, solution, iterations
@@ -1583,13 +1570,14 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <span>def <span class="ident">equal</span></span>(<span>self, x, y)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Element-wise equality check</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def equal(self, x, y):
-    raise NotImplementedError()</code></pre>
+    &#34;&#34;&#34; Element-wise equality check &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.exp"><code class="name flex">
@@ -1723,6 +1711,34 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 </summary>
 <pre><code class="python">def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.greater_or_equal"><code class="name flex">
+<span>def <span class="ident">greater_or_equal</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def greater_or_equal(self, x, y):
+    x, y = self.auto_cast(x, y)
+    return x &gt;= y</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.greater_than"><code class="name flex">
+<span>def <span class="ident">greater_than</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def greater_than(self, x, y):
+    x, y = self.auto_cast(x, y)
+    return x &gt; y</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.grid_sample"><code class="name flex">
@@ -2118,6 +2134,19 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.not_equal"><code class="name flex">
+<span>def <span class="ident">not_equal</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def not_equal(self, x, y):
+    return ~self.equal(x, y)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.numpy"><code class="name flex">
 <span>def <span class="ident">numpy</span></span>(<span>self, tensor) ‑> numpy.ndarray</span>
 </code></dt>
@@ -2271,12 +2300,13 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <span>def <span class="ident">random_normal</span></span>(<span>self, shape)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def random_normal(self, shape):
+    &#34;&#34;&#34; Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1. &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2284,12 +2314,13 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <span>def <span class="ident">random_uniform</span></span>(<span>self, shape)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Float tensor of selected precision containing random values in the range [0, 1)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def random_uniform(self, shape):
+    &#34;&#34;&#34; Float tensor of selected precision containing random values in the range [0, 1) &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2815,9 +2846,9 @@ Otherwise, non-float inputs are converted to float32 (unless <code>float64=True<
         self.device_type = device_type
         &#34;&#34;&#34; Type of device such as `&#39;CPU&#39;`, `&#39;GPU&#39;` or `&#39;TPU&#39;`. &#34;&#34;&#34;
         self.memory = memory
-        &#34;&#34;&#34; Maximum memory of the device that can be allocated (in bytes). &#34;&#34;&#34;
+        &#34;&#34;&#34; Maximum memory of the device that can be allocated (in bytes). -1 for n/a. &#34;&#34;&#34;
         self.processor_count = processor_count
-        &#34;&#34;&#34; Number of CPU cores or GPU multiprocessors. &#34;&#34;&#34;
+        &#34;&#34;&#34; Number of CPU cores or GPU multiprocessors. -1 for n/a. &#34;&#34;&#34;
         self.description = description
         &#34;&#34;&#34; Further information about the device such as driver version. &#34;&#34;&#34;
 
@@ -2838,7 +2869,7 @@ Otherwise, non-float inputs are converted to float32 (unless <code>float64=True<
 </dd>
 <dt id="phi.math.backend.ComputeDevice.memory"><code class="name">var <span class="ident">memory</span></code></dt>
 <dd>
-<div class="desc"><p>Maximum memory of the device that can be allocated (in bytes).</p></div>
+<div class="desc"><p>Maximum memory of the device that can be allocated (in bytes). -1 for n/a.</p></div>
 </dd>
 <dt id="phi.math.backend.ComputeDevice.name"><code class="name">var <span class="ident">name</span></code></dt>
 <dd>
@@ -2846,7 +2877,7 @@ Otherwise, non-float inputs are converted to float32 (unless <code>float64=True<
 </dd>
 <dt id="phi.math.backend.ComputeDevice.processor_count"><code class="name">var <span class="ident">processor_count</span></code></dt>
 <dd>
-<div class="desc"><p>Number of CPU cores or GPU multiprocessors.</p></div>
+<div class="desc"><p>Number of CPU cores or GPU multiprocessors. -1 for n/a.</p></div>
 </dd>
 </dl>
 </dd>
@@ -2961,10 +2992,10 @@ def precision(self):
 </dd>
 <dt id="phi.math.backend.LinearSolve"><code class="flex name class">
 <span>class <span class="ident">LinearSolve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', **solver_arguments)</span>
+<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2977,9 +3008,9 @@ def precision(self):
                  absolute_tolerance=0,
                  max_iterations=1000,
                  bake=&#39;sparse&#39;,
+                 gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
-        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake,
-                       **solver_arguments)</code></pre>
+        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake, gradient_solve=gradient_solve, **solver_arguments)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3327,32 +3358,71 @@ def retime(self):
 </dd>
 <dt id="phi.math.backend.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, **solver_arguments)</span>
+<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Solve:
+<pre><code class="python">class Solve:  # TODO store additional info in here?
+    &#34;&#34;&#34;
+    Specifies parameters and stopping criteria for solving a system of equations or minimization problem.
+    &#34;&#34;&#34;
 
     def __init__(self,
                  solver: str = None,
                  relative_tolerance=1e-5,
                  absolute_tolerance=0,
                  max_iterations=1000,
+                 gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
         self.solver = solver
+        &#34;&#34;&#34; (Optional) Name of method to use. &#34;&#34;&#34;
         self.relative_tolerance = relative_tolerance
+        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
         self.absolute_tolerance = absolute_tolerance
+        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
         self.max_iterations = max_iterations
-        self.solver_arguments = solver_arguments</code></pre>
+        &#34;&#34;&#34; Maximum number of iterations to perform before terminating with `converged=False`. &#34;&#34;&#34;
+        self.gradient_solve = gradient_solve or self
+        &#34;&#34;&#34; Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver. &#34;&#34;&#34;
+        assert self.gradient_solve.solver == self.solver
+        self.solver_arguments = solver_arguments
+        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li>phi.math.backend._optim.LinearSolve</li>
 </ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.Solve.absolute_tolerance"><code class="name">var <span class="ident">absolute_tolerance</span></code></dt>
+<dd>
+<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+</dd>
+<dt id="phi.math.backend.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span></code></dt>
+<dd>
+<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p></div>
+</dd>
+<dt id="phi.math.backend.Solve.max_iterations"><code class="name">var <span class="ident">max_iterations</span></code></dt>
+<dd>
+<div class="desc"><p>Maximum number of iterations to perform before terminating with <code>converged=False</code>.</p></div>
+</dd>
+<dt id="phi.math.backend.Solve.relative_tolerance"><code class="name">var <span class="ident">relative_tolerance</span></code></dt>
+<dd>
+<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+</dd>
+<dt id="phi.math.backend.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
+<dd>
+<div class="desc"><p>(Optional) Name of method to use.</p></div>
+</dd>
+<dt id="phi.math.backend.Solve.solver_arguments"><code class="name">var <span class="ident">solver_arguments</span></code></dt>
+<dd>
+<div class="desc"><p>Additional solver-dependent arguments.</p></div>
+</dd>
+</dl>
 </dd>
 </dl>
 </section>
@@ -3430,6 +3500,8 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather_nd" href="#phi.math.backend.Backend.gather_nd">gather_nd</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
+<li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>
+<li><code><a title="phi.math.backend.Backend.greater_than" href="#phi.math.backend.Backend.greater_than">greater_than</a></code></li>
 <li><code><a title="phi.math.backend.Backend.grid_sample" href="#phi.math.backend.Backend.grid_sample">grid_sample</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ifft" href="#phi.math.backend.Backend.ifft">ifft</a></code></li>
 <li><code><a title="phi.math.backend.Backend.imag" href="#phi.math.backend.Backend.imag">imag</a></code></li>
@@ -3452,6 +3524,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.name" href="#phi.math.backend.Backend.name">name</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ndims" href="#phi.math.backend.Backend.ndims">ndims</a></code></li>
 <li><code><a title="phi.math.backend.Backend.nonzero" href="#phi.math.backend.Backend.nonzero">nonzero</a></code></li>
+<li><code><a title="phi.math.backend.Backend.not_equal" href="#phi.math.backend.Backend.not_equal">not_equal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.numpy" href="#phi.math.backend.Backend.numpy">numpy</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ones" href="#phi.math.backend.Backend.ones">ones</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ones_like" href="#phi.math.backend.Backend.ones_like">ones_like</a></code></li>
@@ -3531,6 +3604,14 @@ def retime(self):
 </li>
 <li>
 <h4><code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.math.backend.Solve.absolute_tolerance" href="#phi.math.backend.Solve.absolute_tolerance">absolute_tolerance</a></code></li>
+<li><code><a title="phi.math.backend.Solve.gradient_solve" href="#phi.math.backend.Solve.gradient_solve">gradient_solve</a></code></li>
+<li><code><a title="phi.math.backend.Solve.max_iterations" href="#phi.math.backend.Solve.max_iterations">max_iterations</a></code></li>
+<li><code><a title="phi.math.backend.Solve.relative_tolerance" href="#phi.math.backend.Solve.relative_tolerance">relative_tolerance</a></code></li>
+<li><code><a title="phi.math.backend.Solve.solver" href="#phi.math.backend.Solve.solver">solver</a></code></li>
+<li><code><a title="phi.math.backend.Solve.solver_arguments" href="#phi.math.backend.Solve.solver_arguments">solver_arguments</a></code></li>
+</ul>
 </li>
 </ul>
 </li>

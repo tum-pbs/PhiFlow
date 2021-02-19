@@ -20,7 +20,7 @@ Older versions are available through the [release history](https://github.com/tu
 ## Features
 
 * Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
-* Tight integration with [TensorFlow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) for straightforward neural network training with fully differentiable simulations that [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html).
+* Tight integration with [TensorFlow](https://www.tensorflow.org/), [PyTorch](https://pytorch.org/) and [Jax](https://github.com/google/jax) (*experimental*) for straightforward neural network training with fully differentiable simulations that [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html#enabling-gpu-execution).
 * Flexible, easy-to-use [web interface](https://tum-pbs.github.io/PhiFlow/Web_Interface.html) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 * Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.

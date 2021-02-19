@@ -866,7 +866,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values, bounds: phi.geom._box.Box, extrapolation=0)</span>
+<span>(</span><span>values, bounds: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
@@ -983,7 +983,7 @@ A centered grid is defined through its data tensor, its bounds describing the ph
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.field.CenteredGrid.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>value: phi.geom._geom.Geometry, resolution: phi.math._shape.Shape, box: phi.geom._box.Box, extrapolation=0)</span>
+<span>def <span class="ident">sample</span></span>(<span>value: phi.geom._geom.Geometry, resolution: phi.math._shape.Shape, box: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1785,7 +1785,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.Grid"><code class="flex name class">
 <span>class <span class="ident">Grid</span></span>
-<span>(</span><span>values: phi.math._tensors.Tensor, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=0)</span>
+<span>(</span><span>values: phi.math._tensors.Tensor, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for CenteredGrid, StaggeredGrid.</p>
@@ -2373,7 +2373,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=(), failed to fetch values with error name 'jnp' is not defined, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -3181,7 +3181,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: phi.math._tensors.TensorStack, bounds=None, extrapolation=0)</span>
+<span>(</span><span>values: phi.math._tensors.TensorStack, bounds=None, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -3373,7 +3373,7 @@ A staggered grid is defined through its values tensor, its bounds describing the
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.field.StaggeredGrid.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>value: phi.field._field.Field, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=0) ‑> phi.field._grid.StaggeredGrid</span>
+<span>def <span class="ident">sample</span></span>(<span>value: phi.field._field.Field, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined) ‑> phi.field._grid.StaggeredGrid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a StaggeredGrid from <code>value</code>.

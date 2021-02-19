@@ -62,6 +62,28 @@ def test_torch():
     return f"Installed, {gpu_count} GPUs available."
 
 
+def test_jax():
+    try:
+        import jax
+        import jaxlib
+    except ImportError:
+        return "Not installed"
+    try:
+        from phi import jax
+    except BaseException as err:
+        return f"Installed but not available due to internal error: {err}"
+    try:
+        gpu_count = len(jax.JAX_BACKEND.list_devices('GPU'))
+    except BaseException as err:
+        return f"Installed but device initialization failed with error: {err}"
+    with jax.JAX_BACKEND:
+        try:
+            math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
+        except BaseException as err:
+            return f"Installed but tests failed with error: {err}"
+    return f"Installed, {gpu_count} GPUs available."
+
+
 def test_dash():
     try:
         import dash
@@ -85,11 +107,17 @@ def test_dash():
         return f"Runtime error: {e}"
     return 'OK'
 
+
 math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
 
+result_dash = test_dash()
 result_tf = test_tensorflow()
 result_torch = test_torch()
-result_dash = test_dash()
+result_jax = test_jax()
 
 
-print(f"\nInstallation verified. PhiFlow version {phi.__version__}\nWeb interface: {result_dash}\nTensorFlow: {result_tf}\nPyTorch: {result_torch}")
+print(f"\nInstallation verified. PhiFlow version {phi.__version__}\n"
+      f"Web interface: {result_dash}\n"
+      f"TensorFlow: {result_tf}\n"
+      f"PyTorch: {result_torch}\n"
+      f"Jax: {result_jax}")

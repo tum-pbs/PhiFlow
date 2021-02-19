@@ -1576,7 +1576,7 @@ Returns:</p></div>
         return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
     total_loss = math.sum_(tensor ** n) / n
     if batch_norm:
-        batch_size = tensor.shape.sizes[0]
+        batch_size = tensor.shape.batch.volume
         return math.divide_no_nan(total_loss, batch_size)
     else:
         return total_loss</code></pre>
@@ -2668,7 +2668,7 @@ The output of math operations has the same precision as its inputs.</p>
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     loop_time = time.perf_counter()
-    converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params.relative_tolerance, solve_params.absolute_tolerance, solve_params.max_iterations, &#39;implicit&#39;, callback)
+    converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, &#39;implicit&#39;, callback)
     loop_time = time.perf_counter() - loop_time
     if get_current_profile():
         info = &#34;  \tProfile with trace=False to get more accurate results.&#34; if get_current_profile()._trace else &#34;&#34;
@@ -2790,7 +2790,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.split_dimension"><code class="name flex">
-<span>def <span class="ident">split_dimension</span></span>(<span>value: phi.math._tensors.Tensor, dim: str, split_dimensions: phi.math._shape.Shape)</span>
+<span>def <span class="ident">split_dimension</span></span>(<span>dim: phi.math._tensors.TensorDim, split_dimensions: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2798,13 +2798,17 @@ The output of math operations has the same precision as its inputs.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def split_dimension(value: Tensor, dim: str, split_dimensions: Shape):
+<pre><code class="python">def split_dimension(dim: TensorDim, split_dimensions: Shape):
     if split_dimensions.rank == 0:
-        return value.dimension(dim)[0]
+        return dim[0]
     if split_dimensions.rank == 1:
+        value = dim.tensor
         new_shape = value.shape.with_names([split_dimensions.name if name == dim else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
-    raise NotImplementedError()</code></pre>
+    else:
+        value = dim.tensor
+
+        raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sqrt"><code class="name flex">
@@ -3798,10 +3802,10 @@ This is the default implementation.</p>
 </dd>
 <dt id="phi.math.LinearSolve"><code class="flex name class">
 <span>class <span class="ident">LinearSolve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', **solver_arguments)</span>
+<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3814,9 +3818,9 @@ This is the default implementation.</p>
                  absolute_tolerance=0,
                  max_iterations=1000,
                  bake=&#39;sparse&#39;,
+                 gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
-        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake,
-                       **solver_arguments)</code></pre>
+        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake, gradient_solve=gradient_solve, **solver_arguments)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6152,32 +6156,71 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, **solver_arguments)</span>
+<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Solve:
+<pre><code class="python">class Solve:  # TODO store additional info in here?
+    &#34;&#34;&#34;
+    Specifies parameters and stopping criteria for solving a system of equations or minimization problem.
+    &#34;&#34;&#34;
 
     def __init__(self,
                  solver: str = None,
                  relative_tolerance=1e-5,
                  absolute_tolerance=0,
                  max_iterations=1000,
+                 gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
         self.solver = solver
+        &#34;&#34;&#34; (Optional) Name of method to use. &#34;&#34;&#34;
         self.relative_tolerance = relative_tolerance
+        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
         self.absolute_tolerance = absolute_tolerance
+        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
         self.max_iterations = max_iterations
-        self.solver_arguments = solver_arguments</code></pre>
+        &#34;&#34;&#34; Maximum number of iterations to perform before terminating with `converged=False`. &#34;&#34;&#34;
+        self.gradient_solve = gradient_solve or self
+        &#34;&#34;&#34; Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver. &#34;&#34;&#34;
+        assert self.gradient_solve.solver == self.solver
+        self.solver_arguments = solver_arguments
+        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li>phi.math.backend._optim.LinearSolve</li>
 </ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.Solve.absolute_tolerance"><code class="name">var <span class="ident">absolute_tolerance</span></code></dt>
+<dd>
+<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+</dd>
+<dt id="phi.math.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span></code></dt>
+<dd>
+<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p></div>
+</dd>
+<dt id="phi.math.Solve.max_iterations"><code class="name">var <span class="ident">max_iterations</span></code></dt>
+<dd>
+<div class="desc"><p>Maximum number of iterations to perform before terminating with <code>converged=False</code>.</p></div>
+</dd>
+<dt id="phi.math.Solve.relative_tolerance"><code class="name">var <span class="ident">relative_tolerance</span></code></dt>
+<dd>
+<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+</dd>
+<dt id="phi.math.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
+<dd>
+<div class="desc"><p>(Optional) Name of method to use.</p></div>
+</dd>
+<dt id="phi.math.Solve.solver_arguments"><code class="name">var <span class="ident">solver_arguments</span></code></dt>
+<dd>
+<div class="desc"><p>Additional solver-dependent arguments.</p></div>
+</dd>
+</dl>
 </dd>
 <dt id="phi.math.Tensor"><code class="flex name class">
 <span>class <span class="ident">Tensor</span></span>
@@ -6316,24 +6359,27 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return int(self.native()) if self.rank == 0 and np.issubdtype(self.dtype, int) else NotImplemented
 
     def _summary_str(self) -&gt; str:
-        from ._functions import all_available, min_, max_
-        if all_available(self):
-            if self.rank == 0:
-                return str(self.numpy())
-            elif self.shape.volume is not None and self.shape.volume &lt;= 6:
-                content = list(np.reshape(self.numpy(), [-1]))
-                content = &#39;, &#39;.join([repr(number) for number in content])
-                if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
-                    return f&#34;({content}) along {self.shape.name}&#34;
-                return f&#34;{self.shape} {self.dtype}  {content}&#34;
+        try:
+            from ._functions import all_available, min_, max_
+            if all_available(self):
+                if self.rank == 0:
+                    return str(self.numpy())
+                elif self.shape.volume is not None and self.shape.volume &lt;= 6:
+                    content = list(np.reshape(self.numpy(), [-1]))
+                    content = &#39;, &#39;.join([repr(number) for number in content])
+                    if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
+                        return f&#34;({content}) along {self.shape.name}&#34;
+                    return f&#34;{self.shape} {self.dtype}  {content}&#34;
+                else:
+                    min_val, max_val = min_(self), max_(self)
+                    return f&#34;{self.shape} {self.dtype}  {min_val} &lt; ... &lt; {max_val}&#34;
             else:
-                min_val, max_val = min_(self), max_(self)
-                return f&#34;{self.shape} {self.dtype}  {min_val} &lt; ... &lt; {max_val}&#34;
-        else:
-            if self.rank == 0:
-                return f&#34;scalar {self.dtype}&#34;
-            else:
-                return f&#34;{self.shape} {self.dtype}&#34;
+                if self.rank == 0:
+                    return f&#34;scalar {self.dtype}&#34;
+                else:
+                    return f&#34;{self.shape} {self.dtype}&#34;
+        except BaseException as err:
+            return f&#34;{self.shape}, failed to fetch values with error {err}&#34;
 
     def __repr__(self):
         return self._summary_str()
@@ -6494,19 +6540,19 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y))
 
     def __ne__(self, other):
-        return self._op2(other, lambda x, y: x != y, lambda x, y: x != y)
+        return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y))
 
     def __lt__(self, other):
-        return self._op2(other, lambda x, y: x &lt; y, lambda x, y: x &lt; y)
+        return self._op2(other, lambda x, y: x &lt; y, lambda x, y: choose_backend(x, y).greater_than(y, x))
 
     def __le__(self, other):
-        return self._op2(other, lambda x, y: x &lt;= y, lambda x, y: x &lt;= y)
+        return self._op2(other, lambda x, y: x &lt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x))
 
     def __gt__(self, other):
-        return self._op2(other, lambda x, y: x &gt; y, lambda x, y: x &gt; y)
+        return self._op2(other, lambda x, y: x &gt; y, lambda x, y: choose_backend(x, y).greater_than(x, y))
 
     def __ge__(self, other):
-        return self._op2(other, lambda x, y: x &gt;= y, lambda x, y: x &gt;= y)
+        return self._op2(other, lambda x, y: x &gt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y))
 
     def __abs__(self):
         return self._op1(lambda t: choose_backend(t).abs(t))
@@ -7564,6 +7610,14 @@ int: repeating unstack if dimension does not exist</dd>
 </li>
 <li>
 <h4><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.math.Solve.absolute_tolerance" href="#phi.math.Solve.absolute_tolerance">absolute_tolerance</a></code></li>
+<li><code><a title="phi.math.Solve.gradient_solve" href="#phi.math.Solve.gradient_solve">gradient_solve</a></code></li>
+<li><code><a title="phi.math.Solve.max_iterations" href="#phi.math.Solve.max_iterations">max_iterations</a></code></li>
+<li><code><a title="phi.math.Solve.relative_tolerance" href="#phi.math.Solve.relative_tolerance">relative_tolerance</a></code></li>
+<li><code><a title="phi.math.Solve.solver" href="#phi.math.Solve.solver">solver</a></code></li>
+<li><code><a title="phi.math.Solve.solver_arguments" href="#phi.math.Solve.solver_arguments">solver_arguments</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></h4>
