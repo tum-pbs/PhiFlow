@@ -13,6 +13,7 @@ import torch.nn.functional as torchf
 from phi.math import LinearSolve
 from phi.math.backend import Backend, DType, SCIPY_BACKEND, ComputeDevice
 from phi.math.backend._backend_helper import combined_dim
+from phi.math.backend._optim import SolveResult
 
 
 class TorchBackend(Backend):
@@ -516,35 +517,21 @@ class TorchBackend(Backend):
             def function(vec):
                 return self.matmul(A, vec)
 
-        tolerance_sq = self.maximum(solve_params.relative_tolerance ** 2 * torch.sum(y ** 2, -1), solve_params.absolute_tolerance ** 2)
-
         y = self.to_float(y)
         x0 = self.to_float(x0)
         batch_size = combined_dim(x0.shape[0], y.shape[0])
         if x0.shape[0] < batch_size:
             x0 = x0.repeat([batch_size, 1])
 
-        class CGVariant(torch.autograd.Function):
-
-            @staticmethod
-            def forward(ctx, y=y):
-                return cg_forward(y)
-
-            @staticmethod
-            def backward(ctx, _success, dX, _iterations):
-                if gradient == 'implicit':
-                    return cg_forward(dX)[1]
-                else:
-                    raise NotImplementedError(f"gradient={gradient}")
-
-        def cg_forward(y=y):
+        def cg_forward(y, params: LinearSolve):
+            tolerance_sq = self.maximum(params.relative_tolerance ** 2 * torch.sum(y ** 2, -1), params.absolute_tolerance ** 2)
             x = x0
             dx = residual = y - function(x)
             dy = function(dx)
             iterations = 0
             converged = True
             while self.all(self.sum(residual ** 2, -1) > tolerance_sq):
-                if iterations == solve_params.max_iterations:
+                if iterations == params.max_iterations:
                     converged = False
                     break
                 iterations += 1
@@ -554,7 +541,21 @@ class TorchBackend(Backend):
                 residual -= step_size * dy
                 dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
                 dy = function(dx)
-            return self.as_tensor(converged, True), x, self.as_tensor(iterations, True)
+            params.result = SolveResult(converged, iterations)
+            return x
+
+        class CGVariant(torch.autograd.Function):
+
+            @staticmethod
+            def forward(ctx, y):
+                return cg_forward(y, solve_params)
+
+            @staticmethod
+            def backward(ctx, dX):
+                if gradient == 'implicit':
+                    return cg_forward(dX, solve_params.gradient_solve)
+                else:
+                    raise NotImplementedError(f"gradient={gradient}")
 
         result = CGVariant.apply(y)
         return result

@@ -981,18 +981,19 @@ def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
-def minimize(function, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[Tensor, Tensor, Tensor]:
+def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor, Tensor]:
     """
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
 
     Args:
         function: Function to be minimized
         x0: Initial guess for `x`
-        solve_params: Specifies solver type and parameters such as desired accuracy and maximum iterations.
-        callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
+        solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
 
     Returns:
-        The minimum point `x`.
+        converged: scalar bool tensor representing whether the solve found a solution within the specified accuracy within the allowed iterations
+        x: solution, the minimum point `x`.
+        iterations: number of iterations performed
     """
     backend = choose_backend_t(x0)
     x0._expand()
@@ -1015,11 +1016,9 @@ def minimize(function, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[
         y = function(x)
         return y.native()
 
-    method = solve_params.solver or 'L-BFGS-B'
-    tolerance = max(solve_params.relative_tolerance, solve_params.absolute_tolerance)
-    converged, x_native, iterations = backend.minimize(native_function, x0_flat, method, tolerance, solve_params.max_iterations)
+    x_native = backend.minimize(native_function, x0_flat, solve_params)
     x = unflatten_assemble(x_native)
-    return tensor(converged), x, tensor(iterations)
+    return tensor(solve_params.result.success), x, tensor(solve_params.result.iterations)
 
 
 def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[Tensor, Tensor, Tensor]:
@@ -1030,7 +1029,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
         operator: Function `operator(x)` or matrix
         y: Desired output of `operator · x`
         x0: Initial guess for `x`
-        solve_params: Specifies solver type and parameters such as desired accuracy and maximum iterations.
+        solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
         callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
 
     Returns:
@@ -1047,8 +1046,9 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
             return l2
 
         rel_tol_to_abs = solve_params.relative_tolerance * l2_loss(y, batch_norm=True)
-        solve_params.relative_tolerance = solve_params.absolute_tolerance = rel_tol_to_abs
-        return minimize(min_func, x0, solve_params=solve_params, callback=callback)
+        solve_params.absolute_tolerance = rel_tol_to_abs
+        solve_params.relative_tolerance = None
+        return minimize(min_func, x0, solve_params=solve_params)
     if solve_params.solver not in (None, 'CG'):
         raise NotImplementedError("Only 'CG' solver currently supported")
 
@@ -1061,7 +1061,7 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
 
     if callable(operator):
         operator_or_matrix = None
-        if solve_params.solver_arguments['bake'] == 'sparse':
+        if solve_params.bake == 'sparse':
             track_time = time.perf_counter()
             x_track = lin_placeholder(x0)
             Ax_track = operator(x_track)
@@ -1082,7 +1082,9 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     loop_time = time.perf_counter()
-    converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, 'implicit', callback)
+    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, 'implicit', callback)
+    converged = solve_params.result.success
+    iterations = solve_params.result.iterations
     loop_time = time.perf_counter() - loop_time
     if get_current_profile():
         info = "  \tProfile with trace=False to get more accurate results." if get_current_profile()._trace else ""

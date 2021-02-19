@@ -12,6 +12,7 @@ from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, C
 from ._tf_cuda_resample import resample_cuda, use_cuda
 from ..math import LinearSolve
 from ..math.backend._backend_helper import combined_dim
+from ..math.backend._optim import SolveResult, Solve
 
 
 class TFBackend(Backend):
@@ -467,20 +468,19 @@ class TFBackend(Backend):
             def function(vec):
                 return self.matmul(A, vec)
 
-        tolerance_sq = self.maximum(solve_params.relative_tolerance ** 2 * tf.reduce_sum(y ** 2, -1), solve_params.absolute_tolerance ** 2)
-
         batch_size = combined_dim(x0.shape[0], y.shape[0])
         if x0.shape[0] < batch_size:
             x0 = tf.tile(x0, [batch_size, 1])
 
-        def cg_forward(y):
+        def cg_forward(y, params: LinearSolve):
+            tolerance_sq = self.maximum(params.relative_tolerance ** 2 * tf.reduce_sum(y ** 2, -1), params.absolute_tolerance ** 2)
             x = x0
             dx = residual = y - function(x)
             dy = function(dx)
             iterations = 0
             converged = True
             while self.all(self.sum(residual ** 2, -1) > tolerance_sq):
-                if iterations == solve_params.max_iterations:
+                if iterations == params.max_iterations:
                     converged = False
                     break
                 iterations += 1
@@ -490,17 +490,19 @@ class TFBackend(Backend):
                 residual -= step_size * dy
                 dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
                 dy = function(dx)
-            return self.as_tensor(converged, True), x, self.as_tensor(iterations, True)
+            params.result = SolveResult(converged, iterations)
+            return x
 
         @tf.custom_gradient
         def cg_with_grad(y):
-            def grad(_success, dx, _iterations):
-                return cg_forward(dx)[1]
-            return cg_forward(y), grad
+            def grad(dx):
+                return cg_forward(dx, solve_params.gradient_solve)
+            return cg_forward(y, solve_params), grad
 
-        return cg_with_grad(y)
+        result = cg_with_grad(y)
+        return result
 
-    def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -> Tuple[bool, Any, int]:
+    def minimize(self, function, x0, solve_params: Solve):
         x0 = self.numpy(x0)
 
         # @tf.function
@@ -516,8 +518,13 @@ class TFBackend(Backend):
             val, grad = val_and_grad(x)
             return val.numpy().astype(np.float64), grad.numpy().astype(np.float64)
 
-        res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=tolerance, options={'maxiter': max_iterations})
-        return res.success, res.x, res.nit
+        assert solve_params.relative_tolerance is None
+        res = sopt.minimize(fun=min_target, x0=x0, jac=True,
+                            method=solve_params.solver or 'L-BFGS-B',
+                            tol=solve_params.absolute_tolerance,
+                            options={'maxiter': solve_params.max_iterations})
+        solve_params.result = SolveResult(res.success, res.nit)
+        return res.x
 
     def add(self, a, b):
         if isinstance(a, tf.SparseTensor) or isinstance(b, tf.SparseTensor):

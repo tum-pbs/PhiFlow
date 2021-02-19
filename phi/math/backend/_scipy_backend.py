@@ -12,7 +12,7 @@ from scipy.sparse.linalg import cg, LinearOperator
 from . import Backend, ComputeDevice
 from ._backend_helper import combined_dim
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
-from ._optim import Solve, LinearSolve
+from ._optim import Solve, LinearSolve, SolveResult
 
 
 class SciPyBackend(Backend):
@@ -454,7 +454,8 @@ class SciPyBackend(Backend):
             x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations, callback=count_callback)
             converged.append(ret_val == 0)
             results.append(x)
-        return all(converged), self.stack(results), max(iterations)
+        solve_params.result = SolveResult(all(converged), max(iterations))
+        return self.stack(results)
 
 
 def clamp(coordinates, shape):
