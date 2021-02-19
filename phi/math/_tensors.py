@@ -595,6 +595,11 @@ class TensorDim:
         """ Flips the element order along this dimension and returns the result as a `Tensor`. """
         return self.tensor.flip(self.name)
 
+    def split(self, split_dimensions: Shape):
+        """ See `phi.math.split_dimension()` """
+        from ._functions import split_dimension
+        return split_dimension(self, split_dimensions)
+
 
 class NativeTensor(Tensor):
 

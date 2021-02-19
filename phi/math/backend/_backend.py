@@ -18,9 +18,9 @@ class ComputeDevice:
         self.device_type = device_type
         """ Type of device such as `'CPU'`, `'GPU'` or `'TPU'`. """
         self.memory = memory
-        """ Maximum memory of the device that can be allocated (in bytes). """
+        """ Maximum memory of the device that can be allocated (in bytes). -1 for n/a. """
         self.processor_count = processor_count
-        """ Number of CPU cores or GPU multiprocessors. """
+        """ Number of CPU cores or GPU multiprocessors. -1 for n/a. """
         self.description = description
         """ Further information about the device such as driver version. """
 
@@ -504,7 +504,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -> Tuple[bool, Any, int]:
+    def minimize(self, function, x0, solve_params: Solve):
         raise NotImplementedError(self)
 
     def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
@@ -521,7 +521,7 @@ class Backend:
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
         Returns:
-          converged, solution, iterations
+            x: the solution as a tensor
 
         """
         raise NotImplementedError(self)

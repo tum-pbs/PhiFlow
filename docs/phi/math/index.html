@@ -257,7 +257,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.math.assert_close"><code class="name flex">
-<span>def <span class="ident">assert_close</span></span>(<span>*tensors, rel_tolerance=1e-05, abs_tolerance=0)</span>
+<span>def <span class="ident">assert_close</span></span>(<span>*tensors, rel_tolerance: float = 1e-05, abs_tolerance: float = 0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Checks that all tensors have equal values within the specified tolerance.
@@ -280,7 +280,9 @@ Tensors with different shapes are reshaped before comparing.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def assert_close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
+<pre><code class="python">def assert_close(*tensors,
+                 rel_tolerance: float = 1e-5,
+                 abs_tolerance: float = 0):
     &#34;&#34;&#34;
     Checks that all tensors have equal values within the specified tolerance.
     Raises an AssertionError if the values of this tensor are not within tolerance of any of the other tensors.
@@ -1430,27 +1432,47 @@ The parameters <code>x</code> must be marked prior to all operations for which g
 <span>def <span class="ident">join_dimensions</span></span>(<span>value: phi.math._tensors.Tensor, dims: phi.math._shape.Shape, joined_dim_name: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Stacks multiple dimensions into a single dimension.</p>
+<div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
+Elements along the new dimensions are laid out according to the order of <code>dims</code>.
+If the order of <code>dims</code> differs from the current dimension order, the tensor is transposed accordingly.</p>
+<p>The type of the new dimension will be equal to the types of <code>dims</code>.
+If <code>dims</code> have varying types, the new dimension will be a batch dimension.</p>
+<p>See Also:
+<code><a title="phi.math.split_dimension" href="#phi.math.split_dimension">split_dimension()</a></code></p>
 <h2 id="args">Args</h2>
-<p>value:
-dims:
-joined_dim_name:
-Returns:</p></div>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor containing the dimensions <code>dims</code>.</dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>Dimensions to be compressed in the specified order.</dd>
+<dt><strong><code>joined_dim_name</code></strong></dt>
+<dd>Name of the new dimension.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with compressed shape.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
     &#34;&#34;&#34;
-    Stacks multiple dimensions into a single dimension.
+    Compresses multiple dimensions into a single dimension by concatenating the elements.
+    Elements along the new dimensions are laid out according to the order of `dims`.
+    If the order of `dims` differs from the current dimension order, the tensor is transposed accordingly.
+
+    The type of the new dimension will be equal to the types of `dims`.
+    If `dims` have varying types, the new dimension will be a batch dimension.
+
+    See Also:
+        `split_dimension()`
 
     Args:
-        value:
-        dims:
-        joined_dim_name:
+        value: Tensor containing the dimensions `dims`.
+        dims: Dimensions to be compressed in the specified order.
+        joined_dim_name: Name of the new dimension.
 
     Returns:
-
+        `Tensor` with compressed shape.
     &#34;&#34;&#34;
     if len(dims) == 0:
         return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name)))
@@ -1775,7 +1797,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, callback=None) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
+<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds a minimum of the scalar function <code>function(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> like <code>x0</code>.</p>
@@ -1786,28 +1808,34 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <dt><strong><code>x0</code></strong></dt>
 <dd>Initial guess for <code>x</code></dd>
 <dt><strong><code>solve_params</code></strong></dt>
-<dd>Specifies solver type and parameters such as desired accuracy and maximum iterations.</dd>
-<dt><strong><code>callback</code></strong></dt>
-<dd>Function to be called after each iteration as <code>callback(x_n)</code>. <em>This argument may be ignored by some backends.</em></dd>
+<dd>Specifies solver type and parameters. Additional solve information will be stored in <code>solve_params.result</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>The minimum point <code>x</code>.</p></div>
+<dl>
+<dt><code>converged</code></dt>
+<dd>scalar bool tensor representing whether the solve found a solution within the specified accuracy within the allowed iterations</dd>
+<dt><code>x</code></dt>
+<dd>solution, the minimum point <code>x</code>.</dd>
+<dt><code>iterations</code></dt>
+<dd>number of iterations performed</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(function, x0: Tensor, solve_params: Solve, callback=None) -&gt; Tuple[Tensor, Tensor, Tensor]:
+<pre><code class="python">def minimize(function, x0: Tensor, solve_params: Solve) -&gt; Tuple[Tensor, Tensor, Tensor]:
     &#34;&#34;&#34;
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
 
     Args:
         function: Function to be minimized
         x0: Initial guess for `x`
-        solve_params: Specifies solver type and parameters such as desired accuracy and maximum iterations.
-        callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
+        solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
 
     Returns:
-        The minimum point `x`.
+        converged: scalar bool tensor representing whether the solve found a solution within the specified accuracy within the allowed iterations
+        x: solution, the minimum point `x`.
+        iterations: number of iterations performed
     &#34;&#34;&#34;
     backend = choose_backend_t(x0)
     x0._expand()
@@ -1830,11 +1858,9 @@ If a vector field is passed, the laplace is computed component-wise.</p>
         y = function(x)
         return y.native()
 
-    method = solve_params.solver or &#39;L-BFGS-B&#39;
-    tolerance = max(solve_params.relative_tolerance, solve_params.absolute_tolerance)
-    converged, x_native, iterations = backend.minimize(native_function, x0_flat, method, tolerance, solve_params.max_iterations)
+    x_native = backend.minimize(native_function, x0_flat, solve_params)
     x = unflatten_assemble(x_native)
-    return tensor(converged), x, tensor(iterations)</code></pre>
+    return tensor(solve_params.result.success), x, tensor(solve_params.result.iterations)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.minimum"><code class="name flex">
@@ -2591,7 +2617,7 @@ The output of math operations has the same precision as its inputs.</p>
 <dt><strong><code>x0</code></strong></dt>
 <dd>Initial guess for <code>x</code></dd>
 <dt><strong><code>solve_params</code></strong></dt>
-<dd>Specifies solver type and parameters such as desired accuracy and maximum iterations.</dd>
+<dd>Specifies solver type and parameters. Additional solve information will be stored in <code>solve_params.result</code>.</dd>
 <dt><strong><code>callback</code></strong></dt>
 <dd>Function to be called after each iteration as <code>callback(x_n)</code>. <em>This argument may be ignored by some backends.</em></dd>
 </dl>
@@ -2616,7 +2642,7 @@ The output of math operations has the same precision as its inputs.</p>
         operator: Function `operator(x)` or matrix
         y: Desired output of `operator · x`
         x0: Initial guess for `x`
-        solve_params: Specifies solver type and parameters such as desired accuracy and maximum iterations.
+        solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
         callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
 
     Returns:
@@ -2633,8 +2659,9 @@ The output of math operations has the same precision as its inputs.</p>
             return l2
 
         rel_tol_to_abs = solve_params.relative_tolerance * l2_loss(y, batch_norm=True)
-        solve_params.relative_tolerance = solve_params.absolute_tolerance = rel_tol_to_abs
-        return minimize(min_func, x0, solve_params=solve_params, callback=callback)
+        solve_params.absolute_tolerance = rel_tol_to_abs
+        solve_params.relative_tolerance = None
+        return minimize(min_func, x0, solve_params=solve_params)
     if solve_params.solver not in (None, &#39;CG&#39;):
         raise NotImplementedError(&#34;Only &#39;CG&#39; solver currently supported&#34;)
 
@@ -2647,7 +2674,7 @@ The output of math operations has the same precision as its inputs.</p>
 
     if callable(operator):
         operator_or_matrix = None
-        if solve_params.solver_arguments[&#39;bake&#39;] == &#39;sparse&#39;:
+        if solve_params.bake == &#39;sparse&#39;:
             track_time = time.perf_counter()
             x_track = lin_placeholder(x0)
             Ax_track = operator(x_track)
@@ -2668,7 +2695,9 @@ The output of math operations has the same precision as its inputs.</p>
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     loop_time = time.perf_counter()
-    converged, x, iterations = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, &#39;implicit&#39;, callback)
+    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, &#39;implicit&#39;, callback)
+    converged = solve_params.result.success
+    iterations = solve_params.result.iterations
     loop_time = time.perf_counter() - loop_time
     if get_current_profile():
         info = &#34;  \tProfile with trace=False to get more accurate results.&#34; if get_current_profile()._trace else &#34;&#34;
@@ -2790,25 +2819,57 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.split_dimension"><code class="name flex">
-<span>def <span class="ident">split_dimension</span></span>(<span>dim: phi.math._tensors.TensorDim, split_dimensions: phi.math._shape.Shape)</span>
+<span>def <span class="ident">split_dimension</span></span>(<span>dim: phi.math._tensors.TensorDim, split_dims: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Decompresses a tensor dimension by unstacking the elements along it.
+The compressed dimension <code>dim</code> is assumed to contain elements laid out according to the order or <code>split_dims</code>.</p>
+<p>See Also:
+<code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Compressed dimension to be decompressed.</dd>
+<dt><strong><code>split_dims</code></strong></dt>
+<dd>Ordered new dimensions to replace <code>dim</code> as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with decompressed shape</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def split_dimension(dim: TensorDim, split_dimensions: Shape):
-    if split_dimensions.rank == 0:
+<pre><code class="python">def split_dimension(dim: TensorDim, split_dims: Shape):
+    &#34;&#34;&#34;
+    Decompresses a tensor dimension by unstacking the elements along it.
+    The compressed dimension `dim` is assumed to contain elements laid out according to the order or `split_dims`.
+
+    See Also:
+        `join_dimensions()`
+
+    Args:
+        dim: Compressed dimension to be decompressed.
+        split_dims: Ordered new dimensions to replace `dim` as `Shape`.
+
+    Returns:
+        `Tensor` with decompressed shape
+    &#34;&#34;&#34;
+    if split_dims.rank == 0:
         return dim[0]
-    if split_dimensions.rank == 1:
+    if split_dims.rank == 1:
         value = dim.tensor
-        new_shape = value.shape.with_names([split_dimensions.name if name == dim else name for name in value.shape.names])
+        new_shape = value.shape.with_names([split_dims.name if name == dim else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     else:
         value = dim.tensor
-
-        raise NotImplementedError()</code></pre>
+        native = value.native()
+        new_shape = value.shape.without(dim.name)
+        i = dim.index
+        for size, name, dim_type in split_dims.dimensions:
+            new_shape = new_shape.expand(size, name, dim_type, pos=i)
+            i += 1
+        native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
+        return NativeTensor(native_reshaped, new_shape)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sqrt"><code class="name flex">
@@ -3805,12 +3866,18 @@ This is the default implementation.</p>
 <span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
+<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of linear equations.</p>
+<p>Extends <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> by the property <code>bake</code> which determines whether and how the equations are stored.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class LinearSolve(Solve):
+    &#34;&#34;&#34;
+    Specifies parameters and stopping criteria for solving a system of linear equations.
+
+    Extends `Solve` by the property `bake` which determines whether and how the equations are stored.
+    &#34;&#34;&#34;
 
     def __init__(self,
                  solver: str = None,
@@ -3820,12 +3887,21 @@ This is the default implementation.</p>
                  bake=&#39;sparse&#39;,
                  gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
-        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake, gradient_solve=gradient_solve, **solver_arguments)</code></pre>
+        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, gradient_solve, **solver_arguments)
+        self.bake = bake
+        &#34;&#34;&#34; Baking method: None to use original function, `&#39;sparse&#39;` to create a sparse matrix. &#34;&#34;&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.math.backend._optim.Solve</li>
 </ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.LinearSolve.bake"><code class="name">var <span class="ident">bake</span></code></dt>
+<dd>
+<div class="desc"><p>Baking method: None to use original function, <code>'sparse'</code> to create a sparse matrix.</p></div>
+</dd>
+</dl>
 </dd>
 <dt id="phi.math.Shape"><code class="flex name class">
 <span>class <span class="ident">Shape</span></span>
@@ -6156,7 +6232,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
+<span>(</span><span>solver: str = None, relative_tolerance: float = 1e-05, absolute_tolerance: float = 0, max_iterations: int = 1000, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
@@ -6164,31 +6240,45 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Solve:  # TODO store additional info in here?
+<pre><code class="python">class Solve:
     &#34;&#34;&#34;
     Specifies parameters and stopping criteria for solving a system of equations or minimization problem.
     &#34;&#34;&#34;
 
     def __init__(self,
                  solver: str = None,
-                 relative_tolerance=1e-5,
-                 absolute_tolerance=0,
-                 max_iterations=1000,
+                 relative_tolerance: float = 1e-5,
+                 absolute_tolerance: float = 0,
+                 max_iterations: int = 1000,
                  gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
         self.solver = solver
         &#34;&#34;&#34; (Optional) Name of method to use. &#34;&#34;&#34;
-        self.relative_tolerance = relative_tolerance
+        self.relative_tolerance: float = relative_tolerance
         &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.absolute_tolerance = absolute_tolerance
+        self.absolute_tolerance: float = absolute_tolerance
         &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.max_iterations = max_iterations
+        self.max_iterations: int = max_iterations
         &#34;&#34;&#34; Maximum number of iterations to perform before terminating with `converged=False`. &#34;&#34;&#34;
-        self.gradient_solve = gradient_solve or self
-        &#34;&#34;&#34; Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver. &#34;&#34;&#34;
-        assert self.gradient_solve.solver == self.solver
-        self.solver_arguments = solver_arguments
-        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;</code></pre>
+        self._gradient_solve = gradient_solve
+        if gradient_solve is not None:
+            assert gradient_solve.solver == solver
+        self.solver_arguments: dict = solver_arguments
+        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
+        self.result: SolveResult = None
+        &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
+
+    @property
+    def gradient_solve(self) -&gt; &#39;Solve&#39;:
+        &#34;&#34;&#34;
+        Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+
+        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+        Gradient solve information will be stored in `gradient_solve.result`.
+        &#34;&#34;&#34;
+        if self._gradient_solve is None:
+            self._gradient_solve = copy(self)
+        return self._gradient_solve</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -6200,9 +6290,27 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <dd>
 <div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
 </dd>
-<dt id="phi.math.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span></code></dt>
+<dt id="phi.math.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math.backend._optim.Solve</code></dt>
 <dd>
-<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p></div>
+<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p>
+<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object for the gradient solve.
+Gradient solve information will be stored in <code>gradient_solve.result</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def gradient_solve(self) -&gt; &#39;Solve&#39;:
+    &#34;&#34;&#34;
+    Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+
+    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+    Gradient solve information will be stored in `gradient_solve.result`.
+    &#34;&#34;&#34;
+    if self._gradient_solve is None:
+        self._gradient_solve = copy(self)
+    return self._gradient_solve</code></pre>
+</details>
 </dd>
 <dt id="phi.math.Solve.max_iterations"><code class="name">var <span class="ident">max_iterations</span></code></dt>
 <dd>
@@ -6211,6 +6319,10 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <dt id="phi.math.Solve.relative_tolerance"><code class="name">var <span class="ident">relative_tolerance</span></code></dt>
 <dd>
 <div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+</dd>
+<dt id="phi.math.Solve.result"><code class="name">var <span class="ident">result</span></code></dt>
+<dd>
+<div class="desc"><p><code>SolveResult</code> storing information about the found solution and the performed solving process. This variable is assigned during the solve.</p></div>
 </dd>
 <dt id="phi.math.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
 <dd>
@@ -7090,7 +7202,12 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 
     def flip(self):
         &#34;&#34;&#34; Flips the element order along this dimension and returns the result as a `Tensor`. &#34;&#34;&#34;
-        return self.tensor.flip(self.name)</code></pre>
+        return self.tensor.flip(self.name)
+
+    def split(self, split_dimensions: Shape):
+        &#34;&#34;&#34; See `phi.math.split_dimension()` &#34;&#34;&#34;
+        from ._functions import split_dimension
+        return split_dimension(self, split_dimensions)</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -7274,6 +7391,21 @@ Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.
                 return result.tolist()
             return result
         return self.tensor</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.split"><code class="name flex">
+<span>def <span class="ident">split</span></span>(<span>self, split_dimensions: phi.math._shape.Shape)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.split_dimension" href="#phi.math.split_dimension">split_dimension()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def split(self, split_dimensions: Shape):
+    &#34;&#34;&#34; See `phi.math.split_dimension()` &#34;&#34;&#34;
+    from ._functions import split_dimension
+    return split_dimension(self, split_dimensions)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.TensorDim.unstack"><code class="name flex">
@@ -7540,6 +7672,9 @@ int: repeating unstack if dimension does not exist</dd>
 </li>
 <li>
 <h4><code><a title="phi.math.LinearSolve" href="#phi.math.LinearSolve">LinearSolve</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.LinearSolve.bake" href="#phi.math.LinearSolve.bake">bake</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></h4>
@@ -7615,6 +7750,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Solve.gradient_solve" href="#phi.math.Solve.gradient_solve">gradient_solve</a></code></li>
 <li><code><a title="phi.math.Solve.max_iterations" href="#phi.math.Solve.max_iterations">max_iterations</a></code></li>
 <li><code><a title="phi.math.Solve.relative_tolerance" href="#phi.math.Solve.relative_tolerance">relative_tolerance</a></code></li>
+<li><code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">result</a></code></li>
 <li><code><a title="phi.math.Solve.solver" href="#phi.math.Solve.solver">solver</a></code></li>
 <li><code><a title="phi.math.Solve.solver_arguments" href="#phi.math.Solve.solver_arguments">solver_arguments</a></code></li>
 </ul>
@@ -7647,6 +7783,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.TensorDim.is_spatial" href="#phi.math.TensorDim.is_spatial">is_spatial</a></code></li>
 <li><code><a title="phi.math.TensorDim.optional_unstack" href="#phi.math.TensorDim.optional_unstack">optional_unstack</a></code></li>
 <li><code><a title="phi.math.TensorDim.size" href="#phi.math.TensorDim.size">size</a></code></li>
+<li><code><a title="phi.math.TensorDim.split" href="#phi.math.TensorDim.split">split</a></code></li>
 <li><code><a title="phi.math.TensorDim.unstack" href="#phi.math.TensorDim.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.TensorDim.unstack_spatial" href="#phi.math.TensorDim.unstack_spatial">unstack_spatial</a></code></li>
 </ul>

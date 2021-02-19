@@ -945,7 +945,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -&gt; Tuple[bool, Any, int]:
+    def minimize(self, function, x0, solve_params: Solve):
         raise NotImplementedError(self)
 
     def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = &#39;implicit&#39;, callback=None):
@@ -962,7 +962,7 @@ The output of math operations has the same precision as its inputs.</p>
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
         Returns:
-          converged, solution, iterations
+            x: the solution as a tensor
 
         &#34;&#34;&#34;
         raise NotImplementedError(self)
@@ -1367,7 +1367,10 @@ A * x = y</p>
 <dd>Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>converged, solution, iterations</p></div>
+<dl>
+<dt><code>x</code></dt>
+<dd>the solution as a tensor</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1386,7 +1389,7 @@ A * x = y</p>
       callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
     Returns:
-      converged, solution, iterations
+        x: the solution as a tensor
 
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
@@ -2040,7 +2043,7 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>self, function, x0, method: str, tolerance: float, max_iterations: int) ‑> Tuple[bool, Any, int]</span>
+<span>def <span class="ident">minimize</span></span>(<span>self, function, x0, solve_params: phi.math.backend._optim.Solve)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2048,7 +2051,7 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(self, function, x0, method: str, tolerance: float, max_iterations: int) -&gt; Tuple[bool, Any, int]:
+<pre><code class="python">def minimize(self, function, x0, solve_params: Solve):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2995,12 +2998,18 @@ def precision(self):
 <span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
+<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of linear equations.</p>
+<p>Extends <code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code> by the property <code>bake</code> which determines whether and how the equations are stored.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class LinearSolve(Solve):
+    &#34;&#34;&#34;
+    Specifies parameters and stopping criteria for solving a system of linear equations.
+
+    Extends `Solve` by the property `bake` which determines whether and how the equations are stored.
+    &#34;&#34;&#34;
 
     def __init__(self,
                  solver: str = None,
@@ -3010,12 +3019,21 @@ def precision(self):
                  bake=&#39;sparse&#39;,
                  gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
-        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, bake=bake, gradient_solve=gradient_solve, **solver_arguments)</code></pre>
+        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, gradient_solve, **solver_arguments)
+        self.bake = bake
+        &#34;&#34;&#34; Baking method: None to use original function, `&#39;sparse&#39;` to create a sparse matrix. &#34;&#34;&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.math.backend._optim.Solve</li>
 </ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.LinearSolve.bake"><code class="name">var <span class="ident">bake</span></code></dt>
+<dd>
+<div class="desc"><p>Baking method: None to use original function, <code>'sparse'</code> to create a sparse matrix.</p></div>
+</dd>
+</dl>
 </dd>
 <dt id="phi.math.backend.NoBackendFound"><code class="flex name class">
 <span>class <span class="ident">NoBackendFound</span></span>
@@ -3358,7 +3376,7 @@ def retime(self):
 </dd>
 <dt id="phi.math.backend.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
+<span>(</span><span>solver: str = None, relative_tolerance: float = 1e-05, absolute_tolerance: float = 0, max_iterations: int = 1000, gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
@@ -3366,31 +3384,45 @@ def retime(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Solve:  # TODO store additional info in here?
+<pre><code class="python">class Solve:
     &#34;&#34;&#34;
     Specifies parameters and stopping criteria for solving a system of equations or minimization problem.
     &#34;&#34;&#34;
 
     def __init__(self,
                  solver: str = None,
-                 relative_tolerance=1e-5,
-                 absolute_tolerance=0,
-                 max_iterations=1000,
+                 relative_tolerance: float = 1e-5,
+                 absolute_tolerance: float = 0,
+                 max_iterations: int = 1000,
                  gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
         self.solver = solver
         &#34;&#34;&#34; (Optional) Name of method to use. &#34;&#34;&#34;
-        self.relative_tolerance = relative_tolerance
+        self.relative_tolerance: float = relative_tolerance
         &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.absolute_tolerance = absolute_tolerance
+        self.absolute_tolerance: float = absolute_tolerance
         &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.max_iterations = max_iterations
+        self.max_iterations: int = max_iterations
         &#34;&#34;&#34; Maximum number of iterations to perform before terminating with `converged=False`. &#34;&#34;&#34;
-        self.gradient_solve = gradient_solve or self
-        &#34;&#34;&#34; Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver. &#34;&#34;&#34;
-        assert self.gradient_solve.solver == self.solver
-        self.solver_arguments = solver_arguments
-        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;</code></pre>
+        self._gradient_solve = gradient_solve
+        if gradient_solve is not None:
+            assert gradient_solve.solver == solver
+        self.solver_arguments: dict = solver_arguments
+        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
+        self.result: SolveResult = None
+        &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
+
+    @property
+    def gradient_solve(self) -&gt; &#39;Solve&#39;:
+        &#34;&#34;&#34;
+        Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+
+        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+        Gradient solve information will be stored in `gradient_solve.result`.
+        &#34;&#34;&#34;
+        if self._gradient_solve is None:
+            self._gradient_solve = copy(self)
+        return self._gradient_solve</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -3402,9 +3434,27 @@ def retime(self):
 <dd>
 <div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
 </dd>
-<dt id="phi.math.backend.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span></code></dt>
+<dt id="phi.math.backend.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math.backend._optim.Solve</code></dt>
 <dd>
-<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p></div>
+<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p>
+<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code> object for the gradient solve.
+Gradient solve information will be stored in <code>gradient_solve.result</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def gradient_solve(self) -&gt; &#39;Solve&#39;:
+    &#34;&#34;&#34;
+    Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+
+    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+    Gradient solve information will be stored in `gradient_solve.result`.
+    &#34;&#34;&#34;
+    if self._gradient_solve is None:
+        self._gradient_solve = copy(self)
+    return self._gradient_solve</code></pre>
+</details>
 </dd>
 <dt id="phi.math.backend.Solve.max_iterations"><code class="name">var <span class="ident">max_iterations</span></code></dt>
 <dd>
@@ -3413,6 +3463,10 @@ def retime(self):
 <dt id="phi.math.backend.Solve.relative_tolerance"><code class="name">var <span class="ident">relative_tolerance</span></code></dt>
 <dd>
 <div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+</dd>
+<dt id="phi.math.backend.Solve.result"><code class="name">var <span class="ident">result</span></code></dt>
+<dd>
+<div class="desc"><p><code>SolveResult</code> storing information about the found solution and the performed solving process. This variable is assigned during the solve.</p></div>
 </dd>
 <dt id="phi.math.backend.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
 <dd>
@@ -3588,6 +3642,9 @@ def retime(self):
 </li>
 <li>
 <h4><code><a title="phi.math.backend.LinearSolve" href="#phi.math.backend.LinearSolve">LinearSolve</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.backend.LinearSolve.bake" href="#phi.math.backend.LinearSolve.bake">bake</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="phi.math.backend.NoBackendFound" href="#phi.math.backend.NoBackendFound">NoBackendFound</a></code></h4>
@@ -3609,6 +3666,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Solve.gradient_solve" href="#phi.math.backend.Solve.gradient_solve">gradient_solve</a></code></li>
 <li><code><a title="phi.math.backend.Solve.max_iterations" href="#phi.math.backend.Solve.max_iterations">max_iterations</a></code></li>
 <li><code><a title="phi.math.backend.Solve.relative_tolerance" href="#phi.math.backend.Solve.relative_tolerance">relative_tolerance</a></code></li>
+<li><code><a title="phi.math.backend.Solve.result" href="#phi.math.backend.Solve.result">result</a></code></li>
 <li><code><a title="phi.math.backend.Solve.solver" href="#phi.math.backend.Solve.solver">solver</a></code></li>
 <li><code><a title="phi.math.backend.Solve.solver_arguments" href="#phi.math.backend.Solve.solver_arguments">solver_arguments</a></code></li>
 </ul>

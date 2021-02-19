@@ -104,6 +104,21 @@ class TestMathFunctions(TestCase):
         closest = math.closest_grid_values(grid, coords, extrapolation.ZERO)
         math.assert_close(closest, math.tensor([(0, 1), (1, 2), (0, 1), (3, 0)], names='x,closest_x'))
 
+    def test_join_dimensions(self):
+        grid = math.random_normal(batch=10, x=4, y=3, vector=2)
+        points = math.join_dimensions(grid, grid.shape.spatial, 'points')
+        self.assertEqual(('batch', 'points', 'vector'), points.shape.names)
+        self.assertEqual(grid.shape.volume, points.shape.volume)
+        self.assertEqual(grid.shape.non_spatial, points.shape.non_spatial)
+
+    def test_split_dimension(self):
+        grid = math.random_normal(batch=10, x=4, y=3, vector=2)
+        points = math.join_dimensions(grid, grid.shape.spatial, 'points')
+        split = points.points.split(grid.shape.spatial)
+        self.assertEqual(grid.shape, split.shape)
+        math.assert_close(grid, split)
+
+
 # Legacy test to be fixed
 # def _resample_test(mode, constant_values, expected):
 #    grid = np.tile(np.reshape(np.array([[1,2], [4,5]]), [1,2,2,1]), [1, 1, 1, 2])

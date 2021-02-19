@@ -10,7 +10,8 @@ import numpy as np
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, _infer_dim_type_from_name
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors
+from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
+    custom_op2, tensors, TensorDim
 from . import extrapolation
 from .backend._profile import get_current_profile
 
@@ -430,26 +431,58 @@ def broadcast_op(operation: callable,
             return TensorStack(result_unstacked, dim, dim_type)
 
 
-def split_dimension(value: Tensor, dim: str, split_dimensions: Shape):
-    if split_dimensions.rank == 0:
-        return value.dimension(dim)[0]
-    if split_dimensions.rank == 1:
-        new_shape = value.shape.with_names([split_dimensions.name if name == dim else name for name in value.shape.names])
+def split_dimension(dim: TensorDim, split_dims: Shape):
+    """
+    Decompresses a tensor dimension by unstacking the elements along it.
+    The compressed dimension `dim` is assumed to contain elements laid out according to the order or `split_dims`.
+
+    See Also:
+        `join_dimensions()`
+
+    Args:
+        dim: Compressed dimension to be decompressed.
+        split_dims: Ordered new dimensions to replace `dim` as `Shape`.
+
+    Returns:
+        `Tensor` with decompressed shape
+    """
+    if split_dims.rank == 0:
+        return dim[0]
+    if split_dims.rank == 1:
+        value = dim.tensor
+        new_shape = value.shape.with_names([split_dims.name if name == dim else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
-    raise NotImplementedError()
+    else:
+        value = dim.tensor
+        native = value.native()
+        new_shape = value.shape.without(dim.name)
+        i = dim.index
+        for size, name, dim_type in split_dims.dimensions:
+            new_shape = new_shape.expand(size, name, dim_type, pos=i)
+            i += 1
+        native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
+        return NativeTensor(native_reshaped, new_shape)
 
 
 def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
     """
-    Stacks multiple dimensions into a single dimension.
+    Compresses multiple dimensions into a single dimension by concatenating the elements.
+    Elements along the new dimensions are laid out according to the order of `dims`.
+    If the order of `dims` differs from the current dimension order, the tensor is transposed accordingly.
+
+    The type of the new dimension will be equal to the types of `dims`.
+    If `dims` have varying types, the new dimension will be a batch dimension.
+
+    See Also:
+        `split_dimension()`
 
     Args:
-        value:
-        dims:
-        joined_dim_name:
+        value: Tensor containing the dimensions `dims`.
+        dims: Dimensions to be compressed in the specified order.
+        joined_dim_name: Name of the new dimension.
 
     Returns:
-
+        `Tensor` with compressed shape.
     """
     if len(dims) == 0:
         return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name)))

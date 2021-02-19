@@ -58,6 +58,7 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
+    assert_close,
     laplace, gradient, divergence, stagger,
     mean, pad, shift, normalize,
     concat,
@@ -80,6 +81,23 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="phi.field.assert_close"><code class="name flex">
+<span>def <span class="ident">assert_close</span></span>(<span>*fields: phi.field._field.SampledField, rel_tolerance: float = 1e-05, abs_tolerance: float = 0)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def assert_close(*fields: SampledField,
+                 rel_tolerance: float = 1e-5,
+                 abs_tolerance: float = 0):
+    f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
+    values = [(f &gt;&gt; f0).values if isinstance(f, SampledField) else math.tensor(f) for f in fields]
+    math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.concat"><code class="name flex">
 <span>def <span class="ident">concat</span></span>(<span>*fields: phi.field._field.SampledField, dim: str)</span>
 </code></dt>
@@ -3743,6 +3761,7 @@ The dimension can be batch, spatial or channel.</p>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="phi.field.assert_close" href="#phi.field.assert_close">assert_close</a></code></li>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
 <li><code><a title="phi.field.extrapolate_valid" href="#phi.field.extrapolate_valid">extrapolate_valid</a></code></li>
