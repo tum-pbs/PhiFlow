@@ -223,10 +223,26 @@ def concat(*fields: SampledField, dim: str):
     if isinstance(fields[0], Grid):
         values = math.concat([f.values for f in fields], dim=dim)
         return fields[0].with_(values=values)
-    if isinstance(fields[0], PointCloud):
+    elif isinstance(fields[0], PointCloud):
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
         values = math.concat([math.expand(f.values, dim, f.shape.get_size(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, dim, f.shape.get_size(dim)) for f in fields], dim)
+        return fields[0].with_(elements=elements, values=values, color=colors)
+    raise NotImplementedError(type(fields[0]))
+
+
+def batch_stack(*fields, dim: str):
+    assert all(isinstance(f, SampledField) for f in fields)
+    assert all(isinstance(f, type(fields[0])) for f in fields)
+    if any(f.extrapolation != fields[0].extrapolation for f in fields):
+        raise NotImplementedError("Concatenating extrapolations not supported")
+    if isinstance(fields[0], Grid):
+        values = math.batch_stack([f.values for f in fields], dim)
+        return fields[0].with_(values=values)
+    elif isinstance(fields[0], PointCloud):
+        elements = geom.stack(*[f.elements for f in fields], dim=dim)
+        values = math.batch_stack([f.values for f in fields], dim=dim)
+        colors = math.batch_stack([f.color for f in fields], dim=dim)
         return fields[0].with_(elements=elements, values=values, color=colors)
     raise NotImplementedError(type(fields[0]))
 

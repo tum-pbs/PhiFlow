@@ -24,7 +24,7 @@ from ._field_math import (
     assert_close,
     laplace, gradient, divergence, stagger,
     mean, pad, shift, normalize,
-    concat,
+    concat, batch_stack,
     real, imag,
     solve, minimize,
     where,

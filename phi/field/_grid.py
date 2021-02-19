@@ -285,7 +285,8 @@ class StaggeredGrid(Grid):
                 result.append(CenteredGrid(data, comp_cells.bounds, self.extrapolation))
             return tuple(result)
         else:
-            raise NotImplementedError(f"dimension={dimension}. Only 'vector' allowed.")
+            values = self.values.unstack(dimension)
+            return tuple(self.with_(values=v) for v in values)
 
     @property
     def x(self) -> CenteredGrid:
