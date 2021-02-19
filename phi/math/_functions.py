@@ -939,7 +939,9 @@ def _close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
     return np.allclose(np1, np2, rel_tolerance, abs_tolerance)
 
 
-def assert_close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
+def assert_close(*tensors,
+                 rel_tolerance: float = 1e-5,
+                 abs_tolerance: float = 0):
     """
     Checks that all tensors have equal values within the specified tolerance.
     Raises an AssertionError if the values of this tensor are not within tolerance of any of the other tensors.
@@ -965,7 +967,7 @@ def assert_close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
         _assert_close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
 
 
-def _assert_close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
+def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float):
     if tensor2 is tensor1:
         return
     if isinstance(tensor2, (int, float, bool)):

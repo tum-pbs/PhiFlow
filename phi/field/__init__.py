@@ -21,6 +21,7 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
+    assert_close,
     laplace, gradient, divergence, stagger,
     mean, pad, shift, normalize,
     concat,

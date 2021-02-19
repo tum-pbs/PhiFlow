@@ -243,6 +243,14 @@ def imag(field: Field):
     raise NotImplementedError()
 
 
+def assert_close(*fields: SampledField,
+                 rel_tolerance: float = 1e-5,
+                 abs_tolerance: float = 0):
+    f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
+    values = [(f >> f0).values if isinstance(f, SampledField) else math.tensor(f) for f in fields]
+    math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
+
+
 # def staggered_curl_2d(grid, pad_width=(1, 2)):
 #     assert isinstance(grid, CenteredGrid)
 #     kernel = math.zeros((3, 3, 1, 2))
