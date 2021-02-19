@@ -1,8 +1,10 @@
 """
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
+import warnings
+
 from phi import math
-from phi.field import ConstantField, Grid, Field, laplace
+from phi.field import ConstantField, Grid, Field, laplace, solve
 from phi.field._field_math import FieldType, GridType
 
 
@@ -17,14 +19,14 @@ def explicit(field: FieldType,
     Otherwise, finite differencing is used to approximate the
 
     Args:
-      field: CenteredGrid, StaggeredGrid or ConstantField
-      diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
-      dt: Time interval. `diffusion_amount = diffusivity * dt`
-      substeps: number of iterations to use (Default value = 1)
-      field: FieldType:
+        field: CenteredGrid, StaggeredGrid or ConstantField
+        diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+        dt: Time interval. `diffusion_amount = diffusivity * dt`
+        substeps: number of iterations to use (Default value = 1)
+        field: FieldType:
 
     Returns:
-      Field of same type as `field`
+        Diffused field of same type as `field`.
     """
     amount = diffusivity * dt
     if isinstance(amount, Field):
@@ -34,12 +36,31 @@ def explicit(field: FieldType,
     return field
 
 
-# def implicit(field: FieldType,
-#              diffusivity: float or math.Tensor or Field,
-#              dt: float or math.Tensor,
-#              solve_params: math.LinearSolve) -> FieldType:
-#     """ Not Implemented. """
-#     raise NotImplementedError()
+def implicit(field: FieldType,
+             diffusivity: float or math.Tensor or Field,
+             dt: float or math.Tensor,
+             order: int = 1,
+             solve_params: math.Solve = math.LinearSolve(bake='sparse')) -> FieldType:
+    """
+    Diffusion by solving a linear system of equations.
+
+    Args:
+        order: Order of method, 1=first order. This translates to `substeps` for the explicit sharpening.
+        field:
+        diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+        dt: Time interval. `diffusion_amount = diffusivity * dt`
+        solve_params:
+
+    Returns:
+        Diffused field of same type as `field`.
+    """
+    def sharpen(x):
+        return explicit(x, diffusivity, -dt, substeps=order)
+
+    converged, diffused, iterations = solve(sharpen, field, field, solve_params=solve_params)
+    if math.all_available(converged):
+        assert converged, f"Implicit diffusion solve did not converge after {iterations} iterations. Last estimate: {diffused.values}"
+    return diffused
 
 
 def fourier(field: GridType,
@@ -56,7 +77,7 @@ def fourier(field: GridType,
         dt: Time interval. `diffusion_amount = diffusivity * dt`
 
     Returns:
-      Field of same type as `field`
+        Diffused field of same type as `field`.
     """
     if isinstance(field, ConstantField):
         return field
@@ -67,5 +88,6 @@ def fourier(field: GridType,
     k2 = math.vec_squared(k)
     fft_laplace = -(2 * math.PI) ** 2 * k2
     diffuse_kernel = math.exp(fft_laplace * amount)
-    result_values = math.real(math.ifft(math.fft(field.values) * diffuse_kernel))
+    result_k = math.fft(field.values) * diffuse_kernel
+    result_values = math.real(math.ifft(result_k))
     return field.with_(values=result_values)
