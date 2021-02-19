@@ -363,7 +363,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
                                          grid.shape.index(grid.shape.spatial),
                                          coordinates_batched.native(),
                                          extrap.native_grid_sample_mode)
-        if result == NotImplemented:
+        if result is NotImplemented:
             # pad one layer
             grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or extrapolation.ZERO)
             if extrap is not None:
@@ -374,11 +374,10 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
                                          grid.shape.index(grid.shape.spatial),
                                          inner_coordinates.native(),
                                          'boundary')
-        if result != NotImplemented:
+        if result is not NotImplemented:
             result_shape = grid_batched.shape.non_spatial & coordinates_batched.shape.spatial
             result = NativeTensor(result, result_shape)
-            result = split_dimension(result, 'batch', grid.shape.batch)
-            result = split_dimension(result, 'vector', grid.shape.channel)
+            result = result.batch.split(grid.shape.batch).vector.split(grid.shape.channel)
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or extrapolation.ZERO, 'closest_')

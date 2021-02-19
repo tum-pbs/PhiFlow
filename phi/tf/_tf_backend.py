@@ -161,12 +161,12 @@ class TFBackend(Backend):
             result.set_shape(shape_out)
         return result
 
-    def resample(self, inputs, sample_coords, interpolation='linear', boundary='constant', constant_values=0):
-        assert interpolation == 'linear'
-        if use_cuda(inputs):
-            return resample_cuda(inputs, sample_coords, boundary)
+    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
+        if use_cuda(grid):
+            # TODO reshape for spatial_dims
+            return resample_cuda(grid, coordinates, extrapolation)
         else:
-            return general_grid_sample_nd(inputs, sample_coords, boundary, constant_values, self)  # while this is a bit slower than niftynet, it give consisten results at the boundaries
+            return NotImplemented
 
     def zeros(self, shape, dtype: DType = None):
         return tf.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
