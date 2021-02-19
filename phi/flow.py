@@ -26,4 +26,4 @@ from .physics import fluid, flip, advect, diffuse, Domain, Material, OPEN, CLOSE
 
 from . import app
 from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show
-from .app._fluidformat import write_sim_frame, Scene
+from .app._scene import write_sim_frame, Scene

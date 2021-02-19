@@ -27,12 +27,11 @@ def read(file: str, convert_to_backend=True) -> SampledField:
     implemented_types = ('CenteredGrid', 'StaggeredGrid')
     if ftype in implemented_types:
         data = stored['data']
+        data = NativeTensor(data, math.Shape(data.shape, stored['dim_names'], stored['dim_types']))
         if convert_to_backend:
-            data = math.backend.DYNAMIC_BACKEND.default_backend.as_tensor(data, convert_external=True)
-        shape = math.Shape(data.shape, stored['dim_names'], stored['dim_types'])
-        data = NativeTensor(data, shape)
-        lower = math.tensor(stored['lower'], names='vector')
-        upper = math.tensor(stored['upper'], names='vector')
+            data = math.tensor(data, convert=convert_to_backend)
+        lower = math.tensor(stored['lower'])
+        upper = math.tensor(stored['upper'])
         extrapolation = math.extrapolation.from_dict(stored['extrapolation'][()])
         if ftype == 'CenteredGrid':
             return CenteredGrid(data, geom.Box(lower, upper), extrapolation)

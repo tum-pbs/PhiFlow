@@ -61,7 +61,7 @@ from ._field_math import (
     assert_close,
     laplace, gradient, divergence, stagger,
     mean, pad, shift, normalize,
-    concat,
+    concat, batch_stack,
     real, imag,
     solve, minimize,
     where,
@@ -98,6 +98,31 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.batch_stack"><code class="name flex">
+<span>def <span class="ident">batch_stack</span></span>(<span>*fields, dim: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def batch_stack(*fields, dim: str):
+    assert all(isinstance(f, SampledField) for f in fields)
+    assert all(isinstance(f, type(fields[0])) for f in fields)
+    if any(f.extrapolation != fields[0].extrapolation for f in fields):
+        raise NotImplementedError(&#34;Concatenating extrapolations not supported&#34;)
+    if isinstance(fields[0], Grid):
+        values = math.batch_stack([f.values for f in fields], dim)
+        return fields[0].with_(values=values)
+    elif isinstance(fields[0], PointCloud):
+        elements = geom.stack(*[f.elements for f in fields], dim=dim)
+        values = math.batch_stack([f.values for f in fields], dim=dim)
+        colors = math.batch_stack([f.color for f in fields], dim=dim)
+        return fields[0].with_(elements=elements, values=values, color=colors)
+    raise NotImplementedError(type(fields[0]))</code></pre>
+</details>
+</dd>
 <dt id="phi.field.concat"><code class="name flex">
 <span>def <span class="ident">concat</span></span>(<span>*fields: phi.field._field.SampledField, dim: str)</span>
 </code></dt>
@@ -115,7 +140,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     if isinstance(fields[0], Grid):
         values = math.concat([f.values for f in fields], dim=dim)
         return fields[0].with_(values=values)
-    if isinstance(fields[0], PointCloud):
+    elif isinstance(fields[0], PointCloud):
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
         values = math.concat([math.expand(f.values, dim, f.shape.get_size(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, dim, f.shape.get_size(dim)) for f in fields], dim)
@@ -412,12 +437,11 @@ The <code>field</code> must not have a dimension of the same name.</dd>
     implemented_types = (&#39;CenteredGrid&#39;, &#39;StaggeredGrid&#39;)
     if ftype in implemented_types:
         data = stored[&#39;data&#39;]
+        data = NativeTensor(data, math.Shape(data.shape, stored[&#39;dim_names&#39;], stored[&#39;dim_types&#39;]))
         if convert_to_backend:
-            data = math.backend.DYNAMIC_BACKEND.default_backend.as_tensor(data, convert_external=True)
-        shape = math.Shape(data.shape, stored[&#39;dim_names&#39;], stored[&#39;dim_types&#39;])
-        data = NativeTensor(data, shape)
-        lower = math.tensor(stored[&#39;lower&#39;], names=&#39;vector&#39;)
-        upper = math.tensor(stored[&#39;upper&#39;], names=&#39;vector&#39;)
+            data = math.tensor(data, convert=convert_to_backend)
+        lower = math.tensor(stored[&#39;lower&#39;])
+        upper = math.tensor(stored[&#39;upper&#39;])
         extrapolation = math.extrapolation.from_dict(stored[&#39;extrapolation&#39;][()])
         if ftype == &#39;CenteredGrid&#39;:
             return CenteredGrid(data, geom.Box(lower, upper), extrapolation)
@@ -3349,7 +3373,8 @@ A staggered grid is defined through its values tensor, its bounds describing the
                 result.append(CenteredGrid(data, comp_cells.bounds, self.extrapolation))
             return tuple(result)
         else:
-            raise NotImplementedError(f&#34;dimension={dimension}. Only &#39;vector&#39; allowed.&#34;)
+            values = self.values.unstack(dimension)
+            return tuple(self.with_(values=v) for v in values)
 
     @property
     def x(self) -&gt; CenteredGrid:
@@ -3722,7 +3747,8 @@ The dimension can be batch, spatial or channel.</p>
             result.append(CenteredGrid(data, comp_cells.bounds, self.extrapolation))
         return tuple(result)
     else:
-        raise NotImplementedError(f&#34;dimension={dimension}. Only &#39;vector&#39; allowed.&#34;)</code></pre>
+        values = self.values.unstack(dimension)
+        return tuple(self.with_(values=v) for v in values)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.with_"><code class="name flex">
@@ -3762,6 +3788,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.field.assert_close" href="#phi.field.assert_close">assert_close</a></code></li>
+<li><code><a title="phi.field.batch_stack" href="#phi.field.batch_stack">batch_stack</a></code></li>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
 <li><code><a title="phi.field.extrapolate_valid" href="#phi.field.extrapolate_valid">extrapolate_valid</a></code></li>

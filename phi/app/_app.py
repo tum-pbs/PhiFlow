@@ -15,7 +15,7 @@ import numpy as np
 from phi import struct, math
 from phi.field import CenteredGrid, Field, StaggeredGrid
 from phi.physics._world import StateProxy, world
-from ._fluidformat import Scene
+from ._scene import Scene
 
 from ._control import Action, Control
 from ._value import (EditableBool, EditableFloat, EditableInt, EditableString, EditableValue)
