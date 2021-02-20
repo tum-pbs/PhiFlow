@@ -44,6 +44,8 @@ class TorchBackend(Backend):
             return True
         if isinstance(x, (tuple, list)) and all(isinstance(c, numbers.Number) for c in x):
             return True
+        if isinstance(x, np.ndarray) and x.dtype != np.object:
+            return True
         return False
 
     def as_tensor(self, x, convert_external=True):

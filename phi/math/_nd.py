@@ -115,9 +115,7 @@ def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
     Returns:
 
     """
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
+    assert isinstance(tensor, Tensor), f"Must be a Tensor but got {type(tensor).__name__}"
     total_loss = math.sum_(tensor ** n) / n
     if batch_norm:
         batch_size = tensor.shape.batch.volume

@@ -336,7 +336,7 @@ def _closest_grid_values(grid: Tensor,
     non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
                     for dim in grid.shape.spatial.names}
     grid = extrap.pad(grid, non_copy_pad)
-    coordinates += [not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names]
+    coordinates += tensor([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], 'vector')
     # --- Transform coordiantes ---
     min_coords = to_int(floor(coordinates))
     max_coords = extrap.transform_coordinates(min_coords + 1, grid.shape)
@@ -1209,12 +1209,12 @@ def gradients(y: Tensor,
     The parameters `x` must be marked prior to all operations for which gradients should be recorded using `record_gradients()`.
 
     Args:
-        y: Target / output / loss Tensor
-        *x: Input / source / parameter Tensor
+        y: Scalar `Tensor` computed from `x`, typically loss.
+        *x: Parameter tensors which were previously marked in `record_gradients()`.
         grad_y: (optional) Gradient at `y`, defaults to 1.
 
     Returns:
-        dy/dx as a `Tensor` with the dimensions from `y` and `x`.
+        Single `Tensor` if one `x` was passed, else sequence of tensors.
     """
     assert isinstance(y, NativeTensor)
     backend = choose_backend_t(y, *x)

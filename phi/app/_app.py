@@ -203,7 +203,10 @@ class App(object):
     def new_scene(self, count=None):
         if count is None:
             count = 1 if self.world.batch_size is None else self.world.batch_size
-        self.scene = Scene.create(self.base_dir, self.scene_summary(), count=count, mkdir=True)
+        if count > 1:
+            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
+        else:
+            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))
 
     @property
     def directory(self):

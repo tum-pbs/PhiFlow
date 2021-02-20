@@ -8,11 +8,10 @@ from setuptools import setup
 
 def check_tf_cuda_compatibility():
     import tensorflow
-    build = tensorflow.sysconfig.get_build_info()
+    build = tensorflow.sysconfig.get_build_info()  # is_rocm_build, cuda_compute_capabilities
     tf_gcc = build['cpu_compiler']
     is_cuda_build = build['is_cuda_build']
-    # is_rocm_build  cuda_compute_capabilities
-    print(f"TensorFlow was compiled with {tf_gcc}.")
+    print(f"TensorFlow compiler: {tf_gcc}.")
     if not is_cuda_build:
         raise AssertionError("Your TensorFlow build does not support CUDA.")
     else:
@@ -77,7 +76,7 @@ class CudaCommand(distutils.cmd.Command):
     def initialize_options(self):
         tf_gcc = check_tf_cuda_compatibility()
         self.gcc = tf_gcc if isfile(tf_gcc) else 'gcc'
-        self.nvcc = '/usr/local/cuda/bin/nvcc'
+        self.nvcc = '/usr/local/cuda/bin/nvcc' if isfile('/usr/local/cuda/bin/nvcc') else 'nvcc'
         self.cuda_lib = '/usr/local/cuda/lib64/'
 
     def finalize_options(self) -> None:
@@ -108,10 +107,12 @@ class CudaCommand(distutils.cmd.Command):
                 compile_gcc('resample', self.gcc, src_path, build_path, self.cuda_lib, logfile=logfile)
                 compile_cuda('resample_gradient', self.nvcc, src_path, build_path, logfile=logfile)
                 compile_gcc('resample_gradient', self.gcc, src_path, build_path, self.cuda_lib, logfile=logfile)
+                # compile_cuda('bicgstab_ilu_linear_solve_op', self.nvcc, src_path, build_path, logfile=logfile)
+                # compile_gcc('bicgstab_ilu_linear_solve_op', self.gcc, src_path, build_path, self.cuda_lib, logfile=logfile)
             except BaseException as err:
                 print(f"Compilation failed. See {logfile_path} for details.")
                 raise err
-        print(f"Compilation done. See {logfile_path} for details.")
+        print(f"Compilation complete. See {logfile_path} for details.")
 
 
 try:

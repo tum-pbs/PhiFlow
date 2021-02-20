@@ -641,15 +641,13 @@ def choose_backend(*values, prefer_default=False, raise_error=True) -> Backend:
         the selected `Backend`
     """
     # --- Default Backend has priority ---
-    if _is_specific(_DEFAULT[-1], values):
-        return _DEFAULT[-1]
-    if prefer_default and _is_applicable(_DEFAULT[-1], values):
+    if _is_applicable(_DEFAULT[-1], values) and (prefer_default or _is_specific(_DEFAULT[-1], values)):
         return _DEFAULT[-1]
     # --- Filter out non-applicable ---
     backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
     if len(backends) == 0:
         if raise_error:
-            raise NoBackendFound('No backend found for values %s; registered backends are %s' % (values, BACKENDS))
+            raise NoBackendFound(f"No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}")
         else:
             return None
     # --- Native tensors? ---

@@ -339,7 +339,7 @@ class TFBackend(Backend):
         return tf.boolean_mask(x, mask)
 
     def isfinite(self, x):
-        return tf.is_finite(x)
+        return tf.math.is_finite(x)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         return tf.reduce_any(boolean_tensor, axis=axis, keepdims=keepdims)
