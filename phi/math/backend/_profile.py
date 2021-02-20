@@ -293,7 +293,7 @@ class Profile:
             print()
         self._root.print(min_duration=min_duration, code_col=code_col, code_len=code_len)
 
-    def save_trace(self, json_file: str):
+    def save(self, json_file: str):
         """
         Saves this profile to disc using the *trace event format* described at
         https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
@@ -317,6 +317,8 @@ class Profile:
             data.extend(sum([call.trace_json_events(()) for call in self._backend_calls], []))
         with open(json_file, 'w') as file:
             json.dump(data, file)
+
+    save_trace = save
 
     def _children_to_properties(self):
         children = self._root.children_to_properties()
@@ -431,7 +433,7 @@ _PROFILE = []
 
 
 @contextmanager
-def profile(backends=None, trace=True, subtract_trace_time=True) -> Profile:
+def profile(backends=None, trace=True, subtract_trace_time=True, save: str or None = None) -> Profile:
     """
     To be used in `with` statements, `with math.backend.profile() as prof: ...`.
     Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
@@ -440,6 +442,7 @@ def profile(backends=None, trace=True, subtract_trace_time=True) -> Profile:
         backends: List of backends to profile, `None` to profile all.
         trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
         subtract_trace_time: If True, subtracts the time it took to trace the call stack from the event times
+        save: (Optional) File path to save the profile to. This will call `Profile.save()`.
 
     Returns:
         Created `Profile`
@@ -451,6 +454,8 @@ def profile(backends=None, trace=True, subtract_trace_time=True) -> Profile:
         yield prof
     finally:
         _stop_profiling(prof, *restore_data)
+        if save is not None:
+            prof.save(save)
 
 
 def profile_function(fun: callable,
