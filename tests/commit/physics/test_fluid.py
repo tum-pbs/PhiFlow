@@ -1,9 +1,9 @@
 from unittest import TestCase
 
-from phi import math
+from phi import math, field
 from phi.geom import Box, Sphere
-from phi.field import StaggeredGrid, CenteredGrid, divergence
-from phi.physics import Domain, CLOSED, fluid
+from phi.field import StaggeredGrid, CenteredGrid, divergence, Noise
+from phi.physics import Domain, CLOSED, fluid, OPEN
 from phi.tf import TF_BACKEND
 from phi.torch import TORCH_BACKEND
 
@@ -18,7 +18,7 @@ class FluidTest(TestCase):
 
     def _test_make_incompressible(self, grid_type):
         DOMAIN = Domain(x=16, y=16, boundaries=CLOSED, bounds=Box[0:100, 0:100])
-        smoke = DOMAIN.grid(Sphere(center=(50, 10), radius=5))
+        smoke = DOMAIN.scalar_grid(Sphere(center=(50, 10), radius=5))
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):
             velocity += smoke * (0, 0.1) >> velocity
@@ -28,7 +28,7 @@ class FluidTest(TestCase):
 
     def _test_make_incompressible_batched(self, grid_type):
         DOMAIN = Domain(x=16, y=16, boundaries=CLOSED, bounds=Box[0:100, 0:100])
-        smoke = DOMAIN.grid(Sphere(center=(math.random_uniform(batch=2) * 100, 10), radius=5))
+        smoke = DOMAIN.scalar_grid(Sphere(center=(math.random_uniform(batch=2) * 100, 10), radius=5))
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):
             velocity += smoke * (0, 0.1) >> velocity
@@ -81,3 +81,20 @@ class FluidTest(TestCase):
         with TORCH_BACKEND:
             v_to = self._test_make_incompressible(StaggeredGrid)
         math.assert_close(v_np, v_to, abs_tolerance=1e-5)
+
+    def test_make_incompressible_gradients_equal_tf_torch(self):
+        DOMAIN = Domain(x=16, y=16, boundaries=OPEN, bounds=Box[0:100, 0:100])  # TODO CLOSED solve fails because div is not subtracted from dx
+        velocity0 = DOMAIN.staggered_grid(Noise(vector=2))
+        grads = []
+        for backend in [TF_BACKEND, TORCH_BACKEND]:
+            with backend:
+                velocity = param = velocity0.with_(values=math.tensor(velocity0.values, convert=True))
+                with math.record_gradients(param.values):
+                    solve = math.LinearSolve()
+                    velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN, solve_params=solve)
+                    loss = field.l2_loss(velocity)
+                    assert math.isfinite(loss)
+                    grad = math.gradients(loss, param.values)
+                    assert math.all(math.isfinite(grad))
+                    grads.append(grad)
+        math.assert_close(*grads, abs_tolerance=1e-5)

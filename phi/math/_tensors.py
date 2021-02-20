@@ -716,7 +716,14 @@ class CollapsedTensor(Tensor):  # package-private
         for size, name, dim_type in tensor.shape.dimensions:
             assert shape.get_size(name) == size
             assert shape.get_type(name) == dim_type
-        self._inner = tensor  # this will be set to None once cached. Otherwise gradients will be incorrect.
+        if isinstance(tensor, CollapsedTensor):
+            if tensor.is_cached:
+                self._inner = tensor._cached
+            else:
+                self._inner = tensor._inner
+            assert self._inner is not None
+        else:
+            self._inner = tensor  # this will be set to None once cached. Otherwise gradients will be incorrect.
         self._shape = shape
         self._cached = None  # NativeTensor. Once cached, use only _cached
 
@@ -809,25 +816,23 @@ class CollapsedTensor(Tensor):  # package-private
             return CollapsedTensor(self._inner._op1(native_function), self._shape)
 
     def _op2(self, other, operator, native_function):
-        if self.is_cached:
-            return self._cached._op2(other, operator, native_function)
-        other = self._tensor(other)
-        if isinstance(other, CollapsedTensor) and other.is_cached:
-            other = other._cached
-        if isinstance(other, NativeTensor):
-            if all([dim in other.shape for dim in self._shape.names]):
-                return op2_native(self, other, native_function)
+        other_t = self._tensor(other)
+        if isinstance(other_t, CollapsedTensor) and other_t.is_cached:
+            other_t = other_t._cached
+        if isinstance(other_t, NativeTensor):
+            if all([dim in other_t.shape for dim in self._shape.names]):  # other is dense and has all dimensions
+                return op2_native(self, other_t, native_function)
             else:
-                other = CollapsedTensor(other, other.shape)
-        if isinstance(other, CollapsedTensor):
-            self_inner = self._inner
-            other_inner = other._inner
+                other_t = CollapsedTensor(other_t, other_t.shape)
+        if isinstance(other_t, CollapsedTensor):
+            other_inner = other_t._inner  # case that other is cached handled above
+            self_inner = self._cached if self.is_cached else self._inner
             inner = operator(self_inner, other_inner)
-            if all(dim in inner.shape for dim in self.shape.names + other.shape.names):
-                result = inner._with_shape_replaced(inner.shape.with_types(self._shape & other._shape))
+            if all(dim in inner.shape for dim in self.shape.names + other_t.shape.names):  # shape already complete
+                result = inner._with_shape_replaced(inner.shape.with_types(self._shape & other_t._shape))
                 return result
             else:
-                combined_shape = (self._shape & other._shape).with_sizes(inner.shape)
+                combined_shape = (self._shape & other_t._shape).with_sizes(inner.shape)
                 return CollapsedTensor(inner, combined_shape)
         else:
             return NotImplemented

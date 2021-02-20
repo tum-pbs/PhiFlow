@@ -44,13 +44,45 @@ class TestMathFunctions(TestCase):
         math.assert_close(math.maximum(0, v), 1)
         math.assert_close(math.maximum(0, -v), 0)
 
-    # TODO: Fix
-    def test_resample(self):
-        grid = math.sum(math.meshgrid(x=[1, 2, 3], y=[0, 3]), 'vector')  # 1 2 3 | 4 5 6
-        coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], names=('list', 'vector'))
-        closest = math.closest_grid_values(grid, coords, extrapolation.ZERO)
-        interp = math.grid_sample(grid, coords, extrapolation.ZERO)
-        math.assert_close(interp, [1, 1.5, 2.5, 0])
+    def test_grid_sample(self):
+        for backend in (math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
+            with backend:
+                grid = math.sum(math.meshgrid(x=[1, 2, 3], y=[0, 3]), 'vector')  # 1 2 3 | 4 5 6
+                coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], names=('list', 'vector'))
+                interp = math.grid_sample(grid, coords, extrapolation.ZERO)
+                math.assert_close(interp, [1, 1.5, 2.5, 0])
+
+    def test_grid_sample_gradient_1d(self):
+        grads_grid = []
+        grads_coords = []
+        for backend in (tf.TF_BACKEND, torch.TORCH_BACKEND,):
+            with backend:
+                grid = math.tensor([0., 1, 2, 3], 'x', convert=True)
+                coords = math.tensor([0.5, 1.5], 'points', convert=True)
+                with math.record_gradients(grid, coords):
+                    sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+                    loss = math.l2_loss(sampled)
+                    grad_grid, grad_coords = math.gradients(loss, grid, coords)
+                    grads_grid.append(grad_grid)
+                    grads_coords.append(grad_coords)
+        math.assert_close(*grads_grid, math.tensor([0.125, 0.5, 0.375, 0], 'x'))
+        math.assert_close(*grads_coords, math.tensor([0.25, 0.75], 'points'))
+
+    def test_grid_sample_gradient_2d(self):
+        grads_grid = []
+        grads_coords = []
+        for backend in [tf.TF_BACKEND, torch.TORCH_BACKEND]:
+            with backend:
+                grid = math.tensor([[1., 2, 3], [1, 2, 3]], 'x,y', convert=True)
+                coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], 'points,vector', convert=True)
+                with math.record_gradients(grid, coords):
+                    sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+                    loss = math.sum(sampled)
+                    grad_grid, grad_coords = math.gradients(loss, grid, coords)
+                    grads_grid.append(grad_grid)
+                    grads_coords.append(grad_coords)
+        math.assert_close(*grads_grid)
+        math.assert_close(*grads_coords)
 
     def test_nonzero_batched(self):
         grid = math.tensor([[(0, 1)], [(0, 0)]], 'batch,x,y')

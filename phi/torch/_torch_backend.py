@@ -194,6 +194,7 @@ class TorchBackend(Backend):
         return torch.prod(value, dim=axis)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
+        boolean_tensor = self.as_tensor(boolean_tensor, convert_external=True)
         if axis is None:
             return torch.any(boolean_tensor)
         else:
@@ -203,6 +204,7 @@ class TorchBackend(Backend):
             return boolean_tensor
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
+        boolean_tensor = self.as_tensor(boolean_tensor, convert_external=True)
         if axis is None:
             return torch.all(boolean_tensor)
         else:
@@ -311,7 +313,7 @@ class TorchBackend(Backend):
         if isinstance(x, (tuple, list)):
             x = torch.stack(x)
         if axis is None:
-            result = torch.min(x, keepdim=keepdims)
+            result = torch.min(x)
             if keepdims:
                 result = self.expand_dims(result, axis=0, number=self.ndims(x))
             return result
@@ -525,7 +527,7 @@ class TorchBackend(Backend):
         if x0.shape[0] < batch_size:
             x0 = x0.repeat([batch_size, 1])
 
-        def cg_forward(y, params: LinearSolve):
+        def cg_forward(y, x0, params: LinearSolve):
             tolerance_sq = self.maximum(params.relative_tolerance ** 2 * torch.sum(y ** 2, -1), params.absolute_tolerance ** 2)
             x = x0
             dx = residual = y - function(x)
@@ -550,12 +552,12 @@ class TorchBackend(Backend):
 
             @staticmethod
             def forward(ctx, y):
-                return cg_forward(y, solve_params)
+                return cg_forward(y, x0, solve_params)
 
             @staticmethod
             def backward(ctx, dX):
                 if gradient == 'implicit':
-                    return cg_forward(dX, solve_params.gradient_solve)
+                    return cg_forward(dX, torch.zeros_like(x0), solve_params.gradient_solve)
                 else:
                     raise NotImplementedError(f"gradient={gradient}")
 

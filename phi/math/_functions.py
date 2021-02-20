@@ -1216,7 +1216,7 @@ def gradients(y: Tensor,
     Returns:
         Single `Tensor` if one `x` was passed, else sequence of tensors.
     """
-    assert isinstance(y, NativeTensor)
+    assert isinstance(y, NativeTensor), f"{type(y)}"
     backend = choose_backend_t(y, *x)
     x_natives = sum([x_._natives() for x_ in x], ())
     native_gradients = list(backend.gradients(y.native(), x_natives, grad_y.native() if grad_y is not None else None))
