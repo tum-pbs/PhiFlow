@@ -243,13 +243,11 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
     """
     Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
     Overlapping extrapolated values get averaged.
-    Extrapolation also includes diagonals.
-    Vertical / Horizonal extrapolations take precedence over diagonal ones.
 
     Examples (1-step extrapolation), x marks the values for extrapolation:
-        200   000    111        004   00x    044        100   000    144
-        010 + 0x0 => 111        000 + 000 => 234        004 + 00x => 244
-        040   000    111        200   x00    220        200   x00    224
+        200   000    210        004   00x    044        100   000    100
+        010 + 0x0 => 111        000 + 000 => 204        000 + 000 => 204
+        040   000    010        200   x00    220        204   x0x    234
 
     Args:
         values: Tensor which holds the values for extrapolation
@@ -267,20 +265,10 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
         mask_l, mask_r = shift(valid, (-1, 1))
         overlap = math.sum_(mask_l + mask_r, dim='shift')
         extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
-
-        # --- extrapolate diagonally (double y to shift up and down component of y-shift left and right) ---
-        values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims='y')  # TODO generalize to n spatial dimensions
-        mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims='y')
-        values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims='y')
-        mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims='y')
-        overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
-
-        extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack('shift')[0]  # take mean (shift axis has only one component)
-        extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
-        new_valid = (valid + overlap + overlap_diag).unstack('shift')[0]
+        new_valid = valid + overlap
         values = math.where(valid, values, math.where(new_valid, extp, values))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
         valid = new_valid
-    return values, valid
+    return values, math.divide_no_nan(valid, valid)
 
 
 # Gradient
