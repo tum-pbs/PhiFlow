@@ -11,35 +11,27 @@ from os.path import join, isfile, isdir, abspath, expanduser, basename, dirname,
 
 import numpy as np
 
-from phi import struct, math, __version__ as phi_version, field
+from phi import struct, math, __version__ as phi_version
+from ._field import Field, SampledField
+from ._field_io import read, write
 
 
-def read_sim_frame(directory: str or tuple or list,
+def read_sim_frame(directory: math.Tensor,
                    names: str or tuple or list or dict or struct.Struct,
                    frame: int,
-                   batch_dim: str = 'batch',
                    convert_to_backend=True):
-    assert isinstance(directory, (str, tuple, list))
-    batch_mode = isinstance(directory, (tuple, list))
-
     def single_read(name):
         name = _slugify_filename(name)
-        if batch_mode:
-            file = [_filename(dir_, name, frame) for dir_ in directory]
-            fields = [field.read(f, convert_to_backend=convert_to_backend) for f in file]
-            return field.batch_stack(*fields, dim=batch_dim)
-        else:
-            file = _filename(directory, name, frame)
-            return field.read(file, convert_to_backend=convert_to_backend)
+        files = math.map(lambda dir_: _filename(dir_, name, frame), directory)
+        return read(files, convert_to_backend=convert_to_backend)
 
     return struct.map(single_read, names)
 
 
-def write_sim_frame(directory: str or tuple or list,
-                    fields: field.Field or tuple or list or dict or struct.Struct,
+def write_sim_frame(directory: math.Tensor,
+                    fields: Field or tuple or list or dict or struct.Struct,
                     frame: int,
-                    names: str or tuple or list or struct.Struct or None = None,
-                    batch_dim: str = 'batch'):
+                    names: str or tuple or list or struct.Struct or None = None):
     """
     Write a Field or structure of Fields to files.
     The filenames are created from the provided names and the frame index in accordance with the
@@ -56,10 +48,7 @@ def write_sim_frame(directory: str or tuple or list,
         frame: Number < 1000000, typically time step index.
         names: (Optional) Structure matching fields, holding the filename for each respective Field.
             If not provided, names are automatically generated based on the structure of fields.
-        batch_dim: (Optional) Only for batch write. Fields are unstacked along this dimension and matched with the list of directories.
     """
-    assert isinstance(directory, (str, tuple, list))
-    batch_mode = isinstance(directory, (tuple, list))
     if names is None:
         names = struct.names(fields)
     if frame > 1000000:
@@ -67,17 +56,12 @@ def write_sim_frame(directory: str or tuple or list,
 
     def single_write(f, name):
         name = _slugify_filename(name)
-        if isinstance(f, field.SampledField):
-            if batch_mode:
-                f = f.unstack(batch_dim)
-                assert len(f) == len(directory), f"The batch size '{batch_dim}' of '%{f}' is {len(f)} and does not match the number of directories, {len(directory)}"
-                for f_, dir_ in zip(f, directory):
-                    field.write(f_, _filename(dir_, name, frame))
-            else:
-                field.write(f, _filename(directory, name, frame))
+        files = math.map(lambda dir_: _filename(dir_, name, frame), directory)
+        if isinstance(f, SampledField):
+            write(f, files)
         elif isinstance(f, math.Tensor):
             raise NotImplementedError()
-        elif isinstance(f, field.Field):
+        elif isinstance(f, Field):
             raise ValueError("write_sim_frame: only SampledField instances are saved. Resample other Fields before saving them.")
         else:
             raise ValueError(f"write_sim_frame: only SampledField instances can be saved but got {f}")
@@ -87,28 +71,6 @@ def write_sim_frame(directory: str or tuple or list,
 
 def _filename(simpath, name, frame):
     return join(simpath, "%s_%06i.npz" % (name, frame))
-
-
-def read_sim_frames(simpath, fieldnames=None, frames=None):
-    if fieldnames is None:
-        fieldnames = get_fieldnames(simpath)
-    if not fieldnames:
-        return []
-    if frames is None:
-        frames = get_frames(simpath, fieldnames[0])
-    if isinstance(frames, int):
-        frames = [frames]
-    single_fieldname = isinstance(fieldnames, str)
-    if single_fieldname:
-        fieldnames = [fieldnames]
-
-    field_lists = [[] for f in fieldnames]
-    for i in frames:
-        fields = list(read_sim_frame(simpath, fieldnames, i, set_missing_to_none=False))
-        for j in range(len(fieldnames)):
-            field_lists[j].append(fields[j])
-    result = [np.concatenate(list, 0) for list in field_lists]
-    return result if not single_fieldname else result[0]
 
 
 def get_fieldnames(simpath) -> tuple:
@@ -150,40 +112,40 @@ class Scene(object):
     To list all scenes within a directory, use `Scene.list()`.
     """
 
-    def __init__(self,
-                 parent_directory: str,
-                 scene_id: int or list,
-                 path: str or list,
-                 batch_dim: str or None = None):
-        self.parent_directory: str = parent_directory
-        """ Directory containing the scene directory. """
-        self.id = scene_id
-        """
-        All scenes inside one directory have a unique id.
-        The id of a new Scene is always 1 + previously largest id.
-        
-        For a single scene, `type(id) = int`, for a batch, `type(id) = tuple`.
-        """
+    def __init__(self, paths: str or math.Tensor):
+        self._paths = math.tensor(paths)
         self._properties = None
-        self.path = path
+
+    @property
+    def shape(self):
+        return self._paths.shape
+
+    @property
+    def is_batch(self):
+        return self._paths.rank > 0
+
+    @property
+    def path(self) -> str:
         """
         Relative path of the scene directory.
-        
-        For a single scene, `type(path) = str`, for a batch, `type(path) = tuple`.
+        This property only exists for single scenes, not scene batches.
         """
-        if isinstance(path, str):
-            self.abs_path = abspath(path)
-        else:
-            self.abs_path = tuple(abspath(p) for p in path)
-        """
-        Absolute path of the scene directory.
-        
-        For a single scene, `type(abs_path) = str`, for a batch, `type(abs_path) = tuple`.
-        """
-        self.batch_dim = batch_dim
+        assert not self.is_batch, "Scene.path is not defined for scene batches."
+        return self._paths.native()
+
+    @property
+    def paths(self) -> math.Tensor:
+        return self._paths
 
     @staticmethod
-    def create(parent_directory, count=1, copy_calling_script=True, batch_dim: str or None = None) -> 'Scene':
+    def batch_stack(*scenes: 'Scene', dim: str = 'batch') -> 'Scene':
+        return Scene(math.batch_stack([s._paths for s in scenes], dim))
+
+    @staticmethod
+    def create(parent_directory: str,
+               shape: math.Shape = math.EMPTY_SHAPE,
+               copy_calling_script=True,
+               **dimensions) -> 'Scene':
         """
         Creates a new `Scene` or a batch of new scenes inside `parent_directory`.
 
@@ -192,39 +154,38 @@ class Scene(object):
 
         Args:
             parent_directory: Directory to hold the new `Scene`. If it doesn't exist, it will be created.
-            count: Number of scenes to create. Multiple scenes will also also represented by a single `Scene` object.
+            shape: Determines number of scenes to create. Multiple scenes will be represented by a `Scene` with `is_batch=True`.
             copy_calling_script: Whether to copy the Python file that invoked this method into the `src` folder of all created scenes.
                 See `Scene.copy_calling_script()`.
-            batch_dim: Dimension corresponding to batch of scenes if `count > 1`.
+            dimensions: Additional batch dimensions
 
         Returns:
             Single `Scene` object representing the new scene(s).
         """
-        if count > 1:
-            assert isinstance(batch_dim, str), "batch_dim must be specified if count > 1."
-            scenes = [Scene.create(parent_directory, 1, copy_calling_script) for _ in range(count)]
-            return Scene(parent_directory, tuple(s.id for s in scenes), tuple(s.path for s in scenes), batch_dim=batch_dim)
+        shape = (shape & math.shape(**dimensions)).to_batch()
+        parent_directory = expanduser(parent_directory)
+        abs_dir = abspath(parent_directory)
+        if not isdir(abs_dir):
+            os.makedirs(abs_dir)
+            next_id = 0
         else:
-            parent_directory = expanduser(parent_directory)
-            abs_dir = abspath(parent_directory)
-            if not isdir(abs_dir):
-                os.makedirs(abs_dir)
-                next_id = 0
-            else:
-                indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith("sim_")]
-                next_id = max([-1] + indices) + 1
-            path = join(parent_directory, f"sim_{next_id:06d}")
-            scene = Scene(parent_directory, next_id, path)
-            scene.mkdir()
-            if copy_calling_script:
-                try:
-                    scene.copy_calling_script()
-                except IOError as err:
-                    warnings.warn(f"Failed to copy calling script to scene during Scene.create(): {err}")
-            return scene
+            indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith("sim_")]
+            next_id = max([-1] + indices) + 1
+        ids = math.tensor(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
+        paths = math.map(lambda id_: join(parent_directory, f"sim_{id_:06d}"), ids)
+        scene = Scene(paths)
+        scene.mkdir()
+        if copy_calling_script:
+            try:
+                scene.copy_calling_script()
+            except IOError as err:
+                warnings.warn(f"Failed to copy calling script to scene during Scene.create(): {err}")
+        return scene
 
     @staticmethod
-    def list(parent_directory: str, include_other: bool = False) -> tuple:
+    def list(parent_directory: str,
+             include_other: bool = False,
+             dim: str or None = None) -> 'Scene' or tuple:
         """
         Lists all scenes inside the given directory.
 
@@ -234,6 +195,7 @@ class Scene(object):
         Args:
             parent_directory: Directory that contains scene folders.
             include_other: Whether folders that do not match the scene format should also be treated as scenes.
+            dim: Stack dimension. If None, returns tuple of `Scene` objects. Otherwise, returns a scene batch with this dimension.
 
         Returns:
             `tuple` of scenes.
@@ -243,11 +205,14 @@ class Scene(object):
         if not isdir(abs_dir):
             return ()
         names = [sim for sim in os.listdir(abs_dir) if sim.startswith("sim_") or (include_other and isdir(join(abs_dir, sim)))]
-        return tuple(Scene(parent_directory, scene_id=int(name[4:]) if name.startswith("sim_") else None, path=join(parent_directory, name))
-                     for name in names)
+        if dim is None:
+            return tuple(Scene(join(parent_directory, name)) for name in names)
+        else:
+            paths = math.tensor([join(parent_directory, name) for name in names], dim)
+            return Scene(paths)
 
     @staticmethod
-    def at(directory, id: int or None = None) -> 'Scene':
+    def at(directory: str or math.Tensor, id: int or math.Tensor or None = None) -> 'Scene':
         """
         Creates a `Scene` for an existing directory.
 
@@ -261,22 +226,17 @@ class Scene(object):
         Returns:
             `Scene` object for existing scene.
         """
-        directory = expanduser(directory)
-        if id is not None:
-            assert not basename(directory).startswith('sim_'), "When passing a scene directory, set id=None."
-            path = join(directory, f"sim_{id:06d}")
+        directory = math.map(lambda d: expanduser(d), math.tensor(directory))
+        if id is None:
+            paths = directory
+        else:
+            id = math.tensor(id)
+            paths = directory._op2(id, None, lambda d_, id_: join(directory, f"sim_{id:06d}"))
+        # test all exist
+        for path in math.flatten(paths):
             if not isdir(path):
                 raise IOError(f"There is no scene at '{path}'")
-            return Scene(directory, id, path)
-        else:
-            if directory[-1] == '/':  # remove trailing backslash
-                directory = directory[0:-1]
-            if not isdir(directory):
-                raise IOError(f"There is no scene at '{abspath(directory)}'")
-            scene_name = basename(directory)
-            scene_id = int(scene_name[4:]) if scene_name.startswith("sim_") else None
-            parent_directory = dirname(directory)
-            return Scene(parent_directory, scene_id, directory)
+        return Scene(paths)
 
     def subpath(self, name: str, create: bool = False) -> str or tuple:
         """
@@ -290,19 +250,17 @@ class Scene(object):
             Relative path including the path to this `Scene`.
             In batch mode, returns a `tuple`, else a `str`.
         """
-        if isinstance(self.path, str):
-            path = join(self.path, name)
+        def single_subpath(path):
+            path = join(path, name)
             if create and not isdir(path):
                 os.mkdir(path)
             return path
+
+        result = math.map(single_subpath, self._paths)
+        if result.rank == 0:
+            return result.native()
         else:
-            result = []
-            for p in self.path:
-                path = join(p, name)
-                if create and not isdir(path):
-                    os.mkdir(path)
-                result.append(path)
-            return tuple(result)
+            return result
 
     def _init_properties(self):
         if self._properties is not None:
@@ -337,14 +295,8 @@ class Scene(object):
         with open(join(self.path, "description.json"), "w") as out:
             json.dump(self._properties, out, indent=2)
 
-    # def read_sim_frames(self, fieldnames=None, frames=None):
-    #     return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames, batch_dim=self.batch_dim)
-
-    def read_array(self, field_name, frame):
-        return read_sim_frame(self.path, field_name, frame=frame, batch_dim=self.batch_dim)
-
     def write_sim_frame(self, arrays, fieldnames, frame):
-        write_sim_frame(self.path, arrays, names=fieldnames, frame=frame, batch_dim=self.batch_dim)
+        write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
 
     def write(self, data: dict, frame=0):
         """
@@ -358,7 +310,13 @@ class Scene(object):
             data: `dict` mapping field names to `Field` objects that can be written using `phi.field.write()`.
             frame: Frame number.
         """
-        write_sim_frame(self.path, data, names=None, frame=frame, batch_dim=self.batch_dim)
+        write_sim_frame(self._paths, data, names=None, frame=frame)
+
+    def read_array(self, field_name, frame):
+        return read_sim_frame(self._paths, field_name, frame=frame)
+
+    # def read_sim_frames(self, fieldnames=None, frames=None):
+    #     return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames, batch_dim=self.batch_dim)
 
     def read(self, names: str or tuple or list, frame=0, convert_to_backend=True):
         """
@@ -375,7 +333,7 @@ class Scene(object):
         Returns:
             Single `phi.field.Field` or sequence of fields, depending on the type of `names`.
         """
-        return read_sim_frame(self.path, names, frame=frame, convert_to_backend=convert_to_backend, batch_dim=self.batch_dim)
+        return read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)
 
     @property
     def fieldnames(self) -> tuple:
@@ -390,18 +348,17 @@ class Scene(object):
     def get_frames(self, mode="intersect"):
         return get_frames(self.path, None, mode)
 
-    def __str__(self):
-        return self.path
-
     def __repr__(self):
-        return self.path
+        return repr(self.paths)
 
     def __eq__(self, other):
-        return isinstance(other, Scene) and other.path == self.path
+        return isinstance(other, Scene) and math.all(other._paths == self._paths)
 
     def copy_calling_script(self, full_trace=False, include_context_information=True):
         """
         Copies the Python file that called this method into the `src` folder of this `Scene`.
+
+        In batch mode, the script is copied to all scenes.
 
         Args:
             full_trace: Whether to include scripts that indirectly called this method.
@@ -410,35 +367,31 @@ class Scene(object):
         script_paths = [frame[1] for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
-        for script_path in script_paths:
-            shutil.copy(script_path, join(self.subpath('src', create=True), basename(script_path)))
-        if include_context_information:
-            with open(join(self.subpath('src', create=True), 'context.json'), 'w') as context_file:
-                json.dump({
-                    'phi_version': phi_version,
-                    'argv': sys.argv
-                }, context_file)
+        for path in math.flatten(self._paths):
+            self.subpath('src', create=True)
+            for script_path in script_paths:
+                shutil.copy(script_path, join(path, 'src', basename(script_path)))
+            if include_context_information:
+                with open(join(path, 'src', 'context.json'), 'w') as context_file:
+                    json.dump({
+                        'phi_version': phi_version,
+                        'argv': sys.argv
+                    }, context_file)
 
     def copy_src(self, path, only_external=True):
         if not only_external or not _is_phi_file(path):
             shutil.copy(path, join(self.subpath('src', create=True), basename(path)))
 
-    def mkdir(self, subdir=None):
-        assert isinstance(self.path, str)
-        isdir(self.path) or os.mkdir(self.path)
-        if subdir is not None:
-            subpath = join(self.path, subdir)
-            isdir(subpath) or os.mkdir(subpath)
+    def mkdir(self):
+        for path in math.flatten(self._paths):
+            isdir(path) or os.mkdir(path)
 
     def remove(self):
         """ Deletes the scene directory and all contained files. """
-        if isinstance(self.abs_path, str):
-            if isdir(self.abs_path):
-                shutil.rmtree(self.abs_path)
-        else:
-            for p in self.abs_path:
-                if isdir(p):
-                    shutil.rmtree(p)
+        for p in math.flatten(self._paths):
+            p = abspath(p)
+            if isdir(p):
+                shutil.rmtree(p)
 
     def data_paths(self, frames, field_names):
         for frame in frames:

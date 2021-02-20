@@ -70,6 +70,7 @@ from ._field_math import (
     extrapolate_valid,
 )
 from ._field_io import write, read
+from ._scene import Scene
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>
@@ -426,29 +427,50 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <span>def <span class="ident">read</span></span>(<span>file: str, convert_to_backend=True) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Loads a previously saved <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> from disc.</p>
+<p>See Also:
+<code><a title="phi.field.write" href="#phi.field.write">write()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>file</code></strong></dt>
+<dd>Single file as <code>str</code> or <code>Tensor</code> of string type.
+If <code>file</code> is a tensor, all contained files are loaded an stacked according to the dimensions of <code>file</code>.</dd>
+<dt><strong><code>convert_to_backend</code></strong></dt>
+<dd>Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Loaded <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def read(file: str, convert_to_backend=True) -&gt; SampledField:
-    stored = np.load(file, allow_pickle=True)
-    ftype = stored[&#39;field_type&#39;]
-    implemented_types = (&#39;CenteredGrid&#39;, &#39;StaggeredGrid&#39;)
-    if ftype in implemented_types:
-        data = stored[&#39;data&#39;]
-        data = NativeTensor(data, math.Shape(data.shape, stored[&#39;dim_names&#39;], stored[&#39;dim_types&#39;]))
-        if convert_to_backend:
-            data = math.tensor(data, convert=convert_to_backend)
-        lower = math.tensor(stored[&#39;lower&#39;])
-        upper = math.tensor(stored[&#39;upper&#39;])
-        extrapolation = math.extrapolation.from_dict(stored[&#39;extrapolation&#39;][()])
-        if ftype == &#39;CenteredGrid&#39;:
-            return CenteredGrid(data, geom.Box(lower, upper), extrapolation)
-        elif ftype == &#39;StaggeredGrid&#39;:
-            data_ = unstack_staggered_tensor(data)
-            return StaggeredGrid(data_, geom.Box(lower, upper), extrapolation)
-    raise NotImplementedError(f&#34;{ftype} not implemented ({implemented_types})&#34;)</code></pre>
+<pre><code class="python">def read(file: str or math.Tensor, convert_to_backend=True) -&gt; SampledField:
+    &#34;&#34;&#34;
+    Loads a previously saved `SampledField` from disc.
+
+    See Also:
+        `write()`.
+
+    Args:
+        file: Single file as `str` or `Tensor` of string type.
+            If `file` is a tensor, all contained files are loaded an stacked according to the dimensions of `file`.
+        convert_to_backend: Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.
+
+    Returns:
+        Loaded `SampledField`.
+    &#34;&#34;&#34;
+    if isinstance(file, str):
+        return read_single_field(file, convert_to_backend=convert_to_backend)
+    if isinstance(file, math.Tensor):
+        if file.rank == 0:
+            return read_single_field(file.native(), convert_to_backend=convert_to_backend)
+        else:
+            dim = file.shape.names[0]
+            files = file.unstack(dim)
+            fields = [read(file_, convert_to_backend=convert_to_backend) for file_ in files]
+            return batch_stack(*fields, dim=dim)
+    else:
+        raise ValueError(file)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.real"><code class="name flex">
@@ -678,24 +700,55 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <span>def <span class="ident">write</span></span>(<span>field: phi.field._field.SampledField, file: str)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Writes a field to disc using a NumPy file format.
+Depending on <code>file</code>, the data may be split up into multiple files.</p>
+<p>All characteristics of the field are serialized so that it can be fully restored using <code><a title="phi.field.read" href="#phi.field.read">read()</a></code>.</p>
+<p>See Also:
+<code><a title="phi.field.read" href="#phi.field.read">read()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd>Field to be saved.</dd>
+<dt><strong><code>file</code></strong></dt>
+<dd>Single file as <code>str</code> or <code>Tensor</code> of string type.
+If <code>file</code> is a tensor, the dimensions of <code>field</code> are matched to the dimensions of <code>file</code>.
+Dimensions of <code>file</code> that are missing in <code>field</code> result in data duplication.
+Dimensions of <code>field</code> that are missing in <code>file</code> result in larger files.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def write(field: SampledField, file: str):
-    if isinstance(field, StaggeredGrid):
-        data = field.staggered_tensor().numpy()
+<pre><code class="python">def write(field: SampledField, file: str or math.Tensor):
+    &#34;&#34;&#34;
+    Writes a field to disc using a NumPy file format.
+    Depending on `file`, the data may be split up into multiple files.
+
+    All characteristics of the field are serialized so that it can be fully restored using `read()`.
+
+    See Also:
+        `read()`
+
+    Args:
+        field: Field to be saved.
+        file: Single file as `str` or `Tensor` of string type.
+            If `file` is a tensor, the dimensions of `field` are matched to the dimensions of `file`.
+            Dimensions of `file` that are missing in `field` result in data duplication.
+            Dimensions of `field` that are missing in `file` result in larger files.
+    &#34;&#34;&#34;
+    if isinstance(file, str):
+        write_single_field(field, file)
+    if isinstance(file, math.Tensor):
+        if file.rank == 0:
+            write_single_field(field, file.native())
+        else:
+            dim = file.shape.names[0]
+            files = file.unstack(dim)
+            fields = field.dimension(dim).unstack(file.shape.get_size(dim))
+            for field_, file_ in zip(fields, files):
+                write(field_, file_)
     else:
-        data = field.values.numpy()
-    dim_names = field.values.shape.names
-    if isinstance(field, Grid):
-        lower = field.box.lower.numpy()
-        upper = field.box.upper.numpy()
-        extrap = field.extrapolation.to_dict()
-        np.savez_compressed(file, dim_names=dim_names, dim_types=field.values.shape.types, field_type=type(field).__name__, lower=lower, upper=upper, extrapolation=extrap, data=data)
-    else:
-        raise NotImplementedError(f&#34;{type(field)} not implemented. Only Grid allowed.&#34;)</code></pre>
+        raise ValueError(file)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3007,6 +3060,896 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 </dl>
 </dd>
+<dt id="phi.field.Scene"><code class="flex name class">
+<span>class <span class="ident">Scene</span></span>
+<span>(</span><span>paths: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Provides methods for reading and writing simulation data.</p>
+<p>See the format documentation at <a href="https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html">https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html</a> .</p>
+<p>All data of a <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> is located inside a single directory with name <code>sim_xxxxxx</code> where <code>xxxxxx</code> is the <code>id</code>.
+The data of the scene is organized into NumPy files by <em>name</em> and <em>frame</em>.</p>
+<p>To create a new scene, use <code><a title="phi.field.Scene.create" href="#phi.field.Scene.create">Scene.create()</a></code>.
+To reference an existing scene, use <code><a title="phi.field.Scene.at" href="#phi.field.Scene.at">Scene.at()</a></code>.
+To list all scenes within a directory, use <code><a title="phi.field.Scene.list" href="#phi.field.Scene.list">Scene.list()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Scene(object):
+    &#34;&#34;&#34;
+    Provides methods for reading and writing simulation data.
+
+    See the format documentation at https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html .
+
+    All data of a `Scene` is located inside a single directory with name `sim_xxxxxx` where `xxxxxx` is the `id`.
+    The data of the scene is organized into NumPy files by *name* and *frame*.
+
+    To create a new scene, use `Scene.create()`.
+    To reference an existing scene, use `Scene.at()`.
+    To list all scenes within a directory, use `Scene.list()`.
+    &#34;&#34;&#34;
+
+    def __init__(self, paths: str or math.Tensor):
+        self._paths = math.tensor(paths)
+        self._properties = None
+
+    @property
+    def shape(self):
+        return self._paths.shape
+
+    @property
+    def is_batch(self):
+        return self._paths.rank &gt; 0
+
+    @property
+    def path(self) -&gt; str:
+        &#34;&#34;&#34;
+        Relative path of the scene directory.
+        This property only exists for single scenes, not scene batches.
+        &#34;&#34;&#34;
+        assert not self.is_batch, &#34;Scene.path is not defined for scene batches.&#34;
+        return self._paths.native()
+
+    @property
+    def paths(self) -&gt; math.Tensor:
+        return self._paths
+
+    @staticmethod
+    def batch_stack(*scenes: &#39;Scene&#39;, dim: str = &#39;batch&#39;) -&gt; &#39;Scene&#39;:
+        return Scene(math.batch_stack([s._paths for s in scenes], dim))
+
+    @staticmethod
+    def create(parent_directory: str,
+               shape: math.Shape = math.EMPTY_SHAPE,
+               copy_calling_script=True,
+               **dimensions) -&gt; &#39;Scene&#39;:
+        &#34;&#34;&#34;
+        Creates a new `Scene` or a batch of new scenes inside `parent_directory`.
+
+        See Also:
+            `Scene.at()`, `Scene.list()`.
+
+        Args:
+            parent_directory: Directory to hold the new `Scene`. If it doesn&#39;t exist, it will be created.
+            shape: Determines number of scenes to create. Multiple scenes will be represented by a `Scene` with `is_batch=True`.
+            copy_calling_script: Whether to copy the Python file that invoked this method into the `src` folder of all created scenes.
+                See `Scene.copy_calling_script()`.
+            dimensions: Additional batch dimensions
+
+        Returns:
+            Single `Scene` object representing the new scene(s).
+        &#34;&#34;&#34;
+        shape = (shape &amp; math.shape(**dimensions)).to_batch()
+        parent_directory = expanduser(parent_directory)
+        abs_dir = abspath(parent_directory)
+        if not isdir(abs_dir):
+            os.makedirs(abs_dir)
+            next_id = 0
+        else:
+            indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith(&#34;sim_&#34;)]
+            next_id = max([-1] + indices) + 1
+        ids = math.tensor(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
+        paths = math.map(lambda id_: join(parent_directory, f&#34;sim_{id_:06d}&#34;), ids)
+        scene = Scene(paths)
+        scene.mkdir()
+        if copy_calling_script:
+            try:
+                scene.copy_calling_script()
+            except IOError as err:
+                warnings.warn(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
+        return scene
+
+    @staticmethod
+    def list(parent_directory: str,
+             include_other: bool = False,
+             dim: str or None = None) -&gt; &#39;Scene&#39; or tuple:
+        &#34;&#34;&#34;
+        Lists all scenes inside the given directory.
+
+        See Also:
+            `Scene.at()`, `Scene.create()`.
+
+        Args:
+            parent_directory: Directory that contains scene folders.
+            include_other: Whether folders that do not match the scene format should also be treated as scenes.
+            dim: Stack dimension. If None, returns tuple of `Scene` objects. Otherwise, returns a scene batch with this dimension.
+
+        Returns:
+            `tuple` of scenes.
+        &#34;&#34;&#34;
+        parent_directory = expanduser(parent_directory)
+        abs_dir = abspath(parent_directory)
+        if not isdir(abs_dir):
+            return ()
+        names = [sim for sim in os.listdir(abs_dir) if sim.startswith(&#34;sim_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
+        if dim is None:
+            return tuple(Scene(join(parent_directory, name)) for name in names)
+        else:
+            paths = math.tensor([join(parent_directory, name) for name in names], dim)
+            return Scene(paths)
+
+    @staticmethod
+    def at(directory: str or math.Tensor, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
+        &#34;&#34;&#34;
+        Creates a `Scene` for an existing directory.
+
+        See Also:
+            `Scene.create()`, `Scene.list()`.
+
+        Args:
+            directory: Either directory containing scene folder if `id` is given, or scene path if `id=None`.
+            id: (Optional) Scene `id`, will be determined from `directory` if not specified.
+
+        Returns:
+            `Scene` object for existing scene.
+        &#34;&#34;&#34;
+        directory = math.map(lambda d: expanduser(d), math.tensor(directory))
+        if id is None:
+            paths = directory
+        else:
+            id = math.tensor(id)
+            paths = directory._op2(id, None, lambda d_, id_: join(directory, f&#34;sim_{id:06d}&#34;))
+        # test all exist
+        for path in math.flatten(paths):
+            if not isdir(path):
+                raise IOError(f&#34;There is no scene at &#39;{path}&#39;&#34;)
+        return Scene(paths)
+
+    def subpath(self, name: str, create: bool = False) -&gt; str or tuple:
+        &#34;&#34;&#34;
+        Resolves the relative path `name` with this `Scene` as the root folder.
+
+        Args:
+            name: Relative path with this `Scene` as the root folder.
+            create: Whether to create a directory of that name.
+
+        Returns:
+            Relative path including the path to this `Scene`.
+            In batch mode, returns a `tuple`, else a `str`.
+        &#34;&#34;&#34;
+        def single_subpath(path):
+            path = join(path, name)
+            if create and not isdir(path):
+                os.mkdir(path)
+            return path
+
+        result = math.map(single_subpath, self._paths)
+        if result.rank == 0:
+            return result.native()
+        else:
+            return result
+
+    def _init_properties(self):
+        if self._properties is not None:
+            return
+        dfile = join(self.path, &#34;description.json&#34;)
+        if isfile(dfile):
+            self._properties = json.load(dfile)
+        else:
+            self._properties = {}
+
+    def exists_config(self):
+        &#34;&#34;&#34; Tests if the configuration file *description.json* exists. In batch mode, tests if any configuration exists. &#34;&#34;&#34;
+        if isinstance(self.path, str):
+            return isfile(join(self.path, &#34;description.json&#34;))
+        else:
+            return any(isfile(join(p, &#34;description.json&#34;)) for p in self.path)
+
+    @property
+    def properties(self):
+        self._init_properties()
+        return self._properties
+
+    @properties.setter
+    def properties(self, dict):
+        self._properties = dict
+        with open(join(self.path, &#34;description.json&#34;), &#34;w&#34;) as out:
+            json.dump(self._properties, out, indent=2)
+
+    def put_property(self, key, value):
+        self._init_properties()
+        self._properties[key] = value
+        with open(join(self.path, &#34;description.json&#34;), &#34;w&#34;) as out:
+            json.dump(self._properties, out, indent=2)
+
+    def write_sim_frame(self, arrays, fieldnames, frame):
+        write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
+
+    def write(self, data: dict, frame=0):
+        &#34;&#34;&#34;
+        Writes fields to this scene.
+        One NumPy file will be created for each `phi.field.Field`
+
+        See Also:
+            `Scene.read()`.
+
+        Args:
+            data: `dict` mapping field names to `Field` objects that can be written using `phi.field.write()`.
+            frame: Frame number.
+        &#34;&#34;&#34;
+        write_sim_frame(self._paths, data, names=None, frame=frame)
+
+    def read_array(self, field_name, frame):
+        return read_sim_frame(self._paths, field_name, frame=frame)
+
+    # def read_sim_frames(self, fieldnames=None, frames=None):
+    #     return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames, batch_dim=self.batch_dim)
+
+    def read(self, names: str or tuple or list, frame=0, convert_to_backend=True):
+        &#34;&#34;&#34;
+        Reads one or multiple fields from disc.
+
+        See Also:
+            `Scene.write()`.
+
+        Args:
+            names: Single field name or sequence of field names.
+            frame: Frame number.
+            convert_to_backend: Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.
+
+        Returns:
+            Single `phi.field.Field` or sequence of fields, depending on the type of `names`.
+        &#34;&#34;&#34;
+        return read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)
+
+    @property
+    def fieldnames(self) -&gt; tuple:
+        &#34;&#34;&#34; Determines all field names present in this `Scene`, independent of frame. &#34;&#34;&#34;
+        return get_fieldnames(self.path)
+
+    @property
+    def frames(self):
+        &#34;&#34;&#34; Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.get_frames()`. &#34;&#34;&#34;
+        return get_frames(self.path)
+
+    def get_frames(self, mode=&#34;intersect&#34;):
+        return get_frames(self.path, None, mode)
+
+    def __repr__(self):
+        return repr(self.paths)
+
+    def __eq__(self, other):
+        return isinstance(other, Scene) and math.all(other._paths == self._paths)
+
+    def copy_calling_script(self, full_trace=False, include_context_information=True):
+        &#34;&#34;&#34;
+        Copies the Python file that called this method into the `src` folder of this `Scene`.
+
+        In batch mode, the script is copied to all scenes.
+
+        Args:
+            full_trace: Whether to include scripts that indirectly called this method.
+            include_context_information: If True, writes the phiflow version and `sys.argv` into `context.json`.
+        &#34;&#34;&#34;
+        script_paths = [frame[1] for frame in inspect.stack()]
+        script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
+        script_paths = set(script_paths) if full_trace else [script_paths[0]]
+        for path in math.flatten(self._paths):
+            self.subpath(&#39;src&#39;, create=True)
+            for script_path in script_paths:
+                shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))
+            if include_context_information:
+                with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
+                    json.dump({
+                        &#39;phi_version&#39;: phi_version,
+                        &#39;argv&#39;: sys.argv
+                    }, context_file)
+
+    def copy_src(self, path, only_external=True):
+        if not only_external or not _is_phi_file(path):
+            shutil.copy(path, join(self.subpath(&#39;src&#39;, create=True), basename(path)))
+
+    def mkdir(self):
+        for path in math.flatten(self._paths):
+            isdir(path) or os.mkdir(path)
+
+    def remove(self):
+        &#34;&#34;&#34; Deletes the scene directory and all contained files. &#34;&#34;&#34;
+        for p in math.flatten(self._paths):
+            p = abspath(p)
+            if isdir(p):
+                shutil.rmtree(p)
+
+    def data_paths(self, frames, field_names):
+        for frame in frames:
+            yield tuple([_filename(self.path, name, frame) for name in field_names])</code></pre>
+</details>
+<h3>Static methods</h3>
+<dl>
+<dt id="phi.field.Scene.at"><code class="name flex">
+<span>def <span class="ident">at</span></span>(<span>directory: str, id: int = None) ‑> phi.field._scene.Scene</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> for an existing directory.</p>
+<p>See Also:
+<code><a title="phi.field.Scene.create" href="#phi.field.Scene.create">Scene.create()</a></code>, <code><a title="phi.field.Scene.list" href="#phi.field.Scene.list">Scene.list()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>directory</code></strong></dt>
+<dd>Either directory containing scene folder if <code>id</code> is given, or scene path if <code>id=None</code>.</dd>
+<dt><strong><code>id</code></strong></dt>
+<dd>(Optional) Scene <code>id</code>, will be determined from <code>directory</code> if not specified.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> object for existing scene.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def at(directory: str or math.Tensor, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
+    &#34;&#34;&#34;
+    Creates a `Scene` for an existing directory.
+
+    See Also:
+        `Scene.create()`, `Scene.list()`.
+
+    Args:
+        directory: Either directory containing scene folder if `id` is given, or scene path if `id=None`.
+        id: (Optional) Scene `id`, will be determined from `directory` if not specified.
+
+    Returns:
+        `Scene` object for existing scene.
+    &#34;&#34;&#34;
+    directory = math.map(lambda d: expanduser(d), math.tensor(directory))
+    if id is None:
+        paths = directory
+    else:
+        id = math.tensor(id)
+        paths = directory._op2(id, None, lambda d_, id_: join(directory, f&#34;sim_{id:06d}&#34;))
+    # test all exist
+    for path in math.flatten(paths):
+        if not isdir(path):
+            raise IOError(f&#34;There is no scene at &#39;{path}&#39;&#34;)
+    return Scene(paths)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.batch_stack"><code class="name flex">
+<span>def <span class="ident">batch_stack</span></span>(<span>*scenes: <a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>, dim: str = 'batch') ‑> phi.field._scene.Scene</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def batch_stack(*scenes: &#39;Scene&#39;, dim: str = &#39;batch&#39;) -&gt; &#39;Scene&#39;:
+    return Scene(math.batch_stack([s._paths for s in scenes], dim))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.create"><code class="name flex">
+<span>def <span class="ident">create</span></span>(<span>parent_directory: str, shape: phi.math._shape.Shape = (), copy_calling_script=True, **dimensions) ‑> phi.field._scene.Scene</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a new <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> or a batch of new scenes inside <code>parent_directory</code>.</p>
+<p>See Also:
+<code><a title="phi.field.Scene.at" href="#phi.field.Scene.at">Scene.at()</a></code>, <code><a title="phi.field.Scene.list" href="#phi.field.Scene.list">Scene.list()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>parent_directory</code></strong></dt>
+<dd>Directory to hold the new <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>. If it doesn't exist, it will be created.</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>Determines number of scenes to create. Multiple scenes will be represented by a <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> with <code>is_batch=True</code>.</dd>
+<dt><strong><code>copy_calling_script</code></strong></dt>
+<dd>Whether to copy the Python file that invoked this method into the <code>src</code> folder of all created scenes.
+See <code><a title="phi.field.Scene.copy_calling_script" href="#phi.field.Scene.copy_calling_script">Scene.copy_calling_script()</a></code>.</dd>
+<dt><strong><code>dimensions</code></strong></dt>
+<dd>Additional batch dimensions</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Single <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> object representing the new scene(s).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def create(parent_directory: str,
+           shape: math.Shape = math.EMPTY_SHAPE,
+           copy_calling_script=True,
+           **dimensions) -&gt; &#39;Scene&#39;:
+    &#34;&#34;&#34;
+    Creates a new `Scene` or a batch of new scenes inside `parent_directory`.
+
+    See Also:
+        `Scene.at()`, `Scene.list()`.
+
+    Args:
+        parent_directory: Directory to hold the new `Scene`. If it doesn&#39;t exist, it will be created.
+        shape: Determines number of scenes to create. Multiple scenes will be represented by a `Scene` with `is_batch=True`.
+        copy_calling_script: Whether to copy the Python file that invoked this method into the `src` folder of all created scenes.
+            See `Scene.copy_calling_script()`.
+        dimensions: Additional batch dimensions
+
+    Returns:
+        Single `Scene` object representing the new scene(s).
+    &#34;&#34;&#34;
+    shape = (shape &amp; math.shape(**dimensions)).to_batch()
+    parent_directory = expanduser(parent_directory)
+    abs_dir = abspath(parent_directory)
+    if not isdir(abs_dir):
+        os.makedirs(abs_dir)
+        next_id = 0
+    else:
+        indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith(&#34;sim_&#34;)]
+        next_id = max([-1] + indices) + 1
+    ids = math.tensor(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
+    paths = math.map(lambda id_: join(parent_directory, f&#34;sim_{id_:06d}&#34;), ids)
+    scene = Scene(paths)
+    scene.mkdir()
+    if copy_calling_script:
+        try:
+            scene.copy_calling_script()
+        except IOError as err:
+            warnings.warn(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
+    return scene</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.list"><code class="name flex">
+<span>def <span class="ident">list</span></span>(<span>parent_directory: str, include_other: bool = False, dim: str = None) ‑> phi.field._scene.Scene</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Lists all scenes inside the given directory.</p>
+<p>See Also:
+<code><a title="phi.field.Scene.at" href="#phi.field.Scene.at">Scene.at()</a></code>, <code><a title="phi.field.Scene.create" href="#phi.field.Scene.create">Scene.create()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>parent_directory</code></strong></dt>
+<dd>Directory that contains scene folders.</dd>
+<dt><strong><code>include_other</code></strong></dt>
+<dd>Whether folders that do not match the scene format should also be treated as scenes.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Stack dimension. If None, returns tuple of <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> objects. Otherwise, returns a scene batch with this dimension.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of scenes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def list(parent_directory: str,
+         include_other: bool = False,
+         dim: str or None = None) -&gt; &#39;Scene&#39; or tuple:
+    &#34;&#34;&#34;
+    Lists all scenes inside the given directory.
+
+    See Also:
+        `Scene.at()`, `Scene.create()`.
+
+    Args:
+        parent_directory: Directory that contains scene folders.
+        include_other: Whether folders that do not match the scene format should also be treated as scenes.
+        dim: Stack dimension. If None, returns tuple of `Scene` objects. Otherwise, returns a scene batch with this dimension.
+
+    Returns:
+        `tuple` of scenes.
+    &#34;&#34;&#34;
+    parent_directory = expanduser(parent_directory)
+    abs_dir = abspath(parent_directory)
+    if not isdir(abs_dir):
+        return ()
+    names = [sim for sim in os.listdir(abs_dir) if sim.startswith(&#34;sim_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
+    if dim is None:
+        return tuple(Scene(join(parent_directory, name)) for name in names)
+    else:
+        paths = math.tensor([join(parent_directory, name) for name in names], dim)
+        return Scene(paths)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.field.Scene.fieldnames"><code class="name">var <span class="ident">fieldnames</span> : tuple</code></dt>
+<dd>
+<div class="desc"><p>Determines all field names present in this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>, independent of frame.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def fieldnames(self) -&gt; tuple:
+    &#34;&#34;&#34; Determines all field names present in this `Scene`, independent of frame. &#34;&#34;&#34;
+    return get_fieldnames(self.path)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.frames"><code class="name">var <span class="ident">frames</span></code></dt>
+<dd>
+<div class="desc"><p>Determines all frame numbers present in this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>, independent of field names. See <code><a title="phi.field.Scene.get_frames" href="#phi.field.Scene.get_frames">Scene.get_frames()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def frames(self):
+    &#34;&#34;&#34; Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.get_frames()`. &#34;&#34;&#34;
+    return get_frames(self.path)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.is_batch"><code class="name">var <span class="ident">is_batch</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_batch(self):
+    return self._paths.rank &gt; 0</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.path"><code class="name">var <span class="ident">path</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Relative path of the scene directory.
+This property only exists for single scenes, not scene batches.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def path(self) -&gt; str:
+    &#34;&#34;&#34;
+    Relative path of the scene directory.
+    This property only exists for single scenes, not scene batches.
+    &#34;&#34;&#34;
+    assert not self.is_batch, &#34;Scene.path is not defined for scene batches.&#34;
+    return self._paths.native()</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.paths"><code class="name">var <span class="ident">paths</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def paths(self) -&gt; math.Tensor:
+    return self._paths</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.properties"><code class="name">var <span class="ident">properties</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def properties(self):
+    self._init_properties()
+    return self._properties</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.shape"><code class="name">var <span class="ident">shape</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self):
+    return self._paths.shape</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.field.Scene.copy_calling_script"><code class="name flex">
+<span>def <span class="ident">copy_calling_script</span></span>(<span>self, full_trace=False, include_context_information=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Copies the Python file that called this method into the <code>src</code> folder of this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>.</p>
+<p>In batch mode, the script is copied to all scenes.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>full_trace</code></strong></dt>
+<dd>Whether to include scripts that indirectly called this method.</dd>
+<dt><strong><code>include_context_information</code></strong></dt>
+<dd>If True, writes the phiflow version and <code>sys.argv</code> into <code>context.json</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_calling_script(self, full_trace=False, include_context_information=True):
+    &#34;&#34;&#34;
+    Copies the Python file that called this method into the `src` folder of this `Scene`.
+
+    In batch mode, the script is copied to all scenes.
+
+    Args:
+        full_trace: Whether to include scripts that indirectly called this method.
+        include_context_information: If True, writes the phiflow version and `sys.argv` into `context.json`.
+    &#34;&#34;&#34;
+    script_paths = [frame[1] for frame in inspect.stack()]
+    script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
+    script_paths = set(script_paths) if full_trace else [script_paths[0]]
+    for path in math.flatten(self._paths):
+        self.subpath(&#39;src&#39;, create=True)
+        for script_path in script_paths:
+            shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))
+        if include_context_information:
+            with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
+                json.dump({
+                    &#39;phi_version&#39;: phi_version,
+                    &#39;argv&#39;: sys.argv
+                }, context_file)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.copy_src"><code class="name flex">
+<span>def <span class="ident">copy_src</span></span>(<span>self, path, only_external=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_src(self, path, only_external=True):
+    if not only_external or not _is_phi_file(path):
+        shutil.copy(path, join(self.subpath(&#39;src&#39;, create=True), basename(path)))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.data_paths"><code class="name flex">
+<span>def <span class="ident">data_paths</span></span>(<span>self, frames, field_names)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def data_paths(self, frames, field_names):
+    for frame in frames:
+        yield tuple([_filename(self.path, name, frame) for name in field_names])</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.exists_config"><code class="name flex">
+<span>def <span class="ident">exists_config</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Tests if the configuration file <em>description.json</em> exists. In batch mode, tests if any configuration exists.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def exists_config(self):
+    &#34;&#34;&#34; Tests if the configuration file *description.json* exists. In batch mode, tests if any configuration exists. &#34;&#34;&#34;
+    if isinstance(self.path, str):
+        return isfile(join(self.path, &#34;description.json&#34;))
+    else:
+        return any(isfile(join(p, &#34;description.json&#34;)) for p in self.path)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.get_frames"><code class="name flex">
+<span>def <span class="ident">get_frames</span></span>(<span>self, mode='intersect')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_frames(self, mode=&#34;intersect&#34;):
+    return get_frames(self.path, None, mode)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.mkdir"><code class="name flex">
+<span>def <span class="ident">mkdir</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mkdir(self):
+    for path in math.flatten(self._paths):
+        isdir(path) or os.mkdir(path)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.put_property"><code class="name flex">
+<span>def <span class="ident">put_property</span></span>(<span>self, key, value)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def put_property(self, key, value):
+    self._init_properties()
+    self._properties[key] = value
+    with open(join(self.path, &#34;description.json&#34;), &#34;w&#34;) as out:
+        json.dump(self._properties, out, indent=2)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.read"><code class="name flex">
+<span>def <span class="ident">read</span></span>(<span>self, names: str, frame=0, convert_to_backend=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Reads one or multiple fields from disc.</p>
+<p>See Also:
+<code><a title="phi.field.Scene.write" href="#phi.field.Scene.write">Scene.write()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>names</code></strong></dt>
+<dd>Single field name or sequence of field names.</dd>
+<dt><strong><code>frame</code></strong></dt>
+<dd>Frame number.</dd>
+<dt><strong><code>convert_to_backend</code></strong></dt>
+<dd>Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Single <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or sequence of fields, depending on the type of <code>names</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def read(self, names: str or tuple or list, frame=0, convert_to_backend=True):
+    &#34;&#34;&#34;
+    Reads one or multiple fields from disc.
+
+    See Also:
+        `Scene.write()`.
+
+    Args:
+        names: Single field name or sequence of field names.
+        frame: Frame number.
+        convert_to_backend: Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.
+
+    Returns:
+        Single `phi.field.Field` or sequence of fields, depending on the type of `names`.
+    &#34;&#34;&#34;
+    return read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.read_array"><code class="name flex">
+<span>def <span class="ident">read_array</span></span>(<span>self, field_name, frame)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def read_array(self, field_name, frame):
+    return read_sim_frame(self._paths, field_name, frame=frame)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.remove"><code class="name flex">
+<span>def <span class="ident">remove</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes the scene directory and all contained files.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def remove(self):
+    &#34;&#34;&#34; Deletes the scene directory and all contained files. &#34;&#34;&#34;
+    for p in math.flatten(self._paths):
+        p = abspath(p)
+        if isdir(p):
+            shutil.rmtree(p)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.subpath"><code class="name flex">
+<span>def <span class="ident">subpath</span></span>(<span>self, name: str, create: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Resolves the relative path <code>name</code> with this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> as the root folder.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>Relative path with this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> as the root folder.</dd>
+<dt><strong><code>create</code></strong></dt>
+<dd>Whether to create a directory of that name.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Relative path including the path to this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>.
+In batch mode, returns a <code>tuple</code>, else a <code>str</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def subpath(self, name: str, create: bool = False) -&gt; str or tuple:
+    &#34;&#34;&#34;
+    Resolves the relative path `name` with this `Scene` as the root folder.
+
+    Args:
+        name: Relative path with this `Scene` as the root folder.
+        create: Whether to create a directory of that name.
+
+    Returns:
+        Relative path including the path to this `Scene`.
+        In batch mode, returns a `tuple`, else a `str`.
+    &#34;&#34;&#34;
+    def single_subpath(path):
+        path = join(path, name)
+        if create and not isdir(path):
+            os.mkdir(path)
+        return path
+
+    result = math.map(single_subpath, self._paths)
+    if result.rank == 0:
+        return result.native()
+    else:
+        return result</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.write"><code class="name flex">
+<span>def <span class="ident">write</span></span>(<span>self, data: dict, frame=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Writes fields to this scene.
+One NumPy file will be created for each <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></p>
+<p>See Also:
+<code><a title="phi.field.Scene.read" href="#phi.field.Scene.read">Scene.read()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong></dt>
+<dd><code>dict</code> mapping field names to <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> objects that can be written using <code><a title="phi.field.write" href="#phi.field.write">write()</a></code>.</dd>
+<dt><strong><code>frame</code></strong></dt>
+<dd>Frame number.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write(self, data: dict, frame=0):
+    &#34;&#34;&#34;
+    Writes fields to this scene.
+    One NumPy file will be created for each `phi.field.Field`
+
+    See Also:
+        `Scene.read()`.
+
+    Args:
+        data: `dict` mapping field names to `Field` objects that can be written using `phi.field.write()`.
+        frame: Frame number.
+    &#34;&#34;&#34;
+    write_sim_frame(self._paths, data, names=None, frame=frame)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.write_sim_frame"><code class="name flex">
+<span>def <span class="ident">write_sim_frame</span></span>(<span>self, arrays, fieldnames, frame)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write_sim_frame(self, arrays, fieldnames, frame):
+    write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">GeometryMask</span></span>
 <span>(</span><span>geometry: phi.geom._geom.Geometry)</span>
@@ -3906,6 +4849,35 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.SampledField.unstack" href="#phi.field.SampledField.unstack">unstack</a></code></li>
 <li><code><a title="phi.field.SampledField.values" href="#phi.field.SampledField.values">values</a></code></li>
 <li><code><a title="phi.field.SampledField.with_" href="#phi.field.SampledField.with_">with_</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.field.Scene.at" href="#phi.field.Scene.at">at</a></code></li>
+<li><code><a title="phi.field.Scene.batch_stack" href="#phi.field.Scene.batch_stack">batch_stack</a></code></li>
+<li><code><a title="phi.field.Scene.copy_calling_script" href="#phi.field.Scene.copy_calling_script">copy_calling_script</a></code></li>
+<li><code><a title="phi.field.Scene.copy_src" href="#phi.field.Scene.copy_src">copy_src</a></code></li>
+<li><code><a title="phi.field.Scene.create" href="#phi.field.Scene.create">create</a></code></li>
+<li><code><a title="phi.field.Scene.data_paths" href="#phi.field.Scene.data_paths">data_paths</a></code></li>
+<li><code><a title="phi.field.Scene.exists_config" href="#phi.field.Scene.exists_config">exists_config</a></code></li>
+<li><code><a title="phi.field.Scene.fieldnames" href="#phi.field.Scene.fieldnames">fieldnames</a></code></li>
+<li><code><a title="phi.field.Scene.frames" href="#phi.field.Scene.frames">frames</a></code></li>
+<li><code><a title="phi.field.Scene.get_frames" href="#phi.field.Scene.get_frames">get_frames</a></code></li>
+<li><code><a title="phi.field.Scene.is_batch" href="#phi.field.Scene.is_batch">is_batch</a></code></li>
+<li><code><a title="phi.field.Scene.list" href="#phi.field.Scene.list">list</a></code></li>
+<li><code><a title="phi.field.Scene.mkdir" href="#phi.field.Scene.mkdir">mkdir</a></code></li>
+<li><code><a title="phi.field.Scene.path" href="#phi.field.Scene.path">path</a></code></li>
+<li><code><a title="phi.field.Scene.paths" href="#phi.field.Scene.paths">paths</a></code></li>
+<li><code><a title="phi.field.Scene.properties" href="#phi.field.Scene.properties">properties</a></code></li>
+<li><code><a title="phi.field.Scene.put_property" href="#phi.field.Scene.put_property">put_property</a></code></li>
+<li><code><a title="phi.field.Scene.read" href="#phi.field.Scene.read">read</a></code></li>
+<li><code><a title="phi.field.Scene.read_array" href="#phi.field.Scene.read_array">read_array</a></code></li>
+<li><code><a title="phi.field.Scene.remove" href="#phi.field.Scene.remove">remove</a></code></li>
+<li><code><a title="phi.field.Scene.shape" href="#phi.field.Scene.shape">shape</a></code></li>
+<li><code><a title="phi.field.Scene.subpath" href="#phi.field.Scene.subpath">subpath</a></code></li>
+<li><code><a title="phi.field.Scene.write" href="#phi.field.Scene.write">write</a></code></li>
+<li><code><a title="phi.field.Scene.write_sim_frame" href="#phi.field.Scene.write_sim_frame">write_sim_frame</a></code></li>
 </ul>
 </li>
 <li>

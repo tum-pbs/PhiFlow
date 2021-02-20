@@ -58,33 +58,28 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import tensor, tensors, Tensor, TensorDim
 from ._functions import (
-    choose_backend_t as choose_backend,
-    all_available,
+    choose_backend_t as choose_backend, all_available,
     print_ as print,
-    transpose,
+    map_ as map,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
+    zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad, spatial_pad,
-    join_dimensions, split_dimension, expand, expand_batch, expand_spatial, expand_channel,  # reshape operations
+    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose, # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
-    zeros_like, ones_like,
-    dot,
-    matmul,
-    einsum,
-    abs,
-    sign,
+    dot, matmul, einsum,
+    abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
     with_custom_gradient,
     sqrt, exp, sin, cos,
-    conv,
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter,
-    fft, ifft,
+    fft, ifft, conv,
     dtype, cast,
     tile,
     sparse_tensor,
@@ -1058,6 +1053,19 @@ These are the frequencies corresponding to the components of the result of <code
     return to_float(k) if dtype is None else cast(k, dtype)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.flatten"><code class="name flex">
+<span>def <span class="ident">flatten</span></span>(<span>value: phi.math._tensors.Tensor, flat_dim: str = 'flat')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def flatten(value: Tensor, flat_dim: str = &#39;flat&#39;):
+    return join_dimensions(value, value.shape, flat_dim)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.floor"><code class="name flex">
 <span>def <span class="ident">floor</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -1682,6 +1690,41 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <pre><code class="python">def linspace(start, stop, number: int, dim=&#39;linspace&#39;):
     native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
     return NativeTensor(native, shape_(**{dim: number}))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.map"><code class="name flex">
+<span>def <span class="ident">map</span></span>(<span>function, value: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calls <code>function</code> on all elements of <code>value</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>function</code></strong></dt>
+<dd>Function to be called on single elements contained in <code>value</code>. Must return a value that can be stored in tensors.</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor to iterate over.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of same shape as <code>value</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def map_(function, value: Tensor) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Calls `function` on all elements of `value`.
+
+    Args:
+        function: Function to be called on single elements contained in `value`. Must return a value that can be stored in tensors.
+        value: Tensor to iterate over.
+
+    Returns:
+        `Tensor` of same shape as `value`.
+    &#34;&#34;&#34;
+    result = []
+    for v in flatten(value):
+        result.append(function(v))
+    return tensor(result).vector.split(value.shape)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.matmul"><code class="name flex">
@@ -2858,7 +2901,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
         return dim[0]
     if split_dims.rank == 1:
         value = dim.tensor
-        new_shape = value.shape.with_names([split_dims.name if name == dim else name for name in value.shape.names])
+        new_shape = value.shape.with_names([split_dims.name if name == dim.name else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     else:
         value = dim.tensor
@@ -7574,6 +7617,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.extrapolate_valid_values" href="#phi.math.extrapolate_valid_values">extrapolate_valid_values</a></code></li>
 <li><code><a title="phi.math.fft" href="#phi.math.fft">fft</a></code></li>
 <li><code><a title="phi.math.fftfreq" href="#phi.math.fftfreq">fftfreq</a></code></li>
+<li><code><a title="phi.math.flatten" href="#phi.math.flatten">flatten</a></code></li>
 <li><code><a title="phi.math.floor" href="#phi.math.floor">floor</a></code></li>
 <li><code><a title="phi.math.fourier_laplace" href="#phi.math.fourier_laplace">fourier_laplace</a></code></li>
 <li><code><a title="phi.math.fourier_poisson" href="#phi.math.fourier_poisson">fourier_poisson</a></code></li>
@@ -7591,6 +7635,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss</a></code></li>
 <li><code><a title="phi.math.laplace" href="#phi.math.laplace">laplace</a></code></li>
 <li><code><a title="phi.math.linspace" href="#phi.math.linspace">linspace</a></code></li>
+<li><code><a title="phi.math.map" href="#phi.math.map">map</a></code></li>
 <li><code><a title="phi.math.matmul" href="#phi.math.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.max" href="#phi.math.max">max</a></code></li>
 <li><code><a title="phi.math.maximum" href="#phi.math.maximum">maximum</a></code></li>

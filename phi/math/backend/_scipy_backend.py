@@ -74,6 +74,10 @@ class SciPyBackend(Backend):
         return np.transpose(tensor, axes)
 
     def equal(self, x, y):
+        if isinstance(x, np.ndarray) and x.dtype.char == 'U':  # string comparison
+            x = x.astype(np.object)
+        if isinstance(x, str):
+            x = np.array(x, np.object)
         return np.equal(x, y)
 
     def divide_no_nan(self, x, y):

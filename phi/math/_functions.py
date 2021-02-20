@@ -84,6 +84,23 @@ def print_(value: Tensor = None, name: str = None):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
+def map_(function, value: Tensor) -> Tensor:
+    """
+    Calls `function` on all elements of `value`.
+
+    Args:
+        function: Function to be called on single elements contained in `value`. Must return a value that can be stored in tensors.
+        value: Tensor to iterate over.
+
+    Returns:
+        `Tensor` of same shape as `value`.
+    """
+    result = []
+    for v in flatten(value):
+        result.append(function(v))
+    return tensor(result).vector.split(value.shape)
+
+
 def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None, **dimensions):
     shape &= shape_(**dimensions)
     if shape.is_non_uniform:
@@ -449,7 +466,7 @@ def split_dimension(dim: TensorDim, split_dims: Shape):
         return dim[0]
     if split_dims.rank == 1:
         value = dim.tensor
-        new_shape = value.shape.with_names([split_dims.name if name == dim else name for name in value.shape.names])
+        new_shape = value.shape.with_names([split_dims.name if name == dim.name else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     else:
         value = dim.tensor
@@ -493,6 +510,10 @@ def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name
     new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos=first_dim_index)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
+
+
+def flatten(value: Tensor, flat_dim: str = 'flat'):
+    return join_dimensions(value, value.shape, flat_dim)
 
 
 def where(condition: Tensor or float or int, value_true: Tensor or float or int, value_false: Tensor or float or int):

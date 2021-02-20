@@ -22,33 +22,28 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import tensor, tensors, Tensor, TensorDim
 from ._functions import (
-    choose_backend_t as choose_backend,
-    all_available,
+    choose_backend_t as choose_backend, all_available,
     print_ as print,
-    transpose,
+    map_ as map,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
+    zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad, spatial_pad,
-    join_dimensions, split_dimension, expand, expand_batch, expand_spatial, expand_channel,  # reshape operations
+    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose, # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
-    zeros_like, ones_like,
-    dot,
-    matmul,
-    einsum,
-    abs,
-    sign,
+    dot, matmul, einsum,
+    abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
     with_custom_gradient,
     sqrt, exp, sin, cos,
-    conv,
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter,
-    fft, ifft,
+    fft, ifft, conv,
     dtype, cast,
     tile,
     sparse_tensor,

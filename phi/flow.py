@@ -19,11 +19,10 @@ from . import geom
 from .geom import Geometry, Sphere, Box, union
 
 from . import field
-from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud
+from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
 
 from . import physics
 from .physics import fluid, flip, advect, diffuse, Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle
 
 from . import app
 from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show
-from .app._scene import write_sim_frame, Scene

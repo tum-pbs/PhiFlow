@@ -33,5 +33,6 @@ from ._field_math import (
     extrapolate_valid,
 )
 from ._field_io import write, read
+from ._scene import Scene
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
