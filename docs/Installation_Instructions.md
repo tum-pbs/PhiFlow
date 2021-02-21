@@ -10,7 +10,7 @@ For GPU acceleration, deep learning and optimization,
 must be registered with your Python installation.
 Note that these also require a CUDA installation with *cuDNN* libraries for GPU execution.
 
-## Installing a pre-built Φ<sub>Flow</sub> version
+## Installing Φ<sub>Flow</sub> using pip
 
 *Note*: If you want to use the Φ<sub>Flow</sub> CUDA operations with TensorFlow, you have to build Φ<sub>Flow</sub> from source instead (see below).
 
@@ -18,11 +18,17 @@ The following command installs the latest stable version of Φ<sub>Flow</sub> us
 ```bash
 $ pip install phiflow
 ```
+To install the latest developer version, run
+```bash
+$ pip install --upgrade git+https://github.com/tum-pbs/PhiFlow@develop
+```
 
-## Installing Φ<sub>Flow</sub> from source
+## Installing Φ<sub>Flow</sub> from Source
+The Φ<sub>Flow</sub> source additionally contains demo scripts and tests.
+In particular, it includes [`tests/verify.py`](https://github.com/tum-pbs/PhiFlow/blob/develop/tests/verify.py),
+which tests your configuration.
 
 Clone the git repository by running
-
 ```bash
 $ git clone https://github.com/tum-pbs/PhiFlow.git <target directory>
 ```
@@ -50,12 +56,17 @@ This will add the compiled CUDA binaries to the \<target directory\>.
 
 
 ## Verifying the installation
-
-To verify your Φ<sub>Flow</sub> installation, run the included script `verify.py` using the following command:
+If you have installed Φ<sub>Flow</sub> from source, execute the included `verify.py` script.
 ```bash
-$ python <target directory>/tests/verify.py
+$ python <Φ-Flow directory>/tests/verify.py
 ```
-If everything works, you should see the text `Installation verified.`, followed by additional information on the components at the end of the console output.
+Otherwise, run the following Python code.
+```python
+import phi
+phi.verify()
+```
+If Φ<sub>Flow</sub> and dependencies are installed correctly, you should see the text `Installation verified.`, followed by additional information on the components at the end of the console output.
+
 
 ### Unit tests
 

@@ -17,7 +17,6 @@ try:
     resample_gradient_op = tf.load_op_library(resample_gradient_op_path)
     librariesLoaded = True
 except (RuntimeError, AssertionError) as e:
-    print('Could not load resample cuda libraries:', e)
     librariesLoaded = False
 
 # Register gradient

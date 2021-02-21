@@ -7,6 +7,10 @@ Without this, TensorFlow tensors cannot be handled by `phi.math` functions.
 To make TensorFlow the default backend, import `phi.tf.flow`.
 """
 from phi import math as _math
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # only errors
+
 from ._tf_backend import TF_BACKEND
 
 TF_BACKEND = TF_BACKEND  # to show up in pdoc

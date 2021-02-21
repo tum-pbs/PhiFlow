@@ -35,4 +35,5 @@ $ pdoc --html --output-dir docs --force phi
 
 ### Other Documentation
 
+* [Installation Instructions](Installation_Instructions.md)
 * [Scene Format Specification](Scene_Format_Specification.md)
