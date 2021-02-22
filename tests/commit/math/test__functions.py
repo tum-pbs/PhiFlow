@@ -1,5 +1,7 @@
 from unittest import TestCase
 
+import numpy as np
+
 from phi import math, tf, torch
 from phi.math import extrapolation
 
@@ -149,6 +151,23 @@ class TestMathFunctions(TestCase):
         split = points.points.split(grid.shape.spatial)
         self.assertEqual(grid.shape, split.shape)
         math.assert_close(grid, split)
+
+    def test_fft(self):
+        def get_2d_sine(grid_size, L):
+            indices = np.array(np.meshgrid(*list(map(range, grid_size))))
+            phys_coord = indices.T * L / (grid_size[0])  # between [0, L)
+            x, y = phys_coord.T
+            d = np.sin(2 * np.pi * x + 1) * np.sin(2 * np.pi * y + 1)
+            return d
+
+        sine_field = get_2d_sine((32, 32), L=2)
+        fft_ref_tensor = math.tensor(np.fft.fft2(sine_field), 'x,y')
+        with math.precision(64):
+            for backend in [math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
+                with backend:
+                    sine_tensor = math.tensor(sine_field, 'x,y', convert=True)
+                    fft_tensor = math.fft(sine_tensor)
+                    math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-13)
 
 
 # Legacy test to be fixed

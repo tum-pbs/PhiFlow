@@ -1003,7 +1003,7 @@ x0x
 </details>
 </dd>
 <dt id="phi.math.fftfreq"><code class="name flex">
-<span>def <span class="ident">fftfreq</span></span>(<span>resolution, dtype=None)</span>
+<span>def <span class="ident">fftfreq</span></span>(<span>resolution: phi.math._shape.Shape, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the discrete Fourier transform sample frequencies.
@@ -1011,9 +1011,9 @@ These are the frequencies corresponding to the components of the result of <code
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>resolution</code></strong></dt>
-<dd>grid resolution measured in cells</dd>
+<dd>Grid resolution measured in cells</dd>
 <dt><strong><code>dtype</code></strong></dt>
-<dd>data type of the returned tensor (Default value = None)</dd>
+<dd>Data type of the returned tensor (Default value = None)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>tensor holding the frequencies of the corresponding values computed by math.fft</p></div>
@@ -1021,14 +1021,14 @@ These are the frequencies corresponding to the components of the result of <code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fftfreq(resolution, dtype=None):
+<pre><code class="python">def fftfreq(resolution: Shape, dtype: DType = None):
     &#34;&#34;&#34;
     Returns the discrete Fourier transform sample frequencies.
     These are the frequencies corresponding to the components of the result of `math.fft` on a tensor of shape `resolution`.
 
     Args:
-      resolution: grid resolution measured in cells
-      dtype: data type of the returned tensor (Default value = None)
+      resolution: Grid resolution measured in cells
+      dtype: Data type of the returned tensor (Default value = None)
 
     Returns:
       tensor holding the frequencies of the corresponding values computed by math.fft
@@ -2631,7 +2631,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.solve"><code class="name flex">
-<span>def <span class="ident">solve</span></span>(<span>operator, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, callback=None) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
+<span>def <span class="ident">solve</span></span>(<span>operator, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, constants: tuple = (), callback=None) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the system of linear or nonlinear equations <em>operator · x = y</em>.</p>
@@ -2661,7 +2661,12 @@ The output of math operations has the same precision as its inputs.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -&gt; Tuple[Tensor, Tensor, Tensor]:
+<pre><code class="python">def solve(operator,
+          y: Tensor,
+          x0: Tensor,
+          solve_params: Solve,
+          constants: tuple or list = (),
+          callback=None) -&gt; Tuple[Tensor, Tensor, Tensor]:
     &#34;&#34;&#34;
     Solves the system of linear or nonlinear equations *operator · x = y*.
 
@@ -2692,6 +2697,9 @@ The output of math operations has the same precision as its inputs.</p>
     if solve_params.solver not in (None, &#39;CG&#39;):
         raise NotImplementedError(&#34;Only &#39;CG&#39; solver currently supported&#34;)
 
+    for c in constants:
+        c._expand()
+
     from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
@@ -2708,7 +2716,10 @@ The output of math operations has the same precision as its inputs.</p>
             assert isinstance(Ax_track, ShiftLinOp), &#39;Baking sparse matrix failed. Make sure only supported linear operations are used.&#39;
             track_time = time.perf_counter() - track_time
             build_time = time.perf_counter()
-            operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
+            try:
+                operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
+            except NotImplementedError as err:
+                warnings.warn(f&#34;Failed to build sparse matrix, using function directly. {err}&#34;)
             # TODO reshape x0, y so that independent dimensions are batch
             build_time = time.perf_counter() - build_time
         if operator_or_matrix is None:

@@ -23,7 +23,10 @@ class JaxBackend(Backend):
 
     def __init__(self):
         Backend.__init__(self, "SciPy")
-        self.rnd_key = jax.random.PRNGKey(seed=0)
+        try:
+            self.rnd_key = jax.random.PRNGKey(seed=0)
+        except NameError:  # Jax not imported
+            self.rnd_key = None
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         jax_devices = jax.devices()

@@ -293,25 +293,20 @@ class TFBackend(Backend):
     def shape(self, tensor):
         return tf.shape(tensor)
 
-    def to_float(self, x):
-        return tf.cast(x, to_numpy_dtype(self.float_type))
-
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape.as_list())
         else:
             return np.shape(tensor)
 
+    def to_float(self, x):
+        return self.cast(x, self.float_type)
+
     def to_int(self, x, int64=False):
-        return tf.cast(x, tf.int64) if int64 else tf.cast(x, tf.int32)
+        return self.cast(x, DType(int, 64 if int64 else 32))
 
     def to_complex(self, x):
-        if self.dtype(x) in (np.complex64, np.complex128):
-            return x
-        if self.dtype(x) == np.float64:
-            return tf.cast(x, tf.complex128)
-        else:
-            return tf.cast(x, tf.complex64)
+        return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
 
     def gather(self, values, indices):
         if isinstance(values, tf.SparseTensor):
@@ -424,7 +419,12 @@ class TFBackend(Backend):
         return tf.math.real(complex)
 
     def cast(self, x, dtype: DType):
-        return tf.cast(x, to_numpy_dtype(dtype))
+        if not self.is_tensor(x, only_native=True):
+            x = self.as_tensor(x, convert_external=True)
+        if self.dtype(x) == dtype:
+            return x
+        else:
+            return tf.cast(x, to_numpy_dtype(dtype))
 
     def sin(self, x):
         return tf.math.sin(x)

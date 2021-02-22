@@ -42,17 +42,18 @@ Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine
 See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html) on how to compile the custom CUDA operators and verify your installation.
 
 ## Documentation and Guides
-
-| [Documentation](https://tum-pbs.github.io/PhiFlow/) | [API](https://tum-pbs.github.io/PhiFlow/phi/) | [Demos](demos) | [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids Tutorial](https://colab.research.google.com/drive/1LNPpHoZSTNN1L1Jt9MjLZ0r3Ejg0u7hY#offline=true&sandboxMode=true) / [Playground](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)|
-|----|----|----|----|
+[**Documentation**](https://tum-pbs.github.io/PhiFlow/)
+&nbsp;&nbsp;&nbsp; [**API**](https://tum-pbs.github.io/PhiFlow/phi/)
+&nbsp;&nbsp;&nbsp; [**Demos**](https://github.com/tum-pbs/PhiFlow/tree/develop/demos)
+&nbsp;&nbsp;&nbsp; [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> **Fluids Tutorial**](https://colab.research.google.com/drive/1LNPpHoZSTNN1L1Jt9MjLZ0r3Ejg0u7hY#offline=true&sandboxMode=true)
+&nbsp;&nbsp;&nbsp; [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> **Playground**](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)
 
 An overview of all available documentation can be found [here](https://tum-pbs.github.io/PhiFlow/).
 
 If you would like to get right into it and have a look at some code, check out the
-[tutorial notebook on Google Colab](https://colab.research.google.com/drive/1S21OY8hzh1oZK2wQyL3BNXvSlrMTtRbV#offline=true&sandboxMode=true).
+[tutorial notebook on Google Colab](https://colab.research.google.com/drive/1LNPpHoZSTNN1L1Jt9MjLZ0r3Ejg0u7hY#offline=true&sandboxMode=true).
 It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
-
-An introduction to writing fluid simulations can be found [here](https://tum-pbs.github.io/PhiFlow/Fluid_Simulation.html).
+Also check out the [explanation of common fluid simulation operations](https://tum-pbs.github.io/PhiFlow/Fluid_Simulation.html).
 
 The following introductory demos are also helpful to get started with writing your own scripts using Φ<sub>Flow</sub>:
 

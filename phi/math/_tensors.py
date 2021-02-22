@@ -917,6 +917,7 @@ class TensorStack(Tensor):
             natives = [t.native() for t in self.tensors]
             native = choose_backend(*natives).stack(natives, axis=tuple(order).index(self.stack_dim_name))
             return native
+        assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
         return self._cache().native(order=order)
 
     def _with_shape_replaced(self, new_shape: Shape):
