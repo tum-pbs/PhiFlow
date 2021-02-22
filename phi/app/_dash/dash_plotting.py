@@ -42,8 +42,8 @@ def dash_graph_plot(data, settings: dict) -> dict:
             return cloud_plot(data, settings)
 
         warnings.warn('No figure recipe for data %s' % data)
-    except BaseException as exc:
-        print(exc)
+    except BaseException as err:
+        print(f"Error during plotting: {err}")
     return EMPTY_FIGURE
 
 
@@ -314,11 +314,9 @@ def vector_field(field2d, settings):
     min_arrow_length = settings.get('min_arrow_length', 0.005) * math.max(field2d.box.size)
     draw_full_arrows = settings.get('draw_full_arrows', False)
 
-    y, x = field2d.points[0][..., (physics_config.y, physics_config.x)]
-    data = field2d.values
-    if len(data.shape.batch) > 0:
-        data = data.dimension(data.shape.batch.names[0])[batch]
-    data_y, data_x = data[..., (physics_config.y, physics_config.x)]
+    x, y = field2d.points.vector.unstack_spatial('x,y', to_numpy=True)
+    data = math.join_dimensions(field2d.values, field2d.shape.batch, 'batch').batch[batch]
+    data_x, data_y = data.vector.unstack_spatial('x,y', to_numpy=True)
 
     while np.prod(x.shape) > max_resolution ** 2:
         y = y[::2, ::2]
@@ -326,10 +324,10 @@ def vector_field(field2d, settings):
         data_y = data_y[::2, ::2]
         data_x = data_x[::2, ::2]
 
-    y = y.numpy().flatten()
-    x = x.numpy().flatten()
-    data_y = data_y.numpy().flatten()
-    data_x = data_x.numpy().flatten()
+    y = y.flatten()
+    x = x.flatten()
+    data_y = data_y.flatten()
+    data_x = data_x.flatten()
 
     if max_arrows is not None or min_arrow_length > 0:
         length = np.sqrt(data_y**2 + data_x**2)
@@ -352,10 +350,10 @@ def vector_field(field2d, settings):
         x -= 0.5 * data_x
         y -= 0.5 * data_y
 
-    x_range = [field2d.bounds.project('x').lower.numpy(), field2d.bounds.project('x').upper.numpy()]
-    y_range = [field2d.bounds.project('y').lower.numpy(), field2d.bounds.project('y').upper.numpy()]
-    if physics_config.is_x_first:
-        x_range, y_range = y_range, x_range
+    lower = field2d.bounds.lower.vector.unstack_spatial('x,y', to_python=True)
+    upper = field2d.bounds.upper.vector.unstack_spatial('x,y', to_python=True)
+    x_range = [lower[0], upper[0]]
+    y_range = [lower[1], upper[1]]
 
     if draw_full_arrows:
         result = plotly_figures.create_quiver(x, y, data_x, data_y, scale=1.0)  # 7 points per arrow
