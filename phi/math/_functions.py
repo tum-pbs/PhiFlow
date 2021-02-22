@@ -185,14 +185,14 @@ def transpose(value, axes):
         return choose_backend(value).transpose(value, axes)
 
 
-def fftfreq(resolution, dtype=None):
+def fftfreq(resolution: Shape, dtype: DType = None):
     """
     Returns the discrete Fourier transform sample frequencies.
     These are the frequencies corresponding to the components of the result of `math.fft` on a tensor of shape `resolution`.
 
     Args:
-      resolution: grid resolution measured in cells
-      dtype: data type of the returned tensor (Default value = None)
+      resolution: Grid resolution measured in cells
+      dtype: Data type of the returned tensor (Default value = None)
 
     Returns:
       tensor holding the frequencies of the corresponding values computed by math.fft
@@ -1076,7 +1076,12 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
     return tensor(solve_params.result.success), x, tensor(solve_params.result.iterations)
 
 
-def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -> Tuple[Tensor, Tensor, Tensor]:
+def solve(operator,
+          y: Tensor,
+          x0: Tensor,
+          solve_params: Solve,
+          constants: tuple or list = (),
+          callback=None) -> Tuple[Tensor, Tensor, Tensor]:
     """
     Solves the system of linear or nonlinear equations *operator · x = y*.
 
@@ -1107,6 +1112,9 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
     if solve_params.solver not in (None, 'CG'):
         raise NotImplementedError("Only 'CG' solver currently supported")
 
+    for c in constants:
+        c._expand()
+
     from ._track import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
@@ -1123,7 +1131,10 @@ def solve(operator, y: Tensor, x0: Tensor, solve_params: Solve, callback=None) -
             assert isinstance(Ax_track, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
             track_time = time.perf_counter() - track_time
             build_time = time.perf_counter()
-            operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
+            try:
+                operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
+            except NotImplementedError as err:
+                warnings.warn(f"Failed to build sparse matrix, using function directly. {err}")
             # TODO reshape x0, y so that independent dimensions are batch
             build_time = time.perf_counter() - build_time
         if operator_or_matrix is None:

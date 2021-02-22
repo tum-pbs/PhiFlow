@@ -143,7 +143,7 @@ def minimize(function, x0: Grid, solve_params: math.Solve):
     return converged, x0.with_(values=x), iterations
 
 
-def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
+def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = (), callback=None):
     if callback is not None:
         def field_callback(x):
             x = x0.with_(values=x)
@@ -151,7 +151,9 @@ def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, callback=None):
     else:
         field_callback = None
     data_function = _operate_on_values(function, x0)
-    converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params=solve_params, callback=field_callback)
+    constants = [c.values if isinstance(c, SampledField) else c for c in constants]
+    assert all(isinstance(c, math.Tensor) for c in constants)
+    converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
     return converged, x0.with_(values=x), iterations
 
 

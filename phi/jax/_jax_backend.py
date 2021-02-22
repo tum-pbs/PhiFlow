@@ -1,23 +1,29 @@
 import numbers
 from typing import List
 
+import numpy as np
+
+from phi.math.backend._optim import SolveResult
+
 try:
     import jax
     import jax.numpy as jnp
     import jax.scipy as scipy
+    from jax.scipy.sparse.linalg import cg
+    from jax import random
 except ImportError as err:
     print(err)
 
 from phi.math.backend import Backend, ComputeDevice, to_numpy_dtype, from_numpy_dtype
 from phi.math import Solve, LinearSolve, DType
+from phi.math.backend._backend_helper import combined_dim
 
 
 class JaxBackend(Backend):
 
-    """Core Python Backend using NumPy & SciPy"""
-
     def __init__(self):
         Backend.__init__(self, "SciPy")
+        self.rnd_key = jax.random.PRNGKey(seed=0)
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         jax_devices = jax.devices()
@@ -36,12 +42,12 @@ class JaxBackend(Backend):
             array = jnp.array(x)
         # --- Enforce Precision ---
         if not isinstance(array, numbers.Number):
-            if array.dtype in (jnp.float16, jnp.float32, jnp.float64, jnp.longdouble):
+            if array.dtype in (jnp.float16, jnp.float32, jnp.float64):
                 array = self.to_float(array)
         return array
 
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, jnp.ndarray):
+        if isinstance(x, jnp.ndarray) and not isinstance(x, np.ndarray):  # NumPy arrays inherit from Jax arrays
             return True
         # if scipy.sparse.issparse(x):  # TODO
         #     return True
@@ -50,7 +56,9 @@ class JaxBackend(Backend):
         # --- Above considered native ---
         if only_native:
             return False
-        # --- Non-native types
+        # --- Non-native types ---
+        if isinstance(x, np.ndarray):
+            return True
         if isinstance(x, (numbers.Number, bool, str)):
             return True
         if isinstance(x, (tuple, list)):
@@ -67,7 +75,7 @@ class JaxBackend(Backend):
             return jnp.array(tensor)
 
     def copy(self, tensor, only_mutable=False):
-        return jnp.copy(tensor)
+        return jnp.array(tensor, copy=True)
 
     def transpose(self, tensor, axes):
         return jnp.transpose(tensor, axes)
@@ -76,29 +84,17 @@ class JaxBackend(Backend):
         return jnp.equal(x, y)
 
     def divide_no_nan(self, x, y):
-        with jnp.errstate(divide='ignore', invalid='ignore'):
-            result = x / y
-        return jnp.where(y == 0, 0, result)
+        return jnp.nan_to_num(x / y, copy=True, nan=0)
 
     def random_uniform(self, shape):
-        return jnp.random.random(shape).astype(to_numpy_dtype(self.float_type))
+        self.rnd_key, subkey = jax.random.split(self.rnd_key)
+        return random.uniform(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
     def random_normal(self, shape):
-        return jnp.random.standard_normal(shape).astype(to_numpy_dtype(self.float_type))
+        self.rnd_key, subkey = jax.random.split(self.rnd_key)
+        return random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
     def range(self, start, limit=None, delta=1, dtype=None):
-        """
-        range syntax to arange syntax
-
-        Args:
-          start: 
-          limit:  (Default value = None)
-          delta:  (Default value = 1)
-          dtype:  (Default value = None)
-
-        Returns:
-
-        """
         if limit is None:
             start, limit = 0, start
         return jnp.arange(start, limit, delta, dtype)
@@ -125,6 +121,9 @@ class JaxBackend(Backend):
         return jnp.reshape(value, shape)
 
     def sum(self, value, axis=None, keepdims=False):
+        if isinstance(value, (tuple, list)):
+            assert axis == 0
+            return sum(value[1:], value[0])
         return jnp.sum(value, axis=axis, keepdims=keepdims)
 
     def prod(self, value, axis=None):
@@ -173,11 +172,11 @@ class JaxBackend(Backend):
         return jnp.tensordot(a, b, axes)
 
     def mul(self, a, b):
-        if scipy.sparse.issparse(a):
-            return a.multiply(b)
-        elif scipy.sparse.issparse(b):
-            return b.multiply(a)
-        else:
+        # if scipy.sparse.issparse(a):  # TODO sparse?
+        #     return a.multiply(b)
+        # elif scipy.sparse.issparse(b):
+        #     return b.multiply(a)
+        # else:
             return Backend.mul(self, a, b)
 
     def matmul(self, A, b):
@@ -236,17 +235,6 @@ class JaxBackend(Backend):
         return jnp.exp(x)
 
     def conv(self, tensor, kernel, padding="SAME"):
-        """
-        apply convolution of kernel on tensor
-
-        Args:
-          tensor: 
-          kernel: 
-          padding:  (Default value = "SAME")
-
-        Returns:
-
-        """
         assert tensor.shape[-1] == kernel.shape[-2]
         # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
         if padding.lower() == "same":
@@ -295,9 +283,9 @@ class JaxBackend(Backend):
             return jnp.array(x, to_numpy_dtype(dtype))
 
     def gather(self, values, indices):
-        if scipy.sparse.issparse(values):
-            if scipy.sparse.isspmatrix_coo(values):
-                values = values.tocsc()
+        # if scipy.sparse.issparse(values):  # TODO no sparse matrices?
+        #     if scipy.sparse.isspmatrix_coo(values):
+        #         values = values.tocsc()
         return values[indices]
 
     def gather_nd(self, values, indices, batch_dims=0):
@@ -414,46 +402,40 @@ class JaxBackend(Backend):
         return from_numpy_dtype(array.dtype)
 
     def sparse_tensor(self, indices, values, shape):
-        if not isinstance(indices, (tuple, list)):
-            indices = self.unstack(indices, -1)
-        if len(indices) == 2:
-            return scipy.sparse.csc_matrix((values, indices), shape=shape)
-        else:
-            raise NotImplementedError(f"len(indices) = {len(indices)} not supported. Only (2) allowed.")
+        raise NotImplementedError()  # TODO
+        # if not isinstance(indices, (tuple, list)):
+        #     indices = self.unstack(indices, -1)
+        # if len(indices) == 2:
+        #     return scipy.sparse.csc_matrix((values, indices), shape=shape)
+        # else:
+        #     raise NotImplementedError(f"len(indices) = {len(indices)} not supported. Only (2) allowed.")
 
     def coordinates(self, tensor, unstack_coordinates=False):
-        if scipy.sparse.issparse(tensor):
-            coo = tensor.tocoo()
-            return (coo.row, coo.col), coo.data
-        else:
-            raise NotImplementedError("Only sparse tensors supported.")
+        raise NotImplementedError()  # TODO
+        # if scipy.sparse.issparse(tensor):
+        #     coo = tensor.tocoo()
+        #     return (coo.row, coo.col), coo.data
+        # else:
+        #     raise NotImplementedError("Only sparse tensors supported.")
 
     def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
 
-        if callable(A):
-            A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
-        elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
+        if isinstance(A, (tuple, list)) or self.ndims(A) == 3:
             batch_size = combined_dim(batch_size, self.staticshape(A)[0])
 
-        iterations = [0] * batch_size
-        converged = []
         results = []
-
-        def count_callback(*args):
-            iterations[batch] += 1
-            if callback is not None:
-                callback(*args)
 
         for batch in range(batch_size):
             y_ = y[min(batch, bs_y - 1)]
             x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations, callback=count_callback)
-            converged.append(ret_val == 0)
+            x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations)
+
             results.append(x)
-        return all(converged), self.stack(results), max(iterations)
+        solve_params.result = SolveResult(success=True, iterations=-1)
+        return self.stack(results)
 
 
 def clamp(coordinates, shape):

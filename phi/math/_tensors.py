@@ -728,9 +728,9 @@ class CollapsedTensor(Tensor):  # package-private
         self._cached = None  # NativeTensor. Once cached, use only _cached
 
     def _cache(self):
-        if self._inner._is_special:
-            return None
         if self._cached is None:
+            if self._inner._is_special:
+                return None
             native = self._inner.native(order=self.shape.names)
             multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape.dimensions]
             tiled = choose_backend(native).tile(native, multiples)
