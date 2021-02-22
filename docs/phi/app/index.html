@@ -310,7 +310,10 @@ All fields need to be registered before the app is prepared or shown.</p>
     def new_scene(self, count=None):
         if count is None:
             count = 1 if self.world.batch_size is None else self.world.batch_size
-        self.scene = Scene.create(self.base_dir, self.scene_summary(), count=count, mkdir=True)
+        if count &gt; 1:
+            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
+        else:
+            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))
 
     @property
     def directory(self):
@@ -1113,7 +1116,10 @@ Additionally, it may be displayed by the user interface.</p>
 <pre><code class="python">def new_scene(self, count=None):
     if count is None:
         count = 1 if self.world.batch_size is None else self.world.batch_size
-    self.scene = Scene.create(self.base_dir, self.scene_summary(), count=count, mkdir=True)</code></pre>
+    if count &gt; 1:
+        self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
+    else:
+        self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.pause"><code class="name flex">

@@ -889,31 +889,29 @@ The grid values at the new points are determined via linear interpolation.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Extrapolates the values of <code>values</code> which are marked by the nonzero values of <code>valid</code> for <code>distance_cells</code> steps in all spatial directions.
-Overlapping extrapolated values get averaged.
-Extrapolation also includes diagonals.
-Vertical / Horizonal extrapolations take precedence over diagonal ones.</p>
+Overlapping extrapolated values get averaged.</p>
 <p>Examples (1-step extrapolation), x marks the values for extrapolation:
 200
 000
-111
+210
 004
 00x
 044
 100
 000
-144
+100
 010 + 0x0 =&gt; 111
-000 + 000 =&gt; 234
-004 + 00x =&gt; 244
+000 + 000 =&gt; 204
+000 + 000 =&gt; 204
 040
 000
-111
+010
 200
 x00
 220
-200
-x00
-224</p>
+204
+x0x
+234</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
@@ -938,13 +936,11 @@ x00
     &#34;&#34;&#34;
     Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
     Overlapping extrapolated values get averaged.
-    Extrapolation also includes diagonals.
-    Vertical / Horizonal extrapolations take precedence over diagonal ones.
 
     Examples (1-step extrapolation), x marks the values for extrapolation:
-        200   000    111        004   00x    044        100   000    144
-        010 + 0x0 =&gt; 111        000 + 000 =&gt; 234        004 + 00x =&gt; 244
-        040   000    111        200   x00    220        200   x00    224
+        200   000    210        004   00x    044        100   000    100
+        010 + 0x0 =&gt; 111        000 + 000 =&gt; 204        000 + 000 =&gt; 204
+        040   000    010        200   x00    220        204   x0x    234
 
     Args:
         values: Tensor which holds the values for extrapolation
@@ -962,20 +958,10 @@ x00
         mask_l, mask_r = shift(valid, (-1, 1))
         overlap = math.sum_(mask_l + mask_r, dim=&#39;shift&#39;)
         extp = math.divide_no_nan(math.sum_(values_l + values_r, dim=&#39;shift&#39;), overlap)  # take mean where extrapolated values overlap
-
-        # --- extrapolate diagonally (double y to shift up and down component of y-shift left and right) ---
-        values_ll, values_lr = shift(values_l.shift[0], (-1, 1), dims=&#39;y&#39;)  # TODO generalize to n spatial dimensions
-        mask_ll, mask_lr = shift(mask_l.shift[0], (-1, 1), dims=&#39;y&#39;)
-        values_rl, values_rr = shift(values_r.shift[0], (-1, 1), dims=&#39;y&#39;)
-        mask_rl, mask_rr = shift(mask_r.shift[0], (-1, 1), dims=&#39;y&#39;)
-        overlap_diag = mask_ll + mask_lr + mask_rl + mask_rr
-
-        extp_diag = math.divide_no_nan(values_ll + values_lr + values_rl + values_rr, overlap_diag).unstack(&#39;shift&#39;)[0]  # take mean (shift axis has only one component)
-        extp = math.where(overlap, extp, extp_diag)  # prioritize vertical / horizontal shifts over diagonal ones
-        new_valid = (valid + overlap + overlap_diag).unstack(&#39;shift&#39;)[0]
+        new_valid = valid + overlap
         values = math.where(valid, values, math.where(new_valid, extp, values))  # don&#39;t overwrite initial values within the mask / keep values not affected by extrapolation
         valid = new_valid
-    return values, valid</code></pre>
+    return values, math.divide_no_nan(valid, valid)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.fft"><code class="name flex">
@@ -1344,14 +1330,14 @@ The parameters <code>x</code> must be marked prior to all operations for which g
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>y</code></strong></dt>
-<dd>Target / output / loss Tensor</dd>
+<dd>Scalar <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> computed from <code>x</code>, typically loss.</dd>
 <dt><strong><code>*x</code></strong></dt>
-<dd>Input / source / parameter Tensor</dd>
+<dd>Parameter tensors which were previously marked in <code><a title="phi.math.record_gradients" href="#phi.math.record_gradients">record_gradients()</a></code>.</dd>
 <dt><strong><code>grad_y</code></strong></dt>
 <dd>(optional) Gradient at <code>y</code>, defaults to 1.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>dy/dx as a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with the dimensions from <code>y</code> and <code>x</code>.</p></div>
+<p>Single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> if one <code>x</code> was passed, else sequence of tensors.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1364,14 +1350,14 @@ The parameters <code>x</code> must be marked prior to all operations for which g
     The parameters `x` must be marked prior to all operations for which gradients should be recorded using `record_gradients()`.
 
     Args:
-        y: Target / output / loss Tensor
-        *x: Input / source / parameter Tensor
+        y: Scalar `Tensor` computed from `x`, typically loss.
+        *x: Parameter tensors which were previously marked in `record_gradients()`.
         grad_y: (optional) Gradient at `y`, defaults to 1.
 
     Returns:
-        dy/dx as a `Tensor` with the dimensions from `y` and `x`.
+        Single `Tensor` if one `x` was passed, else sequence of tensors.
     &#34;&#34;&#34;
-    assert isinstance(y, NativeTensor)
+    assert isinstance(y, NativeTensor), f&#34;{type(y)}&#34;
     backend = choose_backend_t(y, *x)
     x_natives = sum([x_._natives() for x_ in x], ())
     native_gradients = list(backend.gradients(y.native(), x_natives, grad_y.native() if grad_y is not None else None))
@@ -1601,9 +1587,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
     Returns:
 
     &#34;&#34;&#34;
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(l_n_loss(tensor, n, batch_norm) for tensor in all_tensors)
+    assert isinstance(tensor, Tensor), f&#34;Must be a Tensor but got {type(tensor).__name__}&#34;
     total_loss = math.sum_(tensor ** n) / n
     if batch_norm:
         batch_size = tensor.shape.batch.volume

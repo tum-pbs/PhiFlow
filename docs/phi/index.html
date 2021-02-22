@@ -56,11 +56,27 @@ Documentation overview: https://tum-pbs.github.io/PhiFlow
 PyPI: https://pypi.org/project/phiflow/
 &#34;&#34;&#34;
 
-import os
+import os as _os
 
 
-with open(os.path.join(os.path.dirname(__file__), &#39;VERSION&#39;), &#39;r&#39;) as version_file:
-    __version__ = version_file.read()</code></pre>
+with open(_os.path.join(_os.path.dirname(__file__), &#39;VERSION&#39;), &#39;r&#39;) as version_file:
+    __version__ = version_file.read()
+
+
+def verify():
+    &#34;&#34;&#34;
+    Checks your configuration for potential problems and prints a summary.
+
+    To run verify without importing `phi`, run the script `tests/verify.py` included in the source distribution.
+    &#34;&#34;&#34;
+    import sys
+    from ._troubleshoot import assert_minimal_config, troubleshoot
+    try:
+        assert_minimal_config()
+    except AssertionError as fail_err:
+        print(&#34;\n&#34;.join(fail_err.args), file=sys.stderr)
+        return
+    print(troubleshoot())</code></pre>
 </details>
 </section>
 <section>
@@ -117,6 +133,35 @@ A common trait of …</p></div>
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="phi.verify"><code class="name flex">
+<span>def <span class="ident">verify</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Checks your configuration for potential problems and prints a summary.</p>
+<p>To run verify without importing <code><a title="phi" href="#phi">phi</a></code>, run the script <code>tests/verify.py</code> included in the source distribution.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def verify():
+    &#34;&#34;&#34;
+    Checks your configuration for potential problems and prints a summary.
+
+    To run verify without importing `phi`, run the script `tests/verify.py` included in the source distribution.
+    &#34;&#34;&#34;
+    import sys
+    from ._troubleshoot import assert_minimal_config, troubleshoot
+    try:
+        assert_minimal_config()
+    except AssertionError as fail_err:
+        print(&#34;\n&#34;.join(fail_err.args), file=sys.stderr)
+        return
+    print(troubleshoot())</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 </section>
@@ -140,6 +185,11 @@ A common trait of …</p></div>
 <li><code><a title="phi.struct" href="struct/index.html">phi.struct</a></code></li>
 <li><code><a title="phi.tf" href="tf/index.html">phi.tf</a></code></li>
 <li><code><a title="phi.torch" href="torch/index.html">phi.torch</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="phi.verify" href="#phi.verify">verify</a></code></li>
 </ul>
 </li>
 </ul>

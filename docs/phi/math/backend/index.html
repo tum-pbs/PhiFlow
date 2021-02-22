@@ -111,15 +111,13 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
         the selected `Backend`
     &#34;&#34;&#34;
     # --- Default Backend has priority ---
-    if _is_specific(_DEFAULT[-1], values):
-        return _DEFAULT[-1]
-    if prefer_default and _is_applicable(_DEFAULT[-1], values):
+    if _is_applicable(_DEFAULT[-1], values) and (prefer_default or _is_specific(_DEFAULT[-1], values)):
         return _DEFAULT[-1]
     # --- Filter out non-applicable ---
     backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
     if len(backends) == 0:
         if raise_error:
-            raise NoBackendFound(&#39;No backend found for values %s; registered backends are %s&#39; % (values, BACKENDS))
+            raise NoBackendFound(f&#34;No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}&#34;)
         else:
             return None
     # --- Native tensors? ---
@@ -251,7 +249,7 @@ def precision(floating_point_bits: int):
 </details>
 </dd>
 <dt id="phi.math.backend.profile"><code class="name flex">
-<span>def <span class="ident">profile</span></span>(<span>backends=None, trace=True, subtract_trace_time=True) ‑> phi.math.backend._profile.Profile</span>
+<span>def <span class="ident">profile</span></span>(<span>backends=None, trace=True, subtract_trace_time=True, save: str = None) ‑> phi.math.backend._profile.Profile</span>
 </code></dt>
 <dd>
 <div class="desc"><p>To be used in <code>with</code> statements, <code>with math.backend.profile() as prof: ...</code>.
@@ -264,6 +262,8 @@ Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Prof
 <dd>Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.</dd>
 <dt><strong><code>subtract_trace_time</code></strong></dt>
 <dd>If True, subtracts the time it took to trace the call stack from the event times</dd>
+<dt><strong><code>save</code></strong></dt>
+<dd>(Optional) File path to save the profile to. This will call <code><a title="phi.math.backend.Profile.save" href="#phi.math.backend.Profile.save">Profile.save()</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Created <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code></p></div>
@@ -272,7 +272,7 @@ Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Prof
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@contextmanager
-def profile(backends=None, trace=True, subtract_trace_time=True) -&gt; Profile:
+def profile(backends=None, trace=True, subtract_trace_time=True, save: str or None = None) -&gt; Profile:
     &#34;&#34;&#34;
     To be used in `with` statements, `with math.backend.profile() as prof: ...`.
     Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
@@ -281,6 +281,7 @@ def profile(backends=None, trace=True, subtract_trace_time=True) -&gt; Profile:
         backends: List of backends to profile, `None` to profile all.
         trace: Whether to perform a full stack trace for each backend call. If true, groups backend calls by function.
         subtract_trace_time: If True, subtracts the time it took to trace the call stack from the event times
+        save: (Optional) File path to save the profile to. This will call `Profile.save()`.
 
     Returns:
         Created `Profile`
@@ -291,7 +292,9 @@ def profile(backends=None, trace=True, subtract_trace_time=True) -&gt; Profile:
     try:
         yield prof
     finally:
-        _stop_profiling(prof, *restore_data)</code></pre>
+        _stop_profiling(prof, *restore_data)
+        if save is not None:
+            prof.save(save)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.profile_function"><code class="name flex">
@@ -3155,7 +3158,7 @@ def precision(self):
             print()
         self._root.print(min_duration=min_duration, code_col=code_col, code_len=code_len)
 
-    def save_trace(self, json_file: str):
+    def save(self, json_file: str):
         &#34;&#34;&#34;
         Saves this profile to disc using the *trace event format* described at
         https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
@@ -3179,6 +3182,8 @@ def precision(self):
             data.extend(sum([call.trace_json_events(()) for call in self._backend_calls], []))
         with open(json_file, &#39;w&#39;) as file:
             json.dump(data, file)
+
+    save_trace = save
 
     def _children_to_properties(self):
         children = self._root.children_to_properties()
@@ -3330,6 +3335,48 @@ def retime(self):
         self._retime_index = -1</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Profile.save"><code class="name flex">
+<span>def <span class="ident">save</span></span>(<span>self, json_file: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Saves this profile to disc using the <em>trace event format</em> described at
+<a href="https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit">https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit</a></p>
+<p>This file can be viewed with external applications such as Google chrome.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>json_file</code></strong></dt>
+<dd>filename</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def save(self, json_file: str):
+    &#34;&#34;&#34;
+    Saves this profile to disc using the *trace event format* described at
+    https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
+
+    This file can be viewed with external applications such as Google chrome.
+
+    Args:
+        json_file: filename
+    &#34;&#34;&#34;
+    data = [
+        {&#39;name&#39;: &#34;process_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 0, &#39;tid&#39;: 0, &#34;args&#34;: {&#34;name&#34;: &#34;0 Python calls&#34;}},
+        {&#39;name&#39;: &#34;process_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 1, &#39;tid&#39;: 1, &#34;args&#34;: {&#34;name&#34;: &#34;1 Operations&#34;}},
+    ] + [
+        {&#39;name&#39;: &#34;thread_name&#34;, &#39;ph&#39;: &#39;M&#39;, &#39;pid&#39;: 1, &#39;tid&#39;: i + 1, &#34;args&#34;: {&#34;name&#34;: backend.name}}
+        for i, backend in enumerate(self._backends)
+    ]
+    if self._trace:
+        if len(self._root._children) &gt; 0:
+            data.extend(self._root.trace_json_events())
+    else:
+        data.extend(sum([call.trace_json_events(()) for call in self._backend_calls], []))
+    with open(json_file, &#39;w&#39;) as file:
+        json.dump(data, file)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Profile.save_trace"><code class="name flex">
 <span>def <span class="ident">save_trace</span></span>(<span>self, json_file: str)</span>
 </code></dt>
@@ -3346,7 +3393,7 @@ def retime(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def save_trace(self, json_file: str):
+<pre><code class="python">def save(self, json_file: str):
     &#34;&#34;&#34;
     Saves this profile to disc using the *trace event format* described at
     https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit
@@ -3656,6 +3703,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Profile.duration" href="#phi.math.backend.Profile.duration">duration</a></code></li>
 <li><code><a title="phi.math.backend.Profile.print" href="#phi.math.backend.Profile.print">print</a></code></li>
 <li><code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Profile.retime">retime</a></code></li>
+<li><code><a title="phi.math.backend.Profile.save" href="#phi.math.backend.Profile.save">save</a></code></li>
 <li><code><a title="phi.math.backend.Profile.save_trace" href="#phi.math.backend.Profile.save_trace">save_trace</a></code></li>
 </ul>
 </li>
