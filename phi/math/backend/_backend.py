@@ -279,7 +279,7 @@ class Backend:
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError(self)
 
-    def range(self, start, limit=None, delta=1, dtype=None):
+    def range(self, start, limit=None, delta=1, dtype: DType = None):
         raise NotImplementedError(self)
 
     def zeros(self, shape, dtype: DType = None):

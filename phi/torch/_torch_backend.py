@@ -241,14 +241,12 @@ class TorchBackend(Backend):
     def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError()
 
-    def range(self, start, limit=None, delta=1, dtype=None):
+    def range(self, start, limit=None, delta=1, dtype: DType = None):
         if limit is None:
             start, limit = 0, start
         if dtype is None:
             dtype = torch.int32
-        elif not isinstance(dtype, torch.dtype):
-            dtype = self.translate_dtype(dtype)
-        return torch.arange(start, limit, delta, dtype=dtype)
+        return torch.arange(start, limit, delta, dtype=to_torch_dtype(dtype))
 
     def zeros(self, shape, dtype=None):
         return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type))
