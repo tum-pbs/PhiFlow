@@ -599,7 +599,7 @@ class TensorDim:
 class NativeTensor(Tensor):
 
     def __init__(self, native_tensor, shape):
-        assert isinstance(shape, Shape)
+        assert isinstance(shape, Shape), f"Expected Shape but got '{type(shape)}'"
         backend = choose_backend(native_tensor)
         assert backend.staticshape(native_tensor) == shape.sizes, f"Shape {shape} does not match native tensor with shape {backend.staticshape(native_tensor)}"
         self._native = native_tensor

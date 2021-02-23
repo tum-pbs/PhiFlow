@@ -79,6 +79,34 @@ class TorchBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
 
+    def trace_function(self, f: callable) -> callable:
+        class JITFunction:
+
+            def __init__(self):
+                self.traced = None
+
+            def __call__(self, *args, **kwargs):
+                if kwargs:
+                    raise NotImplementedError("kwargs not supported for traced function")
+                if self.traced is None:
+                    self.traced = torch.jit.trace(f, example_inputs=args)
+                return self.traced(*args)
+
+        return JITFunction()
+
+    def custom_gradient(self, f: callable, gradient: callable = None) -> callable:
+        class TorchFunction(torch.autograd.Function):
+
+            @staticmethod
+            def forward(ctx, *args, **kwargs):
+                return f(*args, **kwargs)
+
+            @staticmethod
+            def backward(ctx, *grad_args):
+                return gradient(*grad_args)
+
+        return TorchFunction.apply
+
     def transpose(self, tensor, axes):
         return tensor.permute(axes)
 
@@ -137,23 +165,6 @@ class TorchBackend(Backend):
             warnings.warn(f"PyTorch error {err}")
             return NotImplemented
         result = undo_transform(result)
-        return result
-
-    def _single_mode_single_constant_pad(self, value, pad_width, single_mode, constant_value=0):
-        assert single_mode in ('constant', 'symmetric', 'circular', 'reflect', 'replicate'), single_mode
-        if single_mode == 'constant':
-            pad = sum(pad_width[::-1], [] if isinstance(pad_width, list) else ())
-            return torchf.pad(value, pad, mode='constant', value=constant_value)
-        if single_mode == 'symmetric':
-            if np.any(np.array(pad_width) > 1):
-                return symmetric_pad(value, pad_width, self)
-            else:
-                single_mode = 'replicate'
-        value = channels_first(value)
-        reversed_axis_pad = pad_width[1:-1][::-1]
-        pad = sum(reversed_axis_pad, [] if isinstance(pad_width, list) else ())
-        result = torchf.pad(value, pad, mode=single_mode, value=constant_value)  # reflect, replicate, circular (constant handled above)
-        result = channels_last(result)
         return result
 
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
@@ -339,9 +350,6 @@ class TorchBackend(Backend):
             return torch.clamp(self.as_tensor(x), minimum, maximum)
         else:
             return self.maximum(minimum, self.minimum(x, maximum))
-
-    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
-        return function(*inputs)  # ToDo
 
     def sqrt(self, x):
         return torch.sqrt(x)

@@ -19,8 +19,8 @@ from .backend._profile import get_current_profile
 
 def choose_backend_t(*values, prefer_default=False):
     """ Choose backend for given `Tensor` or native tensor values. """
-    values = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
-    return choose_backend(*values, prefer_default=prefer_default)
+    natives = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
+    return choose_backend(*natives, prefer_default=prefer_default)
 
 
 def all_available(*values: Tensor):
@@ -675,14 +675,17 @@ def min_(value: Tensor or list or tuple,
 
 
 def dot(a, b, axes) -> Tensor:
+    """ Not yet implemented. """
     raise NotImplementedError()
 
 
 def matmul(A, b) -> Tensor:
+    """ Not yet implemented. """
     raise NotImplementedError()
 
 
 def einsum(equation, *tensors) -> Tensor:
+    """ Not yet implemented. """
     raise NotImplementedError()
 
 
@@ -812,11 +815,8 @@ def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
         return maximum(lower_limit, minimum(x, upper_limit))
 
 
-def with_custom_gradient(function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
-    raise NotImplementedError()
-
-
 def conv(value: Tensor, kernel: Tensor, padding='same'):
+    """ Not yet implemented. """
     raise NotImplementedError()
 
 
@@ -826,6 +826,7 @@ def unstack(value: Tensor, dim: str):
 
 
 def boolean_mask(x: Tensor, mask):
+    """ Not yet implemented. """
     raise NotImplementedError()
 
 
@@ -902,6 +903,7 @@ def dtype(x):
 
 
 def tile(value, multiples):
+    """ Not yet implemented. """
     raise NotImplementedError()
 
 
@@ -930,10 +932,6 @@ def _expand_dim(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
         return value
     new_shape = value.shape.expand(dim_size, dim_name, dim_type)
     return CollapsedTensor(value, new_shape)
-
-
-def sparse_tensor(indices, values, shape):
-    raise NotImplementedError()
 
 
 def _invertible_standard_form(value: Tensor):
@@ -1035,6 +1033,52 @@ def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float):
             np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance)
 
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
+
+
+def trace_function(f: callable) -> callable:
+    """
+    Compiles a graph based on the function `f`.
+    This action might be performed immediately or when the traced function is called for the first time (JIT).
+
+    The traced function will compute the same result as `f` but may run much faster.
+
+    Args:
+        f: Function to be traced.
+            All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
+
+    Returns:
+        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+    """
+    INPUT_SHAPES = []
+    OUTPUT_SHAPES = []
+
+    def native_function(*natives):
+        values = [NativeTensor(native, shape.with_sizes(backend.staticshape(native))) for native, shape in zip(natives, INPUT_SHAPES)]
+        result = f(*values)
+        OUTPUT_SHAPES.clear()
+        if isinstance(result, (tuple, list)):
+            OUTPUT_SHAPES.extend([r.shape for r in result])
+        else:
+            OUTPUT_SHAPES.append(result.shape)
+        if isinstance(result, (tuple, list)):
+            return [v.native() for v in result]
+        else:
+            return result.native()
+
+    backend = default_backend()
+    traced = backend.trace_function(native_function)
+
+    def wrapper(*values: Tensor):
+        INPUT_SHAPES.clear()
+        INPUT_SHAPES.extend([v.shape for v in values])
+        natives = [v.native() for v in values]
+        result_native = traced(*natives)
+        if isinstance(result_native, (tuple, list)):
+            return [NativeTensor(native, shape.with_sizes(backend.shape(native))) for native, shape in zip(result_native, OUTPUT_SHAPES)]
+        else:
+            return NativeTensor(result_native, OUTPUT_SHAPES[0].with_sizes(backend.shape(result_native)))
+
+    return wrapper
 
 
 def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor, Tensor]:

@@ -70,6 +70,13 @@ class SciPyBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
 
+    def trace_function(self, f: callable) -> callable:
+        return f
+
+    def custom_gradient(self, f: callable, gradient: callable) -> callable:
+        warnings.warn("SciPy backend does not support gradients, custom gradient will be ignored.")
+        return f
+
     def transpose(self, tensor, axes):
         return np.transpose(tensor, axes)
 
@@ -221,9 +228,6 @@ class SciPyBackend(Backend):
 
     def min(self, x, axis=None, keepdims=False):
         return np.min(x, axis, keepdims=keepdims)
-
-    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
-        return function(*inputs)
 
     def maximum(self, a, b):
         return np.maximum(a, b)

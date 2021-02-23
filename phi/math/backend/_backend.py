@@ -179,6 +179,22 @@ class Backend:
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
+    def trace_function(self, f: callable) -> callable:
+        raise NotImplementedError()
+
+    def custom_gradient(self, f: callable, gradient: callable) -> callable:
+        """
+        Creates a function based on `f` that uses a custom gradient for backprop.
+
+        Args:
+            f: Forward function. All arguments must be
+            gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+
+        Returns:
+            Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+        """
+        raise NotImplementedError()
+
     def transpose(self, tensor, axes):
         raise NotImplementedError()
 
@@ -325,9 +341,6 @@ class Backend:
         raise NotImplementedError(self)
 
     def clip(self, x, minimum, maximum):
-        raise NotImplementedError(self)
-
-    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base='custom_gradient_func'):
         raise NotImplementedError(self)
 
     def sqrt(self, x):
@@ -532,8 +545,6 @@ class Backend:
 
     def stop_gradient(self, value):
         raise NotImplementedError(self)
-
-    # --- Math function with default implementation ---
 
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
         """

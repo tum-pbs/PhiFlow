@@ -80,6 +80,17 @@ class JaxBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
 
+    def trace_function(self, f: callable) -> callable:
+        return jax.jit(f)
+
+    def custom_gradient(self, f: callable, gradient: callable) -> callable:
+        jax_fun = jax.custom_jvp(f)
+        @jax_fun.defjvp
+        def jax_grad(primals, tangents):
+            grad = gradient(*tangents)
+            return jax_fun(primals), grad
+        return jax_fun
+
     def transpose(self, tensor, axes):
         return jnp.transpose(tensor, axes)
 
@@ -218,9 +229,6 @@ class JaxBackend(Backend):
 
     def min(self, x, axis=None, keepdims=False):
         return jnp.min(x, axis, keepdims=keepdims)
-
-    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
-        return function(*inputs)
 
     def maximum(self, a, b):
         return jnp.maximum(a, b)

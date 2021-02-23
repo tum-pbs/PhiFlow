@@ -25,6 +25,7 @@ from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
     map_ as map,
+    trace_function,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
@@ -37,7 +38,6 @@ from ._functions import (
     abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
-    with_custom_gradient,
     sqrt, exp, sin, cos,
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
@@ -46,7 +46,6 @@ from ._functions import (
     fft, ifft, conv,
     dtype, cast,
     tile,
-    sparse_tensor,
     close, assert_close,
     solve, minimize,
     record_gradients, gradients, stop_gradient

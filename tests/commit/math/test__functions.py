@@ -169,10 +169,18 @@ class TestMathFunctions(TestCase):
                     fft_tensor = math.fft(sine_tensor)
                     math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-13)
 
+    def test_trace_function(self):
+        def f(x: math.Tensor, y: math.Tensor):
+            return x + y
 
-# Legacy test to be fixed
-# def _resample_test(mode, constant_values, expected):
-#    grid = np.tile(np.reshape(np.array([[1,2], [4,5]]), [1,2,2,1]), [1, 1, 1, 2])
-#    resampled = helper_resample(grid, coords, mode, constant_values, SciPyBackend())
-#    np.testing.assert_equal(resampled[..., 0], resampled[..., 1])
-#    np.testing.assert_almost_equal(expected, resampled[0, :, 0], decimal=5)
+        for backend in [math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
+            with backend:
+                ft = math.trace_function(f)
+                args1 = math.ones(x=2), math.ones(y=2)
+                args2 = math.ones(x=3), math.ones(y=3)
+                res1 = ft(*args1)
+                self.assertEqual(math.shape(x=2, y=2), res1.shape)
+                math.assert_close(res1, 2)
+                res2 = ft(*args2)
+                self.assertEqual(math.shape(x=3, y=3), res2.shape)
+                math.assert_close(res2, 2)

@@ -70,6 +70,17 @@ class TFBackend(Backend):
         else:
             return tensor
 
+    def trace_function(self, f: callable) -> callable:
+        return tf.function(f)
+
+    def custom_gradient(self, f: callable, gradient: callable = None) -> callable:
+        @tf.custom_gradient
+        def tf_function(*args, **kwargs):
+            def grad(*grad_args):
+                return gradient(*grad_args)
+            return f(*args, **kwargs), grad
+        return tf_function
+
     def transpose(self, tensor, axes):
         return tf.transpose(tensor, perm=axes)
 
@@ -232,25 +243,6 @@ class TFBackend(Backend):
 
     def min(self, x, axis=None, keepdims=False):
         return tf.reduce_min(x, axis=axis, keepdims=keepdims)
-
-    def with_custom_gradient(self, function, inputs, gradient, input_index=0, output_index=None, name_base="custom_gradient_func"):
-        # Setup custom gradient
-        gradient_name = name_base + "_" + str(uuid.uuid4())
-        tf.RegisterGradient(gradient_name)(gradient)
-
-        g = tf.get_default_graph()
-        with g.gradient_override_map({"Identity": gradient_name}):
-            fake_function = tf.identity(inputs[input_index])
-
-        outputs = function(*inputs)
-        output = outputs if output_index is None else outputs[output_index]
-        output_with_gradient = fake_function + tf.stop_gradient(output - fake_function)
-        if output_index is None:
-            return output_with_gradient
-        else:
-            outputs = list(outputs)
-            outputs[output_index] = output_with_gradient
-            return outputs
 
     def maximum(self, a, b):
         a, b = self.auto_cast(a, b)
