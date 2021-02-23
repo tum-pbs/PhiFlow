@@ -2,6 +2,7 @@ import functools
 import re
 import time
 import warnings
+from contextlib import contextmanager
 from numbers import Number
 from typing import Tuple
 
@@ -1195,6 +1196,7 @@ def solve(operator,
 #     return result
 
 
+@contextmanager
 def record_gradients(*x: Tensor, persistent=False):
     """
     Context expression to record gradients for operations within that directly or indirectly depend on `x`.
@@ -1209,7 +1211,17 @@ def record_gradients(*x: Tensor, persistent=False):
         x_._expand()
     natives = sum([x_._natives() for x_ in x], ())
     backend = choose_backend(*natives)
-    return backend.record_gradients(natives, persistent=persistent)
+    ctx = backend.record_gradients(natives, persistent=persistent)
+    _PARAM_STACK.append(x)
+    ctx.__enter__()
+    try:
+        yield None
+    finally:
+        ctx.__exit__(None, None, None)
+        _PARAM_STACK.pop(0)
+
+
+_PARAM_STACK = []  # list of tuples
 
 
 def gradients(y: Tensor,
@@ -1221,13 +1233,16 @@ def gradients(y: Tensor,
 
     Args:
         y: Scalar `Tensor` computed from `x`, typically loss.
-        *x: Parameter tensors which were previously marked in `record_gradients()`.
+        *x: (Optional) Parameter tensors which were previously marked in `record_gradients()`.
+            If empty, computes the gradients w.r.t. all marked tensors.
         grad_y: (optional) Gradient at `y`, defaults to 1.
 
     Returns:
         Single `Tensor` if one `x` was passed, else sequence of tensors.
     """
     assert isinstance(y, NativeTensor), f"{type(y)}"
+    if len(x) == 0:
+        x = _PARAM_STACK[-1]
     backend = choose_backend_t(y, *x)
     x_natives = sum([x_._natives() for x_ in x], ())
     native_gradients = list(backend.gradients(y.native(), x_natives, grad_y.native() if grad_y is not None else None))

@@ -21,5 +21,5 @@ for _iter in ModuleViewer(['velocity', 'target', 'incompressible_velocity']).ran
     with math.record_gradients(velocity.values):
         incompressible_velocity, pressure_guess, _, _ = fluid.make_incompressible(velocity * LEFT, DOMAIN, pressure_guess=pressure_guess)
         loss = field.l2_loss((incompressible_velocity - target) * RIGHT)
-        grad = math.gradients(loss, velocity.values)
+        grad = math.gradients(loss)
     velocity -= DOMAIN.staggered_grid(grad)
