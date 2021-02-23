@@ -348,6 +348,9 @@ class Backend:
     def staticshape(self, tensor):
         raise NotImplementedError(self)
 
+    def cast(self, x, dtype: DType):
+        raise NotImplementedError(self)
+
     def to_float(self, x):
         """
         Converts a tensor to floating point values with precision equal to the currently set default precision.
@@ -356,7 +359,7 @@ class Backend:
             `Backend.precision()`.
 
         If `x` is mutable and of the correct floating type, returns a copy of `x`.
-        
+
         To convert float tensors to the backend precision but leave non-float tensors untouched, use `Backend.as_tensor()`.
 
         Args:
@@ -365,16 +368,13 @@ class Backend:
         Returns:
             Values of `x` as float tensor
         """
-        raise NotImplementedError(self)
+        return self.cast(x, self.float_type)
 
     def to_int(self, x, int64=False):
-        raise NotImplementedError(self)
+        return self.cast(x, DType(int, 64 if int64 else 32))
 
     def to_complex(self, x):
-        raise NotImplementedError(self)
-
-    def dimrange(self, tensor):
-        return range(1, len(tensor.shape) - 1)
+        return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
 
     def gather(self, values, indices):
         raise NotImplementedError(self)
@@ -445,9 +445,6 @@ class Backend:
         raise NotImplementedError(self)
 
     def real(self, complex):
-        raise NotImplementedError(self)
-
-    def cast(self, x, dtype: DType):
         raise NotImplementedError(self)
 
     def sin(self, x):

@@ -377,29 +377,6 @@ class TorchBackend(Backend):
     def staticshape(self, tensor):
         return tuple(tensor.shape)
 
-    def to_float(self, x):
-        if not self.is_tensor(x):
-            x = self.as_tensor(x)
-        elif self.precision == 16:
-            return x.half()
-        elif self.precision == 32:
-            return x.float()
-        elif self.precision == 64:
-            return x.double()
-        else:
-            raise AssertionError(self.precision)
-
-    def to_int(self, x, int64=False):
-        x = self.as_tensor(x)
-        return x.int()
-
-    def to_complex(self, real, imag=None):
-        if real.is_complex():
-            return real
-        if imag is None:
-            imag = torch.zeros_like(real)
-        return torch.complex(real, imag)
-
     def gather(self, values, indices):
         # return torch.gather(values, dim=0, index=indices)
         raise NotImplementedError()
@@ -480,8 +457,12 @@ class TorchBackend(Backend):
             return self.as_tensor(complex)
 
     def cast(self, x, dtype: DType):
-        x = self.as_tensor(x)
-        return x.to(to_torch_dtype(dtype))
+        if not self.is_tensor(x, only_native=True):
+            x = self.as_tensor(x, convert_external=True)
+        if self.dtype(x) == dtype:
+            return x
+        else:
+            return x.to(to_torch_dtype(dtype))
 
     def sin(self, x):
         return torch.sin(x)

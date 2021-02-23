@@ -82,13 +82,8 @@ class Tensor:
         raise NotImplementedError()
 
     @property
-    def ndims(self) -> int:
-        """ Equal to `tensor.rank` and `tensor.shape.rank`. """
-        return self.shape.rank
-
-    @property
     def rank(self) -> int:
-        """ Equal to `tensor.ndims` and `tensor.shape.rank`. """
+        """ Equal to `tensor.shape.rank`. """
         return self.shape.rank
 
     @property

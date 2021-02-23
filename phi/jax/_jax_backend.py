@@ -264,21 +264,6 @@ class JaxBackend(Backend):
     def staticshape(self, tensor):
         return jnp.shape(tensor)
 
-    def to_float(self, x):
-        return jnp.array(x).astype(to_numpy_dtype(self.float_type))
-
-    def to_int(self, x, int64=False):
-        return jnp.array(x).astype(jnp.int64 if int64 else jnp.int32)
-
-    def to_complex(self, x):
-        x = self.as_tensor(x)
-        if x.dtype in (jnp.complex64, jnp.complex128):
-            return x
-        elif x.dtype == jnp.float64:
-            return x.astype(jnp.complex128)
-        else:
-            return x.astype(jnp.complex64)
-
     def cast(self, x, dtype: DType):
         if self.is_tensor(x, only_native=True) and from_numpy_dtype(x.dtype) == dtype:
             return x

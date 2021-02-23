@@ -278,21 +278,6 @@ class SciPyBackend(Backend):
     def staticshape(self, tensor):
         return np.shape(tensor)
 
-    def to_float(self, x):
-        return np.array(x).astype(to_numpy_dtype(self.float_type))
-
-    def to_int(self, x, int64=False):
-        return np.array(x).astype(np.int64 if int64 else np.int32)
-
-    def to_complex(self, x):
-        x = self.as_tensor(x)
-        if x.dtype in (np.complex64, np.complex128):
-            return x
-        elif x.dtype == np.float64:
-            return x.astype(np.complex128)
-        else:
-            return x.astype(np.complex64)
-
     def cast(self, x, dtype: DType):
         if self.is_tensor(x, only_native=True) and from_numpy_dtype(x.dtype) == dtype:
             return x

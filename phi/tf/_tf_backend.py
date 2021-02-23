@@ -299,15 +299,6 @@ class TFBackend(Backend):
         else:
             return np.shape(tensor)
 
-    def to_float(self, x):
-        return self.cast(x, self.float_type)
-
-    def to_int(self, x, int64=False):
-        return self.cast(x, DType(int, 64 if int64 else 32))
-
-    def to_complex(self, x):
-        return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
-
     def gather(self, values, indices):
         if isinstance(values, tf.SparseTensor):
             if isinstance(indices, (tuple, list)) and indices[1] == slice(None):
