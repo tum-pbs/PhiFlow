@@ -1,10 +1,11 @@
 # Math Dictionary
-This cheat sheet shows the Φ<sub>Flow</sub> analogues to specific functions from NumPy, TensorFlow, PyTorch and Jax.
-Most Φ<sub>Flow</sub> math functions are identical in name to their backend counterparts.
+This cheat sheet lists the Φ<sub>Flow</sub> analogues to specific functions from NumPy, TensorFlow, PyTorch and Jax.
+Most [Φ<sub>Flow</sub> math functions](phi/math/index.html) are identical in name to their backend counterparts.
 Only differing names are listed here.
 
 
 ## NumPy
+
 | NumPy                       | Φ<sub>Flow</sub>              |
 |-----------------------------|----------------------------------------|
 | `class ndarray`             | `class Tensor`              |
@@ -27,6 +28,7 @@ Only differing names are listed here.
 
 
 ## TensorFlow
+
 | TensorFlow                  | Φ<sub>Flow</sub>              |
 |-----------------------------|----------------------------------------|
 | `GradientTape()`            | `record_gradients()`                   |
@@ -43,6 +45,7 @@ Only differing names are listed here.
 
 
 ## PyTorch
+
 | PyTorch                     | Φ<sub>Flow</sub>               |
 |-----------------------------|----------------------------------------|
 | `class dtype`               | `class DType`              |
