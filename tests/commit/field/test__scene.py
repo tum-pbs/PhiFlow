@@ -1,16 +1,21 @@
 from unittest import TestCase
 
+from os.path import dirname, abspath, join, basename
+
 from phi import math
 from phi import field
 from phi.field import Scene
 from phi.physics import Domain, CLOSED
 
 
+DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'test_data')
+
+
 class TestScene(TestCase):
 
     def test_create_remove_at_equality_single(self):
-        scene = Scene.create('')
-        self.assertEqual(scene.path[:4], "sim_")
+        scene = Scene.create(DIR)
+        self.assertEqual(basename(scene.path)[:4], "sim_")
         self.assertEqual(1, scene.shape.volume)
         scene_ = Scene.at(scene.path)
         self.assertEqual(scene, scene_)
@@ -23,7 +28,7 @@ class TestScene(TestCase):
             pass
 
     def test_create_remove_at_equality_batch(self):
-        scene = Scene.create('', batch=2, config=3)
+        scene = Scene.create(DIR, batch=2, config=3)
         self.assertEqual(6, scene.shape.volume)
         self.assertEqual(('batch', 'config'), scene.shape.names)
         scene_ = Scene.at(scene.paths)
@@ -37,12 +42,12 @@ class TestScene(TestCase):
             pass
 
     def test_list_scenes(self):
-        scene = Scene.create('', count=2)
-        scenes = Scene.list('', include_other=True)
-        scenes_ = Scene.list('', include_other=False)
+        scene = Scene.create(DIR, count=2)
+        scenes = Scene.list(DIR, include_other=True)
+        scenes_ = Scene.list(DIR, include_other=False)
         self.assertEqual(scenes, scenes_)
         self.assertGreaterEqual(len(scenes), 2)
-        scene_ = Scene.list('', dim='batch')
+        scene_ = Scene.list(DIR, dim='batch')
         self.assertGreaterEqual(scene_.shape.volume, 2)
         scene.remove()
 
@@ -51,7 +56,7 @@ class TestScene(TestCase):
         smoke = DOMAIN.scalar_grid(1)
         vel = DOMAIN.staggered_grid(2)
         # write
-        scene = Scene.create('')
+        scene = Scene.create(DIR)
         scene.write({'smoke': smoke, 'vel': vel})
         # read single
         smoke_ = scene.read('smoke')
@@ -71,7 +76,7 @@ class TestScene(TestCase):
         smoke = DOMAIN.scalar_grid(1) * math.random_uniform(count=2)
         vel = DOMAIN.staggered_grid(2) * math.random_uniform(count=2)
         # write
-        scene = Scene.create('', count=2)
+        scene = Scene.create(DIR, count=2)
         scene.write({'smoke': smoke, 'vel': vel})
         # read batch
         smoke_ = scene.read('smoke')
@@ -85,7 +90,7 @@ class TestScene(TestCase):
         smoke = DOMAIN.scalar_grid(1) * math.random_uniform(count=2, config=3)
         vel = DOMAIN.staggered_grid(2) * math.random_uniform(count=2, vel=2)
         # write
-        scene = Scene.create('', count=2)
+        scene = Scene.create(DIR, count=2)
         scene.write({'smoke': smoke, 'vel': vel})
         # read batch
         smoke_ = scene.read('smoke')
@@ -99,7 +104,7 @@ class TestScene(TestCase):
         smoke = DOMAIN.scalar_grid(1) * math.random_uniform(count=2)
         vel = DOMAIN.staggered_grid(2) * math.random_uniform(count=2)
         # write
-        scene = Scene.create('',  more=2)
+        scene = Scene.create(DIR,  more=2)
         scene.write({'smoke': smoke, 'vel': vel})
         # read batch
         smoke_ = scene.read('smoke')

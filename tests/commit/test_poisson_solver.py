@@ -165,7 +165,7 @@ class TestPoissonSolvers(TestCase):
         init_values = sine  # rnd_noise
         domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
         sine_grid = domain.grid(math.tensor(init_values, names=["x", "y"]))
-        reference = FFT_solve_numpy(sine_grid.values.numpy(order="zyx")[0], dx)
+        reference = FFT_solve_numpy(sine_grid.values.numpy(order="z,y,x")[0], dx)
         solver_dict = {
             "FFT_solve": lambda x: domain.grid(FFT_solve(x.values, dx)).values.numpy(
                 order="z,y,x"
