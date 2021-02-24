@@ -5,7 +5,7 @@ from phi.flow import *
 import matplotlib.pyplot as plt
 from functools import partial
 
-math.get_global_precision(64)
+math.set_global_precision(64)
 
 
 # NumPy
