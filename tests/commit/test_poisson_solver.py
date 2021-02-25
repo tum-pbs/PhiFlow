@@ -5,8 +5,6 @@ from phi.flow import *
 import matplotlib.pyplot as plt
 from functools import partial
 
-math.set_global_precision(64)
-
 
 # NumPy
 def FFT_solve_numpy(tensor, dx, times=1):
@@ -148,44 +146,46 @@ def get_2d_sine(grid_size, L):
 
 
 class TestPoissonSolvers(TestCase):
+
     def test_poisson(self):
-        steps = 2
-        # Physical parameters
-        L = 2 * 2 * np.pi
-        # Numerical Parameters
-        x = 128
-        y = 128
-        # Derived Parameters
-        dx = L / x  # NOTE: 1D
-        k0 = 2 * np.pi / L
-        # Get input data
-        rnd_noise = np.random.rand(x * y).reshape(x, y)
-        sine = get_2d_sine((x, y), L)
-        # Define
-        init_values = sine  # rnd_noise
-        domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
-        sine_grid = domain.grid(math.tensor(init_values, names=["x", "y"]))
-        reference = FFT_solve_numpy(sine_grid.values.numpy(order="z,y,x")[0], dx)
-        solver_dict = {
-            "FFT_solve": lambda x: domain.grid(FFT_solve(x.values, dx)).values.numpy(
-                order="z,y,x"
-            )[0],
-            "CG_solve": lambda x: CG_solve(
-                x.values,
-                guess=domain.grid(0).values,
-                dx=dx ** 2,
-                padding=PERIODIC,
-                relative_tolerance=1,
-                absolute_tolerance=1e-10,
-                max_iterations=20000,
-            ).numpy(order="z,y,x")[0],
-            # "CG2_solve": lambda x: CG2_solve(
-            #    domain.grid(x.values),
-            #    guess=domain.grid(x.values),
-            #    accuracy=1e-5,
-            #    max_iterations=1000,
-            # ),
-        }
-        solver_soln = {name: fnc(sine_grid) for name, fnc in solver_dict.items()}
-        debug(solver_soln)
-        compare(reference, solver_soln)
+        with math.precision(64):
+            steps = 2
+            # Physical parameters
+            L = 2 * 2 * np.pi
+            # Numerical Parameters
+            x = 128
+            y = 128
+            # Derived Parameters
+            dx = L / x  # NOTE: 1D
+            k0 = 2 * np.pi / L
+            # Get input data
+            rnd_noise = np.random.rand(x * y).reshape(x, y)
+            sine = get_2d_sine((x, y), L)
+            # Define
+            init_values = sine  # rnd_noise
+            domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
+            sine_grid = domain.grid(math.tensor(init_values, names=["x", "y"]))
+            reference = FFT_solve_numpy(sine_grid.values.numpy(order="z,y,x")[0], dx)
+            solver_dict = {
+                "FFT_solve": lambda x: domain.grid(FFT_solve(x.values, dx)).values.numpy(
+                    order="z,y,x"
+                )[0],
+                "CG_solve": lambda x: CG_solve(
+                    x.values,
+                    guess=domain.grid(0).values,
+                    dx=dx ** 2,
+                    padding=PERIODIC,
+                    relative_tolerance=1,
+                    absolute_tolerance=1e-10,
+                    max_iterations=20000,
+                ).numpy(order="z,y,x")[0],
+                # "CG2_solve": lambda x: CG2_solve(
+                #    domain.grid(x.values),
+                #    guess=domain.grid(x.values),
+                #    accuracy=1e-5,
+                #    max_iterations=1000,
+                # ),
+            }
+            solver_soln = {name: fnc(sine_grid) for name, fnc in solver_dict.items()}
+            debug(solver_soln)
+            compare(reference, solver_soln)
