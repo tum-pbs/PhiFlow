@@ -1916,7 +1916,7 @@ All fields must exist as global variables before the ModuleViewer is instantiate
         self.step_finished_event = Event()
         Thread(target=lambda: show(self, **show_config)).start()
 
-    def range(self, *args):
+    def range(self, *args, warmpup=0):
         &#34;&#34;&#34;
         Similar to `range()`, returns a generator that can be used in a `for` loop.
 
@@ -1940,6 +1940,9 @@ All fields must exist as global variables before the ModuleViewer is instantiate
         Returns:
             generator yielding `ModuleViewer.step`
         &#34;&#34;&#34;
+        for _ in range(warmpup):
+            yield self.steps
+
         if len(args) == 0:
             while True:
                 self.step_exec_event.wait()
@@ -1978,7 +1981,7 @@ All fields must exist as global variables before the ModuleViewer is instantiate
 <h3>Methods</h3>
 <dl>
 <dt id="phi.app.ModuleViewer.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>self, *args)</span>
+<span>def <span class="ident">range</span></span>(<span>self, *args, warmpup=0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <code>range()</code>, returns a generator that can be used in a <code>for</code> loop.</p>
@@ -2001,7 +2004,7 @@ No arguments for infinite loop.
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def range(self, *args):
+<pre><code class="python">def range(self, *args, warmpup=0):
     &#34;&#34;&#34;
     Similar to `range()`, returns a generator that can be used in a `for` loop.
 
@@ -2025,6 +2028,9 @@ No arguments for infinite loop.
     Returns:
         generator yielding `ModuleViewer.step`
     &#34;&#34;&#34;
+    for _ in range(warmpup):
+        yield self.steps
+
     if len(args) == 0:
         while True:
             self.step_exec_event.wait()

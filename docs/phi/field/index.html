@@ -68,6 +68,7 @@ from ._field_math import (
     l2_loss,
     stop_gradient,
     extrapolate_valid,
+    trace_function,
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -652,6 +653,42 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     if isinstance(field, Grid):
         return field.with_(values=math.stop_gradient(field.values))
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.field.trace_function"><code class="name flex">
+<span>def <span class="ident">trace_function</span></span>(<span>f: <built-in function callable>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def trace_function(f: callable):
+    INPUT_FIELDS = []
+    OUTPUT_FIELDS = []
+
+    def tensor_function(*tensors):
+        fields = [field.with_(values=t) for field, t in zip(INPUT_FIELDS, tensors)]
+        result = f(*fields)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        OUTPUT_FIELDS.clear()
+        OUTPUT_FIELDS.extend(results)
+        result_tensors = [field.values for field in results]
+        return result_tensors
+
+    tensor_trace = math.trace_function(tensor_function)
+
+    def wrapper(*fields):
+        INPUT_FIELDS.clear()
+        INPUT_FIELDS.extend(fields)
+        tensors = [field.values for field in fields]
+        result_tensors = tensor_trace(*tensors)
+        result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
+        result = [field.with_(values=t) for field, t in zip(OUTPUT_FIELDS, result_tensors)]
+        return result[0] if len(result) == 1 else result
+
+    return wrapper</code></pre>
 </details>
 </dd>
 <dt id="phi.field.unstack_staggered_tensor"><code class="name flex">
@@ -4175,8 +4212,6 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 A staggered grid is defined through its values tensor, its bounds describing the physical size and extrapolation.</p>
 <p>Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.</p>
 <p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
-<p>Args:</p>
-<p>Returns:</p>
 <p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -4199,16 +4234,11 @@ A staggered grid is defined through its values tensor, its bounds describing the
     Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
     
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
 
     def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
         values = _validate_staggered_values(values)
-        x = values.vector[0 if math.GLOBAL_AXIS_ORDER.is_x_first else -1]
+        x = values.vector[&#39;x&#39;]
         resolution = x.shape.spatial.with_size(&#39;x&#39;, x.shape.get_size(&#39;x&#39;) - 1)
         Grid.__init__(self, values, resolution, bounds, extrapolation)
 
@@ -4752,6 +4782,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
+<li><code><a title="phi.field.trace_function" href="#phi.field.trace_function">trace_function</a></code></li>
 <li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
 <li><code><a title="phi.field.where" href="#phi.field.where">where</a></code></li>
 <li><code><a title="phi.field.write" href="#phi.field.write">write</a></code></li>

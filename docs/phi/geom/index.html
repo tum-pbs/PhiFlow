@@ -1665,7 +1665,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 
     @property
     def size(self):
-        return self.bounds.size / self.resolution.sizes
+        return self.bounds.size / math.tensor(self.resolution.sizes)
 
     @property
     def lower(self):
@@ -1835,7 +1835,7 @@ def shape(self):
 </summary>
 <pre><code class="python">@property
 def size(self):
-    return self.bounds.size / self.resolution.sizes</code></pre>
+    return self.bounds.size / math.tensor(self.resolution.sizes)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.upper"><code class="name">var <span class="ident">upper</span></code></dt>
