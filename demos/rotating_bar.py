@@ -11,7 +11,7 @@ obstacle_mask = DOMAIN.scalar_grid(obstacle.geometry)  # to show in user interfa
 velocity = DOMAIN.staggered_grid((1, 0))
 
 for frame in ModuleViewer(framerate=10, display=('velocity', 'obstacle_mask'), autorun=True).range():
-    obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(- obstacle.angular_velocity * DT))  # rotate bar
+    obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(-obstacle.angular_velocity * DT))  # rotate bar
     velocity = advect.mac_cormack(velocity, velocity, DT)
     velocity, pressure, _iter, _ = fluid.make_incompressible(velocity, DOMAIN, (obstacle,), solve_params=math.LinearSolve(absolute_tolerance=1e-2, max_iterations=1e5))
     print(f"{frame}: {_iter}")

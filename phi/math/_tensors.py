@@ -584,6 +584,8 @@ class TensorDim:
         return self._dim_type == CHANNEL_DIM
 
     def __getitem__(self, item):
+        if isinstance(item, str):
+            item = self.tensor.shape.spatial.index(item)
         return self.tensor[{self.name: item}]
 
     def flip(self):
