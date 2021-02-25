@@ -62,7 +62,7 @@ class ModuleViewer(App):
         self.step_finished_event = Event()
         Thread(target=lambda: show(self, **show_config)).start()
 
-    def range(self, *args):
+    def range(self, *args, warmpup=0):
         """
         Similar to `range()`, returns a generator that can be used in a `for` loop.
 
@@ -86,6 +86,9 @@ class ModuleViewer(App):
         Returns:
             generator yielding `ModuleViewer.step`
         """
+        for _ in range(warmpup):
+            yield self.steps
+
         if len(args) == 0:
             while True:
                 self.step_exec_event.wait()
