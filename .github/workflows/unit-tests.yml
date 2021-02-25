@@ -21,11 +21,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install --quiet tensorflow torch nbformat ipython pylint coverage pytest
         pip install .
-    - name: Get versions
-      run: |
-        pip show numpy
-        pip show scipy
-        pip show pytest
     - name: Test with pytest
       run: |
         coverage run -m pytest tests/commit
