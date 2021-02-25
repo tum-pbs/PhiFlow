@@ -1,4 +1,4 @@
-name: phiflow
+name: Tests
 
 on: [push]
 
