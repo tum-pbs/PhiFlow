@@ -159,19 +159,33 @@ class TestMathNDNumpy(TestCase):
 
     # Fourier Laplace
 
-    def test_fourier_laplace_2d_periodic_convergence(self):
+    def test_fourier_laplace_2d_periodic(self):
         """test for convergence of the laplace operator"""
         test_params = {
             'size': [16, 32, 40],
-            'L': [1],
+            'L': [1, 2],
         }
         test_cases = [dict(zip(test_params, v)) for v in product(*test_params.values())]
         for params in test_cases:
             vec = math.meshgrid(x=params['size'], y=params['size'])
             sine_field = math.prod(math.sin(2 * PI * params['L'] * vec / params['size'] + 1), 'vector')
-            sin_lap_ref = - 2 * (2 * PI / params['size']) ** 2 * sine_field  # leading 2 from from x-y cross terms
+            sin_lap_ref = - 2 * (2 * PI * params['L'] / params['size']) ** 2 * sine_field  # leading 2 from from x-y cross terms
             sin_lap = math.fourier_laplace(sine_field, 1)
-            math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
+            try:
+                math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
+            except BaseException as e:
+                abs_error = math.abs(sin_lap - sin_lap_ref)
+                max_abs_error = math.max(abs_error)
+                max_rel_error = math.max(math.abs(abs_error / sin_lap_ref))
+                variation_str = "\n".join(
+                    [
+                        f"max_absolute_error: {max_abs_error}",
+                        f"max_relative_error: {max_rel_error}",
+                    ]
+                )
+                print(f"{variation_str}\n{params}")
+                raise AssertionError(e, f"{variation_str}\n{params}")
+
 
     # def test_fourier_laplace_2d_periodic(self):
     #     test_params = {
