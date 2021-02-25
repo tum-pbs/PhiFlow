@@ -21,18 +21,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install --quiet tensorflow torch nbformat ipython pylint coverage pytest
         pip install .
-    - name: Get versions
-      run: |
-        pip show numpy
-        pip show scipy
-        pip show pytest
     - name: Test with pytest
       run: |
         coverage run -m pytest tests/commit
-    - name: After success
+    - name: Upload coverage
+      run:
+        bash <(curl -s https://codecov.io/bash)
+    - name: pylint
+      continue-on-error: true
       run: |
-        pip show pylint
         pylint --rcfile=./demos/.pylintrc demos
         pylint --rcfile=./tests/.pylintrc tests
         pylint --rcfile=./phi/.pylintrc phi
-        bash <(curl -s https://codecov.io/bash)
