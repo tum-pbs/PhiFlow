@@ -81,6 +81,10 @@ class Tensor:
     def _with_shape_replaced(self, new_shape):
         raise NotImplementedError()
 
+    def _with_natives_replaced(self, natives: list):
+        """ Replaces all n _natives() of this Tensor with the first n elements of the list and removes them from the list. """
+        raise NotImplementedError()
+
     @property
     def rank(self) -> int:
         """ Equal to `tensor.shape.rank`. """
@@ -636,6 +640,11 @@ class NativeTensor(Tensor):
         new_shape = Shape(self._shape.sizes, new_shape.names, new_shape.types)
         return NativeTensor(self._native, new_shape)
 
+    def _with_natives_replaced(self, natives: list):
+        native = natives.pop(0)
+        new_shape = self._shape.with_sizes(choose_backend(native).shape(native))
+        return NativeTensor(native, new_shape)
+
     @property
     def _is_special(self) -> bool:
         return False
@@ -985,6 +994,10 @@ class TensorStack(Tensor):
 
     def _natives(self) -> tuple:
         return sum([t._natives() for t in self.tensors], ())
+
+    def _with_natives_replaced(self, natives: list):
+        tensors = [t._with_natives_replaced(natives) for t in self.tensors]
+        return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
 
     def _expand(self):
         for t in self.tensors:

@@ -22,7 +22,7 @@ from phi.math.backend._backend_helper import combined_dim
 class JaxBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, "SciPy")
+        Backend.__init__(self, "SciPy", default_device=None)
         try:
             self.rnd_key = jax.random.PRNGKey(seed=0)
         except NameError:  # Jax not imported

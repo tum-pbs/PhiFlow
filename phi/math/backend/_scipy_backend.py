@@ -16,19 +16,19 @@ from ._optim import Solve, LinearSolve, SolveResult
 
 
 class SciPyBackend(Backend):
-
     """Core Python Backend using NumPy & SciPy"""
 
     def __init__(self):
-        Backend.__init__(self, "SciPy")
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         if sys.platform != "win32":
             mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
         else:
             mem_bytes = -1
         processors = os.cpu_count()
-        return [ComputeDevice("CPU", 'CPU', mem_bytes, processors, "")]
+        self.cpu = ComputeDevice(self, "CPU", 'CPU', mem_bytes, processors, "")
+        Backend.__init__(self, "SciPy", self.cpu)
+
+    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        return [self.cpu]
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):

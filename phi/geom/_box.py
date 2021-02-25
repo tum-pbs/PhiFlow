@@ -317,7 +317,7 @@ class GridCell(AbstractBox):
 
     @property
     def size(self):
-        return self.bounds.size / self.resolution.sizes
+        return self.bounds.size / math.tensor(self.resolution.sizes)
 
     @property
     def lower(self):

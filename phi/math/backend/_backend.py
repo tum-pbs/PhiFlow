@@ -12,22 +12,29 @@ class ComputeDevice:
     A physical device that can be selected to perform backend computations.
     """
 
-    def __init__(self, name: str, device_type: str, memory: int, processor_count: int, description: str):
-        self.name = name
+    def __init__(self, backend: 'Backend', name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None):
+        self.name: str = name
         """ Name of the compute device. CPUs are typically called `'CPU'`. """
-        self.device_type = device_type
+        self.device_type: str = device_type
         """ Type of device such as `'CPU'`, `'GPU'` or `'TPU'`. """
-        self.memory = memory
+        self.memory: int = memory
         """ Maximum memory of the device that can be allocated (in bytes). -1 for n/a. """
-        self.processor_count = processor_count
+        self.processor_count: int = processor_count
         """ Number of CPU cores or GPU multiprocessors. -1 for n/a. """
-        self.description = description
+        self.description: str = description
         """ Further information about the device such as driver version. """
+        self.ref = ref
+        """ (Optional) Reference to the internal device representation. """
+        self.backend: 'Backend' = backend
+        """ Backend that this device belongs to. Different backends represent the same device with different objects. """
 
     def __repr__(self):
         mem = f"{(self.memory / 1024 ** 2)} MB" if self.memory > 0 else "memory: n/a"
         pro = f"{self.processor_count} processors" if self.processor_count > 0 else "processors: n/a"
-        return f"'{self.name}' ({self.device_type}) | {mem} | {pro} | {self.description}"
+        descr = self.description.replace('\n', '  ')
+        if len(descr) > 30:
+            descr = descr[:28] + "..."
+        return f"'{self.name}' ({self.device_type}) | {mem} | {pro} | {descr}"
 
 
 class Backend:
@@ -39,8 +46,9 @@ class Backend:
     To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
     """
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, default_device: ComputeDevice):
         self._name = name
+        self._default_device = default_device
 
     def __enter__(self):
         _DEFAULT.append(self)
@@ -96,8 +104,6 @@ class Backend:
     def matches_name(self, name):
         return self.name.lower() == name.lower()
 
-    # --- Abstract math functions ---
-
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         """
         Fetches information about all available compute devices this backend can use.
@@ -109,6 +115,16 @@ class Backend:
             Tuple of all currently available devices.
         """
         raise NotImplementedError()
+
+    def get_default_device(self) -> ComputeDevice:
+        return self._default_device
+
+    def set_default_device(self, device: ComputeDevice or str):
+        if isinstance(device, str):
+            devices = self.list_devices(device)
+            assert len(devices) >= 1, f"{self.name}: Cannot select '{device} because no device of this type is available."
+            device = devices[0]
+        self._default_device = device
 
     def is_tensor(self, x, only_native=False):
         """

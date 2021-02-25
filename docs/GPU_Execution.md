@@ -52,12 +52,19 @@ These GPU operators yield the best overall performance, and are highly recommend
 To use them, download the Φ<sub>Flow</sub> sources and compile the kernels, following the [installations instructions](Installation_Instructions.md).
 PyTorch already comes with a fast GPU implementation of grid interpolation.
 
-## Eager vs Graph
-Φ<sub>Flow</sub> supports both static and dynamic graphs.
+## Graph Compilation (JIT)
+Φ<sub>Flow</sub> supports both static and dynamic execution.
 In graph mode, execution is usually faster, but an additional overhead is required for setting up the graph.
-Also, certain checks and optimizations are skipped in graph mode.
+Also, certain checks and optimizations may be skipped in graph mode.
 
-Since all Φ<sub>Flow</sub> functions are composed of TensorFlow / PyTorch operations, switching between eager and graph mode works the same way as using the backends directly.
+There are two ways of compiling a static graph
+
+* `trace_function()` (recommended): The functions
+  [`phi.math.trace_function()`](https://tum-pbs.github.io/PhiFlow/phi/math/#phi.math.trace_function) and 
+  [`phi.field.trace_function()`](https://tum-pbs.github.io/PhiFlow/phi/field/#phi.field.trace_function)
+  use the backend-specific compiler, if available, to compile a static graph for `Tensor` or `Field`-valued functions, respectively.
+* Backend compiler: You may trace or compile functions manually using PyTorch, Jax or TensorFlow.
+  This involves manually getting all native tensors since backend compilers do not support `phi.math.Tensor` or `Field` arguments.
 
 **Gradients.**
 Computing gradients may be easier in graph mode since no special actions are required for recording the operations.

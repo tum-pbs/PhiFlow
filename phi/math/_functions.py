@@ -1049,34 +1049,32 @@ def trace_function(f: callable) -> callable:
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     """
-    INPUT_SHAPES = []
-    OUTPUT_SHAPES = []
+    INPUT_TENSORS = []
+    OUTPUT_TENSORS = []
 
     def native_function(*natives):
-        values = [NativeTensor(native, shape.with_sizes(backend.staticshape(native))) for native, shape in zip(natives, INPUT_SHAPES)]
+        natives = list(natives)
+        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
+        assert len(natives) == 0, "Not all arguments were converted"
         result = f(*values)
-        OUTPUT_SHAPES.clear()
-        if isinstance(result, (tuple, list)):
-            OUTPUT_SHAPES.extend([r.shape for r in result])
-        else:
-            OUTPUT_SHAPES.append(result.shape)
-        if isinstance(result, (tuple, list)):
-            return [v.native() for v in result]
-        else:
-            return result.native()
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        OUTPUT_TENSORS.clear()
+        OUTPUT_TENSORS.extend(results)
+        return sum([v._natives() for v in results], ())
 
     backend = default_backend()
     traced = backend.trace_function(native_function)
 
     def wrapper(*values: Tensor):
-        INPUT_SHAPES.clear()
-        INPUT_SHAPES.extend([v.shape for v in values])
-        natives = [v.native() for v in values]
-        result_native = traced(*natives)
-        if isinstance(result_native, (tuple, list)):
-            return [NativeTensor(native, shape.with_sizes(backend.shape(native))) for native, shape in zip(result_native, OUTPUT_SHAPES)]
-        else:
-            return NativeTensor(result_native, OUTPUT_SHAPES[0].with_sizes(backend.shape(result_native)))
+        INPUT_TENSORS.clear()
+        INPUT_TENSORS.extend(values)
+        for v in values:
+            v._expand()
+        natives = sum([v._natives() for v in values], ())
+        results_native = list(traced(*natives))
+        results = [t._with_natives_replaced(results_native) for t in OUTPUT_TENSORS]
+        assert len(results_native) == 0
+        return results[0] if len(results) == 1 else results
 
     return wrapper
 

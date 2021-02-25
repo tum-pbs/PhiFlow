@@ -18,18 +18,17 @@ from ..math.backend._optim import SolveResult, Solve
 class TFBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, "TensorFlow")
+        Backend.__init__(self, "TensorFlow", default_device=None)
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         tf_devices = device_lib.list_local_devices()
         devices = []
         for device in tf_devices:
             if device_type in (None, device.device_type):
-                devices.append(ComputeDevice(device.name,
-                                             device.device_type,
-                                             device.memory_limit,
-                                             -1,
-                                             str(device)))
+                devices.append(ComputeDevice(self, device.name, device.device_type, device.memory_limit,
+                                             processor_count=-1,
+                                             description=str(device),
+                                             ref=device))
         return devices
 
     def is_tensor(self, x, only_native=False):

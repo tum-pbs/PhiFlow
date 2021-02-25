@@ -19,20 +19,23 @@ from phi.math.backend._optim import SolveResult
 class TorchBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, 'PyTorch')
+        self.cpu = ComputeDevice(self, "CPU", 'CPU', -1, -1, "", ref='cpu')
+        Backend.__init__(self, 'PyTorch', default_device=self.cpu)
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         devices = []
         if device_type in (None, 'CPU'):
-            devices.extend(SCIPY_BACKEND.list_devices(device_type='CPU'))
+            devices.append(self.cpu)
         if device_type in (None, 'GPU'):
             for index in range(torch.cuda.device_count()):
                 properties = torch.cuda.get_device_properties(index)
-                devices.append(ComputeDevice(properties.name,
-                                          'GPU',
-                                          properties.total_memory,
-                                          properties.multi_processor_count,
-                                          f"major={properties.major}, minor={properties.minor}"))
+                devices.append(ComputeDevice(self,
+                                             properties.name,
+                                             'GPU',
+                                             properties.total_memory,
+                                             properties.multi_processor_count,
+                                             f"compute capability {properties.major}.{properties.minor}",
+                                             ref=f'cuda:{index}'))
         return devices
 
     def is_tensor(self, x, only_native=False):
@@ -52,15 +55,15 @@ class TorchBackend(Backend):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = torch.from_numpy(SCIPY_BACKEND.as_tensor(x))
+            tensor = torch.from_numpy(SCIPY_BACKEND.as_tensor(x)).to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
             try:
-                tensor = torch.tensor(x)
+                tensor = torch.tensor(x, device=self.get_default_device().ref)
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
                 tensor = torch.stack(components, dim=0)
         else:
-            tensor = torch.tensor(x)
+            tensor = torch.tensor(x, device=self.get_default_device().ref)
         # --- Enforce Precision ---
         if self.is_tensor(tensor, only_native=True):
             if tensor.dtype.is_floating_point:
@@ -72,9 +75,9 @@ class TorchBackend(Backend):
 
     def numpy(self, tensor):
         if tensor.requires_grad:
-            return tensor.detach().numpy()
+            return tensor.detach().cpu().numpy()
         else:
-            return tensor.numpy()
+            return tensor.cpu().numpy()
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
@@ -89,7 +92,7 @@ class TorchBackend(Backend):
                 if kwargs:
                     raise NotImplementedError("kwargs not supported for traced function")
                 if self.traced is None:
-                    self.traced = torch.jit.trace(f, example_inputs=args)
+                    self.traced = torch.jit.trace(f, example_inputs=args, check_trace=False)
                 return self.traced(*args)
 
         return JITFunction()
@@ -114,10 +117,10 @@ class TorchBackend(Backend):
         return x == y
 
     def random_uniform(self, shape):
-        return torch.rand(size=shape, dtype=to_torch_dtype(self.float_type))
+        return torch.rand(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def random_normal(self, shape):
-        return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type))
+        return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def stack(self, values, axis=0):
         return torch.stack(values, dim=axis)
@@ -174,7 +177,7 @@ class TorchBackend(Backend):
             return NotImplemented
         grid = channels_first(self.as_tensor(grid))
         coordinates = self.as_tensor(coordinates)
-        resolution = torch.Tensor(self.staticshape(grid)[2:])
+        resolution = torch.tensor(self.staticshape(grid)[2:], dtype=coordinates.dtype, device=coordinates.device)
         coordinates = 2 * coordinates / (resolution - 1) - 1
         coordinates = torch.flip(coordinates, dims=[-1])
         result = torchf.grid_sample(grid, coordinates, mode='bilinear', padding_mode=extrapolation, align_corners=True)  # can cause segmentation violation if NaN or inf are present
@@ -249,32 +252,32 @@ class TorchBackend(Backend):
         return torch.arange(start, limit, delta, dtype=to_torch_dtype(dtype))
 
     def zeros(self, shape, dtype=None):
-        return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type))
+        return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def zeros_like(self, tensor):
-        return torch.zeros_like(tensor)
+        return torch.zeros_like(tensor, device=self.get_default_device().ref)
 
     def ones(self, shape, dtype: DType = None):
-        return torch.ones(shape, dtype=to_torch_dtype(dtype or self.float_type))
+        return torch.ones(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def ones_like(self, tensor):
-        return torch.ones_like(tensor)
+        return torch.ones_like(tensor, device=self.get_default_device().ref)
 
     def meshgrid(self, *coordinates):
         coordinates = [self.as_tensor(c) for c in coordinates]
         return torch.meshgrid(coordinates)
 
     def linspace(self, start, stop, number):
-        return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type))
+        return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def dot(self, a, b, axes):
         return torch.tensordot(a, b, axes)
 
     def matmul(self, A, b):
-        if isinstance(A, torch.sparse.FloatTensor):
+        if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
-        raise NotImplementedError()
+        raise NotImplementedError(type(A), type(b))
 
     def einsum(self, equation, *tensors):
         return torch.einsum(equation, *tensors)
@@ -488,9 +491,9 @@ class TorchBackend(Backend):
         return self.as_tensor(value).repeat(multiples)
 
     def sparse_tensor(self, indices, values, shape):
-        indices_ = torch.LongTensor(indices)
-        values_ = torch.FloatTensor(values)
-        result = torch.sparse.FloatTensor(indices_, values_, shape)
+        indices_ = self.to_int(indices, int64=True)
+        values_ = self.to_float(values)
+        result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
 
     def conjugate_gradient(self, A, y, x0,

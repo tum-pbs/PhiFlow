@@ -184,6 +184,33 @@ def _operate_on_values(field_function, *proto_fields):
     return wrapper
 
 
+def trace_function(f: callable):
+    INPUT_FIELDS = []
+    OUTPUT_FIELDS = []
+
+    def tensor_function(*tensors):
+        fields = [field.with_(values=t) for field, t in zip(INPUT_FIELDS, tensors)]
+        result = f(*fields)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        OUTPUT_FIELDS.clear()
+        OUTPUT_FIELDS.extend(results)
+        result_tensors = [field.values for field in results]
+        return result_tensors
+
+    tensor_trace = math.trace_function(tensor_function)
+
+    def wrapper(*fields):
+        INPUT_FIELDS.clear()
+        INPUT_FIELDS.extend(fields)
+        tensors = [field.values for field in fields]
+        result_tensors = tensor_trace(*tensors)
+        result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
+        result = [field.with_(values=t) for field, t in zip(OUTPUT_FIELDS, result_tensors)]
+        return result[0] if len(result) == 1 else result
+
+    return wrapper
+
+
 def data_bounds(field: SampledField):
     data = field.points
     min_vec = math.min(data, dim=data.shape.spatial.names)
