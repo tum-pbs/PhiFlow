@@ -166,11 +166,6 @@ class StaggeredGrid(Grid):
     Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
     
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
-
-    Args:
-
-    Returns:
-
     """
 
     def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
