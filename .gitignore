@@ -1,4 +1,5 @@
 *.pyc
+*.tmp
 \.idea
 \.pytest_cache
 phi/local/hostname.py
@@ -7,5 +8,6 @@ phi/local/hostname.py
 *.npz
 images/*
 data/*
+test_data/*
 .cache
 run_tests.sh

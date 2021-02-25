@@ -1,16 +1,21 @@
-import warnings
-from phi import math
+"""
+TensorFlow integration.
 
-import tensorflow
+Importing this module registers the TensorFlow backend with `phi.math`.
+Without this, TensorFlow tensors cannot be handled by `phi.math` functions.
 
-if int(tensorflow.__version__[0]) > 1:
-    warnings.warn('TensorFlow 2 is not fully supported by PhiFlow.')
-    tensorflow = tensorflow.compat.v1
-    tensorflow.disable_eager_execution()
+To make TensorFlow the default backend, import `phi.tf.flow`.
+"""
+from phi import math as _math
+import os
 
-tf = tensorflow
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # only errors
 
-from .tf_backend import TFBackend
+from ._tf_backend import TF_BACKEND
 
-TF_BACKEND = TFBackend()
-math.DYNAMIC_BACKEND.add_backend(TF_BACKEND)
+TF_BACKEND = TF_BACKEND  # to show up in pdoc
+"""Backend for TensorFlow operations."""
+
+_math.backend.BACKENDS.append(TF_BACKEND)
+
+__all__ = [key for key in globals().keys() if not key.startswith('_')]

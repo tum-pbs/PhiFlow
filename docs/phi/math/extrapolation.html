@@ -1,0 +1,1579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.1" />
+<title>phi.math.extrapolation API documentation</title>
+<meta name="description" content="Defines standard extrapolations …" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>phi.math.extrapolation</code></h1>
+</header>
+<section id="section-intro">
+<p>Defines standard extrapolations.</p>
+<p>Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;
+Defines standard extrapolations.
+
+Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.
+&#34;&#34;&#34;
+from typing import Union
+
+from . import _functions as math
+from .backend import choose_backend
+from ._track import SparseLinearOperation, ShiftLinOp
+from ._shape import Shape
+from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
+
+
+class Extrapolation:
+
+    def __init__(self, pad_rank):
+        &#34;&#34;&#34;
+        Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+
+        They play a vital role in padding and sampling.
+
+        Args:
+          pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
+        The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
+
+        Returns:
+
+        &#34;&#34;&#34;
+        self.pad_rank = pad_rank
+
+    def to_dict(self) -&gt; dict:
+        &#34;&#34;&#34;
+        Serialize this extrapolation to a dictionary that is serializable (JSON-writable).
+        
+        Use `from_dict()` to restore the Extrapolation object.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def gradient(self) -&gt; &#39;Extrapolation&#39;:
+        &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Pads a tensor using values from self.pad_values()
+
+        Args:
+          value: tensor to be padded
+          widths: name: str -&gt; (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        for dim in widths:
+            values = []
+            if widths[dim][False] &gt; 0:
+                values.append(self.pad_values(value, widths[dim][False], dim, False))
+            values.append(value)
+            if widths[dim][True] &gt; 0:
+                values.append(self.pad_values(value, widths[dim][True], dim, True))
+            value = math.concat(values, dim)
+        return value
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Determines the values with which the given tensor would be padded at the specified using this extrapolation.
+
+        Args:
+          value: tensor to be padded
+          width: number of cells to pad perpendicular to the face. Must be larger than zero.
+          dimension: axis in which to pad
+          upper_edge: True for upper edge, False for lower edge
+          value: Tensor: 
+          width: int: 
+          dimension: str: 
+          upper_edge: bool: 
+
+        Returns:
+          tensor that can be concatenated to value for padding
+
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
+        &#34;&#34;&#34;
+        If is_copy_pad, transforms outsider coordinates to point to the index from which the value should be copied.
+        
+        Otherwise, the grid tensor is assumed to hold the correct boundary values for this extrapolation at the edge.
+        Coordinates are then snapped to the valid index range.
+        This is the default implementation.
+
+        Args:
+          coordinates: integer coordinates in index space
+          shape: tensor shape
+          coordinates: Tensor: 
+          shape: Shape: 
+
+        Returns:
+          transformed coordinates
+
+        &#34;&#34;&#34;
+        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))
+
+    @property
+    def is_copy_pad(self):
+        &#34;&#34;&#34;:return: True if all pad values are copies of existing values in the tensor to be padded&#34;&#34;&#34;
+        return False
+
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return None
+
+    def __getitem__(self, item):
+        return self
+
+
+class ConstantExtrapolation(Extrapolation):
+    &#34;&#34;&#34;
+    Extrapolate with a constant value.
+    &#34;&#34;&#34;
+
+    def __init__(self, value: Tensor):
+        Extrapolation.__init__(self, 5)
+        self.value = tensor(value)
+        &#34;&#34;&#34; Extrapolation value &#34;&#34;&#34;
+
+    def __repr__(self):
+        return repr(self.value)
+
+    def to_dict(self) -&gt; dict:
+        return {&#39;type&#39;: &#39;constant&#39;, &#39;value&#39;: self.value.numpy()}
+
+    def gradient(self):
+        return ZERO
+
+    def pad(self, value: Tensor, widths: dict):
+        &#34;&#34;&#34;
+        Pads a tensor using CONSTANT values
+
+        Args:
+          value: tensor to be padded
+          widths: name: str -&gt; (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        value = value.__simplify__()
+        if isinstance(value, NativeTensor):
+            native = value.native()
+            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            backend = choose_backend(native)
+            result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, self.value.native())
+            new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
+            return NativeTensor(result_tensor, new_shape)
+        elif isinstance(value, CollapsedTensor):
+            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+                return self.pad(value._expand(), widths)
+            else:  # Stays constant value, only extend shape
+                new_sizes = []
+                for size, dim, dim_type in value.shape.dimensions:
+                    if dim not in widths:
+                        new_sizes.append(size)
+                    else:
+                        delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
+                        new_sizes.append(size + int(delta))
+                new_shape = value.shape.with_sizes(new_sizes)
+                return CollapsedTensor(value._inner, new_shape)
+        # elif isinstance(value, SparseLinearOperation):
+        #     return pad_operator(value, pad_width, mode)
+        elif isinstance(value, TensorStack):
+            if not value.requires_broadcast:
+                return self.pad(value._cache(), widths)
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
+            tensors = [self.pad(t, inner_widths) for t in value.tensors]
+            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+        elif isinstance(value, SparseLinearOperation):
+            (row, col), data = choose_backend(value.dependency_matrix).coordinates(value.dependency_matrix, unstack_coordinates=True)
+            assert len(value.shape) == 2  # TODO nd
+            y = row // value.shape[1]
+            dy0, dy1 = widths[value.shape.names[0]]
+            dx0, dx1 = widths[value.shape.names[1]]
+            padded_row = row + dy0 * (value.shape[1] + dx0 + dx1) + dx0 * (y + 1) + dx1 * y
+            new_sizes = list(value.shape.sizes)
+            for i, dim in enumerate(value.shape.names):
+                new_sizes[i] += sum(widths[dim])
+            new_shape = value.shape.with_sizes(new_sizes)
+            padded_matrix = choose_backend(padded_row, col, data).sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
+            return SparseLinearOperation(value.source, padded_matrix, new_shape)
+        elif isinstance(value, ShiftLinOp):
+            assert self.is_zero()
+            lower = {dim: -lo for dim, (lo, _) in widths.items()}
+            return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+        else:
+            raise NotImplementedError()
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        raise NotImplementedError()
+        return math.zeros()
+
+    def __eq__(self, other):
+        return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
+
+    def __hash__(self):
+        return hash(self.__class__)
+
+    def is_zero(self):
+        return self == ZERO
+
+    def is_one(self):
+        return self == ONE
+
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return &#39;zeros&#39; if self.is_zero() else None
+
+    def __add__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value + other.value)
+        elif self.is_zero():
+            return other
+        else:
+            return NotImplemented
+
+    def __sub__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value - other.value)
+        else:
+            return NotImplemented
+
+    def __rsub__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(other.value - self.value)
+        elif self.is_zero():
+            return other
+        else:
+            return NotImplemented
+
+    def __mul__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value * other.value)
+        elif self.is_one():
+            return other
+        elif self.is_zero():
+            return self
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value / other.value)
+        elif self.is_zero():
+            return self
+        else:
+            return NotImplemented
+
+    def __rtruediv__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(other.value / self.value)
+        elif self.is_one():
+            return other
+        else:
+            return NotImplemented
+
+    def __lt__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value &lt; other.value)
+        else:
+            return NotImplemented
+
+    def __gt__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value &gt; other.value)
+        else:
+            return NotImplemented
+
+
+class _CopyExtrapolation(Extrapolation):
+
+    @property
+    def is_copy_pad(self):
+        return True
+
+    def to_dict(self) -&gt; dict:
+        return {&#39;type&#39;: repr(self)}
+
+    def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
+        value = value.__simplify__()
+        if isinstance(value, NativeTensor):
+            native = value.native()
+            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            result_tensor = choose_backend(native).pad(native, ordered_pad_widths, repr(self))
+            if result_tensor is NotImplemented:
+                return Extrapolation.pad(self, value, widths)
+            new_shape = value.shape.with_sizes(result_tensor.shape)
+            return NativeTensor(result_tensor, new_shape)
+        elif isinstance(value, CollapsedTensor):
+            inner = value._inner  # should be fine after __simplify__
+            inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
+            if len(inner_widths) &gt; 0:
+                inner = self.pad(inner, widths)
+            new_sizes = []
+            for size, dim, dim_type in value.shape.dimensions:
+                if dim not in widths:
+                    new_sizes.append(size)
+                else:
+                    delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
+                    new_sizes.append(size + int(delta))
+            new_shape = value.shape.with_sizes(new_sizes)
+            return CollapsedTensor(inner, new_shape)
+        # elif isinstance(value, SparseLinearOperation):
+        #     return pad_operator(value, widths, mode)
+        elif isinstance(value, TensorStack):
+            if not value.requires_broadcast:
+                return self.pad(value._cache(), widths)
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
+            tensors = [self.pad(t, inner_widths) for t in value.tensors]
+            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+        elif isinstance(value, ShiftLinOp):
+            return self._pad_linear_operation(value, widths)
+        else:
+            raise NotImplementedError(f&#39;{type(value)} not supported&#39;)
+
+    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -&gt; ShiftLinOp:
+        raise NotImplementedError()
+
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return str(self)
+
+    def __eq__(self, other):
+        return type(other) == type(self)
+
+    def __hash__(self):
+        return hash(self.__class__)
+
+    def _op(self, other, op):
+        if type(other) == type(self):
+            return self
+        elif isinstance(other, Extrapolation) and not isinstance(other, _CopyExtrapolation):
+            op = getattr(other, op.__name__)
+            return op(self)
+        else:
+            return NotImplemented
+
+    def __add__(self, other):
+        return self._op(other, ConstantExtrapolation.__add__)
+
+    def __mul__(self, other):
+        return self._op(other, ConstantExtrapolation.__mul__)
+
+    def __sub__(self, other):
+        return self._op(other, ConstantExtrapolation.__rsub__)
+
+    def __truediv__(self, other):
+        return self._op(other, ConstantExtrapolation.__rtruediv__)
+
+    def __lt__(self, other):
+        return self._op(other, ConstantExtrapolation.__gt__)
+
+    def __gt__(self, other):
+        return self._op(other, ConstantExtrapolation.__lt__)
+
+    def __neg__(self):
+        return self  # assume the values are also negated
+
+
+class _BoundaryExtrapolation(_CopyExtrapolation):
+    &#34;&#34;&#34;Uses the closest defined value for points lying outside the defined region.&#34;&#34;&#34;
+
+    _CACHED_LOWER_MASKS = {}
+    _CACHED_UPPER_MASKS = {}
+
+    def __repr__(self):
+        return &#39;boundary&#39;
+
+    def gradient(self):
+        return ZERO
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        if upper_edge:
+            edge = value[{dimension: slice(-1, None)}]
+        else:
+            edge = value[{dimension: slice(1)}]
+        return math.concat([edge] * width, dimension)
+
+    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -&gt; ShiftLinOp:
+        &#34;&#34;&#34;
+        *Warning*:
+        This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
+        These are typically sliced off in differential operators. Corners are instead assigned the value 0.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinOp.
+
+        Args:
+          value: ShiftLinOp: 
+          widths: dict: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values  ~half the computation time
+        for bound_dim, (bound_lo, bound_hi) in widths.items():
+            for i in range(bound_lo):  # i=0 means outer
+                # this sets corners to 0
+                lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
+                mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
+                result += boundary
+            for i in range(bound_hi):
+                lower = {dim: i - lo - hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
+                mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)  # ~ half the computation time
+                result += boundary  # this does basically nothing if value is the identity
+        return result
+
+    def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
+            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key], convert=True)
+            _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
+            return result
+        else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (bound_lo - i - 1, 0)})
+            mask = ONE.pad(mask, {bound_dim: (1, 0)})
+            mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = mask
+            return mask
+
+    def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
+            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key], convert=True)
+            _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
+            return result
+        else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (0, bound_hi - i - 1)})
+            mask = ONE.pad(mask, {bound_dim: (0, 1)})
+            mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
+            return mask
+
+
+class _PeriodicExtrapolation(_CopyExtrapolation):
+    def __repr__(self):
+        return &#39;periodic&#39;
+
+    def gradient(self):
+        return self
+
+    def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
+        return coordinates % shape.spatial
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        if upper_edge:
+            return value[{dimension: slice(width)}]
+        else:
+            return value[{dimension: slice(-width, None)}]
+
+    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -&gt; ShiftLinOp:
+        if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
+            raise NotImplementedError(&#34;Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor.&#34; % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+
+
+class _SymmetricExtrapolation(_CopyExtrapolation):
+    &#34;&#34;&#34;Mirror with the boundary value occurring twice.&#34;&#34;&#34;
+
+    def __repr__(self):
+        return &#39;symmetric&#39;
+
+    def gradient(self):
+        return -self
+
+    def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
+        coordinates = coordinates % (2 * shape)
+        return ((2 * shape - 1) - abs((2 * shape - 1) - 2 * coordinates)) // 2
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        raise NotImplementedError()
+        raise NotImplementedError()  # only used by PyTorch which does not support ::-1 axis flips
+        dims = range(math.ndims(value))
+        for dim in dims:
+            pad_lower, pad_upper = pad_width[dim]
+            if pad_lower == 0 and pad_upper == 0:
+                continue  # Nothing to pad
+            top_rows = value[
+                tuple([slice(value.shape[dim] - pad_upper, None) if d == dim else slice(None) for d in dims])]
+            bottom_rows = value[tuple([slice(None, pad_lower) if d == dim else slice(None) for d in dims])]
+            top_rows = math.flip_axis(top_rows, dim)
+            bottom_rows = math.flip_axis(bottom_rows, dim)
+            value = math.concat([bottom_rows, value, top_rows], axis=dim)
+        return value
+
+
+class _ReflectExtrapolation(_CopyExtrapolation):
+    &#34;&#34;&#34;Mirror of inner elements. The boundary value is not duplicated.&#34;&#34;&#34;
+
+    def __repr__(self):
+        return &#39;reflect&#39;
+
+    def gradient(self):
+        return -self
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        if upper_edge:
+            return value[{dimension: slice(-1-width, -1)}].flip(dimension)
+        else:
+            return value[{dimension: slice(1, width+1)}].flip(dimension)
+
+    def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
+        coordinates = coordinates % (2 * shape - 2)
+        return (shape - 1) - math.abs((shape - 1) - coordinates)
+
+
+ZERO = ConstantExtrapolation(0)
+&#34;&#34;&#34; Extrapolates with the constant value 0 &#34;&#34;&#34;
+ONE = ConstantExtrapolation(1)
+&#34;&#34;&#34; Extrapolates with the constant value 1 &#34;&#34;&#34;
+PERIODIC = _PeriodicExtrapolation(1)
+&#34;&#34;&#34; Extends a grid by tiling it &#34;&#34;&#34;
+BOUNDARY = _BoundaryExtrapolation(2)
+&#34;&#34;&#34; Extends a grid with its edge values. The value of a point lying outside the grid is determined by the closest grid value(s). &#34;&#34;&#34;
+SYMMETRIC = _SymmetricExtrapolation(3)
+&#34;&#34;&#34; Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. &#34;&#34;&#34;
+REFLECT = _ReflectExtrapolation(4)
+&#34;&#34;&#34; Like SYMMETRIC but the edge values are not copied and only occur once per seam. &#34;&#34;&#34;
+
+
+def combine_sides(extrapolations: dict) -&gt; Extrapolation:
+    &#34;&#34;&#34;
+    Create a single Extrapolation object that uses different extrapolations for different sides of a box.
+
+    Args:
+      extrapolations: dict mapping dim: str -&gt; extrapolation or (lower, upper)
+      extrapolations: dict: 
+
+    Returns:
+      single extrapolation
+
+    &#34;&#34;&#34;
+    values = set()
+    for ext in extrapolations.values():
+        if isinstance(ext, Extrapolation):
+            values.add(ext)
+        else:
+            values.add(ext[0])
+            values.add(ext[1])
+    if len(values) == 1:
+        return next(iter(values))
+    else:
+        return _MixedExtrapolation(extrapolations)
+
+
+class _MixedExtrapolation(Extrapolation):
+
+    def __init__(self, extrapolations: dict):
+        &#34;&#34;&#34;
+        A mixed extrapolation uses different extrapolations for different sides.
+
+        Args:
+          extrapolations: axis: str -&gt; (lower: Extrapolation, upper: Extrapolation) or Extrapolation
+        &#34;&#34;&#34;
+        Extrapolation.__init__(self, None)
+        self.ext = {ax: (e, e) if isinstance(e, Extrapolation) else tuple(e) for ax, e in extrapolations.items()}
+
+    def to_dict(self) -&gt; dict:
+        return {
+            &#39;type&#39;: &#39;mixed&#39;,
+            &#39;dims&#39;: {ax: (es[0].to_dict(), es[1].to_dict()) for ax, es in self.ext.items()}
+        }
+
+    def __eq__(self, other):
+        if isinstance(other, _MixedExtrapolation):
+            return self.ext == other.ext
+        else:
+            simplified = combine_sides(self.ext)
+            if not isinstance(simplified, _MixedExtrapolation):
+                return simplified == other
+            else:
+                return False
+
+    def __hash__(self):
+        simplified = combine_sides(self.ext)
+        if not isinstance(simplified, _MixedExtrapolation):
+            return hash(simplified)
+        else:
+            return hash(frozenset(self.ext.items()))
+
+    def __repr__(self):
+        return repr(self.ext)
+
+    def gradient(self) -&gt; Extrapolation:
+        return combine_sides({ax: (es[0].gradient(), es[1].gradient())
+                              for ax, es in self.ext.items()})
+
+    def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Pads a tensor using mixed values
+
+        Args:
+          value: tensor to be padded
+          widths: name: str -&gt; (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        extrapolations = set(sum(self.ext.values(), ()))
+        extrapolations = tuple(sorted(extrapolations, key=lambda e: e.pad_rank))
+        for ext in extrapolations:
+            ext_widths = {ax: (l if self.ext[ax][0] == ext else 0, u if self.ext[ax][1] == ext else 0)
+                          for ax, (l, u) in widths.items()}
+            value = ext.pad(value, ext_widths)
+        return value
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        extrap: Extrapolation = self.ext[dimension][upper_edge]
+        return extrap.pad_values(value, width, dimension, upper_edge)
+
+    def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
+        coordinates = coordinates.vector.unstack()
+        assert len(self.ext) == len(shape) == len(coordinates)
+        result = []
+        for dim, dim_coords in zip(shape.spatial.unstack(), coordinates):
+            dim_extrapolations = self.ext[dim.name]
+            if dim_extrapolations[0] == dim_extrapolations[1]:
+                result.append(dim_extrapolations[0].transform_coordinates(dim_coords, dim))
+            else:  # separate boundary for lower and upper face
+                lower = dim_extrapolations[0].transform_coordinates(dim_coords, dim)
+                upper = dim_extrapolations[1].transform_coordinates(dim_coords, dim)
+                result.append(math.where(dim_coords &lt;= 0, lower, upper))
+        if &#39;vector&#39; in result[0].shape:
+            return math.concat(result, &#39;vector&#39;)
+        else:
+            return math.channel_stack(result, &#39;vector&#39;)
+
+    def __getitem__(self, item):
+        dim, face = item
+        return self.ext[dim][face]
+
+    def __add__(self, other):
+        return self._op2(other, lambda e1, e2: e1 + e2)
+
+    def __radd__(self, other):
+        return self._op2(other, lambda e1, e2: e2 + e1)
+
+    def __sub__(self, other):
+        return self._op2(other, lambda e1, e2: e1 - e2)
+
+    def __rsub__(self, other):
+        return self._op2(other, lambda e1, e2: e2 - e1)
+
+    def __mul__(self, other):
+        return self._op2(other, lambda e1, e2: e1 * e2)
+
+    def __rmul__(self, other):
+        return self._op2(other, lambda e1, e2: e2 * e1)
+
+    def _op2(self, other, operator):
+        if isinstance(other, _MixedExtrapolation):
+            assert self.ext.keys() == other.ext.keys()
+            return combine_sides({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
+        else:
+            return combine_sides({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
+
+
+def from_dict(dictionary: dict) -&gt; Extrapolation:
+    &#34;&#34;&#34;
+    Loads an `Extrapolation` object from a dictionary that was created using `Extrapolation.to_dict()`.
+
+    Args:
+        dictionary: serializable dictionary holding all extrapolation properties
+
+    Returns:
+        Loaded extrapolation
+    &#34;&#34;&#34;
+    etype = dictionary[&#39;type&#39;]
+    if etype == &#39;constant&#39;:
+        return ConstantExtrapolation(dictionary[&#39;value&#39;])
+    elif etype == &#39;periodic&#39;:
+        return PERIODIC
+    elif etype == &#39;boundary&#39;:
+        return BOUNDARY
+    elif etype == &#39;symmetric&#39;:
+        return SYMMETRIC
+    elif etype == &#39;reflect&#39;:
+        return REFLECT
+    else:
+        raise ValueError(dictionary)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-variables">Global variables</h2>
+<dl>
+<dt id="phi.math.extrapolation.BOUNDARY"><code class="name">var <span class="ident">BOUNDARY</span></code></dt>
+<dd>
+<div class="desc"><p>Extends a grid with its edge values. The value of a point lying outside the grid is determined by the closest grid value(s).</p></div>
+</dd>
+<dt id="phi.math.extrapolation.ONE"><code class="name">var <span class="ident">ONE</span></code></dt>
+<dd>
+<div class="desc"><p>Extrapolates with the constant value 1</p></div>
+</dd>
+<dt id="phi.math.extrapolation.PERIODIC"><code class="name">var <span class="ident">PERIODIC</span></code></dt>
+<dd>
+<div class="desc"><p>Extends a grid by tiling it</p></div>
+</dd>
+<dt id="phi.math.extrapolation.REFLECT"><code class="name">var <span class="ident">REFLECT</span></code></dt>
+<dd>
+<div class="desc"><p>Like SYMMETRIC but the edge values are not copied and only occur once per seam.</p></div>
+</dd>
+<dt id="phi.math.extrapolation.SYMMETRIC"><code class="name">var <span class="ident">SYMMETRIC</span></code></dt>
+<dd>
+<div class="desc"><p>Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam.</p></div>
+</dd>
+<dt id="phi.math.extrapolation.ZERO"><code class="name">var <span class="ident">ZERO</span></code></dt>
+<dd>
+<div class="desc"><p>Extrapolates with the constant value 0</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="phi.math.extrapolation.combine_sides"><code class="name flex">
+<span>def <span class="ident">combine_sides</span></span>(<span>extrapolations: dict) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a single Extrapolation object that uses different extrapolations for different sides of a box.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>extrapolations</code></strong></dt>
+<dd>dict mapping dim: str -&gt; extrapolation or (lower, upper)</dd>
+<dt><strong><code>extrapolations</code></strong></dt>
+<dd>dict: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>single extrapolation</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def combine_sides(extrapolations: dict) -&gt; Extrapolation:
+    &#34;&#34;&#34;
+    Create a single Extrapolation object that uses different extrapolations for different sides of a box.
+
+    Args:
+      extrapolations: dict mapping dim: str -&gt; extrapolation or (lower, upper)
+      extrapolations: dict: 
+
+    Returns:
+      single extrapolation
+
+    &#34;&#34;&#34;
+    values = set()
+    for ext in extrapolations.values():
+        if isinstance(ext, Extrapolation):
+            values.add(ext)
+        else:
+            values.add(ext[0])
+            values.add(ext[1])
+    if len(values) == 1:
+        return next(iter(values))
+    else:
+        return _MixedExtrapolation(extrapolations)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.from_dict"><code class="name flex">
+<span>def <span class="ident">from_dict</span></span>(<span>dictionary: dict) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Loads an <code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code> object from a dictionary that was created using <code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">Extrapolation.to_dict()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dictionary</code></strong></dt>
+<dd>serializable dictionary holding all extrapolation properties</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Loaded extrapolation</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def from_dict(dictionary: dict) -&gt; Extrapolation:
+    &#34;&#34;&#34;
+    Loads an `Extrapolation` object from a dictionary that was created using `Extrapolation.to_dict()`.
+
+    Args:
+        dictionary: serializable dictionary holding all extrapolation properties
+
+    Returns:
+        Loaded extrapolation
+    &#34;&#34;&#34;
+    etype = dictionary[&#39;type&#39;]
+    if etype == &#39;constant&#39;:
+        return ConstantExtrapolation(dictionary[&#39;value&#39;])
+    elif etype == &#39;periodic&#39;:
+        return PERIODIC
+    elif etype == &#39;boundary&#39;:
+        return BOUNDARY
+    elif etype == &#39;symmetric&#39;:
+        return SYMMETRIC
+    elif etype == &#39;reflect&#39;:
+        return REFLECT
+    else:
+        raise ValueError(dictionary)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="phi.math.extrapolation.ConstantExtrapolation"><code class="flex name class">
+<span>class <span class="ident">ConstantExtrapolation</span></span>
+<span>(</span><span>value: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Extrapolate with a constant value.</p>
+<p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.</p>
+<p>They play a vital role in padding and sampling.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pad_rank</code></strong></dt>
+<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.</dd>
+</dl>
+<p>The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</p>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ConstantExtrapolation(Extrapolation):
+    &#34;&#34;&#34;
+    Extrapolate with a constant value.
+    &#34;&#34;&#34;
+
+    def __init__(self, value: Tensor):
+        Extrapolation.__init__(self, 5)
+        self.value = tensor(value)
+        &#34;&#34;&#34; Extrapolation value &#34;&#34;&#34;
+
+    def __repr__(self):
+        return repr(self.value)
+
+    def to_dict(self) -&gt; dict:
+        return {&#39;type&#39;: &#39;constant&#39;, &#39;value&#39;: self.value.numpy()}
+
+    def gradient(self):
+        return ZERO
+
+    def pad(self, value: Tensor, widths: dict):
+        &#34;&#34;&#34;
+        Pads a tensor using CONSTANT values
+
+        Args:
+          value: tensor to be padded
+          widths: name: str -&gt; (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        value = value.__simplify__()
+        if isinstance(value, NativeTensor):
+            native = value.native()
+            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            backend = choose_backend(native)
+            result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, self.value.native())
+            new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
+            return NativeTensor(result_tensor, new_shape)
+        elif isinstance(value, CollapsedTensor):
+            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+                return self.pad(value._expand(), widths)
+            else:  # Stays constant value, only extend shape
+                new_sizes = []
+                for size, dim, dim_type in value.shape.dimensions:
+                    if dim not in widths:
+                        new_sizes.append(size)
+                    else:
+                        delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
+                        new_sizes.append(size + int(delta))
+                new_shape = value.shape.with_sizes(new_sizes)
+                return CollapsedTensor(value._inner, new_shape)
+        # elif isinstance(value, SparseLinearOperation):
+        #     return pad_operator(value, pad_width, mode)
+        elif isinstance(value, TensorStack):
+            if not value.requires_broadcast:
+                return self.pad(value._cache(), widths)
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
+            tensors = [self.pad(t, inner_widths) for t in value.tensors]
+            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+        elif isinstance(value, SparseLinearOperation):
+            (row, col), data = choose_backend(value.dependency_matrix).coordinates(value.dependency_matrix, unstack_coordinates=True)
+            assert len(value.shape) == 2  # TODO nd
+            y = row // value.shape[1]
+            dy0, dy1 = widths[value.shape.names[0]]
+            dx0, dx1 = widths[value.shape.names[1]]
+            padded_row = row + dy0 * (value.shape[1] + dx0 + dx1) + dx0 * (y + 1) + dx1 * y
+            new_sizes = list(value.shape.sizes)
+            for i, dim in enumerate(value.shape.names):
+                new_sizes[i] += sum(widths[dim])
+            new_shape = value.shape.with_sizes(new_sizes)
+            padded_matrix = choose_backend(padded_row, col, data).sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
+            return SparseLinearOperation(value.source, padded_matrix, new_shape)
+        elif isinstance(value, ShiftLinOp):
+            assert self.is_zero()
+            lower = {dim: -lo for dim, (lo, _) in widths.items()}
+            return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+        else:
+            raise NotImplementedError()
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        raise NotImplementedError()
+        return math.zeros()
+
+    def __eq__(self, other):
+        return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
+
+    def __hash__(self):
+        return hash(self.__class__)
+
+    def is_zero(self):
+        return self == ZERO
+
+    def is_one(self):
+        return self == ONE
+
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return &#39;zeros&#39; if self.is_zero() else None
+
+    def __add__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value + other.value)
+        elif self.is_zero():
+            return other
+        else:
+            return NotImplemented
+
+    def __sub__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value - other.value)
+        else:
+            return NotImplemented
+
+    def __rsub__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(other.value - self.value)
+        elif self.is_zero():
+            return other
+        else:
+            return NotImplemented
+
+    def __mul__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value * other.value)
+        elif self.is_one():
+            return other
+        elif self.is_zero():
+            return self
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value / other.value)
+        elif self.is_zero():
+            return self
+        else:
+            return NotImplemented
+
+    def __rtruediv__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(other.value / self.value)
+        elif self.is_one():
+            return other
+        else:
+            return NotImplemented
+
+    def __lt__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value &lt; other.value)
+        else:
+            return NotImplemented
+
+    def __gt__(self, other):
+        if isinstance(other, ConstantExtrapolation):
+            return ConstantExtrapolation(self.value &gt; other.value)
+        else:
+            return NotImplemented</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.extrapolation.ConstantExtrapolation.native_grid_sample_mode"><code class="name">var <span class="ident">native_grid_sample_mode</span> : Union[str, NoneType]</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def native_grid_sample_mode(self) -&gt; Union[str, None]:
+    return &#39;zeros&#39; if self.is_zero() else None</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.ConstantExtrapolation.value"><code class="name">var <span class="ident">value</span></code></dt>
+<dd>
+<div class="desc"><p>Extrapolation value</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.extrapolation.ConstantExtrapolation.is_one"><code class="name flex">
+<span>def <span class="ident">is_one</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_one(self):
+    return self == ONE</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.ConstantExtrapolation.is_zero"><code class="name flex">
+<span>def <span class="ident">is_zero</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_zero(self):
+    return self == ZERO</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.ConstantExtrapolation.pad"><code class="name flex">
+<span>def <span class="ident">pad</span></span>(<span>self, value: phi.math._tensors.Tensor, widths: dict)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Pads a tensor using CONSTANT values</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>tensor to be padded</dd>
+<dt><strong><code>widths</code></strong></dt>
+<dd>name: str -&gt; (lower: int, upper: int)}</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor: </dd>
+<dt><strong><code>widths</code></strong></dt>
+<dd>dict: </dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pad(self, value: Tensor, widths: dict):
+    &#34;&#34;&#34;
+    Pads a tensor using CONSTANT values
+
+    Args:
+      value: tensor to be padded
+      widths: name: str -&gt; (lower: int, upper: int)}
+      value: Tensor: 
+      widths: dict: 
+
+    Returns:
+
+    &#34;&#34;&#34;
+    value = value.__simplify__()
+    if isinstance(value, NativeTensor):
+        native = value.native()
+        ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+        backend = choose_backend(native)
+        result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, self.value.native())
+        new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
+        return NativeTensor(result_tensor, new_shape)
+    elif isinstance(value, CollapsedTensor):
+        if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+            return self.pad(value._expand(), widths)
+        else:  # Stays constant value, only extend shape
+            new_sizes = []
+            for size, dim, dim_type in value.shape.dimensions:
+                if dim not in widths:
+                    new_sizes.append(size)
+                else:
+                    delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
+                    new_sizes.append(size + int(delta))
+            new_shape = value.shape.with_sizes(new_sizes)
+            return CollapsedTensor(value._inner, new_shape)
+    # elif isinstance(value, SparseLinearOperation):
+    #     return pad_operator(value, pad_width, mode)
+    elif isinstance(value, TensorStack):
+        if not value.requires_broadcast:
+            return self.pad(value._cache(), widths)
+        inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
+        tensors = [self.pad(t, inner_widths) for t in value.tensors]
+        return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+    elif isinstance(value, SparseLinearOperation):
+        (row, col), data = choose_backend(value.dependency_matrix).coordinates(value.dependency_matrix, unstack_coordinates=True)
+        assert len(value.shape) == 2  # TODO nd
+        y = row // value.shape[1]
+        dy0, dy1 = widths[value.shape.names[0]]
+        dx0, dx1 = widths[value.shape.names[1]]
+        padded_row = row + dy0 * (value.shape[1] + dx0 + dx1) + dx0 * (y + 1) + dx1 * y
+        new_sizes = list(value.shape.sizes)
+        for i, dim in enumerate(value.shape.names):
+            new_sizes[i] += sum(widths[dim])
+        new_shape = value.shape.with_sizes(new_sizes)
+        padded_matrix = choose_backend(padded_row, col, data).sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
+        return SparseLinearOperation(value.source, padded_matrix, new_shape)
+    elif isinstance(value, ShiftLinOp):
+        assert self.is_zero()
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+    else:
+        raise NotImplementedError()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></b></code>:
+<ul class="hlist">
+<li><code><a title="phi.math.extrapolation.Extrapolation.gradient" href="#phi.math.extrapolation.Extrapolation.gradient">gradient</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.is_copy_pad" href="#phi.math.extrapolation.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.pad_values" href="#phi.math.extrapolation.Extrapolation.pad_values">pad_values</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">to_dict</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.transform_coordinates" href="#phi.math.extrapolation.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="phi.math.extrapolation.Extrapolation"><code class="flex name class">
+<span>class <span class="ident">Extrapolation</span></span>
+<span>(</span><span>pad_rank)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.</p>
+<p>They play a vital role in padding and sampling.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pad_rank</code></strong></dt>
+<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.</dd>
+</dl>
+<p>The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</p>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Extrapolation:
+
+    def __init__(self, pad_rank):
+        &#34;&#34;&#34;
+        Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+
+        They play a vital role in padding and sampling.
+
+        Args:
+          pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
+        The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
+
+        Returns:
+
+        &#34;&#34;&#34;
+        self.pad_rank = pad_rank
+
+    def to_dict(self) -&gt; dict:
+        &#34;&#34;&#34;
+        Serialize this extrapolation to a dictionary that is serializable (JSON-writable).
+        
+        Use `from_dict()` to restore the Extrapolation object.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def gradient(self) -&gt; &#39;Extrapolation&#39;:
+        &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Pads a tensor using values from self.pad_values()
+
+        Args:
+          value: tensor to be padded
+          widths: name: str -&gt; (lower: int, upper: int)}
+          value: Tensor: 
+          widths: dict: 
+
+        Returns:
+
+        &#34;&#34;&#34;
+        for dim in widths:
+            values = []
+            if widths[dim][False] &gt; 0:
+                values.append(self.pad_values(value, widths[dim][False], dim, False))
+            values.append(value)
+            if widths[dim][True] &gt; 0:
+                values.append(self.pad_values(value, widths[dim][True], dim, True))
+            value = math.concat(values, dim)
+        return value
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Determines the values with which the given tensor would be padded at the specified using this extrapolation.
+
+        Args:
+          value: tensor to be padded
+          width: number of cells to pad perpendicular to the face. Must be larger than zero.
+          dimension: axis in which to pad
+          upper_edge: True for upper edge, False for lower edge
+          value: Tensor: 
+          width: int: 
+          dimension: str: 
+          upper_edge: bool: 
+
+        Returns:
+          tensor that can be concatenated to value for padding
+
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
+        &#34;&#34;&#34;
+        If is_copy_pad, transforms outsider coordinates to point to the index from which the value should be copied.
+        
+        Otherwise, the grid tensor is assumed to hold the correct boundary values for this extrapolation at the edge.
+        Coordinates are then snapped to the valid index range.
+        This is the default implementation.
+
+        Args:
+          coordinates: integer coordinates in index space
+          shape: tensor shape
+          coordinates: Tensor: 
+          shape: Shape: 
+
+        Returns:
+          transformed coordinates
+
+        &#34;&#34;&#34;
+        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))
+
+    @property
+    def is_copy_pad(self):
+        &#34;&#34;&#34;:return: True if all pad values are copies of existing values in the tensor to be padded&#34;&#34;&#34;
+        return False
+
+    @property
+    def native_grid_sample_mode(self) -&gt; Union[str, None]:
+        return None
+
+    def __getitem__(self, item):
+        return self</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="phi.math.extrapolation.ConstantExtrapolation" href="#phi.math.extrapolation.ConstantExtrapolation">ConstantExtrapolation</a></li>
+<li>phi.math.extrapolation._CopyExtrapolation</li>
+<li>phi.math.extrapolation._MixedExtrapolation</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.extrapolation.Extrapolation.is_copy_pad"><code class="name">var <span class="ident">is_copy_pad</span></code></dt>
+<dd>
+<div class="desc"><p>:return: True if all pad values are copies of existing values in the tensor to be padded</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_copy_pad(self):
+    &#34;&#34;&#34;:return: True if all pad values are copies of existing values in the tensor to be padded&#34;&#34;&#34;
+    return False</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.Extrapolation.native_grid_sample_mode"><code class="name">var <span class="ident">native_grid_sample_mode</span> : Union[str, NoneType]</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def native_grid_sample_mode(self) -&gt; Union[str, None]:
+    return None</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.extrapolation.Extrapolation.gradient"><code class="name flex">
+<span>def <span class="ident">gradient</span></span>(<span>self) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gradient(self) -&gt; &#39;Extrapolation&#39;:
+    &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.Extrapolation.pad"><code class="name flex">
+<span>def <span class="ident">pad</span></span>(<span>self, value: phi.math._tensors.Tensor, widths: dict) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Pads a tensor using values from self.pad_values()</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>tensor to be padded</dd>
+<dt><strong><code>widths</code></strong></dt>
+<dd>name: str -&gt; (lower: int, upper: int)}</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor: </dd>
+<dt><strong><code>widths</code></strong></dt>
+<dd>dict: </dd>
+</dl>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Pads a tensor using values from self.pad_values()
+
+    Args:
+      value: tensor to be padded
+      widths: name: str -&gt; (lower: int, upper: int)}
+      value: Tensor: 
+      widths: dict: 
+
+    Returns:
+
+    &#34;&#34;&#34;
+    for dim in widths:
+        values = []
+        if widths[dim][False] &gt; 0:
+            values.append(self.pad_values(value, widths[dim][False], dim, False))
+        values.append(value)
+        if widths[dim][True] &gt; 0:
+            values.append(self.pad_values(value, widths[dim][True], dim, True))
+        value = math.concat(values, dim)
+    return value</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.Extrapolation.pad_values"><code class="name flex">
+<span>def <span class="ident">pad_values</span></span>(<span>self, value: phi.math._tensors.Tensor, width: int, dimension: str, upper_edge: bool) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Determines the values with which the given tensor would be padded at the specified using this extrapolation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>tensor to be padded</dd>
+<dt><strong><code>width</code></strong></dt>
+<dd>number of cells to pad perpendicular to the face. Must be larger than zero.</dd>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>axis in which to pad</dd>
+<dt><strong><code>upper_edge</code></strong></dt>
+<dd>True for upper edge, False for lower edge</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Tensor: </dd>
+<dt><strong><code>width</code></strong></dt>
+<dd>int: </dd>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>str: </dd>
+<dt><strong><code>upper_edge</code></strong></dt>
+<dd>bool: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tensor that can be concatenated to value for padding</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Determines the values with which the given tensor would be padded at the specified using this extrapolation.
+
+    Args:
+      value: tensor to be padded
+      width: number of cells to pad perpendicular to the face. Must be larger than zero.
+      dimension: axis in which to pad
+      upper_edge: True for upper edge, False for lower edge
+      value: Tensor: 
+      width: int: 
+      dimension: str: 
+      upper_edge: bool: 
+
+    Returns:
+      tensor that can be concatenated to value for padding
+
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.Extrapolation.to_dict"><code class="name flex">
+<span>def <span class="ident">to_dict</span></span>(<span>self) ‑> dict</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Serialize this extrapolation to a dictionary that is serializable (JSON-writable).</p>
+<p>Use <code><a title="phi.math.extrapolation.from_dict" href="#phi.math.extrapolation.from_dict">from_dict()</a></code> to restore the Extrapolation object.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_dict(self) -&gt; dict:
+    &#34;&#34;&#34;
+    Serialize this extrapolation to a dictionary that is serializable (JSON-writable).
+    
+    Use `from_dict()` to restore the Extrapolation object.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.extrapolation.Extrapolation.transform_coordinates"><code class="name flex">
+<span>def <span class="ident">transform_coordinates</span></span>(<span>self, coordinates: phi.math._tensors.Tensor, shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>If is_copy_pad, transforms outsider coordinates to point to the index from which the value should be copied.</p>
+<p>Otherwise, the grid tensor is assumed to hold the correct boundary values for this extrapolation at the edge.
+Coordinates are then snapped to the valid index range.
+This is the default implementation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>coordinates</code></strong></dt>
+<dd>integer coordinates in index space</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>tensor shape</dd>
+<dt><strong><code>coordinates</code></strong></dt>
+<dd>Tensor: </dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>Shape: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>transformed coordinates</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
+    &#34;&#34;&#34;
+    If is_copy_pad, transforms outsider coordinates to point to the index from which the value should be copied.
+    
+    Otherwise, the grid tensor is assumed to hold the correct boundary values for this extrapolation at the edge.
+    Coordinates are then snapped to the valid index range.
+    This is the default implementation.
+
+    Args:
+      coordinates: integer coordinates in index space
+      shape: tensor shape
+      coordinates: Tensor: 
+      shape: Shape: 
+
+    Returns:
+      transformed coordinates
+
+    &#34;&#34;&#34;
+    return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="phi.math" href="index.html">phi.math</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-variables">Global variables</a></h3>
+<ul class="two-column">
+<li><code><a title="phi.math.extrapolation.BOUNDARY" href="#phi.math.extrapolation.BOUNDARY">BOUNDARY</a></code></li>
+<li><code><a title="phi.math.extrapolation.ONE" href="#phi.math.extrapolation.ONE">ONE</a></code></li>
+<li><code><a title="phi.math.extrapolation.PERIODIC" href="#phi.math.extrapolation.PERIODIC">PERIODIC</a></code></li>
+<li><code><a title="phi.math.extrapolation.REFLECT" href="#phi.math.extrapolation.REFLECT">REFLECT</a></code></li>
+<li><code><a title="phi.math.extrapolation.SYMMETRIC" href="#phi.math.extrapolation.SYMMETRIC">SYMMETRIC</a></code></li>
+<li><code><a title="phi.math.extrapolation.ZERO" href="#phi.math.extrapolation.ZERO">ZERO</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="phi.math.extrapolation.combine_sides" href="#phi.math.extrapolation.combine_sides">combine_sides</a></code></li>
+<li><code><a title="phi.math.extrapolation.from_dict" href="#phi.math.extrapolation.from_dict">from_dict</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="phi.math.extrapolation.ConstantExtrapolation" href="#phi.math.extrapolation.ConstantExtrapolation">ConstantExtrapolation</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.extrapolation.ConstantExtrapolation.is_one" href="#phi.math.extrapolation.ConstantExtrapolation.is_one">is_one</a></code></li>
+<li><code><a title="phi.math.extrapolation.ConstantExtrapolation.is_zero" href="#phi.math.extrapolation.ConstantExtrapolation.is_zero">is_zero</a></code></li>
+<li><code><a title="phi.math.extrapolation.ConstantExtrapolation.native_grid_sample_mode" href="#phi.math.extrapolation.ConstantExtrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
+<li><code><a title="phi.math.extrapolation.ConstantExtrapolation.pad" href="#phi.math.extrapolation.ConstantExtrapolation.pad">pad</a></code></li>
+<li><code><a title="phi.math.extrapolation.ConstantExtrapolation.value" href="#phi.math.extrapolation.ConstantExtrapolation.value">value</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.extrapolation.Extrapolation.gradient" href="#phi.math.extrapolation.Extrapolation.gradient">gradient</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.is_copy_pad" href="#phi.math.extrapolation.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.native_grid_sample_mode" href="#phi.math.extrapolation.Extrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.pad" href="#phi.math.extrapolation.Extrapolation.pad">pad</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.pad_values" href="#phi.math.extrapolation.Extrapolation.pad_values">pad_values</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">to_dict</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.transform_coordinates" href="#phi.math.extrapolation.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.1</a>.</p>
+</footer>
+</body>
+</html>

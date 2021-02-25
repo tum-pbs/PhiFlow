@@ -1,52 +1,69 @@
 import warnings
 
-from phi import struct, math
-from phi.geom import GLOBAL_AXIS_ORDER
+from phi import math
+from phi.math import GLOBAL_AXIS_ORDER, Tensor
 from ._geom import Geometry
 from ._sphere import Sphere
 
 
-@struct.definition()
 class RotatedGeometry(Geometry):
 
-    def __init__(self, geometry, angle, **kwargs):
-        Geometry.__init__(self, **struct.kwargs(locals()))
-
-    @struct.constant()
-    def geometry(self, geometry):
-        assert isinstance(geometry, Geometry)
+    def __init__(self, geometry: Geometry, angle: float or math.Tensor):
         if isinstance(geometry, RotatedGeometry):
             warnings.warn('Using RotatedGeometry of RotatedGeometry. Consider simplifying your setup.')
-        return geometry
+        self._geometry = geometry
+        self._angle = math.tensor(angle)
 
-    @struct.constant()
-    def angle(self, rotation):
-        return rotation
+    @property
+    def shape(self):
+        return self._geometry.shape
+
+    @property
+    def geometry(self):
+        return self._geometry
+
+    @property
+    def angle(self):
+        return self._angle
 
     @property
     def center(self):
         return self.geometry.center
 
+    def _rotate(self, location):
+        sin = math.sin(self.angle)
+        cos = math.cos(self.angle)
+        y, x = location.vector.unstack()
+        if GLOBAL_AXIS_ORDER.is_x_first:
+            x, y = y, x
+        rot_x = cos * x - sin * y
+        rot_y = sin * x + cos * y
+        return math.channel_stack([rot_y, rot_x], 'vector')
+
     def global_to_child(self, location):
-        """ Inverse transform """
+        """
+        Inverse transform
+
+        Args:
+          location: 
+
+        Returns:
+
+        """
         delta = location - self.center
-        if math.staticshape(location)[-1] == 2:
-            angle = -math.batch_align(self.angle, 0, location)
-            sin = math.sin(angle)
-            cos = math.cos(angle)
-            y, x = math.unstack(delta, axis=-1)
-            if GLOBAL_AXIS_ORDER.is_x_first:
-                x, y = y, x
-            rot_x = cos * x - sin * y
-            rot_y = sin * x + cos * y
-            rotated = math.stack([rot_y, rot_x], axis=-1)
-        elif math.staticshape(location)[-1] == 3:
-            angle = math.batch_align(self.angle, 1, location)
+        if location.shape.vector == 2:
+            rotated = self._rotate(delta)
+        elif location.shape.vector == 3:
             raise NotImplementedError('not yet implemented')  # ToDo apply angle
         else:
             raise NotImplementedError('Rotation only supported in 2D and 3D')
         final = rotated + self.center
         return final
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0):
+        rotated = self.global_to_child(positions)
+        shifted_positions = self.geometry.push(rotated, outward=outward, shift_amount=shift_amount)
+        return positions + self._rotate(shifted_positions - rotated)
 
     def lies_inside(self, location):
         return self.geometry.lies_inside(self.global_to_child(location))
@@ -63,17 +80,26 @@ class RotatedGeometry(Geometry):
 
     @property
     def rank(self):
-        return self.geometry.rank
+        return self.geometry.spatial_rank
 
     def shifted(self, delta):
-        return self.copied_with(geometry=self.geometry.shifted(delta))
+        return RotatedGeometry(self._geometry.shifted(delta), self._angle)
 
     def rotated(self, angle):
-        return self.copied_with(angle=self.angle + angle)
+        return RotatedGeometry(self._geometry, self._angle + angle)
 
 
 def rotate(geometry, angle):
-    """ package-internal rotation function. Users should use Geometry.rotated() instead. """
+    """
+    package-internal rotation function. Users should use Geometry.rotated() instead.
+
+    Args:
+      geometry: 
+      angle: 
+
+    Returns:
+
+    """
     assert isinstance(geometry, Geometry)
     if isinstance(geometry, RotatedGeometry):
         total_rotation = geometry.angle + angle  # ToDo concatenate rotations

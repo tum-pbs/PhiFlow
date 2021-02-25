@@ -1,36 +1,28 @@
-# pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
+# pylint: disable-msg = unused-import
+"""
+*Main PhiFlow import:* `from phi.flow import *`
 
-from .physics.physics import *
-from .physics.world import *
-from .physics.schroedinger import *
-from .physics.fluid import *
-from .physics.burgers import *
-from .physics.heat import *
-from .physics.worldutil import *
-from .physics.field import *
-from .physics.obstacle import *
-from .physics.material import *
-from .physics.domain import *
-from .physics.field.effect import *
-from .physics.pressuresolver.solver_api import PoissonDomain, PoissonSolver
-from .physics.pressuresolver.sparse import SparseCG, SparseSciPy
-from .physics.pressuresolver.geom import GeometricCG
-from .physics.pressuresolver.fourier import FourierSolver
+Imports important functions and classes from
+`math`, `geom`, `field`, `physics` and `app` (including sub-modules)
+as well as the modules and sub-modules themselves.
 
-from .data.fluidformat import *
-from .data.dataset import *
-from .data.stream import *
-from .data.reader import *
-
-from phi.geom import *
-from phi import math, struct
-
-from .viz import display
-from .viz.display import show
-from .app import *
+See `phi.tf.flow`, `phi.torch.flow`.
+"""
 
 import numpy
+import numpy as np
 
-np = numpy
+from . import math
+from .math import extrapolation, PI, DType, tensor, shape, backend
 
-physics_config = GLOBAL_AXIS_ORDER
+from . import geom
+from .geom import Geometry, Sphere, Box, union
+
+from . import field
+from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
+
+from . import physics
+from .physics import fluid, flip, advect, diffuse, Domain, Material, OPEN, CLOSED, PERIODIC, Obstacle
+
+from . import app
+from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show

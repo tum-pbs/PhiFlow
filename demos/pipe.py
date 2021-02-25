@@ -1,9 +1,18 @@
+""" Streamline Profile
+Simulates a viscous fluid flowing through a horizontal pipe.
+"""
 from phi.flow import *
-physics_config.x_first()
+from phi.physics._boundaries import STICKY
 
-world.add(Fluid(Domain([50, 32], boundaries=[OPEN, STICKY]), buoyancy_factor=0.1), physics=[IncompressibleFlow(), lambda fluid, dt: fluid.copied_with(velocity=diffuse(fluid.velocity, 0.1 * dt))])
-world.add(ConstantVelocity(box[:1, :], velocity=(1, 0)))
 
-app = App('Streamline Profile', 'Vertical Pipe')
-app.add_field('Velocity', lambda: world.fluid.velocity.padded(1))
-show(app)
+DOMAIN = Domain(x=50, y=32, boundaries=[OPEN, STICKY])
+DT = 1.0
+BOUNDARY_MASK = HardGeometryMask(Box[:0.5, :]) >> DOMAIN.staggered_grid()
+velocity = DOMAIN.staggered_grid(0)
+pressure = DOMAIN.scalar_grid(0)
+
+for _ in ModuleViewer(display='velocity').range():
+    velocity = advect.semi_lagrangian(velocity, velocity, DT)
+    velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (1, 0)
+    velocity, pressure, _iterations, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)
+    velocity = diffuse.explicit(velocity, 0.1, DT)

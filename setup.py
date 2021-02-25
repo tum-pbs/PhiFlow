@@ -1,232 +1,128 @@
 import distutils.cmd
 import distutils.log
-import errno
 import subprocess
 import os
+from os.path import join, isfile, abspath, isdir, dirname
 from setuptools import setup
+
+
+def check_tf_cuda_compatibility():
+    import tensorflow
+    build = tensorflow.sysconfig.get_build_info()  # is_rocm_build, cuda_compute_capabilities
+    tf_gcc = build['cpu_compiler']
+    is_cuda_build = build['is_cuda_build']
+    print(f"TensorFlow compiler: {tf_gcc}.")
+    if not is_cuda_build:
+        raise AssertionError("Your TensorFlow build does not support CUDA.")
+    else:
+        cuda_version = build['cuda_version']
+        cudnn_version = build['cudnn_version']
+        print(f"TensorFlow was compiled against CUDA {cuda_version} and cuDNN {cudnn_version}.")
+        return tf_gcc
+
+
+def compile_cuda(file_names, nvcc, source_dir, target_dir, logfile):
+    import tensorflow
+    tf_cflags = tensorflow.sysconfig.get_compile_flags()
+    command = [
+            nvcc,
+            join(source_dir, f'{file_names}.cu.cc'),
+            '-o', join(target_dir, f'{file_names}.cu.o'),
+            '-std=c++11',
+            '-c',
+            '-D GOOGLE_CUDA=1',
+            '-x', 'cu',
+            '-Xcompiler',
+            '-fPIC',
+            '--expt-relaxed-constexpr',
+            '-DNDEBUG',
+            '-O3'
+        ] + tf_cflags
+    print(f"nvcc {file_names}")
+    logfile.writelines(["\n", " ".join(command), "\n"])
+    subprocess.check_call(command, stdout=logfile, stderr=logfile)
+
+
+def compile_gcc(file_names, gcc, source_dir, target_dir, cuda_lib, logfile):
+    import tensorflow
+    tf_cflags = tensorflow.sysconfig.get_compile_flags()
+    tf_lflags = tensorflow.sysconfig.get_link_flags()
+    link_cuda_lib = '-L' + cuda_lib
+    command = [
+                gcc,
+                join(source_dir, f'{file_names}.cc'),
+                join(target_dir, f'{file_names}.cu.o'),
+                '-o', join(target_dir, f'{file_names}.so'),
+                '-std=c++11',
+                '-shared',
+                '-fPIC',
+                '-lcudart',
+                '-O3',
+                link_cuda_lib
+            ] + tf_cflags + tf_lflags
+    print(f"gcc {file_names}")
+    logfile.writelines(["\n", " ".join(command), "\n"])
+    subprocess.check_call(command, stdout=logfile, stderr=logfile)
 
 
 class CudaCommand(distutils.cmd.Command):
     description = 'Compile CUDA sources'
     user_options = [
         ('gcc=', None, 'Path to the gcc compiler.'),
-        ('gcc-4-8=', None, 'Path to gcc-4.8 compiler.'),
         ('nvcc=', None, 'Path to the Nvidia nvcc compiler.'),
         ('cuda-lib=', None, 'Path to the CUDA libraries.'),
     ]
 
+    def initialize_options(self):
+        tf_gcc = check_tf_cuda_compatibility()
+        self.gcc = tf_gcc if isfile(tf_gcc) else 'gcc'
+        self.nvcc = '/usr/local/cuda/bin/nvcc' if isfile('/usr/local/cuda/bin/nvcc') else 'nvcc'
+        self.cuda_lib = '/usr/local/cuda/lib64/'
+
+    def finalize_options(self) -> None:
+        pass
+
     def run(self):
-        src_path = os.path.abspath('./phi/tf/cuda/src')
-        build_path = os.path.abspath('./phi/tf/cuda/build')
-        print('Source Path:\t' + src_path)
-        print('Build Path:\t' + build_path)
-
-        # Get TF Compile/Link Flags and write to env
-        import tensorflow as tf
-        if tf.__version__[0] == '2':
-            print('Adjusting for tensorflow 2.0')
-            tf = tf.compat.v1
-            tf.disable_eager_execution()
-        tf_cflags = tf.sysconfig.get_compile_flags()
-        tf_lflags = tf.sysconfig.get_link_flags()
-        # print(tf_cflags)
-        # print(tf_lflags)
-        # print('lib: ' + tf.sysconfig.get_lib())
-
-        link_cuda_lib = '-L' + self.cuda_lib
-
-        # print(link_cuda_lib)
-
+        src_path = abspath('./phi/tf/cuda/src')
+        build_path = abspath('./phi/tf/cuda/build')
+        logfile_path = abspath('./phi/tf/cuda/log.txt')
+        print("Source Path:\t" + src_path)
+        print("Build Path:\t" + build_path)
+        print("GCC:\t\t" + self.gcc)
+        print("NVCC:\t\t" + self.nvcc)
+        print("CUDA lib:\t" + self.cuda_lib)
+        print("----------------------------")
         # Remove old build files
-        if os.path.isdir(build_path):
+        if isdir(build_path):
             print('Removing old build files from %s' % build_path)
             for file in os.listdir(build_path):
-                os.remove(os.path.join(build_path, file))
+                os.remove(join(build_path, file))
         else:
             print('Creating build directory at %s' % build_path)
             os.mkdir(build_path)
-
         print('Compiling CUDA code...')
-        # Build the Laplace Matrix Generation CUDA Kernels
-        subprocess.check_call(
-            [
-                self.nvcc,
-                '-std=c++11',
-                '-c',
-                '-o',
-                os.path.join(build_path, 'laplace_op.cu.o'),
-                os.path.join(src_path, 'laplace_op.cu.cc'),
-                '-x',
-                'cu',
-                '-Xcompiler',
-                '-fPIC'
-            ]
-            + tf_cflags
-        )
-
-        # Build the Laplace Matrix Generation Custom Op
-        # This is only needed for the Laplace Matrix Generation Benchmark
-        subprocess.check_call(
-            [
-                self.gcc_4_8,
-                '-std=c++11',
-                '-shared',
-                '-o',
-                os.path.join(build_path, 'laplace_op.so'),
-                os.path.join(src_path, 'laplace_op.cc'),
-                os.path.join(build_path, 'laplace_op.cu.o'),
-                '-fPIC'
-            ]
-            + tf_cflags
-            + tf_lflags
-            + ['-L/usr/local/cuda/lib64/','-lcudart']
-        )
-
-        # Build the Pressure Solver CUDA Kernels
-        subprocess.check_call(
-            [
-                self.nvcc,
-                '-std=c++11',
-                '-c',
-                '-lcublas',
-                '-o',
-                os.path.join(build_path, 'pressure_solve_op.cu.o'),
-                os.path.join(src_path, 'pressure_solve_op.cu.cc'),
-                '-x', 'cu',
-                '-Xcompiler',
-                '-fPIC'
-            ]
-            + tf_cflags
-        )
-
-        # Build the Pressure Solver Custom Op
-        subprocess.check_call(
-            [
-                self.gcc_4_8,
-                '-std=c++11',
-                '-shared',
-                '-o',
-                os.path.join(build_path, 'pressure_solve_op.so'),
-                os.path.join(src_path, 'pressure_solve_op.cc'),
-                os.path.join(build_path, 'pressure_solve_op.cu.o'),
-                os.path.join(build_path, 'laplace_op.cu.o'),
-                '-fPIC'
-            ]
-            + tf_cflags
-            + tf_lflags
-            + ['-L/usr/local/cuda/lib64/','-lcudart']
-        )
-
-        # Build the Resample CUDA Kernels
-        subprocess.check_call(
-            [
-                self.nvcc,
-                '-std=c++11',
-                '-c',
-                '-o',
-                os.path.join(build_path, 'resample.cu.o'),
-                os.path.join(src_path, 'resample.cu.cc'),
-                '-D GOOGLE_CUDA=1',
-                '-x', 'cu',
-                '-Xcompiler',
-                '-fPIC',
-                '--expt-relaxed-constexpr',
-                '-DNDEBUG',
-                '-O3'
-            ]
-            + tf_cflags
-        )
-
-        # Build the Resample Custom Op
-        try:
-            subprocess.check_call(
-                [
-                    self.gcc_4_8,
-                    '-std=c++11',
-                    '-shared',
-                    '-o',
-                    os.path.join(build_path, 'resample.so'),
-                    os.path.join(src_path, 'resample.cc'),
-                    os.path.join(build_path, 'resample.cu.o'),
-                    '-fPIC',
-                    '-lcudart',
-                    '-O3',
-                    link_cuda_lib
-                ]
-                + tf_cflags
-                + tf_lflags
-            )
-        except OSError as e:
-            if e.errno == errno.ENOENT:
-                print('Please install g++-4.8 as it is needed to compile the advection operator.')
-                # raise e
-            else:
-                raise e
-
-        # Build the Resample Gradient CUDA Kernels
-        subprocess.check_call(
-            [
-                self.nvcc,
-                '-std=c++11',
-                '-c',
-                '-o',
-                os.path.join(build_path, 'resample_gradient.cu.o'),
-                os.path.join(src_path, 'resample_gradient.cu.cc'),
-                '-D GOOGLE_CUDA=1',
-                '-x', 'cu',
-                '-Xcompiler',
-                '-fPIC',
-                '--expt-relaxed-constexpr',
-                '-DNDEBUG',
-                '-O3'
-            ]
-            + tf_cflags
-        )
-
-        # Build the Resample Gradient Custom Op
-        try:
-            subprocess.check_call(
-                [
-                    self.gcc_4_8,
-                    '-std=c++11',
-                    '-shared',
-                    '-o',
-                    os.path.join(build_path, 'resample_gradient.so'),
-                    os.path.join(src_path, 'resample_gradient.cc'),
-                    os.path.join(build_path, 'resample_gradient.cu.o'),
-                    '-fPIC',
-                    '-lcudart',
-                    '-O3',
-                    link_cuda_lib
-                ]
-                + tf_cflags
-                + tf_lflags
-            )
-        except OSError as e:
-            if e.errno == errno.ENOENT:
-                print('Please install g++-4.8 as it is needed to compile the advection operator.')
-                # raise e
-            else:
-                raise e
-
-    def initialize_options(self):
-        self.gcc = 'gcc'
-        self.gcc_4_8 = 'g++-4.8'
-        self.nvcc = 'nvcc'
-        self.cuda_lib = '/usr/local/cuda/lib64/'
-
-    def finalize_options(self):
-        assert os.path.isfile(self.gcc) or self.gcc == 'gcc'
-        assert os.path.isfile(self.nvcc) or self.nvcc == 'nvcc'
+        with open(logfile_path, "w") as logfile:
+            try:
+                compile_cuda('resample', self.nvcc, src_path, build_path, logfile=logfile)
+                compile_gcc('resample', self.gcc, src_path, build_path, self.cuda_lib, logfile=logfile)
+                compile_cuda('resample_gradient', self.nvcc, src_path, build_path, logfile=logfile)
+                compile_gcc('resample_gradient', self.gcc, src_path, build_path, self.cuda_lib, logfile=logfile)
+                # compile_cuda('bicgstab_ilu_linear_solve_op', self.nvcc, src_path, build_path, logfile=logfile)
+                # compile_gcc('bicgstab_ilu_linear_solve_op', self.gcc, src_path, build_path, self.cuda_lib, logfile=logfile)
+            except BaseException as err:
+                print(f"Compilation failed. See {logfile_path} for details.")
+                raise err
+        print(f"Compilation complete. See {logfile_path} for details.")
 
 
 try:
-    with open(os.path.join(os.path.dirname(__file__), 'documentation/Package_Info.md'), 'r') as readme:
+    with open(join(dirname(__file__), 'docs/Package_Info.md'), 'r') as readme:
         long_description = readme.read()
 except FileNotFoundError:
+    long_description = ""
     pass
 
-with open(os.path.join(os.path.dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
+with open(join(dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
     version = version_file.read()
 
 
@@ -236,18 +132,15 @@ setup(
     download_url='https://github.com/tum-pbs/PhiFlow/archive/%s.tar.gz' % version,
     packages=['phi',
               'phi.app',
-              'phi.backend',
-              'phi.data',
+              'phi.app._dash',
+              'phi.field',
               'phi.geom',
-              'phi.local',
               'phi.math',
+              'phi.math.backend',
               'phi.physics',
-              'phi.physics.field',
-              'phi.physics.pressuresolver',
               'phi.struct',
               'phi.tf',
-              'phi.viz',
-              'phi.viz.dash',
+              'phi.torch',
               'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
@@ -261,23 +154,15 @@ setup(
     author_email='philipp.holl@tum.de',
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
-    install_requires=['six', 'packaging', 'scipy'],
+    install_requires=['scipy', 'dash', 'plotly', 'imageio', 'matplotlib'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
-    extras_require={
-        'gui': ['dash',
-                'dash-renderer',
-                'dash-html-components',
-                'dash-core-components',
-                'plotly',
-                'imageio'],
-    }
 )
