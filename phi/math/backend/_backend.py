@@ -198,6 +198,17 @@ class Backend:
     def trace_function(self, f: callable) -> callable:
         raise NotImplementedError()
 
+    def call(self, f: callable, *args, name=None):
+        """
+        Calls `f(*args)` and returns the result.
+        This method may be used to register internal calls with the profiler.
+
+        Usage:
+
+            choose_backend(key).call(custom_function, *args)
+        """
+        return f(*args)
+
     def custom_gradient(self, f: callable, gradient: callable) -> callable:
         """
         Creates a function based on `f` that uses a custom gradient for backprop.

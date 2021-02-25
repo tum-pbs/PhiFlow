@@ -635,6 +635,17 @@ The output of math operations has the same precision as its inputs.</p>
     def trace_function(self, f: callable) -&gt; callable:
         raise NotImplementedError()
 
+    def call(self, f: callable, *args, name=None):
+        &#34;&#34;&#34;
+        Calls `f(*args)` and returns the result.
+        This method may be used to register internal calls with the profiler.
+
+        Usage:
+
+            choose_backend(key).call(custom_function, *args)
+        &#34;&#34;&#34;
+        return f(*args)
+
     def custom_gradient(self, f: callable, gradient: callable) -&gt; callable:
         &#34;&#34;&#34;
         Creates a function based on `f` that uses a custom gradient for backprop.
@@ -1299,6 +1310,30 @@ Backends can override this method to prevent unnecessary casting.</p>
 </summary>
 <pre><code class="python">def boolean_mask(self, x, mask):
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.call"><code class="name flex">
+<span>def <span class="ident">call</span></span>(<span>self, f: <built-in function callable>, *args, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calls <code>f(*args)</code> and returns the result.
+This method may be used to register internal calls with the profiler.</p>
+<h2 id="usage">Usage</h2>
+<p>choose_backend(key).call(custom_function, *args)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def call(self, f: callable, *args, name=None):
+    &#34;&#34;&#34;
+    Calls `f(*args)` and returns the result.
+    This method may be used to register internal calls with the profiler.
+
+    Usage:
+
+        choose_backend(key).call(custom_function, *args)
+    &#34;&#34;&#34;
+    return f(*args)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.cast"><code class="name flex">
@@ -3657,6 +3692,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batch_gather" href="#phi.math.backend.Backend.batch_gather">batch_gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.boolean_mask" href="#phi.math.backend.Backend.boolean_mask">boolean_mask</a></code></li>
+<li><code><a title="phi.math.backend.Backend.call" href="#phi.math.backend.Backend.call">call</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cast" href="#phi.math.backend.Backend.cast">cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ceil" href="#phi.math.backend.Backend.ceil">ceil</a></code></li>
 <li><code><a title="phi.math.backend.Backend.clip" href="#phi.math.backend.Backend.clip">clip</a></code></li>

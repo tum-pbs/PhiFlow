@@ -39,7 +39,7 @@ class TorchBackend(Backend):
         return devices
 
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, torch.Tensor):
+        if isinstance(x, (torch.Tensor, JITFunction)):
             return True
         if only_native:
             return False
@@ -83,19 +83,7 @@ class TorchBackend(Backend):
         return torch.clone(tensor)
 
     def trace_function(self, f: callable) -> callable:
-        class JITFunction:
-
-            def __init__(self):
-                self.traced = None
-
-            def __call__(self, *args, **kwargs):
-                if kwargs:
-                    raise NotImplementedError("kwargs not supported for traced function")
-                if self.traced is None:
-                    self.traced = torch.jit.trace(f, example_inputs=args, check_trace=False)
-                return self.traced(*args)
-
-        return JITFunction()
+        return JITFunction(f)
 
     def custom_gradient(self, f: callable, gradient: callable = None) -> callable:
         class TorchFunction(torch.autograd.Function):
@@ -576,7 +564,6 @@ class TorchBackend(Backend):
         return value.detach()
 
 
-
 TORCH_BACKEND = TorchBackend()
 
 
@@ -586,6 +573,21 @@ def channels_first(x):
 
 def channels_last(x):
     return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))
+
+
+class JITFunction:
+
+    def __init__(self, f):
+        self.f = f
+        self.traced = None
+
+    def __call__(self, *args, **kwargs):
+        if kwargs:
+            raise NotImplementedError("kwargs not supported for traced function")
+        if self.traced is None:
+            self.traced = torch.jit.trace(self.f, example_inputs=args, check_trace=False)
+        from phi.math.backend import choose_backend
+        return choose_backend(self).call(self.traced, *args, name=f'jit')
 
 
 def to_torch_dtype(dtype: DType):
