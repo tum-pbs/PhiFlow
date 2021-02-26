@@ -16,7 +16,7 @@ class TestFieldMath(TestCase):
     def test_domain_grid_from_constant(self):
         domain = Domain(x=4, y=3)
         # int / float
-        grid = domain.grid(1)
+        grid = domain.scalar_grid(1)
         math.assert_close(grid.values, 1)
         # complex
         grid = domain.grid(1+1j)
@@ -55,3 +55,10 @@ class TestFieldMath(TestCase):
         self.assertEqual((10000,) * 4, grid.shape.sizes)
         sgrid = domain.staggered_grid()
         self.assertEqual((10000, 10000, 10000, 10000, 4), sgrid.shape.sizes)
+
+    def test_custom_spatial_dims(self):
+        domain = Domain(a=4, b=3)
+        grid = domain.scalar_grid(1)
+        self.assertEqual(math.shape(a=4, b=3), grid.shape)
+        grid = domain.staggered_grid(1)
+        self.assertEqual(math.shape(a=4, b=3, vector=2), grid.shape)

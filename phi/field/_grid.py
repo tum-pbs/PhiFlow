@@ -170,8 +170,9 @@ class StaggeredGrid(Grid):
 
     def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
         values = _validate_staggered_values(values)
-        x = values.vector['x']
-        resolution = x.shape.spatial.with_size('x', x.shape.get_size('x') - 1)
+        any_dim = values.shape.spatial.names[0]
+        x = values.vector[any_dim]
+        resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - 1)
         Grid.__init__(self, values, resolution, bounds, extrapolation)
 
     @staticmethod
