@@ -46,9 +46,9 @@ from ._boundaries import Domain, OPEN, SLIPPERY, STICKY, PERIODIC, Obstacle
 
 OPEN: dict = OPEN  # to show up in pdoc
 &#34;&#34;&#34; Open boundary conditions take the value 0 outside the valid region. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions &#34;&#34;&#34;
-CLOSED: dict = SLIPPERY
+CLOSED: dict = SLIPPERY  # to show up in pdoc
 &#34;&#34;&#34; Closed boundary conditions extrapolate the closest valid value. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions &#34;&#34;&#34;
-PERIODIC: dict = PERIODIC
+PERIODIC: dict = PERIODIC  # to show up in pdoc
 &#34;&#34;&#34; Periodic `Domain` boundary conditions. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions &#34;&#34;&#34;
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>

@@ -1082,6 +1082,42 @@ def trace_function(f: callable) -> callable:
     return wrapper
 
 
+def gradient_function(f: callable, wrt: tuple or list = (0,), get_output=False) -> callable:
+    """
+    *Not yet implemented.*
+
+    Creates a function which computes the gradient of `f`.
+
+    Example:
+
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    dx, = gradient_function(loss_function)(x, y)
+
+    loss, prediction, dx, dy = gradient_function(loss_function, wrt=(0, 1),
+                                                 get_output=True)(x, y)
+    ```
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+
+    Returns:
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
+
+    """
+    raise NotImplementedError()
+
+
 def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor, Tensor]:
     """
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.

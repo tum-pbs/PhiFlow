@@ -61,7 +61,7 @@ from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
     map_ as map,
-    trace_function,
+    trace_function, gradient_function,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
@@ -1328,6 +1328,78 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
         return (right - left) / dx
     else:
         raise ValueError(&#39;Invalid difference type: {}. Can be CENTRAL or FORWARD&#39;.format(difference))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.gradient_function"><code class="name flex">
+<span>def <span class="ident">gradient_function</span></span>(<span>f: <built-in function callable>, wrt: tuple = (0,), get_output=False) ‑> <built-in function callable></span>
+</code></dt>
+<dd>
+<div class="desc"><p><em>Not yet implemented.</em></p>
+<p>Creates a function which computes the gradient of <code>f</code>.</p>
+<p>Example:</p>
+<pre><code class="language-python">def loss_function(x, y):
+    prediction = f(x)
+    loss = math.l2_loss(prediction - y)
+    return loss, prediction
+
+dx, = gradient_function(loss_function)(x, y)
+
+loss, prediction, dx, dy = gradient_function(loss_function, wrt=(0, 1),
+                                             get_output=True)(x, y)
+</code></pre>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to be differentiated.
+<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
+It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
+All arguments for which the gradient is computed must be of dtype float or complex.</dd>
+<dt><strong><code>get_output</code></strong></dt>
+<dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
+<dt><strong><code>wrt</code></strong></dt>
+<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
+Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the first argument of <code>f</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gradient_function(f: callable, wrt: tuple or list = (0,), get_output=False) -&gt; callable:
+    &#34;&#34;&#34;
+    *Not yet implemented.*
+
+    Creates a function which computes the gradient of `f`.
+
+    Example:
+
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    dx, = gradient_function(loss_function)(x, y)
+
+    loss, prediction, dx, dy = gradient_function(loss_function, wrt=(0, 1),
+                                                 get_output=True)(x, y)
+    ```
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+
+    Returns:
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
+
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.gradients"><code class="name flex">
@@ -7671,6 +7743,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.frequency_loss" href="#phi.math.frequency_loss">frequency_loss</a></code></li>
 <li><code><a title="phi.math.get_precision" href="#phi.math.get_precision">get_precision</a></code></li>
 <li><code><a title="phi.math.gradient" href="#phi.math.gradient">gradient</a></code></li>
+<li><code><a title="phi.math.gradient_function" href="#phi.math.gradient_function">gradient_function</a></code></li>
 <li><code><a title="phi.math.gradients" href="#phi.math.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.grid_sample" href="#phi.math.grid_sample">grid_sample</a></code></li>
 <li><code><a title="phi.math.ifft" href="#phi.math.ifft">ifft</a></code></li>
