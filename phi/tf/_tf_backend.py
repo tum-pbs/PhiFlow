@@ -8,7 +8,7 @@ import scipy.optimize as sopt
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, SCIPY_BACKEND
+from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, NUMPY_BACKEND
 from ._tf_cuda_resample import resample_cuda, use_cuda
 from ..math import LinearSolve
 from ..math.backend._backend_helper import combined_dim
@@ -35,19 +35,19 @@ class TFBackend(Backend):
         if only_native:
             return tf.is_tensor(x)
         else:
-            return tf.is_tensor(x) or SCIPY_BACKEND.is_tensor(x, only_native=False)
+            return tf.is_tensor(x) or NUMPY_BACKEND.is_tensor(x, only_native=False)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = tf.convert_to_tensor(SCIPY_BACKEND.as_tensor(x))
+            tensor = tf.convert_to_tensor(NUMPY_BACKEND.as_tensor(x))
         else:
             tensor = tf.convert_to_tensor(x)
         # --- Enforce Precision ---
         if not isinstance(tensor, numbers.Number):
             if isinstance(tensor, np.ndarray):
-                tensor = SCIPY_BACKEND.as_tensor(tensor)
+                tensor = NUMPY_BACKEND.as_tensor(tensor)
             elif tensor.dtype.is_floating:
                 tensor = self.to_float(tensor)
         return tensor
@@ -61,7 +61,7 @@ class TFBackend(Backend):
     def numpy(self, tensor):
         if tf.is_tensor(tensor):
             return tensor.numpy()
-        return SCIPY_BACKEND.numpy(tensor)
+        return NUMPY_BACKEND.numpy(tensor)
 
     def copy(self, tensor, only_mutable=False):
         if not only_mutable or tf.executing_eagerly():
@@ -419,7 +419,7 @@ class TFBackend(Backend):
             dt = array.dtype.as_numpy_dtype
             return from_numpy_dtype(dt)
         else:
-            return SCIPY_BACKEND.dtype(array)
+            return NUMPY_BACKEND.dtype(array)
 
     def sparse_tensor(self, indices, values, shape):
         indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]

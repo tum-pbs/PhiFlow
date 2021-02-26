@@ -47,7 +47,7 @@ class TestMathFunctions(TestCase):
         math.assert_close(math.maximum(0, -v), 0)
 
     def test_grid_sample(self):
-        for backend in (math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
+        for backend in (math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
             with backend:
                 grid = math.sum(math.meshgrid(x=[1, 2, 3], y=[0, 3]), 'vector')  # 1 2 3 | 4 5 6
                 coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], names=('list', 'vector'))
@@ -125,7 +125,7 @@ class TestMathFunctions(TestCase):
         coords_ = coords.vector.flip()
         for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):
             sampled = []
-            for backend in (math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
+            for backend in (math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
                 with backend:
                     grid, coords, grid_, coords_ = math.tensors(grid, coords, grid_, coords_, convert=True)
                     sampled.append(math.grid_sample(grid, coords, extrap))
@@ -163,7 +163,7 @@ class TestMathFunctions(TestCase):
         sine_field = get_2d_sine((32, 32), L=2)
         fft_ref_tensor = math.tensor(np.fft.fft2(sine_field), 'x,y')
         with math.precision(64):
-            for backend in [math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
+            for backend in [math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
                 with backend:
                     sine_tensor = math.tensor(sine_field, 'x,y', convert=True)
                     fft_tensor = math.fft(sine_tensor)
@@ -173,7 +173,7 @@ class TestMathFunctions(TestCase):
         def f(x: math.Tensor, y: math.Tensor):
             return x + y
 
-        for backend in [math.SCIPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
+        for backend in [math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
             with backend:
                 ft = math.trace_function(f)
                 args1 = math.ones(x=2), math.ones(y=2)

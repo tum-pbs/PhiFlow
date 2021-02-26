@@ -11,7 +11,7 @@ import torch.fft
 import torch.nn.functional as torchf
 
 from phi.math import LinearSolve
-from phi.math.backend import Backend, DType, SCIPY_BACKEND, ComputeDevice
+from phi.math.backend import Backend, DType, NUMPY_BACKEND, ComputeDevice
 from phi.math.backend._backend_helper import combined_dim
 from phi.math.backend._optim import SolveResult
 
@@ -55,7 +55,7 @@ class TorchBackend(Backend):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = torch.from_numpy(SCIPY_BACKEND.as_tensor(x)).to(self.get_default_device().ref)
+            tensor = torch.from_numpy(NUMPY_BACKEND.as_tensor(x)).to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
             try:
                 tensor = torch.tensor(x, device=self.get_default_device().ref)
@@ -471,7 +471,7 @@ class TorchBackend(Backend):
         if self.is_tensor(array, only_native=True):
             return from_torch_dtype(array.dtype)
         else:
-            return SCIPY_BACKEND.dtype(array)
+            return NUMPY_BACKEND.dtype(array)
 
     def tile(self, value, multiples):
         if isinstance(multiples, np.ndarray):

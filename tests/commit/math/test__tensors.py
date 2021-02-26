@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy as np
 
 from phi import math
-from phi.math import shape, SCIPY_BACKEND
+from phi.math import shape, NUMPY_BACKEND
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack
 from phi.math._tensors import TensorStack, CollapsedTensor
 from phi.tf import TF_BACKEND
@@ -13,20 +13,20 @@ from phi.torch import TORCH_BACKEND
 class TestTensors(TestCase):
 
     def test_tensor_from_constant(self):
-        for backend in (SCIPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
+        for backend in (NUMPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
             with backend:
                 for const in (1, 1.5, True, 1+1j):
                     tens = math.tensor(const, convert=False)
-                    self.assertEqual(math.SCIPY_BACKEND, math.choose_backend(tens))
+                    self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                     math.assert_close(tens, const)
                     tens = math.tensor(const, convert=True)
                     self.assertEqual(backend, math.choose_backend(tens), f'{const} was not converted to the specified backend')
                     math.assert_close(tens, const)
 
     def test_tensor_from_native(self):
-        for creation_backend in (SCIPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
+        for creation_backend in (NUMPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
             native = creation_backend.ones((4,))
-            for backend in (SCIPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
+            for backend in (NUMPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
                 with backend:
                     tens = math.tensor(native, convert=False)
                     self.assertEqual(creation_backend, math.choose_backend(tens))
@@ -37,10 +37,10 @@ class TestTensors(TestCase):
 
     def test_tensor_from_tuple_of_numbers(self):
         data_tuple = (1, 2, 3)
-        for backend in (SCIPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
+        for backend in (NUMPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
             with backend:
                 tens = math.tensor(data_tuple, convert=False)
-                self.assertEqual(math.SCIPY_BACKEND, math.choose_backend(tens))
+                self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                 math.assert_close(tens, data_tuple)
                 tens = math.tensor(data_tuple, convert=True)
                 self.assertEqual(backend, math.choose_backend(tens))
@@ -48,10 +48,10 @@ class TestTensors(TestCase):
 
     def test_tensor_from_tuple_of_tensor_like(self):
         native = ((1, 2, 3), math.zeros(vector=3))
-        for backend in (SCIPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
+        for backend in (NUMPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
             with backend:
                 tens = math.tensor(native, names=['stack', 'vector'], convert=False)
-                self.assertEqual(math.SCIPY_BACKEND, math.choose_backend(tens))
+                self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                 self.assertEqual(shape(stack=2, vector=3), tens.shape)
                 tens = math.tensor(native, names=['stack', 'vector'], convert=True)
                 self.assertEqual(backend, math.choose_backend(tens))
@@ -59,10 +59,10 @@ class TestTensors(TestCase):
 
     def test_tensor_from_tensor(self):
         ref = math.batch_stack([math.zeros(x=5), math.zeros(x=4)], 'stack')
-        for backend in (SCIPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
+        for backend in (NUMPY_BACKEND, TORCH_BACKEND, TF_BACKEND):
             with backend:
                 tens = math.tensor(ref, convert=False)
-                self.assertEqual(math.SCIPY_BACKEND, math.choose_backend(tens))
+                self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                 self.assertEqual(2, tens.shape.get_size('stack'))
                 self.assertEqual(('stack', 'x'), tens.shape.names)
                 tens = math.tensor(ref, convert=True)

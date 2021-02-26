@@ -46,7 +46,7 @@ class Noise(AnalyticField):
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
         shape = (self._shape if shape is None else shape).combined(resolution)
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
-        with math.SCIPY_BACKEND:
+        with math.NUMPY_BACKEND:
             k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
             k = math.vec_squared(k)
         lowest_frequency = 0.1

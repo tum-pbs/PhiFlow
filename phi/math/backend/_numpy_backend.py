@@ -15,7 +15,7 @@ from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 from ._optim import Solve, LinearSolve, SolveResult
 
 
-class SciPyBackend(Backend):
+class NumPyBackend(Backend):
     """Core Python Backend using NumPy & SciPy"""
 
     def __init__(self):
@@ -25,7 +25,7 @@ class SciPyBackend(Backend):
             mem_bytes = -1
         processors = os.cpu_count()
         self.cpu = ComputeDevice(self, "CPU", 'CPU', mem_bytes, processors, "")
-        Backend.__init__(self, "SciPy", self.cpu)
+        Backend.__init__(self, "NumPy", self.cpu)
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         return [self.cpu]
@@ -464,4 +464,4 @@ def tensor_spatial_rank(field):
     return dims
 
 
-SCIPY_BACKEND = SciPyBackend()
+NUMPY_BACKEND = NumPyBackend()

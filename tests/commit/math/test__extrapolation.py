@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi.math import SCIPY_BACKEND
+from phi.math import NUMPY_BACKEND
 from phi.math.extrapolation import *
 from phi import math, tf
 from phi.tf import TF_BACKEND
@@ -68,7 +68,7 @@ class TestExtrapolationOperators(TestCase):
             pass
 
     def test_pad_tensor(self):
-        for backend in (SCIPY_BACKEND, TF_BACKEND, TORCH_BACKEND):
+        for backend in (NUMPY_BACKEND, TF_BACKEND, TORCH_BACKEND):
             with backend:
                 a = math.meshgrid(x=4, y=3)
                 # 0

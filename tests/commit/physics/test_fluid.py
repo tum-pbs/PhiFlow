@@ -39,12 +39,12 @@ class FluidTest(TestCase):
     # Backend-specific testing
 
     def test_make_incompressible_staggered_scipy(self):
-        with math.SCIPY_BACKEND:
+        with math.NUMPY_BACKEND:
             self._test_make_incompressible(StaggeredGrid)
             self._test_make_incompressible_batched(StaggeredGrid)
 
     def test_make_incompressible_centered_scipy(self):
-        with math.SCIPY_BACKEND:
+        with math.NUMPY_BACKEND:
             self._test_make_incompressible(CenteredGrid)
             self._test_make_incompressible_batched(CenteredGrid)
 
@@ -69,14 +69,14 @@ class FluidTest(TestCase):
             self._test_make_incompressible_batched(CenteredGrid)
 
     def test_make_incompressible_np_equal_tf(self):
-        with math.SCIPY_BACKEND:
+        with math.NUMPY_BACKEND:
             v_np = self._test_make_incompressible(StaggeredGrid)
         with TF_BACKEND:
             v_tf = self._test_make_incompressible(StaggeredGrid)
         math.assert_close(v_np, v_tf, abs_tolerance=1e-5)
 
     def test_make_incompressible_np_equal_torch(self):
-        with math.SCIPY_BACKEND:
+        with math.NUMPY_BACKEND:
             v_np = self._test_make_incompressible(StaggeredGrid)
         with TORCH_BACKEND:
             v_to = self._test_make_incompressible(StaggeredGrid)

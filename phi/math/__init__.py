@@ -13,7 +13,7 @@ This allows the user to write simulation code once and have it run with various 
 See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 """
 
-from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, SCIPY_BACKEND
+from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, NUMPY_BACKEND
 
 from .extrapolation import Extrapolation
 
@@ -65,7 +65,9 @@ PI = 3.14159265358979323846
 """Value of π to double precision """
 pi = PI
 
-SCIPY_BACKEND = SCIPY_BACKEND  # to show up in pdoc
+SCIPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
+""" Alias for `NUMPY_BACKEND` """
+NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
