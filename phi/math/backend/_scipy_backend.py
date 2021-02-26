@@ -19,7 +19,7 @@ class SciPyBackend(Backend):
     """Core Python Backend using NumPy & SciPy"""
 
     def __init__(self):
-        if sys.platform != "win32":
+        if sys.platform != "win32" and sys.platform != "darwin":
             mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
         else:
             mem_bytes = -1
