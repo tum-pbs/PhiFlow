@@ -108,7 +108,7 @@ class IncompressibleFlow(Physics):
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
-        if self.conserve_density and fluid.domain.boundaries.accessible_extrapolation == math.extrapolation.ZERO:  # solid boundary
+        if self.conserve_density and fluid.domain.boundaries['accessible_extrapolation'] == math.extrapolation.ZERO:  # solid boundary
             density = field.normalize(density, fluid.density)
         # --- Effects ---
         for effect in density_effects:

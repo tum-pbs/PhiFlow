@@ -30,10 +30,11 @@ def _create_boundary_conditions(obj: dict or tuple or list, spatial_dims: tuple)
     elif isinstance(obj, dict):
         return obj
     if isinstance(obj, (tuple, list)):
-        keys = obj[0].keys()
+        keys = obj[0].keys() if isinstance(obj[0], dict) else obj[0][0].keys()
         result = {}
         for key in keys:
-            dim_to_extrap = {dim: extrap[key] for dim, extrap in zip(spatial_dims, obj)}
+            dim_to_extrap = {dim: (extrap[0][key], extrap[1][key]) if isinstance(extrap, (tuple, list)) else extrap[key]
+                             for dim, extrap in zip(spatial_dims, obj)}
             result[key] = combine_sides(dim_to_extrap)
         return result
     else:

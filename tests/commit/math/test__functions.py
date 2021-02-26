@@ -130,7 +130,7 @@ class TestMathFunctions(TestCase):
                     grid, coords, grid_, coords_ = math.tensors(grid, coords, grid_, coords_, convert=True)
                     sampled.append(math.grid_sample(grid, coords, extrap))
                     sampled.append(math.grid_sample(grid_, coords_, extrap))
-            math.assert_close(*sampled)
+            math.assert_close(*sampled, abs_tolerance=1e-6)
 
     def test_closest_grid_values_1d(self):
         grid = math.tensor([0, 1, 2, 3], names='x')
