@@ -99,7 +99,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dl>
 <dt id="phi.physics.Domain"><code class="flex name class">
 <span>class <span class="ident">Domain</span></span>
-<span>(</span><span>resolution: phi.math._shape.Shape = (), boundaries: dict = {'scalar_extrapolation': 0, 'vector_extrapolation': 0, 'near_vector_extrapolation': boundary, 'active_extrapolation': 0, 'accessible_extrapolation': 1}, bounds: phi.geom._box.Box = None, **resolution_)</span>
+<span>(</span><span>resolution: phi.math._shape.Shape = (), boundaries: dict = {'scalar_extrapolation': (), failed to fetch values with error name 'jnp' is not defined, 'vector_extrapolation': (), failed to fetch values with error name 'jnp' is not defined, 'near_vector_extrapolation': boundary, 'active_extrapolation': (), failed to fetch values with error name 'jnp' is not defined, 'accessible_extrapolation': (), failed to fetch values with error name 'jnp' is not defined}, bounds: phi.geom._box.Box = None, **resolution_)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.</p>
@@ -874,7 +874,7 @@ The grid is created from the given <code>value</code> which must be one of the f
 </dd>
 <dt id="phi.physics.Obstacle"><code class="flex name class">
 <span>class <span class="ident">Obstacle</span></span>
-<span>(</span><span>geometry, material={'scalar_extrapolation': boundary, 'vector_extrapolation': boundary, 'near_vector_extrapolation': 0, 'active_extrapolation': 0, 'accessible_extrapolation': 0}, velocity=0, tags=('obstacle',), **kwargs)</span>
+<span>(</span><span>geometry, material={'scalar_extrapolation': boundary, 'vector_extrapolation': boundary, 'near_vector_extrapolation': (), failed to fetch values with error name 'jnp' is not defined, 'active_extrapolation': (), failed to fetch values with error name 'jnp' is not defined, 'accessible_extrapolation': (), failed to fetch values with error name 'jnp' is not defined}, velocity=0, tags=('obstacle',), **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>An obstacle defines boundary conditions inside a geometry.

@@ -1007,6 +1007,9 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
+    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
     def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
         raise NotImplementedError(self)
 
@@ -1795,6 +1798,19 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 </summary>
 <pre><code class="python">def get_default_device(self) -&gt; ComputeDevice:
     return self._default_device</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.gradient_function"><code class="name flex">
+<span>def <span class="ident">gradient_function</span></span>(<span>self, f, wrt: tuple, get_output: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.gradients"><code class="name flex">
@@ -3728,6 +3744,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather_nd" href="#phi.math.backend.Backend.gather_nd">gather_nd</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
+<li><code><a title="phi.math.backend.Backend.gradient_function" href="#phi.math.backend.Backend.gradient_function">gradient_function</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_than" href="#phi.math.backend.Backend.greater_than">greater_than</a></code></li>
