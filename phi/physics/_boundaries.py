@@ -47,22 +47,16 @@ OPEN = {
     'active_extrapolation': extrapolation.ZERO,
     'accessible_extrapolation': extrapolation.ONE,
 }
-"""
-Open boundary conditions take the value 0 outside the valid region. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions
-"""
 
-CLOSED = NO_STICK = SLIPPERY = {
+SLIPPERY = {
     'scalar_extrapolation': extrapolation.BOUNDARY,
     'vector_extrapolation': extrapolation.BOUNDARY,
     'near_vector_extrapolation': extrapolation.ZERO,
     'active_extrapolation': extrapolation.ZERO,
     'accessible_extrapolation': extrapolation.ZERO,
 }
-"""
-Closed boundary conditions extrapolate the closest valid value. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions
-"""
 
-NO_SLIP = STICKY = {
+STICKY = {
     'scalar_extrapolation': extrapolation.BOUNDARY,
     'vector_extrapolation': extrapolation.ZERO,
     'near_vector_extrapolation': extrapolation.ZERO,
@@ -77,9 +71,6 @@ PERIODIC = {
     'active_extrapolation': extrapolation.ONE,
     'accessible_extrapolation': extrapolation.ONE,
 }
-"""
-Periodic `Domain` boundary conditions. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions
-"""
 
 
 class Domain:
@@ -355,7 +346,7 @@ class Obstacle(State):
     It can also have a linear and angular velocity.
     """
 
-    def __init__(self, geometry, material=CLOSED, velocity=0, tags=('obstacle',), **kwargs):
+    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), **kwargs):
         State.__init__(self, **struct.kwargs(locals()))
 
     @struct.constant()
@@ -364,7 +355,7 @@ class Obstacle(State):
         assert isinstance(geometry, Geometry)
         return geometry
 
-    @struct.constant(default=CLOSED)
+    @struct.constant(default=SLIPPERY)
     def material(self, material):
         """ Boundary conditions to apply inside and on the surface of the obstacle. """
         assert isinstance(material, dict)
