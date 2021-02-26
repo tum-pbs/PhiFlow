@@ -2,6 +2,7 @@ import numbers
 import time
 import warnings
 from contextlib import contextmanager
+from functools import wraps
 from typing import Tuple, List
 
 import numpy as np
@@ -541,6 +542,23 @@ class TorchBackend(Backend):
 
         result = CGVariant.apply(y)
         return result
+
+    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+        @wraps(f)
+        def eval_grad(*args):
+            wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
+            for arg in wrt_args:
+                arg.requires_grad = True
+            output = f(*args)
+            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+            grads = torch.autograd.grad(loss, wrt_args)
+            if get_output:
+                loss = loss.detach()
+                aux = [aux_.detach() for aux_ in aux]
+                return (loss, *aux, *grads)
+            else:
+                return grads
+        return eval_grad
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         grad = torch.autograd.grad(y, xs, grad_y)

@@ -849,6 +849,10 @@ class CollapsedTensor(Tensor):  # package-private
         else:
             return self._inner._natives()
 
+    def _with_natives_replaced(self, natives: list):
+        assert self.is_cached, "Cannot replace natives in uncached state. Expand tensor beforehand."
+        return self._cached._with_natives_replaced(natives)
+
     def _expand(self):
         return self._cache()
 

@@ -1,4 +1,5 @@
 import numbers
+from functools import wraps
 from typing import List
 
 import numpy as np
@@ -84,6 +85,25 @@ class JaxBackend(Backend):
 
     def trace_function(self, f: callable) -> callable:
         return jax.jit(f)
+
+    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+        if get_output:
+            @wraps(f)
+            def aux_f(*args):
+                result = f(*args)
+                return (result[0], result[1:]) if isinstance(result, (tuple, list)) else (result[0], None)
+            jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
+            @wraps(f)
+            def unwrap_outputs(*args):
+                (loss, aux), grads = jax_grad_f(*args)
+                return (loss, *aux, *grads)
+            return unwrap_outputs
+        else:
+            @wraps(f)
+            def nonaux_f(*args):
+                result = f(*args)
+                return result[0] if isinstance(result, (tuple, list)) else result
+            return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
 
     def custom_gradient(self, f: callable, gradient: callable) -> callable:
         jax_fun = jax.custom_jvp(f)

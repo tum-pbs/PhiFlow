@@ -1084,8 +1084,6 @@ def trace_function(f: callable) -> callable:
 
 def gradient_function(f: callable, wrt: tuple or list = (0,), get_output=False) -> callable:
     """
-    *Not yet implemented.*
-
     Creates a function which computes the gradient of `f`.
 
     Example:
@@ -1113,9 +1111,58 @@ def gradient_function(f: callable, wrt: tuple or list = (0,), get_output=False) 
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
-
     """
-    raise NotImplementedError()
+    INPUT_TENSORS = []
+    OUTPUT_TENSORS = []
+    ARG_INDICES = []
+
+    def native_function(*natives):
+        natives = list(natives)
+        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
+        assert len(natives) == 0, "Not all arguments were converted"
+        result = f(*values)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        OUTPUT_TENSORS.clear()
+        OUTPUT_TENSORS.extend(results)
+        return sum([v._natives() for v in results], ())
+
+    backend = default_backend()
+
+    class GradientFunction:
+
+        def __init__(self):
+            self.gradf = None
+
+        def __call__(self, *args, **kwargs):
+            assert not len(kwargs)
+            shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
+            if self.gradf is None:
+                self.gradf = backend.gradient_function(native_function, shifted_wrt, get_output=get_output)
+            return self.gradf(*args)
+
+    grad_native = GradientFunction()
+
+    def wrapper(*values: Tensor):
+        INPUT_TENSORS.clear()
+        INPUT_TENSORS.extend(values)
+        ARG_INDICES.clear()
+        natives = []
+        for arg_index, v in enumerate(values):
+            v._expand()
+            n = v._natives()
+            natives.extend(n)
+            for _ in range(len(n)):
+                ARG_INDICES.append(arg_index)
+        results_native = list(grad_native(*natives))
+        proto_tensors = []
+        if get_output:
+            proto_tensors.extend(OUTPUT_TENSORS)
+        proto_tensors.extend([INPUT_TENSORS[i] for i in ARG_INDICES if i in wrt])
+        results = [t._with_natives_replaced(results_native) for t in proto_tensors]
+        assert len(results_native) == 0
+        return results
+
+    return wrapper
 
 
 def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor, Tensor]:

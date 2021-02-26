@@ -184,3 +184,26 @@ class TestMathFunctions(TestCase):
                 res2 = ft(*args2)
                 self.assertEqual(math.shape(x=3, y=3), res2.shape)
                 math.assert_close(res2, 2)
+
+    def test_gradient_function(self):
+        def f(x: math.Tensor, y: math.Tensor):
+            pred = x
+            loss = math.l2_loss(pred - y)
+            return loss, pred
+
+        for backend in [torch.TORCH_BACKEND, tf.TF_BACKEND]:
+            with backend:
+                x_data = math.tensor(2., convert=True)
+                y_data = math.tensor(1., convert=True)
+
+                dx, = math.gradient_function(f)(x_data, y_data)
+                math.assert_close(dx, 1)
+                dx, dy = math.gradient_function(f, [0, 1])(x_data, y_data)
+                math.assert_close(dx, 1)
+                math.assert_close(dy, -1)
+                loss, pred, dx, dy = math.gradient_function(f, [0, 1], get_output=True)(x_data, y_data)
+                math.assert_close(loss, 0.5)
+                math.assert_close(pred, x_data)
+                math.assert_close(dx, 1)
+                math.assert_close(dy, -1)
+

@@ -564,6 +564,9 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         raise NotImplementedError(self)
 

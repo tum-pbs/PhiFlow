@@ -1,6 +1,7 @@
 import numbers
 import uuid
 from contextlib import contextmanager
+from functools import wraps
 from typing import List, Tuple, Any
 
 import numpy as np
@@ -513,6 +514,22 @@ class TFBackend(Backend):
             return tf.sparse.add(a, b, threshold=1e-5)
         else:
             return Backend.add(self, a, b)
+
+    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+        @wraps(f)
+        def eval_grad(*args):
+            wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
+            with tf.GradientTape(watch_accessed_variables=False) as tape:
+                for arg in wrt_args:
+                    tape.watch(arg)
+                output = f(*args)
+            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+            grads = tape.gradient(loss, wrt_args)
+            if get_output:
+                return (loss, *aux, *grads)
+            else:
+                return grads
+        return eval_grad
 
     # def variable(self, value):  # not supported, variables must record gradients outside a context
     #     return tf.Variable(value, trainable=True)
