@@ -27,6 +27,8 @@ class JaxBackend(Backend):
             self.rnd_key = jax.random.PRNGKey(seed=0)
         except NameError:  # Jax not imported
             self.rnd_key = None
+        except RuntimeError:
+            self.rnd_key = None
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         jax_devices = jax.devices()

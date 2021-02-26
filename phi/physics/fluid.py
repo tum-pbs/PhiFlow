@@ -33,12 +33,12 @@ def make_incompressible(velocity: Grid,
 
     """
     input_velocity = velocity
-    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries.active_extrapolation)
-    accessible = domain.grid(active, extrapolation=domain.boundaries.accessible_extrapolation)
-    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries.accessible_extrapolation, type=type(velocity))
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries.near_vector_extrapolation)
+    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries['active_extrapolation'])
+    accessible = domain.grid(active, extrapolation=domain.boundaries['accessible_extrapolation'])
+    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries['accessible_extrapolation'], type=type(velocity))
+    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries['near_vector_extrapolation'])
     div = divergence(velocity)
-    if domain.boundaries.near_vector_extrapolation == math.extrapolation.BOUNDARY:
+    if domain.boundaries['near_vector_extrapolation'] == math.extrapolation.BOUNDARY:
         div -= field.mean(div)
 
     # Solve pressure
@@ -46,7 +46,7 @@ def make_incompressible(velocity: Grid,
     def laplace(p):
         grad = gradient(p, type(velocity))
         grad *= hard_bcs
-        grad = grad.with_(extrapolation=domain.boundaries.near_vector_extrapolation)
+        grad = grad.with_(extrapolation=domain.boundaries['near_vector_extrapolation'])
         div = divergence(grad)
         lap = where(active, div, p)
         return lap

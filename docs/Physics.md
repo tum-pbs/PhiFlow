@@ -4,21 +4,21 @@ The module `phi.physics` \[[source](../phi/physics)\] provides a library of comm
 It builds on the [field](./Fields.md), [geometry](./Geometry.md) and [math](./Math.md) modules and constitutes the highest-level API for physical simulations in Φ<sub>Flow</sub>.
 Similar to the field module, physics functions act on data structures represented by the `Field` class.
 
-## Domain and Material
-The `physics` module provides the classes `Domain` and `Material` \[[source](../phi/physics/_boundaries.py)\] which simplify defining grids and boundary conditions.
+## Domain
+The main class of the `physics` module is [`Domain`](phi/physics/#phi.physics.Domain) which provides
+convenience methods for creating fields such as grids.
 
 A `Domain` object defines physical properties of the space the simulation lives in and is required for some physics functions.
 Specifically, it defines:
 
 * `resolution: Shape`: grid resolution and axis order
-* `boundaries: Material`: boundary conditions for scalar fields, vector fields and accessibility fields.
+* `boundaries: dict`: boundary conditions for fields created through the domain, e.g. scalar fields, vector fields.
 * `bounds: Box` (optional): domain size in a chosen length unit, e.g. meters or millimeters. If not specified, uses cells of unit size.
 
 When creating a domain, the resolution can alternatively be passed keyword arguments listing the dimensions, e.g. `Domain(x=64, y=48)`.
 
 As described in the [fields documentation](./Fields.md), the boundary conditions of fields are implemented as `Extrapolation` objects.
-The `Material` class simply stores the extrapolations for various types of fields and makes them easier to work with.
-
+The domain `boundaries` is a dictionary containing default extrapolation methods for various types of fields.
 There are a number of predefined materials, most notably `OPEN` and `CLOSED`.
 To define domains with varying boundary conditions, simply pass a list of materials or material pairs matching the axis order.
 
@@ -45,6 +45,16 @@ DOMAIN = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 velocity = DOMAIN.staggered_grid(Noise())
 pressure = DOMAIN.scalar_grid(0)
 ```
+
+
+## Boundary Conditions
+The boundary conditions of a `Domain` and of obstacles are specified as a `dict` with the following entries.
+
+* scalar_extrapolation: Extrapolation mode of grids created via Domain.scalar_grid()
+* vector_extrapolation: Extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
+* near_vector_extrapolation: Used in pressure solve.
+* active_extrapolation: Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.
+* accessible_extrapolation: Whether quantities can move in and out of the domain. Used in pressure solve.
 
 
 ## Writing a Custom Simulation

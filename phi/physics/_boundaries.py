@@ -13,89 +13,78 @@ from ._physics import State
 from ..math.extrapolation import combine_sides
 
 
-class Material:
+def _create_boundary_conditions(obj: dict or tuple or list, spatial_dims: tuple) -> dict:
     """
-    Defines the extrapolation modes / boundary conditions for a surface.
-    The surface can be an Obstacle or a Domain boundary.
-    
-    Use Material.as_material() to mix different materials for different sides.
+    Construct mixed boundary conditions from from a sequence of boundary conditions.
+
+    Args:
+      obj: single boundary condition or sequence of boundary conditions
+
+    Returns:
+      Mixed boundary conditions as `dict`.
+
     """
-
-    def __init__(self, name: str, scalar_extrapolation, vector_extrapolation, near_vector_extrapolation, active_extrapolation, accessible_extrapolation):
-        """
-        Create a Material for a Domain or Obstacle.
-
-        Args:
-          name: material name
-          scalar_extrapolation: extrapolation mode of grids created via Domain.grid()
-          vector_extrapolation: extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid()
-          near_vector_extrapolation: Used in pressure solve.
-          active_extrapolation: Whether cells outside the domain bounds also belong to the domain. Used in pressure solve.
-          accessible_extrapolation: Whether quantities can move in and out of the domain. Used in pressure solve.
-        """
-        self.name = name
-        """ Material name """
-        self.scalar_extrapolation = scalar_extrapolation
-        """ Extrapolation mode of grids created via Domain.scalar_grid() """
-        self.vector_extrapolation = vector_extrapolation
-        """ Extrapolation mode of grids created via Domain.vector_grid() or Domain.staggered_grid() """
-        self.near_vector_extrapolation = near_vector_extrapolation
-        """ Used in pressure solve. """
-        self.active_extrapolation = active_extrapolation
-        """ Whether cells outside the domain bounds also belong to the domain. Used in pressure solve. """
-        self.accessible_extrapolation = accessible_extrapolation
-        """ Whether quantities can move in and out of the domain. Used in pressure solve. """
-
-    def __repr__(self):
-        return self.name
-
-    @staticmethod
-    def as_material(obj: 'Material' or tuple or list or dict) -> 'Material':
-        """
-        Construct a mixed material from from a sequence of materials.
-
-        Args:
-          obj: sequence of materials
-          obj: Material or tuple or list or dict: 
-
-        Returns:
-          : Single mixed Material
-
-        """
-        if isinstance(obj, Material):
-            return obj
-        if isinstance(obj, (tuple, list)):
-            dims = [math.GLOBAL_AXIS_ORDER.axis_name(i, len(obj)) for i in range(len(obj))]
-            obj = {dim: mat for dim, mat in zip(dims, obj)}
-        if isinstance(obj, dict):
-            grid_extrapolation = _mix(obj, 'scalar_extrapolation')
-            near_vector_extrapolation = _mix(obj, 'near_vector_extrapolation')
-            vector_extrapolation = _mix(obj, 'vector_extrapolation')
-            active_extrapolation = _mix(obj, 'active_extrapolation')
-            accessible_extrapolation = _mix(obj, 'accessible_extrapolation')
-            return Material('mixed', grid_extrapolation, near_vector_extrapolation, vector_extrapolation, active_extrapolation, accessible_extrapolation)
-        raise NotImplementedError()
+    if isinstance(obj, dict) and all(dim in obj for dim in spatial_dims):
+        spatial_dims = obj.keys()
+        obj = tuple(obj.values())
+    elif isinstance(obj, dict):
+        return obj
+    if isinstance(obj, (tuple, list)):
+        keys = obj[0].keys()
+        result = {}
+        for key in keys:
+            dim_to_extrap = {dim: extrap[key] for dim, extrap in zip(spatial_dims, obj)}
+            result[key] = combine_sides(dim_to_extrap)
+        return result
+    else:
+        raise ValueError(obj)
 
 
-def _mix(material_dict, ext_property: str):
-    extrapolations = {}
-    for dim, material in material_dict.items():
-        if isinstance(material, Material):
-            extrapolations[dim] = getattr(material, ext_property)
-        else:
-            extrapolations[dim] = (getattr(material[0], ext_property), getattr(material[1], ext_property))
-    return combine_sides(extrapolations)
+OPEN = {
+    'scalar_extrapolation': extrapolation.ZERO,
+    'vector_extrapolation': extrapolation.ZERO,
+    'near_vector_extrapolation': extrapolation.BOUNDARY,
+    'active_extrapolation': extrapolation.ZERO,
+    'accessible_extrapolation': extrapolation.ONE,
+}
+"""
+Open boundary conditions take the value 0 outside the valid region. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions
+"""
 
+CLOSED = NO_STICK = SLIPPERY = {
+    'scalar_extrapolation': extrapolation.BOUNDARY,
+    'vector_extrapolation': extrapolation.BOUNDARY,
+    'near_vector_extrapolation': extrapolation.ZERO,
+    'active_extrapolation': extrapolation.ZERO,
+    'accessible_extrapolation': extrapolation.ZERO,
+}
+"""
+Closed boundary conditions extrapolate the closest valid value. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions
+"""
 
-OPEN = Material('open', extrapolation.ZERO, extrapolation.ZERO, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ONE)
-CLOSED = NO_STICK = SLIPPERY = Material('slippery', extrapolation.BOUNDARY, extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO)
-NO_SLIP = STICKY = Material('sticky', extrapolation.BOUNDARY, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO, extrapolation.ZERO)
-PERIODIC = Material('periodic', extrapolation.PERIODIC, extrapolation.PERIODIC, extrapolation.PERIODIC, extrapolation.ONE, extrapolation.ONE)
+NO_SLIP = STICKY = {
+    'scalar_extrapolation': extrapolation.BOUNDARY,
+    'vector_extrapolation': extrapolation.ZERO,
+    'near_vector_extrapolation': extrapolation.ZERO,
+    'active_extrapolation': extrapolation.ZERO,
+    'accessible_extrapolation': extrapolation.ZERO,
+}
+
+PERIODIC = {
+    'scalar_extrapolation': extrapolation.PERIODIC,
+    'vector_extrapolation': extrapolation.PERIODIC,
+    'near_vector_extrapolation': extrapolation.PERIODIC,
+    'active_extrapolation': extrapolation.ONE,
+    'accessible_extrapolation': extrapolation.ONE,
+}
+"""
+Periodic `Domain` boundary conditions. See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions
+"""
 
 
 class Domain:
 
-    def __init__(self, resolution: math.Shape = math.EMPTY_SHAPE, boundaries: Material or tuple or list = OPEN, bounds: Box = None, **resolution_):
+    def __init__(self, resolution: math.Shape = math.EMPTY_SHAPE, boundaries: dict or tuple or list = OPEN, bounds: Box = None, **resolution_):
         """
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
@@ -105,45 +94,46 @@ class Domain:
 
         Args:
           resolution: grid dimensions as Shape or sequence of integers. Alternatively, dimensions can be specified directly as kwargs.
-          boundaries: specifies the extrapolation modes of grids created from this Domain as a Material instance.
+          boundaries: specifies the extrapolation modes of grids created from this Domain.
             Default materials include OPEN, CLOSED, PERIODIC.
-            To specify boundary conditions per face of the domain, pass a sequence of Materials or Material pairs (lower, upper)., e.g. [CLOSED, (CLOSED, OPEN)].
+            To specify boundary conditions per face of the domain, pass a sequence of boundaries or boundary pairs (lower, upper)., e.g. [CLOSED, (CLOSED, OPEN)].
+            See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions .
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
-        self.resolution = spatial_shape(resolution) & spatial_shape(resolution_)
+        self.resolution: math.Shape = spatial_shape(resolution) & spatial_shape(resolution_)
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
-        self.boundaries = Material.as_material(boundaries)
-        """ Outer boundary condition as `Material` object """
-        self.bounds = Box(0, math.tensor(self.resolution, names='vector')) if bounds is None else bounds
-        """ Physical dimensions of the domain as `Box` object """
+        self.boundaries: dict = _create_boundary_conditions(boundaries, self.resolution.names)
+        """ Outer boundary conditions. """
+        self.bounds: Box = Box(0, math.tensor(self.resolution, names='vector')) if bounds is None else bounds
+        """ Physical dimensions of the domain. """
 
     def __repr__(self):
         return '(%s, size=%s)' % (self.resolution, self.bounds.size)
 
     @property
-    def shape(self):
+    def shape(self) -> math.Shape:
         """ Alias for `Domain.resolution` """
         return self.resolution
 
     @property
-    def rank(self):
+    def rank(self) -> int:
         """Number of spatial dimensions of the simulation; spatial rank. 1 = 1D, 2 = 2D, 3 = 3D, etc."""
         return self.resolution.rank
 
     @property
-    def dx(self):
+    def dx(self) -> math.Tensor:
         """Size of a single grid cell (physical size divided by resolution) as `Tensor`"""
         return self.bounds.size / self.resolution
 
     @property
-    def cells(self):
+    def cells(self) -> GridCell:
         """
         Returns the geometry of all cells as a `Box` object.
         The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
         """
         return GridCell(self.resolution, self.bounds)
 
-    def center_points(self):
+    def center_points(self) -> math.Tensor:
         """
         Returns a Tensor enumerating the physical center locations of all cells within the Domain.
         This is equivalent to calling `domain.cells.center`.
@@ -153,7 +143,7 @@ class Domain:
         return self.cells.center
 
     def grid(self,
-             value: Field or Tensor or Number or Geometry or callable = 0,
+             value: Field or Tensor or Number or Geometry or callable = 0.,
              type: type = CenteredGrid,
              extrapolation: math.Extrapolation = None) -> CenteredGrid or StaggeredGrid:
         """
@@ -171,13 +161,13 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['scalar_extrapolation']
 
         Returns:
           Grid of specified type
         """
         warnings.warn("Domain.grid is deprecated. Use scalar_grid or vector_grid instead.", DeprecationWarning)
-        extrapolation = extrapolation or self.boundaries.scalar_extrapolation
+        extrapolation = extrapolation or self.boundaries['scalar_extrapolation']
         if type is CenteredGrid:
             return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         elif type is StaggeredGrid:
@@ -186,7 +176,7 @@ class Domain:
             raise ValueError('Unknown grid type: %s' % type)
 
     def scalar_grid(self,
-             value: Field or Tensor or Number or Geometry or callable = 0,
+             value: Field or Tensor or Number or Geometry or callable = 0.,
              extrapolation: math.Extrapolation = None) -> CenteredGrid:
         """
         Creates a scalar grid matching the resolution and bounds of the domain.
@@ -201,12 +191,12 @@ class Domain:
 
         Args:
           value: constant, Field, Tensor or function specifying the grid values
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['scalar_extrapolation']
 
         Returns:
           `CenteredGrid` with no channel dimensions
         """
-        extrapolation = extrapolation or self.boundaries.scalar_extrapolation
+        extrapolation = extrapolation or self.boundaries['scalar_extrapolation']
         if isinstance(value, Field):
             assert_same_rank(value.spatial_rank, self.rank, f"Cannot resample {value.spatial_rank}D field to {self.rank}D domain.")
         elif isinstance(value, Tensor):
@@ -220,7 +210,7 @@ class Domain:
         return result
 
     def vector_grid(self,
-                    value: Field or Tensor or Number or Geometry or callable = 0,
+                    value: Field or Tensor or Number or Geometry or callable = 0.,
                     type: type = CenteredGrid,
                     extrapolation: math.Extrapolation = None) -> CenteredGrid or StaggeredGrid:
         """
@@ -238,13 +228,13 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['vector_extrapolation']
 
         Returns:
           Grid of specified type
 
         """
-        extrapolation = extrapolation or self.boundaries.vector_extrapolation
+        extrapolation = extrapolation or self.boundaries['vector_extrapolation']
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
             if grid.shape.channel.rank == 0:
@@ -258,7 +248,7 @@ class Domain:
             raise ValueError('Unknown grid type: %s' % type)
 
     def staggered_grid(self,
-                       value: Field or Tensor or Number or Geometry or callable = 0,
+                       value: Field or Tensor or Number or Geometry or callable = 0.,
                        extrapolation: math.Extrapolation = None) -> StaggeredGrid:
         """
         Creates a staggered grid matching the resolution and bounds of the domain.
@@ -277,7 +267,7 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries.scalar_extrapolation
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['vector_extrapolation']
 
         Returns:
           Grid of specified type
@@ -294,13 +284,13 @@ class Domain:
 
         Returns:
             Binary mask indicating valid fields w.r.t. the boundary conditions.
+            The result is of type `type` and uses the extrapolation `Domain.boundaries['accessible_extrapolation']`.
         """
-        accessible = HardGeometryMask(~union(not_accessible)) >> self.grid()
-        accessible_mask = self.grid(accessible, extrapolation=self.boundaries.accessible_extrapolation)
+        accessible_mask = self.scalar_grid(HardGeometryMask(~union(not_accessible)), extrapolation=self.boundaries['accessible_extrapolation'])
         if type is CenteredGrid:
             return accessible_mask
         elif type is StaggeredGrid:
-            return field.stagger(accessible_mask, math.minimum, self.boundaries.accessible_extrapolation)
+            return field.stagger(accessible_mask, math.minimum, self.boundaries['accessible_extrapolation'])
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
@@ -334,7 +324,7 @@ class Domain:
             else:
                 points = math.tensor(points, 'points, vector')
         elements = Sphere(points, radius)
-        return PointCloud(elements, 1, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
+        return PointCloud(elements, math.ones(), extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
     def distribute_points(self,
                           geometries: tuple or list,
@@ -377,7 +367,7 @@ class Obstacle(State):
     @struct.constant(default=CLOSED)
     def material(self, material):
         """ Boundary conditions to apply inside and on the surface of the obstacle. """
-        assert isinstance(material, Material)
+        assert isinstance(material, dict)
         return material
 
     @struct.constant(default=0)
