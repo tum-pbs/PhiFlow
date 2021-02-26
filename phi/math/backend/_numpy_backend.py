@@ -70,13 +70,6 @@ class NumPyBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
 
-    def trace_function(self, f: callable) -> callable:
-        return f
-
-    def custom_gradient(self, f: callable, gradient: callable) -> callable:
-        warnings.warn("SciPy backend does not support gradients, custom gradient will be ignored.")
-        return f
-
     def transpose(self, tensor, axes):
         return np.transpose(tensor, axes)
 

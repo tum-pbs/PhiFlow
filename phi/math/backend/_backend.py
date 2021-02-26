@@ -196,7 +196,7 @@ class Backend:
         raise NotImplementedError()
 
     def trace_function(self, f: callable) -> callable:
-        raise NotImplementedError()
+        return NotImplemented
 
     def call(self, f: callable, *args, name=None):
         """
@@ -220,7 +220,7 @@ class Backend:
         Returns:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
         """
-        raise NotImplementedError()
+        return NotImplemented
 
     def transpose(self, tensor, axes):
         raise NotImplementedError()

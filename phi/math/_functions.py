@@ -1064,6 +1064,9 @@ def trace_function(f: callable) -> callable:
 
     backend = default_backend()
     traced = backend.trace_function(native_function)
+    if traced is NotImplemented:
+        warnings.warn(f"Backend '{backend}' does not support function tracing. Returning original function.")
+        return f
 
     def wrapper(*values: Tensor):
         INPUT_TENSORS.clear()
