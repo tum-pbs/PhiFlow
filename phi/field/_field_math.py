@@ -185,6 +185,11 @@ def _operate_on_values(field_function, *proto_fields):
 
 
 def trace_function(f: Callable):
+    """
+    Wrapper for `phi.math.trace_function()` where `f` is a function operating on fields instead of tensors.
+
+    Here, the arguments and output of `f` should be instances of `Field`.
+    """
     INPUT_FIELDS = []
     OUTPUT_FIELDS = []
 
@@ -207,6 +212,43 @@ def trace_function(f: Callable):
         result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
         result = [field.with_(values=t) for field, t in zip(OUTPUT_FIELDS, result_tensors)]
         return result[0] if len(result) == 1 else result
+
+    return wrapper
+
+
+def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
+    """
+    Wrapper for `phi.math.gradient_function()` where `f` is a function operating on fields instead of tensors.
+
+    Here, the arguments of `f` should be instances of `Field`.
+    `f` returns a scalar tensor and optionally auxiliary fields.
+    """
+    INPUT_FIELDS = []
+    OUTPUT_FIELDS = []
+
+    def tensor_function(*tensors):
+        fields = [field.with_(values=t) for field, t in zip(INPUT_FIELDS, tensors)]
+        result = f(*fields)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        assert isinstance(results[0], math.Tensor)
+        OUTPUT_FIELDS.clear()
+        OUTPUT_FIELDS.extend(results)
+        result_tensors = [r.values if isinstance(r, Field) else r for r in results]
+        return result_tensors
+
+    tensor_gradient = math.gradient_function(tensor_function, wrt=wrt, get_output=get_output)
+
+    def wrapper(*fields):
+        INPUT_FIELDS.clear()
+        INPUT_FIELDS.extend(fields)
+        tensors = [field.values for field in fields]
+        result_tensors = tuple(tensor_gradient(*tensors))
+        proto_fields = []
+        if get_output:
+            proto_fields.extend(OUTPUT_FIELDS)
+        proto_fields.extend([t for i, t in enumerate(INPUT_FIELDS) if i in wrt])
+        result = [field.with_(values=t) if isinstance(field, Field) else t for field, t in zip(proto_fields, result_tensors)]
+        return result
 
     return wrapper
 

@@ -546,6 +546,7 @@ class TorchBackend(Backend):
     def gradient_function(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
+            args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
             wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
             for arg in wrt_args:
                 arg.requires_grad = True

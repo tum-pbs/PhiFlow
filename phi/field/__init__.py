@@ -31,7 +31,7 @@ from ._field_math import (
     l2_loss,
     stop_gradient,
     extrapolate_valid,
-    trace_function,
+    trace_function, gradient_function,
 )
 from ._field_io import write, read
 from ._scene import Scene

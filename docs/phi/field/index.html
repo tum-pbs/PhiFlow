@@ -68,7 +68,7 @@ from ._field_math import (
     l2_loss,
     stop_gradient,
     extrapolate_valid,
-    trace_function,
+    trace_function, gradient_function,
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -311,6 +311,54 @@ The <code>field</code> must not have a dimension of the same name.</dd>
         assert stack_dim == &#39;vector&#39;
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
     raise NotImplementedError(f&#34;{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.gradient_function"><code class="name flex">
+<span>def <span class="ident">gradient_function</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Wrapper for <code><a title="phi.math.gradient_function" href="../math/index.html#phi.math.gradient_function">gradient_function()</a></code> where <code>f</code> is a function operating on fields instead of tensors.</p>
+<p>Here, the arguments of <code>f</code> should be instances of <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
+<code>f</code> returns a scalar tensor and optionally auxiliary fields.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -&gt; Callable:
+    &#34;&#34;&#34;
+    Wrapper for `phi.math.gradient_function()` where `f` is a function operating on fields instead of tensors.
+
+    Here, the arguments of `f` should be instances of `Field`.
+    `f` returns a scalar tensor and optionally auxiliary fields.
+    &#34;&#34;&#34;
+    INPUT_FIELDS = []
+    OUTPUT_FIELDS = []
+
+    def tensor_function(*tensors):
+        fields = [field.with_(values=t) for field, t in zip(INPUT_FIELDS, tensors)]
+        result = f(*fields)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        assert isinstance(results[0], math.Tensor)
+        OUTPUT_FIELDS.clear()
+        OUTPUT_FIELDS.extend(results)
+        result_tensors = [r.values if isinstance(r, Field) else r for r in results]
+        return result_tensors
+
+    tensor_gradient = math.gradient_function(tensor_function, wrt=wrt, get_output=get_output)
+
+    def wrapper(*fields):
+        INPUT_FIELDS.clear()
+        INPUT_FIELDS.extend(fields)
+        tensors = [field.values for field in fields]
+        result_tensors = tuple(tensor_gradient(*tensors))
+        proto_fields = []
+        if get_output:
+            proto_fields.extend(OUTPUT_FIELDS)
+        proto_fields.extend([t for i, t in enumerate(INPUT_FIELDS) if i in wrt])
+        result = [field.with_(values=t) if isinstance(field, Field) else t for field, t in zip(proto_fields, result_tensors)]
+        return result
+
+    return wrapper</code></pre>
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
@@ -659,12 +707,18 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <span>def <span class="ident">trace_function</span></span>(<span>f: Callable)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Wrapper for <code><a title="phi.math.trace_function" href="../math/index.html#phi.math.trace_function">trace_function()</a></code> where <code>f</code> is a function operating on fields instead of tensors.</p>
+<p>Here, the arguments and output of <code>f</code> should be instances of <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def trace_function(f: Callable):
+    &#34;&#34;&#34;
+    Wrapper for `phi.math.trace_function()` where `f` is a function operating on fields instead of tensors.
+
+    Here, the arguments and output of `f` should be instances of `Field`.
+    &#34;&#34;&#34;
     INPUT_FIELDS = []
     OUTPUT_FIELDS = []
 
@@ -4772,6 +4826,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
 <li><code><a title="phi.field.extrapolate_valid" href="#phi.field.extrapolate_valid">extrapolate_valid</a></code></li>
 <li><code><a title="phi.field.gradient" href="#phi.field.gradient">gradient</a></code></li>
+<li><code><a title="phi.field.gradient_function" href="#phi.field.gradient_function">gradient_function</a></code></li>
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>

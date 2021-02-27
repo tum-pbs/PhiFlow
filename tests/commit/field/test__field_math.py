@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi import math
+from phi import math, torch
 from phi.field import StaggeredGrid, CenteredGrid
 from phi.geom import Box
 from phi import field
@@ -33,3 +33,21 @@ class TestFieldMath(TestCase):
         res_ft = ft(x, y)
         self.assertEqual(res_f.shape, res_ft.shape)
         field.assert_close(res_f, res_ft)
+
+    def test_gradient_function(self):
+        def f(x: StaggeredGrid, y: CenteredGrid):
+            pred = x + (y >> x)
+            loss = field.l2_loss(pred)
+            return loss
+
+        domain = Domain(x=4, y=3)
+        x = domain.staggered_grid(1)
+        y = domain.vector_grid(1)
+
+        with torch.TORCH_BACKEND:
+            dx, = field.gradient_function(f)(x, y)
+            self.assertIsInstance(dx, StaggeredGrid)
+            loss, dx, dy = field.gradient_function(f, (0, 1), get_output=True)(x, y)
+            self.assertIsInstance(loss, math.Tensor)
+            self.assertIsInstance(dx, StaggeredGrid)
+            self.assertIsInstance(dy, CenteredGrid)

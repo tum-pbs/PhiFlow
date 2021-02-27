@@ -445,6 +445,9 @@ class TensorDim:
         """ Dimension name. """
         return self.name
 
+    def __repr__(self):
+        return f"Dimension '{self.name}' of {self.tensor.shape}"
+
     def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -> tuple:
         """
         See `unstack_spatial()`.

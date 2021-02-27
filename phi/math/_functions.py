@@ -1121,6 +1121,7 @@ def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) 
         assert len(natives) == 0, "Not all arguments were converted"
         result = f(*values)
         results = [result] if not isinstance(result, (tuple, list)) else result
+        assert all(isinstance(t, Tensor) for t in results), f"Function output must be Tensor or sequence of tensors but got {result}."
         OUTPUT_TENSORS.clear()
         OUTPUT_TENSORS.extend(results)
         return sum([v._natives() for v in results], ())
@@ -1142,6 +1143,7 @@ def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) 
     grad_native = GradientFunction()
 
     def wrapper(*values: Tensor):
+        assert all(isinstance(v, Tensor) for v in values)
         INPUT_TENSORS.clear()
         INPUT_TENSORS.extend(values)
         ARG_INDICES.clear()
@@ -1156,7 +1158,7 @@ def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) 
         proto_tensors = []
         if get_output:
             proto_tensors.extend(OUTPUT_TENSORS)
-        proto_tensors.extend([INPUT_TENSORS[i] for i in ARG_INDICES if i in wrt])
+        proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
         results = [t._with_natives_replaced(results_native) for t in proto_tensors]
         assert len(results_native) == 0
         return results
