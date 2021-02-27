@@ -564,7 +564,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.stagger"><code class="name flex">
-<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._grid.CenteredGrid, face_function: <built-in function callable>, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, type: type = phi.field._grid.StaggeredGrid)</span>
+<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._grid.CenteredGrid, face_function: Callable, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, type: type = phi.field._grid.StaggeredGrid)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a new grid by evaluating <code>face_function</code> given two neighbouring cells.
@@ -585,7 +585,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <dt><strong><code>field</code></strong></dt>
 <dd>CenteredGrid: </dd>
 <dt><strong><code>face_function</code></strong></dt>
-<dd>callable: </dd>
+<dd>Callable:</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>math.extrapolation.Extrapolation: </dd>
 <dt><strong><code>type</code></strong></dt>
@@ -598,7 +598,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.extrapolation.Extrapolation, type: type = StaggeredGrid):
+<pre><code class="python">def stagger(field: CenteredGrid, face_function: Callable, extrapolation: math.extrapolation.Extrapolation, type: type = StaggeredGrid):
     &#34;&#34;&#34;
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
     One layer of missing cells is inferred from the extrapolation.
@@ -613,7 +613,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
       extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
       type: one of (StaggeredGrid, CenteredGrid)
       field: CenteredGrid: 
-      face_function: callable: 
+      face_function: Callable:
       extrapolation: math.extrapolation.Extrapolation: 
       type: type:  (Default value = StaggeredGrid)
 
@@ -656,7 +656,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 </details>
 </dd>
 <dt id="phi.field.trace_function"><code class="name flex">
-<span>def <span class="ident">trace_function</span></span>(<span>f: <built-in function callable>)</span>
+<span>def <span class="ident">trace_function</span></span>(<span>f: Callable)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -664,7 +664,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def trace_function(f: callable):
+<pre><code class="python">def trace_function(f: Callable):
     INPUT_FIELDS = []
     OUTPUT_FIELDS = []
 
@@ -883,7 +883,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.AngularVelocity"><code class="flex name class">
 <span>class <span class="ident">AngularVelocity</span></span>
-<span>(</span><span>location, strength=1.0, falloff: <built-in function callable> = None)</span>
+<span>(</span><span>location, strength=1.0, falloff: collections.abc.Callable = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -901,7 +901,7 @@ The dimension can be batch, spatial or channel.</p>
 </summary>
 <pre><code class="python">class AngularVelocity(AnalyticField):
 
-    def __init__(self, location, strength=1.0, falloff: callable = None):
+    def __init__(self, location, strength=1.0, falloff: Callable = None):
         location = math.wrap(location)
         assert location.shape.channel.names == (&#39;vector&#39;,), &#34;location must have a single channel dimension called &#39;vector&#39;&#34;
         assert location.shape.spatial.is_empty, &#34;location tensor cannot have any spatial dimensions&#34;

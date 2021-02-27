@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import TypeVar, Tuple
+from typing import TypeVar, Tuple, Callable
 
 from phi import math
 from phi import geom
@@ -60,7 +60,7 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
 
 
-def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.extrapolation.Extrapolation, type: type = StaggeredGrid):
+def stagger(field: CenteredGrid, face_function: Callable, extrapolation: math.extrapolation.Extrapolation, type: type = StaggeredGrid):
     """
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
     One layer of missing cells is inferred from the extrapolation.
@@ -75,7 +75,7 @@ def stagger(field: CenteredGrid, face_function: callable, extrapolation: math.ex
       extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
       type: one of (StaggeredGrid, CenteredGrid)
       field: CenteredGrid: 
-      face_function: callable: 
+      face_function: Callable:
       extrapolation: math.extrapolation.Extrapolation: 
       type: type:  (Default value = StaggeredGrid)
 
@@ -184,7 +184,7 @@ def _operate_on_values(field_function, *proto_fields):
     return wrapper
 
 
-def trace_function(f: callable):
+def trace_function(f: Callable):
     INPUT_FIELDS = []
     OUTPUT_FIELDS = []
 

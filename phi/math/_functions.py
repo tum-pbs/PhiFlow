@@ -4,7 +4,7 @@ import time
 import warnings
 from contextlib import contextmanager
 from numbers import Number
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
@@ -411,7 +411,7 @@ def join_spaces(*tensors):
     return [CollapsedTensor(t, t.shape.non_spatial & spatial) for t in tensors]
 
 
-def broadcast_op(operation: callable,
+def broadcast_op(operation: Callable,
                  tensors: tuple or list,
                  iter_dims: set or tuple or list = None,
                  no_return=False):
@@ -574,9 +574,9 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
 
 def _reduce(value: Tensor or list or tuple,
             dim: str or tuple or list or Shape or None,
-            native_function: callable,
-            collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-            unaffected_function: callable = lambda value: value) -> Tensor:
+            native_function: Callable,
+            collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+            unaffected_function: Callable = lambda value: value) -> Tensor:
     """
 
     Args:
@@ -1034,7 +1034,7 @@ def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float):
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
-def trace_function(f: callable) -> callable:
+def trace_function(f: Callable) -> Callable:
     """
     Compiles a graph based on the function `f`.
     This action might be performed immediately or when the traced function is called for the first time (JIT).
@@ -1081,7 +1081,7 @@ def trace_function(f: callable) -> callable:
     return wrapper
 
 
-def gradient_function(f: callable, wrt: tuple or list = (0,), get_output=False) -> callable:
+def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
     """
     Creates a function which computes the gradient of `f`.
 

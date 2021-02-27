@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Callable
 
 import numpy
 
@@ -195,10 +195,10 @@ class Backend:
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
-    def trace_function(self, f: callable) -> callable:
+    def trace_function(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def call(self, f: callable, *args, name=None):
+    def call(self, f: Callable, *args, name=None):
         """
         Calls `f(*args)` and returns the result.
         This method may be used to register internal calls with the profiler.
@@ -209,7 +209,7 @@ class Backend:
         """
         return f(*args)
 
-    def custom_gradient(self, f: callable, gradient: callable) -> callable:
+    def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         """
         Creates a function based on `f` that uses a custom gradient for backprop.
 

@@ -1,6 +1,6 @@
 import numbers
 import warnings
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
@@ -386,7 +386,7 @@ class Tensor:
         """
         raise NotImplementedError(self.__class__)
 
-    def _op2(self, other: 'Tensor', operator: callable, native_function: callable) -> 'Tensor':
+    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable) -> 'Tensor':
         """
         Apply a broadcast operation on two tensors.
 
@@ -395,8 +395,8 @@ class Tensor:
           operator: function (Tensor, Tensor) -> Tensor, used to propagate the operation to children tensors to have Python choose the callee
           native_function: function (native tensor, native tensor) -> native tensor
           other: 'Tensor': 
-          operator: callable: 
-          native_function: callable: 
+          operator: Callable:
+          native_function: Callable:
 
         Returns:
 
@@ -412,9 +412,9 @@ class Tensor:
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         raise NotImplementedError(self.__class__)
 
     def __simplify__(self):
@@ -696,9 +696,9 @@ class NativeTensor(Tensor):
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         backend = choose_backend(self._native)
@@ -858,9 +858,9 @@ class CollapsedTensor(Tensor):  # package-private
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         if self.is_cached:
             return self._cached.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
         if all(dim not in self._shape for dim in dims):
@@ -1009,9 +1009,9 @@ class TensorStack(Tensor):
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         # --- inner reduce ---
@@ -1156,7 +1156,7 @@ def broadcastable_native_tensors(*tensors):
     return broadcast_shape, natives
 
 
-def op2_native(x: Tensor, y: Tensor, native_function: callable):
+def op2_native(x: Tensor, y: Tensor, native_function: Callable):
     new_shape, (native1, native2) = broadcastable_native_tensors(x, y)
     result_tensor = native_function(native1, native2)
     return NativeTensor(result_tensor, new_shape)

@@ -1,6 +1,6 @@
 import numbers
 from functools import wraps
-from typing import List
+from typing import List, Callable
 
 import numpy as np
 
@@ -83,7 +83,7 @@ class JaxBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
 
-    def trace_function(self, f: callable) -> callable:
+    def trace_function(self, f: Callable) -> Callable:
         return jax.jit(f)
 
     def gradient_function(self, f, wrt: tuple or list, get_output: bool):
@@ -105,7 +105,7 @@ class JaxBackend(Backend):
                 return result[0] if isinstance(result, (tuple, list)) else result
             return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
 
-    def custom_gradient(self, f: callable, gradient: callable) -> callable:
+    def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         jax_fun = jax.custom_jvp(f)
         @jax_fun.defjvp
         def jax_grad(primals, tangents):

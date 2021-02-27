@@ -1331,7 +1331,7 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
 </details>
 </dd>
 <dt id="phi.math.gradient_function"><code class="name flex">
-<span>def <span class="ident">gradient_function</span></span>(<span>f: <built-in function callable>, wrt: tuple = (0,), get_output=False) ‑> <built-in function callable></span>
+<span>def <span class="ident">gradient_function</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
@@ -1365,7 +1365,7 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gradient_function(f: callable, wrt: tuple or list = (0,), get_output=False) -&gt; callable:
+<pre><code class="python">def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the gradient of `f`.
 
@@ -3348,7 +3348,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.trace_function"><code class="name flex">
-<span>def <span class="ident">trace_function</span></span>(<span>f: <built-in function callable>) ‑> <built-in function callable></span>
+<span>def <span class="ident">trace_function</span></span>(<span>f: Callable) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compiles a graph based on the function <code>f</code>.
@@ -3366,7 +3366,7 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def trace_function(f: callable) -&gt; callable:
+<pre><code class="python">def trace_function(f: Callable) -&gt; Callable:
     &#34;&#34;&#34;
     Compiles a graph based on the function `f`.
     This action might be performed immediately or when the traced function is called for the first time (JIT).
@@ -6965,7 +6965,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def _op2(self, other: &#39;Tensor&#39;, operator: callable, native_function: callable) -&gt; &#39;Tensor&#39;:
+    def _op2(self, other: &#39;Tensor&#39;, operator: Callable, native_function: Callable) -&gt; &#39;Tensor&#39;:
         &#34;&#34;&#34;
         Apply a broadcast operation on two tensors.
 
@@ -6974,8 +6974,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
           operator: function (Tensor, Tensor) -&gt; Tensor, used to propagate the operation to children tensors to have Python choose the callee
           native_function: function (native tensor, native tensor) -&gt; native tensor
           other: &#39;Tensor&#39;: 
-          operator: callable: 
-          native_function: callable: 
+          operator: Callable:
+          native_function: Callable:
 
         Returns:
 
@@ -6991,9 +6991,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         raise NotImplementedError(self.__class__)
 
     def __simplify__(self):

@@ -304,7 +304,7 @@ def profile(backends=None, trace=True, subtract_trace_time=True, save: str or No
 </details>
 </dd>
 <dt id="phi.math.backend.profile_function"><code class="name flex">
-<span>def <span class="ident">profile_function</span></span>(<span>fun: <built-in function callable>, args: tuple = (), kwargs: dict = None, backends=None, trace=True, subtract_trace_time=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
+<span>def <span class="ident">profile_function</span></span>(<span>fun: Callable, args: tuple = (), kwargs: dict = None, backends=None, trace=True, subtract_trace_time=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for the function <code>fun(*args, **kwargs)</code>.</p>
@@ -338,7 +338,7 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def profile_function(fun: callable,
+<pre><code class="python">def profile_function(fun: Callable,
                      args: tuple or list = (),
                      kwargs: dict or None = None,
                      backends=None,
@@ -638,10 +638,10 @@ The output of math operations has the same precision as its inputs.</p>
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
-    def trace_function(self, f: callable) -&gt; callable:
+    def trace_function(self, f: Callable) -&gt; Callable:
         return NotImplemented
 
-    def call(self, f: callable, *args, name=None):
+    def call(self, f: Callable, *args, name=None):
         &#34;&#34;&#34;
         Calls `f(*args)` and returns the result.
         This method may be used to register internal calls with the profiler.
@@ -652,7 +652,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         return f(*args)
 
-    def custom_gradient(self, f: callable, gradient: callable) -&gt; callable:
+    def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
         &#34;&#34;&#34;
         Creates a function based on `f` that uses a custom gradient for backprop.
 
@@ -1322,7 +1322,7 @@ Backends can override this method to prevent unnecessary casting.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.call"><code class="name flex">
-<span>def <span class="ident">call</span></span>(<span>self, f: <built-in function callable>, *args, name=None)</span>
+<span>def <span class="ident">call</span></span>(<span>self, f: Callable, *args, name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calls <code>f(*args)</code> and returns the result.
@@ -1333,7 +1333,7 @@ This method may be used to register internal calls with the profiler.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def call(self, f: callable, *args, name=None):
+<pre><code class="python">def call(self, f: Callable, *args, name=None):
     &#34;&#34;&#34;
     Calls `f(*args)` and returns the result.
     This method may be used to register internal calls with the profiler.
@@ -1538,7 +1538,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.custom_gradient"><code class="name flex">
-<span>def <span class="ident">custom_gradient</span></span>(<span>self, f: <built-in function callable>, gradient: <built-in function callable>) ‑> <built-in function callable></span>
+<span>def <span class="ident">custom_gradient</span></span>(<span>self, f: Callable, gradient: Callable) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for backprop.</p>
@@ -1555,7 +1555,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def custom_gradient(self, f: callable, gradient: callable) -&gt; callable:
+<pre><code class="python">def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function based on `f` that uses a custom gradient for backprop.
 
@@ -2840,7 +2840,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.trace_function"><code class="name flex">
-<span>def <span class="ident">trace_function</span></span>(<span>self, f: <built-in function callable>) ‑> <built-in function callable></span>
+<span>def <span class="ident">trace_function</span></span>(<span>self, f: Callable) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2848,7 +2848,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def trace_function(self, f: callable) -&gt; callable:
+<pre><code class="python">def trace_function(self, f: Callable) -&gt; Callable:
     return NotImplemented</code></pre>
 </details>
 </dd>

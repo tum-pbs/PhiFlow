@@ -3,7 +3,7 @@ import time
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import Tuple, List
+from typing import Tuple, List, Callable
 
 import numpy as np
 
@@ -83,10 +83,10 @@ class TorchBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
 
-    def trace_function(self, f: callable) -> callable:
+    def trace_function(self, f: Callable) -> Callable:
         return JITFunction(f)
 
-    def custom_gradient(self, f: callable, gradient: callable = None) -> callable:
+    def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         class TorchFunction(torch.autograd.Function):
 
             @staticmethod

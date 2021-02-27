@@ -2,7 +2,7 @@ import numbers
 import uuid
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Callable
 
 import numpy as np
 import scipy.optimize as sopt
@@ -70,10 +70,10 @@ class TFBackend(Backend):
         else:
             return tensor
 
-    def trace_function(self, f: callable) -> callable:
+    def trace_function(self, f: Callable) -> Callable:
         return tf.function(f)
 
-    def custom_gradient(self, f: callable, gradient: callable = None) -> callable:
+    def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         @tf.custom_gradient
         def tf_function(*args, **kwargs):
             def grad(*grad_args):
