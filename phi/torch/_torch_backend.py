@@ -379,22 +379,15 @@ class TorchBackend(Backend):
         # return torch.gather(values, dim=0, index=indices)
         raise NotImplementedError()
 
-    def gather_nd(self, values, indices, batch_dims=0):
+    def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
         indices = self.as_tensor(indices).long()
-        if batch_dims == 0:
-            dim_indices = self.unstack(indices, axis=-1)
-            result = values[list(dim_indices)]
-        elif batch_dims == 1:
-            batch_size = combined_dim(values.shape[0], indices.shape[0])
-            result = []
-            for i in range(batch_size):
-                dim_indices = self.unstack(indices[i], axis=-1)
-                result.append(values[[i] + list(dim_indices)])
-            result = self.stack(result, axis=0)
-        else:
-            raise NotImplementedError("Only batch_dims <= 1 are supported.")
-        return result
+        batch_size = combined_dim(values.shape[0], indices.shape[0])
+        result = []
+        for b in range(batch_size):
+            b_indices = self.unstack(indices[min(b, indices.shape[0] - 1)], -1)
+            result.append(values[(min(b, values.shape[0] - 1),) + b_indices])
+        return self.stack(result, axis=0)
 
     def unstack(self, tensor, axis=0, keepdims=False):
         unstacked = torch.unbind(tensor, dim=axis)

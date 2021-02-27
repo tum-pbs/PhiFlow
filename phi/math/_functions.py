@@ -331,7 +331,7 @@ def _closest_grid_values(grid: Tensor,
                         coordinates: Tensor,
                         extrap: 'extrapolation.Extrapolation',
                         stack_dim_prefix='closest_'):
-    # alternative method: pad array for all 2^d combinations, then stack to simplify gather_nd.
+    # alternative method: pad array for all 2^d combinations, then stack to simplify gather.
     # --- Pad tensor where transform is not possible ---
     non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
                     for dim in grid.shape.spatial.names}
@@ -480,7 +480,10 @@ def split_dimension(dim: TensorDim, split_dims: Shape):
         return NativeTensor(native_reshaped, new_shape)
 
 
-def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
+def join_dimensions(value: Tensor,
+                    dims: Shape or tuple or list,
+                    joined_dim_name: str,
+                    pos: int or None = None):
     """
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -496,18 +499,20 @@ def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name
         value: Tensor containing the dimensions `dims`.
         dims: Dimensions to be compressed in the specified order.
         joined_dim_name: Name of the new dimension.
+        pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
 
     Returns:
         `Tensor` with compressed shape.
     """
     if len(dims) == 0:
-        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name)))
+        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
     order = value.shape.order_group(dims)
     native = value.native(order)
     types = value.shape.get_type(dims)
     dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
-    first_dim_index = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos=first_dim_index)
+    if pos is None:
+        pos = min(value.shape.indices(dims))
+    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
@@ -829,36 +834,38 @@ def boolean_mask(x: Tensor, mask):
     raise NotImplementedError()
 
 
-def gather(value: Tensor, indices: Tensor):
-    v_ = value.native()
-    i_ = indices.native()
-    backend = choose_backend(v_, i_)
-    if value.shape.channel_rank == 0:
-        v_ = backend.expand_dims(v_, -1)
-    result = backend.gather_nd(v_, i_, batch_dims=value.shape.batch_rank)
-    if value.shape.channel_rank == 0:
-        result = result[..., 0]
-    new_shape = value.shape.non_spatial & indices.shape.non_channel
-    return NativeTensor(result, new_shape)
+def gather(values: Tensor, indices: Tensor):
+    b_values = join_dimensions(values, values.shape.batch, 'batch')
+    b_values = join_dimensions(b_values, b_values.shape.channel, 'channel', pos=-1)
+    b_indices = join_dimensions(indices, indices.shape.batch, 'batch')
+    native_values = b_values.native()
+    native_indices = b_indices.native()
+    native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
+    b_result = tensor(native_result, ('batch', *indices.shape.spatial.names, 'channel'))
+    result = split_dimension(b_result.channel, values.shape.channel)
+    result = split_dimension(result.batch, values.shape.batch & indices.shape.batch)
+    return result
 
 
-def scatter(indices: Tensor, values: Tensor, size: Shape, scatter_dims, duplicates_handling='undefined', outside_handling='discard'):
+def scatter(indices: Tensor,
+            values: Tensor,
+            size: Shape,
+            scatter_dims: str or tuple or list or 'Shape',
+            duplicates_handling: str = 'undefined',
+            outside_handling: str = 'discard'):
     """
     Create a dense tensor from sparse values.
 
     Args:
-      indices: n-dimensional indices corresponding to values
-      values: values to scatter at indices
-      size: spatial size of dense tensor
-      scatter_dims: dimensions of values/indices to reduce during scattering
-      duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
-      outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'discard')
-      indices: Tensor: 
-      values: Tensor: 
-      size: Shape: 
+        indices: n-dimensional indices corresponding to values
+        values: values to scatter at indices
+        size: spatial size of dense tensor
+        scatter_dims: dimensions of values/indices to reduce during scattering
+        duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
+        outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'discard')
 
     Returns:
-
+        Tensor of shape `size` and dtype matching `values`.
     """
     indices_ = indices.native()
     values_ = values.native(values.shape.combined(indices.shape.non_channel).names)

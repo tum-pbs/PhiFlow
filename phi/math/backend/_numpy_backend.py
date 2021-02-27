@@ -287,31 +287,14 @@ class NumPyBackend(Backend):
                 values = values.tocsc()
         return values[indices]
 
-    def gather_nd(self, values, indices, batch_dims=0):
-        assert indices.shape[-1] == self.ndims(values) - batch_dims - 1
-        if batch_dims == 0:
-            indices_list = self.unstack(indices, axis=-1)
-            result = values[indices_list]
-            return result
-        for dim in range(batch_dims):
-            assert indices.shape[dim] == values.shape[dim] or values.shape[dim] == 1 or indices.shape[dim] == 1, 'Batch dimension %d does not match: %s (values) and %s (indices)' % (dim, values.shape, indices.shape)
-        values_batch_max = np.array(values.shape[:batch_dims]) - 1
-        indices_batch_max = np.array(indices.shape[:batch_dims]) - 1
-
-        def inner_gather_nd(*pos):
-            batch_idx_values = tuple([np.minimum(pos[i], values_batch_max[i]) for i in range(len(pos))])
-            values_batch = values[batch_idx_values]
-            batch_idx_indices = tuple([np.minimum(pos[i], indices_batch_max[i]) for i in range(len(pos))])
-            indices_batch = indices[batch_idx_indices]
-            result = values_batch[self.unstack(indices_batch, axis=-1)]
-            return result
-        # --- Iterate over batch dimensions ---
-        batch_pos = np.meshgrid(*[range(dim) for dim in indices.shape[:batch_dims]], indexing='ij')
-        batch_pos = np.stack(batch_pos, axis=-1).reshape([-1, batch_dims])
-        result = np.empty(indices.shape[:-1] + (values.shape[-1],), values.dtype)
-        for i in range(batch_pos.shape[0]):
-            gathered = inner_gather_nd(*batch_pos[i])
-            result[tuple(batch_pos[i])] = gathered
+    def batched_gather_nd(self, values, indices):
+        assert indices.shape[-1] == self.ndims(values) - 2
+        batch_size = combined_dim(values.shape[0], indices.shape[0])
+        result = np.empty((batch_size, *indices.shape[1:-1], values.shape[-1],), values.dtype)
+        for b in range(batch_size):
+            b_values = values[min(b, values.shape[0] - 1)]
+            b_indices = self.unstack(indices[min(b, indices.shape[0] - 1)], -1)
+            result[b] = b_values[b_indices]
         return result
 
     def std(self, x, axis=None, keepdims=False):

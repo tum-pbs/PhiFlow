@@ -419,7 +419,18 @@ class Backend:
     def gather(self, values, indices):
         raise NotImplementedError(self)
 
-    def gather_nd(self, values, indices, batch_dims=0):
+    def batched_gather_nd(self, values, indices):
+        """
+        Gathers values from the tensor `values` at locations `indices`.
+        The first dimension of `values` and `indices` is the batch dimension which must be either equal for both or one for either.
+
+        Args:
+            values: tensor of shape (batch, spatial..., channel)
+            indices: int tensor of shape (batch, any..., multi_index) where the size of multi_index is values.rank - 2.
+
+        Returns:
+            Gathered values as tensor of shape (batch, any..., channel)
+        """
         raise NotImplementedError(self)
 
     def flatten(self, x):

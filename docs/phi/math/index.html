@@ -1405,6 +1405,7 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
         assert len(natives) == 0, &#34;Not all arguments were converted&#34;
         result = f(*values)
         results = [result] if not isinstance(result, (tuple, list)) else result
+        assert all(isinstance(t, Tensor) for t in results), f&#34;Function output must be Tensor or sequence of tensors but got {result}.&#34;
         OUTPUT_TENSORS.clear()
         OUTPUT_TENSORS.extend(results)
         return sum([v._natives() for v in results], ())
@@ -1426,6 +1427,7 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
     grad_native = GradientFunction()
 
     def wrapper(*values: Tensor):
+        assert all(isinstance(v, Tensor) for v in values)
         INPUT_TENSORS.clear()
         INPUT_TENSORS.extend(values)
         ARG_INDICES.clear()
@@ -1440,7 +1442,7 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
         proto_tensors = []
         if get_output:
             proto_tensors.extend(OUTPUT_TENSORS)
-        proto_tensors.extend([INPUT_TENSORS[i] for i in ARG_INDICES if i in wrt])
+        proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
         results = [t._with_natives_replaced(results_native) for t in proto_tensors]
         assert len(results_native) == 0
         return results
@@ -7279,6 +7281,9 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
     def __str__(self):
         &#34;&#34;&#34; Dimension name. &#34;&#34;&#34;
         return self.name
+
+    def __repr__(self):
+        return f&#34;Dimension &#39;{self.name}&#39; of {self.tensor.shape}&#34;
 
     def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -&gt; tuple:
         &#34;&#34;&#34;
