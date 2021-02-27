@@ -19,7 +19,7 @@ class Tensor:
 
     To check whether a value is a tensor, use `isinstance(value, Tensor)`.
 
-    To construct a Tensor, use `tensor()` or one of the basic tensor creation functions,
+    To construct a Tensor, use `phi.math.tensor()`, `phi.math.wrap()` or one of the basic tensor creation functions,
     see https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation .
 
     Tensors are not editable.
@@ -354,7 +354,7 @@ class Tensor:
         elif isinstance(other, Shape):
             assert self.shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
             assert other.rank == self.shape.channel.volume
-            return tensor(other.spatial.sizes, names=self.shape.channel.names)
+            return wrap(other.spatial.sizes, names=self.shape.channel.names)
         else:
             backend = choose_backend(other)
             try:
@@ -367,7 +367,7 @@ class Tensor:
             elif len(shape) == self.rank:
                 return NativeTensor(other_tensor, self.shape.with_sizes(shape))
             elif len(shape) == self.shape.channel.rank:
-                other_tensor = tensor(other, names=self.shape.channel.names)
+                other_tensor = wrap(other, names=self.shape.channel.names)
                 return other_tensor
             elif len(shape) == 1 and self.shape.channel.rank == 0:
                 return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
@@ -1029,10 +1029,9 @@ class TensorStack(Tensor):
             return TensorStack(red_inners, self.stack_dim_name, self.stack_dim_type)
 
 
-
 def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
             names: str or tuple or list = None,
-            convert: bool = False):
+            convert: bool = True):
     """
     Calls `tensor()` on multiple arguments independently.
 
@@ -1047,8 +1046,8 @@ def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
 
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
-           names: str or tuple or list = None,
-           convert: bool = False) -> Tensor:
+         names: str or tuple or list = None,
+         convert: bool = True) -> Tensor:
     """
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -1065,6 +1064,9 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     While specifying `names` is optional in some cases, it is recommended to always specify them.
     
     Dimension types are always inferred from the dimension names if specified.
+
+    See Also:
+        `phi.math.wrap()` which uses `convert=False`.
 
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
@@ -1091,7 +1093,15 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             types = [_shape._infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
-    elif isinstance(data, (tuple, list)):
+    elif isinstance(data, Shape):
+        assert names is not None
+        data = data.sizes
+    elif isinstance(data, (numbers.Number, bool, str)):
+        assert not names, f"Trying to create a zero-dimensional Tensor from value '{data}' but names={names}"
+        if convert:
+            data = default_backend().as_tensor(data, convert_external=True)
+        return NativeTensor(data, EMPTY_SHAPE)
+    if isinstance(data, (tuple, list)):
         array = np.array(data)
         if array.dtype != np.object:
             data = array
@@ -1105,14 +1115,6 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             from ._functions import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
-    elif isinstance(data, (numbers.Number, bool, str)):
-        assert not names, f"Trying to create a zero-dimensional Tensor from value '{data}' but names={names}"
-        if convert:
-            data = default_backend().as_tensor(data, convert_external=True)
-        return NativeTensor(data, EMPTY_SHAPE)
-    elif isinstance(data, Shape):
-        assert names is not None
-        return tensor(data.sizes, names, convert=convert)
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
@@ -1129,6 +1131,12 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, shape)
     raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
+
+
+def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
+         names: str or tuple or list = None) -> Tensor:
+    """ Short for `phi.math.tensor()` with `convert=False`. """
+    return tensor(data, names=names, convert=False)
 
 
 def broadcastable_native_tensors(*tensors):

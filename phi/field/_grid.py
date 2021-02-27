@@ -6,7 +6,7 @@ from ._field import Field
 from ._field import SampledField
 from ._mask import SoftGeometryMask, HardGeometryMask
 from ..geom._stack import GeometryStack
-from ..math import tensor, Shape
+from ..math import wrap, Shape
 from ..math._tensors import TensorStack, Tensor
 
 
@@ -104,7 +104,7 @@ class CenteredGrid(Grid):
             if callable(value):
                 x = GridCell(resolution, box).center
                 value = value(x)
-            value = tensor(value)
+            value = wrap(value)
             data = math.zeros(resolution) + value
         return CenteredGrid(data, box, extrapolation)
 
@@ -144,14 +144,17 @@ class CenteredGrid(Grid):
         lower = math.to_int(math.ceil(math.maximum(0, self.box.lower - box.lower) / self.dx - threshold))
         upper = math.to_int(math.ceil(math.maximum(0, box.upper - self.box.upper) / self.dx - threshold))
         total_padding = math.sum(lower) + math.sum(upper)
-        if total_padding == 0:
-            origin_in_local = self.box.global_to_local(box.lower) * self.resolution
-            data = math.sample_subgrid(self.values, origin_in_local, resolution)
-            return data
-        elif total_padding < max_padding:
+        if total_padding > max_padding:
+            return NotImplemented
+        elif total_padding > 0:
             from phi.field import pad
             padded = pad(self, {dim: (int(lower[i]), int(upper[i])) for i, dim in enumerate(self.shape.spatial.names)})
-            return padded._shift_resample(resolution, box)
+            grid_box, grid_resolution, grid_values = padded.box, padded.resolution, padded.values
+        else:
+            grid_box, grid_resolution, grid_values = self.box, self.resolution, self.values
+        origin_in_local = grid_box.global_to_local(box.lower) * grid_resolution
+        data = math.sample_subgrid(grid_values, origin_in_local, resolution)
+        return data
 
     def closest_values(self, points: Tensor, reduce_channels=()):
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
@@ -221,7 +224,7 @@ class StaggeredGrid(Grid):
             if callable(value):
                 points = GridCell(resolution, bounds).face_centers()
                 value = value(points)
-            value = tensor(value)
+            value = wrap(value)
             components = (value.staggered if 'staggered' in value.shape else value.vector).unstack(resolution.spatial_rank)
             tensors = []
             for dim, component in zip(resolution.spatial.names, components):

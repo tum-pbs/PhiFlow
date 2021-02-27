@@ -19,7 +19,7 @@ class TestTensors(TestCase):
                     tens = math.tensor(const, convert=False)
                     self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                     math.assert_close(tens, const)
-                    tens = math.tensor(const, convert=True)
+                    tens = math.tensor(const)
                     self.assertEqual(backend, math.choose_backend(tens), f'{const} was not converted to the specified backend')
                     math.assert_close(tens, const)
 
@@ -31,7 +31,7 @@ class TestTensors(TestCase):
                     tens = math.tensor(native, convert=False)
                     self.assertEqual(creation_backend, math.choose_backend(tens))
                     math.assert_close(tens, native)
-                    tens = math.tensor(native, convert=True)
+                    tens = math.tensor(native)
                     self.assertEqual(backend, math.choose_backend(tens), f'Conversion failed from {creation_backend} to {backend}')
                     math.assert_close(tens, native)
 
@@ -42,7 +42,7 @@ class TestTensors(TestCase):
                 tens = math.tensor(data_tuple, convert=False)
                 self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                 math.assert_close(tens, data_tuple)
-                tens = math.tensor(data_tuple, convert=True)
+                tens = math.tensor(data_tuple)
                 self.assertEqual(backend, math.choose_backend(tens))
                 math.assert_close(tens, data_tuple)
 
@@ -53,7 +53,7 @@ class TestTensors(TestCase):
                 tens = math.tensor(native, names=['stack', 'vector'], convert=False)
                 self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                 self.assertEqual(shape(stack=2, vector=3), tens.shape)
-                tens = math.tensor(native, names=['stack', 'vector'], convert=True)
+                tens = math.tensor(native, names=['stack', 'vector'])
                 self.assertEqual(backend, math.choose_backend(tens))
                 self.assertEqual(shape(stack=2, vector=3), tens.shape)
 
@@ -65,11 +65,11 @@ class TestTensors(TestCase):
                 self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
                 self.assertEqual(2, tens.shape.get_size('stack'))
                 self.assertEqual(('stack', 'x'), tens.shape.names)
-                tens = math.tensor(ref, convert=True)
+                tens = math.tensor(ref)
                 self.assertEqual(backend, math.choose_backend(tens))
                 self.assertEqual(backend, math.choose_backend(tens.stack[0]))
                 self.assertEqual(backend, math.choose_backend(tens.stack[1]))
-                tens = math.tensor(ref, names=('n1', 'n2'), convert=True)
+                tens = math.tensor(ref, names=('n1', 'n2'))
                 self.assertEqual(backend, math.choose_backend(tens))
 
     def test_multi_dim_tensor_from_numpy(self):

@@ -237,8 +237,8 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
     widths_list = [widths[axis] for axis in grid.shape.spatial.names]
     if isinstance(grid, Grid):
         data = math.pad(grid.values, widths, grid.extrapolation)
-        w_lower = math.tensor([w[0] for w in widths_list])
-        w_upper = math.tensor([w[1] for w in widths_list])
+        w_lower = math.wrap([w[0] for w in widths_list])
+        w_upper = math.wrap([w[1] for w in widths_list])
         box = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
         return type(grid)(data, box, grid.extrapolation)
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
@@ -292,7 +292,7 @@ def assert_close(*fields: SampledField,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0):
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
-    values = [(f >> f0).values if isinstance(f, SampledField) else math.tensor(f) for f in fields]
+    values = [(f >> f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
 
 

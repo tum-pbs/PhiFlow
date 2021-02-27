@@ -1085,8 +1085,8 @@ def shape_stack(stack_dim: str, stack_type: str, *shapes: Shape):
             dim_sizes = dim_sizes[0]
         else:
             from ._functions import _stack
-            from ._tensors import tensor
-            dim_sizes = [tensor(d) for d in dim_sizes]
+            from ._tensors import wrap
+            dim_sizes = [wrap(d) for d in dim_sizes]
             dim_sizes = _stack(dim_sizes, stack_dim, stack_type)
         sizes.append(dim_sizes)
     return Shape(sizes, names, types).expand(len(shapes), stack_dim, stack_type)

@@ -3,7 +3,7 @@ from typing import Dict
 from phi import math, struct
 
 from ._geom import Geometry, _fill_spatial_with_singleton
-from ..math import tensor
+from ..math import wrap
 
 
 class Sphere(Geometry):
@@ -18,8 +18,8 @@ class Sphere(Geometry):
     """
 
     def __init__(self, center, radius):
-        self._center = tensor(center)
-        self._radius = tensor(radius)
+        self._center = wrap(center)
+        self._radius = wrap(radius)
         self._shape = _fill_spatial_with_singleton(self._center.shape & self._radius.shape)
 
     @property

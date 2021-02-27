@@ -11,8 +11,7 @@ import numpy as np
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, _infer_dim_type_from_name
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, tensors, TensorDim
+from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation
 from .backend._profile import get_current_profile
 
@@ -65,7 +64,7 @@ def print_(value: Tensor = None, name: str = None):
         return
     if name is not None:
         print(" " * 16 + name)
-    value = tensor(value)
+    value = wrap(value)
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
     if value.shape.spatial_rank == 0:
         print(value.numpy())
@@ -99,7 +98,7 @@ def map_(function, value: Tensor) -> Tensor:
     result = []
     for v in flatten(value):
         result.append(function(v))
-    return tensor(result).vector.split(value.shape)
+    return wrap(result).vector.split(value.shape)
 
 
 def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None, **dimensions):
@@ -282,7 +281,7 @@ def concat(values: tuple or list, dim: str) -> Tensor:
 
 
 def spatial_pad(value, pad_width: tuple or list, mode: 'extrapolation.Extrapolation') -> Tensor:
-    value = tensor(value)
+    value = wrap(value)
     return pad(value, {n: w for n, w in zip(value.shape.spatial.names, pad_width)}, mode=mode)
 
 
@@ -337,7 +336,7 @@ def _closest_grid_values(grid: Tensor,
     non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
                     for dim in grid.shape.spatial.names}
     grid = extrap.pad(grid, non_copy_pad)
-    coordinates += tensor([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], 'vector')
+    coordinates += wrap([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], 'vector')
     # --- Transform coordiantes ---
     min_coords = to_int(floor(coordinates))
     max_coords = extrap.transform_coordinates(min_coords + 1, grid.shape)
@@ -593,7 +592,7 @@ def _reduce(value: Tensor or list or tuple,
     if dim in ((), [], EMPTY_SHAPE):
         return value
     if isinstance(value, (tuple, list)):
-        values = [tensor(v) for v in value]
+        values = [wrap(v) for v in value]
         value = _stack(values, '_reduce', BATCH_DIM)
         if dim is None:
             pass  # continue below
@@ -602,7 +601,7 @@ def _reduce(value: Tensor or list or tuple,
         else:
             raise ValueError('dim must be 0 or None when passing a sequence of tensors')
     else:
-        value = tensor(value)
+        value = wrap(value)
     dims = _resolve_dims(dim, value.shape)
     return value.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
 
@@ -925,7 +924,7 @@ def expand(value: Tensor, dim_name: str, dim_size: int = 1):
 
 
 def _expand_dim(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
-    value = tensor(value)
+    value = wrap(value)
     if dim_name in value.shape:
         assert value.shape.get_size(dim_name) == dim_size
         assert value.shape.get_type(dim_name) == dim_type
@@ -975,7 +974,7 @@ def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
     Returns:
 
     """
-    tensors = [tensor(t) for t in tensors]
+    tensors = [wrap(t) for t in tensors]
     for other in tensors[1:]:
         if not _close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance):
             return False
@@ -1012,7 +1011,7 @@ def assert_close(*tensors,
     """
     any_tensor = next(filter(lambda t: isinstance(t, Tensor), tensors))
     if any_tensor is None:
-        tensors = [tensor(t) for t in tensors]
+        tensors = [wrap(t) for t in tensors]
     else:  # use Tensor to infer dimensions
         tensors = [any_tensor._tensor(t).__simplify__() for t in tensors]
     for other in tensors[1:]:
@@ -1202,7 +1201,7 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
 
     x_native = backend.minimize(native_function, x0_flat, solve_params)
     x = unflatten_assemble(x_native)
-    return tensor(solve_params.result.success), x, tensor(solve_params.result.iterations)
+    return wrap(solve_params.result.success), x, wrap(solve_params.result.iterations)
 
 
 def solve(operator,

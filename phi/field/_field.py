@@ -238,7 +238,7 @@ class SampledField(Field):
         assert isinstance(extrapolation, (Extrapolation, tuple, list)), extrapolation
         assert isinstance(elements, Geometry), elements
         self._elements = elements
-        self._values = math.tensor(values)
+        self._values = math.wrap(values)
         self._extrapolation = extrapolation
         self._shape = elements.shape.non_channel & self._values.shape.non_spatial
 
@@ -311,7 +311,7 @@ class SampledField(Field):
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_(values=values, extrapolation=extrapolation_)
         else:
-            other = math.tensor(other)
+            other = math.wrap(other)
             values = operator(self._values, other)
             return self.with_(values=values)
 

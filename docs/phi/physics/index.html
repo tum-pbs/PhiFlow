@@ -143,7 +143,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
         &#34;&#34;&#34; Grid dimensions as `Shape` object containing spatial dimensions only. &#34;&#34;&#34;
         self.boundaries: dict = _create_boundary_conditions(boundaries, self.resolution.names)
         &#34;&#34;&#34; Outer boundary conditions. &#34;&#34;&#34;
-        self.bounds: Box = Box(0, math.tensor(self.resolution, names=&#39;vector&#39;)) if bounds is None else bounds
+        self.bounds: Box = Box(0, math.wrap(self.resolution, names=&#39;vector&#39;)) if bounds is None else bounds
         &#34;&#34;&#34; Physical dimensions of the domain. &#34;&#34;&#34;
 
     def __repr__(self):
@@ -243,7 +243,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
         elif isinstance(value, (Number, Geometry)):
             pass
         else:
-            value = math.tensor(value, names=self.resolution.names)
+            value = math.wrap(value, names=self.resolution.names)
         result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         assert result.shape.channel_rank == 0
         return result
@@ -359,9 +359,9 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             if len(points) == 0:  # no points
                 points = math.zeros(points=0, vector=1)
             elif isinstance(points[0], Number):  # single point
-                points = math.tensor([points], &#39;points, vector&#39;)
+                points = math.wrap([points], &#39;points, vector&#39;)
             else:
-                points = math.tensor(points, &#39;points, vector&#39;)
+                points = math.wrap(points, &#39;points, vector&#39;)
         elements = Sphere(points, radius)
         return PointCloud(elements, math.ones(), extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
@@ -675,9 +675,9 @@ The created field has no channel dimensions and all points carry the value <code
         if len(points) == 0:  # no points
             points = math.zeros(points=0, vector=1)
         elif isinstance(points[0], Number):  # single point
-            points = math.tensor([points], &#39;points, vector&#39;)
+            points = math.wrap([points], &#39;points, vector&#39;)
         else:
-            points = math.tensor(points, &#39;points, vector&#39;)
+            points = math.wrap(points, &#39;points, vector&#39;)
     elements = Sphere(points, radius)
     return PointCloud(elements, math.ones(), extrapolation, add_overlapping=False, bounds=self.bounds, color=color)</code></pre>
 </details>
@@ -738,7 +738,7 @@ The grid is created from the given <code>value</code> which must be one of the f
     elif isinstance(value, (Number, Geometry)):
         pass
     else:
-        value = math.tensor(value, names=self.resolution.names)
+        value = math.wrap(value, names=self.resolution.names)
     result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
     assert result.shape.channel_rank == 0
     return result</code></pre>

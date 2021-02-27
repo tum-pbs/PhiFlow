@@ -780,8 +780,8 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
           lower: physical location of lower corner
           upper: physical location of upper corner
         &#34;&#34;&#34;
-        self._lower = tensor(lower)
-        self._upper = tensor(upper)
+        self._lower = wrap(lower)
+        self._upper = wrap(upper)
         self._shape = _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape)
 
     def unstack(self, dimension):
@@ -1665,7 +1665,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 
     @property
     def size(self):
-        return self.bounds.size / math.tensor(self.resolution.sizes)
+        return self.bounds.size / math.wrap(self.resolution.sizes)
 
     @property
     def lower(self):
@@ -1835,7 +1835,7 @@ def shape(self):
 </summary>
 <pre><code class="python">@property
 def size(self):
-    return self.bounds.size / math.tensor(self.resolution.sizes)</code></pre>
+    return self.bounds.size / math.wrap(self.resolution.sizes)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.upper"><code class="name">var <span class="ident">upper</span></code></dt>
@@ -1999,8 +1999,8 @@ Defined through center position and radius.</p>
     &#34;&#34;&#34;
 
     def __init__(self, center, radius):
-        self._center = tensor(center)
-        self._radius = tensor(radius)
+        self._center = wrap(center)
+        self._radius = wrap(radius)
         self._shape = _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape)
 
     @property

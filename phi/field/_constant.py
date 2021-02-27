@@ -7,7 +7,7 @@ from ..geom import Geometry
 class ConstantField(Field):
 
     def __init__(self, value=1.0):
-        self.value = math.tensor(value)
+        self.value = math.wrap(value)
 
     @property
     def shape(self) -> Shape:

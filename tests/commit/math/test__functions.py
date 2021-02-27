@@ -59,8 +59,8 @@ class TestMathFunctions(TestCase):
         grads_coords = []
         for backend in (tf.TF_BACKEND, torch.TORCH_BACKEND,):
             with backend:
-                grid = math.tensor([0., 1, 2, 3], 'x', convert=True)
-                coords = math.tensor([0.5, 1.5], 'points', convert=True)
+                grid = math.tensor([0., 1, 2, 3], 'x')
+                coords = math.tensor([0.5, 1.5], 'points')
                 with math.record_gradients(grid, coords):
                     sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
                     loss = math.l2_loss(sampled)
@@ -75,8 +75,8 @@ class TestMathFunctions(TestCase):
         grads_coords = []
         for backend in [tf.TF_BACKEND, torch.TORCH_BACKEND]:
             with backend:
-                grid = math.tensor([[1., 2, 3], [1, 2, 3]], 'x,y', convert=True)
-                coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], 'points,vector', convert=True)
+                grid = math.tensor([[1., 2, 3], [1, 2, 3]], 'x,y')
+                coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], 'points,vector')
                 with math.record_gradients(grid, coords):
                     sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
                     loss = math.sum(sampled)
@@ -127,7 +127,7 @@ class TestMathFunctions(TestCase):
             sampled = []
             for backend in (math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
                 with backend:
-                    grid, coords, grid_, coords_ = math.tensors(grid, coords, grid_, coords_, convert=True)
+                    grid, coords, grid_, coords_ = math.tensors(grid, coords, grid_, coords_)
                     sampled.append(math.grid_sample(grid, coords, extrap))
                     sampled.append(math.grid_sample(grid_, coords_, extrap))
             math.assert_close(*sampled, abs_tolerance=1e-6)
@@ -165,7 +165,7 @@ class TestMathFunctions(TestCase):
         with math.precision(64):
             for backend in [math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
                 with backend:
-                    sine_tensor = math.tensor(sine_field, 'x,y', convert=True)
+                    sine_tensor = math.tensor(sine_field, 'x,y')
                     fft_tensor = math.fft(sine_tensor)
                     math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-12)  # Should usually be more precise. GitHub Actions has larger errors than usual.
 
@@ -193,8 +193,8 @@ class TestMathFunctions(TestCase):
 
         for backend in [torch.TORCH_BACKEND, tf.TF_BACKEND]:
             with backend:
-                x_data = math.tensor(2., convert=True)
-                y_data = math.tensor(1., convert=True)
+                x_data = math.tensor(2.)
+                y_data = math.tensor(1.)
 
                 dx, = math.gradient_function(f)(x_data, y_data)
                 math.assert_close(dx, 1)

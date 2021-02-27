@@ -76,6 +76,8 @@ class FluidTest(TestCase):
         math.assert_close(v_np, v_tf, abs_tolerance=1e-5)
 
     def test_make_incompressible_np_equal_torch(self):
+        import sys
+        print(sys.getrecursionlimit())
         with math.NUMPY_BACKEND:
             v_np = self._test_make_incompressible(StaggeredGrid)
         with TORCH_BACKEND:
@@ -88,7 +90,7 @@ class FluidTest(TestCase):
         grads = []
         for backend in [TF_BACKEND, TORCH_BACKEND]:
             with backend:
-                velocity = param = velocity0.with_(values=math.tensor(velocity0.values, convert=True))
+                velocity = param = velocity0.with_(values=math.tensor(velocity0.values))
                 with math.record_gradients(param.values):
                     solve = math.LinearSolve()
                     velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN, solve_params=solve)

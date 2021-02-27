@@ -9,7 +9,7 @@ from . import _functions as math
 from .backend import choose_backend
 from ._track import SparseLinearOperation, ShiftLinOp
 from ._shape import Shape
-from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
+from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 
 
 class Extrapolation:
@@ -102,7 +102,7 @@ class Extrapolation:
           transformed coordinates
 
         """
-        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, 'vector'))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, 'vector'))
 
     @property
     def is_copy_pad(self):
@@ -124,7 +124,7 @@ class ConstantExtrapolation(Extrapolation):
 
     def __init__(self, value: Tensor):
         Extrapolation.__init__(self, 5)
-        self.value = tensor(value)
+        self.value = wrap(value)
         """ Extrapolation value """
 
     def __repr__(self):
@@ -421,7 +421,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
         key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
         if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key], convert=True)
+            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key])
             _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
             return result
         else:
@@ -434,7 +434,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
         key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
         if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key], convert=True)
+            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key])
             _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
             return result
         else:

@@ -29,7 +29,7 @@ def make_incompressible(velocity: StaggeredGrid,
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     """
-    points = particles.with_(values=math.tensor(1))
+    points = particles.with_(values=math.wrap(1))
     occupied_centered = points >> domain.grid()
     occupied_staggered = points >> domain.staggered_grid()
 

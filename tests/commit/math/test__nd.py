@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import tensor, extrapolation, Tensor, PI
+from phi.math import wrap, extrapolation, Tensor, PI, tensor
 
 import numpy as np
 import os
@@ -64,8 +64,8 @@ class TestMathNDNumpy(TestCase):
         half_size = math.downsample2x(meshgrid, extrapolation.BOUNDARY)
         math.print(meshgrid, 'Full size')
         math.print(half_size, 'Half size')
-        math.assert_close(half_size.vector[0], tensor([[0.5, 2.5], [0.5, 2.5]], names='y,x'))
-        math.assert_close(half_size.vector[1], tensor([[-0.5, -0.5], [-2, -2]], names='y,x'))
+        math.assert_close(half_size.vector[0], wrap([[0.5, 2.5], [0.5, 2.5]], names='y,x'))
+        math.assert_close(half_size.vector[1], wrap([[-0.5, -0.5], [-2, -2]], names='y,x'))
 
     def test_upsample2x(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1, -2))
@@ -78,20 +78,20 @@ class TestMathNDNumpy(TestCase):
 
     def test_extrapolate_valid(self):
         valid = tensor([[0, 0, 0],
-                        [0, 1, 1],
-                        [1, 0, 0]], 'x, y')
+                      [0, 1, 1],
+                      [1, 0, 0]], 'x, y')
 
         values = tensor([[1, 0, 0],
-                        [0, 4, 0],
-                        [2, 0, 0]], 'x, y')
+                       [0, 4, 0],
+                       [2, 0, 0]], 'x, y')
 
         expected_valid = tensor([[0, 1, 1],
-                                 [1, 1, 1],
-                                 [1, 1, 1]], 'x, y')
+                               [1, 1, 1],
+                               [1, 1, 1]], 'x, y')
 
         expected_values = tensor([[1, 4, 0],
-                                  [3, 4, 0],
-                                  [2, 3, 0]], 'x, y')
+                                [3, 4, 0],
+                                [2, 3, 0]], 'x, y')
 
         new_values, new_valid = math.extrapolate_valid_values(values, valid, 1)
         self.assertTrue(new_values == expected_values)

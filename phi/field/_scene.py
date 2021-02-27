@@ -113,7 +113,7 @@ class Scene(object):
     """
 
     def __init__(self, paths: str or math.Tensor):
-        self._paths = math.tensor(paths)
+        self._paths = math.wrap(paths)
         self._properties = None
 
     @property
@@ -171,7 +171,7 @@ class Scene(object):
         else:
             indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith("sim_")]
             next_id = max([-1] + indices) + 1
-        ids = math.tensor(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
+        ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
         paths = math.map(lambda id_: join(parent_directory, f"sim_{id_:06d}"), ids)
         scene = Scene(paths)
         scene.mkdir()
@@ -208,7 +208,7 @@ class Scene(object):
         if dim is None:
             return tuple(Scene(join(parent_directory, name)) for name in names)
         else:
-            paths = math.tensor([join(parent_directory, name) for name in names], dim)
+            paths = math.wrap([join(parent_directory, name) for name in names], dim)
             return Scene(paths)
 
     @staticmethod
@@ -226,11 +226,11 @@ class Scene(object):
         Returns:
             `Scene` object for existing scene.
         """
-        directory = math.map(lambda d: expanduser(d), math.tensor(directory))
+        directory = math.map(lambda d: expanduser(d), math.wrap(directory))
         if id is None:
             paths = directory
         else:
-            id = math.tensor(id)
+            id = math.wrap(id)
             paths = directory._op2(id, None, lambda d_, id_: join(directory, f"sim_{id:06d}"))
         # test all exist
         for path in math.flatten(paths):

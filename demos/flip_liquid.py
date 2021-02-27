@@ -9,7 +9,7 @@ from phi.flow import *
 DOMAIN = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box[0:64, 0:64])
 GRAVITY = math.tensor([0, -9.81])
 DT = 0.1
-OBSTACLE = Box[20:35, 30:35].rotated(math.tensor(-20))
+OBSTACLE = Box[20:35, 30:35].rotated(-20)
 ACCESSIBLE_MASK = DOMAIN.accessible_mask(OBSTACLE, type=StaggeredGrid)
 _OBSTACLE_POINTS = DOMAIN.distribute_points(OBSTACLE, color='#000000')  # only for plotting
 

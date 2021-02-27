@@ -56,7 +56,7 @@ from .extrapolation import Extrapolation
 from ._config import GLOBAL_AXIS_ORDER
 
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
-from ._tensors import tensor, tensors, Tensor, TensorDim
+from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
@@ -301,7 +301,7 @@ Tensors with different shapes are reshaped before comparing.</p>
     &#34;&#34;&#34;
     any_tensor = next(filter(lambda t: isinstance(t, Tensor), tensors))
     if any_tensor is None:
-        tensors = [tensor(t) for t in tensors]
+        tensors = [wrap(t) for t in tensors]
     else:  # use Tensor to infer dimensions
         tensors = [any_tensor._tensor(t).__simplify__() for t in tensors]
     for other in tensors[1:]:
@@ -566,7 +566,7 @@ Tensors with different shapes are reshaped before comparing.</p>
     Returns:
 
     &#34;&#34;&#34;
-    tensors = [tensor(t) for t in tensors]
+    tensors = [wrap(t) for t in tensors]
     for other in tensors[1:]:
         if not _close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance):
             return False
@@ -1131,7 +1131,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, &#39;vector&#39;)
     fft_laplace = -(2 * np.pi)**2 * k_squared
     result = math.real(math.ifft(frequencies * fft_laplace ** times))
-    return math.cast(result / tensor(dx) ** 2, grid.dtype)</code></pre>
+    return math.cast(result / wrap(dx) ** 2, grid.dtype)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.fourier_poisson"><code class="name flex">
@@ -1173,7 +1173,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
     fft_laplace = -(2 * np.pi)**2 * k_squared
     # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
     result = math.real(math.ifft(math.divide_no_nan(frequencies, math.to_complex(fft_laplace ** times))))
-    return math.cast(result * tensor(dx) ** 2, grid.dtype)</code></pre>
+    return math.cast(result * wrap(dx) ** 2, grid.dtype)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
@@ -1316,7 +1316,7 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)
 
     &#34;&#34;&#34;
-    grid = tensor(grid)
+    grid = wrap(grid)
     if difference.lower() == &#39;central&#39;:
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
@@ -1784,10 +1784,10 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 
     &#34;&#34;&#34;
     if not isinstance(dx, (int, float)):
-        dx = tensor(dx, names=&#39;_laplace&#39;)
+        dx = wrap(dx, names=&#39;_laplace&#39;)
     if isinstance(x, Extrapolation):
         return x.gradient()
-    left, center, right = shift(tensor(x), (-1, 0, 1), dims, padding, stack_dim=&#39;_laplace&#39;)
+    left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=&#39;_laplace&#39;)
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, &#39;_laplace&#39;)
     return result</code></pre>
@@ -1839,7 +1839,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     result = []
     for v in flatten(value):
         result.append(function(v))
-    return tensor(result).vector.split(value.shape)</code></pre>
+    return wrap(result).vector.split(value.shape)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.matmul"><code class="name flex">
@@ -2019,7 +2019,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 
     x_native = backend.minimize(native_function, x0_flat, solve_params)
     x = unflatten_assemble(x_native)
-    return tensor(solve_params.result.success), x, tensor(solve_params.result.iterations)</code></pre>
+    return wrap(solve_params.result.success), x, wrap(solve_params.result.iterations)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.minimum"><code class="name flex">
@@ -2316,7 +2316,7 @@ def precision(floating_point_bits: int):
         return
     if name is not None:
         print(&#34; &#34; * 16 + name)
-    value = tensor(value)
+    value = wrap(value)
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
     if value.shape.spatial_rank == 0:
         print(value.numpy())
@@ -2727,7 +2727,7 @@ The output of math operations has the same precision as its inputs.</p>
     &#34;&#34;&#34;
     if stack_dim is None:
         assert len(dims) == 1
-    x = tensor(x)
+    x = wrap(x)
     dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
@@ -2894,7 +2894,7 @@ The output of math operations has the same precision as its inputs.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def spatial_pad(value, pad_width: tuple or list, mode: &#39;extrapolation.Extrapolation&#39;) -&gt; Tensor:
-    value = tensor(value)
+    value = wrap(value)
     return pad(value, {n: w for n, w in zip(value.shape.spatial.names, pad_width)}, mode=mode)</code></pre>
 </details>
 </dd>
@@ -3115,7 +3115,7 @@ This may switch off the gradients for <code>value</code> itself or create a copy
 </details>
 </dd>
 <dt id="phi.math.tensor"><code class="name flex">
-<span>def <span class="ident">tensor</span></span>(<span>data: phi.math._tensors.Tensor, names: str = None, convert: bool = False) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">tensor</span></span>(<span>data: phi.math._tensors.Tensor, names: str = None, convert: bool = True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a Tensor from the specified <code>data</code>.
@@ -3131,6 +3131,8 @@ If <code>convert=True</code>, converts <code>data</code> to the preferred format
 </ul>
 <p>While specifying <code>names</code> is optional in some cases, it is recommended to always specify them.</p>
 <p>Dimension types are always inferred from the dimension names if specified.</p>
+<p>See Also:
+<code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code> which uses <code>convert=False</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>data</code></strong></dt>
@@ -3150,8 +3152,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
-           names: str or tuple or list = None,
-           convert: bool = False) -&gt; Tensor:
+         names: str or tuple or list = None,
+         convert: bool = True) -&gt; Tensor:
     &#34;&#34;&#34;
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -3168,6 +3170,9 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     While specifying `names` is optional in some cases, it is recommended to always specify them.
     
     Dimension types are always inferred from the dimension names if specified.
+
+    See Also:
+        `phi.math.wrap()` which uses `convert=False`.
 
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
@@ -3194,7 +3199,15 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             types = [_shape._infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
-    elif isinstance(data, (tuple, list)):
+    elif isinstance(data, Shape):
+        assert names is not None
+        data = data.sizes
+    elif isinstance(data, (numbers.Number, bool, str)):
+        assert not names, f&#34;Trying to create a zero-dimensional Tensor from value &#39;{data}&#39; but names={names}&#34;
+        if convert:
+            data = default_backend().as_tensor(data, convert_external=True)
+        return NativeTensor(data, EMPTY_SHAPE)
+    if isinstance(data, (tuple, list)):
         array = np.array(data)
         if array.dtype != np.object:
             data = array
@@ -3208,14 +3221,6 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             from ._functions import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
-    elif isinstance(data, (numbers.Number, bool, str)):
-        assert not names, f&#34;Trying to create a zero-dimensional Tensor from value &#39;{data}&#39; but names={names}&#34;
-        if convert:
-            data = default_backend().as_tensor(data, convert_external=True)
-        return NativeTensor(data, EMPTY_SHAPE)
-    elif isinstance(data, Shape):
-        assert names is not None
-        return tensor(data.sizes, names, convert=convert)
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
@@ -3235,7 +3240,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.tensors"><code class="name flex">
-<span>def <span class="ident">tensors</span></span>(<span>*objects: phi.math._tensors.Tensor, names: str = None, convert: bool = False)</span>
+<span>def <span class="ident">tensors</span></span>(<span>*objects: phi.math._tensors.Tensor, names: str = None, convert: bool = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calls <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code> on multiple arguments independently.</p>
@@ -3249,7 +3254,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </summary>
 <pre><code class="python">def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
             names: str or tuple or list = None,
-            convert: bool = False):
+            convert: bool = True):
     &#34;&#34;&#34;
     Calls `tensor()` on multiple arguments independently.
 
@@ -3576,6 +3581,21 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
     return NativeTensor(result, shape)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.wrap"><code class="name flex">
+<span>def <span class="ident">wrap</span></span>(<span>data: phi.math._tensors.Tensor, names: str = None) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Short for <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code> with <code>convert=False</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
+         names: str or tuple or list = None) -&gt; Tensor:
+    &#34;&#34;&#34; Short for `phi.math.tensor()` with `convert=False`. &#34;&#34;&#34;
+    return tensor(data, names=names, convert=False)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.zeros"><code class="name flex">
 <span>def <span class="ident">zeros</span></span>(<span>shape=(), dtype=None, **dimensions)</span>
 </code></dt>
@@ -3853,7 +3873,7 @@ def precision(self):
           transformed coordinates
 
         &#34;&#34;&#34;
-        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))
 
     @property
     def is_copy_pad(self):
@@ -4075,7 +4095,7 @@ This is the default implementation.</p>
       transformed coordinates
 
     &#34;&#34;&#34;
-    return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))</code></pre>
+    return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))</code></pre>
 </details>
 </dd>
 </dl>
@@ -6561,7 +6581,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <p>Unlike with <code>numpy.ndarray</code>, the dimensions of Tensors have names and types.
 Additionally, tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.</p>
 <p>To check whether a value is a tensor, use <code>isinstance(value, <a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a>)</code>.</p>
-<p>To construct a Tensor, use <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code> or one of the basic tensor creation functions,
+<p>To construct a Tensor, use <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code> or one of the basic tensor creation functions,
 see <a href="https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation">https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation</a> .</p>
 <p>Tensors are not editable.
 When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do not edit the underlying data structure.</p></div>
@@ -6578,7 +6598,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     To check whether a value is a tensor, use `isinstance(value, Tensor)`.
 
-    To construct a Tensor, use `tensor()` or one of the basic tensor creation functions,
+    To construct a Tensor, use `phi.math.tensor()`, `phi.math.wrap()` or one of the basic tensor creation functions,
     see https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation .
 
     Tensors are not editable.
@@ -6913,7 +6933,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         elif isinstance(other, Shape):
             assert self.shape.channel.rank == 1, &#34;Only single-channel tensors support implicit casting from Shape to tensor&#34;
             assert other.rank == self.shape.channel.volume
-            return tensor(other.spatial.sizes, names=self.shape.channel.names)
+            return wrap(other.spatial.sizes, names=self.shape.channel.names)
         else:
             backend = choose_backend(other)
             try:
@@ -6926,7 +6946,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
             elif len(shape) == self.rank:
                 return NativeTensor(other_tensor, self.shape.with_sizes(shape))
             elif len(shape) == self.shape.channel.rank:
-                other_tensor = tensor(other, names=self.shape.channel.names)
+                other_tensor = wrap(other, names=self.shape.channel.names)
                 return other_tensor
             elif len(shape) == 1 and self.shape.channel.rank == 0:
                 return NativeTensor(other_tensor, Shape(shape, [&#39;vector&#39;], [CHANNEL_DIM]))
@@ -7853,6 +7873,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.vec_abs" href="#phi.math.vec_abs">vec_abs</a></code></li>
 <li><code><a title="phi.math.vec_squared" href="#phi.math.vec_squared">vec_squared</a></code></li>
 <li><code><a title="phi.math.where" href="#phi.math.where">where</a></code></li>
+<li><code><a title="phi.math.wrap" href="#phi.math.wrap">wrap</a></code></li>
 <li><code><a title="phi.math.zeros" href="#phi.math.zeros">zeros</a></code></li>
 <li><code><a title="phi.math.zeros_like" href="#phi.math.zeros_like">zeros_like</a></code></li>
 </ul>

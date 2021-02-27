@@ -11,7 +11,7 @@ from .extrapolation import Extrapolation
 from ._functions import channel_stack
 from ._shape import Shape
 from ._tensors import Tensor
-from ._tensors import tensor
+from ._tensors import wrap
 
 
 def spatial_sum(value: Tensor):
@@ -220,7 +220,7 @@ def shift(x: Tensor,
     """
     if stack_dim is None:
         assert len(dims) == 1
-    x = tensor(x)
+    x = wrap(x)
     dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
@@ -299,7 +299,7 @@ def gradient(grid: Tensor,
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)
 
     """
-    grid = tensor(grid)
+    grid = wrap(grid)
     if difference.lower() == 'central':
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
@@ -338,10 +338,10 @@ def laplace(x: Tensor,
 
     """
     if not isinstance(dx, (int, float)):
-        dx = tensor(dx, names='_laplace')
+        dx = wrap(dx, names='_laplace')
     if isinstance(x, Extrapolation):
         return x.gradient()
-    left, center, right = shift(tensor(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
+    left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, '_laplace')
     return result
@@ -374,7 +374,7 @@ def fourier_laplace(grid: Tensor,
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
     fft_laplace = -(2 * np.pi)**2 * k_squared
     result = math.real(math.ifft(frequencies * fft_laplace ** times))
-    return math.cast(result / tensor(dx) ** 2, grid.dtype)
+    return math.cast(result / wrap(dx) ** 2, grid.dtype)
 
 
 def fourier_poisson(grid: Tensor,
@@ -396,7 +396,7 @@ def fourier_poisson(grid: Tensor,
     fft_laplace = -(2 * np.pi)**2 * k_squared
     # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
     result = math.real(math.ifft(math.divide_no_nan(frequencies, math.to_complex(fft_laplace ** times))))
-    return math.cast(result * tensor(dx) ** 2, grid.dtype)
+    return math.cast(result * wrap(dx) ** 2, grid.dtype)
 
 
 # Downsample / Upsample

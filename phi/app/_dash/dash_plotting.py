@@ -18,10 +18,10 @@ def dash_graph_plot(data, settings: dict) -> dict:
         return EMPTY_FIGURE
     try:
         if isinstance(data, np.ndarray):
-            data = math.tensor(data, convert=False)
+            data = math.wrap(data)
 
         if isinstance(data, math.Tensor):
-            data = CenteredGrid(data, Box(0, math.tensor(data.shape, 'vector')))
+            data = CenteredGrid(data, Box(0, math.wrap(data.shape, 'vector')))
 
         if isinstance(data, (CenteredGrid, StaggeredGrid)):
             component = settings.get('component', 'x')

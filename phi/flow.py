@@ -13,7 +13,7 @@ import numpy
 import numpy as np
 
 from . import math
-from .math import extrapolation, PI, DType, tensor, shape, backend
+from .math import extrapolation, PI, DType, wrap, shape, backend
 
 from . import geom
 from .geom import Geometry, Sphere, Box, union

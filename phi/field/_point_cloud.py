@@ -43,7 +43,7 @@ class PointCloud(SampledField):
         assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
         if color is None:
             color = '#0060ff'
-        self._color = math.tensor(color, names='points') if isinstance(color, (tuple, list)) else math.tensor(color)
+        self._color = math.wrap(color, names='points') if isinstance(color, (tuple, list)) else math.wrap(color)
 
     @property
     def bounds(self) -> Box:

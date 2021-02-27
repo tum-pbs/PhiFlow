@@ -96,7 +96,7 @@ class Domain:
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
         self.boundaries: dict = _create_boundary_conditions(boundaries, self.resolution.names)
         """ Outer boundary conditions. """
-        self.bounds: Box = Box(0, math.tensor(self.resolution, names='vector')) if bounds is None else bounds
+        self.bounds: Box = Box(0, math.wrap(self.resolution, names='vector')) if bounds is None else bounds
         """ Physical dimensions of the domain. """
 
     def __repr__(self):
@@ -196,7 +196,7 @@ class Domain:
         elif isinstance(value, (Number, Geometry)):
             pass
         else:
-            value = math.tensor(value, names=self.resolution.names)
+            value = math.wrap(value, names=self.resolution.names)
         result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         assert result.shape.channel_rank == 0
         return result
@@ -312,9 +312,9 @@ class Domain:
             if len(points) == 0:  # no points
                 points = math.zeros(points=0, vector=1)
             elif isinstance(points[0], Number):  # single point
-                points = math.tensor([points], 'points, vector')
+                points = math.wrap([points], 'points, vector')
             else:
-                points = math.tensor(points, 'points, vector')
+                points = math.wrap(points, 'points, vector')
         elements = Sphere(points, radius)
         return PointCloud(elements, math.ones(), extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
