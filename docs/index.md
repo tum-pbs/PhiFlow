@@ -1,4 +1,4 @@
-
+pdoc
 [**Homepage**](https://github.com/tum-pbs/PhiFlow)
 &nbsp;&nbsp;&nbsp; [**API**](phi)
 &nbsp;&nbsp;&nbsp; [**Demos**](https://github.com/tum-pbs/PhiFlow/tree/develop/demos)
@@ -35,5 +35,9 @@ $ pdoc --html --output-dir docs --force phi
 
 ### Other Documentation
 
-* [Installation Instructions](Installation_Instructions.md)
-* [Scene Format Specification](Scene_Format_Specification.md)
+* [Installation Instructions](Installation_Instructions.md):
+  Requirements, installation, CUDA compilation
+* [Contributing to Φ<sub>Flow</sub>](https://github.com/tum-pbs/PhiFlow/blob/develop/CONTRIBUTING.md):
+  Style guide, docstrings, commit tags
+* [Scene Format Specification](Scene_Format_Specification.md):
+  Directory layout, file format
