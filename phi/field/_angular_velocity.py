@@ -2,11 +2,11 @@ from collections import Callable
 
 from phi import math
 
-from ._analytic import AnalyticField
+from ._field import Field
 from ..math import Shape, GLOBAL_AXIS_ORDER
 
 
-class AngularVelocity(AnalyticField):
+class AngularVelocity(Field):
 
     def __init__(self, location, strength=1.0, falloff: Callable = None):
         location = math.wrap(location)
@@ -33,3 +33,6 @@ class AngularVelocity(AnalyticField):
     @property
     def shape(self) -> Shape:
         return self._shape
+
+    def unstack(self, dimension: str) -> tuple:
+        raise NotImplementedError()

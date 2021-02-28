@@ -3,10 +3,10 @@ import numpy as np
 from phi import math
 from phi.geom import GridCell, Geometry
 from phi.math import random_normal, Tensor
-from ._analytic import AnalyticField
+from ._field import Field
 
 
-class Noise(AnalyticField):
+class Noise(Field):
 
     def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **dims):
         """

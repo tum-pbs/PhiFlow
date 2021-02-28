@@ -164,65 +164,6 @@ class Field:
             raise RuntimeError(f"Failed to get attribute '{name}' of {self}")
         return _FieldDim(self, name)
 
-    def __mul__(self, other):
-        return self._op2(other, lambda d1, d2: d1 * d2)
-
-    __rmul__ = __mul__
-
-    def __truediv__(self, other):
-        return self._op2(other, lambda d1, d2: d1 / d2)
-
-    def __rtruediv__(self, other):
-        return self._op2(other, lambda d1, d2: d2 / d1)
-
-    def __sub__(self, other):
-        return self._op2(other, lambda d1, d2: d1 - d2)
-
-    def __rsub__(self, other):
-        return self._op2(other, lambda d1, d2: d2 - d1)
-
-    def __add__(self, other):
-        return self._op2(other, lambda d1, d2: d1 + d2)
-
-    __radd__ = __add__
-
-    def __pow__(self, power, modulo=None):
-        return self._op2(power, lambda f, p: f ** p)
-
-    def __neg__(self):
-        return self._op1(lambda x: -x)
-
-    def __gt__(self, other):
-        return self._op2(other, lambda x, y: x > y)
-
-    def __ge__(self, other):
-        return self._op2(other, lambda x, y: x >= y)
-
-    def __lt__(self, other):
-        return self._op2(other, lambda x, y: x < y)
-
-    def __le__(self, other):
-        return self._op2(other, lambda x, y: x <= y)
-
-    def __abs__(self):
-        return self._op1(lambda x: abs(x))
-
-    def _op1(self, operator) -> 'Field':
-        """
-        Perform an operation on the data of this field.
-
-        Args:
-          operator: function that accepts tensors and extrapolations and returns objects of the same type and dimensions
-
-        Returns:
-          Field of same type
-
-        """
-        raise NotImplementedError()
-
-    def _op2(self, other, operator) -> 'Field':
-        raise NotImplementedError()
-
 
 class SampledField(Field):
 
@@ -299,7 +240,63 @@ class SampledField(Field):
         values = self._values.unstack(dimension)
         return tuple(self.with_(values=v) for i, v in enumerate(values))
 
+    def __getitem__(self, item):
+        values = self._values[item]
+        return self.with_(values=values)
+
+    def __mul__(self, other):
+        return self._op2(other, lambda d1, d2: d1 * d2)
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, other):
+        return self._op2(other, lambda d1, d2: d1 / d2)
+
+    def __rtruediv__(self, other):
+        return self._op2(other, lambda d1, d2: d2 / d1)
+
+    def __sub__(self, other):
+        return self._op2(other, lambda d1, d2: d1 - d2)
+
+    def __rsub__(self, other):
+        return self._op2(other, lambda d1, d2: d2 - d1)
+
+    def __add__(self, other):
+        return self._op2(other, lambda d1, d2: d1 + d2)
+
+    __radd__ = __add__
+
+    def __pow__(self, power, modulo=None):
+        return self._op2(power, lambda f, p: f ** p)
+
+    def __neg__(self):
+        return self._op1(lambda x: -x)
+
+    def __gt__(self, other):
+        return self._op2(other, lambda x, y: x > y)
+
+    def __ge__(self, other):
+        return self._op2(other, lambda x, y: x >= y)
+
+    def __lt__(self, other):
+        return self._op2(other, lambda x, y: x < y)
+
+    def __le__(self, other):
+        return self._op2(other, lambda x, y: x <= y)
+
+    def __abs__(self):
+        return self._op1(lambda x: abs(x))
+
     def _op1(self, operator) -> Field:
+        """
+        Perform an operation on the data of this field.
+
+        Args:
+          operator: function that accepts tensors and extrapolations and returns objects of the same type and dimensions
+
+        Returns:
+          Field of same type
+        """
         values = operator(self.values)
         extrapolation_ = operator(self._extrapolation)
         return self.with_(values=values, extrapolation=extrapolation_)
@@ -311,13 +308,9 @@ class SampledField(Field):
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_(values=values, extrapolation=extrapolation_)
         else:
-            other = math.wrap(other)
+            other = math.tensor(other)
             values = operator(self._values, other)
             return self.with_(values=values)
-
-    def __getitem__(self, item):
-        values = self._values[item]
-        return self.with_(values=values)
 
 
 class _FieldDim:

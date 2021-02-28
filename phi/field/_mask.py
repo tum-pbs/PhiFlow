@@ -1,10 +1,10 @@
 from phi import math
 from phi.geom import Geometry
-from ._analytic import AnalyticField
+from ._field import Field
 from ..math import Tensor
 
 
-class HardGeometryMask(AnalyticField):
+class HardGeometryMask(Field):
     """
     Field that takes the value 1 inside a Geometry object and 0 outside.
     For volume sampling, performs sampling at the center points.
@@ -25,6 +25,10 @@ class HardGeometryMask(AnalyticField):
             inside = inside.dimension(reduce_channels[0]).as_channel('vector')
         return inside
 
+    def unstack(self, dimension: str) -> tuple:
+        geometries = self.geometry.unstack(dimension)
+        return tuple(HardGeometryMask(g) for g in geometries)
+
 
 class SoftGeometryMask(HardGeometryMask):
     """
@@ -40,3 +44,7 @@ class SoftGeometryMask(HardGeometryMask):
             assert len(reduce_channels) == 1
             inside = inside.dimension(reduce_channels[0]).as_channel('vector')
         return inside
+
+    def unstack(self, dimension: str) -> tuple:
+        geometries = self.geometry.unstack(dimension)
+        return tuple(SoftGeometryMask(g) for g in geometries)
