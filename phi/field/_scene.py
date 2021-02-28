@@ -85,17 +85,19 @@ def first_frame(simpath, fieldname=None):
 def get_frames(simpath, fieldname=None, mode="intersect"):
     if fieldname is not None:
         all_frames = {int(f[-10:-4]) for f in os.listdir(simpath) if str(f).startswith(fieldname) and str(f).endswith(".npz")}
-        return sorted(all_frames)
+        return tuple(sorted(all_frames))
     else:
-        frames_lists = [get_frames(simpath, fieldname) for fieldname in get_fieldnames(simpath)]
-        if mode.lower() == "intersect":
-            intersection = set(frames_lists[0]).intersection(*frames_lists[1:])
-            return sorted(intersection)
-        elif mode.lower() == "union":
-            if not frames_lists:
-                return []
-            union = set(frames_lists[0]).union(*frames_lists[1:])
-            return sorted(union)
+        frames_sets = [set(get_frames(simpath, fieldname)) for fieldname in get_fieldnames(simpath)]
+        if frames_sets:
+            if mode.lower() == "intersect":
+                frames = set.intersection(*frames_sets)
+            elif mode.lower() == "union":
+                frames = set.union(*frames_sets)
+            else:
+                raise ValueError(mode)
+            return tuple(sorted(frames))
+        else:
+            return ()
 
 
 class Scene(object):
