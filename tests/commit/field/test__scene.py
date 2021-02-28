@@ -57,7 +57,7 @@ class TestScene(TestCase):
         vel = DOMAIN.staggered_grid(2)
         # write
         scene = Scene.create(DIR)
-        scene.write({'smoke': smoke, 'vel': vel})
+        scene.write(smoke=smoke, vel=vel)
         # read single
         smoke_ = scene.read('smoke')
         vel_ = scene.read('vel')
@@ -66,7 +66,10 @@ class TestScene(TestCase):
         self.assertEqual(smoke.extrapolation, smoke_.extrapolation)
         self.assertEqual(vel.extrapolation, vel_.extrapolation)
         # read multiple
-        smoke__, vel__ = scene.read(['smoke', 'vel'])
+        smoke__, vel__ = scene.read(['smoke', 'vel'])  # deprecated
+        field.assert_close(smoke, smoke__)
+        field.assert_close(vel, vel__)
+        smoke__, vel__ = scene.read('smoke', 'vel')
         field.assert_close(smoke, smoke__)
         field.assert_close(vel, vel__)
         scene.remove()

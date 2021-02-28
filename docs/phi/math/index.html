@@ -1556,7 +1556,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 </details>
 </dd>
 <dt id="phi.math.join_dimensions"><code class="name flex">
-<span>def <span class="ident">join_dimensions</span></span>(<span>value: phi.math._tensors.Tensor, dims: phi.math._shape.Shape, joined_dim_name: str)</span>
+<span>def <span class="ident">join_dimensions</span></span>(<span>value: phi.math._tensors.Tensor, dims: phi.math._shape.Shape, joined_dim_name: str, pos: int = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -1574,6 +1574,8 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <dd>Dimensions to be compressed in the specified order.</dd>
 <dt><strong><code>joined_dim_name</code></strong></dt>
 <dd>Name of the new dimension.</dd>
+<dt><strong><code>pos</code></strong></dt>
+<dd>Index of new dimension. <code>None</code> for automatic, <code>-1</code> for last, <code>0</code> for first.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with compressed shape.</p></div>
@@ -1581,7 +1583,10 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
+<pre><code class="python">def join_dimensions(value: Tensor,
+                    dims: Shape or tuple or list,
+                    joined_dim_name: str,
+                    pos: int or None = None):
     &#34;&#34;&#34;
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -1597,18 +1602,20 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
         value: Tensor containing the dimensions `dims`.
         dims: Dimensions to be compressed in the specified order.
         joined_dim_name: Name of the new dimension.
+        pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
 
     Returns:
         `Tensor` with compressed shape.
     &#34;&#34;&#34;
     if len(dims) == 0:
-        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name)))
+        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
     order = value.shape.order_group(dims)
     native = value.native(order)
     types = value.shape.get_type(dims)
     dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
-    first_dim_index = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos=first_dim_index)
+    if pos is None:
+        pos = min(value.shape.indices(dims))
+    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)</code></pre>
 </details>
@@ -2524,7 +2531,7 @@ size: Shape: </p>
 </details>
 </dd>
 <dt id="phi.math.scatter"><code class="name flex">
-<span>def <span class="ident">scatter</span></span>(<span>indices: phi.math._tensors.Tensor, values: phi.math._tensors.Tensor, size: phi.math._shape.Shape, scatter_dims, duplicates_handling='undefined', outside_handling='discard')</span>
+<span>def <span class="ident">scatter</span></span>(<span>indices: phi.math._tensors.Tensor, values: phi.math._tensors.Tensor, size: phi.math._shape.Shape, scatter_dims: str, duplicates_handling: str = 'undefined', outside_handling: str = 'discard')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a dense tensor from sparse values.</p>
@@ -2542,35 +2549,32 @@ size: Shape: </p>
 <dd>one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')</dd>
 <dt><strong><code>outside_handling</code></strong></dt>
 <dd>one of ('discard', 'clamp', 'undefined') (Default value = 'discard')</dd>
-<dt><strong><code>indices</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>values</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>size</code></strong></dt>
-<dd>Shape: </dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>Tensor of shape <code>size</code> and dtype matching <code>values</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scatter(indices: Tensor, values: Tensor, size: Shape, scatter_dims, duplicates_handling=&#39;undefined&#39;, outside_handling=&#39;discard&#39;):
+<pre><code class="python">def scatter(indices: Tensor,
+            values: Tensor,
+            size: Shape,
+            scatter_dims: str or tuple or list or &#39;Shape&#39;,
+            duplicates_handling: str = &#39;undefined&#39;,
+            outside_handling: str = &#39;discard&#39;):
     &#34;&#34;&#34;
     Create a dense tensor from sparse values.
 
     Args:
-      indices: n-dimensional indices corresponding to values
-      values: values to scatter at indices
-      size: spatial size of dense tensor
-      scatter_dims: dimensions of values/indices to reduce during scattering
-      duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
-      outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;discard&#39;)
-      indices: Tensor: 
-      values: Tensor: 
-      size: Shape: 
+        indices: n-dimensional indices corresponding to values
+        values: values to scatter at indices
+        size: spatial size of dense tensor
+        scatter_dims: dimensions of values/indices to reduce during scattering
+        duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
+        outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;discard&#39;)
 
     Returns:
-
+        Tensor of shape `size` and dtype matching `values`.
     &#34;&#34;&#34;
     indices_ = indices.native()
     values_ = values.native(values.shape.combined(indices.shape.non_channel).names)
@@ -3146,7 +3150,12 @@ If <code>convert=True</code>, converts <code>data</code> to the preferred format
 If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> but keeps the given data reference if possible.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
-<p>AssertionError if dimension names are not provided and cannot automatically be inferred</p>
+<dl>
+<dt><code>AssertionError</code></dt>
+<dd>if dimension names are not provided and cannot automatically be inferred</dd>
+<dt><code>ValueError</code></dt>
+<dd>if <code>data</code> is not tensor-like</dd>
+</dl>
 <h2 id="returns">Returns</h2>
 <p>Tensor containing same values as data</p></div>
 <details class="source">
@@ -3183,7 +3192,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
     Raises:
-      AssertionError if dimension names are not provided and cannot automatically be inferred
+      AssertionError: if dimension names are not provided and cannot automatically be inferred
+      ValueError: if `data` is not tensor-like
 
     Returns:
       Tensor containing same values as data

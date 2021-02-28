@@ -50,7 +50,6 @@ See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fi
 &#34;&#34;&#34;
 
 from ._field import Field, SampledField
-from ._analytic import AnalyticField
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
@@ -77,6 +76,13 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </section>
 <section>
+<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+<dl>
+<dt><code class="name"><a title="phi.field.plt" href="plt.html">phi.field.plt</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
 </section>
 <section>
 </section>
@@ -849,92 +855,6 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="phi.field.AnalyticField"><code class="flex name class">
-<span>class <span class="ident">AnalyticField</span></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Base class for all fields.</p>
-<p>Important implementations:</p>
-<ul>
-<li>CenteredGrid</li>
-<li>StaggeredGrid</li>
-<li>PointCloud</li>
-<li>Noise</li>
-</ul>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class AnalyticField(Field):
-
-    def unstack(self, dimension: str) -&gt; tuple:
-        components = []
-        size = self.shape.get_size(dimension)
-        shape = self.shape.without(dimension)
-        for i in range(size):
-            def _context(index=i):
-                return lambda x: x.unstack(dimension)[index]
-            components.append(_SymbolicOpField(shape, _context(i), [self]))
-        return tuple(components)
-
-    def _op2(self, other, operator):
-        if isinstance(other, SampledField):
-            self_sampled = self.at(other)
-            data = operator(self_sampled.values, other.values)
-            return other.with_(values=data)
-        other = math.wrap(other)
-        new_shape = self.shape.combined(other.shape)
-        return _SymbolicOpField(new_shape, operator, [self, other])
-
-    def _op1(self, operator):
-        return _SymbolicOpField(self.shape, operator, [self])</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>phi.field._field.Field</li>
-</ul>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li>phi.field._analytic._SymbolicOpField</li>
-<li>phi.field._angular_velocity.AngularVelocity</li>
-<li>phi.field._mask.HardGeometryMask</li>
-<li>phi.field._noise.Noise</li>
-</ul>
-<h3>Methods</h3>
-<dl>
-<dt id="phi.field.AnalyticField.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    components = []
-    size = self.shape.get_size(dimension)
-    shape = self.shape.without(dimension)
-    for i in range(size):
-        def _context(index=i):
-            return lambda x: x.unstack(dimension)[index]
-        components.append(_SymbolicOpField(shape, _context(i), [self]))
-    return tuple(components)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 <dt id="phi.field.AngularVelocity"><code class="flex name class">
 <span>class <span class="ident">AngularVelocity</span></span>
 <span>(</span><span>location, strength=1.0, falloff: collections.abc.Callable = None)</span>
@@ -953,7 +873,7 @@ The dimension can be batch, spatial or channel.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class AngularVelocity(AnalyticField):
+<pre><code class="python">class AngularVelocity(Field):
 
     def __init__(self, location, strength=1.0, falloff: Callable = None):
         location = math.wrap(location)
@@ -979,11 +899,13 @@ The dimension can be batch, spatial or channel.</p>
 
     @property
     def shape(self) -&gt; Shape:
-        return self._shape</code></pre>
+        return self._shape
+
+    def unstack(self, dimension: str) -&gt; tuple:
+        raise NotImplementedError()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.field._analytic.AnalyticField</li>
 <li>phi.field._field.Field</li>
 </ul>
 <h3>Instance variables</h3>
@@ -1048,6 +970,29 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         velocity = math.cross_product(strength, distances)
     velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
     return velocity</code></pre>
+</details>
+</dd>
+<dt id="phi.field.AngularVelocity.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstack the field along one of its dimensions.
+The dimension can be batch, spatial or channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>str: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tuple of Fields</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 </dl>
@@ -1626,72 +1571,15 @@ The dimension can be batch, spatial or channel.</p>
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         if hasattr(self.__class__, name):
             raise RuntimeError(f&#34;Failed to get attribute &#39;{name}&#39; of {self}&#34;)
-        return _FieldDim(self, name)
-
-    def __mul__(self, other):
-        return self._op2(other, lambda d1, d2: d1 * d2)
-
-    __rmul__ = __mul__
-
-    def __truediv__(self, other):
-        return self._op2(other, lambda d1, d2: d1 / d2)
-
-    def __rtruediv__(self, other):
-        return self._op2(other, lambda d1, d2: d2 / d1)
-
-    def __sub__(self, other):
-        return self._op2(other, lambda d1, d2: d1 - d2)
-
-    def __rsub__(self, other):
-        return self._op2(other, lambda d1, d2: d2 - d1)
-
-    def __add__(self, other):
-        return self._op2(other, lambda d1, d2: d1 + d2)
-
-    __radd__ = __add__
-
-    def __pow__(self, power, modulo=None):
-        return self._op2(power, lambda f, p: f ** p)
-
-    def __neg__(self):
-        return self._op1(lambda x: -x)
-
-    def __gt__(self, other):
-        return self._op2(other, lambda x, y: x &gt; y)
-
-    def __ge__(self, other):
-        return self._op2(other, lambda x, y: x &gt;= y)
-
-    def __lt__(self, other):
-        return self._op2(other, lambda x, y: x &lt; y)
-
-    def __le__(self, other):
-        return self._op2(other, lambda x, y: x &lt;= y)
-
-    def __abs__(self):
-        return self._op1(lambda x: abs(x))
-
-    def _op1(self, operator) -&gt; &#39;Field&#39;:
-        &#34;&#34;&#34;
-        Perform an operation on the data of this field.
-
-        Args:
-          operator: function that accepts tensors and extrapolations and returns objects of the same type and dimensions
-
-        Returns:
-          Field of same type
-
-        &#34;&#34;&#34;
-        raise NotImplementedError()
-
-    def _op2(self, other, operator) -&gt; &#39;Field&#39;:
-        raise NotImplementedError()</code></pre>
+        return _FieldDim(self, name)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li>phi.field._analytic.AnalyticField</li>
+<li>phi.field._angular_velocity.AngularVelocity</li>
 <li>phi.field._constant.ConstantField</li>
 <li>phi.field._field.SampledField</li>
+<li>phi.field._mask.HardGeometryMask</li>
+<li>phi.field._noise.Noise</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -2214,7 +2102,7 @@ For volume sampling, performs sampling at the center points.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class HardGeometryMask(AnalyticField):
+<pre><code class="python">class HardGeometryMask(Field):
     &#34;&#34;&#34;
     Field that takes the value 1 inside a Geometry object and 0 outside.
     For volume sampling, performs sampling at the center points.
@@ -2233,11 +2121,14 @@ For volume sampling, performs sampling at the center points.</p></div>
         if reduce_channels:
             assert len(reduce_channels) == 1
             inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-        return inside</code></pre>
+        return inside
+
+    def unstack(self, dimension: str) -&gt; tuple:
+        geometries = self.geometry.unstack(dimension)
+        return tuple(HardGeometryMask(g) for g in geometries)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.field._analytic.AnalyticField</li>
 <li>phi.field._field.Field</li>
 </ul>
 <h3>Subclasses</h3>
@@ -2303,6 +2194,30 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
     return inside</code></pre>
 </details>
 </dd>
+<dt id="phi.field.HardGeometryMask.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstack the field along one of its dimensions.
+The dimension can be batch, spatial or channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>str: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tuple of Fields</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
+    geometries = self.geometry.unstack(dimension)
+    return tuple(HardGeometryMask(g) for g in geometries)</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="phi.field.Noise"><code class="flex name class">
@@ -2336,7 +2251,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Noise(AnalyticField):
+<pre><code class="python">class Noise(Field):
 
     def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **dims):
         &#34;&#34;&#34;
@@ -2403,7 +2318,6 @@ Each time values are sampled from a Noise field, a new noise field is generated.
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.field._analytic.AnalyticField</li>
 <li>phi.field._field.Field</li>
 </ul>
 <h3>Instance variables</h3>
@@ -2919,7 +2833,63 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         values = self._values.unstack(dimension)
         return tuple(self.with_(values=v) for i, v in enumerate(values))
 
+    def __getitem__(self, item):
+        values = self._values[item]
+        return self.with_(values=values)
+
+    def __mul__(self, other):
+        return self._op2(other, lambda d1, d2: d1 * d2)
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, other):
+        return self._op2(other, lambda d1, d2: d1 / d2)
+
+    def __rtruediv__(self, other):
+        return self._op2(other, lambda d1, d2: d2 / d1)
+
+    def __sub__(self, other):
+        return self._op2(other, lambda d1, d2: d1 - d2)
+
+    def __rsub__(self, other):
+        return self._op2(other, lambda d1, d2: d2 - d1)
+
+    def __add__(self, other):
+        return self._op2(other, lambda d1, d2: d1 + d2)
+
+    __radd__ = __add__
+
+    def __pow__(self, power, modulo=None):
+        return self._op2(power, lambda f, p: f ** p)
+
+    def __neg__(self):
+        return self._op1(lambda x: -x)
+
+    def __gt__(self, other):
+        return self._op2(other, lambda x, y: x &gt; y)
+
+    def __ge__(self, other):
+        return self._op2(other, lambda x, y: x &gt;= y)
+
+    def __lt__(self, other):
+        return self._op2(other, lambda x, y: x &lt; y)
+
+    def __le__(self, other):
+        return self._op2(other, lambda x, y: x &lt;= y)
+
+    def __abs__(self):
+        return self._op1(lambda x: abs(x))
+
     def _op1(self, operator) -&gt; Field:
+        &#34;&#34;&#34;
+        Perform an operation on the data of this field.
+
+        Args:
+          operator: function that accepts tensors and extrapolations and returns objects of the same type and dimensions
+
+        Returns:
+          Field of same type
+        &#34;&#34;&#34;
         values = operator(self.values)
         extrapolation_ = operator(self._extrapolation)
         return self.with_(values=values, extrapolation=extrapolation_)
@@ -2931,13 +2901,9 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_(values=values, extrapolation=extrapolation_)
         else:
-            other = math.wrap(other)
+            other = math.tensor(other)
             values = operator(self._values, other)
-            return self.with_(values=values)
-
-    def __getitem__(self, item):
-        values = self._values[item]
-        return self.with_(values=values)</code></pre>
+            return self.with_(values=values)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3188,7 +3154,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 
     def __init__(self, paths: str or math.Tensor):
         self._paths = math.wrap(paths)
-        self._properties = None
+        self._properties: dict or None = None
 
     @property
     def shape(self):
@@ -3339,9 +3305,10 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
     def _init_properties(self):
         if self._properties is not None:
             return
-        dfile = join(self.path, &#34;description.json&#34;)
+        dfile = join(next(iter(math.flatten(self._paths))), &#34;description.json&#34;)
         if isfile(dfile):
-            self._properties = json.load(dfile)
+            with open(dfile) as stream:
+                self._properties = json.load(stream)
         else:
             self._properties = {}
 
@@ -3364,10 +3331,29 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             json.dump(self._properties, out, indent=2)
 
     def put_property(self, key, value):
+        &#34;&#34;&#34; See `Scene.put_properties()`. &#34;&#34;&#34;
         self._init_properties()
         self._properties[key] = value
-        with open(join(self.path, &#34;description.json&#34;), &#34;w&#34;) as out:
-            json.dump(self._properties, out, indent=2)
+        self._write_properties()
+
+    def put_properties(self, update: dict = None, **kw_updates):
+        &#34;&#34;&#34;
+        Updates the properties dictionary and stores it in `description.json` of all scene folders.
+
+        Args:
+            update: new values, must be JSON serializable.
+            kw_updates: additional update as keyword arguments. This overrides `update`.
+        &#34;&#34;&#34;
+        self._init_properties()
+        if update:
+            self._properties.update(update)
+        self._properties.update(kw_updates)
+        self._write_properties()
+
+    def _write_properties(self):
+        for path in math.flatten(self.paths):
+            with open(join(path, &#34;description.json&#34;), &#34;w&#34;) as out:
+                json.dump(self._properties, out, indent=2)
 
     def write_sim_frame(self, arrays, fieldnames, frame):
         write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
@@ -3867,20 +3853,51 @@ def shape(self):
         isdir(path) or os.mkdir(path)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.Scene.put_properties"><code class="name flex">
+<span>def <span class="ident">put_properties</span></span>(<span>self, update: dict = None, **kw_updates)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Updates the properties dictionary and stores it in <code>description.json</code> of all scene folders.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>update</code></strong></dt>
+<dd>new values, must be JSON serializable.</dd>
+<dt><strong><code>kw_updates</code></strong></dt>
+<dd>additional update as keyword arguments. This overrides <code>update</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def put_properties(self, update: dict = None, **kw_updates):
+    &#34;&#34;&#34;
+    Updates the properties dictionary and stores it in `description.json` of all scene folders.
+
+    Args:
+        update: new values, must be JSON serializable.
+        kw_updates: additional update as keyword arguments. This overrides `update`.
+    &#34;&#34;&#34;
+    self._init_properties()
+    if update:
+        self._properties.update(update)
+    self._properties.update(kw_updates)
+    self._write_properties()</code></pre>
+</details>
+</dd>
 <dt id="phi.field.Scene.put_property"><code class="name flex">
 <span>def <span class="ident">put_property</span></span>(<span>self, key, value)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>See <code><a title="phi.field.Scene.put_properties" href="#phi.field.Scene.put_properties">Scene.put_properties()</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def put_property(self, key, value):
+    &#34;&#34;&#34; See `Scene.put_properties()`. &#34;&#34;&#34;
     self._init_properties()
     self._properties[key] = value
-    with open(join(self.path, &#34;description.json&#34;), &#34;w&#34;) as out:
-        json.dump(self._properties, out, indent=2)</code></pre>
+    self._write_properties()</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Scene.read"><code class="name flex">
@@ -4069,12 +4086,15 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
         if reduce_channels:
             assert len(reduce_channels) == 1
             inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-        return inside</code></pre>
+        return inside
+
+    def unstack(self, dimension: str) -&gt; tuple:
+        geometries = self.geometry.unstack(dimension)
+        return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
-<li>phi.field._analytic.AnalyticField</li>
 <li>phi.field._field.Field</li>
 </ul>
 <h3>Methods</h3>
@@ -4149,6 +4169,30 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         assert len(reduce_channels) == 1
         inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
     return inside</code></pre>
+</details>
+</dd>
+<dt id="phi.field.SoftGeometryMask.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstack the field along one of its dimensions.
+The dimension can be batch, spatial or channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>str: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tuple of Fields</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
+    geometries = self.geometry.unstack(dimension)
+    return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
 </details>
 </dd>
 </dl>
@@ -4176,12 +4220,15 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         if reduce_channels:
             assert len(reduce_channels) == 1
             inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-        return inside</code></pre>
+        return inside
+
+    def unstack(self, dimension: str) -&gt; tuple:
+        geometries = self.geometry.unstack(dimension)
+        return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
-<li>phi.field._analytic.AnalyticField</li>
 <li>phi.field._field.Field</li>
 </ul>
 <h3>Methods</h3>
@@ -4256,6 +4303,30 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         assert len(reduce_channels) == 1
         inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
     return inside</code></pre>
+</details>
+</dd>
+<dt id="phi.field.SoftGeometryMask.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstack the field along one of its dimensions.
+The dimension can be batch, spatial or channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>str: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tuple of Fields</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
+    geometries = self.geometry.unstack(dimension)
+    return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
 </details>
 </dd>
 </dl>
@@ -4818,6 +4889,11 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi" href="../index.html">phi</a></code></li>
 </ul>
 </li>
+<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<ul>
+<li><code><a title="phi.field.plt" href="plt.html">phi.field.plt</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.field.assert_close" href="#phi.field.assert_close">assert_close</a></code></li>
@@ -4850,16 +4926,11 @@ The dimension can be batch, spatial or channel.</p>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="phi.field.AnalyticField" href="#phi.field.AnalyticField">AnalyticField</a></code></h4>
-<ul class="">
-<li><code><a title="phi.field.AnalyticField.unstack" href="#phi.field.AnalyticField.unstack">unstack</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="phi.field.AngularVelocity" href="#phi.field.AngularVelocity">AngularVelocity</a></code></h4>
 <ul class="">
 <li><code><a title="phi.field.AngularVelocity.sample_at" href="#phi.field.AngularVelocity.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.AngularVelocity.shape" href="#phi.field.AngularVelocity.shape">shape</a></code></li>
+<li><code><a title="phi.field.AngularVelocity.unstack" href="#phi.field.AngularVelocity.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
@@ -4907,6 +4978,7 @@ The dimension can be batch, spatial or channel.</p>
 <ul class="">
 <li><code><a title="phi.field.HardGeometryMask.sample_at" href="#phi.field.HardGeometryMask.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.HardGeometryMask.shape" href="#phi.field.HardGeometryMask.shape">shape</a></code></li>
+<li><code><a title="phi.field.HardGeometryMask.unstack" href="#phi.field.HardGeometryMask.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
@@ -4962,6 +5034,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.Scene.path" href="#phi.field.Scene.path">path</a></code></li>
 <li><code><a title="phi.field.Scene.paths" href="#phi.field.Scene.paths">paths</a></code></li>
 <li><code><a title="phi.field.Scene.properties" href="#phi.field.Scene.properties">properties</a></code></li>
+<li><code><a title="phi.field.Scene.put_properties" href="#phi.field.Scene.put_properties">put_properties</a></code></li>
 <li><code><a title="phi.field.Scene.put_property" href="#phi.field.Scene.put_property">put_property</a></code></li>
 <li><code><a title="phi.field.Scene.read" href="#phi.field.Scene.read">read</a></code></li>
 <li><code><a title="phi.field.Scene.read_array" href="#phi.field.Scene.read_array">read_array</a></code></li>
@@ -4977,6 +5050,7 @@ The dimension can be batch, spatial or channel.</p>
 <ul class="">
 <li><code><a title="phi.field.SoftGeometryMask.sample_at" href="#phi.field.SoftGeometryMask.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.SoftGeometryMask.sample_in" href="#phi.field.SoftGeometryMask.sample_in">sample_in</a></code></li>
+<li><code><a title="phi.field.SoftGeometryMask.unstack" href="#phi.field.SoftGeometryMask.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
@@ -4984,6 +5058,7 @@ The dimension can be batch, spatial or channel.</p>
 <ul class="">
 <li><code><a title="phi.field.SoftGeometryMask.sample_at" href="#phi.field.SoftGeometryMask.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.SoftGeometryMask.sample_in" href="#phi.field.SoftGeometryMask.sample_in">sample_in</a></code></li>
+<li><code><a title="phi.field.SoftGeometryMask.unstack" href="#phi.field.SoftGeometryMask.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>

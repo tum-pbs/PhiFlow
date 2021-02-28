@@ -862,7 +862,18 @@ The output of math operations has the same precision as its inputs.</p>
     def gather(self, values, indices):
         raise NotImplementedError(self)
 
-    def gather_nd(self, values, indices, batch_dims=0):
+    def batched_gather_nd(self, values, indices):
+        &#34;&#34;&#34;
+        Gathers values from the tensor `values` at locations `indices`.
+        The first dimension of `values` and `indices` is the batch dimension which must be either equal for both or one for either.
+
+        Args:
+            values: tensor of shape (batch, spatial..., channel)
+            indices: int tensor of shape (batch, any..., multi_index) where the size of multi_index is values.rank - 2.
+
+        Returns:
+            Gathered values as tensor of shape (batch, any..., channel)
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def flatten(self, x):
@@ -1306,6 +1317,40 @@ Backends can override this method to prevent unnecessary casting.</p>
     if isinstance(batches, int):
         batches = [batches]
     return tensor[batches, ...]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.batched_gather_nd"><code class="name flex">
+<span>def <span class="ident">batched_gather_nd</span></span>(<span>self, values, indices)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gathers values from the tensor <code>values</code> at locations <code>indices</code>.
+The first dimension of <code>values</code> and <code>indices</code> is the batch dimension which must be either equal for both or one for either.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>tensor of shape (batch, spatial&hellip;, channel)</dd>
+<dt><strong><code>indices</code></strong></dt>
+<dd>int tensor of shape (batch, any&hellip;, multi_index) where the size of multi_index is values.rank - 2.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Gathered values as tensor of shape (batch, any&hellip;, channel)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def batched_gather_nd(self, values, indices):
+    &#34;&#34;&#34;
+    Gathers values from the tensor `values` at locations `indices`.
+    The first dimension of `values` and `indices` is the batch dimension which must be either equal for both or one for either.
+
+    Args:
+        values: tensor of shape (batch, spatial..., channel)
+        indices: int tensor of shape (batch, any..., multi_index) where the size of multi_index is values.rank - 2.
+
+    Returns:
+        Gathered values as tensor of shape (batch, any..., channel)
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.boolean_mask"><code class="name flex">
@@ -1771,19 +1816,6 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def gather(self, values, indices):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.gather_nd"><code class="name flex">
-<span>def <span class="ident">gather_nd</span></span>(<span>self, values, indices, batch_dims=0)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gather_nd(self, values, indices, batch_dims=0):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3714,6 +3746,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">as_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batch_gather" href="#phi.math.backend.Backend.batch_gather">batch_gather</a></code></li>
+<li><code><a title="phi.math.backend.Backend.batched_gather_nd" href="#phi.math.backend.Backend.batched_gather_nd">batched_gather_nd</a></code></li>
 <li><code><a title="phi.math.backend.Backend.boolean_mask" href="#phi.math.backend.Backend.boolean_mask">boolean_mask</a></code></li>
 <li><code><a title="phi.math.backend.Backend.call" href="#phi.math.backend.Backend.call">call</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cast" href="#phi.math.backend.Backend.cast">cast</a></code></li>
@@ -3742,7 +3775,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.float_type" href="#phi.math.backend.Backend.float_type">float_type</a></code></li>
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
-<li><code><a title="phi.math.backend.Backend.gather_nd" href="#phi.math.backend.Backend.gather_nd">gather_nd</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradient_function" href="#phi.math.backend.Backend.gradient_function">gradient_function</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>

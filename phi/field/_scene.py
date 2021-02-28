@@ -265,7 +265,7 @@ class Scene(object):
     def _init_properties(self):
         if self._properties is not None:
             return
-        dfile = join(math.flatten(self.paths)[0].native(), "description.json")
+        dfile = join(next(iter(math.flatten(self._paths))), "description.json")
         if isfile(dfile):
             with open(dfile) as stream:
                 self._properties = json.load(stream)
@@ -296,15 +296,18 @@ class Scene(object):
         self._properties[key] = value
         self._write_properties()
 
-    def put_properties(self, update: dict):
+    def put_properties(self, update: dict = None, **kw_updates):
         """
         Updates the properties dictionary and stores it in `description.json` of all scene folders.
 
         Args:
             update: new values, must be JSON serializable.
+            kw_updates: additional update as keyword arguments. This overrides `update`.
         """
         self._init_properties()
-        self._properties.update(update)
+        if update:
+            self._properties.update(update)
+        self._properties.update(kw_updates)
         self._write_properties()
 
     def _write_properties(self):
@@ -315,7 +318,7 @@ class Scene(object):
     def write_sim_frame(self, arrays, fieldnames, frame):
         write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
 
-    def write(self, data: dict, frame=0):
+    def write(self, data: dict = None, frame=0, **kw_data):
         """
         Writes fields to this scene.
         One NumPy file will be created for each `phi.field.Field`
@@ -325,8 +328,11 @@ class Scene(object):
 
         Args:
             data: `dict` mapping field names to `Field` objects that can be written using `phi.field.write()`.
+            kw_data: Additional data, overrides elements in `data`.
             frame: Frame number.
         """
+        data = dict(data) if data else {}
+        data.update(kw_data)
         write_sim_frame(self._paths, data, names=None, frame=frame)
 
     def read_array(self, field_name, frame):
@@ -335,7 +341,7 @@ class Scene(object):
     # def read_sim_frames(self, fieldnames=None, frames=None):
     #     return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames, batch_dim=self.batch_dim)
 
-    def read(self, names: str or tuple or list, frame=0, convert_to_backend=True):
+    def read(self, *names: str, frame=0, convert_to_backend=True):
         """
         Reads one or multiple fields from disc.
 
@@ -350,7 +356,8 @@ class Scene(object):
         Returns:
             Single `phi.field.Field` or sequence of fields, depending on the type of `names`.
         """
-        return read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)
+        result = read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)
+        return result[0] if len(names) == 1 else result
 
     @property
     def fieldnames(self) -> tuple:
