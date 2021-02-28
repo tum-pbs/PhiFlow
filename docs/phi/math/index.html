@@ -78,7 +78,7 @@ from ._functions import (
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
-    closest_grid_values, grid_sample, scatter,
+    closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, conv,
     dtype, cast,
     tile,
@@ -1218,6 +1218,28 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
     return l1_loss(diff_fft * weights, reduce_batches=reduce_batches)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.gather"><code class="name flex">
+<span>def <span class="ident">gather</span></span>(<span>values: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gather(values: Tensor, indices: Tensor):
+    b_values = join_dimensions(values, values.shape.batch, &#39;batch&#39;)
+    b_values = join_dimensions(b_values, b_values.shape.channel, &#39;channel&#39;, pos=-1)
+    b_indices = join_dimensions(indices, indices.shape.batch, &#39;batch&#39;)
+    native_values = b_values.native()
+    native_indices = b_indices.native()
+    native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
+    b_result = tensor(native_result, (&#39;batch&#39;, *indices.shape.spatial.names, &#39;vector&#39;))
+    result = split_dimension(b_result.vector, values.shape.channel)
+    result = split_dimension(result.batch, values.shape.batch &amp; indices.shape.batch)
+    return result</code></pre>
+</details>
+</dd>
 <dt id="phi.math.get_precision"><code class="name flex">
 <span>def <span class="ident">get_precision</span></span>(<span>) ‑> int</span>
 </code></dt>
@@ -1817,7 +1839,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.map"><code class="name flex">
-<span>def <span class="ident">map</span></span>(<span>function, value: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">map</span></span>(<span>function, *values: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calls <code>function</code> on all elements of <code>value</code>.</p>
@@ -1825,8 +1847,8 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <dl>
 <dt><strong><code>function</code></strong></dt>
 <dd>Function to be called on single elements contained in <code>value</code>. Must return a value that can be stored in tensors.</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor to iterate over.</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Tensors to iterate over. Number of tensors must match <code>function</code> signature.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of same shape as <code>value</code>.</p></div>
@@ -1834,21 +1856,24 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def map_(function, value: Tensor) -&gt; Tensor:
+<pre><code class="python">def map_(function, *values: Tensor) -&gt; Tensor:
     &#34;&#34;&#34;
     Calls `function` on all elements of `value`.
 
     Args:
         function: Function to be called on single elements contained in `value`. Must return a value that can be stored in tensors.
-        value: Tensor to iterate over.
+        values: Tensors to iterate over. Number of tensors must match `function` signature.
 
     Returns:
         `Tensor` of same shape as `value`.
     &#34;&#34;&#34;
+    shape = combine_safe(*[v.shape for v in values])
+    values_reshaped = [CollapsedTensor(v, shape) for v in values]
+    flat = [flatten(v) for v in values_reshaped]
     result = []
-    for v in flatten(value):
-        result.append(function(v))
-    return wrap(result).vector.split(value.shape)</code></pre>
+    for items in zip(*flat):
+        result.append(function(*items))
+    return wrap(result).vector.split(shape)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.matmul"><code class="name flex">
@@ -7822,6 +7847,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.fourier_laplace" href="#phi.math.fourier_laplace">fourier_laplace</a></code></li>
 <li><code><a title="phi.math.fourier_poisson" href="#phi.math.fourier_poisson">fourier_poisson</a></code></li>
 <li><code><a title="phi.math.frequency_loss" href="#phi.math.frequency_loss">frequency_loss</a></code></li>
+<li><code><a title="phi.math.gather" href="#phi.math.gather">gather</a></code></li>
 <li><code><a title="phi.math.get_precision" href="#phi.math.get_precision">get_precision</a></code></li>
 <li><code><a title="phi.math.gradient" href="#phi.math.gradient">gradient</a></code></li>
 <li><code><a title="phi.math.gradient_function" href="#phi.math.gradient_function">gradient_function</a></code></li>
