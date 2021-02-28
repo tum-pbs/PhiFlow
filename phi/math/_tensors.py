@@ -1078,7 +1078,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
     Raises:
-      AssertionError if dimension names are not provided and cannot automatically be inferred
+      AssertionError: if dimension names are not provided and cannot automatically be inferred
+      ValueError: if `data` is not tensor-like
 
     Returns:
       Tensor containing same values as data

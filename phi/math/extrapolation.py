@@ -366,7 +366,10 @@ class _CopyExtrapolation(Extrapolation):
         return self._op(other, ConstantExtrapolation.__lt__)
 
     def __neg__(self):
-        return self  # assume the values are also negated
+        return self  # assume also applied to values
+
+    def __abs__(self):
+        return self  # assume also applied to values
 
 
 class _BoundaryExtrapolation(_CopyExtrapolation):
