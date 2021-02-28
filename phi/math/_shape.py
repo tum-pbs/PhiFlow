@@ -746,12 +746,16 @@ class Shape:
             if isinstance(selection, int):
                 result = result.without(name)
             elif isinstance(selection, slice):
-                assert selection.step is None
                 start = selection.start or 0
                 stop = selection.stop or self.get_size(name)
+                step = selection.step or 1
                 if stop < 0:
                     stop += self.get_size(name)
-                result = result.with_size(name, stop - start)
+                    assert stop >= 0
+                new_size = math.to_int(math.ceil(math.wrap((stop - start) / step)))
+                if new_size.rank == 0:
+                    new_size = int(new_size)  # NumPy array not allowed because not hashable
+                result = result.with_size(name, new_size)
             else:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allowed.")
         return result

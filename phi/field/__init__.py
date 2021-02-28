@@ -28,6 +28,7 @@ from ._field_math import (
     solve, minimize,
     where,
     l2_loss,
+    downsample2x, upsample2x,
     extrapolate_valid,
     trace_function, gradient_function,  # function wrappers
 )

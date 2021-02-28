@@ -58,16 +58,15 @@ from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
     assert_close,
-    laplace, gradient, divergence, stagger,
+    laplace, gradient, divergence, stagger,  # spatial operators
     mean, pad, shift, normalize,
     concat, batch_stack,
-    real, imag,
+    abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
     solve, minimize,
     where,
     l2_loss,
-    stop_gradient,
     extrapolate_valid,
-    trace_function, gradient_function,
+    trace_function, gradient_function,  # function wrappers
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -89,8 +88,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="phi.field.assert_close"><code class="name flex">
-<span>def <span class="ident">assert_close</span></span>(<span>*fields: phi.field._field.SampledField, rel_tolerance: float = 1e-05, abs_tolerance: float = 0)</span>
+<dt id="phi.field.abs"><code class="name flex">
+<span>def <span class="ident">abs</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -98,9 +97,23 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def assert_close(*fields: SampledField,
+<pre><code class="python">def abs(x: SampledField) -&gt; SampledField:
+    return x._op1(math.abs)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.assert_close"><code class="name flex">
+<span>def <span class="ident">assert_close</span></span>(<span>*fields: phi.field._field.SampledField, rel_tolerance: float = 1e-05, abs_tolerance: float = 0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Raises an AssertionError if the <code>values</code> of the given fields are not close. See <code><a title="phi.math.assert_close" href="../math/index.html#phi.math.assert_close">assert_close()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def assert_close(*fields: SampledField or math.Tensor or Number,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0):
+    &#34;&#34;&#34; Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. &#34;&#34;&#34;
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
     values = [(f &gt;&gt; f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)</code></pre>
@@ -131,6 +144,32 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 </dd>
+<dt id="phi.field.cast"><code class="name flex">
+<span>def <span class="ident">cast</span></span>(<span>x: phi.field._field.SampledField, dtype: phi.math.backend._dtype.DType) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cast(x: SampledField, dtype: DType) -&gt; SampledField:
+    return x._op1(partial(math.cast, dtype=dtype))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.ceil"><code class="name flex">
+<span>def <span class="ident">ceil</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ceil(x: SampledField) -&gt; SampledField:
+    return x._op1(math.ceil)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.concat"><code class="name flex">
 <span>def <span class="ident">concat</span></span>(<span>*fields: phi.field._field.SampledField, dim: str)</span>
 </code></dt>
@@ -154,6 +193,19 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         colors = math.concat([math.expand(f.color, dim, f.shape.get_size(dim)) for f in fields], dim)
         return fields[0].with_(elements=elements, values=values, color=colors)
     raise NotImplementedError(type(fields[0]))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.cos"><code class="name flex">
+<span>def <span class="ident">cos</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cos(x: SampledField) -&gt; SampledField:
+    return x._op1(math.cos)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
@@ -207,6 +259,19 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         return result
     else:
         raise NotImplementedError(f&#34;{type(field)} not supported. Only StaggeredGrid allowed.&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.exp"><code class="name flex">
+<span>def <span class="ident">exp</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def exp(x: SampledField) -&gt; SampledField:
+    return x._op1(math.exp)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.extrapolate_valid"><code class="name flex">
@@ -263,6 +328,19 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
         return grid.with_(values=math.channel_stack(new_values, &#39;vector&#39;)), valid.with_(values=math.channel_stack(new_valid, &#39;vector&#39;))
     else:
         raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.field.floor"><code class="name flex">
+<span>def <span class="ident">floor</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def floor(x: SampledField) -&gt; SampledField:
+    return x._op1(math.floor)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.gradient"><code class="name flex">
@@ -368,7 +446,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>field: phi.field._field.Field)</span>
+<span>def <span class="ident">imag</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -376,10 +454,21 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(field: Field):
-    if isinstance(field, SampledField):
-        return field.with_(values=math.imag(field.values))
-    raise NotImplementedError()</code></pre>
+<pre><code class="python">def imag(field: SampledField):
+    return field._op1(math.imag)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.isfinite"><code class="name flex">
+<span>def <span class="ident">isfinite</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def isfinite(x: SampledField) -&gt; SampledField:
+    return x._op1(math.isfinite)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
@@ -529,7 +618,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>field: phi.field._field.Field)</span>
+<span>def <span class="ident">real</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -537,10 +626,21 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(field: Field):
-    if isinstance(field, SampledField):
-        return field.with_(values=math.real(field.values))
-    raise NotImplementedError()</code></pre>
+<pre><code class="python">def real(field: SampledField):
+    return field._op1(math.real)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.round"><code class="name flex">
+<span>def <span class="ident">round</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def round_(x: SampledField) -&gt; SampledField:
+    return x._op1(math.round)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.shift"><code class="name flex">
@@ -578,6 +678,32 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]</code></pre>
 </details>
 </dd>
+<dt id="phi.field.sign"><code class="name flex">
+<span>def <span class="ident">sign</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sign(x: SampledField) -&gt; SampledField:
+    return x._op1(math.sign)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.sin"><code class="name flex">
+<span>def <span class="ident">sin</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sin(x: SampledField) -&gt; SampledField:
+    return x._op1(math.sin)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.solve"><code class="name flex">
 <span>def <span class="ident">solve</span></span>(<span>function, y: phi.field._grid.Grid, x0: phi.field._grid.Grid, solve_params: phi.math.backend._optim.Solve, constants: tuple = (), callback=None)</span>
 </code></dt>
@@ -599,6 +725,19 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
     assert all(isinstance(c, math.Tensor) for c in constants)
     converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
     return converged, x0.with_(values=x), iterations</code></pre>
+</details>
+</dd>
+<dt id="phi.field.sqrt"><code class="name flex">
+<span>def <span class="ident">sqrt</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sqrt(x: SampledField) -&gt; SampledField:
+    return x._op1(math.sqrt)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.stack_staggered_components"><code class="name flex">
@@ -704,9 +843,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 </summary>
 <pre><code class="python">def stop_gradient(field: SampledField):
     &#34;&#34;&#34; See `phi.math.stop_gradient()` &#34;&#34;&#34;
-    if isinstance(field, Grid):
-        return field.with_(values=math.stop_gradient(field.values))
-    raise NotImplementedError()</code></pre>
+    return field._op1(math.stop_gradient)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.trace_function"><code class="name flex">
@@ -2880,7 +3017,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
     def __abs__(self):
         return self._op1(lambda x: abs(x))
 
-    def _op1(self, operator) -&gt; Field:
+    def _op1(self, operator) -&gt; &#39;SampledField&#39;:
         &#34;&#34;&#34;
         Perform an operation on the data of this field.
 
@@ -2894,7 +3031,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         extrapolation_ = operator(self._extrapolation)
         return self.with_(values=values, extrapolation=extrapolation_)
 
-    def _op2(self, other, operator) -&gt; Field:
+    def _op2(self, other, operator) -&gt; &#39;SampledField&#39;:
         if isinstance(other, Field):
             other_values = other.sample_in(self._elements)
             values = operator(self._values, other_values)
@@ -4906,14 +5043,21 @@ The dimension can be batch, spatial or channel.</p>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="phi.field.abs" href="#phi.field.abs">abs</a></code></li>
 <li><code><a title="phi.field.assert_close" href="#phi.field.assert_close">assert_close</a></code></li>
 <li><code><a title="phi.field.batch_stack" href="#phi.field.batch_stack">batch_stack</a></code></li>
+<li><code><a title="phi.field.cast" href="#phi.field.cast">cast</a></code></li>
+<li><code><a title="phi.field.ceil" href="#phi.field.ceil">ceil</a></code></li>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
+<li><code><a title="phi.field.cos" href="#phi.field.cos">cos</a></code></li>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
+<li><code><a title="phi.field.exp" href="#phi.field.exp">exp</a></code></li>
 <li><code><a title="phi.field.extrapolate_valid" href="#phi.field.extrapolate_valid">extrapolate_valid</a></code></li>
+<li><code><a title="phi.field.floor" href="#phi.field.floor">floor</a></code></li>
 <li><code><a title="phi.field.gradient" href="#phi.field.gradient">gradient</a></code></li>
 <li><code><a title="phi.field.gradient_function" href="#phi.field.gradient_function">gradient_function</a></code></li>
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
+<li><code><a title="phi.field.isfinite" href="#phi.field.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>
 <li><code><a title="phi.field.mean" href="#phi.field.mean">mean</a></code></li>
@@ -4922,8 +5066,12 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.pad" href="#phi.field.pad">pad</a></code></li>
 <li><code><a title="phi.field.read" href="#phi.field.read">read</a></code></li>
 <li><code><a title="phi.field.real" href="#phi.field.real">real</a></code></li>
+<li><code><a title="phi.field.round" href="#phi.field.round">round</a></code></li>
 <li><code><a title="phi.field.shift" href="#phi.field.shift">shift</a></code></li>
+<li><code><a title="phi.field.sign" href="#phi.field.sign">sign</a></code></li>
+<li><code><a title="phi.field.sin" href="#phi.field.sin">sin</a></code></li>
 <li><code><a title="phi.field.solve" href="#phi.field.solve">solve</a></code></li>
+<li><code><a title="phi.field.sqrt" href="#phi.field.sqrt">sqrt</a></code></li>
 <li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>

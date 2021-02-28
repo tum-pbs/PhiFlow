@@ -287,6 +287,31 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
 
 
+def downsample2x(grid: Grid) -> GridType:
+    if isinstance(grid, CenteredGrid):
+        values = math.downsample2x(grid.values, grid.extrapolation)
+        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+    elif isinstance(grid, StaggeredGrid):
+        values = []
+        for dim, centered_grid in zip(grid.shape.spatial.names, grid.unstack()):
+            odd_discarded = centered_grid.values[{dim: slice(None, None, 2)}]
+            others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
+            values.append(others_interpolated)
+        return StaggeredGrid(math.channel_stack(values, 'vector'), grid.bounds, grid.extrapolation)
+    else:
+        raise ValueError(type(grid))
+
+
+def upsample2x(grid: GridType) -> GridType:
+    if isinstance(grid, CenteredGrid):
+        values = math.upsample2x(grid.values, grid.extrapolation)
+        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+    elif isinstance(grid, StaggeredGrid):
+        raise NotImplementedError()
+    else:
+        raise ValueError(type(grid))
+
+
 def concat(*fields: SampledField, dim: str):
     assert all(isinstance(f, SampledField) for f in fields)
     assert all(isinstance(f, type(fields[0])) for f in fields)

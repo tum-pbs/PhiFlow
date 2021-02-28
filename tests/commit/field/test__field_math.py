@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy
 
 from phi import math, torch
-from phi.field import StaggeredGrid, CenteredGrid
+from phi.field import StaggeredGrid, CenteredGrid, Noise
 from phi.geom import Box
 from phi import field
 from phi.physics import Domain
@@ -53,6 +53,17 @@ class TestFieldMath(TestCase):
             self.assertIsInstance(loss, math.Tensor)
             self.assertIsInstance(dx, StaggeredGrid)
             self.assertIsInstance(dy, CenteredGrid)
+
+    def test_upsample_downsample_centered_1d(self):
+        grid = Domain(x=4).scalar_grid([0, 1, 2, 3])
+        upsampled = field.upsample2x(grid)
+        downsampled = field.downsample2x(upsampled)
+        math.assert_close(downsampled.values.x[1:-1], grid.values.x[1:-1])
+
+    def test_downsample_staggered_2d(self):
+        grid = Domain(x=32, y=40).staggered_grid(1)
+        downsampled = field.downsample2x(grid)
+        self.assertEqual(math.shape(x=16, y=20, vector=2).alphabetically(), downsampled.shape.alphabetically())
 
     def test_abs(self):
         grid = Domain(x=4, y=3).staggered_grid(-1)

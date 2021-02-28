@@ -318,15 +318,6 @@ class StaggeredGrid(Grid):
         else:
             return SampledField._op2(self, other, operator)
 
-    # def downsample2x(self):
-    #     values = []
-    #     for axis in range(self.rank):
-    #         grid = self.unstack()[axis].values
-    #         grid = grid[tuple([slice(None, None, 2) if d - 1 == axis else slice(None) for d in range(self.rank + 2)])]  # Discard odd indices along axis
-    #         grid = math.downsample2x(grid, dims=tuple(filter(lambda ax2: ax2 != axis, range(self.rank))))  # Interpolate values along other dims
-    #         values.append(grid)
-    #     return self.with_(values=values)
-
 
 def unstack_staggered_tensor(data: Tensor) -> TensorStack:
     sliced = []
