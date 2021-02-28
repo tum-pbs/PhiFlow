@@ -74,7 +74,7 @@ def _filename(simpath, name, frame):
 
 
 def get_fieldnames(simpath) -> tuple:
-    fieldnames_set = {f[:-11] for f in os.listdir(simpath) if f.endswith(".npz")}
+    fieldnames_set = {str(f)[:-11] for f in os.listdir(simpath) if str(f).endswith(".npz")}
     return tuple(sorted(fieldnames_set))
 
 
@@ -84,7 +84,7 @@ def first_frame(simpath, fieldname=None):
 
 def get_frames(simpath, fieldname=None, mode="intersect"):
     if fieldname is not None:
-        all_frames = {int(f[-10:-4]) for f in os.listdir(simpath) if f.startswith(fieldname) and f.endswith(".npz")}
+        all_frames = {int(f[-10:-4]) for f in os.listdir(simpath) if str(f).startswith(fieldname) and str(f).endswith(".npz")}
         return sorted(all_frames)
     else:
         frames_lists = [get_frames(simpath, fieldname) for fieldname in get_fieldnames(simpath)]
