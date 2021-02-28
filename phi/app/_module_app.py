@@ -52,9 +52,10 @@ class ModuleViewer(App):
         App.__init__(self, name, subtitle, fields=None, stride=stride, base_dir=base_dir, summary=summary, custom_properties=custom_properties, target_scene=target_scene, objects_to_save=objects_to_save, framerate=framerate, dt=dt)
         if fields is None:
             for name in dir(module):
-                val = getattr(module, name)
-                if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank > 0):
-                    self.add_field(name, lambda name=name: getattr(module, name))
+                if not name.startswith('_'):
+                    val = getattr(module, name)
+                    if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank > 0):
+                        self.add_field(name, lambda name=name: getattr(module, name))
         else:
             for name in fields:
                 self.add_field(name, lambda name=name: getattr(module, name))

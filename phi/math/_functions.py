@@ -841,8 +841,8 @@ def gather(values: Tensor, indices: Tensor):
     native_values = b_values.native()
     native_indices = b_indices.native()
     native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
-    b_result = tensor(native_result, ('batch', *indices.shape.spatial.names, 'channel'))
-    result = split_dimension(b_result.channel, values.shape.channel)
+    b_result = tensor(native_result, ('batch', *indices.shape.spatial.names, 'vector'))
+    result = split_dimension(b_result.vector, values.shape.channel)
     result = split_dimension(result.batch, values.shape.batch & indices.shape.batch)
     return result
 

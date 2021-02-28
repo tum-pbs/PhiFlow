@@ -114,7 +114,7 @@ class Scene(object):
 
     def __init__(self, paths: str or math.Tensor):
         self._paths = math.wrap(paths)
-        self._properties = None
+        self._properties: dict or None = None
 
     @property
     def shape(self):
@@ -265,9 +265,10 @@ class Scene(object):
     def _init_properties(self):
         if self._properties is not None:
             return
-        dfile = join(self.path, "description.json")
+        dfile = join(math.flatten(self.paths)[0].native(), "description.json")
         if isfile(dfile):
-            self._properties = json.load(dfile)
+            with open(dfile) as stream:
+                self._properties = json.load(stream)
         else:
             self._properties = {}
 
@@ -290,10 +291,26 @@ class Scene(object):
             json.dump(self._properties, out, indent=2)
 
     def put_property(self, key, value):
+        """ See `Scene.put_properties()`. """
         self._init_properties()
         self._properties[key] = value
-        with open(join(self.path, "description.json"), "w") as out:
-            json.dump(self._properties, out, indent=2)
+        self._write_properties()
+
+    def put_properties(self, update: dict):
+        """
+        Updates the properties dictionary and stores it in `description.json` of all scene folders.
+
+        Args:
+            update: new values, must be JSON serializable.
+        """
+        self._init_properties()
+        self._properties.update(update)
+        self._write_properties()
+
+    def _write_properties(self):
+        for path in math.flatten(self.paths):
+            with open(join(path, "description.json"), "w") as out:
+                json.dump(self._properties, out, indent=2)
 
     def write_sim_frame(self, arrays, fieldnames, frame):
         write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
