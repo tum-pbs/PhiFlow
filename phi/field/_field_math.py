@@ -1,10 +1,11 @@
-from functools import wraps
+from functools import wraps, partial
+from numbers import Number
 from typing import TypeVar, Tuple, Callable
 
 from phi import math
 from phi import geom
 from phi.geom import Box, Geometry
-from phi.math import extrapolate_valid_values
+from phi.math import extrapolate_valid_values, DType
 from ._field import Field, SampledField
 from ._grid import CenteredGrid, Grid, StaggeredGrid
 from ._point_cloud import PointCloud
@@ -318,21 +319,62 @@ def batch_stack(*fields, dim: str):
     raise NotImplementedError(type(fields[0]))
 
 
-def real(field: Field):
-    if isinstance(field, SampledField):
-        return field.with_(values=math.real(field.values))
-    raise NotImplementedError()
+def abs(x: SampledField) -> SampledField:
+    return x._op1(math.abs)
 
 
-def imag(field: Field):
-    if isinstance(field, SampledField):
-        return field.with_(values=math.imag(field.values))
-    raise NotImplementedError()
+def sign(x: SampledField) -> SampledField:
+    return x._op1(math.sign)
 
 
-def assert_close(*fields: SampledField,
+def round_(x: SampledField) -> SampledField:
+    return x._op1(math.round)
+
+
+def ceil(x: SampledField) -> SampledField:
+    return x._op1(math.ceil)
+
+
+def floor(x: SampledField) -> SampledField:
+    return x._op1(math.floor)
+
+
+def sqrt(x: SampledField) -> SampledField:
+    return x._op1(math.sqrt)
+
+
+def exp(x: SampledField) -> SampledField:
+    return x._op1(math.exp)
+
+
+def isfinite(x: SampledField) -> SampledField:
+    return x._op1(math.isfinite)
+
+
+def real(field: SampledField):
+    return field._op1(math.real)
+
+
+def imag(field: SampledField):
+    return field._op1(math.imag)
+
+
+def sin(x: SampledField) -> SampledField:
+    return x._op1(math.sin)
+
+
+def cos(x: SampledField) -> SampledField:
+    return x._op1(math.cos)
+
+
+def cast(x: SampledField, dtype: DType) -> SampledField:
+    return x._op1(partial(math.cast, dtype=dtype))
+
+
+def assert_close(*fields: SampledField or math.Tensor or Number,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0):
+    """ Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. """
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
     values = [(f >> f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
@@ -374,9 +416,7 @@ def l2_loss(field: SampledField, batch_norm=True):
 
 def stop_gradient(field: SampledField):
     """ See `phi.math.stop_gradient()` """
-    if isinstance(field, Grid):
-        return field.with_(values=math.stop_gradient(field.values))
-    raise NotImplementedError()
+    return field._op1(math.stop_gradient)
 
 
 def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tuple:

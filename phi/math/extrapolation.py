@@ -278,6 +278,12 @@ class ConstantExtrapolation(Extrapolation):
         else:
             return NotImplemented
 
+    def __abs__(self):
+        return ConstantExtrapolation(abs(self.value))
+
+    def _op1(self, operator):
+        return ConstantExtrapolation(self.value._op1(operator))
+
 
 class _CopyExtrapolation(Extrapolation):
 
@@ -369,6 +375,9 @@ class _CopyExtrapolation(Extrapolation):
         return self  # assume also applied to values
 
     def __abs__(self):
+        return self  # assume also applied to values
+
+    def _op1(self):
         return self  # assume also applied to values
 
 

@@ -287,7 +287,7 @@ class SampledField(Field):
     def __abs__(self):
         return self._op1(lambda x: abs(x))
 
-    def _op1(self, operator) -> Field:
+    def _op1(self, operator) -> 'SampledField':
         """
         Perform an operation on the data of this field.
 
@@ -301,7 +301,7 @@ class SampledField(Field):
         extrapolation_ = operator(self._extrapolation)
         return self.with_(values=values, extrapolation=extrapolation_)
 
-    def _op2(self, other, operator) -> Field:
+    def _op2(self, other, operator) -> 'SampledField':
         if isinstance(other, Field):
             other_values = other.sample_in(self._elements)
             values = operator(self._values, other_values)

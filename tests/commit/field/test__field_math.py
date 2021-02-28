@@ -1,5 +1,7 @@
 from unittest import TestCase
 
+import numpy
+
 from phi import math, torch
 from phi.field import StaggeredGrid, CenteredGrid
 from phi.geom import Box
@@ -51,3 +53,51 @@ class TestFieldMath(TestCase):
             self.assertIsInstance(loss, math.Tensor)
             self.assertIsInstance(dx, StaggeredGrid)
             self.assertIsInstance(dy, CenteredGrid)
+
+    def test_abs(self):
+        grid = Domain(x=4, y=3).staggered_grid(-1)
+        field.assert_close(field.abs(grid), abs(grid), 1)
+
+    def test_sign(self):
+        grid = Domain(x=4, y=3).staggered_grid(0.5)
+        field.assert_close(field.sign(grid), 1)
+
+    def test_round_(self):
+        grid = Domain(x=4, y=3).staggered_grid(1.7)
+        field.assert_close(field.round(grid), 2)
+
+    def test_ceil(self):
+        grid = Domain(x=4, y=3).staggered_grid(1.1)
+        field.assert_close(field.ceil(grid), 2)
+
+    def test_floor(self):
+        grid = Domain(x=4, y=3).staggered_grid(2.8)
+        field.assert_close(field.floor(grid), 2)
+
+    def test_sqrt(self):
+        grid = Domain(x=4, y=3).staggered_grid(2)
+        field.assert_close(field.sqrt(grid), numpy.sqrt(2))
+
+    def test_exp(self):
+        grid = Domain(x=4, y=3).staggered_grid(0)
+        field.assert_close(field.exp(grid), 1)
+
+    def test_isfinite(self):
+        grid = Domain(x=4, y=3).staggered_grid(1)
+        field.assert_close(field.isfinite(grid), True)
+
+    def test_real(self):
+        grid = Domain(x=4, y=3).staggered_grid(1)
+        field.assert_close(field.real(grid), grid)
+
+    def test_imag(self):
+        grid = Domain(x=4, y=3).staggered_grid(1)
+        field.assert_close(field.imag(grid), 0)
+
+    def test_sin(self):
+        grid = Domain(x=4, y=3).staggered_grid(0)
+        field.assert_close(field.sin(grid), 0)
+
+    def test_cos(self):
+        grid = Domain(x=4, y=3).staggered_grid(0)
+        field.assert_close(field.cos(grid), 1)
