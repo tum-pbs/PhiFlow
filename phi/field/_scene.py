@@ -231,7 +231,7 @@ class Scene(object):
             paths = directory
         else:
             id = math.wrap(id)
-            paths = directory._op2(id, None, lambda d_, id_: join(directory, f"sim_{id:06d}"))
+            paths = math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id)
         # test all exist
         for path in math.flatten(paths):
             if not isdir(path):

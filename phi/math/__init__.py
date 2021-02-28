@@ -42,7 +42,7 @@ from ._functions import (
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
-    closest_grid_values, grid_sample, scatter,
+    closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, conv,
     dtype, cast,
     tile,

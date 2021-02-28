@@ -10,7 +10,8 @@ import numpy as np
 
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
-from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, _infer_dim_type_from_name
+from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
+    _infer_dim_type_from_name, combine_safe
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation
 from .backend._profile import get_current_profile
@@ -84,21 +85,24 @@ def print_(value: Tensor = None, name: str = None):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
-def map_(function, value: Tensor) -> Tensor:
+def map_(function, *values: Tensor) -> Tensor:
     """
     Calls `function` on all elements of `value`.
 
     Args:
         function: Function to be called on single elements contained in `value`. Must return a value that can be stored in tensors.
-        value: Tensor to iterate over.
+        values: Tensors to iterate over. Number of tensors must match `function` signature.
 
     Returns:
         `Tensor` of same shape as `value`.
     """
+    shape = combine_safe(*[v.shape for v in values])
+    values_reshaped = [CollapsedTensor(v, shape) for v in values]
+    flat = [flatten(v) for v in values_reshaped]
     result = []
-    for v in flatten(value):
-        result.append(function(v))
-    return wrap(result).vector.split(value.shape)
+    for items in zip(*flat):
+        result.append(function(*items))
+    return wrap(result).vector.split(shape)
 
 
 def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None, **dimensions):
