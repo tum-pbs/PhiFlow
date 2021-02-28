@@ -12,6 +12,8 @@ See `phi.tf.flow`, `phi.torch.flow`.
 import numpy
 import numpy as np
 
+import phi
+
 from . import math
 from .math import extrapolation, PI, DType, wrap, shape, backend, tensor
 

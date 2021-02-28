@@ -72,5 +72,6 @@ Most Jax functions are named after their NumPy counterparts. Please refer to the
 | Jax                         | Φ<sub>Flow</sub>               |
 |-----------------------------|----------------------------------------|
 | `jit(f)`                    | `trace_function(f)`              |
+| `grad(f)`                   | `gradient_function(f)`     |
 | `devices()`                 | `JAX_BACKEND.list_devices()`     |
 
