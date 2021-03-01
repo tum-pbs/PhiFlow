@@ -401,7 +401,6 @@ class ProfilingBackend:
         self.name = backend.name
         self.combine_types = backend.combine_types
         self.auto_cast = backend.auto_cast
-        self.matches_name = backend.matches_name
         self.is_tensor = backend.is_tensor
         self.is_available = backend.is_available
         self.shape = backend.shape

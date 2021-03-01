@@ -128,9 +128,6 @@ class Backend:
     def __repr__(self):
         return self.name
 
-    def matches_name(self, name):
-        return self.name.lower() == name.lower()
-
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         """
         Fetches information about all available compute devices this backend can use.
