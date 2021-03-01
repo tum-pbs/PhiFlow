@@ -38,15 +38,19 @@ class ComputeDevice:
 
 
 class Backend:
-    """
-    Backends delegate low-level operations to a compute library or emulate them.
-
-    The methods of `Backend` form a comprehensive list of available operations.
-
-    To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
-    """
 
     def __init__(self, name: str, default_device: ComputeDevice):
+        """
+        Backends delegate low-level operations to a compute library or emulate them.
+
+        The methods of `Backend` form a comprehensive list of available operations.
+
+        To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
+
+        Args:
+            name: Human-readable string
+            default_device: `ComputeDevice` being used by default
+        """
         self._name = name
         self._default_device = default_device
 
@@ -59,6 +63,29 @@ class Backend:
     @property
     def name(self) -> str:
         return self._name
+
+    def supports(self, feature: str or Callable) -> bool:
+        """
+        Tests if this backend supports the given feature.
+        Features correspond to a method of this backend that must be implemented if the feature is supported.
+
+        Possible features:
+
+        * `sparse_tensor`
+        * `gradients
+
+        Args:
+            feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+
+        Returns:
+            Whether the feature is supported.
+        """
+        feature = feature if isinstance(feature, str) else feature.__name__
+        if not hasattr(Backend, feature):
+            raise ValueError(f"Not a valid feature: '{feature}'")
+        backend_fun = getattr(Backend, feature)
+        impl_fun = getattr(self.__class__, feature)
+        return impl_fun is not backend_fun
 
     @property
     def precision(self) -> int:
@@ -524,7 +551,7 @@ class Backend:
 
     def sparse_tensor(self, indices, values, shape):
         """
-        
+        Optional features. If overridden,
 
         Args:
           indices: tuple/list matching the dimensions (pair for matrix)

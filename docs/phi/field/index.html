@@ -65,6 +65,7 @@ from ._field_math import (
     solve, minimize,
     where,
     l2_loss,
+    downsample2x, upsample2x,
     extrapolate_valid,
     trace_function, gradient_function,  # function wrappers
 )
@@ -259,6 +260,30 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         return result
     else:
         raise NotImplementedError(f&#34;{type(field)} not supported. Only StaggeredGrid allowed.&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.downsample2x"><code class="name flex">
+<span>def <span class="ident">downsample2x</span></span>(<span>grid: phi.field._grid.Grid) ‑> ~GridType</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def downsample2x(grid: Grid) -&gt; GridType:
+    if isinstance(grid, CenteredGrid):
+        values = math.downsample2x(grid.values, grid.extrapolation)
+        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+    elif isinstance(grid, StaggeredGrid):
+        values = []
+        for dim, centered_grid in zip(grid.shape.spatial.names, grid.unstack()):
+            odd_discarded = centered_grid.values[{dim: slice(None, None, 2)}]
+            others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
+            values.append(others_interpolated)
+        return StaggeredGrid(math.channel_stack(values, &#39;vector&#39;), grid.bounds, grid.extrapolation)
+    else:
+        raise ValueError(type(grid))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.exp"><code class="name flex">
@@ -904,6 +929,25 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     return math.channel_stack(sliced, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.upsample2x"><code class="name flex">
+<span>def <span class="ident">upsample2x</span></span>(<span>grid: ~GridType) ‑> ~GridType</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def upsample2x(grid: GridType) -&gt; GridType:
+    if isinstance(grid, CenteredGrid):
+        values = math.upsample2x(grid.values, grid.extrapolation)
+        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+    elif isinstance(grid, StaggeredGrid):
+        raise NotImplementedError()
+    else:
+        raise ValueError(type(grid))</code></pre>
+</details>
+</dd>
 <dt id="phi.field.where"><code class="name flex">
 <span>def <span class="ident">where</span></span>(<span>mask: phi.field._field.Field, field_true: phi.field._field.Field, field_false: phi.field._field.Field)</span>
 </code></dt>
@@ -1136,7 +1180,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values, bounds: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
+<span>(</span><span>values, bounds: phi.geom._box.Box, extrapolation=0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
@@ -1256,7 +1300,7 @@ A centered grid is defined through its data tensor, its bounds describing the ph
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.field.CenteredGrid.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>value: phi.geom._geom.Geometry, resolution: phi.math._shape.Shape, box: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
+<span>def <span class="ident">sample</span></span>(<span>value: phi.geom._geom.Geometry, resolution: phi.math._shape.Shape, box: phi.geom._box.Box, extrapolation=0)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2001,7 +2045,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.Grid"><code class="flex name class">
 <span>class <span class="ident">Grid</span></span>
-<span>(</span><span>values: phi.math._tensors.Tensor, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
+<span>(</span><span>values: phi.math._tensors.Tensor, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for CenteredGrid, StaggeredGrid.</p>
@@ -2615,7 +2659,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=(), failed to fetch values with error name 'jnp' is not defined, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -4480,7 +4524,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: phi.math._tensors.TensorStack, bounds=None, extrapolation=(), failed to fetch values with error name 'jnp' is not defined)</span>
+<span>(</span><span>values: phi.math._tensors.TensorStack, bounds=None, extrapolation=0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -4667,7 +4711,7 @@ A staggered grid is defined through its values tensor, its bounds describing the
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.field.StaggeredGrid.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>value: phi.field._field.Field, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=(), failed to fetch values with error name 'jnp' is not defined) ‑> phi.field._grid.StaggeredGrid</span>
+<span>def <span class="ident">sample</span></span>(<span>value: phi.field._field.Field, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=0) ‑> phi.field._grid.StaggeredGrid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a StaggeredGrid from <code>value</code>.
@@ -5051,6 +5095,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
 <li><code><a title="phi.field.cos" href="#phi.field.cos">cos</a></code></li>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
+<li><code><a title="phi.field.downsample2x" href="#phi.field.downsample2x">downsample2x</a></code></li>
 <li><code><a title="phi.field.exp" href="#phi.field.exp">exp</a></code></li>
 <li><code><a title="phi.field.extrapolate_valid" href="#phi.field.extrapolate_valid">extrapolate_valid</a></code></li>
 <li><code><a title="phi.field.floor" href="#phi.field.floor">floor</a></code></li>
@@ -5077,6 +5122,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.field.trace_function" href="#phi.field.trace_function">trace_function</a></code></li>
 <li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
+<li><code><a title="phi.field.upsample2x" href="#phi.field.upsample2x">upsample2x</a></code></li>
 <li><code><a title="phi.field.where" href="#phi.field.where">where</a></code></li>
 <li><code><a title="phi.field.write" href="#phi.field.write">write</a></code></li>
 </ul>

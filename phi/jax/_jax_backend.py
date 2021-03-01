@@ -3,18 +3,13 @@ from functools import wraps
 from typing import List, Callable
 
 import numpy as np
+import jax
+import jax.numpy as jnp
+import jax.scipy as scipy
+from jax.scipy.sparse.linalg import cg
+from jax import random
 
 from phi.math.backend._optim import SolveResult
-
-try:
-    import jax
-    import jax.numpy as jnp
-    import jax.scipy as scipy
-    from jax.scipy.sparse.linalg import cg
-    from jax import random
-except ImportError as err:
-    print(err)
-
 from phi.math.backend import Backend, ComputeDevice, to_numpy_dtype, from_numpy_dtype
 from phi.math import Solve, LinearSolve, DType
 from phi.math.backend._backend_helper import combined_dim
@@ -24,12 +19,7 @@ class JaxBackend(Backend):
 
     def __init__(self):
         Backend.__init__(self, "Jax", default_device=None)
-        try:
-            self.rnd_key = jax.random.PRNGKey(seed=0)
-        except NameError:  # Jax not imported
-            self.rnd_key = None
-        except RuntimeError:
-            self.rnd_key = None
+        self.rnd_key = jax.random.PRNGKey(seed=0)
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         jax_devices = jax.devices()

@@ -13,12 +13,13 @@ See `phi.flow`, `phi.torch.flow`.
 """
 
 from phi.flow import *
-from ._jax_backend import JAX_BACKEND
 try:
+    from ._jax_backend import JAX_BACKEND
     import jax
     import jax.numpy as jnp
     import jax.scipy as jsp
+
+    backend.set_global_default_backend(JAX_BACKEND)
 except ImportError as err:
     print(err)
 
-backend.set_global_default_backend(JAX_BACKEND)

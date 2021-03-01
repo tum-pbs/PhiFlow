@@ -76,7 +76,31 @@ def verify():
     except AssertionError as fail_err:
         print(&#34;\n&#34;.join(fail_err.args), file=sys.stderr)
         return
-    print(troubleshoot())</code></pre>
+    print(troubleshoot())
+
+
+def detect_backends() -&gt; tuple:
+    &#34;&#34;&#34;
+    Registers all available backends and returns them.
+    This includes only backends for which the minimal requirements are fulfilled.
+
+    Returns:
+        `tuple` of `phi.math.backend.Backend`
+    &#34;&#34;&#34;
+    try:
+        from .tf import TF_BACKEND
+    except ImportError:
+        pass
+    try:
+        from .torch import TORCH_BACKEND
+    except ImportError:
+        pass
+    try:
+        from .jax import JAX_BACKEND
+    except ImportError:
+        pass
+    from .math.backend import BACKENDS
+    return tuple(BACKENDS)</code></pre>
 </details>
 </section>
 <section>
@@ -135,6 +159,42 @@ A common trait of …</p></div>
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="phi.detect_backends"><code class="name flex">
+<span>def <span class="ident">detect_backends</span></span>(<span>) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Registers all available backends and returns them.
+This includes only backends for which the minimal requirements are fulfilled.</p>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of <code><a title="phi.math.backend.Backend" href="math/backend/index.html#phi.math.backend.Backend">Backend</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def detect_backends() -&gt; tuple:
+    &#34;&#34;&#34;
+    Registers all available backends and returns them.
+    This includes only backends for which the minimal requirements are fulfilled.
+
+    Returns:
+        `tuple` of `phi.math.backend.Backend`
+    &#34;&#34;&#34;
+    try:
+        from .tf import TF_BACKEND
+    except ImportError:
+        pass
+    try:
+        from .torch import TORCH_BACKEND
+    except ImportError:
+        pass
+    try:
+        from .jax import JAX_BACKEND
+    except ImportError:
+        pass
+    from .math.backend import BACKENDS
+    return tuple(BACKENDS)</code></pre>
+</details>
+</dd>
 <dt id="phi.verify"><code class="name flex">
 <span>def <span class="ident">verify</span></span>(<span>)</span>
 </code></dt>
@@ -189,6 +249,7 @@ A common trait of …</p></div>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="phi.detect_backends" href="#phi.detect_backends">detect_backends</a></code></li>
 <li><code><a title="phi.verify" href="#phi.verify">verify</a></code></li>
 </ul>
 </li>
