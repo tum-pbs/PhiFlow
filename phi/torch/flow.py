@@ -13,7 +13,6 @@ See `phi.flow`, `phi.tf.flow`.
 """
 
 from phi.flow import *
-from ._torch_util import variable
 from ._torch_backend import TORCH_BACKEND
 import torch
 import torch.nn.functional as torchf
