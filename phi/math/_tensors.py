@@ -791,9 +791,13 @@ class CollapsedTensor(Tensor):  # package-private
             return (CollapsedTensor(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
 
     def _with_shape_replaced(self, new_shape):
-        result = CollapsedTensor(self._inner, new_shape)
-        result._cached = self._cached
-        return result
+        if self.is_cached:
+            return self._cached._with_natives_replaced(new_shape)
+        else:
+            replacement = {old: new for old, new in zip(self._shape.names, new_shape.names)}
+            inner_shape = self._inner.shape.with_names([replacement[old] for old in self._inner.shape.names])
+            result = CollapsedTensor(self._inner._with_shape_replaced(inner_shape), new_shape)
+            return result
 
     @property
     def _is_special(self) -> bool:

@@ -511,7 +511,8 @@ def join_dimensions(value: Tensor,
     if len(dims) == 0:
         return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
     if len(dims) == 1:
-        new_shape = value.shape.with_names([joined_dim_name if name == dims[0] else name for name in value.shape.names])
+        old_dim = dims.name if isinstance(dims, Shape) else dims[0]
+        new_shape = value.shape.with_names([joined_dim_name if name == old_dim else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
