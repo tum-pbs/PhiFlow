@@ -2,8 +2,13 @@ from unittest import TestCase
 
 import numpy as np
 
-from phi import math, tf, torch
+import phi
+from phi import math
 from phi.math import extrapolation
+from phi.math.backend import Backend
+
+
+BACKENDS = phi.detect_backends()
 
 
 def assert_not_close(*tensors, rel_tolerance, abs_tolerance):
@@ -47,7 +52,7 @@ class TestMathFunctions(TestCase):
         math.assert_close(math.maximum(0, -v), 0)
 
     def test_grid_sample(self):
-        for backend in (math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
+        for backend in BACKENDS:
             with backend:
                 grid = math.sum(math.meshgrid(x=[1, 2, 3], y=[0, 3]), 'vector')  # 1 2 3 | 4 5 6
                 coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], names=('list', 'vector'))
@@ -57,32 +62,35 @@ class TestMathFunctions(TestCase):
     def test_grid_sample_gradient_1d(self):
         grads_grid = []
         grads_coords = []
-        for backend in (tf.TF_BACKEND, torch.TORCH_BACKEND,):
-            with backend:
-                grid = math.tensor([0., 1, 2, 3], 'x')
-                coords = math.tensor([0.5, 1.5], 'points')
-                with math.record_gradients(grid, coords):
-                    sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
-                    loss = math.l2_loss(sampled)
-                    grad_grid, grad_coords = math.gradients(loss, grid, coords)
-                    grads_grid.append(grad_grid)
-                    grads_coords.append(grad_coords)
+        for backend in BACKENDS:
+            if backend.supports(Backend.gradients):
+                print(backend)
+                with backend:
+                    grid = math.tensor([0., 1, 2, 3], 'x')
+                    coords = math.tensor([0.5, 1.5], 'points')
+                    with math.record_gradients(grid, coords):
+                        sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+                        loss = math.l2_loss(sampled)
+                        grad_grid, grad_coords = math.gradients(loss, grid, coords)
+                        grads_grid.append(grad_grid)
+                        grads_coords.append(grad_coords)
         math.assert_close(*grads_grid, math.tensor([0.125, 0.5, 0.375, 0], 'x'))
         math.assert_close(*grads_coords, math.tensor([0.25, 0.75], 'points'))
 
     def test_grid_sample_gradient_2d(self):
         grads_grid = []
         grads_coords = []
-        for backend in [tf.TF_BACKEND, torch.TORCH_BACKEND]:
-            with backend:
-                grid = math.tensor([[1., 2, 3], [1, 2, 3]], 'x,y')
-                coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], 'points,vector')
-                with math.record_gradients(grid, coords):
-                    sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
-                    loss = math.sum(sampled)
-                    grad_grid, grad_coords = math.gradients(loss, grid, coords)
-                    grads_grid.append(grad_grid)
-                    grads_coords.append(grad_coords)
+        for backend in BACKENDS:
+            if backend.supports(Backend.gradients):
+                with backend:
+                    grid = math.tensor([[1., 2, 3], [1, 2, 3]], 'x,y')
+                    coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], 'points,vector')
+                    with math.record_gradients(grid, coords):
+                        sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+                        loss = math.sum(sampled)
+                        grad_grid, grad_coords = math.gradients(loss, grid, coords)
+                        grads_grid.append(grad_grid)
+                        grads_coords.append(grad_coords)
         math.assert_close(*grads_grid)
         math.assert_close(*grads_coords)
 
@@ -125,7 +133,7 @@ class TestMathFunctions(TestCase):
         coords_ = coords.vector.flip()
         for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):
             sampled = []
-            for backend in (math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND):
+            for backend in BACKENDS:
                 with backend:
                     grid, coords, grid_, coords_ = math.tensors(grid, coords, grid_, coords_)
                     sampled.append(math.grid_sample(grid, coords, extrap))
@@ -163,7 +171,7 @@ class TestMathFunctions(TestCase):
         sine_field = get_2d_sine((32, 32), L=2)
         fft_ref_tensor = math.tensor(np.fft.fft2(sine_field), 'x,y')
         with math.precision(64):
-            for backend in [math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
+            for backend in BACKENDS:
                 with backend:
                     sine_tensor = math.tensor(sine_field, 'x,y')
                     fft_tensor = math.fft(sine_tensor)
@@ -173,7 +181,7 @@ class TestMathFunctions(TestCase):
         def f(x: math.Tensor, y: math.Tensor):
             return x + y
 
-        for backend in [math.NUMPY_BACKEND, tf.TF_BACKEND, torch.TORCH_BACKEND]:
+        for backend in BACKENDS:
             with backend:
                 ft = math.trace_function(f)
                 args1 = math.ones(x=2), math.ones(y=2)
@@ -191,19 +199,20 @@ class TestMathFunctions(TestCase):
             loss = math.l2_loss(pred - y)
             return loss, pred
 
-        for backend in [torch.TORCH_BACKEND, tf.TF_BACKEND]:
-            with backend:
-                x_data = math.tensor(2.)
-                y_data = math.tensor(1.)
+        for backend in BACKENDS:
+            if backend.supports(Backend.gradients):
+                with backend:
+                    x_data = math.tensor(2.)
+                    y_data = math.tensor(1.)
 
-                dx, = math.gradient_function(f)(x_data, y_data)
-                math.assert_close(dx, 1)
-                dx, dy = math.gradient_function(f, [0, 1])(x_data, y_data)
-                math.assert_close(dx, 1)
-                math.assert_close(dy, -1)
-                loss, pred, dx, dy = math.gradient_function(f, [0, 1], get_output=True)(x_data, y_data)
-                math.assert_close(loss, 0.5)
-                math.assert_close(pred, x_data)
-                math.assert_close(dx, 1)
-                math.assert_close(dy, -1)
+                    dx, = math.gradient_function(f)(x_data, y_data)
+                    math.assert_close(dx, 1)
+                    dx, dy = math.gradient_function(f, [0, 1])(x_data, y_data)
+                    math.assert_close(dx, 1)
+                    math.assert_close(dy, -1)
+                    loss, pred, dx, dy = math.gradient_function(f, [0, 1], get_output=True)(x_data, y_data)
+                    math.assert_close(loss, 0.5)
+                    math.assert_close(pred, x_data)
+                    math.assert_close(dx, 1)
+                    math.assert_close(dy, -1)
 

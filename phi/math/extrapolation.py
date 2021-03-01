@@ -377,7 +377,7 @@ class _CopyExtrapolation(Extrapolation):
     def __abs__(self):
         return self  # assume also applied to values
 
-    def _op1(self):
+    def _op1(self, operator):
         return self  # assume also applied to values
 
 

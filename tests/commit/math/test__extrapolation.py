@@ -1,10 +1,12 @@
 from unittest import TestCase
 
+import phi
 from phi.math import NUMPY_BACKEND
 from phi.math.extrapolation import *
-from phi import math, tf
-from phi.tf import TF_BACKEND
-from phi.torch import TORCH_BACKEND
+from phi import math
+
+
+BACKENDS = phi.detect_backends()
 
 
 class TestExtrapolation(TestCase):
@@ -68,7 +70,7 @@ class TestExtrapolationOperators(TestCase):
             pass
 
     def test_pad_tensor(self):
-        for backend in (NUMPY_BACKEND, TF_BACKEND, TORCH_BACKEND):
+        for backend in BACKENDS:
             with backend:
                 a = math.meshgrid(x=4, y=3)
                 # 0

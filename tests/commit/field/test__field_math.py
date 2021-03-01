@@ -2,11 +2,16 @@ from unittest import TestCase
 
 import numpy
 
-from phi import math, torch
-from phi.field import StaggeredGrid, CenteredGrid, Noise
+import phi
+from phi import math
+from phi.field import StaggeredGrid, CenteredGrid
 from phi.geom import Box
 from phi import field
+from phi.math.backend import Backend
 from phi.physics import Domain
+
+
+BACKENDS = phi.detect_backends()
 
 
 class TestFieldMath(TestCase):
@@ -46,13 +51,15 @@ class TestFieldMath(TestCase):
         x = domain.staggered_grid(1)
         y = domain.vector_grid(1)
 
-        with torch.TORCH_BACKEND:
-            dx, = field.gradient_function(f)(x, y)
-            self.assertIsInstance(dx, StaggeredGrid)
-            loss, dx, dy = field.gradient_function(f, (0, 1), get_output=True)(x, y)
-            self.assertIsInstance(loss, math.Tensor)
-            self.assertIsInstance(dx, StaggeredGrid)
-            self.assertIsInstance(dy, CenteredGrid)
+        for backend in BACKENDS:
+            if backend.supports(Backend.gradients):
+                with backend:
+                    dx, = field.gradient_function(f)(x, y)
+                    self.assertIsInstance(dx, StaggeredGrid)
+                    loss, dx, dy = field.gradient_function(f, (0, 1), get_output=True)(x, y)
+                    self.assertIsInstance(loss, math.Tensor)
+                    self.assertIsInstance(dx, StaggeredGrid)
+                    self.assertIsInstance(dy, CenteredGrid)
 
     def test_upsample_downsample_centered_1d(self):
         grid = Domain(x=4).scalar_grid([0, 1, 2, 3])
