@@ -29,7 +29,7 @@ from ._functions import (
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
-    pad, spatial_pad,
+    pad,
     join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,

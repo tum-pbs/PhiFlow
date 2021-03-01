@@ -1475,6 +1475,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 <pre><code class="python">class ConstantField(Field):
 
     def __init__(self, value=1.0):
+        warnings.warn(&#34;ConstantField is deprecated. Use numbers or tuples instead.&#34;, DeprecationWarning)
         self.value = math.wrap(value)
 
     @property
@@ -3612,20 +3613,21 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         script_paths = [frame[1] for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
-        for path in math.flatten(self._paths):
-            self.subpath(&#39;src&#39;, create=True)
-            for script_path in script_paths:
-                shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))
-            if include_context_information:
+        self.subpath(&#39;src&#39;, create=True)
+        for script_path in script_paths:
+            self.copy_src(script_path, only_external=False)
+        if include_context_information:
+            for path in math.flatten(self._paths):
                 with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
                     json.dump({
                         &#39;phi_version&#39;: phi_version,
                         &#39;argv&#39;: sys.argv
                     }, context_file)
 
-    def copy_src(self, path, only_external=True):
-        if not only_external or not _is_phi_file(path):
-            shutil.copy(path, join(self.subpath(&#39;src&#39;, create=True), basename(path)))
+    def copy_src(self, script_path, only_external=True):
+        for path in math.flatten(self._paths):
+            if not only_external or not _is_phi_file(script_path):
+                shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))
 
     def mkdir(self):
         for path in math.flatten(self._paths):
@@ -3636,11 +3638,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         for p in math.flatten(self._paths):
             p = abspath(p)
             if isdir(p):
-                shutil.rmtree(p)
-
-    def data_paths(self, frames, field_names):
-        for frame in frames:
-            yield tuple([_filename(self.path, name, frame) for name in field_names])</code></pre>
+                shutil.rmtree(p)</code></pre>
 </details>
 <h3>Static methods</h3>
 <dl>
@@ -3954,11 +3952,11 @@ def shape(self):
     script_paths = [frame[1] for frame in inspect.stack()]
     script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
     script_paths = set(script_paths) if full_trace else [script_paths[0]]
-    for path in math.flatten(self._paths):
-        self.subpath(&#39;src&#39;, create=True)
-        for script_path in script_paths:
-            shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))
-        if include_context_information:
+    self.subpath(&#39;src&#39;, create=True)
+    for script_path in script_paths:
+        self.copy_src(script_path, only_external=False)
+    if include_context_information:
+        for path in math.flatten(self._paths):
             with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
                 json.dump({
                     &#39;phi_version&#39;: phi_version,
@@ -3967,7 +3965,7 @@ def shape(self):
 </details>
 </dd>
 <dt id="phi.field.Scene.copy_src"><code class="name flex">
-<span>def <span class="ident">copy_src</span></span>(<span>self, path, only_external=True)</span>
+<span>def <span class="ident">copy_src</span></span>(<span>self, script_path, only_external=True)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3975,23 +3973,10 @@ def shape(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def copy_src(self, path, only_external=True):
-    if not only_external or not _is_phi_file(path):
-        shutil.copy(path, join(self.subpath(&#39;src&#39;, create=True), basename(path)))</code></pre>
-</details>
-</dd>
-<dt id="phi.field.Scene.data_paths"><code class="name flex">
-<span>def <span class="ident">data_paths</span></span>(<span>self, frames, field_names)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def data_paths(self, frames, field_names):
-    for frame in frames:
-        yield tuple([_filename(self.path, name, frame) for name in field_names])</code></pre>
+<pre><code class="python">def copy_src(self, script_path, only_external=True):
+    for path in math.flatten(self._paths):
+        if not only_external or not _is_phi_file(script_path):
+            shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Scene.exists_config"><code class="name flex">
@@ -5227,7 +5212,6 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.Scene.copy_calling_script" href="#phi.field.Scene.copy_calling_script">copy_calling_script</a></code></li>
 <li><code><a title="phi.field.Scene.copy_src" href="#phi.field.Scene.copy_src">copy_src</a></code></li>
 <li><code><a title="phi.field.Scene.create" href="#phi.field.Scene.create">create</a></code></li>
-<li><code><a title="phi.field.Scene.data_paths" href="#phi.field.Scene.data_paths">data_paths</a></code></li>
 <li><code><a title="phi.field.Scene.exists_config" href="#phi.field.Scene.exists_config">exists_config</a></code></li>
 <li><code><a title="phi.field.Scene.fieldnames" href="#phi.field.Scene.fieldnames">fieldnames</a></code></li>
 <li><code><a title="phi.field.Scene.frames" href="#phi.field.Scene.frames">frames</a></code></li>

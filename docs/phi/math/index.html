@@ -65,7 +65,7 @@ from ._functions import (
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
-    pad, spatial_pad,
+    pad,
     join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
@@ -1177,14 +1177,14 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>tensor, frequency_falloff=100, reduce_batches=True)</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>tensor, frequency_falloff=100, batch_norm=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>reduce_batches</code></strong></dt>
-<dd>whether to reduce the batch dimension of the loss by adding the losses along the first dimension (Default value = True)</dd>
+<dt><strong><code>batch_norm</code></strong></dt>
+<dd>Whether to divide by the batch size.</dd>
 <dt><strong><code>tensor</code></strong></dt>
 <dd>typically actual - target</dd>
 <dt><strong><code>frequency_falloff</code></strong></dt>
@@ -1196,12 +1196,12 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
+<pre><code class="python">def frequency_loss(tensor, frequency_falloff=100, batch_norm=True):
     &#34;&#34;&#34;
     Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
 
     Args:
-      reduce_batches: whether to reduce the batch dimension of the loss by adding the losses along the first dimension (Default value = True)
+      batch_norm: Whether to divide by the batch size.
       tensor: typically actual - target
       frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)
 
@@ -1209,13 +1209,10 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
       scalar loss value
 
     &#34;&#34;&#34;
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(frequency_loss(tensor, frequency_falloff, reduce_batches) for tensor in all_tensors)
     diff_fft = abs_square(math.fft(tensor))
     k_squared = math.sum_(math.fftfreq(tensor.shape[1:-1]) ** 2, &#39;vector&#39;)
     weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    return l1_loss(diff_fft * weights, reduce_batches=reduce_batches)</code></pre>
+    return l1_loss(diff_fft * weights, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.functional_gradient"><code class="name flex">
@@ -1699,6 +1696,10 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
     &#34;&#34;&#34;
     if len(dims) == 0:
         return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
+    if len(dims) == 1:
+        old_dim = dims.name if isinstance(dims, Shape) else dims[0]
+        new_shape = value.shape.with_names([joined_dim_name if name == old_dim else name for name in value.shape.names])
+        return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
     types = value.shape.get_type(dims)
@@ -1711,111 +1712,66 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 </details>
 </dd>
 <dt id="phi.math.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm=True, reduce_batches=True)</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm=True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>get L1 loss</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>tensor</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>batch_norm</code></strong></dt>
-<dd>(Default value = True)</dd>
-<dt><strong><code>reduce_batches</code></strong></dt>
-<dd>(Default value = True)</dd>
-</dl>
-<p>Returns:</p></div>
+<div class="desc"><p>Computes L1 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l1_loss(tensor: Tensor, batch_norm=True, reduce_batches=True):
-    &#34;&#34;&#34;
-    get L1 loss
-
-    Args:
-      tensor: Tensor: 
-      batch_norm:  (Default value = True)
-      reduce_batches:  (Default value = True)
-
-    Returns:
-
-    &#34;&#34;&#34;
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(l1_loss(tensor, batch_norm, reduce_batches) for tensor in all_tensors)
-    if reduce_batches:
-        total_loss = math.sum_(math.abs(tensor))
-    else:
-        total_loss = math.sum_(math.abs(tensor), dim=list(range(1, len(tensor.shape))))
-    if batch_norm and reduce_batches:
-        batch_size = tensor.shape.sizes[0]
-        return math.divide_no_nan(total_loss, math.to_float(batch_size))
-    else:
-        return total_loss</code></pre>
+<pre><code class="python">def l1_loss(tensor: Tensor, batch_norm=True) -&gt; Tensor:
+    &#34;&#34;&#34; Computes L1 loss. See `l_n_loss()` &#34;&#34;&#34;
+    return l_n_loss(tensor, 1, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm=True)</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm=True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>get L2 loss</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>tensor</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>batch_norm</code></strong></dt>
-<dd>(Default value = True)</dd>
-</dl>
-<p>Returns:</p></div>
+<div class="desc"><p>Computes L2 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l2_loss(tensor: Tensor, batch_norm=True):
-    &#34;&#34;&#34;
-    get L2 loss
-
-    Args:
-      tensor: Tensor: 
-      batch_norm:  (Default value = True)
-
-    Returns:
-
-    &#34;&#34;&#34;
+<pre><code class="python">def l2_loss(tensor: Tensor, batch_norm=True) -&gt; Tensor:
+    &#34;&#34;&#34; Computes L2 loss. See `l_n_loss()` &#34;&#34;&#34;
     return l_n_loss(tensor, 2, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l_n_loss"><code class="name flex">
-<span>def <span class="ident">l_n_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, n: int, batch_norm=True)</span>
+<span>def <span class="ident">l_n_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, n: int, batch_norm=True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>get Ln loss</p>
+<div class="desc"><p>Computes the vector norm of a tensor.
+This is defined as <em>sum x</em><em>n / n</em>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>tensor</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Loss values.</dd>
 <dt><strong><code>n</code></strong></dt>
-<dd>int: </dd>
+<dd>norm order, 1 for L1 loss, 2 for L2 loss.</dd>
 <dt><strong><code>batch_norm</code></strong></dt>
-<dd>(Default value = True)</dd>
+<dd>Whether to divide by the batch size.</dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>Scalar float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
+<pre><code class="python">def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -&gt; Tensor:
     &#34;&#34;&#34;
-    get Ln loss
+    Computes the vector norm of a tensor.
+    This is defined as *sum x**n / n*.
 
     Args:
-      tensor: Tensor: 
-      n: int: 
-      batch_norm:  (Default value = True)
+      tensor: Loss values.
+      n: norm order, 1 for L1 loss, 2 for L2 loss.
+      batch_norm:  Whether to divide by the batch size.
 
     Returns:
-
+        Scalar float `Tensor`
     &#34;&#34;&#34;
     assert isinstance(tensor, Tensor), f&#34;Must be a Tensor but got {type(tensor).__name__}&#34;
     total_loss = math.sum_(tensor ** n) / n
@@ -2983,20 +2939,6 @@ The output of math operations has the same precision as its inputs.</p>
     return NativeTensor(converged, EMPTY_SHAPE), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, EMPTY_SHAPE)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.spatial_pad"><code class="name flex">
-<span>def <span class="ident">spatial_pad</span></span>(<span>value, pad_width: tuple, mode: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def spatial_pad(value, pad_width: tuple or list, mode: &#39;extrapolation.Extrapolation&#39;) -&gt; Tensor:
-    value = wrap(value)
-    return pad(value, {n: w for n, w in zip(value.shape.spatial.names, pad_width)}, mode=mode)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.spatial_shape"><code class="name flex">
 <span>def <span class="ident">spatial_shape</span></span>(<span>sizes: phi.math._shape.Shape, names: tuple = None) ‑> phi.math._shape.Shape</span>
 </code></dt>
@@ -3256,8 +3198,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
-         names: str or tuple or list = None,
-         convert: bool = True) -&gt; Tensor:
+           names: str or tuple or list = None,
+           convert: bool = True) -&gt; Tensor:
     &#34;&#34;&#34;
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -7903,7 +7845,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.sign" href="#phi.math.sign">sign</a></code></li>
 <li><code><a title="phi.math.sin" href="#phi.math.sin">sin</a></code></li>
 <li><code><a title="phi.math.solve" href="#phi.math.solve">solve</a></code></li>
-<li><code><a title="phi.math.spatial_pad" href="#phi.math.spatial_pad">spatial_pad</a></code></li>
 <li><code><a title="phi.math.spatial_shape" href="#phi.math.spatial_shape">spatial_shape</a></code></li>
 <li><code><a title="phi.math.spatial_stack" href="#phi.math.spatial_stack">spatial_stack</a></code></li>
 <li><code><a title="phi.math.spatial_sum" href="#phi.math.spatial_sum">spatial_sum</a></code></li>

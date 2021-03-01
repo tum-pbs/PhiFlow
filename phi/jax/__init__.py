@@ -16,6 +16,6 @@ try:
 
     _math.backend.BACKENDS.append(JAX_BACKEND)
 except ImportError:
-    JAX_BACKEND = None
+    pass
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

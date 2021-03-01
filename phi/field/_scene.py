@@ -70,7 +70,7 @@ def write_sim_frame(directory: math.Tensor,
 
 
 def _filename(simpath, name, frame):
-    return join(simpath, "%s_%06i.npz" % (name, frame))
+    return join(simpath, f"{slugify(name)}_{frame:06d}.npz")
 
 
 def _str(bytes_or_str):  # on Linux, os.listdir returns bytes instead of strings
@@ -400,20 +400,21 @@ class Scene(object):
         script_paths = [frame[1] for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
-        for path in math.flatten(self._paths):
-            self.subpath('src', create=True)
-            for script_path in script_paths:
-                shutil.copy(script_path, join(path, 'src', basename(script_path)))
-            if include_context_information:
+        self.subpath('src', create=True)
+        for script_path in script_paths:
+            self.copy_src(script_path, only_external=False)
+        if include_context_information:
+            for path in math.flatten(self._paths):
                 with open(join(path, 'src', 'context.json'), 'w') as context_file:
                     json.dump({
                         'phi_version': phi_version,
                         'argv': sys.argv
                     }, context_file)
 
-    def copy_src(self, path, only_external=True):
-        if not only_external or not _is_phi_file(path):
-            shutil.copy(path, join(self.subpath('src', create=True), basename(path)))
+    def copy_src(self, script_path, only_external=True):
+        for path in math.flatten(self._paths):
+            if not only_external or not _is_phi_file(script_path):
+                shutil.copy(script_path, join(path, 'src', basename(script_path)))
 
     def mkdir(self):
         for path in math.flatten(self._paths):
@@ -425,10 +426,6 @@ class Scene(object):
             p = abspath(p)
             if isdir(p):
                 shutil.rmtree(p)
-
-    def data_paths(self, frames, field_names):
-        for frame in frames:
-            yield tuple([_filename(self.path, name, frame) for name in field_names])
 
 
 def _slugify_filename(struct_name):

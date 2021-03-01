@@ -27,6 +27,15 @@ class TestScene(TestCase):
         except IOError:
             pass
 
+    def test_properties(self):
+        scene = Scene.create(DIR)
+        self.assertEqual(0, len(scene.properties))
+        scene.put_property('a', 1)
+        scene.put_properties({'b': 2, 'c': 3}, d=4)
+        scene = Scene.at(scene.path)
+        self.assertEqual(4, len(scene.properties))
+        scene.remove()
+
     def test_create_remove_at_equality_batch(self):
         scene = Scene.create(DIR, batch=2, config=3)
         self.assertEqual(6, scene.shape.volume)

@@ -63,57 +63,28 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(tensor: Tensor, batch_norm=True, reduce_batches=True):
-    """
-    get L1 loss
-
-    Args:
-      tensor: Tensor: 
-      batch_norm:  (Default value = True)
-      reduce_batches:  (Default value = True)
-
-    Returns:
-
-    """
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(l1_loss(tensor, batch_norm, reduce_batches) for tensor in all_tensors)
-    if reduce_batches:
-        total_loss = math.sum_(math.abs(tensor))
-    else:
-        total_loss = math.sum_(math.abs(tensor), dim=list(range(1, len(tensor.shape))))
-    if batch_norm and reduce_batches:
-        batch_size = tensor.shape.sizes[0]
-        return math.divide_no_nan(total_loss, math.to_float(batch_size))
-    else:
-        return total_loss
+def l1_loss(tensor: Tensor, batch_norm=True) -> Tensor:
+    """ Computes L1 loss. See `l_n_loss()` """
+    return l_n_loss(tensor, 1, batch_norm=batch_norm)
 
 
-def l2_loss(tensor: Tensor, batch_norm=True):
-    """
-    get L2 loss
-
-    Args:
-      tensor: Tensor: 
-      batch_norm:  (Default value = True)
-
-    Returns:
-
-    """
+def l2_loss(tensor: Tensor, batch_norm=True) -> Tensor:
+    """ Computes L2 loss. See `l_n_loss()` """
     return l_n_loss(tensor, 2, batch_norm=batch_norm)
 
 
-def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
+def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -> Tensor:
     """
-    get Ln loss
+    Computes the vector norm of a tensor.
+    This is defined as *sum x**n / n*.
 
     Args:
-      tensor: Tensor: 
-      n: int: 
-      batch_norm:  (Default value = True)
+      tensor: Loss values.
+      n: norm order, 1 for L1 loss, 2 for L2 loss.
+      batch_norm:  Whether to divide by the batch size.
 
     Returns:
-
+        Scalar float `Tensor`
     """
     assert isinstance(tensor, Tensor), f"Must be a Tensor but got {type(tensor).__name__}"
     total_loss = math.sum_(tensor ** n) / n
@@ -124,12 +95,12 @@ def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
         return total_loss
 
 
-def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
+def frequency_loss(tensor, frequency_falloff=100, batch_norm=True):
     """
     Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
 
     Args:
-      reduce_batches: whether to reduce the batch dimension of the loss by adding the losses along the first dimension (Default value = True)
+      batch_norm: Whether to divide by the batch size.
       tensor: typically actual - target
       frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)
 
@@ -137,13 +108,10 @@ def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
       scalar loss value
 
     """
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(frequency_loss(tensor, frequency_falloff, reduce_batches) for tensor in all_tensors)
     diff_fft = abs_square(math.fft(tensor))
     k_squared = math.sum_(math.fftfreq(tensor.shape[1:-1]) ** 2, 'vector')
     weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    return l1_loss(diff_fft * weights, reduce_batches=reduce_batches)
+    return l1_loss(diff_fft * weights, batch_norm=batch_norm)
 
 
 def abs_square(complex):

@@ -668,7 +668,7 @@ class _MixedExtrapolation(Extrapolation):
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
         coordinates = coordinates.vector.unstack()
-        assert len(self.ext) == len(shape) == len(coordinates)
+        assert len(self.ext) == len(shape.spatial) == len(coordinates)
         result = []
         for dim, dim_coords in zip(shape.spatial.unstack(), coordinates):
             dim_extrapolations = self.ext[dim.name]

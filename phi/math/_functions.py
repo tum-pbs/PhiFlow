@@ -284,11 +284,6 @@ def concat(values: tuple or list, dim: str) -> Tensor:
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
-def spatial_pad(value, pad_width: tuple or list, mode: 'extrapolation.Extrapolation') -> Tensor:
-    value = wrap(value)
-    return pad(value, {n: w for n, w in zip(value.shape.spatial.names, pad_width)}, mode=mode)
-
-
 def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation') -> Tensor:
     """
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.

@@ -1,3 +1,5 @@
+import warnings
+
 from phi import math
 from phi.math import Shape
 from ._field import Field
@@ -7,6 +9,7 @@ from ..geom import Geometry
 class ConstantField(Field):
 
     def __init__(self, value=1.0):
+        warnings.warn("ConstantField is deprecated. Use numbers or tuples instead.", DeprecationWarning)
         self.value = math.wrap(value)
 
     @property

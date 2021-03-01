@@ -578,9 +578,6 @@ The output of math operations has the same precision as its inputs.</p>
     def __repr__(self):
         return self.name
 
-    def matches_name(self, name):
-        return self.name.lower() == name.lower()
-
     def list_devices(self, device_type: str or None = None) -&gt; List[ComputeDevice]:
         &#34;&#34;&#34;
         Fetches information about all available compute devices this backend can use.
@@ -2133,19 +2130,6 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
         Tuple of all currently available devices.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.matches_name"><code class="name flex">
-<span>def <span class="ident">matches_name</span></span>(<span>self, name)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def matches_name(self, name):
-    return self.name.lower() == name.lower()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.matmul"><code class="name flex">
@@ -3865,7 +3849,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.jit_compile" href="#phi.math.backend.Backend.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.backend.Backend.list_devices" href="#phi.math.backend.Backend.list_devices">list_devices</a></code></li>
-<li><code><a title="phi.math.backend.Backend.matches_name" href="#phi.math.backend.Backend.matches_name">matches_name</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
 <li><code><a title="phi.math.backend.Backend.maximum" href="#phi.math.backend.Backend.maximum">maximum</a></code></li>
