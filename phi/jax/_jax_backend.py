@@ -155,6 +155,7 @@ class JaxBackend(Backend):
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         assert mode in ('constant', 'symmetric', 'periodic', 'reflect', 'boundary'), mode
         if mode == 'constant':
+            constant_values = jnp.array(constant_values, dtype=value.dtype)
             return jnp.pad(value, pad_width, 'constant', constant_values=constant_values)
         else:
             if mode in ('periodic', 'boundary'):
