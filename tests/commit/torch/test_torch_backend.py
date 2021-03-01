@@ -10,6 +10,12 @@ from phi.torch import TORCH_BACKEND
 
 class TestTorchBackend(TestCase):
 
+    def test_as_tensor_stacking(self):
+        data = [torch.tensor(1), torch.tensor(2)]
+        tensor = TORCH_BACKEND.as_tensor(data, convert_external=True)
+        self.assertIsInstance(tensor, torch.Tensor)
+        self.assertEqual((2,), tensor.shape)
+
     def test_pad(self):
         a = np.random.rand(32, 32)
         a_np = np.pad(a, pad_width=1, mode='wrap')

@@ -140,6 +140,20 @@ class TestMathFunctions(TestCase):
                     sampled.append(math.grid_sample(grid_, coords_, extrap))
             math.assert_close(*sampled, abs_tolerance=1e-6)
 
+    def test_grid_sample_backend_equality_2d_batched(self):
+        grid = math.random_normal(mybatch=10, y=10, x=7)
+        coords = math.random_uniform(mybatch=10, x=3, y=2) * (12, 9)
+        grid_ = math.tensor(grid.native('mybatch,x,y'), 'mybatch,x,y')
+        coords_ = coords.vector.flip()
+        for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):
+            sampled = []
+            for backend in BACKENDS:
+                with backend:
+                    grid, coords, grid_, coords_ = math.tensors(grid, coords, grid_, coords_)
+                    sampled.append(math.grid_sample(grid, coords, extrap))
+                    sampled.append(math.grid_sample(grid_, coords_, extrap))
+            math.assert_close(*sampled, abs_tolerance=1e-5)
+
     def test_closest_grid_values_1d(self):
         grid = math.tensor([0, 1, 2, 3], names='x')
         coords = math.tensor([[0.1], [1.9], [0.5], [3.1]], names='x,vector')

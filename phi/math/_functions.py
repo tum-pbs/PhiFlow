@@ -332,9 +332,9 @@ def closest_grid_values(grid: Tensor,
 
 
 def _closest_grid_values(grid: Tensor,
-                        coordinates: Tensor,
-                        extrap: 'extrapolation.Extrapolation',
-                        stack_dim_prefix='closest_'):
+                         coordinates: Tensor,
+                         extrap: 'extrapolation.Extrapolation',
+                         stack_dim_prefix='closest_'):
     # alternative method: pad array for all 2^d combinations, then stack to simplify gather.
     # --- Pad tensor where transform is not possible ---
     non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
@@ -368,7 +368,7 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrap
 
 
 def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation' or None):
-    if grid.shape.batch == coordinates.shape.batch:
+    if grid.shape.batch == coordinates.shape.batch or grid.shape.batch.volume == 1 or coordinates.shape.batch.volume == 1:
         # reshape batch dimensions, delegate to backend.grid_sample()
         grid_batched = join_dimensions(join_dimensions(grid, grid.shape.batch, 'batch'), grid.shape.channel, 'vector')
         coordinates_batched = join_dimensions(coordinates, coordinates.shape.batch, 'batch')
@@ -388,7 +388,11 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
             # pad one layer
             grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or extrapolation.ZERO)
             if extrap is not None:
-                inner_coordinates = extrap.transform_coordinates(coordinates_batched, grid.shape) + 1
+                from .extrapolation import _CopyExtrapolation
+                if isinstance(extrap, _CopyExtrapolation):
+                    inner_coordinates = extrap.transform_coordinates(coordinates_batched, grid.shape) + 1
+                else:
+                    inner_coordinates = extrap.transform_coordinates(coordinates_batched + 1, grid_batched.shape)
             else:
                 inner_coordinates = coordinates_batched + 1
             result = backend.grid_sample(grid_batched.native(),
@@ -396,9 +400,9 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
                                          inner_coordinates.native(),
                                          'boundary')
         if result is not NotImplemented:
-            result_shape = grid_batched.shape.non_spatial & coordinates_batched.shape.spatial
+            result_shape = shape_(batch=max(grid.shape.batch.volume, coordinates.shape.batch.volume)) & coordinates_batched.shape.spatial & grid_batched.shape.channel
             result = NativeTensor(result, result_shape)
-            result = result.batch.split(grid.shape.batch).vector.split(grid.shape.channel)
+            result = result.batch.split(grid.shape.batch & coordinates.shape.batch).vector.split(grid.shape.channel)
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or extrapolation.ZERO, 'closest_')

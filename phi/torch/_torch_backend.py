@@ -56,7 +56,11 @@ class TorchBackend(Backend):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = torch.from_numpy(NUMPY_BACKEND.as_tensor(x)).to(self.get_default_device().ref)
+            try:
+                tensor = torch.from_numpy(x)
+            except ValueError:
+                tensor = torch.from_numpy(x.copy())
+            tensor = tensor.to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
             try:
                 tensor = torch.tensor(x, device=self.get_default_device().ref)
@@ -162,13 +166,18 @@ class TorchBackend(Backend):
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
         assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
         extrapolation = {'undefined': 'zeros', 'zeros': 'zeros', 'boundary': 'border', 'reflect': 'reflection'}.get(extrapolation, None)
-        if not extrapolation:
+        if extrapolation is None:
             return NotImplemented
         grid = channels_first(self.as_tensor(grid))
         coordinates = self.as_tensor(coordinates)
+        if coordinates.shape[0] != grid.shape[0]:  # repeating yields wrong result
+            return NotImplemented
         resolution = torch.tensor(self.staticshape(grid)[2:], dtype=coordinates.dtype, device=coordinates.device)
         coordinates = 2 * coordinates / (resolution - 1) - 1
         coordinates = torch.flip(coordinates, dims=[-1])
+        batch_size = combined_dim(coordinates.shape[0], grid.shape[0])
+        coordinates = coordinates.repeat(batch_size, *[1] * (len(coordinates.shape-1))) if coordinates.shape[0] < batch_size else coordinates
+        grid = grid.repeat(batch_size, *[1] * (len(grid.shape)-1)) if grid.shape[0] < batch_size else grid
         result = torchf.grid_sample(grid, coordinates, mode='bilinear', padding_mode=extrapolation, align_corners=True)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
         return result

@@ -1053,8 +1053,8 @@ def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
 
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
-         names: str or tuple or list = None,
-         convert: bool = True) -> Tensor:
+           names: str or tuple or list = None,
+           convert: bool = True) -> Tensor:
     """
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
