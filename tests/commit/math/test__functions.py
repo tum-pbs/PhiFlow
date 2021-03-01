@@ -169,7 +169,7 @@ class TestMathFunctions(TestCase):
             return d
 
         sine_field = get_2d_sine((32, 32), L=2)
-        fft_ref_tensor = math.tensor(np.fft.fft2(sine_field), 'x,y')
+        fft_ref_tensor = math.wrap(np.fft.fft2(sine_field), 'x,y')
         with math.precision(64):
             for backend in BACKENDS:
                 with backend:

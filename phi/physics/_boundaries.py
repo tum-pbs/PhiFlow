@@ -168,8 +168,8 @@ class Domain:
             raise ValueError('Unknown grid type: %s' % type)
 
     def scalar_grid(self,
-             value: Field or Tensor or Number or Geometry or callable = 0.,
-             extrapolation: math.Extrapolation = None) -> CenteredGrid:
+                    value: Field or Tensor or Number or Geometry or callable = 0.,
+                    extrapolation: math.Extrapolation = None) -> CenteredGrid:
         """
         Creates a scalar grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -195,8 +195,14 @@ class Domain:
             assert value.shape.channel.rank == 0
         elif isinstance(value, (Number, Geometry)):
             pass
+        elif callable(value):
+            pass
         else:
-            value = math.wrap(value, names=self.resolution.names)
+            try:
+                value = math.wrap(value, names=self.resolution.names)
+            except AssertionError:
+                pass
+            value = math.wrap(value)
         result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         assert result.shape.channel_rank == 0
         return result

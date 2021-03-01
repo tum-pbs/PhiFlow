@@ -28,8 +28,8 @@ class TestFieldMath(TestCase):
 
     def test_domain_grid_from_tensor(self):
         domain = Domain(x=4, y=3)
-        grid = domain.scalar_grid(Noise(vector=2))
-        grid2 = domain.scalar_grid(grid.values)
+        grid = domain.vector_grid(Noise(vector=2))
+        grid2 = domain.vector_grid(grid.values)
         math.assert_close(grid.values, grid2.values)
 
     def test_domain_grid_from_function(self):

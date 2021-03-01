@@ -1,4 +1,5 @@
 import numbers
+import warnings
 from functools import wraps
 from typing import List, Callable
 
@@ -11,7 +12,7 @@ from jax import random
 
 from phi.math.backend._optim import SolveResult
 from phi.math.backend import Backend, ComputeDevice, to_numpy_dtype, from_numpy_dtype
-from phi.math import Solve, LinearSolve, DType
+from phi.math import Solve, LinearSolve, DType, NUMPY_BACKEND
 from phi.math.backend._backend_helper import combined_dim
 
 
@@ -19,26 +20,44 @@ class JaxBackend(Backend):
 
     def __init__(self):
         Backend.__init__(self, "Jax", default_device=None)
-        self.rnd_key = jax.random.PRNGKey(seed=0)
+        try:
+            self.rnd_key = jax.random.PRNGKey(seed=0)
+        except RuntimeError as err:
+            warnings.warn(f"{err}")
+            self.rnd_key = None
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        jax_devices = jax.devices()
         devices = []
-        for jax_dev in jax_devices:
+        for jax_dev in jax.devices():
             jax_dev_type = jax_dev.platform.upper()
             if device_type is None or device_type == jax_dev_type:
                 description = f"id={jax_dev.id}"
-                devices.append(ComputeDevice(jax_dev.device_kind, jax_dev_type, -1, -1, description))
+                devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev_type, -1, -1, description, jax_dev))
         return devices
 
+    # def set_default_device(self, device: ComputeDevice or str):
+    #     if device == 'CPU':
+    #         jax.config.update('jax_platform_name', 'cpu')
+    #     elif device == 'GPU':
+    #         jax.config.update('jax_platform_name', 'gpu')
+    #     else:
+    #         raise NotImplementedError()
+
+    def _check_float64(self):
+        if self.precision == 64:
+            if not jax.config.read('jax_enable_x64'):
+                jax.config.update('jax_enable_x64', True)
+            assert jax.config.read('jax_enable_x64'), "FP64 is disabled for Jax."
+
     def as_tensor(self, x, convert_external=True):
+        self._check_float64()
         if self.is_tensor(x, only_native=convert_external):
             array = x
         else:
             array = jnp.array(x)
         # --- Enforce Precision ---
         if not isinstance(array, numbers.Number):
-            if array.dtype in (jnp.float16, jnp.float32, jnp.float64):
+            if self.dtype(array).kind == float:
                 array = self.to_float(array)
         return array
 
@@ -64,11 +83,8 @@ class JaxBackend(Backend):
     def is_available(self, tensor):
         return True
 
-    def numpy(self, tensor):
-        if isinstance(tensor, jnp.ndarray):
-            return tensor
-        else:
-            return jnp.array(tensor)
+    def numpy(self, x):
+        return np.array(x)
 
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
@@ -113,10 +129,12 @@ class JaxBackend(Backend):
         return jnp.nan_to_num(x / y, copy=True, nan=0)
 
     def random_uniform(self, shape):
+        self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
         return random.uniform(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
     def random_normal(self, shape):
+        self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
         return random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
@@ -174,21 +192,25 @@ class JaxBackend(Backend):
         return result
 
     def zeros(self, shape, dtype: DType = None):
+        self._check_float64()
         return jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def zeros_like(self, tensor):
         return jnp.zeros_like(tensor)
 
     def ones(self, shape, dtype: DType = None):
+        self._check_float64()
         return jnp.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def ones_like(self, tensor):
         return jnp.ones_like(tensor)
 
     def meshgrid(self, *coordinates):
+        self._check_float64()
         return jnp.meshgrid(*coordinates, indexing='ij')
 
     def linspace(self, start, stop, number):
+        self._check_float64()
         return jnp.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type))
 
     def mean(self, value, axis=None, keepdims=False):
