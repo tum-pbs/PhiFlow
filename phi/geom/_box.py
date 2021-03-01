@@ -182,7 +182,7 @@ class Box(AbstractBox, metaclass=BoxType):
         """
         self._lower = wrap(lower)
         self._upper = wrap(upper)
-        self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape)
+        self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape).non_channel
 
     def unstack(self, dimension):
         raise NotImplementedError()  # TODO
