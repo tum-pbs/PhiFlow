@@ -19,10 +19,8 @@ def dash_graph_plot(data, settings: dict) -> dict:
     try:
         if isinstance(data, np.ndarray):
             data = math.wrap(data)
-
         if isinstance(data, math.Tensor):
             data = CenteredGrid(data, Box(0, math.wrap(data.shape, 'vector')))
-
         if isinstance(data, (CenteredGrid, StaggeredGrid)):
             component = settings.get('component', 'x')
             if data.spatial_rank == 1:
@@ -37,11 +35,9 @@ def dash_graph_plot(data, settings: dict) -> dict:
                     return vector_field(slice_2d(data, settings), settings)
                 else:
                     return heatmap(slice_2d(data, settings), settings)
-
         if isinstance(data, PointCloud):
             return cloud_plot(data, settings)
-
-        warnings.warn('No figure recipe for data %s' % data)
+        warnings.warn(f"No figure recipe for {data}")
     except BaseException as err:
         print(f"Error during plotting: {err}")
     return EMPTY_FIGURE

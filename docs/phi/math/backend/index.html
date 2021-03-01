@@ -1033,7 +1033,7 @@ The output of math operations has the same precision as its inputs.</p>
     def minimize(self, function, x0, solve_params: Solve):
         raise NotImplementedError(self)
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = &#39;implicit&#39;, callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         &#34;&#34;&#34;
         Solve the system of linear equations
           A * x = y
@@ -1043,7 +1043,6 @@ The output of math operations has the same precision as its inputs.</p>
           y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
           x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
           solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
         Returns:
@@ -1489,7 +1488,7 @@ This method may be used to register internal calls with the profiler.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params=&lt;phi.math.backend._optim.LinearSolve object&gt;, gradient: str = 'implicit', callback=None)</span>
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params=&lt;phi.math.backend._optim.LinearSolve object&gt;, callback=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solve the system of linear equations
@@ -1504,8 +1503,6 @@ A * x = y</p>
 <dd>initial guess for x. 2nd order tensor (batch, vector) or list of vectors.</dd>
 <dt><strong><code>solve_params</code></strong></dt>
 <dd>Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.</dd>
-<dt><strong><code>gradient</code></strong></dt>
-<dd>one of ('implicit', 'inverse', 'autodiff')</dd>
 <dt><strong><code>callback</code></strong></dt>
 <dd>Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)</dd>
 </dl>
@@ -1518,7 +1515,7 @@ A * x = y</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = &#39;implicit&#39;, callback=None):
+<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
     &#34;&#34;&#34;
     Solve the system of linear equations
       A * x = y
@@ -1528,7 +1525,6 @@ A * x = y</p>
       y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
       x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
       solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-      gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
       callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
     Returns:

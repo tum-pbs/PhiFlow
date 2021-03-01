@@ -1582,8 +1582,9 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 </code></dt>
 <dd>
 <div class="desc"><p>Compiles a graph based on the function <code>f</code>.
-This action might be performed immediately or when the traced function is called for the first time (JIT).</p>
-<p>The traced function will compute the same result as <code>f</code> but may run much faster.</p>
+The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.</p>
+<p>The traced function will compute the same result as <code>f</code> but may run much faster.
+Some checks may be disabled in the compiled function.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
@@ -1599,9 +1600,10 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
 <pre><code class="python">def jit_compile(f: Callable) -&gt; Callable:
     &#34;&#34;&#34;
     Compiles a graph based on the function `f`.
-    This action might be performed immediately or when the traced function is called for the first time (JIT).
+    The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.
 
     The traced function will compute the same result as `f` but may run much faster.
+    Some checks may be disabled in the compiled function.
 
     Args:
         f: Function to be traced.
@@ -2970,7 +2972,7 @@ The output of math operations has the same precision as its inputs.</p>
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     loop_time = time.perf_counter()
-    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, &#39;implicit&#39;, callback)
+    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, callback)
     converged = solve_params.result.success
     iterations = solve_params.result.iterations
     loop_time = time.perf_counter() - loop_time
