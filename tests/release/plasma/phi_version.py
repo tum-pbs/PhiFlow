@@ -9,14 +9,14 @@ def get_domain_phi(plasma, domain):
 
 
 def step_gradient_2d(params, plasma, phi, dt=0):
-    """time gradient of model"""
+    """time spatial_gradient of model"""
     # Diffusion function
     def diffuse(arr, N, dx):
         for i in range(N):
             arr = field.laplace(arr)  # math.fourier_laplace(arr, dx)
         return arr
     # Calculate Gradients
-    dx_p, dy_p = field.gradient(phi).unstack('gradient')
+    dx_p, dy_p = field.spatial_gradient(phi).unstack('spatial_gradient')
     # Get difference
     diff = (phi - plasma.density)
     # Step 2.1: New Omega.

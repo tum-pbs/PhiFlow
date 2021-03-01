@@ -25,12 +25,12 @@ from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
     map_ as map,
-    trace_function, gradient_function,
+    jit_compile, functional_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad, spatial_pad,
-    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose, # reshape operations
+    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce

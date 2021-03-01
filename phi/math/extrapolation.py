@@ -37,8 +37,8 @@ class Extrapolation:
         """
         raise NotImplementedError()
 
-    def gradient(self) -> 'Extrapolation':
-        """Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation."""
+    def spatial_gradient(self) -> 'Extrapolation':
+        """Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation."""
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
@@ -133,7 +133,7 @@ class ConstantExtrapolation(Extrapolation):
     def to_dict(self) -> dict:
         return {'type': 'constant', 'value': self.value.numpy()}
 
-    def gradient(self):
+    def spatial_gradient(self):
         return ZERO
 
     def pad(self, value: Tensor, widths: dict):
@@ -390,7 +390,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'boundary'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return ZERO
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
@@ -461,7 +461,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'periodic'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return self
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
@@ -486,7 +486,7 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'symmetric'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return -self
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
@@ -516,7 +516,7 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'reflect'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return -self
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
@@ -607,8 +607,8 @@ class _MixedExtrapolation(Extrapolation):
     def __repr__(self):
         return repr(self.ext)
 
-    def gradient(self) -> Extrapolation:
-        return combine_sides({ax: (es[0].gradient(), es[1].gradient())
+    def spatial_gradient(self) -> Extrapolation:
+        return combine_sides({ax: (es[0].spatial_gradient(), es[1].spatial_gradient())
                               for ax, es in self.ext.items()})
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:

@@ -58,7 +58,7 @@ from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
     assert_close,
-    laplace, gradient, divergence, stagger,  # spatial operators
+    laplace, spatial_gradient, divergence, stagger,  # spatial operators
     mean, pad, shift, normalize,
     concat, batch_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
@@ -67,7 +67,7 @@ from ._field_math import (
     l2_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
-    trace_function, gradient_function,  # function wrappers
+    jit_compile, functional_gradient,  # function wrappers
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -248,10 +248,10 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).gradient[0]
+            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).spatial_gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
-        return CenteredGrid(data, field.box, field.extrapolation.gradient())
+        return CenteredGrid(data, field.box, field.extrapolation.spatial_gradient())
     elif isinstance(field, CenteredGrid):
         left, right = shift(field, (-1, 1), stack_dim=&#39;div_&#39;)
         grad = (right - left) / (field.dx * 2)
@@ -368,74 +368,20 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
     return x._op1(math.floor)</code></pre>
 </details>
 </dd>
-<dt id="phi.field.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, type: type = phi.field._grid.CenteredGrid, stack_dim='vector')</span>
+<dt id="phi.field.functional_gradient"><code class="name flex">
+<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Finite difference gradient.</p>
-<p>This function can operate in two modes:</p>
-<ul>
-<li><code>type=CenteredGrid</code> approximates the gradient at cell centers using central differences</li>
-<li><code>type=StaggeredGrid</code> computes the gradient at face centers of neighbouring cells</li>
-</ul>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>field</code></strong></dt>
-<dd>centered grid of any number of dimensions (scalar field, vector field, tensor field)</dd>
-<dt><strong><code>type</code></strong></dt>
-<dd>either <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code></dd>
-<dt><strong><code>stack_dim</code></strong></dt>
-<dd>name of dimension to be added. This dimension lists the gradient w.r.t. the spatial dimensions.
-The <code>field</code> must not have a dimension of the same name.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>gradient field of type <code>type</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim=&#39;vector&#39;):
-    &#34;&#34;&#34;
-    Finite difference gradient.
-
-    This function can operate in two modes:
-
-    * `type=CenteredGrid` approximates the gradient at cell centers using central differences
-    * `type=StaggeredGrid` computes the gradient at face centers of neighbouring cells
-
-    Args:
-        field: centered grid of any number of dimensions (scalar field, vector field, tensor field)
-        type: either `CenteredGrid` or `StaggeredGrid`
-        stack_dim: name of dimension to be added. This dimension lists the gradient w.r.t. the spatial dimensions.
-            The `field` must not have a dimension of the same name.
-
-    Returns:
-        gradient field of type `type`.
-
-    &#34;&#34;&#34;
-    if type == CenteredGrid:
-        values = math.gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
-        return CenteredGrid(values, field.bounds, field.extrapolation.gradient())
-    elif type == StaggeredGrid:
-        assert stack_dim == &#39;vector&#39;
-        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
-    raise NotImplementedError(f&#34;{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.&#34;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.gradient_function"><code class="name flex">
-<span>def <span class="ident">gradient_function</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Wrapper for <code><a title="phi.math.gradient_function" href="../math/index.html#phi.math.gradient_function">gradient_function()</a></code> where <code>f</code> is a function operating on fields instead of tensors.</p>
+<div class="desc"><p>Wrapper for <code><a title="phi.math.functional_gradient" href="../math/index.html#phi.math.functional_gradient">functional_gradient()</a></code> where <code>f</code> is a function operating on fields instead of tensors.</p>
 <p>Here, the arguments of <code>f</code> should be instances of <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
 <code>f</code> returns a scalar tensor and optionally auxiliary fields.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -&gt; Callable:
+<pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -&gt; Callable:
     &#34;&#34;&#34;
-    Wrapper for `phi.math.gradient_function()` where `f` is a function operating on fields instead of tensors.
+    Wrapper for `phi.math.functional_gradient()` where `f` is a function operating on fields instead of tensors.
 
     Here, the arguments of `f` should be instances of `Field`.
     `f` returns a scalar tensor and optionally auxiliary fields.
@@ -453,7 +399,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
         result_tensors = [r.values if isinstance(r, Field) else r for r in results]
         return result_tensors
 
-    tensor_gradient = math.gradient_function(tensor_function, wrt=wrt, get_output=get_output)
+    tensor_gradient = math.functional_gradient(tensor_function, wrt=wrt, get_output=get_output)
 
     def wrapper(*fields):
         INPUT_FIELDS.clear()
@@ -494,6 +440,48 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 </summary>
 <pre><code class="python">def isfinite(x: SampledField) -&gt; SampledField:
     return x._op1(math.isfinite)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.jit_compile"><code class="name flex">
+<span>def <span class="ident">jit_compile</span></span>(<span>f: Callable)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Wrapper for <code><a title="phi.math.jit_compile" href="../math/index.html#phi.math.jit_compile">jit_compile()</a></code> where <code>f</code> is a function operating on fields instead of tensors.</p>
+<p>Here, the arguments and output of <code>f</code> should be instances of <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jit_compile(f: Callable):
+    &#34;&#34;&#34;
+    Wrapper for `phi.math.jit_compile()` where `f` is a function operating on fields instead of tensors.
+
+    Here, the arguments and output of `f` should be instances of `Field`.
+    &#34;&#34;&#34;
+    INPUT_FIELDS = []
+    OUTPUT_FIELDS = []
+
+    def tensor_function(*tensors):
+        fields = [field.with_(values=t) for field, t in zip(INPUT_FIELDS, tensors)]
+        result = f(*fields)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        OUTPUT_FIELDS.clear()
+        OUTPUT_FIELDS.extend(results)
+        result_tensors = [field.values for field in results]
+        return result_tensors
+
+    tensor_trace = math.jit_compile(tensor_function)
+
+    def wrapper(*fields):
+        INPUT_FIELDS.clear()
+        INPUT_FIELDS.extend(fields)
+        tensors = [field.values for field in fields]
+        result_tensors = tensor_trace(*tensors)
+        result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
+        result = [field.with_(values=t) for field, t in zip(OUTPUT_FIELDS, result_tensors)]
+        return result[0] if len(result) == 1 else result
+
+    return wrapper</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
@@ -752,6 +740,60 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
     return converged, x0.with_(values=x), iterations</code></pre>
 </details>
 </dd>
+<dt id="phi.field.spatial_gradient"><code class="name flex">
+<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, type: type = phi.field._grid.CenteredGrid, stack_dim='vector')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Finite difference spatial_gradient.</p>
+<p>This function can operate in two modes:</p>
+<ul>
+<li><code>type=CenteredGrid</code> approximates the spatial_gradient at cell centers using central differences</li>
+<li><code>type=StaggeredGrid</code> computes the spatial_gradient at face centers of neighbouring cells</li>
+</ul>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd>centered grid of any number of dimensions (scalar field, vector field, tensor field)</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>either <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code></dd>
+<dt><strong><code>stack_dim</code></strong></dt>
+<dd>name of dimension to be added. This dimension lists the spatial_gradient w.r.t. the spatial dimensions.
+The <code>field</code> must not have a dimension of the same name.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>spatial_gradient field of type <code>type</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def spatial_gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim=&#39;vector&#39;):
+    &#34;&#34;&#34;
+    Finite difference spatial_gradient.
+
+    This function can operate in two modes:
+
+    * `type=CenteredGrid` approximates the spatial_gradient at cell centers using central differences
+    * `type=StaggeredGrid` computes the spatial_gradient at face centers of neighbouring cells
+
+    Args:
+        field: centered grid of any number of dimensions (scalar field, vector field, tensor field)
+        type: either `CenteredGrid` or `StaggeredGrid`
+        stack_dim: name of dimension to be added. This dimension lists the spatial_gradient w.r.t. the spatial dimensions.
+            The `field` must not have a dimension of the same name.
+
+    Returns:
+        spatial_gradient field of type `type`.
+
+    &#34;&#34;&#34;
+    if type == CenteredGrid:
+        values = math.gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
+        return CenteredGrid(values, field.bounds, field.extrapolation.spatial_gradient())
+    elif type == StaggeredGrid:
+        assert stack_dim == &#39;vector&#39;
+        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.spatial_gradient())
+    raise NotImplementedError(f&#34;{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.&#34;)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.sqrt"><code class="name flex">
 <span>def <span class="ident">sqrt</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
 </code></dt>
@@ -869,48 +911,6 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <pre><code class="python">def stop_gradient(field: SampledField):
     &#34;&#34;&#34; See `phi.math.stop_gradient()` &#34;&#34;&#34;
     return field._op1(math.stop_gradient)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.trace_function"><code class="name flex">
-<span>def <span class="ident">trace_function</span></span>(<span>f: Callable)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Wrapper for <code><a title="phi.math.trace_function" href="../math/index.html#phi.math.trace_function">trace_function()</a></code> where <code>f</code> is a function operating on fields instead of tensors.</p>
-<p>Here, the arguments and output of <code>f</code> should be instances of <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def trace_function(f: Callable):
-    &#34;&#34;&#34;
-    Wrapper for `phi.math.trace_function()` where `f` is a function operating on fields instead of tensors.
-
-    Here, the arguments and output of `f` should be instances of `Field`.
-    &#34;&#34;&#34;
-    INPUT_FIELDS = []
-    OUTPUT_FIELDS = []
-
-    def tensor_function(*tensors):
-        fields = [field.with_(values=t) for field, t in zip(INPUT_FIELDS, tensors)]
-        result = f(*fields)
-        results = [result] if not isinstance(result, (tuple, list)) else result
-        OUTPUT_FIELDS.clear()
-        OUTPUT_FIELDS.extend(results)
-        result_tensors = [field.values for field in results]
-        return result_tensors
-
-    tensor_trace = math.trace_function(tensor_function)
-
-    def wrapper(*fields):
-        INPUT_FIELDS.clear()
-        INPUT_FIELDS.extend(fields)
-        tensors = [field.values for field in fields]
-        result_tensors = tensor_trace(*tensors)
-        result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
-        result = [field.with_(values=t) for field, t in zip(OUTPUT_FIELDS, result_tensors)]
-        return result[0] if len(result) == 1 else result
-
-    return wrapper</code></pre>
 </details>
 </dd>
 <dt id="phi.field.unstack_staggered_tensor"><code class="name flex">
@@ -5099,10 +5099,10 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.exp" href="#phi.field.exp">exp</a></code></li>
 <li><code><a title="phi.field.extrapolate_valid" href="#phi.field.extrapolate_valid">extrapolate_valid</a></code></li>
 <li><code><a title="phi.field.floor" href="#phi.field.floor">floor</a></code></li>
-<li><code><a title="phi.field.gradient" href="#phi.field.gradient">gradient</a></code></li>
-<li><code><a title="phi.field.gradient_function" href="#phi.field.gradient_function">gradient_function</a></code></li>
+<li><code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
 <li><code><a title="phi.field.isfinite" href="#phi.field.isfinite">isfinite</a></code></li>
+<li><code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>
 <li><code><a title="phi.field.mean" href="#phi.field.mean">mean</a></code></li>
@@ -5116,11 +5116,11 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.sign" href="#phi.field.sign">sign</a></code></li>
 <li><code><a title="phi.field.sin" href="#phi.field.sin">sin</a></code></li>
 <li><code><a title="phi.field.solve" href="#phi.field.solve">solve</a></code></li>
+<li><code><a title="phi.field.spatial_gradient" href="#phi.field.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.field.sqrt" href="#phi.field.sqrt">sqrt</a></code></li>
 <li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
-<li><code><a title="phi.field.trace_function" href="#phi.field.trace_function">trace_function</a></code></li>
 <li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
 <li><code><a title="phi.field.upsample2x" href="#phi.field.upsample2x">upsample2x</a></code></li>
 <li><code><a title="phi.field.where" href="#phi.field.where">where</a></code></li>

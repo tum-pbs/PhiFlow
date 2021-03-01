@@ -782,7 +782,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
         &#34;&#34;&#34;
         self._lower = wrap(lower)
         self._upper = wrap(upper)
-        self._shape = _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape)
+        self._shape = _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape).non_channel
 
     def unstack(self, dimension):
         raise NotImplementedError()  # TODO
@@ -2032,7 +2032,7 @@ Defined through center position and radius.</p>
 
         &#34;&#34;&#34;
         distance_squared = math.vec_squared(location - self.center)
-        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite gradient at sphere center
+        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
         distance = math.sqrt(distance_squared)
         return distance - self.radius
 
@@ -2139,7 +2139,7 @@ Very close to the sphere center, the distance takes a constant value.</p>
 
     &#34;&#34;&#34;
     distance_squared = math.vec_squared(location - self.center)
-    distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite gradient at sphere center
+    distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
     distance = math.sqrt(distance_squared)
     return distance - self.radius</code></pre>
 </details>

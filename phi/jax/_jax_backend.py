@@ -89,10 +89,10 @@ class JaxBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
 
-    def trace_function(self, f: Callable) -> Callable:
+    def jit_compile(self, f: Callable) -> Callable:
         return jax.jit(f)
 
-    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         if get_output:
             @wraps(f)
             def aux_f(*args):
@@ -431,7 +431,7 @@ class JaxBackend(Backend):
         # else:
         #     raise NotImplementedError("Only sparse tensors supported.")
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)

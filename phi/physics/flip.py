@@ -12,7 +12,7 @@ def make_incompressible(velocity: StaggeredGrid,
                         solve_params: math.LinearSolve = math.LinearSolve(),
                         pressure_guess: CenteredGrid = None) -> Tuple[StaggeredGrid, CenteredGrid, math.Tensor, CenteredGrid, StaggeredGrid]:
     """
-    Projects the given velocity field by solving for the pressure and subtracting its gradient.
+    Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 
     Args:
         velocity: Current velocity field as StaggeredGrid
@@ -49,10 +49,10 @@ def make_incompressible(velocity: StaggeredGrid,
     div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve
 
     def matrix_eq(p):
-        return field.where(occupied_centered, field.divergence(field.gradient(p, type=StaggeredGrid) * accessible), p)
+        return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
     converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.grid(), solve_params=solve_params)
-    gradp = field.gradient(pressure, type=type(velocity_field)) * accessible
+    gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
     return velocity_field - gradp, pressure, iterations, div, occupied_staggered
 
 

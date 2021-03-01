@@ -54,13 +54,14 @@ grid = DOMAIN.grid(1)
 grid >> DOMAIN.staggered_grid()  # resample
 # Out: StaggeredGrid[(x=5, y=4, vector=2), size=(5, 4) along vector, extrapolation=0]
 
-field.gradient(grid, type=StaggeredGrid)
+field.spatial_gradient(grid, type=StaggeredGrid)
 # Out: StaggeredGrid[(x=5, y=4, vector=2), size=(5, 4) along vector, extrapolation=0]
 
 field.stagger(grid, math.minimum, math.extrapolation.ZERO)  # min value of the two cells sharing the face
 # Out: StaggeredGrid[(x=5, y=4, vector=2), size=(5, 4) along vector, extrapolation=0]
 
-field.stagger(grid, lambda *x: math.mean(x, dim=0), math.extrapolation.ZERO)  # mean value from the two cells sharing the face
+field.stagger(grid, lambda *x: math.mean(x, dim=0),
+              math.extrapolation.ZERO)  # mean value from the two cells sharing the face
 # Out: StaggeredGrid[(x=5, y=4, vector=2), size=(5, 4) along vector, extrapolation=0]
 ```
 

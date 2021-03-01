@@ -59,18 +59,18 @@ Also, certain checks and optimizations may be skipped in graph mode.
 
 There are two ways of compiling a static graph
 
-* `trace_function()` (recommended): The functions
-  [`phi.math.trace_function()`](https://tum-pbs.github.io/PhiFlow/phi/math/#phi.math.trace_function) and 
-  [`phi.field.trace_function()`](https://tum-pbs.github.io/PhiFlow/phi/field/#phi.field.trace_function)
+* `jit_compile()` (recommended): The functions
+  [`phi.math.jit_compile()`](https://tum-pbs.github.io/PhiFlow/phi/math/#phi.math.trace_function) and 
+  [`phi.field.jit_compile()`](https://tum-pbs.github.io/PhiFlow/phi/field/#phi.field.trace_function)
   use the backend-specific compiler, if available, to compile a static graph for `Tensor` or `Field`-valued functions, respectively.
 * Backend compiler: You may trace or compile functions manually using PyTorch, Jax or TensorFlow.
   This involves manually getting all native tensors since backend compilers do not support `phi.math.Tensor` or `Field` arguments.
 
 **Gradients.**
 Computing gradients may be easier in graph mode since no special actions are required for recording the operations.
-In eager execution mode, gradient recording needs to be enabled using one of the following methods:
+In eager execution mode, spatial_gradient recording needs to be enabled using one of the following methods:
 
-1. Code within a `with math.record_gradients():` block will enable gradient recording for both TensorFlow and PyTorch.
+1. Code within a `with math.record_gradients():` block will enable spatial_gradient recording for both TensorFlow and PyTorch.
 2. For TensorFlow, a `GradientTape` may be used directly. Retrieve TensorFlow tensors to watch using `Tensor.native()`.
 3. For PyTorch, the `requires_grad` attribute may be set to `True` manually. Retrieve PyTorch tensors using `Tensor.native()`.
 

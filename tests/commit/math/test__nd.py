@@ -27,7 +27,7 @@ class TestMathNDNumpy(TestCase):
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             scalar_grad = math.gradient(ones, dx=0.1, **case_dict)
             math.assert_close(scalar_grad, 0)
-            self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'gradient'))
+            self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'spatial_gradient'))
             ref_shape = (2, 4, 3, 2) if case_dict['padding'] is not None else ((2, 2, 1, 2) if case_dict['difference'] == 'central' else (2, 3, 2, 2))
             self.assertEqual(scalar_grad.shape.sizes, ref_shape)
 
@@ -40,12 +40,12 @@ class TestMathNDNumpy(TestCase):
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             grad = math.gradient(meshgrid, **case_dict)
             inner = grad.x[1:-1].y[1:-1]
-            math.assert_close(inner.gradient[0].vector[1], 0)
-            math.assert_close(inner.gradient[1].vector[0], 0)
-            math.assert_close(inner.gradient[0].vector[0], 1 / case_dict['dx'])
-            math.assert_close(inner.gradient[1].vector[1], 1 / case_dict['dx'])
+            math.assert_close(inner.spatial_gradient[0].vector[1], 0)
+            math.assert_close(inner.spatial_gradient[1].vector[0], 0)
+            math.assert_close(inner.spatial_gradient[0].vector[0], 1 / case_dict['dx'])
+            math.assert_close(inner.spatial_gradient[1].vector[1], 1 / case_dict['dx'])
             self.assertEqual(grad.shape.vector, 2)
-            self.assertEqual(grad.shape.gradient, 2)
+            self.assertEqual(grad.shape.spatial_gradient, 2)
             ref_shape = (4, 3) if case_dict['padding'] is not None else ((2, 1) if case_dict['difference'] == 'central' else (3, 2))
             self.assertEqual((grad.shape.x, grad.shape.y), ref_shape)
 

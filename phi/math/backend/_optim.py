@@ -33,9 +33,9 @@ class Solve:
     @property
     def gradient_solve(self) -> 'Solve':
         """
-        Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+        Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
         Gradient solve information will be stored in `gradient_solve.result`.
         """
         if self._gradient_solve is None:

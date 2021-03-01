@@ -70,7 +70,7 @@ class TFBackend(Backend):
         else:
             return tensor
 
-    def trace_function(self, f: Callable) -> Callable:
+    def jit_compile(self, f: Callable) -> Callable:
         return tf.function(f)
 
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
@@ -348,7 +348,7 @@ class TFBackend(Backend):
         values = self.tile(values, repetitions)
 
         if duplicates_handling == 'add':
-            # Only for Tensorflow with custom gradient
+            # Only for Tensorflow with custom spatial_gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
                 result = tf.tensor_scatter_add(buffer, indices, values)
@@ -439,10 +439,7 @@ class TFBackend(Backend):
         else:
             raise NotImplementedError()
 
-    def conjugate_gradient(self, A, y, x0,
-                           solve_params=LinearSolve(),
-                           gradient: str = 'implicit',
-                           callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         if callable(A):
             function = A
         else:
@@ -518,7 +515,7 @@ class TFBackend(Backend):
         else:
             return Backend.add(self, a, b)
 
-    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
             args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]

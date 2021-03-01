@@ -83,10 +83,10 @@ class TorchBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
 
-    def trace_function(self, f: Callable) -> Callable:
+    def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(f)
 
-    def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
+    def custom_gradient(self, f: Callable, spatial_gradient: Callable = None) -> Callable:
         class TorchFunction(torch.autograd.Function):
 
             @staticmethod
@@ -478,10 +478,7 @@ class TorchBackend(Backend):
         result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
 
-    def conjugate_gradient(self, A, y, x0,
-                           solve_params=LinearSolve(),
-                           gradient: str = 'implicit',
-                           callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         if callable(A):
             function = A
         else:
@@ -528,15 +525,12 @@ class TorchBackend(Backend):
 
             @staticmethod
             def backward(ctx, dX):
-                if gradient == 'implicit':
-                    return cg_forward(dX, torch.zeros_like(x0), solve_params.gradient_solve)
-                else:
-                    raise NotImplementedError(f"gradient={gradient}")
+                return cg_forward(dX, torch.zeros_like(x0), solve_params.gradient_solve)
 
         result = CGVariant.apply(y)
         return result
 
-    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
             args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]

@@ -19,7 +19,7 @@ class TestFieldMath(TestCase):
     def test_gradient(self):
         domain = Domain(x=4, y=3)
         phi = domain.grid() * (1, 2)
-        grad = field.gradient(phi, stack_dim='gradient')
+        grad = field.spatial_gradient(phi, stack_dim='spatial_gradient')
         self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
 
     def test_divergence_centered(self):
@@ -31,7 +31,7 @@ class TestFieldMath(TestCase):
         def f(x: StaggeredGrid, y: CenteredGrid):
             return x + (y >> x)
 
-        ft = field.trace_function(f)
+        ft = field.jit_compile(f)
         domain = Domain(x=4, y=3)
         x = domain.staggered_grid(1)
         y = domain.vector_grid(1)
@@ -54,9 +54,9 @@ class TestFieldMath(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.gradients):
                 with backend:
-                    dx, = field.gradient_function(f)(x, y)
+                    dx, = field.functional_gradient(f)(x, y)
                     self.assertIsInstance(dx, StaggeredGrid)
-                    loss, dx, dy = field.gradient_function(f, (0, 1), get_output=True)(x, y)
+                    loss, dx, dy = field.functional_gradient(f, (0, 1), get_output=True)(x, y)
                     self.assertIsInstance(loss, math.Tensor)
                     self.assertIsInstance(dx, StaggeredGrid)
                     self.assertIsInstance(dy, CenteredGrid)

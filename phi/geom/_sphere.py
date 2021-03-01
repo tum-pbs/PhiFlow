@@ -51,7 +51,7 @@ class Sphere(Geometry):
 
         """
         distance_squared = math.vec_squared(location - self.center)
-        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite gradient at sphere center
+        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
         distance = math.sqrt(distance_squared)
         return distance - self.radius
 

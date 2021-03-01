@@ -21,7 +21,7 @@ from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
     assert_close,
-    laplace, gradient, divergence, stagger,  # spatial operators
+    laplace, spatial_gradient, divergence, stagger,  # spatial operators
     mean, pad, shift, normalize,
     concat, batch_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
@@ -30,7 +30,7 @@ from ._field_math import (
     l2_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
-    trace_function, gradient_function,  # function wrappers
+    jit_compile, functional_gradient,  # function wrappers
 )
 from ._field_io import write, read
 from ._scene import Scene

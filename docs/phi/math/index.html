@@ -61,12 +61,12 @@ from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
     map_ as map,
-    trace_function, gradient_function,
+    jit_compile, functional_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad, spatial_pad,
-    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose, # reshape operations
+    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
@@ -1218,6 +1218,126 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
     return l1_loss(diff_fft * weights, reduce_batches=reduce_batches)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.functional_gradient"><code class="name flex">
+<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a function which computes the spatial_gradient of <code>f</code>.</p>
+<p>Example:</p>
+<pre><code class="language-python">def loss_function(x, y):
+    prediction = f(x)
+    loss = math.l2_loss(prediction - y)
+    return loss, prediction
+
+dx, = functional_gradient(loss_function)(x, y)
+
+loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
+                                             get_output=True)(x, y)
+</code></pre>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to be differentiated.
+<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
+It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if <code>return_values=True</code>.
+All arguments for which the spatial_gradient is computed must be of dtype float or complex.</dd>
+<dt><strong><code>get_output</code></strong></dt>
+<dd>Whether the spatial_gradient function should also return the return values of <code>f</code>.</dd>
+<dt><strong><code>wrt</code></strong></dt>
+<dd>Arguments of <code>f</code> with respect to which the spatial_gradient should be computed.
+Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect to the first argument of <code>f</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and spatial_gradient of <code>f</code> if <code>get_output=True</code>, else just the spatial_gradient of <code>f</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -&gt; Callable:
+    &#34;&#34;&#34;
+    Creates a function which computes the spatial_gradient of `f`.
+
+    Example:
+
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    dx, = functional_gradient(loss_function)(x, y)
+
+    loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
+                                                 get_output=True)(x, y)
+    ```
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if `return_values=True`.
+            All arguments for which the spatial_gradient is computed must be of dtype float or complex.
+        get_output: Whether the spatial_gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the spatial_gradient should be computed.
+            Example: `wrt_indices=[0]` computes the spatial_gradient with respect to the first argument of `f`.
+
+    Returns:
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and spatial_gradient of `f` if `get_output=True`, else just the spatial_gradient of `f`.
+    &#34;&#34;&#34;
+    INPUT_TENSORS = []
+    OUTPUT_TENSORS = []
+    ARG_INDICES = []
+
+    def native_function(*natives):
+        natives = list(natives)
+        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
+        assert len(natives) == 0, &#34;Not all arguments were converted&#34;
+        result = f(*values)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        assert all(isinstance(t, Tensor) for t in results), f&#34;Function output must be Tensor or sequence of tensors but got {result}.&#34;
+        OUTPUT_TENSORS.clear()
+        OUTPUT_TENSORS.extend(results)
+        return sum([v._natives() for v in results], ())
+
+    backend = default_backend()
+
+    class GradientFunction:
+
+        def __init__(self):
+            self.gradf = None
+
+        def __call__(self, *args, **kwargs):
+            assert not len(kwargs)
+            shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
+            if self.gradf is None:
+                self.gradf = backend.functional_gradient(native_function, shifted_wrt, get_output=get_output)
+            return self.gradf(*args)
+
+    grad_native = GradientFunction()
+
+    def wrapper(*values: Tensor):
+        assert all(isinstance(v, Tensor) for v in values)
+        INPUT_TENSORS.clear()
+        INPUT_TENSORS.extend(values)
+        ARG_INDICES.clear()
+        natives = []
+        for arg_index, v in enumerate(values):
+            v._expand()
+            n = v._natives()
+            natives.extend(n)
+            for _ in range(len(n)):
+                ARG_INDICES.append(arg_index)
+        results_native = list(grad_native(*natives))
+        proto_tensors = []
+        if get_output:
+            proto_tensors.extend(OUTPUT_TENSORS)
+        proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
+        results = [t._with_natives_replaced(results_native) for t in proto_tensors]
+        assert len(results_native) == 0
+        return results
+
+    return wrapper</code></pre>
+</details>
+</dd>
 <dt id="phi.math.gather"><code class="name flex">
 <span>def <span class="ident">gather</span></span>(<span>values: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor)</span>
 </code></dt>
@@ -1267,11 +1387,11 @@ The precision can be set globally using <code><a title="phi.math.set_global_prec
 </details>
 </dd>
 <dt id="phi.math.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: str = 'gradient')</span>
+<span>def <span class="ident">gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: str = 'spatial_gradient')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Calculates the gradient of a scalar channel from finite differences.
-The gradient vectors are in reverse order, lowest dimension first.</p>
+<div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
+The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>grid</code></strong></dt>
@@ -1285,7 +1405,7 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
 <dt><strong><code>padding</code></strong></dt>
 <dd>tensor padding mode</dd>
 <dt><strong><code>stack_dim</code></strong></dt>
-<dd>name of the new vector dimension listing the gradient w.r.t. the various axes</dd>
+<dd>name of the new vector dimension listing the spatial_gradient w.r.t. the various axes</dd>
 <dt><strong><code>grid</code></strong></dt>
 <dd>Tensor: </dd>
 <dt><strong><code>dx</code></strong></dt>
@@ -1302,7 +1422,7 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
 (Default value = None)</dd>
 <dt><strong><code>stack_dim</code></strong></dt>
 <dd>str:
-(Default value = 'gradient')</dd>
+(Default value = 'spatial_gradient')</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>tensor of shape (batch_size, spatial_dimensions&hellip;, spatial rank)</p></div>
@@ -1315,10 +1435,10 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
              difference: str = &#39;central&#39;,
              padding: Extrapolation or None = extrapolation.BOUNDARY,
              dims: tuple or None = None,
-             stack_dim: str = &#39;gradient&#39;):
+             stack_dim: str = &#39;spatial_gradient&#39;):
     &#34;&#34;&#34;
-    Calculates the gradient of a scalar channel from finite differences.
-    The gradient vectors are in reverse order, lowest dimension first.
+    Calculates the spatial_gradient of a scalar channel from finite differences.
+    The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
       grid: grid values
@@ -1326,13 +1446,13 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
       dx: physical distance between grid points (default 1)
       difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
       padding: tensor padding mode
-      stack_dim: name of the new vector dimension listing the gradient w.r.t. the various axes
+      stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
       grid: Tensor: 
       dx: float or int:  (Default value = 1)
       difference: str:  (Default value = &#39;central&#39;)
       padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
       dims: tuple or None:  (Default value = None)
-      stack_dim: str:  (Default value = &#39;gradient&#39;)
+      stack_dim: str:  (Default value = &#39;spatial_gradient&#39;)
 
     Returns:
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)
@@ -1350,126 +1470,6 @@ The gradient vectors are in reverse order, lowest dimension first.</p>
         return (right - left) / dx
     else:
         raise ValueError(&#39;Invalid difference type: {}. Can be CENTRAL or FORWARD&#39;.format(difference))</code></pre>
-</details>
-</dd>
-<dt id="phi.math.gradient_function"><code class="name flex">
-<span>def <span class="ident">gradient_function</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
-<p>Example:</p>
-<pre><code class="language-python">def loss_function(x, y):
-    prediction = f(x)
-    loss = math.l2_loss(prediction - y)
-    return loss, prediction
-
-dx, = gradient_function(loss_function)(x, y)
-
-loss, prediction, dx, dy = gradient_function(loss_function, wrt=(0, 1),
-                                             get_output=True)(x, y)
-</code></pre>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong></dt>
-<dd>Function to be differentiated.
-<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
-It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
-All arguments for which the gradient is computed must be of dtype float or complex.</dd>
-<dt><strong><code>get_output</code></strong></dt>
-<dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
-<dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the first argument of <code>f</code>.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -&gt; Callable:
-    &#34;&#34;&#34;
-    Creates a function which computes the gradient of `f`.
-
-    Example:
-
-    ```python
-    def loss_function(x, y):
-        prediction = f(x)
-        loss = math.l2_loss(prediction - y)
-        return loss, prediction
-
-    dx, = gradient_function(loss_function)(x, y)
-
-    loss, prediction, dx, dy = gradient_function(loss_function, wrt=(0, 1),
-                                                 get_output=True)(x, y)
-    ```
-
-    Args:
-        f: Function to be differentiated.
-            `f` must return a floating point `Tensor` with rank zero.
-            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
-            All arguments for which the gradient is computed must be of dtype float or complex.
-        get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
-
-    Returns:
-        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
-    &#34;&#34;&#34;
-    INPUT_TENSORS = []
-    OUTPUT_TENSORS = []
-    ARG_INDICES = []
-
-    def native_function(*natives):
-        natives = list(natives)
-        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
-        assert len(natives) == 0, &#34;Not all arguments were converted&#34;
-        result = f(*values)
-        results = [result] if not isinstance(result, (tuple, list)) else result
-        assert all(isinstance(t, Tensor) for t in results), f&#34;Function output must be Tensor or sequence of tensors but got {result}.&#34;
-        OUTPUT_TENSORS.clear()
-        OUTPUT_TENSORS.extend(results)
-        return sum([v._natives() for v in results], ())
-
-    backend = default_backend()
-
-    class GradientFunction:
-
-        def __init__(self):
-            self.gradf = None
-
-        def __call__(self, *args, **kwargs):
-            assert not len(kwargs)
-            shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
-            if self.gradf is None:
-                self.gradf = backend.gradient_function(native_function, shifted_wrt, get_output=get_output)
-            return self.gradf(*args)
-
-    grad_native = GradientFunction()
-
-    def wrapper(*values: Tensor):
-        assert all(isinstance(v, Tensor) for v in values)
-        INPUT_TENSORS.clear()
-        INPUT_TENSORS.extend(values)
-        ARG_INDICES.clear()
-        natives = []
-        for arg_index, v in enumerate(values):
-            v._expand()
-            n = v._natives()
-            natives.extend(n)
-            for _ in range(len(n)):
-                ARG_INDICES.append(arg_index)
-        results_native = list(grad_native(*natives))
-        proto_tensors = []
-        if get_output:
-            proto_tensors.extend(OUTPUT_TENSORS)
-        proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
-        results = [t._with_natives_replaced(results_native) for t in proto_tensors]
-        assert len(results_native) == 0
-        return results
-
-    return wrapper</code></pre>
 </details>
 </dd>
 <dt id="phi.math.gradients"><code class="name flex">
@@ -1517,7 +1517,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
     x_natives = sum([x_._natives() for x_ in x], ())
     native_gradients = list(backend.gradients(y.native(), x_natives, grad_y.native() if grad_y is not None else None))
     for i, grad in enumerate(native_gradients):
-        assert grad is not None, f&#34;Missing gradient for source with shape {x_natives[i].shape}&#34;
+        assert grad is not None, f&#34;Missing spatial_gradient for source with shape {x_natives[i].shape}&#34;
     grads = [x_._op1(lambda native: native_gradients.pop(0)) for x_ in x]
     return grads[0] if len(x) == 1 else grads</code></pre>
 </details>
@@ -1575,6 +1575,72 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 </summary>
 <pre><code class="python">def isfinite(x: Tensor) -&gt; Tensor:
     return _backend_op1(x, Backend.isfinite)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.jit_compile"><code class="name flex">
+<span>def <span class="ident">jit_compile</span></span>(<span>f: Callable) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Compiles a graph based on the function <code>f</code>.
+This action might be performed immediately or when the traced function is called for the first time (JIT).</p>
+<p>The traced function will compute the same result as <code>f</code> but may run much faster.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to be traced.
+All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> returning a single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or a <code>tuple</code> or <code>list</code> of tensors.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jit_compile(f: Callable) -&gt; Callable:
+    &#34;&#34;&#34;
+    Compiles a graph based on the function `f`.
+    This action might be performed immediately or when the traced function is called for the first time (JIT).
+
+    The traced function will compute the same result as `f` but may run much faster.
+
+    Args:
+        f: Function to be traced.
+            All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
+
+    Returns:
+        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+    &#34;&#34;&#34;
+    INPUT_TENSORS = []
+    OUTPUT_TENSORS = []
+
+    def native_function(*natives):
+        natives = list(natives)
+        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
+        assert len(natives) == 0, &#34;Not all arguments were converted&#34;
+        result = f(*values)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        OUTPUT_TENSORS.clear()
+        OUTPUT_TENSORS.extend(results)
+        return sum([v._natives() for v in results], ())
+
+    backend = default_backend()
+    traced = backend.jit_compile(native_function)
+    if traced is NotImplemented:
+        warnings.warn(f&#34;Backend &#39;{backend}&#39; does not support function tracing. Returning original function.&#34;)
+        return f
+
+    def wrapper(*values: Tensor):
+        INPUT_TENSORS.clear()
+        INPUT_TENSORS.extend(values)
+        for v in values:
+            v._expand()
+        natives = sum([v._natives() for v in values], ())
+        results_native = list(traced(*natives))
+        results = [t._with_natives_replaced(results_native) for t in OUTPUT_TENSORS]
+        assert len(results_native) == 0
+        return results[0] if len(results) == 1 else results
+
+    return wrapper</code></pre>
 </details>
 </dd>
 <dt id="phi.math.join_dimensions"><code class="name flex">
@@ -1817,7 +1883,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     if not isinstance(dx, (int, float)):
         dx = wrap(dx, names=&#39;_laplace&#39;)
     if isinstance(x, Extrapolation):
-        return x.gradient()
+        return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=&#39;_laplace&#39;)
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, &#39;_laplace&#39;)
@@ -3384,72 +3450,6 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     return x._op1(lambda native: choose_backend(native).to_int(native, int64=int64))</code></pre>
 </details>
 </dd>
-<dt id="phi.math.trace_function"><code class="name flex">
-<span>def <span class="ident">trace_function</span></span>(<span>f: Callable) ‑> Callable</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Compiles a graph based on the function <code>f</code>.
-This action might be performed immediately or when the traced function is called for the first time (JIT).</p>
-<p>The traced function will compute the same result as <code>f</code> but may run much faster.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong></dt>
-<dd>Function to be traced.
-All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> returning a single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or a <code>tuple</code> or <code>list</code> of tensors.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def trace_function(f: Callable) -&gt; Callable:
-    &#34;&#34;&#34;
-    Compiles a graph based on the function `f`.
-    This action might be performed immediately or when the traced function is called for the first time (JIT).
-
-    The traced function will compute the same result as `f` but may run much faster.
-
-    Args:
-        f: Function to be traced.
-            All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
-
-    Returns:
-        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
-    &#34;&#34;&#34;
-    INPUT_TENSORS = []
-    OUTPUT_TENSORS = []
-
-    def native_function(*natives):
-        natives = list(natives)
-        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
-        assert len(natives) == 0, &#34;Not all arguments were converted&#34;
-        result = f(*values)
-        results = [result] if not isinstance(result, (tuple, list)) else result
-        OUTPUT_TENSORS.clear()
-        OUTPUT_TENSORS.extend(results)
-        return sum([v._natives() for v in results], ())
-
-    backend = default_backend()
-    traced = backend.trace_function(native_function)
-    if traced is NotImplemented:
-        warnings.warn(f&#34;Backend &#39;{backend}&#39; does not support function tracing. Returning original function.&#34;)
-        return f
-
-    def wrapper(*values: Tensor):
-        INPUT_TENSORS.clear()
-        INPUT_TENSORS.extend(values)
-        for v in values:
-            v._expand()
-        natives = sum([v._natives() for v in values], ())
-        results_native = list(traced(*natives))
-        results = [t._with_natives_replaced(results_native) for t in OUTPUT_TENSORS]
-        assert len(results_native) == 0
-        return results[0] if len(results) == 1 else results
-
-    return wrapper</code></pre>
-</details>
-</dd>
 <dt id="phi.math.transpose"><code class="name flex">
 <span>def <span class="ident">transpose</span></span>(<span>value, axes)</span>
 </code></dt>
@@ -3845,8 +3845,8 @@ def precision(self):
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def gradient(self) -&gt; &#39;Extrapolation&#39;:
-        &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+    def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
+        &#34;&#34;&#34;Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
@@ -3960,20 +3960,6 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.math.Extrapolation.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>self) ‑> <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gradient(self) -&gt; &#39;Extrapolation&#39;:
-    &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 <dt id="phi.math.Extrapolation.pad"><code class="name flex">
 <span>def <span class="ident">pad</span></span>(<span>self, value: phi.math._tensors.Tensor, widths: dict) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -4067,6 +4053,20 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
       tensor that can be concatenated to value for padding
 
     &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Extrapolation.spatial_gradient"><code class="name flex">
+<span>def <span class="ident">spatial_gradient</span></span>(<span>self) ‑> <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
+    &#34;&#34;&#34;Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -6555,9 +6555,9 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     @property
     def gradient_solve(self) -&gt; &#39;Solve&#39;:
         &#34;&#34;&#34;
-        Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+        Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
         Gradient solve information will be stored in `gradient_solve.result`.
         &#34;&#34;&#34;
         if self._gradient_solve is None:
@@ -6576,8 +6576,8 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math.backend._optim.Solve</code></dt>
 <dd>
-<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p>
-<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object for the gradient solve.
+<div class="desc"><p>Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.</p>
+<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object for the spatial_gradient solve.
 Gradient solve information will be stored in <code>gradient_solve.result</code>.</p></div>
 <details class="source">
 <summary>
@@ -6586,9 +6586,9 @@ Gradient solve information will be stored in <code>gradient_solve.result</code>.
 <pre><code class="python">@property
 def gradient_solve(self) -&gt; &#39;Solve&#39;:
     &#34;&#34;&#34;
-    Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+    Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
     Gradient solve information will be stored in `gradient_solve.result`.
     &#34;&#34;&#34;
     if self._gradient_solve is None:
@@ -7855,15 +7855,16 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.fourier_laplace" href="#phi.math.fourier_laplace">fourier_laplace</a></code></li>
 <li><code><a title="phi.math.fourier_poisson" href="#phi.math.fourier_poisson">fourier_poisson</a></code></li>
 <li><code><a title="phi.math.frequency_loss" href="#phi.math.frequency_loss">frequency_loss</a></code></li>
+<li><code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.gather" href="#phi.math.gather">gather</a></code></li>
 <li><code><a title="phi.math.get_precision" href="#phi.math.get_precision">get_precision</a></code></li>
 <li><code><a title="phi.math.gradient" href="#phi.math.gradient">gradient</a></code></li>
-<li><code><a title="phi.math.gradient_function" href="#phi.math.gradient_function">gradient_function</a></code></li>
 <li><code><a title="phi.math.gradients" href="#phi.math.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.grid_sample" href="#phi.math.grid_sample">grid_sample</a></code></li>
 <li><code><a title="phi.math.ifft" href="#phi.math.ifft">ifft</a></code></li>
 <li><code><a title="phi.math.imag" href="#phi.math.imag">imag</a></code></li>
 <li><code><a title="phi.math.isfinite" href="#phi.math.isfinite">isfinite</a></code></li>
+<li><code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions</a></code></li>
 <li><code><a title="phi.math.l1_loss" href="#phi.math.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.math.l2_loss" href="#phi.math.l2_loss">l2_loss</a></code></li>
@@ -7915,7 +7916,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.to_complex" href="#phi.math.to_complex">to_complex</a></code></li>
 <li><code><a title="phi.math.to_float" href="#phi.math.to_float">to_float</a></code></li>
 <li><code><a title="phi.math.to_int" href="#phi.math.to_int">to_int</a></code></li>
-<li><code><a title="phi.math.trace_function" href="#phi.math.trace_function">trace_function</a></code></li>
 <li><code><a title="phi.math.transpose" href="#phi.math.transpose">transpose</a></code></li>
 <li><code><a title="phi.math.unstack" href="#phi.math.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.upsample2x" href="#phi.math.upsample2x">upsample2x</a></code></li>
@@ -7941,11 +7941,11 @@ int: repeating unstack if dimension does not exist</dd>
 <li>
 <h4><code><a title="phi.math.Extrapolation" href="#phi.math.Extrapolation">Extrapolation</a></code></h4>
 <ul class="">
-<li><code><a title="phi.math.Extrapolation.gradient" href="#phi.math.Extrapolation.gradient">gradient</a></code></li>
 <li><code><a title="phi.math.Extrapolation.is_copy_pad" href="#phi.math.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
 <li><code><a title="phi.math.Extrapolation.native_grid_sample_mode" href="#phi.math.Extrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
 <li><code><a title="phi.math.Extrapolation.pad" href="#phi.math.Extrapolation.pad">pad</a></code></li>
 <li><code><a title="phi.math.Extrapolation.pad_values" href="#phi.math.Extrapolation.pad_values">pad_values</a></code></li>
+<li><code><a title="phi.math.Extrapolation.spatial_gradient" href="#phi.math.Extrapolation.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.Extrapolation.to_dict" href="#phi.math.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.Extrapolation.transform_coordinates" href="#phi.math.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
 </ul>

@@ -215,8 +215,8 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             raise ValueError(&#39;Unknown grid type: %s&#39; % type)
 
     def scalar_grid(self,
-             value: Field or Tensor or Number or Geometry or callable = 0.,
-             extrapolation: math.Extrapolation = None) -&gt; CenteredGrid:
+                    value: Field or Tensor or Number or Geometry or callable = 0.,
+                    extrapolation: math.Extrapolation = None) -&gt; CenteredGrid:
         &#34;&#34;&#34;
         Creates a scalar grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -242,8 +242,14 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             assert value.shape.channel.rank == 0
         elif isinstance(value, (Number, Geometry)):
             pass
+        elif callable(value):
+            pass
         else:
-            value = math.wrap(value, names=self.resolution.names)
+            try:
+                value = math.wrap(value, names=self.resolution.names)
+            except AssertionError:
+                pass
+            value = math.wrap(value)
         result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         assert result.shape.channel_rank == 0
         return result
@@ -710,8 +716,8 @@ The grid is created from the given <code>value</code> which must be one of the f
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def scalar_grid(self,
-         value: Field or Tensor or Number or Geometry or callable = 0.,
-         extrapolation: math.Extrapolation = None) -&gt; CenteredGrid:
+                value: Field or Tensor or Number or Geometry or callable = 0.,
+                extrapolation: math.Extrapolation = None) -&gt; CenteredGrid:
     &#34;&#34;&#34;
     Creates a scalar grid matching the resolution and bounds of the domain.
     The grid is created from the given `value` which must be one of the following:
@@ -737,8 +743,14 @@ The grid is created from the given <code>value</code> which must be one of the f
         assert value.shape.channel.rank == 0
     elif isinstance(value, (Number, Geometry)):
         pass
+    elif callable(value):
+        pass
     else:
-        value = math.wrap(value, names=self.resolution.names)
+        try:
+            value = math.wrap(value, names=self.resolution.names)
+        except AssertionError:
+            pass
+        value = math.wrap(value)
     result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
     assert result.shape.channel_rank == 0
     return result</code></pre>

@@ -276,10 +276,10 @@ def gradient(grid: Tensor,
              difference: str = 'central',
              padding: Extrapolation or None = extrapolation.BOUNDARY,
              dims: tuple or None = None,
-             stack_dim: str = 'gradient'):
+             stack_dim: str = 'spatial_gradient'):
     """
-    Calculates the gradient of a scalar channel from finite differences.
-    The gradient vectors are in reverse order, lowest dimension first.
+    Calculates the spatial_gradient of a scalar channel from finite differences.
+    The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
       grid: grid values
@@ -287,13 +287,13 @@ def gradient(grid: Tensor,
       dx: physical distance between grid points (default 1)
       difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
       padding: tensor padding mode
-      stack_dim: name of the new vector dimension listing the gradient w.r.t. the various axes
+      stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
       grid: Tensor: 
       dx: float or int:  (Default value = 1)
       difference: str:  (Default value = 'central')
       padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
       dims: tuple or None:  (Default value = None)
-      stack_dim: str:  (Default value = 'gradient')
+      stack_dim: str:  (Default value = 'spatial_gradient')
 
     Returns:
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)
@@ -340,7 +340,7 @@ def laplace(x: Tensor,
     if not isinstance(dx, (int, float)):
         dx = wrap(dx, names='_laplace')
     if isinstance(x, Extrapolation):
-        return x.gradient()
+        return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, '_laplace')

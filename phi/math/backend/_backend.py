@@ -222,7 +222,7 @@ class Backend:
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
-    def trace_function(self, f: Callable) -> Callable:
+    def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
     def call(self, f: Callable, *args, name=None):
@@ -238,11 +238,11 @@ class Backend:
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         """
-        Creates a function based on `f` that uses a custom gradient for backprop.
+        Creates a function based on `f` that uses a custom spatial_gradient for backprop.
 
         Args:
             f: Forward function. All arguments must be
-            gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+            gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
 
         Returns:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
@@ -583,7 +583,7 @@ class Backend:
     def minimize(self, function, x0, solve_params: Solve):
         raise NotImplementedError(self)
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         """
         Solve the system of linear equations
           A * x = y
@@ -593,7 +593,6 @@ class Backend:
           y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
           x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
           solve_params: Determines stop criteria. Stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          gradient: one of ('implicit', 'inverse', 'autodiff')
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
         Returns:
@@ -602,7 +601,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def gradient_function(self, f, wrt: tuple or list, get_output: bool):
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:

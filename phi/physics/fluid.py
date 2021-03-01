@@ -3,7 +3,7 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 """
 
 from phi import math, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient, where, HardGeometryMask
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, spatial_gradient, where, HardGeometryMask
 from phi.geom import union
 from ._boundaries import Domain
 
@@ -14,7 +14,7 @@ def make_incompressible(velocity: Grid,
                         solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
                         pressure_guess: CenteredGrid = None):
     """
-    Projects the given velocity field by solving for the pressure and subtracting its gradient.
+    Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
@@ -44,7 +44,7 @@ def make_incompressible(velocity: Grid,
     # Solve pressure
 
     def laplace(p):
-        grad = gradient(p, type(velocity))
+        grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
         grad = grad.with_(extrapolation=domain.boundaries['near_vector_extrapolation'])
         div = divergence(grad)
@@ -56,7 +56,7 @@ def make_incompressible(velocity: Grid,
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
     # Subtract grad pressure
-    gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs
+    gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
     return velocity, pressure, iterations, div
 

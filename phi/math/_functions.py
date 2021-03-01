@@ -1045,12 +1045,13 @@ def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float):
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
-def trace_function(f: Callable) -> Callable:
+def jit_compile(f: Callable) -> Callable:
     """
     Compiles a graph based on the function `f`.
-    This action might be performed immediately or when the traced function is called for the first time (JIT).
+    The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.
 
     The traced function will compute the same result as `f` but may run much faster.
+    Some checks may be disabled in the compiled function.
 
     Args:
         f: Function to be traced.
@@ -1073,7 +1074,7 @@ def trace_function(f: Callable) -> Callable:
         return sum([v._natives() for v in results], ())
 
     backend = default_backend()
-    traced = backend.trace_function(native_function)
+    traced = backend.jit_compile(native_function)
     if traced is NotImplemented:
         warnings.warn(f"Backend '{backend}' does not support function tracing. Returning original function.")
         return f
@@ -1092,9 +1093,9 @@ def trace_function(f: Callable) -> Callable:
     return wrapper
 
 
-def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
+def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
     """
-    Creates a function which computes the gradient of `f`.
+    Creates a function which computes the spatial_gradient of `f`.
 
     Example:
 
@@ -1104,23 +1105,23 @@ def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) 
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx, = gradient_function(loss_function)(x, y)
+    dx, = functional_gradient(loss_function)(x, y)
 
-    loss, prediction, dx, dy = gradient_function(loss_function, wrt=(0, 1),
+    loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
                                                  get_output=True)(x, y)
     ```
 
     Args:
         f: Function to be differentiated.
             `f` must return a floating point `Tensor` with rank zero.
-            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
-            All arguments for which the gradient is computed must be of dtype float or complex.
-        get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if `return_values=True`.
+            All arguments for which the spatial_gradient is computed must be of dtype float or complex.
+        get_output: Whether the spatial_gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the spatial_gradient should be computed.
+            Example: `wrt_indices=[0]` computes the spatial_gradient with respect to the first argument of `f`.
 
     Returns:
-        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and spatial_gradient of `f` if `get_output=True`, else just the spatial_gradient of `f`.
     """
     INPUT_TENSORS = []
     OUTPUT_TENSORS = []
@@ -1148,7 +1149,7 @@ def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) 
             assert not len(kwargs)
             shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
             if self.gradf is None:
-                self.gradf = backend.gradient_function(native_function, shifted_wrt, get_output=get_output)
+                self.gradf = backend.functional_gradient(native_function, shifted_wrt, get_output=get_output)
             return self.gradf(*args)
 
     grad_native = GradientFunction()
@@ -1289,7 +1290,7 @@ def solve(operator,
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     loop_time = time.perf_counter()
-    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, 'implicit', callback)
+    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, callback)
     converged = solve_params.result.success
     iterations = solve_params.result.iterations
     loop_time = time.perf_counter() - loop_time
@@ -1387,7 +1388,7 @@ def gradients(y: Tensor,
     x_natives = sum([x_._natives() for x_ in x], ())
     native_gradients = list(backend.gradients(y.native(), x_natives, grad_y.native() if grad_y is not None else None))
     for i, grad in enumerate(native_gradients):
-        assert grad is not None, f"Missing gradient for source with shape {x_natives[i].shape}"
+        assert grad is not None, f"Missing spatial_gradient for source with shape {x_natives[i].shape}"
     grads = [x_._op1(lambda native: native_gradients.pop(0)) for x_ in x]
     return grads[0] if len(x) == 1 else grads
 

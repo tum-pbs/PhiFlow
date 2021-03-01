@@ -17,31 +17,31 @@ def laplace(field: Grid, axes=None):
     return result
 
 
-def gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='vector'):
+def spatial_gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='vector'):
     """
-    Finite difference gradient.
+    Finite difference spatial_gradient.
 
     This function can operate in two modes:
 
-    * `type=CenteredGrid` approximates the gradient at cell centers using central differences
-    * `type=StaggeredGrid` computes the gradient at face centers of neighbouring cells
+    * `type=CenteredGrid` approximates the spatial_gradient at cell centers using central differences
+    * `type=StaggeredGrid` computes the spatial_gradient at face centers of neighbouring cells
 
     Args:
         field: centered grid of any number of dimensions (scalar field, vector field, tensor field)
         type: either `CenteredGrid` or `StaggeredGrid`
-        stack_dim: name of dimension to be added. This dimension lists the gradient w.r.t. the spatial dimensions.
+        stack_dim: name of dimension to be added. This dimension lists the spatial_gradient w.r.t. the spatial dimensions.
             The `field` must not have a dimension of the same name.
 
     Returns:
-        gradient field of type `type`.
+        spatial_gradient field of type `type`.
 
     """
     if type == CenteredGrid:
         values = math.gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
-        return CenteredGrid(values, field.bounds, field.extrapolation.gradient())
+        return CenteredGrid(values, field.bounds, field.extrapolation.spatial_gradient())
     elif type == StaggeredGrid:
         assert stack_dim == 'vector'
-        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.gradient())
+        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.spatial_gradient())
     raise NotImplementedError(f"{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.")
 
 
@@ -120,10 +120,10 @@ def divergence(field: Grid) -> CenteredGrid:
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).gradient[0]
+            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).spatial_gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
-        return CenteredGrid(data, field.box, field.extrapolation.gradient())
+        return CenteredGrid(data, field.box, field.extrapolation.spatial_gradient())
     elif isinstance(field, CenteredGrid):
         left, right = shift(field, (-1, 1), stack_dim='div_')
         grad = (right - left) / (field.dx * 2)
@@ -185,9 +185,9 @@ def _operate_on_values(field_function, *proto_fields):
     return wrapper
 
 
-def trace_function(f: Callable):
+def jit_compile(f: Callable):
     """
-    Wrapper for `phi.math.trace_function()` where `f` is a function operating on fields instead of tensors.
+    Wrapper for `phi.math.jit_compile()` where `f` is a function operating on fields instead of tensors.
 
     Here, the arguments and output of `f` should be instances of `Field`.
     """
@@ -203,7 +203,7 @@ def trace_function(f: Callable):
         result_tensors = [field.values for field in results]
         return result_tensors
 
-    tensor_trace = math.trace_function(tensor_function)
+    tensor_trace = math.jit_compile(tensor_function)
 
     def wrapper(*fields):
         INPUT_FIELDS.clear()
@@ -217,9 +217,9 @@ def trace_function(f: Callable):
     return wrapper
 
 
-def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
+def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
     """
-    Wrapper for `phi.math.gradient_function()` where `f` is a function operating on fields instead of tensors.
+    Wrapper for `phi.math.functional_gradient()` where `f` is a function operating on fields instead of tensors.
 
     Here, the arguments of `f` should be instances of `Field`.
     `f` returns a scalar tensor and optionally auxiliary fields.
@@ -237,7 +237,7 @@ def gradient_function(f: Callable, wrt: tuple or list = (0,), get_output=False) 
         result_tensors = [r.values if isinstance(r, Field) else r for r in results]
         return result_tensors
 
-    tensor_gradient = math.gradient_function(tensor_function, wrt=wrt, get_output=get_output)
+    tensor_gradient = math.functional_gradient(tensor_function, wrt=wrt, get_output=get_output)
 
     def wrapper(*fields):
         INPUT_FIELDS.clear()

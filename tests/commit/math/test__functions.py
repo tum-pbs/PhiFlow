@@ -183,7 +183,7 @@ class TestMathFunctions(TestCase):
 
         for backend in BACKENDS:
             with backend:
-                ft = math.trace_function(f)
+                ft = math.jit_compile(f)
                 args1 = math.ones(x=2), math.ones(y=2)
                 args2 = math.ones(x=3), math.ones(y=3)
                 res1 = ft(*args1)
@@ -205,12 +205,12 @@ class TestMathFunctions(TestCase):
                     x_data = math.tensor(2.)
                     y_data = math.tensor(1.)
 
-                    dx, = math.gradient_function(f)(x_data, y_data)
+                    dx, = math.functional_gradient(f)(x_data, y_data)
                     math.assert_close(dx, 1)
-                    dx, dy = math.gradient_function(f, [0, 1])(x_data, y_data)
+                    dx, dy = math.functional_gradient(f, [0, 1])(x_data, y_data)
                     math.assert_close(dx, 1)
                     math.assert_close(dy, -1)
-                    loss, pred, dx, dy = math.gradient_function(f, [0, 1], get_output=True)(x_data, y_data)
+                    loss, pred, dx, dy = math.functional_gradient(f, [0, 1], get_output=True)(x_data, y_data)
                     math.assert_close(loss, 0.5)
                     math.assert_close(pred, x_data)
                     math.assert_close(dx, 1)
