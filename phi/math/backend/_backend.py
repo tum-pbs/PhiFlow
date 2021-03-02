@@ -327,9 +327,6 @@ class Backend:
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        raise NotImplementedError(self)
-
     def range(self, start, limit=None, delta=1, dtype: DType = None):
         raise NotImplementedError(self)
 

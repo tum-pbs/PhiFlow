@@ -186,12 +186,6 @@ class JaxBackend(Backend):
     def nonzero(self, values):
         return jnp.argwhere(values)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        result = func(*inputs)
-        assert result.dtype == Tout, "returned value has wrong type: {}, expected {}".format(result.dtype, Tout)
-        assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
-        return result
-
     def zeros(self, shape, dtype: DType = None):
         self._check_float64()
         return jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))

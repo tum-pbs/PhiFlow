@@ -239,9 +239,6 @@ class TorchBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return torch.mean(value, dim=axis, keepdim=keepdims)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        raise NotImplementedError()
-
     def range(self, start, limit=None, delta=1, dtype: DType = None):
         if limit is None:
             start, limit = 0, start

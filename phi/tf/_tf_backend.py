@@ -157,21 +157,6 @@ class TFBackend(Backend):
                 axis = list(axis)
         return tf.reduce_mean(value, axis, keepdims=keepdims)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        if grad is None:
-            result = tf.py_func(func, inputs, Tout, stateful=stateful, name=name)
-        else:
-            # Need to generate a unique name to avoid duplicates:
-            rnd_name = 'PyFuncGrad' + str(uuid.uuid4())
-
-            tf.RegisterGradient(rnd_name)(grad)  # see _MySquareGrad for grad example
-            g = tf.get_default_graph()
-            with g.gradient_override_map({"PyFunc": rnd_name}):
-                result = tf.py_func(func, inputs, Tout, stateful=stateful, name=name)
-        if shape_out is not None:
-            result.set_shape(shape_out)
-        return result
-
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
         if use_cuda(grid):
             # TODO reshape for spatial_dims
