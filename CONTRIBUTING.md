@@ -23,9 +23,11 @@ To contribute code, fork Φ<sub>Flow</sub> on GitHub, make your changes, and sub
 Make sure that your contribution passes all tests.
 
 For commits, we use the following tags in the header:
-`[ci]`, `[doc]`, `[fix]`, `[dash]`, `[math]`, `[backend]`, `[geom]`, `[field]`, `[physics]`, `[tests]`.
+`[ci]`, `[doc]`, `[fix]`, `[dash]`, `[math]`, `[backend]`, `[geom]`, `[field]`, `[io]`, `[physics]`, `[tests]`.
 
 Example commit header: `[doc] Markdown layout fix`
+
+Commits that affect multiple modules, e.g. large-scale refactoring, are not tagged.
 
 
 ## Style Guide

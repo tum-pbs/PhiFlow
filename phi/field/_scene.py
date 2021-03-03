@@ -85,26 +85,17 @@ def get_fieldnames(simpath) -> tuple:
     return tuple(sorted(fieldnames_set))
 
 
-def first_frame(simpath, fieldname=None):
-    return min(get_frames(simpath, fieldname))
-
-
-def get_frames(simpath, fieldname=None, mode="intersect"):
-    if fieldname is not None:
-        all_frames = {int(f[-10:-4]) for f in os.listdir(simpath) if _str(f).startswith(fieldname) and _str(f).endswith(".npz")}
+def get_frames(path: str, field_name: str = None, mode=set.intersection) -> tuple:
+    if field_name is not None:
+        all_frames = {int(f[-10:-4]) for f in os.listdir(path) if _str(f).startswith(field_name) and _str(f).endswith(".npz")}
         return tuple(sorted(all_frames))
     else:
-        frames_sets = [set(get_frames(simpath, fieldname)) for fieldname in get_fieldnames(simpath)]
-        if frames_sets:
-            if mode.lower() == "intersect":
-                frames = set.intersection(*frames_sets)
-            elif mode.lower() == "union":
-                frames = set.union(*frames_sets)
-            else:
-                raise ValueError(mode)
-            return tuple(sorted(frames))
-        else:
+        fields = get_fieldnames(path)
+        if not fields:
             return ()
+        frames_sets = [set(get_frames(path, field)) for field in fields]
+        frames = mode(*frames_sets)
+        return tuple(sorted(frames))
 
 
 class Scene(object):
@@ -375,11 +366,19 @@ class Scene(object):
 
     @property
     def frames(self):
-        """ Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.get_frames()`. """
-        return get_frames(self.path)
+        """ Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.complete_frames`. """
+        return get_frames(self.path, mode=set.union)
 
-    def get_frames(self, mode="intersect"):
-        return get_frames(self.path, None, mode)
+    @property
+    def complete_frames(self):
+        """
+        Determines all frame number for which all existing fields are available.
+        If there are multiple fields stored within this scene, a frame is considered complete only if an entry exists for all fields.
+
+        See Also:
+            `Scene.frames`
+        """
+        return get_frames(self.path, mode=set.intersection)
 
     def __repr__(self):
         return repr(self.paths)

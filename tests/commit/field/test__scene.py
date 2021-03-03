@@ -68,6 +68,7 @@ class TestScene(TestCase):
         scene = Scene.create(DIR)
         scene.write(smoke=smoke, vel=vel)
         self.assertEqual(1, len(scene.frames))
+        self.assertEqual(1, len(scene.complete_frames))
         self.assertEqual(2, len(scene.fieldnames))
         # read single
         smoke_ = scene.read('smoke')
