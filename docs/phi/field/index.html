@@ -3588,11 +3588,19 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 
     @property
     def frames(self):
-        &#34;&#34;&#34; Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.get_frames()`. &#34;&#34;&#34;
-        return get_frames(self.path)
+        &#34;&#34;&#34; Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.complete_frames`. &#34;&#34;&#34;
+        return get_frames(self.path, mode=set.union)
 
-    def get_frames(self, mode=&#34;intersect&#34;):
-        return get_frames(self.path, None, mode)
+    @property
+    def complete_frames(self):
+        &#34;&#34;&#34;
+        Determines all frame number for which all existing fields are available.
+        If there are multiple fields stored within this scene, a frame is considered complete only if an entry exists for all fields.
+
+        See Also:
+            `Scene.frames`
+        &#34;&#34;&#34;
+        return get_frames(self.path, mode=set.intersection)
 
     def __repr__(self):
         return repr(self.paths)
@@ -3826,6 +3834,28 @@ def list(parent_directory: str,
 </dl>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.field.Scene.complete_frames"><code class="name">var <span class="ident">complete_frames</span></code></dt>
+<dd>
+<div class="desc"><p>Determines all frame number for which all existing fields are available.
+If there are multiple fields stored within this scene, a frame is considered complete only if an entry exists for all fields.</p>
+<p>See Also:
+<code><a title="phi.field.Scene.frames" href="#phi.field.Scene.frames">Scene.frames</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def complete_frames(self):
+    &#34;&#34;&#34;
+    Determines all frame number for which all existing fields are available.
+    If there are multiple fields stored within this scene, a frame is considered complete only if an entry exists for all fields.
+
+    See Also:
+        `Scene.frames`
+    &#34;&#34;&#34;
+    return get_frames(self.path, mode=set.intersection)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.Scene.fieldnames"><code class="name">var <span class="ident">fieldnames</span> : tuple</code></dt>
 <dd>
 <div class="desc"><p>Determines all field names present in this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>, independent of frame.</p></div>
@@ -3841,15 +3871,15 @@ def fieldnames(self) -&gt; tuple:
 </dd>
 <dt id="phi.field.Scene.frames"><code class="name">var <span class="ident">frames</span></code></dt>
 <dd>
-<div class="desc"><p>Determines all frame numbers present in this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>, independent of field names. See <code><a title="phi.field.Scene.get_frames" href="#phi.field.Scene.get_frames">Scene.get_frames()</a></code>.</p></div>
+<div class="desc"><p>Determines all frame numbers present in this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>, independent of field names. See <code><a title="phi.field.Scene.complete_frames" href="#phi.field.Scene.complete_frames">Scene.complete_frames</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def frames(self):
-    &#34;&#34;&#34; Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.get_frames()`. &#34;&#34;&#34;
-    return get_frames(self.path)</code></pre>
+    &#34;&#34;&#34; Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.complete_frames`. &#34;&#34;&#34;
+    return get_frames(self.path, mode=set.union)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Scene.is_batch"><code class="name">var <span class="ident">is_batch</span></code></dt>
@@ -3994,19 +4024,6 @@ def shape(self):
         return isfile(join(self.path, &#34;description.json&#34;))
     else:
         return any(isfile(join(p, &#34;description.json&#34;)) for p in self.path)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.Scene.get_frames"><code class="name flex">
-<span>def <span class="ident">get_frames</span></span>(<span>self, mode='intersect')</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def get_frames(self, mode=&#34;intersect&#34;):
-    return get_frames(self.path, None, mode)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Scene.mkdir"><code class="name flex">
@@ -5209,13 +5226,13 @@ The dimension can be batch, spatial or channel.</p>
 <ul class="two-column">
 <li><code><a title="phi.field.Scene.at" href="#phi.field.Scene.at">at</a></code></li>
 <li><code><a title="phi.field.Scene.batch_stack" href="#phi.field.Scene.batch_stack">batch_stack</a></code></li>
+<li><code><a title="phi.field.Scene.complete_frames" href="#phi.field.Scene.complete_frames">complete_frames</a></code></li>
 <li><code><a title="phi.field.Scene.copy_calling_script" href="#phi.field.Scene.copy_calling_script">copy_calling_script</a></code></li>
 <li><code><a title="phi.field.Scene.copy_src" href="#phi.field.Scene.copy_src">copy_src</a></code></li>
 <li><code><a title="phi.field.Scene.create" href="#phi.field.Scene.create">create</a></code></li>
 <li><code><a title="phi.field.Scene.exists_config" href="#phi.field.Scene.exists_config">exists_config</a></code></li>
 <li><code><a title="phi.field.Scene.fieldnames" href="#phi.field.Scene.fieldnames">fieldnames</a></code></li>
 <li><code><a title="phi.field.Scene.frames" href="#phi.field.Scene.frames">frames</a></code></li>
-<li><code><a title="phi.field.Scene.get_frames" href="#phi.field.Scene.get_frames">get_frames</a></code></li>
 <li><code><a title="phi.field.Scene.is_batch" href="#phi.field.Scene.is_batch">is_batch</a></code></li>
 <li><code><a title="phi.field.Scene.list" href="#phi.field.Scene.list">list</a></code></li>
 <li><code><a title="phi.field.Scene.mkdir" href="#phi.field.Scene.mkdir">mkdir</a></code></li>

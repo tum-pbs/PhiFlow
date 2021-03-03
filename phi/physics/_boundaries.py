@@ -384,25 +384,6 @@ class Obstacle(State):
         return self.velocity is 0 and self.angular_velocity is 0
 
 
-class GeometryMovement(Physics):
-
-    def __init__(self, geometry_function):
-        Physics.__init__(self)
-        self.geometry_at = geometry_function
-
-    def step(self, obj, dt=1.0, **dependent_states):
-        next_geometry = self.geometry_at(obj.age + dt)
-        h = 1e-2 * dt if dt > 0 else 1e-2
-        perturbed_geometry = self.geometry_at(obj.age + dt + h)
-        velocity = (perturbed_geometry.center - next_geometry.center) / h
-        if isinstance(obj, Obstacle):
-            return obj.copied_with(geometry=next_geometry, velocity=velocity, age=obj.age + dt)
-        if isinstance(obj, FieldEffect):
-            with struct.ALL_ITEMS:
-                next_field = struct.map(lambda x: x.copied_with(geometries=next_geometry) if isinstance(x, GeometryMask) else x, obj.field, leaf_condition=lambda x: isinstance(x, GeometryMask))
-            return obj.copied_with(field=next_field, age=obj.age + dt)
-
-
 def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
     """
     Generates points (either uniformly distributed or at the cell centers) according to the given tensor mask.

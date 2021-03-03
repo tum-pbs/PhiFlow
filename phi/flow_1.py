@@ -4,10 +4,10 @@
 """
 
 from .flow import *
-from .physics._boundaries import Obstacle, OPEN, SLIPPERY, STICKY, PERIODIC, Domain, GeometryMovement
+from .physics._boundaries import Obstacle, OPEN, SLIPPERY, STICKY, PERIODIC, Domain
 from .physics._effect import FieldEffect, GROW, ADD, FIX, Inflow, Accelerator, ConstantVelocity, HeatSource, ColdSource, Fan, Gravity
 from .physics._world import World, world, obstacle_mask
-from .physics._fluid_legacy import Fluid, IncompressibleFlow
+from .physics._fluid_legacy import Fluid, IncompressibleFlow, GeometryMovement
 from .physics.diffuse import explicit as diffuse
 from phi.field._scene import write_sim_frame
 

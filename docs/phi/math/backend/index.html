@@ -777,9 +777,6 @@ The output of math operations has the same precision as its inputs.</p>
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        raise NotImplementedError(self)
-
     def range(self, start, limit=None, delta=1, dtype: DType = None):
         raise NotImplementedError(self)
 
@@ -2454,19 +2451,6 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.py_func"><code class="name flex">
-<span>def <span class="ident">py_func</span></span>(<span>self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.backend.Backend.random_normal"><code class="name flex">
 <span>def <span class="ident">random_normal</span></span>(<span>self, shape)</span>
 </code></dt>
@@ -3870,7 +3854,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.pow" href="#phi.math.backend.Backend.pow">pow</a></code></li>
 <li><code><a title="phi.math.backend.Backend.precision" href="#phi.math.backend.Backend.precision">precision</a></code></li>
 <li><code><a title="phi.math.backend.Backend.prod" href="#phi.math.backend.Backend.prod">prod</a></code></li>
-<li><code><a title="phi.math.backend.Backend.py_func" href="#phi.math.backend.Backend.py_func">py_func</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_normal" href="#phi.math.backend.Backend.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.backend.Backend.range" href="#phi.math.backend.Backend.range">range</a></code></li>
