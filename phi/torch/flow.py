@@ -16,5 +16,6 @@ from phi.flow import *
 from ._torch_backend import TORCH_BACKEND
 import torch
 import torch.nn.functional as torchf
+import torch.optim as optim
 
 backend.set_global_default_backend(TORCH_BACKEND)

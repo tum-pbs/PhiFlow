@@ -24,10 +24,11 @@ Make sure that your contribution passes all tests.
 
 For commits, we use the following tags in the header:
 
-* `[ci]` for CI configuration changes
-* `[tests]` for adding or changing unit tests
 * `[doc]` for documentation updates
 * `[fix]` for bugfix commits
+* `[ci]` for CI configuration changes
+* `[tests]` for adding or changing unit tests
+* `[demos]` for adding or changing demo scripts
 * `[app]` for general changes in `phi.app`
 * `[dash]` for changes to the Dash GUI
 * `[math]` for changes to `phi.math`
