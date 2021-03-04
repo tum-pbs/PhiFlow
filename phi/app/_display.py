@@ -89,6 +89,7 @@ if 'headless' not in sys.argv:
 
 
 AUTORUN = 'autorun' in sys.argv
+KEEP_ALIVE = True  # internal; whether the UI keeps the app alive
 
 
 def show(app: App or None = None, autorun=AUTORUN, gui: AppDisplay = None, **config):
