@@ -58,42 +58,43 @@ def demo_run(name):
 
 
 class TestDemos(TestCase):
+    pass
 
-    def test_burgers_sim(self):
-        demo_run('burgers_sim')
-
-    def test_differentiate_pressure(self):
-        demo_run('differentiate_pressure')
-
-    def test_flip_liquid(self):
-        demo_run('flip_liquid')
-
-    def test_fluid_logo(self):
-        demo_run('fluid_logo')
-
-    def test_heat_equilibrium(self):
-        demo_run('heat_equilibrium')
-
-    def test_hw2d(self):
-        demo_run('hw2d')
-
-    def test_marker(self):
-        demo_run('marker')
-
-    def test_network_training_pytorch(self):
-        demo_run('network_training_pytorch')
-
-    def test_pipe(self):
-        demo_run('pipe')
-
-    def test_point_cloud(self):
-        demo_run('point_cloud')
-
-    def test_profile_navier_stokes(self):
-        demo_run('profile_navier_stokes')
-
-    def test_rotating_bar(self):
-        demo_run('rotating_bar')
-
-    def test_smoke_plume(self):
-        demo_run('smoke_plume')
+    # def test_burgers_sim(self):
+    #     demo_run('burgers_sim')
+    #
+    # def test_differentiate_pressure(self):
+    #     demo_run('differentiate_pressure')
+    #
+    # def test_flip_liquid(self):
+    #     demo_run('flip_liquid')
+    #
+    # def test_fluid_logo(self):
+    #     demo_run('fluid_logo')
+    #
+    # def test_heat_equilibrium(self):
+    #     demo_run('heat_equilibrium')
+    #
+    # def test_hw2d(self):
+    #     demo_run('hw2d')
+    #
+    # def test_marker(self):
+    #     demo_run('marker')
+    #
+    # def test_network_training_pytorch(self):
+    #     demo_run('network_training_pytorch')
+    #
+    # def test_pipe(self):
+    #     demo_run('pipe')
+    #
+    # def test_point_cloud(self):
+    #     demo_run('point_cloud')
+    #
+    # def test_profile_navier_stokes(self):
+    #     demo_run('profile_navier_stokes')
+    #
+    # def test_rotating_bar(self):
+    #     demo_run('rotating_bar')
+    #
+    # def test_smoke_plume(self):
+    #     demo_run('smoke_plume')
