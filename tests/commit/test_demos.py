@@ -29,7 +29,6 @@ class PerformModelTests(display.AppDisplay):
                 print('Interrupting loop')
         else:
             print('Skipping steps')
-        raise InterruptedError()
 
     def validate_fields(self):
         for name in self.app.fieldnames:
