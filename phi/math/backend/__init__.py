@@ -6,7 +6,7 @@ from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import (
     Backend, choose_backend, NoBackendFound,
     ComputeDevice,
-    default_backend, set_global_default_backend, BACKENDS, _DEFAULT,
+    default_backend, set_global_default_backend, BACKENDS, context_backend, _DEFAULT,
     get_precision, precision, set_global_precision,
 )
 from ._numpy_backend import NUMPY_BACKEND
