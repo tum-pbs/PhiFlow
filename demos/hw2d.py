@@ -21,53 +21,52 @@ c1 = 0.1  # adiabatic coefficient
 arakawa_coeff = 1  # Poisson bracket coefficient
 kappa_coeff = 1  # background flow dy coefficient
 nu = 0.001  # coefficient of hyperdiffusion
-N = 3  # lap**(2*N) diffusion
+N = 3  # laplace**(2*N) diffusion
 # Derived
 L = 2 * np.pi / k0  # Box Size
 dx = L / x  # Grid Spaceing
-nu = (-1)**(N + 1) * nu  # Smoothing coefficient & sign
+nu = (-1) ** (N + 1) * nu  # Smoothing coefficient & sign
 # Packing
 PARAMS = dict(c1=c1, nu=nu, N=N, arakawa_coeff=arakawa_coeff, kappa_coeff=kappa_coeff)
 
 
 class Namespace(dict):
-
     def __mul__(self, other):
         if isinstance(other, Namespace):
-            return Namespace({key:other[key] * val for key, val in self.items()})
+            return Namespace({key: other[key] * val for key, val in self.items()})
         else:
-            return Namespace({key:other * val for key, val in self.items()})
+            return Namespace({key: other * val for key, val in self.items()})
 
     __rmul__ = __mul__
 
     def __div__(self, other):
         if isinstance(other, Namespace):
-            return Namespace({key:val / other[key] for key, val in self.items()})
+            return Namespace({key: val / other[key] for key, val in self.items()})
         else:
-            return Namespace({key:val / other for key, val in self.items()})
+            return Namespace({key: val / other for key, val in self.items()})
 
     def __truediv__(self, other):
         if isinstance(other, Namespace):
-            return Namespace({key:val / other[key] for key, val in self.items()})
+            return Namespace({key: val / other[key] for key, val in self.items()})
         else:
-            return Namespace({key:val / other for key, val in self.items()})
+            return Namespace({key: val / other for key, val in self.items()})
 
     def __rdiv__(self, other):
         if isinstance(other, Namespace):
-            return Namespace({key:other[key] / val for key, val in self.items()})
+            return Namespace({key: other[key] / val for key, val in self.items()})
         else:
-            return Namespace({key:other / val for key, val in self.items()})
+            return Namespace({key: other / val for key, val in self.items()})
 
     def __add__(self, other):
         if isinstance(other, Namespace):
-            return Namespace({key:other[key] + val for key, val in self.items()})
+            return Namespace({key: other[key] + val for key, val in self.items()})
         else:
-            return Namespace({key:other + val for key, val in self.items()})
+            return Namespace({key: other + val for key, val in self.items()})
 
     __radd__ = __add__
 
     def __sub__(self, other):
-        return Namespace({key:other - val for key, val in self.items()})
+        return Namespace({key: other - val for key, val in self.items()})
 
     def __getattr__(self, key):
         try:
@@ -86,20 +85,20 @@ class Namespace(dict):
 
     @property
     def dtype(self):
-        return self['density'].dtype
+        return self["density"].dtype
 
     def copy(self):
-        return Namespace({key:val for key, val in self.items()})
+        return Namespace({key: val for key, val in self.items()})
 
 
-domain = Domain(x=x, y=y,
-                boundaries=PERIODIC,
-                bounds=Box[0:L, 0:L])
-state = Namespace(density=domain.scalar_grid(math.random_normal(x=x, y=y)),
-                  omega=domain.scalar_grid(math.random_normal(x=x, y=y)),
-                  phi=domain.scalar_grid(math.random_normal(x=x, y=y)),
-                  age=0,
-                  dx=dx)
+domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
+state = Namespace(
+    density=domain.grid(math.random_normal(x=x, y=y)),
+    omega=domain.grid(math.random_normal(x=x, y=y)),
+    phi=domain.grid(math.random_normal(x=x, y=y)),
+    age=0,
+    dx=dx,
+)
 
 
 def get_phi(plasma, guess=None):
@@ -116,30 +115,35 @@ def step_gradient_2d(plasma, phi, dt=0):
         for i in range(N):
             arr = field.laplace(arr)  # math.fourier_laplace(arr, dx)
         return arr
+
     # Calculate Gradients
-    dx_p, dy_p = field.spatial_gradient(phi).unstack('vector')
+    dx_p, dy_p = field.spatial_gradient(phi).unstack("vector")
     # Get difference
-    diff = (phi - plasma.density)
+    diff = phi - plasma.density
     # Step 2.1: New Omega.
-    o = (PARAMS['c1'] * diff)
-    if PARAMS['arakawa_coeff']:
-        o += - PARAMS['arakawa_coeff'] * math._nd._periodic_2d_arakawa_poisson_bracket(phi.values, plasma.omega.values, plasma.dx)
-    if PARAMS['nu'] and PARAMS['N']:
-        o += PARAMS['nu'] * diffuse(plasma.omega, PARAMS['N'], plasma.dx)
+    o = PARAMS["c1"] * diff
+    if PARAMS["arakawa_coeff"]:
+        o += -PARAMS["arakawa_coeff"] * math._nd._periodic_2d_arakawa_poisson_bracket(
+            phi.values, plasma.omega.values, plasma.dx
+        )
+    if PARAMS["nu"] and PARAMS["N"]:
+        o += PARAMS["nu"] * diffuse(plasma.omega, PARAMS["N"], plasma.dx)
     # Step 2.2: New Density.
-    n = (PARAMS['c1'] * diff)
-    if PARAMS['arakawa_coeff']:
-        n += - PARAMS['arakawa_coeff'] * math._nd._periodic_2d_arakawa_poisson_bracket(phi.values, plasma.density.values, plasma.dx)
-    if PARAMS['kappa_coeff']:
-        n += - PARAMS['kappa_coeff'] * dy_p
-    if PARAMS['nu']:
-        n += +PARAMS['nu'] * diffuse(plasma.density, PARAMS['N'], plasma.dx)
+    n = PARAMS["c1"] * diff
+    if PARAMS["arakawa_coeff"]:
+        n += -PARAMS["arakawa_coeff"] * math._nd._periodic_2d_arakawa_poisson_bracket(
+            phi.values, plasma.density.values, plasma.dx
+        )
+    if PARAMS["kappa_coeff"]:
+        n += -PARAMS["kappa_coeff"] * dy_p
+    if PARAMS["nu"]:
+        n += PARAMS["nu"] * diffuse(plasma.density, PARAMS["N"], plasma.dx)
     return Namespace(
         density=n,
         omega=o,
         phi=phi,  # NOTE: NOT A GRADIENT
         age=plasma.age + dt,
-        dx=plasma.dx
+        dx=plasma.dx,
     )
 
 
@@ -155,7 +159,7 @@ def euler_step(dt, gradient_func=step_gradient_2d, **kwargs):
         omega=y1.omega,
         phi=p1,
         age=yn.age + dt,  # y1 contains 2 time steps from compute
-        dx=yn.dx
+        dx=yn.dx,
     )
 
 
@@ -178,25 +182,30 @@ def rk4_step(dt, gradient_func=step_gradient_2d, **kwargs):
     # phi = #, guess=pn+p3*0.5)
     t1 = time.time()
     if DEBUG:
-        print(" | ".join([
-            f"{yn.age + dt:<7.04g}",
-            f"{np.max(np.abs(yn.density.data)):>7.02g}",
-            f"{np.max(np.abs(k1.density.data)):>7.02g}",
-            f"{np.max(np.abs(k2.density.data)):>7.02g}",
-            f"{np.max(np.abs(k3.density.data)):>7.02g}",
-            f"{np.max(np.abs(k4.density.data)):>7.02g}",
-            f"{t1-t0:>6.02f}s"
-        ]))
+        print(
+            " | ".join(
+                [
+                    f"{yn.age + dt:<7.04g}",
+                    f"{np.max(np.abs(yn.density.data)):>7.02g}",
+                    f"{np.max(np.abs(k1.density.data)):>7.02g}",
+                    f"{np.max(np.abs(k2.density.data)):>7.02g}",
+                    f"{np.max(np.abs(k3.density.data)):>7.02g}",
+                    f"{np.max(np.abs(k4.density.data)):>7.02g}",
+                    f"{t1-t0:>6.02f}s",
+                ]
+            )
+        )
     return Namespace(
         density=y1.density,
         omega=y1.omega,
         phi=get_phi(y1),  # TODO: Somehow this does not work properly
         age=yn.age + dt,  # y1 contains 2 time steps from compute
-        dx=yn.dx
+        dx=yn.dx,
     )
 
 
-app = App("Hasegawa-Wakatani", "Simple plasma flow model.", framerate=10, dt=EditableFloat('dt', dt))
-app.set_state(state, step_function=rk4_step, show=['density', 'omega', 'phi'])
+app = App("Hasegawa Wakatani", framerate=10, dt=EditableFloat("dt", dt))
+app.set_state(state, step_function=rk4_step, show=["density", "omega", "phi"])
 app.prepare()
-show(app, display=('density', 'omega', 'phi'))
+show(app, display=("density", "omega", "phi"))
+
