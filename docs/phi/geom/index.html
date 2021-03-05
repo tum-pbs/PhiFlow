@@ -87,8 +87,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def concat(geometries: tuple or list,
-                   dim: str,
-                   sizes: tuple or list or None = None):
+           dim: str,
+           sizes: tuple or list or None = None):
     &#34;&#34;&#34;
     Concatenates multiple geometries of the same type.
 
@@ -103,7 +103,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     if all(isinstance(g, type(geometries[0])) for g in geometries):
         characteristics = [g.__characteristics__() for g in geometries]
         if sizes is not None:
-            characteristics = [{key: math.expand(val, dim, size) for key, val in c.items()}
+            characteristics = [{key: math.expand(val, **{dim: size}) for key, val in c.items()}
                                for c, size in zip(characteristics, sizes)]
         new_attributes = {}
         for key in characteristics[0].keys():

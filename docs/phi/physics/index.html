@@ -283,7 +283,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
             if grid.shape.channel.rank == 0:
-                grid = grid.with_(values=math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+                grid = grid.with_(values=math.expand_channel(grid.values, vector=self.rank))
             else:
                 assert grid.shape.channel.sizes[0] == self.rank
             return grid
@@ -872,7 +872,7 @@ The grid is created from the given <code>value</code> which must be one of the f
     if type is CenteredGrid:
         grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         if grid.shape.channel.rank == 0:
-            grid = grid.with_(values=math.expand_channel(grid.values, &#39;vector&#39;, dim_size=self.rank))
+            grid = grid.with_(values=math.expand_channel(grid.values, vector=self.rank))
         else:
             assert grid.shape.channel.sizes[0] == self.rank
         return grid

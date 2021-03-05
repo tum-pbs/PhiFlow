@@ -5,7 +5,6 @@ from functools import wraps
 from typing import List, Tuple, Any, Callable
 
 import numpy as np
-import scipy.optimize as sopt
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
@@ -470,30 +469,6 @@ class TFBackend(Backend):
         result = cg_with_grad(y)
         return result
 
-    def minimize(self, function, x0, solve_params: Solve):
-        x0 = self.numpy(x0)
-
-        # @tf.function
-        def val_and_grad(x):
-            with tf.GradientTape() as tape:
-                tape.watch(x)
-                loss = function(x)
-            grad = tape.gradient(loss, x)
-            return loss, grad
-
-        def min_target(x):
-            x = self.as_tensor(x, convert_external=True)
-            val, grad = val_and_grad(x)
-            return val.numpy().astype(np.float64), grad.numpy().astype(np.float64)
-
-        assert solve_params.relative_tolerance is None
-        res = sopt.minimize(fun=min_target, x0=x0, jac=True,
-                            method=solve_params.solver or 'L-BFGS-B',
-                            tol=solve_params.absolute_tolerance,
-                            options={'maxiter': solve_params.max_iterations})
-        solve_params.result = SolveResult(res.success, res.nit)
-        return res.x
-
     def add(self, a, b):
         if isinstance(a, tf.SparseTensor) or isinstance(b, tf.SparseTensor):
             return tf.sparse.add(a, b, threshold=1e-5)
@@ -512,7 +487,10 @@ class TFBackend(Backend):
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
             grads = tape.gradient(loss, wrt_args)
             if get_output:
-                return (loss, *aux, *grads)
+                if aux is not None:
+                    return (loss, *aux, *grads)
+                else:
+                    return (loss, *grads)
             else:
                 return grads
         return eval_grad

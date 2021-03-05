@@ -256,55 +256,54 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.math.assert_close"><code class="name flex">
-<span>def <span class="ident">assert_close</span></span>(<span>*tensors, rel_tolerance: float = 1e-05, abs_tolerance: float = 0)</span>
+<span>def <span class="ident">assert_close</span></span>(<span>*values, rel_tolerance: float = 1e-05, abs_tolerance: float = 0, msg: str = '', verbose: bool = True)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Checks that all tensors have equal values within the specified tolerance.
+<div class="desc"><p>Checks that all given tensors have equal values within the specified tolerance.
 Raises an AssertionError if the values of this tensor are not within tolerance of any of the other tensors.</p>
-<p>Does not check that the shapes exactly match.
-Tensors with different shapes are reshaped before comparing.</p>
+<p>Does not check that the shapes match as long as they can be broadcast to a common shape.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>tensors</code></strong></dt>
-<dd>tensor or tensor-like (constant) each</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Tensors or native tensors or numbers or sequences of numbers.</dd>
 <dt><strong><code>rel_tolerance</code></strong></dt>
-<dd>relative tolerance (Default value = 1e-5)</dd>
+<dd>Relative tolerance.</dd>
 <dt><strong><code>abs_tolerance</code></strong></dt>
-<dd>absolute tolerance (Default value = 0)</dd>
-<dt><strong><code>*tensors</code></strong></dt>
-<dd>&nbsp;</dd>
-</dl>
-<p>Returns:</p></div>
+<dd>Absolute tolerance.</dd>
+<dt><strong><code>msg</code></strong></dt>
+<dd>Optional error message.</dd>
+<dt><strong><code>verbose</code></strong></dt>
+<dd>Whether to print conflicting values.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def assert_close(*tensors,
+<pre><code class="python">def assert_close(*values,
                  rel_tolerance: float = 1e-5,
-                 abs_tolerance: float = 0):
+                 abs_tolerance: float = 0,
+                 msg: str = &#34;&#34;,
+                 verbose: bool = True):
     &#34;&#34;&#34;
-    Checks that all tensors have equal values within the specified tolerance.
+    Checks that all given tensors have equal values within the specified tolerance.
     Raises an AssertionError if the values of this tensor are not within tolerance of any of the other tensors.
     
-    Does not check that the shapes exactly match.
-    Tensors with different shapes are reshaped before comparing.
+    Does not check that the shapes match as long as they can be broadcast to a common shape.
 
     Args:
-      tensors: tensor or tensor-like (constant) each
-      rel_tolerance: relative tolerance (Default value = 1e-5)
-      abs_tolerance: absolute tolerance (Default value = 0)
-      *tensors: 
-
-    Returns:
-
+      values: Tensors or native tensors or numbers or sequences of numbers.
+      rel_tolerance: Relative tolerance.
+      abs_tolerance: Absolute tolerance.
+      msg: Optional error message.
+      verbose: Whether to print conflicting values.
     &#34;&#34;&#34;
-    any_tensor = next(filter(lambda t: isinstance(t, Tensor), tensors))
+    any_tensor = next(filter(lambda t: isinstance(t, Tensor), values))
     if any_tensor is None:
-        tensors = [wrap(t) for t in tensors]
+        values = [wrap(t) for t in values]
     else:  # use Tensor to infer dimensions
-        tensors = [any_tensor._tensor(t).__simplify__() for t in tensors]
-    for other in tensors[1:]:
-        _assert_close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)</code></pre>
+        values = [any_tensor._tensor(t).__simplify__() for t in values]
+    for other in values[1:]:
+        _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.batch_shape"><code class="name flex">
@@ -512,7 +511,7 @@ Tensors with different shapes are reshaped before comparing.</p>
       Shape containing only spatial dimensions
 
     &#34;&#34;&#34;
-    return _pure_shape(sizes, names, SPATIAL_DIM)</code></pre>
+    return _pure_shape(sizes, names, CHANNEL_DIM)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.channel_stack"><code class="name flex">
@@ -923,7 +922,7 @@ The grid values at the new points are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.math.expand"><code class="name flex">
-<span>def <span class="ident">expand</span></span>(<span>value: phi.math._tensors.Tensor, **dims)</span>
+<span>def <span class="ident">expand</span></span>(<span>value: phi.math._tensors.Tensor, add_shape: phi.math._shape.Shape = (), **dims)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -931,8 +930,8 @@ The grid values at the new points are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand(value: Tensor, **dims):
-    return _expand_dims(value, shape_(**dims))</code></pre>
+<pre><code class="python">def expand(value: Tensor, add_shape: Shape = EMPTY_SHAPE, **dims):
+    return _expand_dims(value, add_shape &amp; shape_(**dims))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.expand_batch"><code class="name flex">
@@ -1803,7 +1802,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 </summary>
 <pre><code class="python">def l1_loss(tensor: Tensor, batch_norm=True) -&gt; Tensor:
     &#34;&#34;&#34; Computes L1 loss. See `l_n_loss()` &#34;&#34;&#34;
-    return l_n_loss(tensor, 1, batch_norm=batch_norm)</code></pre>
+    return l_n_loss(abs(tensor), 1, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l2_loss"><code class="name flex">
@@ -2084,7 +2083,11 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve) ‑> Tuple[phi.math._tensors.Tensor, phi.math._tensors.Tensor, phi.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Finds a minimum of the scalar function <code>function(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> like <code>x0</code>.</p>
+<div class="desc"><p>Finds a minimum of the scalar function <code>function(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> like <code>x0</code>.
+The <code>solver</code> argument of <code>solve_params</code> determines which method is used.
+All methods supported by <code>scipy.optimize.minimize</code> can be used, see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .</p>
+<p>For backends that support gradients (PyTorch, TensorFlow, Jax), <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code> is used to determine the optimization direction.
+Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>function</code></strong></dt>
@@ -2110,6 +2113,11 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <pre><code class="python">def minimize(function, x0: Tensor, solve_params: Solve) -&gt; Tuple[Tensor, Tensor, Tensor]:
     &#34;&#34;&#34;
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
+    The `solver` argument of `solve_params` determines which method is used.
+    All methods supported by `scipy.optimize.minimize` can be used, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
+
+    For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
+    Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
 
     Args:
         function: Function to be minimized
@@ -2121,7 +2129,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
         x: solution, the minimum point `x`.
         iterations: number of iterations performed
     &#34;&#34;&#34;
-    backend = choose_backend_t(x0)
+    backend = choose_backend_t(x0, prefer_default=True)
     x0._expand()
     natives = x0._natives()
     natives_flat = [backend.flatten(n) for n in natives]
@@ -2143,6 +2151,8 @@ If a vector field is passed, the laplace is computed component-wise.</p>
         return y.native()
 
     x_native = backend.minimize(native_function, x0_flat, solve_params)
+    if x_native is NotImplemented:
+        x_native = _default_minimize(native_function, x0_flat, backend, solve_params)
     x = unflatten_assemble(x_native)
     return wrap(solve_params.result.success), x, wrap(solve_params.result.iterations)</code></pre>
 </details>

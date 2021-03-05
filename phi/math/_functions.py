@@ -14,6 +14,7 @@ from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spa
     _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation
+from .backend._optim import SolveResult
 from .backend._profile import get_current_profile
 
 
@@ -1245,6 +1246,11 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False
 def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor, Tensor]:
     """
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
+    The `solver` argument of `solve_params` determines which method is used.
+    All methods supported by `scipy.optimize.minimize` can be used, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
+
+    For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
+    Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
 
     Args:
         function: Function to be minimized
@@ -1256,7 +1262,7 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
         x: solution, the minimum point `x`.
         iterations: number of iterations performed
     """
-    backend = choose_backend_t(x0)
+    backend = choose_backend_t(x0, prefer_default=True)
     x0._expand()
     natives = x0._natives()
     natives_flat = [backend.flatten(n) for n in natives]
@@ -1278,8 +1284,42 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
         return y.native()
 
     x_native = backend.minimize(native_function, x0_flat, solve_params)
+    if x_native is NotImplemented:
+        x_native = _default_minimize(native_function, x0_flat, backend, solve_params)
     x = unflatten_assemble(x_native)
     return wrap(solve_params.result.success), x, wrap(solve_params.result.iterations)
+
+
+def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_params: Solve):
+    import scipy.optimize as sopt
+    assert solve_params.relative_tolerance is None
+    x0 = backend.numpy(x0_flat)
+    method = solve_params.solver or 'L-BFGS-B'
+
+    if backend.supports(Backend.functional_gradient):
+        val_and_grad = backend.functional_gradient(native_function, [0], get_output=True)
+
+        def min_target(x):
+            x = backend.as_tensor(x, convert_external=True)
+            val, grad = val_and_grad(x)
+            return backend.numpy(val).astype(np.float64), backend.numpy(grad).astype(np.float64)
+
+        res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=solve_params.absolute_tolerance,
+                            options={'maxiter': solve_params.max_iterations})
+    else:
+        warnings.warn(f"{backend} does not support gradients. minimize() will use finite difference gradients which may be slow.")
+
+        def min_target(x):
+            x = backend.as_tensor(x, convert_external=True)
+            val = native_function(x)
+            return backend.numpy(val).astype(np.float64)
+
+        finite_diff_epsilon = {64: 1e-8, 32: 1e-3, 16: 1e-1}[get_precision()]
+        res = sopt.minimize(fun=min_target, x0=x0, method=method, tol=solve_params.absolute_tolerance,
+                            options={'maxiter': solve_params.max_iterations, 'eps': finite_diff_epsilon})
+
+    solve_params.result = SolveResult(res.success, res.nit)
+    return res.x
 
 
 def solve(operator,

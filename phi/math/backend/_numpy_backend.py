@@ -42,7 +42,7 @@ class NumPyBackend(Backend):
         return array
 
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, np.ndarray) and x.dtype != np.object:
+        if isinstance(x, np.ndarray) and x.dtype != object:
             return True
         if scipy.sparse.issparse(x):
             return True

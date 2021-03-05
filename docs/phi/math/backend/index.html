@@ -1059,7 +1059,8 @@ The output of math operations has the same precision as its inputs.</p>
         raise NotImplementedError(self)
 
     def minimize(self, function, x0, solve_params: Solve):
-        raise NotImplementedError(self)
+        &#34;&#34;&#34; Optional. &#34;&#34;&#34;
+        return NotImplemented
 
     def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         &#34;&#34;&#34;
@@ -2249,13 +2250,14 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <span>def <span class="ident">minimize</span></span>(<span>self, function, x0, solve_params: phi.math.backend._optim.Solve)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Optional.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def minimize(self, function, x0, solve_params: Solve):
-    raise NotImplementedError(self)</code></pre>
+    &#34;&#34;&#34; Optional. &#34;&#34;&#34;
+    return NotImplemented</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.minimum"><code class="name flex">

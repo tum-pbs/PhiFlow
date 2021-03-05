@@ -65,7 +65,7 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
 
 def l1_loss(tensor: Tensor, batch_norm=True) -> Tensor:
     """ Computes L1 loss. See `l_n_loss()` """
-    return l_n_loss(tensor, 1, batch_norm=batch_norm)
+    return l_n_loss(abs(tensor), 1, batch_norm=batch_norm)
 
 
 def l2_loss(tensor: Tensor, batch_norm=True) -> Tensor:

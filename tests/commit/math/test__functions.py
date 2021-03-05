@@ -310,4 +310,13 @@ class TestMathFunctions(TestCase):
                 selected = math.boolean_mask(x, 'selection', mask)
                 self.assertEqual(math.shape(x=2, selection=3).alphabetically(), selected.shape.alphabetically(), msg=backend.name)
 
+    def test_minimize(self):
+        def loss(x):
+            return math.l1_loss(x - 1)
 
+        x0 = math.zeros(x=4)
+        solve = math.Solve(absolute_tolerance=1e-3, relative_tolerance=None)
+        for backend in BACKENDS:
+            with backend:
+                converged, x, iterations = math.minimize(loss, x0, solve)
+                math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)

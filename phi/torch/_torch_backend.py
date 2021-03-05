@@ -183,9 +183,7 @@ class TorchBackend(Backend):
         return result
 
     def reshape(self, value, shape):
-        # if not value.is_complex():
-        #     value = value.view_as_complex()
-        return torch.reshape(value, shape)
+        return torch.reshape(self.as_tensor(value), shape)
 
     def flip(self, value, axes: tuple or list):
         return torch.flip(value, axes)
@@ -555,8 +553,11 @@ class TorchBackend(Backend):
             grads = torch.autograd.grad(loss, wrt_args)
             if get_output:
                 loss = loss.detach()
-                aux = [aux_.detach() for aux_ in aux]
-                return (loss, *aux, *grads)
+                if aux is not None:
+                    aux = [aux_.detach() for aux_ in aux]
+                    return (loss, *aux, *grads)
+                else:
+                    return (loss, *grads)
             else:
                 return grads
         return eval_grad

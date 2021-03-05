@@ -190,8 +190,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         return fields[0].with_(values=values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
-        values = math.concat([math.expand(f.values, dim, f.shape.get_size(dim)) for f in fields], dim)
-        colors = math.concat([math.expand(f.color, dim, f.shape.get_size(dim)) for f in fields], dim)
+        values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
+        colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
         return fields[0].with_(elements=elements, values=values, color=colors)
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
@@ -2956,7 +2956,6 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         self._elements = elements
         self._values = math.wrap(values)
         self._extrapolation = extrapolation
-        self._shape = elements.shape.non_channel &amp; self._values.shape.non_spatial
 
     def with_(self,
               elements: Geometry or None = None,
@@ -3006,7 +3005,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 
     @property
     def shape(self) -&gt; Shape:
-        return self._shape
+        return self._elements.shape.non_channel &amp; self._values.shape.non_spatial
 
     def sample_at(self, points, reduce_channels=()) -&gt; Tensor:
         raise NotImplementedError(self)
@@ -3171,7 +3170,7 @@ def points(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
-    return self._shape</code></pre>
+    return self._elements.shape.non_channel &amp; self._values.shape.non_spatial</code></pre>
 </details>
 </dd>
 <dt id="phi.field.SampledField.values"><code class="name">var <span class="ident">values</span> : phi.math._tensors.Tensor</code></dt>

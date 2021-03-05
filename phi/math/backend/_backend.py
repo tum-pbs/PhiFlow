@@ -586,7 +586,8 @@ class Backend:
         raise NotImplementedError(self)
 
     def minimize(self, function, x0, solve_params: Solve):
-        raise NotImplementedError(self)
+        """ Optional. """
+        return NotImplemented
 
     def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         """
