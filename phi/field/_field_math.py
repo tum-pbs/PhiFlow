@@ -322,8 +322,8 @@ def concat(*fields: SampledField, dim: str):
         return fields[0].with_(values=values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
-        values = math.concat([math.expand(f.values, dim, f.shape.get_size(dim)) for f in fields], dim)
-        colors = math.concat([math.expand(f.color, dim, f.shape.get_size(dim)) for f in fields], dim)
+        values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
+        colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
         return fields[0].with_(elements=elements, values=values, color=colors)
     raise NotImplementedError(type(fields[0]))
 

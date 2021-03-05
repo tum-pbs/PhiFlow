@@ -57,7 +57,7 @@ class TestMathFunctions(TestCase):
                 grid = math.sum(math.meshgrid(x=[1, 2, 3], y=[0, 3]), 'vector')  # 1 2 3 | 4 5 6
                 coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], names=('list', 'vector'))
                 interp = math.grid_sample(grid, coords, extrapolation.ZERO)
-                math.assert_close(interp, [1, 1.5, 2.5, 0])
+                math.assert_close(interp, [1, 1.5, 2.5, 0], msg=backend.name)
 
     def test_grid_sample_gradient_1d(self):
         grads_grid = []
@@ -186,10 +186,12 @@ class TestMathFunctions(TestCase):
         fft_ref_tensor = math.wrap(np.fft.fft2(sine_field), 'x,y')
         with math.precision(64):
             for backend in BACKENDS:
-                with backend:
-                    sine_tensor = math.tensor(sine_field, 'x,y')
-                    fft_tensor = math.fft(sine_tensor)
-                    math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-12, error_message=backend.name)  # Should usually be more precise. GitHub Actions has larger errors than usual.
+                if backend.name != 'Jax':  # TODO Jax casts to float32 / complex64 on GitHub Actions
+                    with backend:
+                        sine_tensor = math.tensor(sine_field, 'x,y')
+                        fft_tensor = math.fft(sine_tensor)
+                        self.assertEqual(fft_tensor.dtype, math.DType(complex, 128), msg=backend.name)
+                        math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-12, msg=backend.name)  # Should usually be more precise. GitHub Actions has larger errors than usual.
 
     def test_trace_function(self):
         def f(x: math.Tensor, y: math.Tensor):
@@ -201,11 +203,11 @@ class TestMathFunctions(TestCase):
                 args1 = math.ones(x=2), math.ones(y=2)
                 args2 = math.ones(x=3), math.ones(y=3)
                 res1 = ft(*args1)
-                self.assertEqual(math.shape(x=2, y=2), res1.shape)
-                math.assert_close(res1, 2)
+                self.assertEqual(math.shape(x=2, y=2), res1.shape, msg=backend.name)
+                math.assert_close(res1, 2, msg=backend.name)
                 res2 = ft(*args2)
-                self.assertEqual(math.shape(x=3, y=3), res2.shape)
-                math.assert_close(res2, 2)
+                self.assertEqual(math.shape(x=3, y=3), res2.shape, msg=backend.name)
+                math.assert_close(res2, 2, msg=backend.name)
 
     def test_gradient_function(self):
         def f(x: math.Tensor, y: math.Tensor):
@@ -218,17 +220,16 @@ class TestMathFunctions(TestCase):
                 with backend:
                     x_data = math.tensor(2.)
                     y_data = math.tensor(1.)
-
                     dx, = math.functional_gradient(f)(x_data, y_data)
-                    math.assert_close(dx, 1)
+                    math.assert_close(dx, 1, msg=backend.name)
                     dx, dy = math.functional_gradient(f, [0, 1])(x_data, y_data)
-                    math.assert_close(dx, 1)
-                    math.assert_close(dy, -1)
+                    math.assert_close(dx, 1, msg=backend.name)
+                    math.assert_close(dy, -1, msg=backend.name)
                     loss, pred, dx, dy = math.functional_gradient(f, [0, 1], get_output=True)(x_data, y_data)
-                    math.assert_close(loss, 0.5)
-                    math.assert_close(pred, x_data)
-                    math.assert_close(dx, 1)
-                    math.assert_close(dy, -1)
+                    math.assert_close(loss, 0.5, msg=backend.name)
+                    math.assert_close(pred, x_data, msg=backend.name)
+                    math.assert_close(dx, 1, msg=backend.name)
+                    math.assert_close(dy, -1, msg=backend.name)
 
     def test_dot_vector(self):
         for backend in BACKENDS:
@@ -236,9 +237,9 @@ class TestMathFunctions(TestCase):
                 a = math.ones(a=4)
                 b = math.ones(b=4)
                 dot = math.dot(a, 'a', b, 'b')
-                self.assertEqual(0, dot.rank)
-                math.assert_close(dot, 4, a.a * b.b)
-                math.assert_close(math.dot(a, 'a', a, 'a'), 4)
+                self.assertEqual(0, dot.rank, msg=backend.name)
+                math.assert_close(dot, 4, a.a * b.b, msg=backend.name)
+                math.assert_close(math.dot(a, 'a', a, 'a'), 4, msg=backend.name)
 
     def test_dot_matrix(self):
         for backend in BACKENDS:
@@ -246,8 +247,8 @@ class TestMathFunctions(TestCase):
                 a = math.ones(x=2, a=4, batch=10)
                 b = math.ones(y=3, b=4)
                 dot = math.dot(a, 'a', b, 'b')
-                self.assertEqual(math.shape(x=2, batch=10, y=3).alphabetically(), dot.shape.alphabetically())
-                math.assert_close(dot, 4)
+                self.assertEqual(math.shape(x=2, batch=10, y=3).alphabetically(), dot.shape.alphabetically(), msg=backend.name)
+                math.assert_close(dot, 4, msg=backend.name)
 
     def test_dot_batched_vector(self):
         for backend in BACKENDS:
@@ -255,31 +256,31 @@ class TestMathFunctions(TestCase):
                 a = math.ones(batch=10, a=4)
                 b = math.ones(batch=10, b=4)
                 dot = math.dot(a, 'a', b, 'b')
-                self.assertEqual(math.shape(batch=10), dot.shape)
-                math.assert_close(dot, 4, a.a * b.b)
+                self.assertEqual(math.shape(batch=10), dot.shape, msg=backend.name)
+                math.assert_close(dot, 4, a.a * b.b, msg=backend.name)
                 dot = math.dot(a, 'a', a, 'a')
-                self.assertEqual(math.shape(batch=10), dot.shape)
-                math.assert_close(dot, 4, a.a * a.a)
+                self.assertEqual(math.shape(batch=10), dot.shape, msg=backend.name)
+                math.assert_close(dot, 4, a.a * a.a, msg=backend.name)
                 # more dimensions
                 a = math.ones(batch=10, a=4, x=2)
                 b = math.ones(batch=10, y=3, b=4)
                 dot = math.dot(a, 'a', b, 'b')
-                self.assertEqual(math.shape(x=2, batch=10, y=3).alphabetically(), dot.shape.alphabetically())
-                math.assert_close(dot, 4)
+                self.assertEqual(math.shape(x=2, batch=10, y=3).alphabetically(), dot.shape.alphabetically(), msg=backend.name)
+                math.assert_close(dot, 4, msg=backend.name)
 
     def test_range(self):
         for backend in BACKENDS:
             with backend:
-                math.assert_close(math.range(1, 5), [1, 2, 3, 4])
-                math.assert_close(math.range(1), [0])
+                math.assert_close(math.range(1, 5), [1, 2, 3, 4], msg=backend.name)
+                math.assert_close(math.range(1), [0], msg=backend.name)
 
     def test_boolean_mask_1d(self):
         for backend in BACKENDS:
             with backend:
                 x = math.range(4)
                 mask = math.tensor([True, False, True, False], 'range')
-                math.assert_close(math.boolean_mask(x, 'range', mask), [0, 2])
-                math.assert_close(x.range[mask], [0, 2])
+                math.assert_close(math.boolean_mask(x, 'range', mask), [0, 2], msg=backend.name)
+                math.assert_close(x.range[mask], [0, 2], msg=backend.name)
 
     def test_boolean_mask_batched(self):
         for backend in BACKENDS:
@@ -289,9 +290,9 @@ class TestMathFunctions(TestCase):
                 selected = math.boolean_mask(x, 'x', mask)
                 expected_0 = math.tensor([(0, -0), (2, -2)], 'x,vector')
                 expected_1 = math.tensor([(1, -1)], 'x,vector')
-                math.assert_close(selected.batch[0], expected_0)
-                math.assert_close(selected.batch[1], expected_1)
-                math.assert_close(selected, x.x[mask])
+                math.assert_close(selected.batch[0], expected_0, msg=backend.name)
+                math.assert_close(selected.batch[1], expected_1, msg=backend.name)
+                math.assert_close(selected, x.x[mask], msg=backend.name)
 
     def test_boolean_mask_semi_batched(self):
         for backend in BACKENDS:
@@ -299,7 +300,7 @@ class TestMathFunctions(TestCase):
                 x = math.range(4, dim='x')
                 mask = math.tensor([[True, False, True, False], [False, True, False, False]], 'batch,x')
                 selected = math.boolean_mask(x, 'x', mask)
-                self.assertEqual(3, selected.shape.volume)
+                self.assertEqual(3, selected.shape.volume, msg=backend.name)
 
     def test_boolean_mask_dim_missing(self):
         for backend in BACKENDS:
@@ -307,6 +308,6 @@ class TestMathFunctions(TestCase):
                 x = math.random_uniform(x=2)
                 mask = math.tensor([True, False, True, True], 'selection')
                 selected = math.boolean_mask(x, 'selection', mask)
-                self.assertEqual(math.shape(x=2, selection=3).alphabetically(), selected.shape.alphabetically())
+                self.assertEqual(math.shape(x=2, selection=3).alphabetically(), selected.shape.alphabetically(), msg=backend.name)
 
 

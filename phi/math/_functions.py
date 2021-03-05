@@ -993,8 +993,8 @@ def expand_channel(value: Tensor, **dims):
     return _expand_dims(value, channel_shape(dims))
 
 
-def expand(value: Tensor, **dims):
-    return _expand_dims(value, shape_(**dims))
+def expand(value: Tensor, add_shape: Shape = EMPTY_SHAPE, **dims):
+    return _expand_dims(value, add_shape & shape_(**dims))
 
 
 def _expand_dims(value: Tensor, new_dims: Shape):
@@ -1069,7 +1069,7 @@ def _close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
 def assert_close(*values,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0,
-                 error_message: str = "",
+                 msg: str = "",
                  verbose: bool = True):
     """
     Checks that all given tensors have equal values within the specified tolerance.
@@ -1081,7 +1081,7 @@ def assert_close(*values,
       values: Tensors or native tensors or numbers or sequences of numbers.
       rel_tolerance: Relative tolerance.
       abs_tolerance: Absolute tolerance.
-      error_message: Optional error message.
+      msg: Optional error message.
       verbose: Whether to print conflicting values.
     """
     any_tensor = next(filter(lambda t: isinstance(t, Tensor), values))
@@ -1090,7 +1090,7 @@ def assert_close(*values,
     else:  # use Tensor to infer dimensions
         values = [any_tensor._tensor(t).__simplify__() for t in values]
     for other in values[1:]:
-        _assert_close(values[0], other, rel_tolerance, abs_tolerance, error_message, verbose)
+        _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)
 
 
 def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float, error_message: str = "", verbose: bool = True):
