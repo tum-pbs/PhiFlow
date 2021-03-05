@@ -189,7 +189,7 @@ class TestMathFunctions(TestCase):
                 with backend:
                     sine_tensor = math.tensor(sine_field, 'x,y')
                     fft_tensor = math.fft(sine_tensor)
-                    math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-12)  # Should usually be more precise. GitHub Actions has larger errors than usual.
+                    math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-12, error_message=backend.name)  # Should usually be more precise. GitHub Actions has larger errors than usual.
 
     def test_trace_function(self):
         def f(x: math.Tensor, y: math.Tensor):

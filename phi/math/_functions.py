@@ -1066,35 +1066,34 @@ def _close(tensor1, tensor2, rel_tolerance=1e-5, abs_tolerance=0):
     return np.allclose(np1, np2, rel_tolerance, abs_tolerance)
 
 
-def assert_close(*tensors,
+def assert_close(*values,
                  rel_tolerance: float = 1e-5,
-                 abs_tolerance: float = 0):
+                 abs_tolerance: float = 0,
+                 error_message: str = "",
+                 verbose: bool = True):
     """
-    Checks that all tensors have equal values within the specified tolerance.
+    Checks that all given tensors have equal values within the specified tolerance.
     Raises an AssertionError if the values of this tensor are not within tolerance of any of the other tensors.
     
-    Does not check that the shapes exactly match.
-    Tensors with different shapes are reshaped before comparing.
+    Does not check that the shapes match as long as they can be broadcast to a common shape.
 
     Args:
-      tensors: tensor or tensor-like (constant) each
-      rel_tolerance: relative tolerance (Default value = 1e-5)
-      abs_tolerance: absolute tolerance (Default value = 0)
-      *tensors: 
-
-    Returns:
-
+      values: Tensors or native tensors or numbers or sequences of numbers.
+      rel_tolerance: Relative tolerance.
+      abs_tolerance: Absolute tolerance.
+      error_message: Optional error message.
+      verbose: Whether to print conflicting values.
     """
-    any_tensor = next(filter(lambda t: isinstance(t, Tensor), tensors))
+    any_tensor = next(filter(lambda t: isinstance(t, Tensor), values))
     if any_tensor is None:
-        tensors = [wrap(t) for t in tensors]
+        values = [wrap(t) for t in values]
     else:  # use Tensor to infer dimensions
-        tensors = [any_tensor._tensor(t).__simplify__() for t in tensors]
-    for other in tensors[1:]:
-        _assert_close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
+        values = [any_tensor._tensor(t).__simplify__() for t in values]
+    for other in values[1:]:
+        _assert_close(values[0], other, rel_tolerance, abs_tolerance, error_message, verbose)
 
 
-def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float):
+def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float, error_message: str = "", verbose: bool = True):
     if tensor2 is tensor1:
         return
     if isinstance(tensor2, (int, float, bool)):
@@ -1105,7 +1104,7 @@ def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float):
         np1 = choose_backend(native1).numpy(native1)
         np2 = choose_backend(native2).numpy(native2)
         if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
-            np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance)
+            np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance, err_msg=error_message, verbose=verbose)
 
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 

@@ -19,7 +19,7 @@ def concat(geometries: tuple or list,
     if all(isinstance(g, type(geometries[0])) for g in geometries):
         characteristics = [g.__characteristics__() for g in geometries]
         if sizes is not None:
-            characteristics = [{key: math.expand(val, dim, size) for key, val in c.items()}
+            characteristics = [{key: math.expand(val, **{dim: size}) for key, val in c.items()}
                                for c, size in zip(characteristics, sizes)]
         new_attributes = {}
         for key in characteristics[0].keys():
