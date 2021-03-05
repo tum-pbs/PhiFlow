@@ -35,7 +35,7 @@ from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import (
     Backend, choose_backend, NoBackendFound,
     ComputeDevice,
-    default_backend, set_global_default_backend, BACKENDS, _DEFAULT,
+    default_backend, set_global_default_backend, BACKENDS, context_backend, _DEFAULT,
     get_precision, precision, set_global_precision,
 )
 from ._numpy_backend import NUMPY_BACKEND
@@ -132,6 +132,29 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
             return backend
     else:
         return backends[0]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.context_backend"><code class="name flex">
+<span>def <span class="ident">context_backend</span></span>(<span>) ‑> phi.math.backend._backend.Backend</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the backend set by the inner-most surrounding <code>with backend:</code> block.
+If called outside a backend context, returns <code>None</code>.</p>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> or <code>None</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def context_backend() -&gt; Backend or None:
+    &#34;&#34;&#34;
+    Returns the backend set by the inner-most surrounding `with backend:` block.
+    If called outside a backend context, returns `None`.
+
+    Returns:
+        `Backend` or `None`
+    &#34;&#34;&#34;
+    return _DEFAULT[-1] if len(_DEFAULT) &gt; 1 else None</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.default_backend"><code class="name flex">
@@ -798,7 +821,8 @@ The output of math operations has the same precision as its inputs.</p>
     def linspace(self, start, stop, number):
         raise NotImplementedError(self)
 
-    def dot(self, a, b, axes):
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        &#34;&#34;&#34; Multiply-sum-reduce a_axes of a with b_axes of b. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def matmul(self, A, b):
@@ -1679,19 +1703,6 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     Returns:
 
     &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.dot"><code class="name flex">
-<span>def <span class="ident">dot</span></span>(<span>self, a, b, axes)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def dot(self, a, b, axes):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2827,6 +2838,20 @@ Features correspond to a method of this backend that must be implemented if the 
     return impl_fun is not backend_fun</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.tensordot"><code class="name flex">
+<span>def <span class="ident">tensordot</span></span>(<span>self, a, a_axes: tuple, b, b_axes: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Multiply-sum-reduce a_axes of a with b_axes of b.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+    &#34;&#34;&#34; Multiply-sum-reduce a_axes of a with b_axes of b. &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.tile"><code class="name flex">
 <span>def <span class="ident">tile</span></span>(<span>self, value, multiples)</span>
 </code></dt>
@@ -3766,6 +3791,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend</a></code></li>
+<li><code><a title="phi.math.backend.context_backend" href="#phi.math.backend.context_backend">context_backend</a></code></li>
 <li><code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend</a></code></li>
 <li><code><a title="phi.math.backend.from_numpy_dtype" href="#phi.math.backend.from_numpy_dtype">from_numpy_dtype</a></code></li>
 <li><code><a title="phi.math.backend.get_current_profile" href="#phi.math.backend.get_current_profile">get_current_profile</a></code></li>
@@ -3807,7 +3833,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.custom_gradient" href="#phi.math.backend.Backend.custom_gradient">custom_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.div" href="#phi.math.backend.Backend.div">div</a></code></li>
 <li><code><a title="phi.math.backend.Backend.divide_no_nan" href="#phi.math.backend.Backend.divide_no_nan">divide_no_nan</a></code></li>
-<li><code><a title="phi.math.backend.Backend.dot" href="#phi.math.backend.Backend.dot">dot</a></code></li>
 <li><code><a title="phi.math.backend.Backend.dtype" href="#phi.math.backend.Backend.dtype">dtype</a></code></li>
 <li><code><a title="phi.math.backend.Backend.einsum" href="#phi.math.backend.Backend.einsum">einsum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.equal" href="#phi.math.backend.Backend.equal">equal</a></code></li>
@@ -3876,6 +3901,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.sub" href="#phi.math.backend.Backend.sub">sub</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sum" href="#phi.math.backend.Backend.sum">sum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.supports" href="#phi.math.backend.Backend.supports">supports</a></code></li>
+<li><code><a title="phi.math.backend.Backend.tensordot" href="#phi.math.backend.Backend.tensordot">tensordot</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_float" href="#phi.math.backend.Backend.to_float">to_float</a></code></li>

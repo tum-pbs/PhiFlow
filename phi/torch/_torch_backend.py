@@ -265,8 +265,8 @@ class TorchBackend(Backend):
     def linspace(self, start, stop, number):
         return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
-    def dot(self, a, b, axes):
-        return torch.tensordot(a, b, axes)
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        return torch.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
         if isinstance(A, torch.Tensor) and A.is_sparse:

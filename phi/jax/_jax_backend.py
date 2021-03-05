@@ -211,8 +211,8 @@ class JaxBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return jnp.mean(value, axis, keepdims=keepdims)
 
-    def dot(self, a, b, axes):
-        return jnp.tensordot(a, b, axes)
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        return jnp.tensordot(a, b, (a_axes, b_axes))
 
     def mul(self, a, b):
         # if scipy.sparse.issparse(a):  # TODO sparse?

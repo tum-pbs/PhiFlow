@@ -11,7 +11,7 @@ import numpy as np
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
-    _infer_dim_type_from_name, combine_safe
+    _infer_dim_type_from_name, combine_safe, parse_dim_order
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation
 from .backend._profile import get_current_profile
@@ -619,18 +619,10 @@ def _reduce(value: Tensor or list or tuple,
 
 
 def _resolve_dims(dim: str or tuple or list or Shape or None,
-                  shape: Shape) -> Tuple[str]:
+                  t_shape: Shape) -> Tuple[str]:
     if dim is None:
-        return shape.names
-    if isinstance(dim, list):
-        return tuple(dim)
-    if isinstance(dim, tuple):
-        return dim
-    if isinstance(dim, str):
-        return dim,
-    if isinstance(dim, Shape):
-        return dim.names
-    raise ValueError(dim)
+        return t_shape.names
+    return parse_dim_order(dim)
 
 
 def sum_(value: Tensor or list or tuple,
@@ -685,19 +677,54 @@ def min_(value: Tensor or list or tuple,
                    native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
-def dot(a, b, axes) -> Tensor:
-    """ Not yet implemented. """
-    raise NotImplementedError()
+def dot(x: Tensor,
+        x_dims: str or tuple or list or Shape,
+        y: Tensor,
+        y_dims: str or tuple or list or Shape) -> Tensor:
+    """
+    Computes the dot product along the specified dimensions.
+    Contracts `x_dims` with `y_dims` by first multiplying the elements and then summing them up.
 
+    For one dimension, this is equal to matrix-matrix or matrix-vector multiplication.
 
-def matmul(A, b) -> Tensor:
-    """ Not yet implemented. """
-    raise NotImplementedError()
+    Args:
+        x: First `Tensor`
+        x_dims: Dimensions of `x` to reduce against `y`
+        y: Second `Tensor`
+        y_dims: Dimensions of `y` to reduce against `x`.
 
-
-def einsum(equation, *tensors) -> Tensor:
-    """ Not yet implemented. """
-    raise NotImplementedError()
+    Returns:
+        Dot product as `Tensor`.
+    """
+    x_dims = _resolve_dims(x_dims, x.shape)
+    y_dims = _resolve_dims(y_dims, y.shape)
+    x_native = x.native()
+    y_native = y.native()
+    backend = choose_backend(x_native, y_native)
+    remaining_shape_x = x.shape.without(x_dims)
+    remaining_shape_y = y.shape.without(y_dims)
+    if remaining_shape_y.only(remaining_shape_x).is_empty:  # no shared batch dimensions -> tensordot
+        result_native = backend.tensordot(x_native, x.shape.index(x_dims), y_native, y.shape.index(y_dims))
+    else:  # shared batch dimensions -> einsum
+        REDUCE_LETTERS = list('ijklmn')
+        KEEP_LETTERS = list('abcdefgh')
+        x_letters = [(REDUCE_LETTERS if dim in x_dims else KEEP_LETTERS).pop(0) for dim in x.shape.names]
+        x_letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
+        REDUCE_LETTERS = list('ijklmn')
+        y_letters = []
+        for dim in y.shape.names:
+            if dim in y_dims:
+                y_letters.append(REDUCE_LETTERS.pop(0))
+            else:
+                if dim in x_letter_map:
+                    y_letters.append(x_letter_map[dim])
+                else:
+                    y_letters.append(KEEP_LETTERS.pop(0))
+        keep_letters = list('abcdefgh')[:-len(KEEP_LETTERS)]
+        subscripts = f'{"".join(x_letters)},{"".join(y_letters)}->{"".join(keep_letters)}'
+        result_native = backend.einsum(subscripts, x_native, y_native)
+    result_shape = x.shape.without(x_dims) & y.shape.without(y_dims)
+    return NativeTensor(result_native, result_shape)
 
 
 def _backend_op1(x: Tensor, unbound_method) -> Tensor:

@@ -183,8 +183,8 @@ class TFBackend(Backend):
     def linspace(self, start, stop, number):
         return self.to_float(tf.linspace(start, stop, number))
 
-    def dot(self, a, b, axes):
-        return tf.tensordot(a, b, axes)
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        return tf.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
         if isinstance(A, tf.SparseTensor):

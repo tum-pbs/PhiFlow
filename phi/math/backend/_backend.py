@@ -348,7 +348,8 @@ class Backend:
     def linspace(self, start, stop, number):
         raise NotImplementedError(self)
 
-    def dot(self, a, b, axes):
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        """ Multiply-sum-reduce a_axes of a with b_axes of b. """
         raise NotImplementedError(self)
 
     def matmul(self, A, b):

@@ -841,12 +841,15 @@ def parse_dim_order(order: str or tuple or list or Shape or None) -> tuple or No
         return None
     elif isinstance(order, Shape):
         return order.names
-    elif isinstance(order, (tuple, list)):
+    if isinstance(order, list):
+        return tuple(order)
+    elif isinstance(order, tuple):
         return order
     elif isinstance(order, str):
         parts = order.split(',')
         parts = [p.strip() for p in parts]
         return tuple(parts)
+    raise ValueError(order)
 
 
 def shape(**dims: int) -> Shape:

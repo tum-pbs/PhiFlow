@@ -168,8 +168,8 @@ class NumPyBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return np.mean(value, axis, keepdims=keepdims)
 
-    def dot(self, a, b, axes):
-        return np.tensordot(a, b, axes)
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        return np.tensordot(a, b, (a_axes, b_axes))
 
     def mul(self, a, b):
         if scipy.sparse.issparse(a):

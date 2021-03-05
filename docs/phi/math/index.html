@@ -70,7 +70,7 @@ from ._functions import (
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
-    dot, matmul, einsum,
+    dot,
     abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
@@ -728,17 +728,77 @@ The shapes of all values must be equal, except for the size of the concat dimens
 </details>
 </dd>
 <dt id="phi.math.dot"><code class="name flex">
-<span>def <span class="ident">dot</span></span>(<span>a, b, axes) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">dot</span></span>(<span>x: phi.math._tensors.Tensor, x_dims: str, y: phi.math._tensors.Tensor, y_dims: str) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Not yet implemented.</p></div>
+<div class="desc"><p>Computes the dot product along the specified dimensions.
+Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the elements and then summing them up.</p>
+<p>For one dimension, this is equal to matrix-matrix or matrix-vector multiplication.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>First <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>x_dims</code></strong></dt>
+<dd>Dimensions of <code>x</code> to reduce against <code>y</code></dd>
+<dt><strong><code>y</code></strong></dt>
+<dd>Second <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>y_dims</code></strong></dt>
+<dd>Dimensions of <code>y</code> to reduce against <code>x</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Dot product as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def dot(a, b, axes) -&gt; Tensor:
-    &#34;&#34;&#34; Not yet implemented. &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
+<pre><code class="python">def dot(x: Tensor,
+        x_dims: str or tuple or list or Shape,
+        y: Tensor,
+        y_dims: str or tuple or list or Shape) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes the dot product along the specified dimensions.
+    Contracts `x_dims` with `y_dims` by first multiplying the elements and then summing them up.
+
+    For one dimension, this is equal to matrix-matrix or matrix-vector multiplication.
+
+    Args:
+        x: First `Tensor`
+        x_dims: Dimensions of `x` to reduce against `y`
+        y: Second `Tensor`
+        y_dims: Dimensions of `y` to reduce against `x`.
+
+    Returns:
+        Dot product as `Tensor`.
+    &#34;&#34;&#34;
+    x_dims = _resolve_dims(x_dims, x.shape)
+    y_dims = _resolve_dims(y_dims, y.shape)
+    x_native = x.native()
+    y_native = y.native()
+    backend = choose_backend(x_native, y_native)
+    remaining_shape_x = x.shape.without(x_dims)
+    remaining_shape_y = y.shape.without(y_dims)
+    if remaining_shape_y.only(remaining_shape_x).is_empty:  # no shared batch dimensions -&gt; tensordot
+        result_native = backend.tensordot(x_native, x.shape.index(x_dims), y_native, y.shape.index(y_dims))
+    else:  # shared batch dimensions -&gt; einsum
+        REDUCE_LETTERS = list(&#39;ijklmn&#39;)
+        KEEP_LETTERS = list(&#39;abcdefgh&#39;)
+        x_letters = [(REDUCE_LETTERS if dim in x_dims else KEEP_LETTERS).pop(0) for dim in x.shape.names]
+        x_letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
+        REDUCE_LETTERS = list(&#39;ijklmn&#39;)
+        y_letters = []
+        for dim in y.shape.names:
+            if dim in y_dims:
+                y_letters.append(REDUCE_LETTERS.pop(0))
+            else:
+                if dim in x_letter_map:
+                    y_letters.append(x_letter_map[dim])
+                else:
+                    y_letters.append(KEEP_LETTERS.pop(0))
+        keep_letters = list(&#39;abcdefgh&#39;)[:-len(KEEP_LETTERS)]
+        subscripts = f&#39;{&#34;&#34;.join(x_letters)},{&#34;&#34;.join(y_letters)}-&gt;{&#34;&#34;.join(keep_letters)}&#39;
+        result_native = backend.einsum(subscripts, x_native, y_native)
+    result_shape = x.shape.without(x_dims) &amp; y.shape.without(y_dims)
+    return NativeTensor(result_native, result_shape)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.downsample2x"><code class="name flex">
@@ -811,20 +871,6 @@ The grid values at the new points are determined via linear interpolation.</p>
         return x.dtype
     else:
         return choose_backend(x).dtype(x)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.einsum"><code class="name flex">
-<span>def <span class="ident">einsum</span></span>(<span>equation, *tensors) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Not yet implemented.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def einsum(equation, *tensors) -&gt; Tensor:
-    &#34;&#34;&#34; Not yet implemented. &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.exp"><code class="name flex">
@@ -1898,20 +1944,6 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     for items in zip(*flat):
         result.append(function(*items))
     return wrap(result).vector.split(shape)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.matmul"><code class="name flex">
-<span>def <span class="ident">matmul</span></span>(<span>A, b) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Not yet implemented.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def matmul(A, b) -&gt; Tensor:
-    &#34;&#34;&#34; Not yet implemented. &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.max"><code class="name flex">
@@ -7426,7 +7458,14 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
     def split(self, split_dimensions: Shape):
         &#34;&#34;&#34; See `phi.math.split_dimension()` &#34;&#34;&#34;
         from ._functions import split_dimension
-        return split_dimension(self, split_dimensions)</code></pre>
+        return split_dimension(self, split_dimensions)
+
+    def __mul__(self, other):
+        if isinstance(other, TensorDim):
+            from ._functions import dot
+            return dot(self.tensor, (self.name,), other.tensor, (other.name,))
+        else:
+            return NotImplemented</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -7785,7 +7824,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.dot" href="#phi.math.dot">dot</a></code></li>
 <li><code><a title="phi.math.downsample2x" href="#phi.math.downsample2x">downsample2x</a></code></li>
 <li><code><a title="phi.math.dtype" href="#phi.math.dtype">dtype</a></code></li>
-<li><code><a title="phi.math.einsum" href="#phi.math.einsum">einsum</a></code></li>
 <li><code><a title="phi.math.exp" href="#phi.math.exp">exp</a></code></li>
 <li><code><a title="phi.math.expand" href="#phi.math.expand">expand</a></code></li>
 <li><code><a title="phi.math.expand_batch" href="#phi.math.expand_batch">expand_batch</a></code></li>
@@ -7816,7 +7854,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.laplace" href="#phi.math.laplace">laplace</a></code></li>
 <li><code><a title="phi.math.linspace" href="#phi.math.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.map" href="#phi.math.map">map</a></code></li>
-<li><code><a title="phi.math.matmul" href="#phi.math.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.max" href="#phi.math.max">max</a></code></li>
 <li><code><a title="phi.math.maximum" href="#phi.math.maximum">maximum</a></code></li>
 <li><code><a title="phi.math.mean" href="#phi.math.mean">mean</a></code></li>

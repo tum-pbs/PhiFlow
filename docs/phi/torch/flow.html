@@ -24,8 +24,8 @@
 <section id="section-intro">
 <p>Standard import for PyTorch mode.</p>
 <p>Extends the import <code>from phi.flow import *</code> by PyTorch-related functions and modules.</p>
-<p>The following TensorFlow modules are included: <code>torch</code>, <code>torchf</code> (short for <code>torch.nn.functional</code>).</p>
-<p>Importing this module registers the PyTorch backend as the default backend.
+<p>The following PyTorch modules are included: <code>torch</code>, <em>torch.nn.functional</em> as <code>torchf</code>, <code>optim</code>.</p>
+<p>Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
 New tensors created via <code><a title="phi.math" href="../math/index.html">phi.math</a></code> functions will be backed by PyTorch tensors.</p>
 <p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.tf.flow" href="../tf/flow.html">phi.tf.flow</a></code>.</p>
 <details class="source">
@@ -38,9 +38,9 @@ Standard import for PyTorch mode.
 
 Extends the import `from phi.flow import *` by PyTorch-related functions and modules.
 
-The following TensorFlow modules are included: `torch`, `torchf` (short for `torch.nn.functional`).
+The following PyTorch modules are included: `torch`, *torch.nn.functional* as `torchf`, `optim`.
 
-Importing this module registers the PyTorch backend as the default backend.
+Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
 New tensors created via `phi.math` functions will be backed by PyTorch tensors.
 
 See `phi.flow`, `phi.tf.flow`.
@@ -52,7 +52,12 @@ import torch
 import torch.nn.functional as torchf
 import torch.optim as optim
 
-backend.set_global_default_backend(TORCH_BACKEND)</code></pre>
+
+if not backend.context_backend():
+    backend.set_global_default_backend(TORCH_BACKEND)
+else:
+    import warnings
+    warnings.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
 </details>
 </section>
 <section>

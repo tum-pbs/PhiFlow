@@ -604,6 +604,13 @@ class TensorDim:
         from ._functions import split_dimension
         return split_dimension(self, split_dimensions)
 
+    def __mul__(self, other):
+        if isinstance(other, TensorDim):
+            from ._functions import dot
+            return dot(self.tensor, (self.name,), other.tensor, (other.name,))
+        else:
+            return NotImplemented
+
 
 class NativeTensor(Tensor):
 

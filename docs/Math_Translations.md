@@ -25,6 +25,7 @@ Only differing names are listed here.
 | `values[indices]`           | `gather(values, indices)`     |
 | `t[indices] = values`           | `t + scatter(indices, values)`     |
 | `t[bool_mask]`              | `boolean_mask(x, bool_mask)`     |
+| `matmul()`, `tensordot()`   | `dot()`     |
 
 
 ## TensorFlow

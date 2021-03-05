@@ -34,7 +34,7 @@ from ._functions import (
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
-    dot, matmul, einsum,
+    dot,
     abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,

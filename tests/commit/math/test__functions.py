@@ -230,3 +230,39 @@ class TestMathFunctions(TestCase):
                     math.assert_close(dx, 1)
                     math.assert_close(dy, -1)
 
+    def test_dot_vector(self):
+        for backend in BACKENDS:
+            with backend:
+                a = math.ones(a=4)
+                b = math.ones(b=4)
+                dot = math.dot(a, 'a', b, 'b')
+                self.assertEqual(0, dot.rank)
+                math.assert_close(dot, 4, a.a * b.b)
+                math.assert_close(math.dot(a, 'a', a, 'a'), 4)
+
+    def test_dot_matrix(self):
+        for backend in BACKENDS:
+            with backend:
+                a = math.ones(x=2, a=4, batch=10)
+                b = math.ones(y=3, b=4)
+                dot = math.dot(a, 'a', b, 'b')
+                self.assertEqual(math.shape(x=2, batch=10, y=3).alphabetically(), dot.shape.alphabetically())
+                math.assert_close(dot, 4)
+
+    def test_dot_batched_vector(self):
+        for backend in BACKENDS:
+            with backend:
+                a = math.ones(batch=10, a=4)
+                b = math.ones(batch=10, b=4)
+                dot = math.dot(a, 'a', b, 'b')
+                self.assertEqual(math.shape(batch=10), dot.shape)
+                math.assert_close(dot, 4, a.a * b.b)
+                dot = math.dot(a, 'a', a, 'a')
+                self.assertEqual(math.shape(batch=10), dot.shape)
+                math.assert_close(dot, 4, a.a * a.a)
+                # more dimensions
+                a = math.ones(batch=10, a=4, x=2)
+                b = math.ones(batch=10, y=3, b=4)
+                dot = math.dot(a, 'a', b, 'b')
+                self.assertEqual(math.shape(x=2, batch=10, y=3).alphabetically(), dot.shape.alphabetically())
+                math.assert_close(dot, 4)

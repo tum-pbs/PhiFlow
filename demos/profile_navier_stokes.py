@@ -13,7 +13,6 @@ from phi.flow import *
 
 # TensorFlow
 # from phi.tf.flow import *
-# tf.config.experimental.set_memory_growth(tf.config.list_physical_devices('GPU')[0], True)  # prevent Blas GEMM launch failed
 
 
 DOMAIN = Domain(x=128, y=128, boundaries=CLOSED, bounds=Box[0:100, 0:100])
