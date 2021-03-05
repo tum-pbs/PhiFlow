@@ -26,7 +26,7 @@ from ._functions import (
     print_ as print,
     map_ as map,
     jit_compile, functional_gradient,
-    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
+    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad,

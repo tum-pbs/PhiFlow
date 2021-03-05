@@ -301,8 +301,9 @@ class TFBackend(Backend):
         _mean, var = tf.nn.moments(x, axis, keepdims=keepdims)
         return tf.sqrt(var)
 
-    def boolean_mask(self, x, mask):
-        return tf.boolean_mask(x, mask)
+    def boolean_mask(self, x, mask, axis=0):
+        raise NotImplementedError()
+        # return tf.boolean_mask(x, mask)
 
     def isfinite(self, x):
         return tf.math.is_finite(x)

@@ -404,8 +404,11 @@ class TorchBackend(Backend):
     def std(self, x, axis=None, keepdims=False):
         return torch.std(x, dim=axis, keepdim=keepdims)
 
-    def boolean_mask(self, x, mask):
-        return torch.masked_select(x, mask)
+    def boolean_mask(self, x, mask, axis=0):
+        raise NotImplementedError()
+        # x_ = self.as_tensor(x)
+        # mask_ = self.as_tensor(mask)
+        # return torch.masked_select(x_, mask_)
 
     def isfinite(self, x):
         return torch.isfinite(x)

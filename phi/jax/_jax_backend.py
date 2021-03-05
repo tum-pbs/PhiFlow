@@ -326,8 +326,9 @@ class JaxBackend(Backend):
     def std(self, x, axis=None, keepdims=False):
         return jnp.std(x, axis, keepdims=keepdims)
 
-    def boolean_mask(self, x, mask):
-        return x[mask]
+    def boolean_mask(self, x, mask, axis=0):
+        slices = [mask if i == axis else slice(None) for i in range(len(x.shape))]
+        return x[tuple(slices)]
 
     def isfinite(self, x):
         return jnp.isfinite(x)

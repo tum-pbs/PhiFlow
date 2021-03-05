@@ -461,7 +461,17 @@ class Backend:
     def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def boolean_mask(self, x, mask):
+    def boolean_mask(self, x, mask, axis=0):
+        """
+
+        Args:
+            x:
+            mask:
+            axis: Axis index >= 0
+
+        Returns:
+
+        """
         raise NotImplementedError(self)
 
     def isfinite(self, x):

@@ -266,3 +266,28 @@ class TestMathFunctions(TestCase):
                 dot = math.dot(a, 'a', b, 'b')
                 self.assertEqual(math.shape(x=2, batch=10, y=3).alphabetically(), dot.shape.alphabetically())
                 math.assert_close(dot, 4)
+
+    def test_range(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.range(1, 5), [1, 2, 3, 4])
+                math.assert_close(math.range(1), [0])
+
+    # def test_boolean_mask_1d(self):
+    #     for backend in BACKENDS:
+    #         with backend:
+    #             x = math.range(4)
+    #             mask = math.tensor([True, False, True, False], 'range')
+    #             math.assert_close(math.boolean_mask(x, mask), [0, 2])
+    #
+    # def test_boolean_mask_batched(self):
+    #     for backend in BACKENDS:
+    #         with backend:
+    #             x = math.expand(math.range(4, dim='x'), batch=2) * math.tensor([1, -1])
+    #             mask = math.tensor([[True, False, True, False], [False, True, False, False]], 'batch,x')
+    #             selected = math.boolean_mask(x, mask)
+    #             expected_0 = math.tensor([(0, -0), (2, -2)], 'x,vector')
+    #             expected_1 = math.tensor([(1, -1)], 'x,vector')
+    #             math.assert_close(selected.batch[0], expected_0)
+    #             math.assert_close(selected.batch[1], expected_1)
+

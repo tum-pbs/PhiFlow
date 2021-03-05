@@ -11,7 +11,7 @@ import numpy as np
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
-    _infer_dim_type_from_name, combine_safe, parse_dim_order
+    _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation
 from .backend._profile import get_current_profile
@@ -238,6 +238,15 @@ def linspace(start, stop, number: int, dim='linspace'):
     return NativeTensor(native, shape_(**{dim: number}))
 
 
+def arange(start_or_stop: int, stop: int or None = None, step=1, dim='range'):
+    if stop is None:
+        start, stop = 0, start_or_stop
+    else:
+        start = start_or_stop
+    native = choose_backend(start, stop).range(start, stop, step)
+    return NativeTensor(native, shape_(**{dim: stop - start}))
+
+
 def channel_stack(values, dim: str):
     return _stack(values, dim, CHANNEL_DIM)
 
@@ -416,7 +425,7 @@ def join_spaces(*tensors):
 
 def broadcast_op(operation: Callable,
                  tensors: tuple or list,
-                 iter_dims: set or tuple or list = None,
+                 iter_dims: set or tuple or list or Shape = None,
                  no_return=False):
     if iter_dims is None:
         iter_dims = set()
@@ -426,6 +435,8 @@ def broadcast_op(operation: Callable,
     if len(iter_dims) == 0:
         return operation(*tensors)
     else:
+        if isinstance(iter_dims, Shape):
+            iter_dims = iter_dims.names
         dim = next(iter(iter_dims))
         dim_type = None
         size = None
@@ -863,9 +874,35 @@ def unstack(value: Tensor, dim: str):
     return value.unstack(dim)
 
 
-def boolean_mask(x: Tensor, mask):
+def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     """ Not yet implemented. """
     raise NotImplementedError()
+    # """
+    # Discards values `x[i]` where `mask[i]=False`.
+    #
+    # This operation handles all slices along batch dimensions independently.
+    # If `mask` contains an unequal amount of `True` values along a batch dimension, the result tensor will be non-uniform.
+    #
+    # Args:
+    #     x: `Tensor` of values.
+    #     dim: Dimension of `x` to select
+    #     mask: Boolean `Tensor` marking which values to keep. Must have only batch and spatial dimensions.
+    #
+    # Returns:
+    #     Selected values of `x` as 1D `Tensor`
+    # """
+    # assert mask.shape.channel_rank == 0, f"Mask must not have a channel dimension. Got shape {mask.shape}"
+    #
+    # def uniform_boolean_mask(x: Tensor, mask: Tensor):
+    #     shape, (x_native, mask_native) = broadcastable_native_tensors(x, mask)
+    #     backend = choose_backend(x_native, mask_native)
+    #     result_native = backend.boolean_mask(x_native, mask_native)
+    #     shape = backend.staticshape(result_native)
+    #     assert len(shape) == 1
+    #     new_shape = shape_(**{dim: shape[0]})
+    #     return NativeTensor(result_native, new_shape)
+    #
+    # return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=x.shape.batch & mask.shape.batch)
 
 
 def gather(values: Tensor, indices: Tensor):
@@ -947,31 +984,32 @@ def tile(value, multiples):
     raise NotImplementedError()
 
 
-def expand_batch(value: Tensor, dim_name: str, dim_size: int = 1):
-    return _expand_dim(value, dim_name, dim_size, BATCH_DIM)
+def expand_batch(value: Tensor, **dims):
+    return _expand_dims(value, batch_shape(dims))
 
 
-def expand_spatial(value: Tensor, dim_name: str, dim_size: int = 1):
-    return _expand_dim(value, dim_name, dim_size, SPATIAL_DIM)
+def expand_spatial(value: Tensor, **dims):
+    return _expand_dims(value, spatial_shape(dims))
 
 
-def expand_channel(value: Tensor, dim_name: str, dim_size: int = 1):
-    return _expand_dim(value, dim_name, dim_size, CHANNEL_DIM)
+def expand_channel(value: Tensor, **dims):
+    return _expand_dims(value, channel_shape(dims))
 
 
-def expand(value: Tensor, dim_name: str, dim_size: int = 1):
-    dim_type = _infer_dim_type_from_name(dim_name)
-    return _expand_dim(value, dim_name, dim_size, dim_type)
+def expand(value: Tensor, **dims):
+    return _expand_dims(value, shape_(**dims))
 
 
-def _expand_dim(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
+def _expand_dims(value: Tensor, new_dims: Shape):
     value = wrap(value)
-    if dim_name in value.shape:
-        assert value.shape.get_size(dim_name) == dim_size
-        assert value.shape.get_type(dim_name) == dim_type
-        return value
-    new_shape = value.shape.expand(dim_size, dim_name, dim_type)
-    return CollapsedTensor(value, new_shape)
+    shape = value.shape
+    for size, dim, dim_type in new_dims.dimensions:
+        if dim in value.shape:
+            assert shape.get_size(dim) == size
+            assert shape.get_type(dim) == dim_type
+        else:
+            shape = shape.expand(size, dim, dim_type)
+    return CollapsedTensor(value, shape)
 
 
 def _invertible_standard_form(value: Tensor):
