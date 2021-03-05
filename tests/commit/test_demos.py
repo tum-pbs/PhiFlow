@@ -16,36 +16,24 @@ BACKENDS = list(phi.detect_backends())
 BACKENDS = [b for b in BACKENDS if b.name != 'Jax']
 
 
+def validate_fields(app):
+    for name in app.fieldnames:
+        value = app.get_field(name)
+        assert isinstance(value, (np.ndarray, Field)) or value is None, f"Field '{name}' has an invalid value: {value}"
+
+
 class PerformModelTests(display.AppDisplay):
 
     def setup(self):
-        print('Testing model %s...' % self.app.__class__.__name__)
         self.app.prepare()
-        print('Model prepared.')
-        self.validate_fields()
-        superclasses = [b.__name__ for b in self.app.__class__.__bases__]
-        if 'App' in superclasses:
-            self.app.play(2)
-            print('Steps succeeded.')
-            self.validate_fields()
-            if isinstance(self.app, ModuleViewer):
-                self.app.interrupt()
-                print('Interrupting loop')
-        else:
-            print('Skipping steps')
-
-    def validate_fields(self):
-        for name in self.app.fieldnames:
-            value = self.app.get_field(name)
-            assert isinstance(value, (np.ndarray, Field)) or value is None, 'Field "%s" has an invalid value: %s' % (name, value)
-        print('All fields are valid.')
+        validate_fields(self.app)
+        self.app.play(2)
+        validate_fields(self.app)
+        if isinstance(self.app, ModuleViewer):
+            self.app.interrupt()
 
     def play(self):
         pass
-
-    def show(self, caller_is_main: bool) -> bool:
-        print("Not showing")
-        return False
 
 
 def demo_run(name, backends=BACKENDS):
@@ -72,7 +60,7 @@ class TestDemos(TestCase):
         demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.gradients)])
 
     def test_flip_liquid(self):
-        demo_run('flip_liquid')
+        demo_run('flip_liquid', [backend.NUMPY_BACKEND])
 
     def test_fluid_logo(self):
         demo_run('fluid_logo')
@@ -86,8 +74,8 @@ class TestDemos(TestCase):
     def test_marker(self):
         demo_run('marker')
 
-    def test_network_training_pytorch(self):
-        demo_run('network_training_pytorch', [b for b in BACKENDS if b.name == 'PyTorch'])
+    # def test_network_training_pytorch(self):
+    #     demo_run('network_training_pytorch', [b for b in BACKENDS if b.name == 'PyTorch'])
 
     def test_pipe(self):
         demo_run('pipe')
