@@ -1,7 +1,7 @@
 import warnings
 
 from phi.geom import Geometry
-from phi.field import Field, GeometryMask, ConstantField
+from phi.field import Field, GeometryMask, ConstantField, SampledField
 from phi import math, struct
 from ._physics import State, Physics, StateDependency
 
@@ -13,7 +13,7 @@ FIX = 'fix'
 @struct.definition()
 class FieldEffect(State):
 
-    def __init__(self, field, targets, mode=GROW, bounds=None, tags=('effect',), **kwargs):
+    def __init__(self, field, targets, factor=1., mode=GROW, bounds=None, tags=('effect',), **kwargs):
         if isinstance(targets, str):
             targets = [targets]
         tags = tuple(tags) + tuple('%s_effect' % target for target in targets)
@@ -23,6 +23,10 @@ class FieldEffect(State):
     def field(self, field):
         assert isinstance(field, Field) or field is None, field
         return field
+
+    @struct.constant()
+    def factor(self, factor):
+        return factor
 
     @struct.constant()
     def mode(self, mode):
@@ -42,8 +46,8 @@ class FieldEffect(State):
         return '%s(%s to %s)' % (self.mode, self. field, self.targets)
 
 
-def effect_applied(effect, field, dt):
-    effect_field = effect.field.at(field)
+def effect_applied(effect: FieldEffect, field: SampledField, dt):
+    effect_field = effect.field.at(field) * effect.factor
     if effect._mode == GROW:
         return field + effect_field * dt
     elif effect._mode == ADD:
@@ -57,11 +61,11 @@ def effect_applied(effect, field, dt):
 
 
 # pylint: disable-msg = invalid-name
-Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(GeometryMask(geometry) * rate, target, GROW, tags=('inflow', 'effect'))
-Accelerator = lambda geometry, acceleration: FieldEffect(GeometryMask(geometry) * acceleration, ('velocity',), GROW, tags=('fan', 'effect'))
+Inflow = lambda geometry, rate=1.0, target='density': FieldEffect(GeometryMask(geometry), target, rate, GROW, tags=('inflow', 'effect'))
+Accelerator = lambda geometry, acceleration: FieldEffect(GeometryMask(geometry), ('velocity',), acceleration, GROW, tags=('fan', 'effect'))
 ConstantVelocity = lambda geometry, velocity: FieldEffect(ConstantField(velocity), bounds=geometry, targets=('velocity',), mode=FIX, tags=('effect',))
-HeatSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry) * rate, ('temperature',), GROW, name=name)
-ColdSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry) * -rate, ('temperature',), GROW, name=name)
+HeatSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry), ('temperature',), rate, GROW, name=name)
+ColdSource = lambda geometry, rate, name=None: FieldEffect(GeometryMask(geometry), ('temperature',), -rate, GROW, name=name)
 
 
 def Fan(*args, **kwargs):

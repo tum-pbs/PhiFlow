@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Callable
 
 import numpy
 
@@ -12,35 +12,47 @@ class ComputeDevice:
     A physical device that can be selected to perform backend computations.
     """
 
-    def __init__(self, name: str, device_type: str, memory: int, processor_count: int, description: str):
-        self.name = name
+    def __init__(self, backend: 'Backend', name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None):
+        self.name: str = name
         """ Name of the compute device. CPUs are typically called `'CPU'`. """
-        self.device_type = device_type
+        self.device_type: str = device_type
         """ Type of device such as `'CPU'`, `'GPU'` or `'TPU'`. """
-        self.memory = memory
+        self.memory: int = memory
         """ Maximum memory of the device that can be allocated (in bytes). -1 for n/a. """
-        self.processor_count = processor_count
+        self.processor_count: int = processor_count
         """ Number of CPU cores or GPU multiprocessors. -1 for n/a. """
-        self.description = description
+        self.description: str = description
         """ Further information about the device such as driver version. """
+        self.ref = ref
+        """ (Optional) Reference to the internal device representation. """
+        self.backend: 'Backend' = backend
+        """ Backend that this device belongs to. Different backends represent the same device with different objects. """
 
     def __repr__(self):
         mem = f"{(self.memory / 1024 ** 2)} MB" if self.memory > 0 else "memory: n/a"
         pro = f"{self.processor_count} processors" if self.processor_count > 0 else "processors: n/a"
-        return f"'{self.name}' ({self.device_type}) | {mem} | {pro} | {self.description}"
+        descr = self.description.replace('\n', '  ')
+        if len(descr) > 30:
+            descr = descr[:28] + "..."
+        return f"'{self.name}' ({self.device_type}) | {mem} | {pro} | {descr}"
 
 
 class Backend:
-    """
-    Backends delegate low-level operations to a compute library or emulate them.
 
-    The methods of `Backend` form a comprehensive list of available operations.
+    def __init__(self, name: str, default_device: ComputeDevice):
+        """
+        Backends delegate low-level operations to a compute library or emulate them.
 
-    To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
-    """
+        The methods of `Backend` form a comprehensive list of available operations.
 
-    def __init__(self, name: str):
+        To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
+
+        Args:
+            name: Human-readable string
+            default_device: `ComputeDevice` being used by default
+        """
         self._name = name
+        self._default_device = default_device
 
     def __enter__(self):
         _DEFAULT.append(self)
@@ -51,6 +63,29 @@ class Backend:
     @property
     def name(self) -> str:
         return self._name
+
+    def supports(self, feature: str or Callable) -> bool:
+        """
+        Tests if this backend supports the given feature.
+        Features correspond to a method of this backend that must be implemented if the feature is supported.
+
+        Possible features:
+
+        * `sparse_tensor`
+        * `gradients
+
+        Args:
+            feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+
+        Returns:
+            Whether the feature is supported.
+        """
+        feature = feature if isinstance(feature, str) else feature.__name__
+        if not hasattr(Backend, feature):
+            raise ValueError(f"Not a valid feature: '{feature}'")
+        backend_fun = getattr(Backend, feature)
+        impl_fun = getattr(self.__class__, feature)
+        return impl_fun is not backend_fun
 
     @property
     def precision(self) -> int:
@@ -93,11 +128,6 @@ class Backend:
     def __repr__(self):
         return self.name
 
-    def matches_name(self, name):
-        return self.name.lower() == name.lower()
-
-    # --- Abstract math functions ---
-
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         """
         Fetches information about all available compute devices this backend can use.
@@ -109,6 +139,16 @@ class Backend:
             Tuple of all currently available devices.
         """
         raise NotImplementedError()
+
+    def get_default_device(self) -> ComputeDevice:
+        return self._default_device
+
+    def set_default_device(self, device: ComputeDevice or str):
+        if isinstance(device, str):
+            devices = self.list_devices(device)
+            assert len(devices) >= 1, f"{self.name}: Cannot select '{device} because no device of this type is available."
+            device = devices[0]
+        self._default_device = device
 
     def is_tensor(self, x, only_native=False):
         """
@@ -179,21 +219,32 @@ class Backend:
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
-    def trace_function(self, f: callable) -> callable:
-        raise NotImplementedError()
+    def jit_compile(self, f: Callable) -> Callable:
+        return NotImplemented
 
-    def custom_gradient(self, f: callable, gradient: callable) -> callable:
+    def call(self, f: Callable, *args, name=None):
         """
-        Creates a function based on `f` that uses a custom gradient for backprop.
+        Calls `f(*args)` and returns the result.
+        This method may be used to register internal calls with the profiler.
+
+        Usage:
+
+            choose_backend(key).call(custom_function, *args)
+        """
+        return f(*args)
+
+    def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
+        """
+        Creates a function based on `f` that uses a custom spatial_gradient for backprop.
 
         Args:
             f: Forward function. All arguments must be
-            gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+            gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
 
         Returns:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
         """
-        raise NotImplementedError()
+        return NotImplemented
 
     def transpose(self, tensor, axes):
         raise NotImplementedError()
@@ -235,7 +286,7 @@ class Backend:
         raise NotImplementedError(self)
 
     def flip(self, value, axes: tuple or list):
-        slices = [slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value))]
+        slices = tuple(slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value)))
         return value[slices]
 
     def sum(self, value, axis=None, keepdims=False):
@@ -274,9 +325,6 @@ class Backend:
         raise NotImplementedError(self)
 
     def mean(self, value, axis=None, keepdims=False):
-        raise NotImplementedError(self)
-
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
         raise NotImplementedError(self)
 
     def range(self, start, limit=None, delta=1, dtype: DType = None):
@@ -392,7 +440,18 @@ class Backend:
     def gather(self, values, indices):
         raise NotImplementedError(self)
 
-    def gather_nd(self, values, indices, batch_dims=0):
+    def batched_gather_nd(self, values, indices):
+        """
+        Gathers values from the tensor `values` at locations `indices`.
+        The first dimension of `values` and `indices` is the batch dimension which must be either equal for both or one for either.
+
+        Args:
+            values: tensor of shape (batch, spatial..., channel)
+            indices: int tensor of shape (batch, any..., multi_index) where the size of multi_index is values.rank - 2.
+
+        Returns:
+            Gathered values as tensor of shape (batch, any..., channel)
+        """
         raise NotImplementedError(self)
 
     def flatten(self, x):
@@ -486,7 +545,7 @@ class Backend:
 
     def sparse_tensor(self, indices, values, shape):
         """
-        
+        Optional features. If overridden,
 
         Args:
           indices: tuple/list matching the dimensions (pair for matrix)
@@ -518,7 +577,7 @@ class Backend:
     def minimize(self, function, x0, solve_params: Solve):
         raise NotImplementedError(self)
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         """
         Solve the system of linear equations
           A * x = y
@@ -528,13 +587,15 @@ class Backend:
           y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
           x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
           solve_params: Determines stop criteria. Stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          gradient: one of ('implicit', 'inverse', 'autodiff')
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
         Returns:
             x: the solution as a tensor
 
         """
+        raise NotImplementedError(self)
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
@@ -686,6 +747,17 @@ def default_backend() -> Backend:
         current default `Backend`
     """
     return _DEFAULT[-1]
+
+
+def context_backend() -> Backend or None:
+    """
+    Returns the backend set by the inner-most surrounding `with backend:` block.
+    If called outside a backend context, returns `None`.
+
+    Returns:
+        `Backend` or `None`
+    """
+    return _DEFAULT[-1] if len(_DEFAULT) > 1 else None
 
 
 def set_global_default_backend(backend: Backend):

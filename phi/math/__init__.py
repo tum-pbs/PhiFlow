@@ -13,24 +13,24 @@ This allows the user to write simulation code once and have it run with various 
 See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 """
 
-from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, SCIPY_BACKEND
+from .backend import precision, set_global_precision, get_precision, Solve, LinearSolve, DType, NUMPY_BACKEND
 
 from .extrapolation import Extrapolation
 
 from ._config import GLOBAL_AXIS_ORDER
 
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
-from ._tensors import tensor, tensors, Tensor, TensorDim
+from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
     map_ as map,
-    trace_function,
+    jit_compile, functional_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
-    pad, spatial_pad,
-    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose, # reshape operations
+    pad,
+    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
@@ -42,7 +42,7 @@ from ._functions import (
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
-    closest_grid_values, grid_sample, scatter,
+    closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, conv,
     dtype, cast,
     tile,
@@ -65,7 +65,9 @@ PI = 3.14159265358979323846
 """Value of π to double precision """
 pi = PI
 
-SCIPY_BACKEND = SCIPY_BACKEND  # to show up in pdoc
+SCIPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
+""" Alias for `NUMPY_BACKEND` """
+NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

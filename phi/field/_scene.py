@@ -70,32 +70,32 @@ def write_sim_frame(directory: math.Tensor,
 
 
 def _filename(simpath, name, frame):
-    return join(simpath, "%s_%06i.npz" % (name, frame))
+    return join(simpath, f"{slugify(name)}_{frame:06d}.npz")
+
+
+def _str(bytes_or_str):  # on Linux, os.listdir returns bytes instead of strings
+    if isinstance(bytes_or_str, str):
+        return bytes_or_str
+    else:
+        return str(bytes_or_str, 'utf-8')
 
 
 def get_fieldnames(simpath) -> tuple:
-    fieldnames_set = {f[:-11] for f in os.listdir(simpath) if f.endswith(".npz")}
+    fieldnames_set = {_str(f)[:-11] for f in os.listdir(simpath) if _str(f).endswith(".npz")}
     return tuple(sorted(fieldnames_set))
 
 
-def first_frame(simpath, fieldname=None):
-    return min(get_frames(simpath, fieldname))
-
-
-def get_frames(simpath, fieldname=None, mode="intersect"):
-    if fieldname is not None:
-        all_frames = {int(f[-10:-4]) for f in os.listdir(simpath) if f.startswith(fieldname) and f.endswith(".npz")}
-        return sorted(all_frames)
+def get_frames(path: str, field_name: str = None, mode=set.intersection) -> tuple:
+    if field_name is not None:
+        all_frames = {int(f[-10:-4]) for f in os.listdir(path) if _str(f).startswith(field_name) and _str(f).endswith(".npz")}
+        return tuple(sorted(all_frames))
     else:
-        frames_lists = [get_frames(simpath, fieldname) for fieldname in get_fieldnames(simpath)]
-        if mode.lower() == "intersect":
-            intersection = set(frames_lists[0]).intersection(*frames_lists[1:])
-            return sorted(intersection)
-        elif mode.lower() == "union":
-            if not frames_lists:
-                return []
-            union = set(frames_lists[0]).union(*frames_lists[1:])
-            return sorted(union)
+        fields = get_fieldnames(path)
+        if not fields:
+            return ()
+        frames_sets = [set(get_frames(path, field)) for field in fields]
+        frames = mode(*frames_sets)
+        return tuple(sorted(frames))
 
 
 class Scene(object):
@@ -113,8 +113,8 @@ class Scene(object):
     """
 
     def __init__(self, paths: str or math.Tensor):
-        self._paths = math.tensor(paths)
-        self._properties = None
+        self._paths = math.wrap(paths)
+        self._properties: dict or None = None
 
     @property
     def shape(self):
@@ -171,7 +171,7 @@ class Scene(object):
         else:
             indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith("sim_")]
             next_id = max([-1] + indices) + 1
-        ids = math.tensor(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
+        ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
         paths = math.map(lambda id_: join(parent_directory, f"sim_{id_:06d}"), ids)
         scene = Scene(paths)
         scene.mkdir()
@@ -208,7 +208,7 @@ class Scene(object):
         if dim is None:
             return tuple(Scene(join(parent_directory, name)) for name in names)
         else:
-            paths = math.tensor([join(parent_directory, name) for name in names], dim)
+            paths = math.wrap([join(parent_directory, name) for name in names], dim)
             return Scene(paths)
 
     @staticmethod
@@ -226,12 +226,12 @@ class Scene(object):
         Returns:
             `Scene` object for existing scene.
         """
-        directory = math.map(lambda d: expanduser(d), math.tensor(directory))
+        directory = math.map(lambda d: expanduser(d), math.wrap(directory))
         if id is None:
             paths = directory
         else:
-            id = math.tensor(id)
-            paths = directory._op2(id, None, lambda d_, id_: join(directory, f"sim_{id:06d}"))
+            id = math.wrap(id)
+            paths = math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id)
         # test all exist
         for path in math.flatten(paths):
             if not isdir(path):
@@ -265,9 +265,10 @@ class Scene(object):
     def _init_properties(self):
         if self._properties is not None:
             return
-        dfile = join(self.path, "description.json")
+        dfile = join(next(iter(math.flatten(self._paths))), "description.json")
         if isfile(dfile):
-            self._properties = json.load(dfile)
+            with open(dfile) as stream:
+                self._properties = json.load(stream)
         else:
             self._properties = {}
 
@@ -290,15 +291,34 @@ class Scene(object):
             json.dump(self._properties, out, indent=2)
 
     def put_property(self, key, value):
+        """ See `Scene.put_properties()`. """
         self._init_properties()
         self._properties[key] = value
-        with open(join(self.path, "description.json"), "w") as out:
-            json.dump(self._properties, out, indent=2)
+        self._write_properties()
+
+    def put_properties(self, update: dict = None, **kw_updates):
+        """
+        Updates the properties dictionary and stores it in `description.json` of all scene folders.
+
+        Args:
+            update: new values, must be JSON serializable.
+            kw_updates: additional update as keyword arguments. This overrides `update`.
+        """
+        self._init_properties()
+        if update:
+            self._properties.update(update)
+        self._properties.update(kw_updates)
+        self._write_properties()
+
+    def _write_properties(self):
+        for path in math.flatten(self.paths):
+            with open(join(path, "description.json"), "w") as out:
+                json.dump(self._properties, out, indent=2)
 
     def write_sim_frame(self, arrays, fieldnames, frame):
         write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
 
-    def write(self, data: dict, frame=0):
+    def write(self, data: dict = None, frame=0, **kw_data):
         """
         Writes fields to this scene.
         One NumPy file will be created for each `phi.field.Field`
@@ -308,8 +328,11 @@ class Scene(object):
 
         Args:
             data: `dict` mapping field names to `Field` objects that can be written using `phi.field.write()`.
+            kw_data: Additional data, overrides elements in `data`.
             frame: Frame number.
         """
+        data = dict(data) if data else {}
+        data.update(kw_data)
         write_sim_frame(self._paths, data, names=None, frame=frame)
 
     def read_array(self, field_name, frame):
@@ -318,7 +341,7 @@ class Scene(object):
     # def read_sim_frames(self, fieldnames=None, frames=None):
     #     return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames, batch_dim=self.batch_dim)
 
-    def read(self, names: str or tuple or list, frame=0, convert_to_backend=True):
+    def read(self, *names: str, frame=0, convert_to_backend=True):
         """
         Reads one or multiple fields from disc.
 
@@ -333,7 +356,8 @@ class Scene(object):
         Returns:
             Single `phi.field.Field` or sequence of fields, depending on the type of `names`.
         """
-        return read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)
+        result = read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)
+        return result[0] if len(names) == 1 else result
 
     @property
     def fieldnames(self) -> tuple:
@@ -342,11 +366,19 @@ class Scene(object):
 
     @property
     def frames(self):
-        """ Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.get_frames()`. """
-        return get_frames(self.path)
+        """ Determines all frame numbers present in this `Scene`, independent of field names. See `Scene.complete_frames`. """
+        return get_frames(self.path, mode=set.union)
 
-    def get_frames(self, mode="intersect"):
-        return get_frames(self.path, None, mode)
+    @property
+    def complete_frames(self):
+        """
+        Determines all frame number for which all existing fields are available.
+        If there are multiple fields stored within this scene, a frame is considered complete only if an entry exists for all fields.
+
+        See Also:
+            `Scene.frames`
+        """
+        return get_frames(self.path, mode=set.intersection)
 
     def __repr__(self):
         return repr(self.paths)
@@ -367,20 +399,21 @@ class Scene(object):
         script_paths = [frame[1] for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
-        for path in math.flatten(self._paths):
-            self.subpath('src', create=True)
-            for script_path in script_paths:
-                shutil.copy(script_path, join(path, 'src', basename(script_path)))
-            if include_context_information:
+        self.subpath('src', create=True)
+        for script_path in script_paths:
+            self.copy_src(script_path, only_external=False)
+        if include_context_information:
+            for path in math.flatten(self._paths):
                 with open(join(path, 'src', 'context.json'), 'w') as context_file:
                     json.dump({
                         'phi_version': phi_version,
                         'argv': sys.argv
                     }, context_file)
 
-    def copy_src(self, path, only_external=True):
-        if not only_external or not _is_phi_file(path):
-            shutil.copy(path, join(self.subpath('src', create=True), basename(path)))
+    def copy_src(self, script_path, only_external=True):
+        for path in math.flatten(self._paths):
+            if not only_external or not _is_phi_file(script_path):
+                shutil.copy(script_path, join(path, 'src', basename(script_path)))
 
     def mkdir(self):
         for path in math.flatten(self._paths):
@@ -392,10 +425,6 @@ class Scene(object):
             p = abspath(p)
             if isdir(p):
                 shutil.rmtree(p)
-
-    def data_paths(self, frames, field_names):
-        for frame in frames:
-            yield tuple([_filename(self.path, name, frame) for name in field_names])
 
 
 def _slugify_filename(struct_name):

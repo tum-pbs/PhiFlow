@@ -15,20 +15,20 @@ from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 from ._optim import Solve, LinearSolve, SolveResult
 
 
-class SciPyBackend(Backend):
-
+class NumPyBackend(Backend):
     """Core Python Backend using NumPy & SciPy"""
 
     def __init__(self):
-        Backend.__init__(self, "SciPy")
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        if sys.platform != "win32":
+        if sys.platform != "win32" and sys.platform != "darwin":
             mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
         else:
             mem_bytes = -1
         processors = os.cpu_count()
-        return [ComputeDevice("CPU", 'CPU', mem_bytes, processors, "")]
+        self.cpu = ComputeDevice(self, "CPU", 'CPU', mem_bytes, processors, "")
+        Backend.__init__(self, "NumPy", self.cpu)
+
+    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        return [self.cpu]
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -69,13 +69,6 @@ class SciPyBackend(Backend):
 
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
-
-    def trace_function(self, f: callable) -> callable:
-        return f
-
-    def custom_gradient(self, f: callable, gradient: callable) -> callable:
-        warnings.warn("SciPy backend does not support gradients, custom gradient will be ignored.")
-        return f
 
     def transpose(self, tensor, axes):
         return np.transpose(tensor, axes)
@@ -153,12 +146,6 @@ class SciPyBackend(Backend):
 
     def nonzero(self, values):
         return np.argwhere(values)
-
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        result = func(*inputs)
-        assert result.dtype == Tout, "returned value has wrong type: {}, expected {}".format(result.dtype, Tout)
-        assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
-        return result
 
     def zeros(self, shape, dtype: DType = None):
         return np.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
@@ -294,31 +281,14 @@ class SciPyBackend(Backend):
                 values = values.tocsc()
         return values[indices]
 
-    def gather_nd(self, values, indices, batch_dims=0):
-        assert indices.shape[-1] == self.ndims(values) - batch_dims - 1
-        if batch_dims == 0:
-            indices_list = self.unstack(indices, axis=-1)
-            result = values[indices_list]
-            return result
-        for dim in range(batch_dims):
-            assert indices.shape[dim] == values.shape[dim] or values.shape[dim] == 1 or indices.shape[dim] == 1, 'Batch dimension %d does not match: %s (values) and %s (indices)' % (dim, values.shape, indices.shape)
-        values_batch_max = np.array(values.shape[:batch_dims]) - 1
-        indices_batch_max = np.array(indices.shape[:batch_dims]) - 1
-
-        def inner_gather_nd(*pos):
-            batch_idx_values = tuple([np.minimum(pos[i], values_batch_max[i]) for i in range(len(pos))])
-            values_batch = values[batch_idx_values]
-            batch_idx_indices = tuple([np.minimum(pos[i], indices_batch_max[i]) for i in range(len(pos))])
-            indices_batch = indices[batch_idx_indices]
-            result = values_batch[self.unstack(indices_batch, axis=-1)]
-            return result
-        # --- Iterate over batch dimensions ---
-        batch_pos = np.meshgrid(*[range(dim) for dim in indices.shape[:batch_dims]], indexing='ij')
-        batch_pos = np.stack(batch_pos, axis=-1).reshape([-1, batch_dims])
-        result = np.empty(indices.shape[:-1] + (values.shape[-1],), values.dtype)
-        for i in range(batch_pos.shape[0]):
-            gathered = inner_gather_nd(*batch_pos[i])
-            result[tuple(batch_pos[i])] = gathered
+    def batched_gather_nd(self, values, indices):
+        assert indices.shape[-1] == self.ndims(values) - 2
+        batch_size = combined_dim(values.shape[0], indices.shape[0])
+        result = np.empty((batch_size, *indices.shape[1:-1], values.shape[-1],), values.dtype)
+        for b in range(batch_size):
+            b_values = values[min(b, values.shape[0] - 1)]
+            b_indices = self.unstack(indices[min(b, indices.shape[0] - 1)], -1)
+            result[b] = b_values[b_indices]
         return result
 
     def std(self, x, axis=None, keepdims=False):
@@ -422,7 +392,7 @@ class SciPyBackend(Backend):
         else:
             raise NotImplementedError("Only sparse tensors supported.")
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
@@ -464,4 +434,4 @@ def tensor_spatial_rank(field):
     return dims
 
 
-SCIPY_BACKEND = SciPyBackend()
+NUMPY_BACKEND = NumPyBackend()

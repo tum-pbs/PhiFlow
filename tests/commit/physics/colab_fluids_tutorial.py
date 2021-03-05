@@ -9,7 +9,7 @@ class ColabNotebookTest(TestCase):
     def test_gradient(self):
         with tf.TF_BACKEND:
             DOMAIN = Domain(x=32, y=40, boundaries=CLOSED, bounds=Box[0:32, 0:40])
-            INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], 'inflow_loc,vector', convert=True)
+            INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], 'inflow_loc,vector')
             INFLOW = DOMAIN.grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
 
             smoke = DOMAIN.scalar_grid(math.zeros(inflow_loc=4))
@@ -27,7 +27,7 @@ class ColabNotebookTest(TestCase):
     def test_gradients_equality(self):
         with tf.TF_BACKEND:
             DOMAIN = Domain(x=32, y=40, boundaries=CLOSED, bounds=Box[0:32, 0:40])
-            INFLOW_LOCATION = math.tensor([(4., 5), (12., 5), (16., 5)], 'inflow_loc,vector', convert=True)
+            INFLOW_LOCATION = math.tensor([(4., 5), (12., 5), (16., 5)], 'inflow_loc,vector')
             INFLOW = DOMAIN.grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
 
             smoke = DOMAIN.scalar_grid(math.zeros(inflow_loc=3))
@@ -44,7 +44,7 @@ class ColabNotebookTest(TestCase):
 
         with torch.TORCH_BACKEND:
             DOMAIN = Domain(x=32, y=40, boundaries=CLOSED, bounds=Box[0:32, 0:40])
-            INFLOW_LOCATION = math.tensor([(4., 5), (12., 5), (16., 5)], 'inflow_loc,vector', convert=True)
+            INFLOW_LOCATION = math.tensor([(4., 5), (12., 5), (16., 5)], 'inflow_loc,vector')
             INFLOW = DOMAIN.grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
 
             smoke = DOMAIN.scalar_grid(math.zeros(inflow_loc=3))

@@ -1,0 +1,24 @@
+[report]
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+
+    # Don't complain if tests don't hit abstract methods / defensive assertion code:
+    raise NotImplementedError()
+    raise NotImplementedError(self)
+    return NotImplemented
+
+    # Don't complain about missing imports, this cannot be tested easily.
+    except ImportError:
+    except ImportError as err:
+
+    # Don't complain about empty lines
+    pass
+
+omit =
+    phi/physics/_world.py
+    phi/physics/_physics.py
+    phi/field/_constant.py
+    phi/struct/*
+    phi/tf/_tf_cuda_resample.py
+    webglviewer/*

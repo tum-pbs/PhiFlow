@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.9.1" />
+<meta name="generator" content="pdoc 0.9.2" />
 <title>phi.math.backend API documentation</title>
 <meta name="description" content="Low-level library wrappers for delegating vector operations." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -38,18 +38,20 @@ from ._backend import (
     default_backend, set_global_default_backend, BACKENDS, _DEFAULT,
     get_precision, precision, set_global_precision,
 )
-from ._scipy_backend import SCIPY_BACKEND
+from ._numpy_backend import NUMPY_BACKEND
 from ._optim import Solve, LinearSolve
 from ._profile import Profile, get_current_profile, profile, profile_function
 
 
-BACKENDS.append(SCIPY_BACKEND)
-_DEFAULT.append(SCIPY_BACKEND)
+BACKENDS.append(NUMPY_BACKEND)
+_DEFAULT.append(NUMPY_BACKEND)
 
 BACKENDS = BACKENDS  # to show up in pdoc
 &#34;&#34;&#34; Global list of all registered backends. Register a `Backend` by adding it to the list. &#34;&#34;&#34;
 
-SCIPY_BACKEND = SCIPY_BACKEND  # to show up in pdoc
+SCIPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
+&#34;&#34;&#34; Alias for `NUMPY_BACKEND` &#34;&#34;&#34;
+NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
 
 
@@ -65,9 +67,13 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dd>
 <div class="desc"><p>Global list of all registered backends. Register a <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> by adding it to the list.</p></div>
 </dd>
-<dt id="phi.math.backend.SCIPY_BACKEND"><code class="name">var <span class="ident">SCIPY_BACKEND</span></code></dt>
+<dt id="phi.math.backend.NUMPY_BACKEND"><code class="name">var <span class="ident">NUMPY_BACKEND</span></code></dt>
 <dd>
 <div class="desc"><p>Default backend for NumPy arrays and SciPy objects.</p></div>
+</dd>
+<dt id="phi.math.backend.SCIPY_BACKEND"><code class="name">var <span class="ident">SCIPY_BACKEND</span></code></dt>
+<dd>
+<div class="desc"><p>Alias for <code><a title="phi.math.backend.NUMPY_BACKEND" href="#phi.math.backend.NUMPY_BACKEND">NUMPY_BACKEND</a></code></p></div>
 </dd>
 </dl>
 </section>
@@ -298,7 +304,7 @@ def profile(backends=None, trace=True, subtract_trace_time=True, save: str or No
 </details>
 </dd>
 <dt id="phi.math.backend.profile_function"><code class="name flex">
-<span>def <span class="ident">profile_function</span></span>(<span>fun: <built-in function callable>, args: tuple = (), kwargs: dict = None, backends=None, trace=True, subtract_trace_time=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
+<span>def <span class="ident">profile_function</span></span>(<span>fun: Callable, args: tuple = (), kwargs: dict = None, backends=None, trace=True, subtract_trace_time=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for the function <code>fun(*args, **kwargs)</code>.</p>
@@ -332,7 +338,7 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def profile_function(fun: callable,
+<pre><code class="python">def profile_function(fun: Callable,
                      args: tuple or list = (),
                      kwargs: dict or None = None,
                      backends=None,
@@ -464,27 +470,39 @@ The output of math operations has the same precision as its inputs.</p>
 <dl>
 <dt id="phi.math.backend.Backend"><code class="flex name class">
 <span>class <span class="ident">Backend</span></span>
-<span>(</span><span>name: str)</span>
+<span>(</span><span>name: str, default_device: phi.math.backend._backend.ComputeDevice)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Backends delegate low-level operations to a compute library or emulate them.</p>
 <p>The methods of <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> form a comprehensive list of available operations.</p>
-<p>To support a compute library, subclass <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> and register it by adding it to <code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code>.</p></div>
+<p>To support a compute library, subclass <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> and register it by adding it to <code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>Human-readable string</dd>
+<dt><strong><code>default_device</code></strong></dt>
+<dd><code><a title="phi.math.backend.ComputeDevice" href="#phi.math.backend.ComputeDevice">ComputeDevice</a></code> being used by default</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Backend:
-    &#34;&#34;&#34;
-    Backends delegate low-level operations to a compute library or emulate them.
 
-    The methods of `Backend` form a comprehensive list of available operations.
+    def __init__(self, name: str, default_device: ComputeDevice):
+        &#34;&#34;&#34;
+        Backends delegate low-level operations to a compute library or emulate them.
 
-    To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
-    &#34;&#34;&#34;
+        The methods of `Backend` form a comprehensive list of available operations.
 
-    def __init__(self, name: str):
+        To support a compute library, subclass `Backend` and register it by adding it to `BACKENDS`.
+
+        Args:
+            name: Human-readable string
+            default_device: `ComputeDevice` being used by default
+        &#34;&#34;&#34;
         self._name = name
+        self._default_device = default_device
 
     def __enter__(self):
         _DEFAULT.append(self)
@@ -495,6 +513,29 @@ The output of math operations has the same precision as its inputs.</p>
     @property
     def name(self) -&gt; str:
         return self._name
+
+    def supports(self, feature: str or Callable) -&gt; bool:
+        &#34;&#34;&#34;
+        Tests if this backend supports the given feature.
+        Features correspond to a method of this backend that must be implemented if the feature is supported.
+
+        Possible features:
+
+        * `sparse_tensor`
+        * `gradients
+
+        Args:
+            feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+
+        Returns:
+            Whether the feature is supported.
+        &#34;&#34;&#34;
+        feature = feature if isinstance(feature, str) else feature.__name__
+        if not hasattr(Backend, feature):
+            raise ValueError(f&#34;Not a valid feature: &#39;{feature}&#39;&#34;)
+        backend_fun = getattr(Backend, feature)
+        impl_fun = getattr(self.__class__, feature)
+        return impl_fun is not backend_fun
 
     @property
     def precision(self) -&gt; int:
@@ -537,11 +578,6 @@ The output of math operations has the same precision as its inputs.</p>
     def __repr__(self):
         return self.name
 
-    def matches_name(self, name):
-        return self.name.lower() == name.lower()
-
-    # --- Abstract math functions ---
-
     def list_devices(self, device_type: str or None = None) -&gt; List[ComputeDevice]:
         &#34;&#34;&#34;
         Fetches information about all available compute devices this backend can use.
@@ -553,6 +589,16 @@ The output of math operations has the same precision as its inputs.</p>
             Tuple of all currently available devices.
         &#34;&#34;&#34;
         raise NotImplementedError()
+
+    def get_default_device(self) -&gt; ComputeDevice:
+        return self._default_device
+
+    def set_default_device(self, device: ComputeDevice or str):
+        if isinstance(device, str):
+            devices = self.list_devices(device)
+            assert len(devices) &gt;= 1, f&#34;{self.name}: Cannot select &#39;{device} because no device of this type is available.&#34;
+            device = devices[0]
+        self._default_device = device
 
     def is_tensor(self, x, only_native=False):
         &#34;&#34;&#34;
@@ -623,21 +669,32 @@ The output of math operations has the same precision as its inputs.</p>
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
-    def trace_function(self, f: callable) -&gt; callable:
-        raise NotImplementedError()
+    def jit_compile(self, f: Callable) -&gt; Callable:
+        return NotImplemented
 
-    def custom_gradient(self, f: callable, gradient: callable) -&gt; callable:
+    def call(self, f: Callable, *args, name=None):
         &#34;&#34;&#34;
-        Creates a function based on `f` that uses a custom gradient for backprop.
+        Calls `f(*args)` and returns the result.
+        This method may be used to register internal calls with the profiler.
+
+        Usage:
+
+            choose_backend(key).call(custom_function, *args)
+        &#34;&#34;&#34;
+        return f(*args)
+
+    def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
+        &#34;&#34;&#34;
+        Creates a function based on `f` that uses a custom spatial_gradient for backprop.
 
         Args:
             f: Forward function. All arguments must be
-            gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+            gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
 
         Returns:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
         &#34;&#34;&#34;
-        raise NotImplementedError()
+        return NotImplemented
 
     def transpose(self, tensor, axes):
         raise NotImplementedError()
@@ -679,7 +736,7 @@ The output of math operations has the same precision as its inputs.</p>
         raise NotImplementedError(self)
 
     def flip(self, value, axes: tuple or list):
-        slices = [slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value))]
+        slices = tuple(slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value)))
         return value[slices]
 
     def sum(self, value, axis=None, keepdims=False):
@@ -720,10 +777,7 @@ The output of math operations has the same precision as its inputs.</p>
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        raise NotImplementedError(self)
-
-    def range(self, start, limit=None, delta=1, dtype=None):
+    def range(self, start, limit=None, delta=1, dtype: DType = None):
         raise NotImplementedError(self)
 
     def zeros(self, shape, dtype: DType = None):
@@ -836,7 +890,18 @@ The output of math operations has the same precision as its inputs.</p>
     def gather(self, values, indices):
         raise NotImplementedError(self)
 
-    def gather_nd(self, values, indices, batch_dims=0):
+    def batched_gather_nd(self, values, indices):
+        &#34;&#34;&#34;
+        Gathers values from the tensor `values` at locations `indices`.
+        The first dimension of `values` and `indices` is the batch dimension which must be either equal for both or one for either.
+
+        Args:
+            values: tensor of shape (batch, spatial..., channel)
+            indices: int tensor of shape (batch, any..., multi_index) where the size of multi_index is values.rank - 2.
+
+        Returns:
+            Gathered values as tensor of shape (batch, any..., channel)
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def flatten(self, x):
@@ -930,7 +995,7 @@ The output of math operations has the same precision as its inputs.</p>
 
     def sparse_tensor(self, indices, values, shape):
         &#34;&#34;&#34;
-        
+        Optional features. If overridden,
 
         Args:
           indices: tuple/list matching the dimensions (pair for matrix)
@@ -962,7 +1027,7 @@ The output of math operations has the same precision as its inputs.</p>
     def minimize(self, function, x0, solve_params: Solve):
         raise NotImplementedError(self)
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = &#39;implicit&#39;, callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         &#34;&#34;&#34;
         Solve the system of linear equations
           A * x = y
@@ -972,13 +1037,15 @@ The output of math operations has the same precision as its inputs.</p>
           y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
           x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
           solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
           callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
         Returns:
             x: the solution as a tensor
 
         &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
     def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
@@ -1074,8 +1141,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li>phi.jax._jax_backend.JaxBackend</li>
-<li>phi.math.backend._scipy_backend.SciPyBackend</li>
+<li>phi.math.backend._numpy_backend.NumPyBackend</li>
 <li>phi.tf._tf_backend.TFBackend</li>
 <li>phi.torch._torch_backend.TorchBackend</li>
 </ul>
@@ -1279,6 +1345,40 @@ Backends can override this method to prevent unnecessary casting.</p>
     return tensor[batches, ...]</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.batched_gather_nd"><code class="name flex">
+<span>def <span class="ident">batched_gather_nd</span></span>(<span>self, values, indices)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gathers values from the tensor <code>values</code> at locations <code>indices</code>.
+The first dimension of <code>values</code> and <code>indices</code> is the batch dimension which must be either equal for both or one for either.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>tensor of shape (batch, spatial&hellip;, channel)</dd>
+<dt><strong><code>indices</code></strong></dt>
+<dd>int tensor of shape (batch, any&hellip;, multi_index) where the size of multi_index is values.rank - 2.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Gathered values as tensor of shape (batch, any&hellip;, channel)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def batched_gather_nd(self, values, indices):
+    &#34;&#34;&#34;
+    Gathers values from the tensor `values` at locations `indices`.
+    The first dimension of `values` and `indices` is the batch dimension which must be either equal for both or one for either.
+
+    Args:
+        values: tensor of shape (batch, spatial..., channel)
+        indices: int tensor of shape (batch, any..., multi_index) where the size of multi_index is values.rank - 2.
+
+    Returns:
+        Gathered values as tensor of shape (batch, any..., channel)
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.boolean_mask"><code class="name flex">
 <span>def <span class="ident">boolean_mask</span></span>(<span>self, x, mask)</span>
 </code></dt>
@@ -1290,6 +1390,30 @@ Backends can override this method to prevent unnecessary casting.</p>
 </summary>
 <pre><code class="python">def boolean_mask(self, x, mask):
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.call"><code class="name flex">
+<span>def <span class="ident">call</span></span>(<span>self, f: Callable, *args, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calls <code>f(*args)</code> and returns the result.
+This method may be used to register internal calls with the profiler.</p>
+<h2 id="usage">Usage</h2>
+<p>choose_backend(key).call(custom_function, *args)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def call(self, f: Callable, *args, name=None):
+    &#34;&#34;&#34;
+    Calls `f(*args)` and returns the result.
+    This method may be used to register internal calls with the profiler.
+
+    Usage:
+
+        choose_backend(key).call(custom_function, *args)
+    &#34;&#34;&#34;
+    return f(*args)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.cast"><code class="name flex">
@@ -1358,7 +1482,7 @@ Backends can override this method to prevent unnecessary casting.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params=&lt;phi.math.backend._optim.LinearSolve object&gt;, gradient: str = 'implicit', callback=None)</span>
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params=&lt;phi.math.backend._optim.LinearSolve object&gt;, callback=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solve the system of linear equations
@@ -1373,8 +1497,6 @@ A * x = y</p>
 <dd>initial guess for x. 2nd order tensor (batch, vector) or list of vectors.</dd>
 <dt><strong><code>solve_params</code></strong></dt>
 <dd>Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.</dd>
-<dt><strong><code>gradient</code></strong></dt>
-<dd>one of ('implicit', 'inverse', 'autodiff')</dd>
 <dt><strong><code>callback</code></strong></dt>
 <dd>Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)</dd>
 </dl>
@@ -1387,7 +1509,7 @@ A * x = y</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = &#39;implicit&#39;, callback=None):
+<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
     &#34;&#34;&#34;
     Solve the system of linear equations
       A * x = y
@@ -1397,7 +1519,6 @@ A * x = y</p>
       y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
       x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
       solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-      gradient: one of (&#39;implicit&#39;, &#39;inverse&#39;, &#39;autodiff&#39;)
       callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
 
     Returns:
@@ -1485,16 +1606,16 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.custom_gradient"><code class="name flex">
-<span>def <span class="ident">custom_gradient</span></span>(<span>self, f: <built-in function callable>, gradient: <built-in function callable>) ‑> <built-in function callable></span>
+<span>def <span class="ident">custom_gradient</span></span>(<span>self, f: Callable, gradient: Callable) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for backprop.</p>
+<div class="desc"><p>Creates a function based on <code>f</code> that uses a custom spatial_gradient for backprop.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Forward function. All arguments must be</dd>
 <dt><strong><code>gradient</code></strong></dt>
-<dd>Function for backprop. Will be called as <code>gradient(*d_out)</code> to compute the gradient of <code>f</code>.</dd>
+<dd>Function for backprop. Will be called as <code>spatial_gradient(*d_out)</code> to compute the spatial_gradient of <code>f</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
@@ -1502,18 +1623,18 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def custom_gradient(self, f: callable, gradient: callable) -&gt; callable:
+<pre><code class="python">def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
     &#34;&#34;&#34;
-    Creates a function based on `f` that uses a custom gradient for backprop.
+    Creates a function based on `f` that uses a custom spatial_gradient for backprop.
 
     Args:
         f: Forward function. All arguments must be
-        gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+        gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
 
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
+    return NotImplemented</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.div"><code class="name flex">
@@ -1691,7 +1812,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def flip(self, value, axes: tuple or list):
-    slices = [slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value))]
+    slices = tuple(slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value)))
     return value[slices]</code></pre>
 </details>
 </dd>
@@ -1708,6 +1829,19 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.functional_gradient"><code class="name flex">
+<span>def <span class="ident">functional_gradient</span></span>(<span>self, f, wrt: tuple, get_output: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.gather"><code class="name flex">
 <span>def <span class="ident">gather</span></span>(<span>self, values, indices)</span>
 </code></dt>
@@ -1721,8 +1855,8 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.gather_nd"><code class="name flex">
-<span>def <span class="ident">gather_nd</span></span>(<span>self, values, indices, batch_dims=0)</span>
+<dt id="phi.math.backend.Backend.get_default_device"><code class="name flex">
+<span>def <span class="ident">get_default_device</span></span>(<span>self) ‑> phi.math.backend._backend.ComputeDevice</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1730,8 +1864,8 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gather_nd(self, values, indices, batch_dims=0):
-    raise NotImplementedError(self)</code></pre>
+<pre><code class="python">def get_default_device(self) -&gt; ComputeDevice:
+    return self._default_device</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.gradients"><code class="name flex">
@@ -1940,6 +2074,19 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.jit_compile"><code class="name flex">
+<span>def <span class="ident">jit_compile</span></span>(<span>self, f: Callable) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jit_compile(self, f: Callable) -&gt; Callable:
+    return NotImplemented</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.linspace"><code class="name flex">
 <span>def <span class="ident">linspace</span></span>(<span>self, start, stop, number)</span>
 </code></dt>
@@ -1980,19 +2127,6 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
         Tuple of all currently available devices.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.matches_name"><code class="name flex">
-<span>def <span class="ident">matches_name</span></span>(<span>self, name)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def matches_name(self, name):
-    return self.name.lower() == name.lower()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.matmul"><code class="name flex">
@@ -2317,19 +2451,6 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.py_func"><code class="name flex">
-<span>def <span class="ident">py_func</span></span>(<span>self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.backend.Backend.random_normal"><code class="name flex">
 <span>def <span class="ident">random_normal</span></span>(<span>self, shape)</span>
 </code></dt>
@@ -2359,7 +2480,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>self, start, limit=None, delta=1, dtype=None)</span>
+<span>def <span class="ident">range</span></span>(<span>self, start, limit=None, delta=1, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2367,7 +2488,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def range(self, start, limit=None, delta=1, dtype=None):
+<pre><code class="python">def range(self, start, limit=None, delta=1, dtype: DType = None):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2465,6 +2586,23 @@ The batch dimension need not be specified in the indices array.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.set_default_device"><code class="name flex">
+<span>def <span class="ident">set_default_device</span></span>(<span>self, device: phi.math.backend._backend.ComputeDevice)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_default_device(self, device: ComputeDevice or str):
+    if isinstance(device, str):
+        devices = self.list_devices(device)
+        assert len(devices) &gt;= 1, f&#34;{self.name}: Cannot select &#39;{device} because no device of this type is available.&#34;
+        device = devices[0]
+    self._default_device = device</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.shape"><code class="name flex">
 <span>def <span class="ident">shape</span></span>(<span>self, tensor)</span>
 </code></dt>
@@ -2521,7 +2659,8 @@ The batch dimension need not be specified in the indices array.</p>
 <span>def <span class="ident">sparse_tensor</span></span>(<span>self, indices, values, shape)</span>
 </code></dt>
 <dd>
-<div class="desc"><h2 id="args">Args</h2>
+<div class="desc"><p>Optional features. If overridden,</p>
+<h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>indices</code></strong></dt>
 <dd>tuple/list matching the dimensions (pair for matrix)</dd>
@@ -2537,7 +2676,7 @@ The batch dimension need not be specified in the indices array.</p>
 </summary>
 <pre><code class="python">def sparse_tensor(self, indices, values, shape):
     &#34;&#34;&#34;
-    
+    Optional features. If overridden,
 
     Args:
       indices: tuple/list matching the dimensions (pair for matrix)
@@ -2642,6 +2781,52 @@ The batch dimension need not be specified in the indices array.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.supports"><code class="name flex">
+<span>def <span class="ident">supports</span></span>(<span>self, feature: str) ‑> bool</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Tests if this backend supports the given feature.
+Features correspond to a method of this backend that must be implemented if the feature is supported.</p>
+<p>Possible features:</p>
+<ul>
+<li><code>sparse_tensor</code></li>
+<li>`gradients</li>
+</ul>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>feature</code></strong></dt>
+<dd><code>str</code> or unbound Backend method, e.g. <code><a title="phi.math.backend.Backend.sparse_tensor" href="#phi.math.backend.Backend.sparse_tensor">Backend.sparse_tensor()</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Whether the feature is supported.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def supports(self, feature: str or Callable) -&gt; bool:
+    &#34;&#34;&#34;
+    Tests if this backend supports the given feature.
+    Features correspond to a method of this backend that must be implemented if the feature is supported.
+
+    Possible features:
+
+    * `sparse_tensor`
+    * `gradients
+
+    Args:
+        feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+
+    Returns:
+        Whether the feature is supported.
+    &#34;&#34;&#34;
+    feature = feature if isinstance(feature, str) else feature.__name__
+    if not hasattr(Backend, feature):
+        raise ValueError(f&#34;Not a valid feature: &#39;{feature}&#39;&#34;)
+    backend_fun = getattr(Backend, feature)
+    impl_fun = getattr(self.__class__, feature)
+    return impl_fun is not backend_fun</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.tile"><code class="name flex">
 <span>def <span class="ident">tile</span></span>(<span>self, value, multiples)</span>
 </code></dt>
@@ -2741,19 +2926,6 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </summary>
 <pre><code class="python">def to_int(self, x, int64=False):
     return self.cast(x, DType(int, 64 if int64 else 32))</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.trace_function"><code class="name flex">
-<span>def <span class="ident">trace_function</span></span>(<span>self, f: <built-in function callable>) ‑> <built-in function callable></span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def trace_function(self, f: callable) -&gt; callable:
-    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.transpose"><code class="name flex">
@@ -2863,7 +3035,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </dd>
 <dt id="phi.math.backend.ComputeDevice"><code class="flex name class">
 <span>class <span class="ident">ComputeDevice</span></span>
-<span>(</span><span>name: str, device_type: str, memory: int, processor_count: int, description: str)</span>
+<span>(</span><span>backend: <a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a>, name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A physical device that can be selected to perform backend computations.</p></div>
@@ -2876,25 +3048,36 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
     A physical device that can be selected to perform backend computations.
     &#34;&#34;&#34;
 
-    def __init__(self, name: str, device_type: str, memory: int, processor_count: int, description: str):
-        self.name = name
+    def __init__(self, backend: &#39;Backend&#39;, name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None):
+        self.name: str = name
         &#34;&#34;&#34; Name of the compute device. CPUs are typically called `&#39;CPU&#39;`. &#34;&#34;&#34;
-        self.device_type = device_type
+        self.device_type: str = device_type
         &#34;&#34;&#34; Type of device such as `&#39;CPU&#39;`, `&#39;GPU&#39;` or `&#39;TPU&#39;`. &#34;&#34;&#34;
-        self.memory = memory
+        self.memory: int = memory
         &#34;&#34;&#34; Maximum memory of the device that can be allocated (in bytes). -1 for n/a. &#34;&#34;&#34;
-        self.processor_count = processor_count
+        self.processor_count: int = processor_count
         &#34;&#34;&#34; Number of CPU cores or GPU multiprocessors. -1 for n/a. &#34;&#34;&#34;
-        self.description = description
+        self.description: str = description
         &#34;&#34;&#34; Further information about the device such as driver version. &#34;&#34;&#34;
+        self.ref = ref
+        &#34;&#34;&#34; (Optional) Reference to the internal device representation. &#34;&#34;&#34;
+        self.backend: &#39;Backend&#39; = backend
+        &#34;&#34;&#34; Backend that this device belongs to. Different backends represent the same device with different objects. &#34;&#34;&#34;
 
     def __repr__(self):
         mem = f&#34;{(self.memory / 1024 ** 2)} MB&#34; if self.memory &gt; 0 else &#34;memory: n/a&#34;
         pro = f&#34;{self.processor_count} processors&#34; if self.processor_count &gt; 0 else &#34;processors: n/a&#34;
-        return f&#34;&#39;{self.name}&#39; ({self.device_type}) | {mem} | {pro} | {self.description}&#34;</code></pre>
+        descr = self.description.replace(&#39;\n&#39;, &#39;  &#39;)
+        if len(descr) &gt; 30:
+            descr = descr[:28] + &#34;...&#34;
+        return f&#34;&#39;{self.name}&#39; ({self.device_type}) | {mem} | {pro} | {descr}&#34;</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.math.backend.ComputeDevice.backend"><code class="name">var <span class="ident">backend</span></code></dt>
+<dd>
+<div class="desc"><p>Backend that this device belongs to. Different backends represent the same device with different objects.</p></div>
+</dd>
 <dt id="phi.math.backend.ComputeDevice.description"><code class="name">var <span class="ident">description</span></code></dt>
 <dd>
 <div class="desc"><p>Further information about the device such as driver version.</p></div>
@@ -2914,6 +3097,10 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <dt id="phi.math.backend.ComputeDevice.processor_count"><code class="name">var <span class="ident">processor_count</span></code></dt>
 <dd>
 <div class="desc"><p>Number of CPU cores or GPU multiprocessors. -1 for n/a.</p></div>
+</dd>
+<dt id="phi.math.backend.ComputeDevice.ref"><code class="name">var <span class="ident">ref</span></code></dt>
+<dd>
+<div class="desc"><p>(Optional) Reference to the internal device representation.</p></div>
 </dd>
 </dl>
 </dd>
@@ -3492,9 +3679,9 @@ def retime(self):
     @property
     def gradient_solve(self) -&gt; &#39;Solve&#39;:
         &#34;&#34;&#34;
-        Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+        Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
         Gradient solve information will be stored in `gradient_solve.result`.
         &#34;&#34;&#34;
         if self._gradient_solve is None:
@@ -3513,8 +3700,8 @@ def retime(self):
 </dd>
 <dt id="phi.math.backend.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math.backend._optim.Solve</code></dt>
 <dd>
-<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.</p>
-<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code> object for the gradient solve.
+<div class="desc"><p>Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.</p>
+<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code> object for the spatial_gradient solve.
 Gradient solve information will be stored in <code>gradient_solve.result</code>.</p></div>
 <details class="source">
 <summary>
@@ -3523,9 +3710,9 @@ Gradient solve information will be stored in <code>gradient_solve.result</code>.
 <pre><code class="python">@property
 def gradient_solve(self) -&gt; &#39;Solve&#39;:
     &#34;&#34;&#34;
-    Parameters to use for the gradient pass when an implicit gradient is computed. The implicit gradient must use the same solver.
+    Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the gradient solve.
+    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
     Gradient solve information will be stored in `gradient_solve.result`.
     &#34;&#34;&#34;
     if self._gradient_solve is None:
@@ -3572,6 +3759,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
 <li><code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code></li>
+<li><code><a title="phi.math.backend.NUMPY_BACKEND" href="#phi.math.backend.NUMPY_BACKEND">NUMPY_BACKEND</a></code></li>
 <li><code><a title="phi.math.backend.SCIPY_BACKEND" href="#phi.math.backend.SCIPY_BACKEND">SCIPY_BACKEND</a></code></li>
 </ul>
 </li>
@@ -3602,7 +3790,9 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">as_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batch_gather" href="#phi.math.backend.Backend.batch_gather">batch_gather</a></code></li>
+<li><code><a title="phi.math.backend.Backend.batched_gather_nd" href="#phi.math.backend.Backend.batched_gather_nd">batched_gather_nd</a></code></li>
 <li><code><a title="phi.math.backend.Backend.boolean_mask" href="#phi.math.backend.Backend.boolean_mask">boolean_mask</a></code></li>
+<li><code><a title="phi.math.backend.Backend.call" href="#phi.math.backend.Backend.call">call</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cast" href="#phi.math.backend.Backend.cast">cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ceil" href="#phi.math.backend.Backend.ceil">ceil</a></code></li>
 <li><code><a title="phi.math.backend.Backend.clip" href="#phi.math.backend.Backend.clip">clip</a></code></li>
@@ -3628,8 +3818,9 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.flip" href="#phi.math.backend.Backend.flip">flip</a></code></li>
 <li><code><a title="phi.math.backend.Backend.float_type" href="#phi.math.backend.Backend.float_type">float_type</a></code></li>
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.functional_gradient" href="#phi.math.backend.Backend.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
-<li><code><a title="phi.math.backend.Backend.gather_nd" href="#phi.math.backend.Backend.gather_nd">gather_nd</a></code></li>
+<li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_than" href="#phi.math.backend.Backend.greater_than">greater_than</a></code></li>
@@ -3639,9 +3830,9 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.is_available" href="#phi.math.backend.Backend.is_available">is_available</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
+<li><code><a title="phi.math.backend.Backend.jit_compile" href="#phi.math.backend.Backend.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.backend.Backend.list_devices" href="#phi.math.backend.Backend.list_devices">list_devices</a></code></li>
-<li><code><a title="phi.math.backend.Backend.matches_name" href="#phi.math.backend.Backend.matches_name">matches_name</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
 <li><code><a title="phi.math.backend.Backend.maximum" href="#phi.math.backend.Backend.maximum">maximum</a></code></li>
@@ -3663,7 +3854,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.pow" href="#phi.math.backend.Backend.pow">pow</a></code></li>
 <li><code><a title="phi.math.backend.Backend.precision" href="#phi.math.backend.Backend.precision">precision</a></code></li>
 <li><code><a title="phi.math.backend.Backend.prod" href="#phi.math.backend.Backend.prod">prod</a></code></li>
-<li><code><a title="phi.math.backend.Backend.py_func" href="#phi.math.backend.Backend.py_func">py_func</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_normal" href="#phi.math.backend.Backend.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.backend.Backend.range" href="#phi.math.backend.Backend.range">range</a></code></li>
@@ -3672,6 +3862,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.reshape" href="#phi.math.backend.Backend.reshape">reshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.round" href="#phi.math.backend.Backend.round">round</a></code></li>
 <li><code><a title="phi.math.backend.Backend.scatter" href="#phi.math.backend.Backend.scatter">scatter</a></code></li>
+<li><code><a title="phi.math.backend.Backend.set_default_device" href="#phi.math.backend.Backend.set_default_device">set_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.shape" href="#phi.math.backend.Backend.shape">shape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sign" href="#phi.math.backend.Backend.sign">sign</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sin" href="#phi.math.backend.Backend.sin">sin</a></code></li>
@@ -3684,11 +3875,11 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.stop_gradient" href="#phi.math.backend.Backend.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sub" href="#phi.math.backend.Backend.sub">sub</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sum" href="#phi.math.backend.Backend.sum">sum</a></code></li>
+<li><code><a title="phi.math.backend.Backend.supports" href="#phi.math.backend.Backend.supports">supports</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_float" href="#phi.math.backend.Backend.to_float">to_float</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_int" href="#phi.math.backend.Backend.to_int">to_int</a></code></li>
-<li><code><a title="phi.math.backend.Backend.trace_function" href="#phi.math.backend.Backend.trace_function">trace_function</a></code></li>
 <li><code><a title="phi.math.backend.Backend.transpose" href="#phi.math.backend.Backend.transpose">transpose</a></code></li>
 <li><code><a title="phi.math.backend.Backend.unstack" href="#phi.math.backend.Backend.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.variable" href="#phi.math.backend.Backend.variable">variable</a></code></li>
@@ -3700,12 +3891,14 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </li>
 <li>
 <h4><code><a title="phi.math.backend.ComputeDevice" href="#phi.math.backend.ComputeDevice">ComputeDevice</a></code></h4>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="phi.math.backend.ComputeDevice.backend" href="#phi.math.backend.ComputeDevice.backend">backend</a></code></li>
 <li><code><a title="phi.math.backend.ComputeDevice.description" href="#phi.math.backend.ComputeDevice.description">description</a></code></li>
 <li><code><a title="phi.math.backend.ComputeDevice.device_type" href="#phi.math.backend.ComputeDevice.device_type">device_type</a></code></li>
 <li><code><a title="phi.math.backend.ComputeDevice.memory" href="#phi.math.backend.ComputeDevice.memory">memory</a></code></li>
 <li><code><a title="phi.math.backend.ComputeDevice.name" href="#phi.math.backend.ComputeDevice.name">name</a></code></li>
 <li><code><a title="phi.math.backend.ComputeDevice.processor_count" href="#phi.math.backend.ComputeDevice.processor_count">processor_count</a></code></li>
+<li><code><a title="phi.math.backend.ComputeDevice.ref" href="#phi.math.backend.ComputeDevice.ref">ref</a></code></li>
 </ul>
 </li>
 <li>
@@ -3755,7 +3948,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
 </footer>
 </body>
 </html>

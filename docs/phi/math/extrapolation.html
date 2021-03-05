@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.9.1" />
+<meta name="generator" content="pdoc 0.9.2" />
 <title>phi.math.extrapolation API documentation</title>
 <meta name="description" content="Defines standard extrapolations …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -39,7 +39,7 @@ from . import _functions as math
 from .backend import choose_backend
 from ._track import SparseLinearOperation, ShiftLinOp
 from ._shape import Shape
-from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
+from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 
 
 class Extrapolation:
@@ -67,8 +67,8 @@ class Extrapolation:
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def gradient(self) -&gt; &#39;Extrapolation&#39;:
-        &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+    def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
+        &#34;&#34;&#34;Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
@@ -132,7 +132,7 @@ class Extrapolation:
           transformed coordinates
 
         &#34;&#34;&#34;
-        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))
 
     @property
     def is_copy_pad(self):
@@ -154,7 +154,7 @@ class ConstantExtrapolation(Extrapolation):
 
     def __init__(self, value: Tensor):
         Extrapolation.__init__(self, 5)
-        self.value = tensor(value)
+        self.value = wrap(value)
         &#34;&#34;&#34; Extrapolation value &#34;&#34;&#34;
 
     def __repr__(self):
@@ -163,7 +163,7 @@ class ConstantExtrapolation(Extrapolation):
     def to_dict(self) -&gt; dict:
         return {&#39;type&#39;: &#39;constant&#39;, &#39;value&#39;: self.value.numpy()}
 
-    def gradient(self):
+    def spatial_gradient(self):
         return ZERO
 
     def pad(self, value: Tensor, widths: dict):
@@ -308,6 +308,12 @@ class ConstantExtrapolation(Extrapolation):
         else:
             return NotImplemented
 
+    def __abs__(self):
+        return ConstantExtrapolation(abs(self.value))
+
+    def _op1(self, operator):
+        return ConstantExtrapolation(self.value._op1(operator))
+
 
 class _CopyExtrapolation(Extrapolation):
 
@@ -396,7 +402,13 @@ class _CopyExtrapolation(Extrapolation):
         return self._op(other, ConstantExtrapolation.__lt__)
 
     def __neg__(self):
-        return self  # assume the values are also negated
+        return self  # assume also applied to values
+
+    def __abs__(self):
+        return self  # assume also applied to values
+
+    def _op1(self, operator):
+        return self  # assume also applied to values
 
 
 class _BoundaryExtrapolation(_CopyExtrapolation):
@@ -408,7 +420,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return &#39;boundary&#39;
 
-    def gradient(self):
+    def spatial_gradient(self):
         return ZERO
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
@@ -451,7 +463,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
         key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
         if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key], convert=True)
+            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key])
             _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
             return result
         else:
@@ -464,7 +476,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
         key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
         if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key], convert=True)
+            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key])
             _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
             return result
         else:
@@ -479,7 +491,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return &#39;periodic&#39;
 
-    def gradient(self):
+    def spatial_gradient(self):
         return self
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
@@ -504,7 +516,7 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return &#39;symmetric&#39;
 
-    def gradient(self):
+    def spatial_gradient(self):
         return -self
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
@@ -534,7 +546,7 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return &#39;reflect&#39;
 
-    def gradient(self):
+    def spatial_gradient(self):
         return -self
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
@@ -625,8 +637,8 @@ class _MixedExtrapolation(Extrapolation):
     def __repr__(self):
         return repr(self.ext)
 
-    def gradient(self) -&gt; Extrapolation:
-        return combine_sides({ax: (es[0].gradient(), es[1].gradient())
+    def spatial_gradient(self) -&gt; Extrapolation:
+        return combine_sides({ax: (es[0].spatial_gradient(), es[1].spatial_gradient())
                               for ax, es in self.ext.items()})
 
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
@@ -656,7 +668,7 @@ class _MixedExtrapolation(Extrapolation):
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -&gt; Tensor:
         coordinates = coordinates.vector.unstack()
-        assert len(self.ext) == len(shape) == len(coordinates)
+        assert len(self.ext) == len(shape.spatial) == len(coordinates)
         result = []
         for dim, dim_coords in zip(shape.spatial.unstack(), coordinates):
             dim_extrapolations = self.ext[dim.name]
@@ -875,7 +887,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
 
     def __init__(self, value: Tensor):
         Extrapolation.__init__(self, 5)
-        self.value = tensor(value)
+        self.value = wrap(value)
         &#34;&#34;&#34; Extrapolation value &#34;&#34;&#34;
 
     def __repr__(self):
@@ -884,7 +896,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
     def to_dict(self) -&gt; dict:
         return {&#39;type&#39;: &#39;constant&#39;, &#39;value&#39;: self.value.numpy()}
 
-    def gradient(self):
+    def spatial_gradient(self):
         return ZERO
 
     def pad(self, value: Tensor, widths: dict):
@@ -1027,7 +1039,13 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value &gt; other.value)
         else:
-            return NotImplemented</code></pre>
+            return NotImplemented
+
+    def __abs__(self):
+        return ConstantExtrapolation(abs(self.value))
+
+    def _op1(self, operator):
+        return ConstantExtrapolation(self.value._op1(operator))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1169,9 +1187,9 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 <ul class="hlist">
 <li><code><b><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></b></code>:
 <ul class="hlist">
-<li><code><a title="phi.math.extrapolation.Extrapolation.gradient" href="#phi.math.extrapolation.Extrapolation.gradient">gradient</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.is_copy_pad" href="#phi.math.extrapolation.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad_values" href="#phi.math.extrapolation.Extrapolation.pad_values">pad_values</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.spatial_gradient" href="#phi.math.extrapolation.Extrapolation.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.transform_coordinates" href="#phi.math.extrapolation.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
 </ul>
@@ -1221,8 +1239,8 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def gradient(self) -&gt; &#39;Extrapolation&#39;:
-        &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+    def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
+        &#34;&#34;&#34;Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
@@ -1286,7 +1304,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
           transformed coordinates
 
         &#34;&#34;&#34;
-        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))
 
     @property
     def is_copy_pad(self):
@@ -1336,20 +1354,6 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.math.extrapolation.Extrapolation.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>self) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gradient(self) -&gt; &#39;Extrapolation&#39;:
-    &#34;&#34;&#34;Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 <dt id="phi.math.extrapolation.Extrapolation.pad"><code class="name flex">
 <span>def <span class="ident">pad</span></span>(<span>self, value: phi.math._tensors.Tensor, widths: dict) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -1446,6 +1450,20 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.extrapolation.Extrapolation.spatial_gradient"><code class="name flex">
+<span>def <span class="ident">spatial_gradient</span></span>(<span>self) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
+    &#34;&#34;&#34;Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.extrapolation.Extrapolation.to_dict"><code class="name flex">
 <span>def <span class="ident">to_dict</span></span>(<span>self) ‑> dict</span>
 </code></dt>
@@ -1508,7 +1526,7 @@ This is the default implementation.</p>
       transformed coordinates
 
     &#34;&#34;&#34;
-    return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, &#39;vector&#39;))</code></pre>
+    return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1558,11 +1576,11 @@ This is the default implementation.</p>
 <li>
 <h4><code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></h4>
 <ul class="">
-<li><code><a title="phi.math.extrapolation.Extrapolation.gradient" href="#phi.math.extrapolation.Extrapolation.gradient">gradient</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.is_copy_pad" href="#phi.math.extrapolation.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.native_grid_sample_mode" href="#phi.math.extrapolation.Extrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad" href="#phi.math.extrapolation.Extrapolation.pad">pad</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad_values" href="#phi.math.extrapolation.Extrapolation.pad_values">pad_values</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.spatial_gradient" href="#phi.math.extrapolation.Extrapolation.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.transform_coordinates" href="#phi.math.extrapolation.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
 </ul>
@@ -1573,7 +1591,7 @@ This is the default implementation.</p>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
 </footer>
 </body>
 </html>

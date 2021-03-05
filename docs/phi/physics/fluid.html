@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.9.1" />
+<meta name="generator" content="pdoc 0.9.2" />
 <title>phi.physics.fluid API documentation</title>
 <meta name="description" content="Definition of Fluid, IncompressibleFlow as well as fluid-related functions." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -32,7 +32,7 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 &#34;&#34;&#34;
 
 from phi import math, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, gradient, where, HardGeometryMask
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, spatial_gradient, where, HardGeometryMask
 from phi.geom import union
 from ._boundaries import Domain
 
@@ -43,7 +43,7 @@ def make_incompressible(velocity: Grid,
                         solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
                         pressure_guess: CenteredGrid = None):
     &#34;&#34;&#34;
-    Projects the given velocity field by solving for the pressure and subtracting its gradient.
+    Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
@@ -62,20 +62,20 @@ def make_incompressible(velocity: Grid,
 
     &#34;&#34;&#34;
     input_velocity = velocity
-    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries.active_extrapolation)
-    accessible = domain.grid(active, extrapolation=domain.boundaries.accessible_extrapolation)
-    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries.accessible_extrapolation, type=type(velocity))
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries.near_vector_extrapolation)
+    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries[&#39;active_extrapolation&#39;])
+    accessible = domain.grid(active, extrapolation=domain.boundaries[&#39;accessible_extrapolation&#39;])
+    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries[&#39;accessible_extrapolation&#39;], type=type(velocity))
+    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
     div = divergence(velocity)
-    if domain.boundaries.near_vector_extrapolation == math.extrapolation.BOUNDARY:
+    if domain.boundaries[&#39;near_vector_extrapolation&#39;] == math.extrapolation.BOUNDARY:
         div -= field.mean(div)
 
     # Solve pressure
 
     def laplace(p):
-        grad = gradient(p, type(velocity))
+        grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
-        grad = grad.with_(extrapolation=domain.boundaries.near_vector_extrapolation)
+        grad = grad.with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
@@ -85,7 +85,7 @@ def make_incompressible(velocity: Grid,
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f&#34;pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}&#34;)
     # Subtract grad pressure
-    gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs
+    gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
     return velocity, pressure, iterations, div
 
@@ -177,7 +177,7 @@ Cells outside will be unaffected.</p>
 <span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), solve_params: phi.math.backend._optim.LinearSolve = &lt;phi.math.backend._optim.LinearSolve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its gradient.</p>
+<div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
 <p>This method is similar to :func:<code>field.divergence_free()</code> but differs in how the boundary conditions are specified.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -213,7 +213,7 @@ Cells outside will be unaffected.</p>
                         solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
                         pressure_guess: CenteredGrid = None):
     &#34;&#34;&#34;
-    Projects the given velocity field by solving for the pressure and subtracting its gradient.
+    Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
@@ -232,20 +232,20 @@ Cells outside will be unaffected.</p>
 
     &#34;&#34;&#34;
     input_velocity = velocity
-    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries.active_extrapolation)
-    accessible = domain.grid(active, extrapolation=domain.boundaries.accessible_extrapolation)
-    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries.accessible_extrapolation, type=type(velocity))
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries.near_vector_extrapolation)
+    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries[&#39;active_extrapolation&#39;])
+    accessible = domain.grid(active, extrapolation=domain.boundaries[&#39;accessible_extrapolation&#39;])
+    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries[&#39;accessible_extrapolation&#39;], type=type(velocity))
+    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
     div = divergence(velocity)
-    if domain.boundaries.near_vector_extrapolation == math.extrapolation.BOUNDARY:
+    if domain.boundaries[&#39;near_vector_extrapolation&#39;] == math.extrapolation.BOUNDARY:
         div -= field.mean(div)
 
     # Solve pressure
 
     def laplace(p):
-        grad = gradient(p, type(velocity))
+        grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
-        grad = grad.with_(extrapolation=domain.boundaries.near_vector_extrapolation)
+        grad = grad.with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
@@ -255,7 +255,7 @@ Cells outside will be unaffected.</p>
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f&#34;pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}&#34;)
     # Subtract grad pressure
-    gradp = field.gradient(pressure, type=type(velocity)) * hard_bcs
+    gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
     return velocity, pressure, iterations, div</code></pre>
 </details>
@@ -286,7 +286,7 @@ Cells outside will be unaffected.</p>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
 </footer>
 </body>
 </html>

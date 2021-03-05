@@ -61,11 +61,6 @@ class App(object):
     To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
     
     See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
-
-    Args:
-
-    Returns:
-
     """
 
     def __init__(self,

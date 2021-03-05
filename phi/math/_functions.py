@@ -4,15 +4,15 @@ import time
 import warnings
 from contextlib import contextmanager
 from numbers import Number
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
 from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
 from .backend._dtype import DType, combine_types
-from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, _infer_dim_type_from_name
-from ._tensors import Tensor, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, tensors, TensorDim
+from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
+    _infer_dim_type_from_name, combine_safe
+from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation
 from .backend._profile import get_current_profile
 
@@ -65,7 +65,7 @@ def print_(value: Tensor = None, name: str = None):
         return
     if name is not None:
         print(" " * 16 + name)
-    value = tensor(value)
+    value = wrap(value)
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
     if value.shape.spatial_rank == 0:
         print(value.numpy())
@@ -85,21 +85,24 @@ def print_(value: Tensor = None, name: str = None):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
-def map_(function, value: Tensor) -> Tensor:
+def map_(function, *values: Tensor) -> Tensor:
     """
     Calls `function` on all elements of `value`.
 
     Args:
         function: Function to be called on single elements contained in `value`. Must return a value that can be stored in tensors.
-        value: Tensor to iterate over.
+        values: Tensors to iterate over. Number of tensors must match `function` signature.
 
     Returns:
         `Tensor` of same shape as `value`.
     """
+    shape = combine_safe(*[v.shape for v in values])
+    values_reshaped = [CollapsedTensor(v, shape) for v in values]
+    flat = [flatten(v) for v in values_reshaped]
     result = []
-    for v in flatten(value):
-        result.append(function(v))
-    return tensor(result).vector.split(value.shape)
+    for items in zip(*flat):
+        result.append(function(*items))
+    return wrap(result).vector.split(shape)
 
 
 def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None, **dimensions):
@@ -281,11 +284,6 @@ def concat(values: tuple or list, dim: str) -> Tensor:
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
-def spatial_pad(value, pad_width: tuple or list, mode: 'extrapolation.Extrapolation') -> Tensor:
-    value = tensor(value)
-    return pad(value, {n: w for n, w in zip(value.shape.spatial.names, pad_width)}, mode=mode)
-
-
 def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation') -> Tensor:
     """
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
@@ -329,15 +327,15 @@ def closest_grid_values(grid: Tensor,
 
 
 def _closest_grid_values(grid: Tensor,
-                        coordinates: Tensor,
-                        extrap: 'extrapolation.Extrapolation',
-                        stack_dim_prefix='closest_'):
-    # alternative method: pad array for all 2^d combinations, then stack to simplify gather_nd.
+                         coordinates: Tensor,
+                         extrap: 'extrapolation.Extrapolation',
+                         stack_dim_prefix='closest_'):
+    # alternative method: pad array for all 2^d combinations, then stack to simplify gather.
     # --- Pad tensor where transform is not possible ---
     non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
                     for dim in grid.shape.spatial.names}
     grid = extrap.pad(grid, non_copy_pad)
-    coordinates += tensor([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], 'vector')
+    coordinates += wrap([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], 'vector')
     # --- Transform coordiantes ---
     min_coords = to_int(floor(coordinates))
     max_coords = extrap.transform_coordinates(min_coords + 1, grid.shape)
@@ -365,7 +363,7 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrap
 
 
 def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation' or None):
-    if grid.shape.batch == coordinates.shape.batch:
+    if grid.shape.batch == coordinates.shape.batch or grid.shape.batch.volume == 1 or coordinates.shape.batch.volume == 1:
         # reshape batch dimensions, delegate to backend.grid_sample()
         grid_batched = join_dimensions(join_dimensions(grid, grid.shape.batch, 'batch'), grid.shape.channel, 'vector')
         coordinates_batched = join_dimensions(coordinates, coordinates.shape.batch, 'batch')
@@ -385,7 +383,11 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
             # pad one layer
             grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or extrapolation.ZERO)
             if extrap is not None:
-                inner_coordinates = extrap.transform_coordinates(coordinates_batched, grid.shape) + 1
+                from .extrapolation import _CopyExtrapolation
+                if isinstance(extrap, _CopyExtrapolation):
+                    inner_coordinates = extrap.transform_coordinates(coordinates_batched, grid.shape) + 1
+                else:
+                    inner_coordinates = extrap.transform_coordinates(coordinates_batched + 1, grid_batched.shape)
             else:
                 inner_coordinates = coordinates_batched + 1
             result = backend.grid_sample(grid_batched.native(),
@@ -393,9 +395,9 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
                                          inner_coordinates.native(),
                                          'boundary')
         if result is not NotImplemented:
-            result_shape = grid_batched.shape.non_spatial & coordinates_batched.shape.spatial
+            result_shape = shape_(batch=max(grid.shape.batch.volume, coordinates.shape.batch.volume)) & coordinates_batched.shape.spatial & grid_batched.shape.channel
             result = NativeTensor(result, result_shape)
-            result = result.batch.split(grid.shape.batch).vector.split(grid.shape.channel)
+            result = result.batch.split(grid.shape.batch & coordinates.shape.batch).vector.split(grid.shape.channel)
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or extrapolation.ZERO, 'closest_')
@@ -412,7 +414,7 @@ def join_spaces(*tensors):
     return [CollapsedTensor(t, t.shape.non_spatial & spatial) for t in tensors]
 
 
-def broadcast_op(operation: callable,
+def broadcast_op(operation: Callable,
                  tensors: tuple or list,
                  iter_dims: set or tuple or list = None,
                  no_return=False):
@@ -481,7 +483,10 @@ def split_dimension(dim: TensorDim, split_dims: Shape):
         return NativeTensor(native_reshaped, new_shape)
 
 
-def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name: str):
+def join_dimensions(value: Tensor,
+                    dims: Shape or tuple or list,
+                    joined_dim_name: str,
+                    pos: int or None = None):
     """
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -497,18 +502,24 @@ def join_dimensions(value: Tensor, dims: Shape or tuple or list, joined_dim_name
         value: Tensor containing the dimensions `dims`.
         dims: Dimensions to be compressed in the specified order.
         joined_dim_name: Name of the new dimension.
+        pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
 
     Returns:
         `Tensor` with compressed shape.
     """
     if len(dims) == 0:
-        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name)))
+        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
+    if len(dims) == 1:
+        old_dim = dims.name if isinstance(dims, Shape) else dims[0]
+        new_shape = value.shape.with_names([joined_dim_name if name == old_dim else name for name in value.shape.names])
+        return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
     types = value.shape.get_type(dims)
     dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
-    first_dim_index = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos=first_dim_index)
+    if pos is None:
+        pos = min(value.shape.indices(dims))
+    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
@@ -575,9 +586,9 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
 
 def _reduce(value: Tensor or list or tuple,
             dim: str or tuple or list or Shape or None,
-            native_function: callable,
-            collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-            unaffected_function: callable = lambda value: value) -> Tensor:
+            native_function: Callable,
+            collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+            unaffected_function: Callable = lambda value: value) -> Tensor:
     """
 
     Args:
@@ -593,7 +604,7 @@ def _reduce(value: Tensor or list or tuple,
     if dim in ((), [], EMPTY_SHAPE):
         return value
     if isinstance(value, (tuple, list)):
-        values = [tensor(v) for v in value]
+        values = [wrap(v) for v in value]
         value = _stack(values, '_reduce', BATCH_DIM)
         if dim is None:
             pass  # continue below
@@ -602,7 +613,7 @@ def _reduce(value: Tensor or list or tuple,
         else:
             raise ValueError('dim must be 0 or None when passing a sequence of tensors')
     else:
-        value = tensor(value)
+        value = wrap(value)
     dims = _resolve_dims(dim, value.shape)
     return value.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
 
@@ -830,36 +841,38 @@ def boolean_mask(x: Tensor, mask):
     raise NotImplementedError()
 
 
-def gather(value: Tensor, indices: Tensor):
-    v_ = value.native()
-    i_ = indices.native()
-    backend = choose_backend(v_, i_)
-    if value.shape.channel_rank == 0:
-        v_ = backend.expand_dims(v_, -1)
-    result = backend.gather_nd(v_, i_, batch_dims=value.shape.batch_rank)
-    if value.shape.channel_rank == 0:
-        result = result[..., 0]
-    new_shape = value.shape.non_spatial & indices.shape.non_channel
-    return NativeTensor(result, new_shape)
+def gather(values: Tensor, indices: Tensor):
+    b_values = join_dimensions(values, values.shape.batch, 'batch')
+    b_values = join_dimensions(b_values, b_values.shape.channel, 'channel', pos=-1)
+    b_indices = join_dimensions(indices, indices.shape.batch, 'batch')
+    native_values = b_values.native()
+    native_indices = b_indices.native()
+    native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
+    b_result = tensor(native_result, ('batch', *indices.shape.spatial.names, 'vector'))
+    result = split_dimension(b_result.vector, values.shape.channel)
+    result = split_dimension(result.batch, values.shape.batch & indices.shape.batch)
+    return result
 
 
-def scatter(indices: Tensor, values: Tensor, size: Shape, scatter_dims, duplicates_handling='undefined', outside_handling='discard'):
+def scatter(indices: Tensor,
+            values: Tensor,
+            size: Shape,
+            scatter_dims: str or tuple or list or 'Shape',
+            duplicates_handling: str = 'undefined',
+            outside_handling: str = 'discard'):
     """
     Create a dense tensor from sparse values.
 
     Args:
-      indices: n-dimensional indices corresponding to values
-      values: values to scatter at indices
-      size: spatial size of dense tensor
-      scatter_dims: dimensions of values/indices to reduce during scattering
-      duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
-      outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'discard')
-      indices: Tensor: 
-      values: Tensor: 
-      size: Shape: 
+        indices: n-dimensional indices corresponding to values
+        values: values to scatter at indices
+        size: spatial size of dense tensor
+        scatter_dims: dimensions of values/indices to reduce during scattering
+        duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
+        outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'discard')
 
     Returns:
-
+        Tensor of shape `size` and dtype matching `values`.
     """
     indices_ = indices.native()
     values_ = values.native(values.shape.combined(indices.shape.non_channel).names)
@@ -925,7 +938,7 @@ def expand(value: Tensor, dim_name: str, dim_size: int = 1):
 
 
 def _expand_dim(value: Tensor, dim_name: str, dim_size: int, dim_type: str):
-    value = tensor(value)
+    value = wrap(value)
     if dim_name in value.shape:
         assert value.shape.get_size(dim_name) == dim_size
         assert value.shape.get_type(dim_name) == dim_type
@@ -975,7 +988,7 @@ def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
     Returns:
 
     """
-    tensors = [tensor(t) for t in tensors]
+    tensors = [wrap(t) for t in tensors]
     for other in tensors[1:]:
         if not _close(tensors[0], other, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance):
             return False
@@ -1012,7 +1025,7 @@ def assert_close(*tensors,
     """
     any_tensor = next(filter(lambda t: isinstance(t, Tensor), tensors))
     if any_tensor is None:
-        tensors = [tensor(t) for t in tensors]
+        tensors = [wrap(t) for t in tensors]
     else:  # use Tensor to infer dimensions
         tensors = [any_tensor._tensor(t).__simplify__() for t in tensors]
     for other in tensors[1:]:
@@ -1035,12 +1048,13 @@ def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float):
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
-def trace_function(f: callable) -> callable:
+def jit_compile(f: Callable) -> Callable:
     """
     Compiles a graph based on the function `f`.
-    This action might be performed immediately or when the traced function is called for the first time (JIT).
+    The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.
 
     The traced function will compute the same result as `f` but may run much faster.
+    Some checks may be disabled in the compiled function.
 
     Args:
         f: Function to be traced.
@@ -1049,34 +1063,120 @@ def trace_function(f: callable) -> callable:
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     """
-    INPUT_SHAPES = []
-    OUTPUT_SHAPES = []
+    INPUT_TENSORS = []
+    OUTPUT_TENSORS = []
 
     def native_function(*natives):
-        values = [NativeTensor(native, shape.with_sizes(backend.staticshape(native))) for native, shape in zip(natives, INPUT_SHAPES)]
+        natives = list(natives)
+        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
+        assert len(natives) == 0, "Not all arguments were converted"
         result = f(*values)
-        OUTPUT_SHAPES.clear()
-        if isinstance(result, (tuple, list)):
-            OUTPUT_SHAPES.extend([r.shape for r in result])
-        else:
-            OUTPUT_SHAPES.append(result.shape)
-        if isinstance(result, (tuple, list)):
-            return [v.native() for v in result]
-        else:
-            return result.native()
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        OUTPUT_TENSORS.clear()
+        OUTPUT_TENSORS.extend(results)
+        return sum([v._natives() for v in results], ())
 
     backend = default_backend()
-    traced = backend.trace_function(native_function)
+    traced = backend.jit_compile(native_function)
+    if traced is NotImplemented:
+        warnings.warn(f"Backend '{backend}' does not support function tracing. Returning original function.")
+        return f
 
     def wrapper(*values: Tensor):
-        INPUT_SHAPES.clear()
-        INPUT_SHAPES.extend([v.shape for v in values])
-        natives = [v.native() for v in values]
-        result_native = traced(*natives)
-        if isinstance(result_native, (tuple, list)):
-            return [NativeTensor(native, shape.with_sizes(backend.shape(native))) for native, shape in zip(result_native, OUTPUT_SHAPES)]
-        else:
-            return NativeTensor(result_native, OUTPUT_SHAPES[0].with_sizes(backend.shape(result_native)))
+        INPUT_TENSORS.clear()
+        INPUT_TENSORS.extend(values)
+        for v in values:
+            v._expand()
+        natives = sum([v._natives() for v in values], ())
+        results_native = list(traced(*natives))
+        results = [t._with_natives_replaced(results_native) for t in OUTPUT_TENSORS]
+        assert len(results_native) == 0
+        return results[0] if len(results) == 1 else results
+
+    return wrapper
+
+
+def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
+    """
+    Creates a function which computes the spatial_gradient of `f`.
+
+    Example:
+
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    dx, = functional_gradient(loss_function)(x, y)
+
+    loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
+                                                 get_output=True)(x, y)
+    ```
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if `return_values=True`.
+            All arguments for which the spatial_gradient is computed must be of dtype float or complex.
+        get_output: Whether the spatial_gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the spatial_gradient should be computed.
+            Example: `wrt_indices=[0]` computes the spatial_gradient with respect to the first argument of `f`.
+
+    Returns:
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and spatial_gradient of `f` if `get_output=True`, else just the spatial_gradient of `f`.
+    """
+    INPUT_TENSORS = []
+    OUTPUT_TENSORS = []
+    ARG_INDICES = []
+
+    def native_function(*natives):
+        natives = list(natives)
+        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
+        assert len(natives) == 0, "Not all arguments were converted"
+        result = f(*values)
+        results = [result] if not isinstance(result, (tuple, list)) else result
+        assert all(isinstance(t, Tensor) for t in results), f"Function output must be Tensor or sequence of tensors but got {result}."
+        OUTPUT_TENSORS.clear()
+        OUTPUT_TENSORS.extend(results)
+        return sum([v._natives() for v in results], ())
+
+    backend = default_backend()
+
+    class GradientFunction:
+
+        def __init__(self):
+            self.gradf = None
+
+        def __call__(self, *args, **kwargs):
+            assert not len(kwargs)
+            shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
+            if self.gradf is None:
+                self.gradf = backend.functional_gradient(native_function, shifted_wrt, get_output=get_output)
+            return self.gradf(*args)
+
+    grad_native = GradientFunction()
+
+    def wrapper(*values: Tensor):
+        assert all(isinstance(v, Tensor) for v in values)
+        INPUT_TENSORS.clear()
+        INPUT_TENSORS.extend(values)
+        ARG_INDICES.clear()
+        natives = []
+        for arg_index, v in enumerate(values):
+            v._expand()
+            n = v._natives()
+            natives.extend(n)
+            for _ in range(len(n)):
+                ARG_INDICES.append(arg_index)
+        results_native = list(grad_native(*natives))
+        proto_tensors = []
+        if get_output:
+            proto_tensors.extend(OUTPUT_TENSORS)
+        proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
+        results = [t._with_natives_replaced(results_native) for t in proto_tensors]
+        assert len(results_native) == 0
+        return results
 
     return wrapper
 
@@ -1118,7 +1218,7 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
 
     x_native = backend.minimize(native_function, x0_flat, solve_params)
     x = unflatten_assemble(x_native)
-    return tensor(solve_params.result.success), x, tensor(solve_params.result.iterations)
+    return wrap(solve_params.result.success), x, wrap(solve_params.result.iterations)
 
 
 def solve(operator,
@@ -1193,7 +1293,7 @@ def solve(operator,
         operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
 
     loop_time = time.perf_counter()
-    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, 'implicit', callback)
+    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, callback)
     converged = solve_params.result.success
     iterations = solve_params.result.iterations
     loop_time = time.perf_counter() - loop_time
@@ -1291,7 +1391,7 @@ def gradients(y: Tensor,
     x_natives = sum([x_._natives() for x_ in x], ())
     native_gradients = list(backend.gradients(y.native(), x_natives, grad_y.native() if grad_y is not None else None))
     for i, grad in enumerate(native_gradients):
-        assert grad is not None, f"Missing gradient for source with shape {x_natives[i].shape}"
+        assert grad is not None, f"Missing spatial_gradient for source with shape {x_natives[i].shape}"
     grads = [x_._op1(lambda native: native_gradients.pop(0)) for x_ in x]
     return grads[0] if len(x) == 1 else grads
 

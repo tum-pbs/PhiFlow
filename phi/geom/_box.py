@@ -3,7 +3,7 @@ import numpy as np
 from phi import struct, math
 from ._geom import Geometry, _fill_spatial_with_singleton
 from ._transform import rotate
-from ..math import tensor
+from ..math import wrap
 from ..math._tensors import Tensor
 
 
@@ -180,9 +180,9 @@ class Box(AbstractBox, metaclass=BoxType):
           lower: physical location of lower corner
           upper: physical location of upper corner
         """
-        self._lower = tensor(lower)
-        self._upper = tensor(upper)
-        self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape)
+        self._lower = wrap(lower)
+        self._upper = wrap(upper)
+        self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape).non_channel
 
     def unstack(self, dimension):
         raise NotImplementedError()  # TODO
@@ -239,8 +239,8 @@ class Box(AbstractBox, metaclass=BoxType):
 class Cuboid(AbstractBox):
 
     def __init__(self, center, half_size):
-        self._center = tensor(center, names='..., vector', channel_dims=1, spatial_dims=0)
-        self._half_size = tensor(half_size, names='..., vector', channel_dims=1, spatial_dims=0)
+        self._center = wrap(center)
+        self._half_size = wrap(half_size)
         self._shape = _fill_spatial_with_singleton(self._center.shape & self._half_size.shape).without('vector')
 
     @property
@@ -317,7 +317,7 @@ class GridCell(AbstractBox):
 
     @property
     def size(self):
-        return self.bounds.size / self.resolution.sizes
+        return self.bounds.size / math.wrap(self.resolution.sizes)
 
     @property
     def lower(self):

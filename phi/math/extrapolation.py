@@ -9,7 +9,7 @@ from . import _functions as math
 from .backend import choose_backend
 from ._track import SparseLinearOperation, ShiftLinOp
 from ._shape import Shape
-from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, tensor
+from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 
 
 class Extrapolation:
@@ -37,8 +37,8 @@ class Extrapolation:
         """
         raise NotImplementedError()
 
-    def gradient(self) -> 'Extrapolation':
-        """Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation."""
+    def spatial_gradient(self) -> 'Extrapolation':
+        """Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation."""
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
@@ -102,7 +102,7 @@ class Extrapolation:
           transformed coordinates
 
         """
-        return math.clip(coordinates, 0, math.tensor(shape.spatial - 1, 'vector'))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, 'vector'))
 
     @property
     def is_copy_pad(self):
@@ -124,7 +124,7 @@ class ConstantExtrapolation(Extrapolation):
 
     def __init__(self, value: Tensor):
         Extrapolation.__init__(self, 5)
-        self.value = tensor(value)
+        self.value = wrap(value)
         """ Extrapolation value """
 
     def __repr__(self):
@@ -133,7 +133,7 @@ class ConstantExtrapolation(Extrapolation):
     def to_dict(self) -> dict:
         return {'type': 'constant', 'value': self.value.numpy()}
 
-    def gradient(self):
+    def spatial_gradient(self):
         return ZERO
 
     def pad(self, value: Tensor, widths: dict):
@@ -278,6 +278,12 @@ class ConstantExtrapolation(Extrapolation):
         else:
             return NotImplemented
 
+    def __abs__(self):
+        return ConstantExtrapolation(abs(self.value))
+
+    def _op1(self, operator):
+        return ConstantExtrapolation(self.value._op1(operator))
+
 
 class _CopyExtrapolation(Extrapolation):
 
@@ -366,7 +372,13 @@ class _CopyExtrapolation(Extrapolation):
         return self._op(other, ConstantExtrapolation.__lt__)
 
     def __neg__(self):
-        return self  # assume the values are also negated
+        return self  # assume also applied to values
+
+    def __abs__(self):
+        return self  # assume also applied to values
+
+    def _op1(self, operator):
+        return self  # assume also applied to values
 
 
 class _BoundaryExtrapolation(_CopyExtrapolation):
@@ -378,7 +390,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'boundary'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return ZERO
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
@@ -421,7 +433,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
         key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
         if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key], convert=True)
+            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key])
             _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
             return result
         else:
@@ -434,7 +446,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
         key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
         if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key], convert=True)
+            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key])
             _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
             return result
         else:
@@ -449,7 +461,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'periodic'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return self
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
@@ -474,7 +486,7 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'symmetric'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return -self
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
@@ -504,7 +516,7 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def __repr__(self):
         return 'reflect'
 
-    def gradient(self):
+    def spatial_gradient(self):
         return -self
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
@@ -595,8 +607,8 @@ class _MixedExtrapolation(Extrapolation):
     def __repr__(self):
         return repr(self.ext)
 
-    def gradient(self) -> Extrapolation:
-        return combine_sides({ax: (es[0].gradient(), es[1].gradient())
+    def spatial_gradient(self) -> Extrapolation:
+        return combine_sides({ax: (es[0].spatial_gradient(), es[1].spatial_gradient())
                               for ax, es in self.ext.items()})
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
@@ -626,7 +638,7 @@ class _MixedExtrapolation(Extrapolation):
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         coordinates = coordinates.vector.unstack()
-        assert len(self.ext) == len(shape) == len(coordinates)
+        assert len(self.ext) == len(shape.spatial) == len(coordinates)
         result = []
         for dim, dim_coords in zip(shape.spatial.unstack(), coordinates):
             dim_extrapolations = self.ext[dim.name]

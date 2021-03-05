@@ -1,14 +1,15 @@
 import numbers
 import uuid
 from contextlib import contextmanager
-from typing import List, Tuple, Any
+from functools import wraps
+from typing import List, Tuple, Any, Callable
 
 import numpy as np
 import scipy.optimize as sopt
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, SCIPY_BACKEND
+from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, NUMPY_BACKEND
 from ._tf_cuda_resample import resample_cuda, use_cuda
 from ..math import LinearSolve
 from ..math.backend._backend_helper import combined_dim
@@ -18,37 +19,36 @@ from ..math.backend._optim import SolveResult, Solve
 class TFBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, "TensorFlow")
+        Backend.__init__(self, "TensorFlow", default_device=None)
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         tf_devices = device_lib.list_local_devices()
         devices = []
         for device in tf_devices:
             if device_type in (None, device.device_type):
-                devices.append(ComputeDevice(device.name,
-                                             device.device_type,
-                                             device.memory_limit,
-                                             -1,
-                                             str(device)))
+                devices.append(ComputeDevice(self, device.name, device.device_type, device.memory_limit,
+                                             processor_count=-1,
+                                             description=str(device),
+                                             ref=device))
         return devices
 
     def is_tensor(self, x, only_native=False):
         if only_native:
             return tf.is_tensor(x)
         else:
-            return tf.is_tensor(x) or SCIPY_BACKEND.is_tensor(x, only_native=False)
+            return tf.is_tensor(x) or NUMPY_BACKEND.is_tensor(x, only_native=False)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = tf.convert_to_tensor(SCIPY_BACKEND.as_tensor(x))
+            tensor = tf.convert_to_tensor(NUMPY_BACKEND.as_tensor(x))
         else:
             tensor = tf.convert_to_tensor(x)
         # --- Enforce Precision ---
         if not isinstance(tensor, numbers.Number):
             if isinstance(tensor, np.ndarray):
-                tensor = SCIPY_BACKEND.as_tensor(tensor)
+                tensor = NUMPY_BACKEND.as_tensor(tensor)
             elif tensor.dtype.is_floating:
                 tensor = self.to_float(tensor)
         return tensor
@@ -62,7 +62,7 @@ class TFBackend(Backend):
     def numpy(self, tensor):
         if tf.is_tensor(tensor):
             return tensor.numpy()
-        return SCIPY_BACKEND.numpy(tensor)
+        return NUMPY_BACKEND.numpy(tensor)
 
     def copy(self, tensor, only_mutable=False):
         if not only_mutable or tf.executing_eagerly():
@@ -70,10 +70,10 @@ class TFBackend(Backend):
         else:
             return tensor
 
-    def trace_function(self, f: callable) -> callable:
+    def jit_compile(self, f: Callable) -> Callable:
         return tf.function(f)
 
-    def custom_gradient(self, f: callable, gradient: callable = None) -> callable:
+    def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         @tf.custom_gradient
         def tf_function(*args, **kwargs):
             def grad(*grad_args):
@@ -156,21 +156,6 @@ class TFBackend(Backend):
             if not isinstance(axis, int):
                 axis = list(axis)
         return tf.reduce_mean(value, axis, keepdims=keepdims)
-
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        if grad is None:
-            result = tf.py_func(func, inputs, Tout, stateful=stateful, name=name)
-        else:
-            # Need to generate a unique name to avoid duplicates:
-            rnd_name = 'PyFuncGrad' + str(uuid.uuid4())
-
-            tf.RegisterGradient(rnd_name)(grad)  # see _MySquareGrad for grad example
-            g = tf.get_default_graph()
-            with g.gradient_override_map({"PyFunc": rnd_name}):
-                result = tf.py_func(func, inputs, Tout, stateful=stateful, name=name)
-        if shape_out is not None:
-            result.set_shape(shape_out)
-        return result
 
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
         if use_cuda(grid):
@@ -300,8 +285,11 @@ class TFBackend(Backend):
             return values[indices]
         return tf.gather(values, indices)
 
-    def gather_nd(self, values, indices, batch_dims=0):
-        return tf.gather_nd(values, indices, batch_dims=batch_dims)
+    def batched_gather_nd(self, values, indices):
+        if self.staticshape(values)[0] == 1 and self.staticshape(indices)[0] != 1:
+            result = tf.gather_nd(values[0, ...], indices, batch_dims=0)
+            return result
+        return tf.gather_nd(values, indices, batch_dims=1)
 
     def unstack(self, tensor, axis=0, keepdims=False):
         unstacked = tf.unstack(tensor, axis=axis)
@@ -345,7 +333,7 @@ class TFBackend(Backend):
         values = self.tile(values, repetitions)
 
         if duplicates_handling == 'add':
-            # Only for Tensorflow with custom gradient
+            # Only for Tensorflow with custom spatial_gradient
             @tf.custom_gradient
             def scatter_density(points, indices, values):
                 result = tf.tensor_scatter_add(buffer, indices, values)
@@ -420,7 +408,7 @@ class TFBackend(Backend):
             dt = array.dtype.as_numpy_dtype
             return from_numpy_dtype(dt)
         else:
-            return SCIPY_BACKEND.dtype(array)
+            return NUMPY_BACKEND.dtype(array)
 
     def sparse_tensor(self, indices, values, shape):
         indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]
@@ -436,10 +424,7 @@ class TFBackend(Backend):
         else:
             raise NotImplementedError()
 
-    def conjugate_gradient(self, A, y, x0,
-                           solve_params=LinearSolve(),
-                           gradient: str = 'implicit',
-                           callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         if callable(A):
             function = A
         else:
@@ -514,6 +499,23 @@ class TFBackend(Backend):
             return tf.sparse.add(a, b, threshold=1e-5)
         else:
             return Backend.add(self, a, b)
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+        @wraps(f)
+        def eval_grad(*args):
+            args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
+            wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
+            with tf.GradientTape(watch_accessed_variables=False) as tape:
+                for arg in wrt_args:
+                    tape.watch(arg)
+                output = f(*args)
+            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+            grads = tape.gradient(loss, wrt_args)
+            if get_output:
+                return (loss, *aux, *grads)
+            else:
+                return grads
+        return eval_grad
 
     # def variable(self, value):  # not supported, variables must record gradients outside a context
     #     return tf.Variable(value, trainable=True)

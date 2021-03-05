@@ -1,51 +1,63 @@
 import numbers
-from typing import List
+import warnings
+from functools import wraps
+from typing import List, Callable
 
 import numpy as np
+import jax
+import jax.numpy as jnp
+import jax.scipy as scipy
+from jax.scipy.sparse.linalg import cg
+from jax import random
 
 from phi.math.backend._optim import SolveResult
-
-try:
-    import jax
-    import jax.numpy as jnp
-    import jax.scipy as scipy
-    from jax.scipy.sparse.linalg import cg
-    from jax import random
-except ImportError as err:
-    print(err)
-
 from phi.math.backend import Backend, ComputeDevice, to_numpy_dtype, from_numpy_dtype
-from phi.math import Solve, LinearSolve, DType
+from phi.math import Solve, LinearSolve, DType, NUMPY_BACKEND
 from phi.math.backend._backend_helper import combined_dim
 
 
 class JaxBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, "SciPy")
+        Backend.__init__(self, "Jax", default_device=None)
         try:
             self.rnd_key = jax.random.PRNGKey(seed=0)
-        except NameError:  # Jax not imported
+        except RuntimeError as err:
+            warnings.warn(f"{err}")
             self.rnd_key = None
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        jax_devices = jax.devices()
         devices = []
-        for jax_dev in jax_devices:
+        for jax_dev in jax.devices():
             jax_dev_type = jax_dev.platform.upper()
             if device_type is None or device_type == jax_dev_type:
                 description = f"id={jax_dev.id}"
-                devices.append(ComputeDevice(jax_dev.device_kind, jax_dev_type, -1, -1, description))
+                devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev_type, -1, -1, description, jax_dev))
         return devices
 
+    # def set_default_device(self, device: ComputeDevice or str):
+    #     if device == 'CPU':
+    #         jax.config.update('jax_platform_name', 'cpu')
+    #     elif device == 'GPU':
+    #         jax.config.update('jax_platform_name', 'gpu')
+    #     else:
+    #         raise NotImplementedError()
+
+    def _check_float64(self):
+        if self.precision == 64:
+            if not jax.config.read('jax_enable_x64'):
+                jax.config.update('jax_enable_x64', True)
+            assert jax.config.read('jax_enable_x64'), "FP64 is disabled for Jax."
+
     def as_tensor(self, x, convert_external=True):
+        self._check_float64()
         if self.is_tensor(x, only_native=convert_external):
             array = x
         else:
             array = jnp.array(x)
         # --- Enforce Precision ---
         if not isinstance(array, numbers.Number):
-            if array.dtype in (jnp.float16, jnp.float32, jnp.float64):
+            if self.dtype(array).kind == float:
                 array = self.to_float(array)
         return array
 
@@ -71,19 +83,35 @@ class JaxBackend(Backend):
     def is_available(self, tensor):
         return True
 
-    def numpy(self, tensor):
-        if isinstance(tensor, jnp.ndarray):
-            return tensor
-        else:
-            return jnp.array(tensor)
+    def numpy(self, x):
+        return np.array(x)
 
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
 
-    def trace_function(self, f: callable) -> callable:
+    def jit_compile(self, f: Callable) -> Callable:
         return jax.jit(f)
 
-    def custom_gradient(self, f: callable, gradient: callable) -> callable:
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+        if get_output:
+            @wraps(f)
+            def aux_f(*args):
+                result = f(*args)
+                return (result[0], result[1:]) if isinstance(result, (tuple, list)) else (result[0], None)
+            jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
+            @wraps(f)
+            def unwrap_outputs(*args):
+                (loss, aux), grads = jax_grad_f(*args)
+                return (loss, *aux, *grads)
+            return unwrap_outputs
+        else:
+            @wraps(f)
+            def nonaux_f(*args):
+                result = f(*args)
+                return result[0] if isinstance(result, (tuple, list)) else result
+            return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
+
+    def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         jax_fun = jax.custom_jvp(f)
         @jax_fun.defjvp
         def jax_grad(primals, tangents):
@@ -101,10 +129,12 @@ class JaxBackend(Backend):
         return jnp.nan_to_num(x / y, copy=True, nan=0)
 
     def random_uniform(self, shape):
+        self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
         return random.uniform(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
     def random_normal(self, shape):
+        self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
         return random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
@@ -125,6 +155,7 @@ class JaxBackend(Backend):
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         assert mode in ('constant', 'symmetric', 'periodic', 'reflect', 'boundary'), mode
         if mode == 'constant':
+            constant_values = jnp.array(constant_values, dtype=value.dtype)
             return jnp.pad(value, pad_width, 'constant', constant_values=constant_values)
         else:
             if mode in ('periodic', 'boundary'):
@@ -155,28 +186,26 @@ class JaxBackend(Backend):
     def nonzero(self, values):
         return jnp.argwhere(values)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        result = func(*inputs)
-        assert result.dtype == Tout, "returned value has wrong type: {}, expected {}".format(result.dtype, Tout)
-        assert result.shape == shape_out, "returned value has wrong shape: {}, expected {}".format(result.shape, shape_out)
-        return result
-
     def zeros(self, shape, dtype: DType = None):
+        self._check_float64()
         return jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def zeros_like(self, tensor):
         return jnp.zeros_like(tensor)
 
     def ones(self, shape, dtype: DType = None):
+        self._check_float64()
         return jnp.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def ones_like(self, tensor):
         return jnp.ones_like(tensor)
 
     def meshgrid(self, *coordinates):
+        self._check_float64()
         return jnp.meshgrid(*coordinates, indexing='ij')
 
     def linspace(self, start, stop, number):
+        self._check_float64()
         return jnp.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type))
 
     def mean(self, value, axis=None, keepdims=False):
@@ -284,32 +313,15 @@ class JaxBackend(Backend):
         #         values = values.tocsc()
         return values[indices]
 
-    def gather_nd(self, values, indices, batch_dims=0):
-        assert indices.shape[-1] == self.ndims(values) - batch_dims - 1
-        if batch_dims == 0:
-            indices_list = self.unstack(indices, axis=-1)
-            result = values[indices_list]
-            return result
-        for dim in range(batch_dims):
-            assert indices.shape[dim] == values.shape[dim] or values.shape[dim] == 1 or indices.shape[dim] == 1, 'Batch dimension %d does not match: %s (values) and %s (indices)' % (dim, values.shape, indices.shape)
-        values_batch_max = jnp.array(values.shape[:batch_dims]) - 1
-        indices_batch_max = jnp.array(indices.shape[:batch_dims]) - 1
-
-        def inner_gather_nd(*pos):
-            batch_idx_values = tuple([jnp.minimum(pos[i], values_batch_max[i]) for i in range(len(pos))])
-            values_batch = values[batch_idx_values]
-            batch_idx_indices = tuple([jnp.minimum(pos[i], indices_batch_max[i]) for i in range(len(pos))])
-            indices_batch = indices[batch_idx_indices]
-            result = values_batch[self.unstack(indices_batch, axis=-1)]
-            return result
-        # --- Iterate over batch dimensions ---
-        batch_pos = jnp.meshgrid(*[range(dim) for dim in indices.shape[:batch_dims]], indexing='ij')
-        batch_pos = jnp.stack(batch_pos, axis=-1).reshape([-1, batch_dims])
-        result = jnp.empty(indices.shape[:-1] + (values.shape[-1],), values.dtype)
-        for i in range(batch_pos.shape[0]):
-            gathered = inner_gather_nd(*batch_pos[i])
-            result[tuple(batch_pos[i])] = gathered
-        return result
+    def batched_gather_nd(self, values, indices):
+        assert indices.shape[-1] == self.ndims(values) - 2
+        batch_size = combined_dim(values.shape[0], indices.shape[0])
+        results = []
+        for b in range(batch_size):
+            b_values = values[min(b, values.shape[0] - 1)]
+            b_indices = self.unstack(indices[min(b, indices.shape[0] - 1)], -1)
+            results.append(b_values[b_indices])
+        return jnp.stack(results)
 
     def std(self, x, axis=None, keepdims=False):
         return jnp.std(x, axis, keepdims=keepdims)
@@ -414,7 +426,7 @@ class JaxBackend(Backend):
         # else:
         #     raise NotImplementedError("Only sparse tensors supported.")
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), gradient: str = 'implicit', callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)

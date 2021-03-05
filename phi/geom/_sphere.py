@@ -3,7 +3,7 @@ from typing import Dict
 from phi import math, struct
 
 from ._geom import Geometry, _fill_spatial_with_singleton
-from ..math import tensor
+from ..math import wrap
 
 
 class Sphere(Geometry):
@@ -18,8 +18,8 @@ class Sphere(Geometry):
     """
 
     def __init__(self, center, radius):
-        self._center = tensor(center)
-        self._radius = tensor(radius)
+        self._center = wrap(center)
+        self._radius = wrap(radius)
         self._shape = _fill_spatial_with_singleton(self._center.shape & self._radius.shape)
 
     @property
@@ -51,7 +51,7 @@ class Sphere(Geometry):
 
         """
         distance_squared = math.vec_squared(location - self.center)
-        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite gradient at sphere center
+        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
         distance = math.sqrt(distance_squared)
         return distance - self.radius
 

@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import tensor, extrapolation, Tensor, PI
+from phi.math import wrap, extrapolation, Tensor, PI, tensor
 
 import numpy as np
 import os
@@ -27,7 +27,7 @@ class TestMathNDNumpy(TestCase):
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             scalar_grad = math.gradient(ones, dx=0.1, **case_dict)
             math.assert_close(scalar_grad, 0)
-            self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'gradient'))
+            self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'spatial_gradient'))
             ref_shape = (2, 4, 3, 2) if case_dict['padding'] is not None else ((2, 2, 1, 2) if case_dict['difference'] == 'central' else (2, 3, 2, 2))
             self.assertEqual(scalar_grad.shape.sizes, ref_shape)
 
@@ -40,12 +40,12 @@ class TestMathNDNumpy(TestCase):
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             grad = math.gradient(meshgrid, **case_dict)
             inner = grad.x[1:-1].y[1:-1]
-            math.assert_close(inner.gradient[0].vector[1], 0)
-            math.assert_close(inner.gradient[1].vector[0], 0)
-            math.assert_close(inner.gradient[0].vector[0], 1 / case_dict['dx'])
-            math.assert_close(inner.gradient[1].vector[1], 1 / case_dict['dx'])
+            math.assert_close(inner.spatial_gradient[0].vector[1], 0)
+            math.assert_close(inner.spatial_gradient[1].vector[0], 0)
+            math.assert_close(inner.spatial_gradient[0].vector[0], 1 / case_dict['dx'])
+            math.assert_close(inner.spatial_gradient[1].vector[1], 1 / case_dict['dx'])
             self.assertEqual(grad.shape.vector, 2)
-            self.assertEqual(grad.shape.gradient, 2)
+            self.assertEqual(grad.shape.spatial_gradient, 2)
             ref_shape = (4, 3) if case_dict['padding'] is not None else ((2, 1) if case_dict['difference'] == 'central' else (3, 2))
             self.assertEqual((grad.shape.x, grad.shape.y), ref_shape)
 
@@ -64,8 +64,8 @@ class TestMathNDNumpy(TestCase):
         half_size = math.downsample2x(meshgrid, extrapolation.BOUNDARY)
         math.print(meshgrid, 'Full size')
         math.print(half_size, 'Half size')
-        math.assert_close(half_size.vector[0], tensor([[0.5, 2.5], [0.5, 2.5]], names='y,x'))
-        math.assert_close(half_size.vector[1], tensor([[-0.5, -0.5], [-2, -2]], names='y,x'))
+        math.assert_close(half_size.vector[0], wrap([[0.5, 2.5], [0.5, 2.5]], names='y,x'))
+        math.assert_close(half_size.vector[1], wrap([[-0.5, -0.5], [-2, -2]], names='y,x'))
 
     def test_upsample2x(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1, -2))
@@ -78,20 +78,20 @@ class TestMathNDNumpy(TestCase):
 
     def test_extrapolate_valid(self):
         valid = tensor([[0, 0, 0],
-                        [0, 1, 1],
-                        [1, 0, 0]], 'x, y')
+                      [0, 1, 1],
+                      [1, 0, 0]], 'x, y')
 
         values = tensor([[1, 0, 0],
-                        [0, 4, 0],
-                        [2, 0, 0]], 'x, y')
+                       [0, 4, 0],
+                       [2, 0, 0]], 'x, y')
 
         expected_valid = tensor([[0, 1, 1],
-                                 [1, 1, 1],
-                                 [1, 1, 1]], 'x, y')
+                               [1, 1, 1],
+                               [1, 1, 1]], 'x, y')
 
         expected_values = tensor([[1, 4, 0],
-                                  [3, 4, 0],
-                                  [2, 3, 0]], 'x, y')
+                                [3, 4, 0],
+                                [2, 3, 0]], 'x, y')
 
         new_values, new_valid = math.extrapolate_valid_values(values, valid, 1)
         self.assertTrue(new_values == expected_values)

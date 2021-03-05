@@ -2,7 +2,8 @@ import numbers
 import time
 import warnings
 from contextlib import contextmanager
-from typing import Tuple, List
+from functools import wraps
+from typing import Tuple, List, Callable
 
 import numpy as np
 
@@ -11,7 +12,7 @@ import torch.fft
 import torch.nn.functional as torchf
 
 from phi.math import LinearSolve
-from phi.math.backend import Backend, DType, SCIPY_BACKEND, ComputeDevice
+from phi.math.backend import Backend, DType, NUMPY_BACKEND, ComputeDevice
 from phi.math.backend._backend_helper import combined_dim
 from phi.math.backend._optim import SolveResult
 
@@ -19,24 +20,27 @@ from phi.math.backend._optim import SolveResult
 class TorchBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, 'PyTorch')
+        self.cpu = ComputeDevice(self, "CPU", 'CPU', -1, -1, "", ref='cpu')
+        Backend.__init__(self, 'PyTorch', default_device=self.cpu)
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         devices = []
         if device_type in (None, 'CPU'):
-            devices.extend(SCIPY_BACKEND.list_devices(device_type='CPU'))
+            devices.append(self.cpu)
         if device_type in (None, 'GPU'):
             for index in range(torch.cuda.device_count()):
                 properties = torch.cuda.get_device_properties(index)
-                devices.append(ComputeDevice(properties.name,
-                                          'GPU',
-                                          properties.total_memory,
-                                          properties.multi_processor_count,
-                                          f"major={properties.major}, minor={properties.minor}"))
+                devices.append(ComputeDevice(self,
+                                             properties.name,
+                                             'GPU',
+                                             properties.total_memory,
+                                             properties.multi_processor_count,
+                                             f"compute capability {properties.major}.{properties.minor}",
+                                             ref=f'cuda:{index}'))
         return devices
 
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, torch.Tensor):
+        if isinstance(x, (torch.Tensor, JITFunction)):
             return True
         if only_native:
             return False
@@ -52,15 +56,19 @@ class TorchBackend(Backend):
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
-            tensor = torch.from_numpy(SCIPY_BACKEND.as_tensor(x))
+            try:
+                tensor = torch.from_numpy(x)
+            except ValueError:
+                tensor = torch.from_numpy(x.copy())
+            tensor = tensor.to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
             try:
-                tensor = torch.tensor(x)
+                tensor = torch.tensor(x, device=self.get_default_device().ref)
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
                 tensor = torch.stack(components, dim=0)
         else:
-            tensor = torch.tensor(x)
+            tensor = torch.tensor(x, device=self.get_default_device().ref)
         # --- Enforce Precision ---
         if self.is_tensor(tensor, only_native=True):
             if tensor.dtype.is_floating_point:
@@ -72,29 +80,17 @@ class TorchBackend(Backend):
 
     def numpy(self, tensor):
         if tensor.requires_grad:
-            return tensor.detach().numpy()
+            return tensor.detach().cpu().numpy()
         else:
-            return tensor.numpy()
+            return tensor.cpu().numpy()
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
 
-    def trace_function(self, f: callable) -> callable:
-        class JITFunction:
+    def jit_compile(self, f: Callable) -> Callable:
+        return JITFunction(f)
 
-            def __init__(self):
-                self.traced = None
-
-            def __call__(self, *args, **kwargs):
-                if kwargs:
-                    raise NotImplementedError("kwargs not supported for traced function")
-                if self.traced is None:
-                    self.traced = torch.jit.trace(f, example_inputs=args)
-                return self.traced(*args)
-
-        return JITFunction()
-
-    def custom_gradient(self, f: callable, gradient: callable = None) -> callable:
+    def custom_gradient(self, f: Callable, spatial_gradient: Callable = None) -> Callable:
         class TorchFunction(torch.autograd.Function):
 
             @staticmethod
@@ -114,10 +110,10 @@ class TorchBackend(Backend):
         return x == y
 
     def random_uniform(self, shape):
-        return torch.rand(size=shape, dtype=to_torch_dtype(self.float_type))
+        return torch.rand(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def random_normal(self, shape):
-        return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type))
+        return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def stack(self, values, axis=0):
         return torch.stack(values, dim=axis)
@@ -170,13 +166,18 @@ class TorchBackend(Backend):
     def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
         assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
         extrapolation = {'undefined': 'zeros', 'zeros': 'zeros', 'boundary': 'border', 'reflect': 'reflection'}.get(extrapolation, None)
-        if not extrapolation:
+        if extrapolation is None:
             return NotImplemented
         grid = channels_first(self.as_tensor(grid))
         coordinates = self.as_tensor(coordinates)
-        resolution = torch.Tensor(self.staticshape(grid)[2:])
+        if coordinates.shape[0] != grid.shape[0]:  # repeating yields wrong result
+            return NotImplemented
+        resolution = torch.tensor(self.staticshape(grid)[2:], dtype=coordinates.dtype, device=coordinates.device)
         coordinates = 2 * coordinates / (resolution - 1) - 1
         coordinates = torch.flip(coordinates, dims=[-1])
+        batch_size = combined_dim(coordinates.shape[0], grid.shape[0])
+        coordinates = coordinates.repeat(batch_size, *[1] * (len(coordinates.shape-1))) if coordinates.shape[0] < batch_size else coordinates
+        grid = grid.repeat(batch_size, *[1] * (len(grid.shape)-1)) if grid.shape[0] < batch_size else grid
         result = torchf.grid_sample(grid, coordinates, mode='bilinear', padding_mode=extrapolation, align_corners=True)  # can cause segmentation violation if NaN or inf are present
         result = channels_last(result)
         return result
@@ -238,9 +239,6 @@ class TorchBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return torch.mean(value, dim=axis, keepdim=keepdims)
 
-    def py_func(self, func, inputs, Tout, shape_out, stateful=True, name=None, grad=None):
-        raise NotImplementedError()
-
     def range(self, start, limit=None, delta=1, dtype: DType = None):
         if limit is None:
             start, limit = 0, start
@@ -249,32 +247,32 @@ class TorchBackend(Backend):
         return torch.arange(start, limit, delta, dtype=to_torch_dtype(dtype))
 
     def zeros(self, shape, dtype=None):
-        return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type))
+        return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def zeros_like(self, tensor):
-        return torch.zeros_like(tensor)
+        return torch.zeros_like(tensor, device=self.get_default_device().ref)
 
     def ones(self, shape, dtype: DType = None):
-        return torch.ones(shape, dtype=to_torch_dtype(dtype or self.float_type))
+        return torch.ones(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def ones_like(self, tensor):
-        return torch.ones_like(tensor)
+        return torch.ones_like(tensor, device=self.get_default_device().ref)
 
     def meshgrid(self, *coordinates):
         coordinates = [self.as_tensor(c) for c in coordinates]
         return torch.meshgrid(coordinates)
 
     def linspace(self, start, stop, number):
-        return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type))
+        return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def dot(self, a, b, axes):
         return torch.tensordot(a, b, axes)
 
     def matmul(self, A, b):
-        if isinstance(A, torch.sparse.FloatTensor):
+        if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
-        raise NotImplementedError()
+        raise NotImplementedError(type(A), type(b))
 
     def einsum(self, equation, *tensors):
         return torch.einsum(equation, *tensors)
@@ -387,22 +385,15 @@ class TorchBackend(Backend):
         # return torch.gather(values, dim=0, index=indices)
         raise NotImplementedError()
 
-    def gather_nd(self, values, indices, batch_dims=0):
+    def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
         indices = self.as_tensor(indices).long()
-        if batch_dims == 0:
-            dim_indices = self.unstack(indices, axis=-1)
-            result = values[list(dim_indices)]
-        elif batch_dims == 1:
-            batch_size = combined_dim(values.shape[0], indices.shape[0])
-            result = []
-            for i in range(batch_size):
-                dim_indices = self.unstack(indices[i], axis=-1)
-                result.append(values[[i] + list(dim_indices)])
-            result = self.stack(result, axis=0)
-        else:
-            raise NotImplementedError("Only batch_dims <= 1 are supported.")
-        return result
+        batch_size = combined_dim(values.shape[0], indices.shape[0])
+        result = []
+        for b in range(batch_size):
+            b_indices = self.unstack(indices[min(b, indices.shape[0] - 1)], -1)
+            result.append(values[(min(b, values.shape[0] - 1),) + b_indices])
+        return self.stack(result, axis=0)
 
     def unstack(self, tensor, axis=0, keepdims=False):
         unstacked = torch.unbind(tensor, dim=axis)
@@ -480,7 +471,7 @@ class TorchBackend(Backend):
         if self.is_tensor(array, only_native=True):
             return from_torch_dtype(array.dtype)
         else:
-            return SCIPY_BACKEND.dtype(array)
+            return NUMPY_BACKEND.dtype(array)
 
     def tile(self, value, multiples):
         if isinstance(multiples, np.ndarray):
@@ -488,15 +479,12 @@ class TorchBackend(Backend):
         return self.as_tensor(value).repeat(multiples)
 
     def sparse_tensor(self, indices, values, shape):
-        indices_ = torch.LongTensor(indices)
-        values_ = torch.FloatTensor(values)
-        result = torch.sparse.FloatTensor(indices_, values_, shape)
+        indices_ = self.to_int(indices, int64=True)
+        values_ = self.to_float(values)
+        result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
 
-    def conjugate_gradient(self, A, y, x0,
-                           solve_params=LinearSolve(),
-                           gradient: str = 'implicit',
-                           callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
         if callable(A):
             function = A
         else:
@@ -543,13 +531,28 @@ class TorchBackend(Backend):
 
             @staticmethod
             def backward(ctx, dX):
-                if gradient == 'implicit':
-                    return cg_forward(dX, torch.zeros_like(x0), solve_params.gradient_solve)
-                else:
-                    raise NotImplementedError(f"gradient={gradient}")
+                return cg_forward(dX, torch.zeros_like(x0), solve_params.gradient_solve)
 
         result = CGVariant.apply(y)
         return result
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+        @wraps(f)
+        def eval_grad(*args):
+            args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
+            wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
+            for arg in wrt_args:
+                arg.requires_grad = True
+            output = f(*args)
+            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+            grads = torch.autograd.grad(loss, wrt_args)
+            if get_output:
+                loss = loss.detach()
+                aux = [aux_.detach() for aux_ in aux]
+                return (loss, *aux, *grads)
+            else:
+                return grads
+        return eval_grad
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         grad = torch.autograd.grad(y, xs, grad_y)
@@ -573,7 +576,6 @@ class TorchBackend(Backend):
         return value.detach()
 
 
-
 TORCH_BACKEND = TorchBackend()
 
 
@@ -583,6 +585,21 @@ def channels_first(x):
 
 def channels_last(x):
     return x.permute((0,) + tuple(range(2, len(x.shape))) + (1,))
+
+
+class JITFunction:
+
+    def __init__(self, f):
+        self.f = f
+        self.traced = None
+
+    def __call__(self, *args, **kwargs):
+        if kwargs:
+            raise NotImplementedError("kwargs not supported for traced function")
+        if self.traced is None:
+            self.traced = torch.jit.trace(self.f, example_inputs=args, check_trace=False)
+        from phi.math.backend import choose_backend
+        return choose_backend(self).call(self.traced, *args, name=f'jit')
 
 
 def to_torch_dtype(dtype: DType):

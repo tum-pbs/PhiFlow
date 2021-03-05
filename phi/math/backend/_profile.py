@@ -3,7 +3,7 @@ import json
 import sys
 from contextlib import contextmanager
 from time import perf_counter
-from typing import Optional
+from typing import Optional, Callable
 
 from ._backend import Backend, BACKENDS, _DEFAULT
 from ._dtype import DType
@@ -401,7 +401,6 @@ class ProfilingBackend:
         self.name = backend.name
         self.combine_types = backend.combine_types
         self.auto_cast = backend.auto_cast
-        self.matches_name = backend.matches_name
         self.is_tensor = backend.is_tensor
         self.is_available = backend.is_available
         self.shape = backend.shape
@@ -458,7 +457,7 @@ def profile(backends=None, trace=True, subtract_trace_time=True, save: str or No
             prof.save(save)
 
 
-def profile_function(fun: callable,
+def profile_function(fun: Callable,
                      args: tuple or list = (),
                      kwargs: dict or None = None,
                      backends=None,

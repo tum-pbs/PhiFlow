@@ -49,7 +49,7 @@ This is a simple way of ensuring the fluid is incompressible as advection on a d
 This operation works best with [staggered grids](Staggered_Grids.md) as they allow for an exact computation of the divergence.
 
 The function `fluid.make_incompressible(velocity, domain, obstacles, solve_params, pressure_guess)` solves a linear system of equations to compute the pressure.
-It then subtracts the pressure gradient from the velocity to obtain a divergence-free field.
+It then subtracts the pressure spatial_gradient from the velocity to obtain a divergence-free field.
 In addition to the divergence-free velocity, it returns the computed pressure, the number of solve iterations and the initial divergence.
 
 This operator has no equivalent for Lagrangian simulations.

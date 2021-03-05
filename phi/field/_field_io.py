@@ -92,8 +92,8 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
         data = NativeTensor(data, math.Shape(data.shape, stored['dim_names'], stored['dim_types']))
         if convert_to_backend:
             data = math.tensor(data, convert=convert_to_backend)
-        lower = math.tensor(stored['lower'])
-        upper = math.tensor(stored['upper'])
+        lower = math.wrap(stored['lower'])
+        upper = math.wrap(stored['upper'])
         extrapolation = math.extrapolation.from_dict(stored['extrapolation'][()])
         if ftype == 'CenteredGrid':
             return CenteredGrid(data, geom.Box(lower, upper), extrapolation)

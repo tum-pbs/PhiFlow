@@ -1,12 +1,14 @@
 import inspect
 import os
-from threading import Thread, Lock, Event
+from contextlib import contextmanager
+from threading import Thread, Event
 
 from phi.field import Field
 from phi.math import Tensor
 
 from ._app import App
 from ._display import show
+from . import _display
 
 
 class ModuleViewer(App):
@@ -52,17 +54,24 @@ class ModuleViewer(App):
         App.__init__(self, name, subtitle, fields=None, stride=stride, base_dir=base_dir, summary=summary, custom_properties=custom_properties, target_scene=target_scene, objects_to_save=objects_to_save, framerate=framerate, dt=dt)
         if fields is None:
             for name in dir(module):
-                val = getattr(module, name)
-                if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank > 0):
-                    self.add_field(name, lambda name=name: getattr(module, name))
+                if not name.startswith('_'):
+                    val = getattr(module, name)
+                    if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank > 0):
+                        self.add_field(name, lambda name=name: getattr(module, name))
         else:
             for name in fields:
                 self.add_field(name, lambda name=name: getattr(module, name))
         self.step_exec_event = Event()
         self.step_finished_event = Event()
-        Thread(target=lambda: show(self, **show_config)).start()
+        self._interrupt = False
 
-    def range(self, *args):
+        def async_show():
+            show(self, **show_config)
+
+        self._display_thread = Thread(target=async_show, name="ModuleViewer_show", daemon=not _display.KEEP_ALIVE)
+        self._display_thread.start()
+
+    def range(self, *args, warmup=0):
         """
         Similar to `range()`, returns a generator that can be used in a `for` loop.
 
@@ -86,12 +95,13 @@ class ModuleViewer(App):
         Returns:
             generator yielding `ModuleViewer.step`
         """
+        for _ in range(warmup):
+            yield self.steps
+
         if len(args) == 0:
             while True:
-                self.step_exec_event.wait()
-                yield self.steps
-                self.step_exec_event.clear()
-                self.step_finished_event.set()
+                with self._perform_step_context():
+                    yield self.steps
         elif len(args) == 1:
             for _ in range(args[0]):
                 self.step_exec_event.wait()
@@ -108,6 +118,19 @@ class ModuleViewer(App):
         else:
             raise ValueError(args)
 
+    @contextmanager
+    def _perform_step_context(self):
+        self.step_exec_event.wait()
+        if self._interrupt:
+            raise InterruptedError()
+        try:
+            yield None
+        finally:
+            if self._interrupt:
+                raise InterruptedError()
+            self.step_exec_event.clear()
+            self.step_finished_event.set()
+
     def step(self):
         """
         Allows the generator returned by `ModuleViewer.range()` to advance one element.
@@ -116,4 +139,7 @@ class ModuleViewer(App):
         self.step_finished_event.clear()
         self.step_exec_event.set()
         self.step_finished_event.wait()
+
+    def interrupt(self):
+        self._interrupt = True
 

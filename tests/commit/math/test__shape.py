@@ -45,3 +45,6 @@ class TestShape(TestCase):
         self.assertEqual(shape(batch=10), s[[0]])
         self.assertEqual(shape(x=4, y=3), s[1:3])
 
+    def test_after_gather(self):
+        self.assertEqual(shape(x=2), shape(x=3).after_gather({'x': slice(None, None, 2)}))
+

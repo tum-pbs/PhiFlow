@@ -11,7 +11,7 @@ from .extrapolation import Extrapolation
 from ._functions import channel_stack
 from ._shape import Shape
 from ._tensors import Tensor
-from ._tensors import tensor
+from ._tensors import wrap
 
 
 def spatial_sum(value: Tensor):
@@ -63,57 +63,28 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(tensor: Tensor, batch_norm=True, reduce_batches=True):
-    """
-    get L1 loss
-
-    Args:
-      tensor: Tensor: 
-      batch_norm:  (Default value = True)
-      reduce_batches:  (Default value = True)
-
-    Returns:
-
-    """
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(l1_loss(tensor, batch_norm, reduce_batches) for tensor in all_tensors)
-    if reduce_batches:
-        total_loss = math.sum_(math.abs(tensor))
-    else:
-        total_loss = math.sum_(math.abs(tensor), dim=list(range(1, len(tensor.shape))))
-    if batch_norm and reduce_batches:
-        batch_size = tensor.shape.sizes[0]
-        return math.divide_no_nan(total_loss, math.to_float(batch_size))
-    else:
-        return total_loss
+def l1_loss(tensor: Tensor, batch_norm=True) -> Tensor:
+    """ Computes L1 loss. See `l_n_loss()` """
+    return l_n_loss(tensor, 1, batch_norm=batch_norm)
 
 
-def l2_loss(tensor: Tensor, batch_norm=True):
-    """
-    get L2 loss
-
-    Args:
-      tensor: Tensor: 
-      batch_norm:  (Default value = True)
-
-    Returns:
-
-    """
+def l2_loss(tensor: Tensor, batch_norm=True) -> Tensor:
+    """ Computes L2 loss. See `l_n_loss()` """
     return l_n_loss(tensor, 2, batch_norm=batch_norm)
 
 
-def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
+def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -> Tensor:
     """
-    get Ln loss
+    Computes the vector norm of a tensor.
+    This is defined as *sum x**n / n*.
 
     Args:
-      tensor: Tensor: 
-      n: int: 
-      batch_norm:  (Default value = True)
+      tensor: Loss values.
+      n: norm order, 1 for L1 loss, 2 for L2 loss.
+      batch_norm:  Whether to divide by the batch size.
 
     Returns:
-
+        Scalar float `Tensor`
     """
     assert isinstance(tensor, Tensor), f"Must be a Tensor but got {type(tensor).__name__}"
     total_loss = math.sum_(tensor ** n) / n
@@ -124,12 +95,12 @@ def l_n_loss(tensor: Tensor, n: int, batch_norm=True):
         return total_loss
 
 
-def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
+def frequency_loss(tensor, frequency_falloff=100, batch_norm=True):
     """
     Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
 
     Args:
-      reduce_batches: whether to reduce the batch dimension of the loss by adding the losses along the first dimension (Default value = True)
+      batch_norm: Whether to divide by the batch size.
       tensor: typically actual - target
       frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)
 
@@ -137,13 +108,10 @@ def frequency_loss(tensor, frequency_falloff=100, reduce_batches=True):
       scalar loss value
 
     """
-    if struct.isstruct(tensor):
-        all_tensors = struct.flatten(tensor)
-        return sum(frequency_loss(tensor, frequency_falloff, reduce_batches) for tensor in all_tensors)
     diff_fft = abs_square(math.fft(tensor))
     k_squared = math.sum_(math.fftfreq(tensor.shape[1:-1]) ** 2, 'vector')
     weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    return l1_loss(diff_fft * weights, reduce_batches=reduce_batches)
+    return l1_loss(diff_fft * weights, batch_norm=batch_norm)
 
 
 def abs_square(complex):
@@ -220,7 +188,7 @@ def shift(x: Tensor,
     """
     if stack_dim is None:
         assert len(dims) == 1
-    x = tensor(x)
+    x = wrap(x)
     dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
@@ -276,10 +244,10 @@ def gradient(grid: Tensor,
              difference: str = 'central',
              padding: Extrapolation or None = extrapolation.BOUNDARY,
              dims: tuple or None = None,
-             stack_dim: str = 'gradient'):
+             stack_dim: str = 'spatial_gradient'):
     """
-    Calculates the gradient of a scalar channel from finite differences.
-    The gradient vectors are in reverse order, lowest dimension first.
+    Calculates the spatial_gradient of a scalar channel from finite differences.
+    The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
       grid: grid values
@@ -287,19 +255,19 @@ def gradient(grid: Tensor,
       dx: physical distance between grid points (default 1)
       difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
       padding: tensor padding mode
-      stack_dim: name of the new vector dimension listing the gradient w.r.t. the various axes
+      stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
       grid: Tensor: 
       dx: float or int:  (Default value = 1)
       difference: str:  (Default value = 'central')
       padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
       dims: tuple or None:  (Default value = None)
-      stack_dim: str:  (Default value = 'gradient')
+      stack_dim: str:  (Default value = 'spatial_gradient')
 
     Returns:
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)
 
     """
-    grid = tensor(grid)
+    grid = wrap(grid)
     if difference.lower() == 'central':
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
@@ -338,10 +306,10 @@ def laplace(x: Tensor,
 
     """
     if not isinstance(dx, (int, float)):
-        dx = tensor(dx, names='_laplace')
+        dx = wrap(dx, names='_laplace')
     if isinstance(x, Extrapolation):
-        return x.gradient()
-    left, center, right = shift(tensor(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
+        return x.spatial_gradient()
+    left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, '_laplace')
     return result
@@ -374,7 +342,7 @@ def fourier_laplace(grid: Tensor,
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
     fft_laplace = -(2 * np.pi)**2 * k_squared
     result = math.real(math.ifft(frequencies * fft_laplace ** times))
-    return math.cast(result / tensor(dx) ** 2, grid.dtype)
+    return math.cast(result / wrap(dx) ** 2, grid.dtype)
 
 
 def fourier_poisson(grid: Tensor,
@@ -396,7 +364,7 @@ def fourier_poisson(grid: Tensor,
     fft_laplace = -(2 * np.pi)**2 * k_squared
     # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
     result = math.real(math.ifft(math.divide_no_nan(frequencies, math.to_complex(fft_laplace ** times))))
-    return math.cast(result * tensor(dx) ** 2, grid.dtype)
+    return math.cast(result * wrap(dx) ** 2, grid.dtype)
 
 
 # Downsample / Upsample

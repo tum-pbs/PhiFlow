@@ -33,7 +33,7 @@ Only differing names are listed here.
 |-----------------------------|----------------------------------------|
 | `GradientTape()`            | `record_gradients()`                   |
 | `class dtype`               | `class DType`              |
-| `@function`                 | `trace_function`                   |
+| `@function`                 | `@jit_compile`                |
 | `tile(t, reps)`             | `expand(t, dim, size)`     |
 | `reshape(t, s)`             | `join_dimensions(t, dims, dim)`, `split_dimension(t.dim, dims)`     |
 | `device_lib.list_local_devices()` | `TF_BACKEND.list_devices()`     |
@@ -53,7 +53,7 @@ Only differing names are listed here.
 | `t.detach()`                | `stop_gradient(t)`                     |
 | `unsqueeze(t)`              | `expand_batch(t)`, `expand_spatial(t)`, `expand_spatial(t)` |
 | `t.backward()`              | `gradients(t)` |
-| `jit.trace(f)`              | `trace_function(f)` |
+| `jit.trace(f)`              | `jit_compile(f)` |
 | `t.repeat(sizes)`           | `expand(t, dim, size)`     |
 | `reshape(t, s)`             | `join_dimensions(t, dims, dim)`, `split_dimension(t.dim, dims)`     |
 | `cuda.device_count()` <br /> `cuda.get_device_properties()`  | `TORCH_BACKEND.list_devices()`     |
@@ -71,6 +71,7 @@ Most Jax functions are named after their NumPy counterparts. Please refer to the
 
 | Jax                         | Φ<sub>Flow</sub>               |
 |-----------------------------|----------------------------------------|
-| `jit(f)`                    | `trace_function(f)`              |
+| `jit(f)`                    | `jit_compile(f)`              |
+| `grad(f)`                   | `functional_gradient(f)`     |
 | `devices()`                 | `JAX_BACKEND.list_devices()`     |
 

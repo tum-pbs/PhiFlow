@@ -19,7 +19,7 @@ try:
 except (RuntimeError, AssertionError) as e:
     librariesLoaded = False
 
-# Register gradient
+# Register spatial_gradient
 
 
 @ops.RegisterGradient("Resample")

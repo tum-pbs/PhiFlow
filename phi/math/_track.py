@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
@@ -176,8 +176,8 @@ class ShiftLinOp(Tensor):
         return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), zeros_for_missing_self=False)
 
     def _op2(self, other: Tensor,
-             operator: callable,
-             native_function: callable,
+             operator: Callable,
+             native_function: Callable,
              zeros_for_missing_self=True,
              zeros_for_missing_other=True) -> 'ShiftLinOp':
         """
@@ -219,9 +219,9 @@ class ShiftLinOp(Tensor):
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         raise NotImplementedError()

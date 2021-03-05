@@ -85,8 +85,3 @@ If they are already sampled at the same elements, the above operations simply re
 
 Note that `at()` is based on the volume sampling method `sample_in()`.
 To sample at the center points, use `field1.sample_at(field2.points)`.
-
-
-## Class Diagram
-
-![alt text](./figures/classes_phi.field.svg)

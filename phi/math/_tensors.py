@@ -1,6 +1,6 @@
 import numbers
 import warnings
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
@@ -19,7 +19,7 @@ class Tensor:
 
     To check whether a value is a tensor, use `isinstance(value, Tensor)`.
 
-    To construct a Tensor, use `tensor()` or one of the basic tensor creation functions,
+    To construct a Tensor, use `phi.math.tensor()`, `phi.math.wrap()` or one of the basic tensor creation functions,
     see https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation .
 
     Tensors are not editable.
@@ -79,6 +79,10 @@ class Tensor:
         raise NotImplementedError()
 
     def _with_shape_replaced(self, new_shape):
+        raise NotImplementedError()
+
+    def _with_natives_replaced(self, natives: list):
+        """ Replaces all n _natives() of this Tensor with the first n elements of the list and removes them from the list. """
         raise NotImplementedError()
 
     @property
@@ -350,7 +354,7 @@ class Tensor:
         elif isinstance(other, Shape):
             assert self.shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
             assert other.rank == self.shape.channel.volume
-            return tensor(other.spatial.sizes, names=self.shape.channel.names)
+            return wrap(other.spatial.sizes, names=self.shape.channel.names)
         else:
             backend = choose_backend(other)
             try:
@@ -363,7 +367,7 @@ class Tensor:
             elif len(shape) == self.rank:
                 return NativeTensor(other_tensor, self.shape.with_sizes(shape))
             elif len(shape) == self.shape.channel.rank:
-                other_tensor = tensor(other, names=self.shape.channel.names)
+                other_tensor = wrap(other, names=self.shape.channel.names)
                 return other_tensor
             elif len(shape) == 1 and self.shape.channel.rank == 0:
                 return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
@@ -382,7 +386,7 @@ class Tensor:
         """
         raise NotImplementedError(self.__class__)
 
-    def _op2(self, other: 'Tensor', operator: callable, native_function: callable) -> 'Tensor':
+    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable) -> 'Tensor':
         """
         Apply a broadcast operation on two tensors.
 
@@ -391,8 +395,8 @@ class Tensor:
           operator: function (Tensor, Tensor) -> Tensor, used to propagate the operation to children tensors to have Python choose the callee
           native_function: function (native tensor, native tensor) -> native tensor
           other: 'Tensor': 
-          operator: callable: 
-          native_function: callable: 
+          operator: Callable:
+          native_function: Callable:
 
         Returns:
 
@@ -408,9 +412,9 @@ class Tensor:
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         raise NotImplementedError(self.__class__)
 
     def __simplify__(self):
@@ -440,6 +444,9 @@ class TensorDim:
     def __str__(self):
         """ Dimension name. """
         return self.name
+
+    def __repr__(self):
+        return f"Dimension '{self.name}' of {self.tensor.shape}"
 
     def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -> tuple:
         """
@@ -636,6 +643,11 @@ class NativeTensor(Tensor):
         new_shape = Shape(self._shape.sizes, new_shape.names, new_shape.types)
         return NativeTensor(self._native, new_shape)
 
+    def _with_natives_replaced(self, natives: list):
+        native = natives.pop(0)
+        new_shape = self._shape.with_sizes(choose_backend(native).shape(native))
+        return NativeTensor(native, new_shape)
+
     @property
     def _is_special(self) -> bool:
         return False
@@ -687,9 +699,9 @@ class NativeTensor(Tensor):
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         backend = choose_backend(self._native)
@@ -779,9 +791,13 @@ class CollapsedTensor(Tensor):  # package-private
             return (CollapsedTensor(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
 
     def _with_shape_replaced(self, new_shape):
-        result = CollapsedTensor(self._inner, new_shape)
-        result._cached = self._cached
-        return result
+        if self.is_cached:
+            return self._cached._with_natives_replaced(new_shape)
+        else:
+            replacement = {old: new for old, new in zip(self._shape.names, new_shape.names)}
+            inner_shape = self._inner.shape.with_names([replacement[old] for old in self._inner.shape.names])
+            result = CollapsedTensor(self._inner._with_shape_replaced(inner_shape), new_shape)
+            return result
 
     @property
     def _is_special(self) -> bool:
@@ -840,14 +856,18 @@ class CollapsedTensor(Tensor):  # package-private
         else:
             return self._inner._natives()
 
+    def _with_natives_replaced(self, natives: list):
+        assert self.is_cached, "Cannot replace natives in uncached state. Expand tensor beforehand."
+        return self._cached._with_natives_replaced(natives)
+
     def _expand(self):
         return self._cache()
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         if self.is_cached:
             return self._cached.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
         if all(dim not in self._shape for dim in dims):
@@ -986,15 +1006,19 @@ class TensorStack(Tensor):
     def _natives(self) -> tuple:
         return sum([t._natives() for t in self.tensors], ())
 
+    def _with_natives_replaced(self, natives: list):
+        tensors = [t._with_natives_replaced(natives) for t in self.tensors]
+        return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+
     def _expand(self):
         for t in self.tensors:
             t._expand()
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
-                native_function: callable,
-                collapsed_function: callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: callable = lambda value: value):
+                native_function: Callable,
+                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         # --- inner reduce ---
@@ -1012,10 +1036,9 @@ class TensorStack(Tensor):
             return TensorStack(red_inners, self.stack_dim_name, self.stack_dim_type)
 
 
-
 def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
             names: str or tuple or list = None,
-            convert: bool = False):
+            convert: bool = True):
     """
     Calls `tensor()` on multiple arguments independently.
 
@@ -1031,7 +1054,7 @@ def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
            names: str or tuple or list = None,
-           convert: bool = False) -> Tensor:
+           convert: bool = True) -> Tensor:
     """
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -1049,6 +1072,9 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     
     Dimension types are always inferred from the dimension names if specified.
 
+    See Also:
+        `phi.math.wrap()` which uses `convert=False`.
+
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
       names: Dimension names. Dimension types are inferred from the names.
@@ -1056,7 +1082,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
     Raises:
-      AssertionError if dimension names are not provided and cannot automatically be inferred
+      AssertionError: if dimension names are not provided and cannot automatically be inferred
+      ValueError: if `data` is not tensor-like
 
     Returns:
       Tensor containing same values as data
@@ -1074,7 +1101,15 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             types = [_shape._infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
-    elif isinstance(data, (tuple, list)):
+    elif isinstance(data, Shape):
+        assert names is not None
+        data = data.sizes
+    elif isinstance(data, (numbers.Number, bool, str)):
+        assert not names, f"Trying to create a zero-dimensional Tensor from value '{data}' but names={names}"
+        if convert:
+            data = default_backend().as_tensor(data, convert_external=True)
+        return NativeTensor(data, EMPTY_SHAPE)
+    if isinstance(data, (tuple, list)):
         array = np.array(data)
         if array.dtype != np.object:
             data = array
@@ -1088,14 +1123,6 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             from ._functions import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
-    elif isinstance(data, (numbers.Number, bool, str)):
-        assert not names, f"Trying to create a zero-dimensional Tensor from value '{data}' but names={names}"
-        if convert:
-            data = default_backend().as_tensor(data, convert_external=True)
-        return NativeTensor(data, EMPTY_SHAPE)
-    elif isinstance(data, Shape):
-        assert names is not None
-        return tensor(data.sizes, names, convert=convert)
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
@@ -1112,6 +1139,12 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, shape)
     raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
+
+
+def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
+         names: str or tuple or list = None) -> Tensor:
+    """ Short for `phi.math.tensor()` with `convert=False`. """
+    return tensor(data, names=names, convert=False)
 
 
 def broadcastable_native_tensors(*tensors):
@@ -1131,7 +1164,7 @@ def broadcastable_native_tensors(*tensors):
     return broadcast_shape, natives
 
 
-def op2_native(x: Tensor, y: Tensor, native_function: callable):
+def op2_native(x: Tensor, y: Tensor, native_function: Callable):
     new_shape, (native1, native2) = broadcastable_native_tensors(x, y)
     result_tensor = native_function(native1, native2)
     return NativeTensor(result_tensor, new_shape)

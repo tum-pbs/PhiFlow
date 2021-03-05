@@ -1,7 +1,7 @@
 """
 Container for different advection schemes for grids and particles.
 
-Esamples:
+Examples:
 
 * semi_lagrangian (grid)
 * mac_cormack (grid)
