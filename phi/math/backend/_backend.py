@@ -749,6 +749,17 @@ def default_backend() -> Backend:
     return _DEFAULT[-1]
 
 
+def context_backend() -> Backend or None:
+    """
+    Returns the backend set by the inner-most surrounding `with backend:` block.
+    If called outside a backend context, returns `None`.
+
+    Returns:
+        `Backend` or `None`
+    """
+    return _DEFAULT[-1] if len(_DEFAULT) > 1 else None
+
+
 def set_global_default_backend(backend: Backend):
     """
     Sets the given backend as default.
