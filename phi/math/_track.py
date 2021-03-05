@@ -151,7 +151,7 @@ class ShiftLinOp(Tensor):
             assert isinstance(shift, Shape)
             for dim, delta in reversed(tuple(shifts.items())):
                 if dim not in values.shape:
-                    values = math._expand_dim(values, dim, self._shape.get_size(dim), self._shape.get_type(dim))  # dim order may be scrambled
+                    values = math._expand_dims(values, self._shape.only(dim))  # dim order may be scrambled
                 if delta:
                     shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand_spatial(delta, dim)
             val[shift] = val_fun(values)

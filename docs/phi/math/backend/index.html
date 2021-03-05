@@ -934,7 +934,17 @@ The output of math operations has the same precision as its inputs.</p>
     def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def boolean_mask(self, x, mask):
+    def boolean_mask(self, x, mask, axis=0):
+        &#34;&#34;&#34;
+
+        Args:
+            x:
+            mask:
+            axis: Axis index &gt;= 0
+
+        Returns:
+
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def isfinite(self, x):
@@ -1404,15 +1414,32 @@ The first dimension of <code>values</code> and <code>indices</code> is the batch
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.boolean_mask"><code class="name flex">
-<span>def <span class="ident">boolean_mask</span></span>(<span>self, x, mask)</span>
+<span>def <span class="ident">boolean_mask</span></span>(<span>self, x, mask, axis=0)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt>x:</dt>
+<dt>mask:</dt>
+<dt><strong><code>axis</code></strong></dt>
+<dd>Axis index &gt;= 0</dd>
+</dl>
+<p>Returns:</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def boolean_mask(self, x, mask):
+<pre><code class="python">def boolean_mask(self, x, mask, axis=0):
+    &#34;&#34;&#34;
+
+    Args:
+        x:
+        mask:
+        axis: Axis index &gt;= 0
+
+    Returns:
+
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>

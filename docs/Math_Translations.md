@@ -18,13 +18,13 @@ Only differing names are listed here.
 | `reshape(t, s)`             | `join_dimensions(t, dims, dim)`, `split_dimension(t.dim, dims)`     |
 | `concatenate()`             | `concat()`     |
 | `t[...,::-1,...]`           | `t.dim.flip()`     |
+| `t[...,bool_mask,...]`      | `t.<dim>[bool_mask]`, `boolean_mask(x, bool_mask)`     |
 | `random.random()`           | `random_uniform()`     |
 | `random.standard_normal()`  | `random_normal()`     |
 | `argwhere()`                | `nonzero()`     |
 | `tensordot()`               | `dot()`     |
 | `values[indices]`           | `gather(values, indices)`     |
-| `t[indices] = values`           | `t + scatter(indices, values)`     |
-| `t[bool_mask]`              | `boolean_mask(x, bool_mask)`     |
+| `t[indices] = values`       | `t + scatter(indices, values)`     |
 | `matmul()`, `tensordot()`   | `dot()`     |
 
 
@@ -40,9 +40,10 @@ Only differing names are listed here.
 | `device_lib.list_local_devices()` | `TF_BACKEND.list_devices()`     |
 | `executing_eagerly()`       | `all_available()`     |
 | `equal(t1, t2)`             | `t1 == t2`     |
-| `t[...,::-1,...]`               | `t.dim.flip()`     |
+| `t[...,::-1,...]`           | `t.dim.flip()`     |
 | `tensordot()`               | `dot()`     |
-| `scatter_nd()`               | `scatter()`     |
+| `scatter_nd()`              | `scatter()`     |
+| `boolean_mask()`            | `boolean_mask()`, `t.<dim>[mask]`     |
 
 
 ## PyTorch
@@ -65,6 +66,7 @@ Only differing names are listed here.
 | `sparse.FloatTensor`        | `TORCH_BACKEND.sparse_tensor()`     |
 | `autograd.grad()`           | `gradients()`     |
 | `t.requires_grad = True`    | `with record_gradients(t)`     |
+| `masked_select()       `    | `boolean_mask()`, `t.<dim>[mask]`     |
 
 
 ## Jax

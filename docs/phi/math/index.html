@@ -62,7 +62,7 @@ from ._functions import (
     print_ as print,
     map_ as map,
     jit_compile, functional_gradient,
-    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace,  # creation operators (use default backend)
+    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad,
@@ -81,7 +81,6 @@ from ._functions import (
     closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, conv,
     dtype, cast,
-    tile,
     close, assert_close,
     solve, minimize,
     record_gradients, gradients, stop_gradient
@@ -381,17 +380,54 @@ Tensors with different shapes are reshaped before comparing.</p>
 </details>
 </dd>
 <dt id="phi.math.boolean_mask"><code class="name flex">
-<span>def <span class="ident">boolean_mask</span></span>(<span>x: phi.math._tensors.Tensor, mask)</span>
+<span>def <span class="ident">boolean_mask</span></span>(<span>x: phi.math._tensors.Tensor, dim: str, mask: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Not yet implemented.</p></div>
+<div class="desc"><p>Discards values <code>x.dim[i]</code> where <code>mask.dim[i]=False</code>.</p>
+<p>All dimensions of <code>mask</code> that are not <code>dim</code> are treated as batch dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of values.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Dimension of <code>x</code> to along which to discard slices.</dd>
+<dt><strong><code>mask</code></strong></dt>
+<dd>Boolean <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> marking which values to keep. Must have the dimension <code>dim</code> matching `x´.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Selected values of <code>x</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with dimensions from <code>x</code> and <code>mask</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def boolean_mask(x: Tensor, mask):
-    &#34;&#34;&#34; Not yet implemented. &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
+<pre><code class="python">def boolean_mask(x: Tensor, dim: str, mask: Tensor):
+    &#34;&#34;&#34;
+    Discards values `x.dim[i]` where `mask.dim[i]=False`.
+
+    All dimensions of `mask` that are not `dim` are treated as batch dimensions.
+
+    Args:
+        x: `Tensor` of values.
+        dim: Dimension of `x` to along which to discard slices.
+        mask: Boolean `Tensor` marking which values to keep. Must have the dimension `dim` matching `x´.
+
+    Returns:
+        Selected values of `x` as `Tensor` with dimensions from `x` and `mask`.
+    &#34;&#34;&#34;
+    def uniform_boolean_mask(x: Tensor, mask_1d: Tensor):
+        if dim in x.shape:
+            x_native = x.native()
+            mask_native = mask_1d.native()
+            backend = choose_backend(x_native, mask_native)
+            result_native = backend.boolean_mask(x_native, mask_native, axis=x.shape.index(dim))
+            new_shape = x.shape.with_sizes(backend.staticshape(result_native))
+            return NativeTensor(result_native, new_shape)
+        else:
+            total = int(sum_(to_int(mask_1d)))
+            new_shape = mask_1d.shape.with_sizes([total])
+            return _expand_dims(x, new_shape)
+
+    return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=mask.shape.without(dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.cast"><code class="name flex">
@@ -887,7 +923,7 @@ The grid values at the new points are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.math.expand"><code class="name flex">
-<span>def <span class="ident">expand</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
+<span>def <span class="ident">expand</span></span>(<span>value: phi.math._tensors.Tensor, **dims)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -895,13 +931,12 @@ The grid values at the new points are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand(value: Tensor, dim_name: str, dim_size: int = 1):
-    dim_type = _infer_dim_type_from_name(dim_name)
-    return _expand_dim(value, dim_name, dim_size, dim_type)</code></pre>
+<pre><code class="python">def expand(value: Tensor, **dims):
+    return _expand_dims(value, shape_(**dims))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.expand_batch"><code class="name flex">
-<span>def <span class="ident">expand_batch</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
+<span>def <span class="ident">expand_batch</span></span>(<span>value: phi.math._tensors.Tensor, **dims)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -909,12 +944,12 @@ The grid values at the new points are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand_batch(value: Tensor, dim_name: str, dim_size: int = 1):
-    return _expand_dim(value, dim_name, dim_size, BATCH_DIM)</code></pre>
+<pre><code class="python">def expand_batch(value: Tensor, **dims):
+    return _expand_dims(value, batch_shape(dims))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.expand_channel"><code class="name flex">
-<span>def <span class="ident">expand_channel</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
+<span>def <span class="ident">expand_channel</span></span>(<span>value: phi.math._tensors.Tensor, **dims)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -922,12 +957,12 @@ The grid values at the new points are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand_channel(value: Tensor, dim_name: str, dim_size: int = 1):
-    return _expand_dim(value, dim_name, dim_size, CHANNEL_DIM)</code></pre>
+<pre><code class="python">def expand_channel(value: Tensor, **dims):
+    return _expand_dims(value, channel_shape(dims))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.expand_spatial"><code class="name flex">
-<span>def <span class="ident">expand_spatial</span></span>(<span>value: phi.math._tensors.Tensor, dim_name: str, dim_size: int = 1)</span>
+<span>def <span class="ident">expand_spatial</span></span>(<span>value: phi.math._tensors.Tensor, **dims)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -935,8 +970,8 @@ The grid values at the new points are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand_spatial(value: Tensor, dim_name: str, dim_size: int = 1):
-    return _expand_dim(value, dim_name, dim_size, SPATIAL_DIM)</code></pre>
+<pre><code class="python">def expand_spatial(value: Tensor, **dims):
+    return _expand_dims(value, spatial_shape(dims))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.extrapolate_valid_values"><code class="name flex">
@@ -2480,6 +2515,24 @@ def precision(floating_point_bits: int):
     return _initialize(uniform_random_uniform, shape, dtype, **dimensions)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.range"><code class="name flex">
+<span>def <span class="ident">range</span></span>(<span>start_or_stop: int, stop: int = None, step=1, dim='range')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arange(start_or_stop: int, stop: int or None = None, step=1, dim=&#39;range&#39;):
+    if stop is None:
+        start, stop = 0, start_or_stop
+    else:
+        start = start_or_stop
+    native = choose_backend(start, stop).range(start, stop, step)
+    return NativeTensor(native, shape_(**{dim: stop - start}))</code></pre>
+</details>
+</dd>
 <dt id="phi.math.real"><code class="name flex">
 <span>def <span class="ident">real</span></span>(<span>complex: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -3345,20 +3398,6 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         Sequence of same length as `objects`.
     &#34;&#34;&#34;
     return [tensor(obj, names, convert) for obj in objects]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.tile"><code class="name flex">
-<span>def <span class="ident">tile</span></span>(<span>value, multiples)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Not yet implemented.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def tile(value, multiples):
-    &#34;&#34;&#34; Not yet implemented. &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.to_complex"><code class="name flex">
@@ -4858,6 +4897,12 @@ All arguments must have same length.</p>
         Returns:
             volume as `int` or `Tensor` or `None` if the shape is not `Shape.well_defined`
         &#34;&#34;&#34;
+        from phi.math import Tensor
+        for dim, size in self.named_sizes:
+            if isinstance(size, Tensor) and size.rank &gt; 0:
+                non_uniform_dim = size.shape.names[0]
+                shapes = self.unstack(non_uniform_dim)
+                return sum(s.volume for s in shapes)
         result = 1
         for size in self.sizes:
             if size is None:
@@ -5587,6 +5632,12 @@ def volume(self) -&gt; int or None:
     Returns:
         volume as `int` or `Tensor` or `None` if the shape is not `Shape.well_defined`
     &#34;&#34;&#34;
+    from phi.math import Tensor
+    for dim, size in self.named_sizes:
+        if isinstance(size, Tensor) and size.rank &gt; 0:
+            non_uniform_dim = size.shape.names[0]
+            shapes = self.unstack(non_uniform_dim)
+            return sum(s.volume for s in shapes)
     result = 1
     for size in self.sizes:
         if size is None:
@@ -7449,6 +7500,9 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
     def __getitem__(self, item):
         if isinstance(item, str):
             item = self.tensor.shape.spatial.index(item)
+        if isinstance(item, Tensor) and item.dtype == DType(bool):
+            from ._functions import boolean_mask
+            return boolean_mask(self.tensor, self.name, item)
         return self.tensor[{self.name: item}]
 
     def flip(self):
@@ -7871,6 +7925,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.prod" href="#phi.math.prod">prod</a></code></li>
 <li><code><a title="phi.math.random_normal" href="#phi.math.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.random_uniform" href="#phi.math.random_uniform">random_uniform</a></code></li>
+<li><code><a title="phi.math.range" href="#phi.math.range">range</a></code></li>
 <li><code><a title="phi.math.real" href="#phi.math.real">real</a></code></li>
 <li><code><a title="phi.math.record_gradients" href="#phi.math.record_gradients">record_gradients</a></code></li>
 <li><code><a title="phi.math.round" href="#phi.math.round">round</a></code></li>
@@ -7892,7 +7947,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.sum" href="#phi.math.sum">sum</a></code></li>
 <li><code><a title="phi.math.tensor" href="#phi.math.tensor">tensor</a></code></li>
 <li><code><a title="phi.math.tensors" href="#phi.math.tensors">tensors</a></code></li>
-<li><code><a title="phi.math.tile" href="#phi.math.tile">tile</a></code></li>
 <li><code><a title="phi.math.to_complex" href="#phi.math.to_complex">to_complex</a></code></li>
 <li><code><a title="phi.math.to_float" href="#phi.math.to_float">to_float</a></code></li>
 <li><code><a title="phi.math.to_int" href="#phi.math.to_int">to_int</a></code></li>

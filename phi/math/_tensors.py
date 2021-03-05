@@ -593,6 +593,9 @@ class TensorDim:
     def __getitem__(self, item):
         if isinstance(item, str):
             item = self.tensor.shape.spatial.index(item)
+        if isinstance(item, Tensor) and item.dtype == DType(bool):
+            from ._functions import boolean_mask
+            return boolean_mask(self.tensor, self.name, item)
         return self.tensor[{self.name: item}]
 
     def flip(self):

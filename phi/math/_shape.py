@@ -688,6 +688,12 @@ class Shape:
         Returns:
             volume as `int` or `Tensor` or `None` if the shape is not `Shape.well_defined`
         """
+        from phi.math import Tensor
+        for dim, size in self.named_sizes:
+            if isinstance(size, Tensor) and size.rank > 0:
+                non_uniform_dim = size.shape.names[0]
+                shapes = self.unstack(non_uniform_dim)
+                return sum(s.volume for s in shapes)
         result = 1
         for size in self.sizes:
             if size is None:
@@ -970,7 +976,7 @@ def channel_shape(sizes: Shape or dict or list or tuple, names: tuple or list = 
       Shape containing only spatial dimensions
 
     """
-    return _pure_shape(sizes, names, SPATIAL_DIM)
+    return _pure_shape(sizes, names, CHANNEL_DIM)
 
 
 def _pure_shape(sizes: Shape or dict or tuple or list, names: tuple or list, dim_type: str) -> Shape:

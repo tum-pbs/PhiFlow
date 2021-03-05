@@ -867,6 +867,9 @@ def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
 def conv(value: Tensor, kernel: Tensor, padding='same'):
     """ Not yet implemented. """
     raise NotImplementedError()
+    # value_native, restore_native = _invertible_standard_form(value)
+    # backend = choose_backend(value_native, kernel_native)
+    # result_native = backend.conv(value_native, kernel_native)
 
 
 def unstack(value: Tensor, dim: str):
@@ -875,34 +878,33 @@ def unstack(value: Tensor, dim: str):
 
 
 def boolean_mask(x: Tensor, dim: str, mask: Tensor):
-    """ Not yet implemented. """
-    raise NotImplementedError()
-    # """
-    # Discards values `x[i]` where `mask[i]=False`.
-    #
-    # This operation handles all slices along batch dimensions independently.
-    # If `mask` contains an unequal amount of `True` values along a batch dimension, the result tensor will be non-uniform.
-    #
-    # Args:
-    #     x: `Tensor` of values.
-    #     dim: Dimension of `x` to select
-    #     mask: Boolean `Tensor` marking which values to keep. Must have only batch and spatial dimensions.
-    #
-    # Returns:
-    #     Selected values of `x` as 1D `Tensor`
-    # """
-    # assert mask.shape.channel_rank == 0, f"Mask must not have a channel dimension. Got shape {mask.shape}"
-    #
-    # def uniform_boolean_mask(x: Tensor, mask: Tensor):
-    #     shape, (x_native, mask_native) = broadcastable_native_tensors(x, mask)
-    #     backend = choose_backend(x_native, mask_native)
-    #     result_native = backend.boolean_mask(x_native, mask_native)
-    #     shape = backend.staticshape(result_native)
-    #     assert len(shape) == 1
-    #     new_shape = shape_(**{dim: shape[0]})
-    #     return NativeTensor(result_native, new_shape)
-    #
-    # return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=x.shape.batch & mask.shape.batch)
+    """
+    Discards values `x.dim[i]` where `mask.dim[i]=False`.
+
+    All dimensions of `mask` that are not `dim` are treated as batch dimensions.
+
+    Args:
+        x: `Tensor` of values.
+        dim: Dimension of `x` to along which to discard slices.
+        mask: Boolean `Tensor` marking which values to keep. Must have the dimension `dim` matching `x´.
+
+    Returns:
+        Selected values of `x` as `Tensor` with dimensions from `x` and `mask`.
+    """
+    def uniform_boolean_mask(x: Tensor, mask_1d: Tensor):
+        if dim in x.shape:
+            x_native = x.native()
+            mask_native = mask_1d.native()
+            backend = choose_backend(x_native, mask_native)
+            result_native = backend.boolean_mask(x_native, mask_native, axis=x.shape.index(dim))
+            new_shape = x.shape.with_sizes(backend.staticshape(result_native))
+            return NativeTensor(result_native, new_shape)
+        else:
+            total = int(sum_(to_int(mask_1d)))
+            new_shape = mask_1d.shape.with_sizes([total])
+            return _expand_dims(x, new_shape)
+
+    return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=mask.shape.without(dim))
 
 
 def gather(values: Tensor, indices: Tensor):
@@ -977,11 +979,6 @@ def dtype(x):
         return x.dtype
     else:
         return choose_backend(x).dtype(x)
-
-
-def tile(value, multiples):
-    """ Not yet implemented. """
-    raise NotImplementedError()
 
 
 def expand_batch(value: Tensor, **dims):

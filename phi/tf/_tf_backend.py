@@ -302,8 +302,7 @@ class TFBackend(Backend):
         return tf.sqrt(var)
 
     def boolean_mask(self, x, mask, axis=0):
-        raise NotImplementedError()
-        # return tf.boolean_mask(x, mask)
+        return tf.boolean_mask(x, mask, axis=axis)
 
     def isfinite(self, x):
         return tf.math.is_finite(x)

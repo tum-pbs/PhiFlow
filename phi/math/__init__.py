@@ -45,7 +45,6 @@ from ._functions import (
     closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, conv,
     dtype, cast,
-    tile,
     close, assert_close,
     solve, minimize,
     record_gradients, gradients, stop_gradient

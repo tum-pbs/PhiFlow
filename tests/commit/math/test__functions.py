@@ -273,21 +273,40 @@ class TestMathFunctions(TestCase):
                 math.assert_close(math.range(1, 5), [1, 2, 3, 4])
                 math.assert_close(math.range(1), [0])
 
-    # def test_boolean_mask_1d(self):
-    #     for backend in BACKENDS:
-    #         with backend:
-    #             x = math.range(4)
-    #             mask = math.tensor([True, False, True, False], 'range')
-    #             math.assert_close(math.boolean_mask(x, mask), [0, 2])
-    #
-    # def test_boolean_mask_batched(self):
-    #     for backend in BACKENDS:
-    #         with backend:
-    #             x = math.expand(math.range(4, dim='x'), batch=2) * math.tensor([1, -1])
-    #             mask = math.tensor([[True, False, True, False], [False, True, False, False]], 'batch,x')
-    #             selected = math.boolean_mask(x, mask)
-    #             expected_0 = math.tensor([(0, -0), (2, -2)], 'x,vector')
-    #             expected_1 = math.tensor([(1, -1)], 'x,vector')
-    #             math.assert_close(selected.batch[0], expected_0)
-    #             math.assert_close(selected.batch[1], expected_1)
+    def test_boolean_mask_1d(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.range(4)
+                mask = math.tensor([True, False, True, False], 'range')
+                math.assert_close(math.boolean_mask(x, 'range', mask), [0, 2])
+                math.assert_close(x.range[mask], [0, 2])
+
+    def test_boolean_mask_batched(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.expand(math.range(4, dim='x'), batch=2) * math.tensor([1, -1])
+                mask = math.tensor([[True, False, True, False], [False, True, False, False]], 'batch,x')
+                selected = math.boolean_mask(x, 'x', mask)
+                expected_0 = math.tensor([(0, -0), (2, -2)], 'x,vector')
+                expected_1 = math.tensor([(1, -1)], 'x,vector')
+                math.assert_close(selected.batch[0], expected_0)
+                math.assert_close(selected.batch[1], expected_1)
+                math.assert_close(selected, x.x[mask])
+
+    def test_boolean_mask_semi_batched(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.range(4, dim='x')
+                mask = math.tensor([[True, False, True, False], [False, True, False, False]], 'batch,x')
+                selected = math.boolean_mask(x, 'x', mask)
+                self.assertEqual(3, selected.shape.volume)
+
+    def test_boolean_mask_dim_missing(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.random_uniform(x=2)
+                mask = math.tensor([True, False, True, True], 'selection')
+                selected = math.boolean_mask(x, 'selection', mask)
+                self.assertEqual(math.shape(x=2, selection=3).alphabetically(), selected.shape.alphabetically())
+
 
