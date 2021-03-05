@@ -4,12 +4,16 @@ import sys
 from os.path import join, dirname, abspath
 import numpy as np
 
+import phi
 import phi.app._display as display
 from phi.app import ModuleViewer
 from phi.field import Field
 from phi.math import backend
+from phi.math.backend import Backend
 
 DEMOS_DIR = join(dirname(dirname(dirname(abspath(__file__)))), 'demos')
+BACKENDS = list(phi.detect_backends())
+BACKENDS = [b for b in BACKENDS if b.name != 'Jax']
 
 
 class PerformModelTests(display.AppDisplay):
@@ -44,18 +48,19 @@ class PerformModelTests(display.AppDisplay):
         return False
 
 
-def demo_run(name):
-    print(f"Testing demo {name}.py")
+def demo_run(name, backends=BACKENDS):
     if DEMOS_DIR not in sys.path:
         print(f"Registering Python source directory {DEMOS_DIR}")
         sys.path.append(DEMOS_DIR)
     display.DEFAULT_DISPLAY_CLASS = PerformModelTests
     display.KEEP_ALIVE = False
-    try:
-        __import__(name)
-    except InterruptedError:
-        print(f'Test {name} successfully interrupted.')  # the demos are interrupted after a few steps
-    backend.set_global_default_backend(backend.NUMPY_BACKEND)
+    for backend_ in backends:
+        with backend_:
+            print(f"Testing demo {name}.py with {backend_}")
+            try:
+                __import__(name)
+            except InterruptedError:
+                print(f'Test {name} successfully interrupted.')  # the demos are interrupted after a few steps
 
 
 class TestDemos(TestCase):
@@ -64,7 +69,7 @@ class TestDemos(TestCase):
         demo_run('burgers_sim')
 
     def test_differentiate_pressure(self):
-        demo_run('differentiate_pressure')
+        demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.gradients)])
 
     def test_flip_liquid(self):
         demo_run('flip_liquid')
@@ -82,7 +87,7 @@ class TestDemos(TestCase):
         demo_run('marker')
 
     def test_network_training_pytorch(self):
-        demo_run('network_training_pytorch')
+        demo_run('network_training_pytorch', [b for b in BACKENDS if b.name == 'PyTorch'])
 
     def test_pipe(self):
         demo_run('pipe')
