@@ -3,8 +3,8 @@ from ._geom import Geometry
 
 
 def concat(geometries: tuple or list,
-                   dim: str,
-                   sizes: tuple or list or None = None):
+           dim: str,
+           sizes: tuple or list or None = None):
     """
     Concatenates multiple geometries of the same type.
 
