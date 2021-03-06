@@ -40,7 +40,7 @@ def make_incompressible(velocity: Grid,
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
     div = divergence(velocity)
     if domain.boundaries['accessible'] == math.extrapolation.ZERO:
-        div -= field.mean(div)
+        div = _balance_divergence(div, active)
 
     # Solve pressure
 
@@ -57,12 +57,16 @@ def make_incompressible(velocity: Grid,
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
     if domain.boundaries['accessible'] == math.extrapolation.ZERO:
-        remove_div_in_gradient = math.custom_gradient(lambda x: x, lambda dy: (dy - field.mean(pressure.with_(values=dy)),))
+        remove_div_in_gradient = math.custom_gradient(lambda x: x, lambda dy: (_balance_divergence(div.with_(values=dy), active).values,))
         pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
     return velocity, pressure, iterations, div
+
+
+def _balance_divergence(div, active):
+    return div - active * (field.mean(div) / field.mean(active))
 
 
 def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
