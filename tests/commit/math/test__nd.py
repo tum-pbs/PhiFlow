@@ -76,27 +76,128 @@ class TestMathNDNumpy(TestCase):
         math.print(same_size, 'Same size')
         math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
 
-    def test_extrapolate_valid(self):
+    def test_extrapolate_valid_3x3_sanity(self):
+        values = tensor([[0, 0, 0],
+                         [0, 1, 0],
+                         [0, 0, 0]], 'x, y')
+        valid = values
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        expected_values = math.ones(x=3, y=3)
+        expected_valid = extrapolated_values
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
+
+    def test_extrapolate_valid_3x3(self):
         valid = tensor([[0, 0, 0],
-                      [0, 1, 1],
-                      [1, 0, 0]], 'x, y')
-
-        values = tensor([[1, 0, 0],
-                       [0, 4, 0],
-                       [2, 0, 0]], 'x, y')
-
+                        [0, 0, 1],
+                        [1, 0, 0]], 'x, y')
+        values = tensor([[1, 0, 2],
+                         [0, 0, 4],
+                         [2, 0, 0]], 'x, y')
         expected_valid = tensor([[0, 1, 1],
-                               [1, 1, 1],
-                               [1, 1, 1]], 'x, y')
+                                 [1, 1, 1],
+                                 [1, 1, 1]], 'x, y')
+        expected_values = tensor([[1, 4, 4],
+                                  [2, 3, 4],
+                                  [2, 3, 4]], 'x, y')
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
-        expected_values = tensor([[1, 4, 0],
-                                [3, 4, 0],
-                                [2, 3, 0]], 'x, y')
+    def test_extrapolate_valid_4x4(self):
+        valid = tensor([[0, 0, 0, 0],
+                        [0, 0, 1, 0],
+                        [1, 0, 0, 0],
+                        [0, 0, 0, 0]], 'x, y')
+        values = tensor([[1, 0, 0, 0],
+                         [0, 0, 4, 0],
+                         [2, 0, 0, 0],
+                         [0, 0, 0, 1]], 'x, y')
+        expected_valid = tensor([[1, 1, 1, 1],
+                                 [1, 1, 1, 1],
+                                 [1, 1, 1, 1],
+                                 [1, 1, 1, 1]], 'x, y')
+        expected_values = tensor([[3, 4, 4, 4],
+                                  [2, 3, 4, 4],
+                                  [2, 3, 4, 4],
+                                  [2, 2, 3.25, 4]], 'x, y')
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
-        new_values, new_valid = math.extrapolate_valid_values(values, valid, 1)
-        self.assertTrue(new_values == expected_values)
-        self.assertTrue(new_valid == expected_valid)
+    def test_extrapolate_valid_3D_3x3x3_1(self):
+        valid = tensor([[[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]],
+                        [[0, 0, 1],
+                         [0, 0, 0],
+                         [1, 0, 0]],
+                        [[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]]], 'x, y, z')
+        values = tensor([[[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]],
+                         [[1, 0, 4],
+                          [0, 0, 0],
+                          [2, 0, 0]],
+                         [[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]]], 'x, y, z')
+        expected_valid = tensor([[[0, 1, 1],
+                                  [1, 1, 1],
+                                  [1, 1, 0]],
+                                 [[0, 1, 1],
+                                  [1, 1, 1],
+                                  [1, 1, 0]],
+                                 [[0, 1, 1],
+                                  [1, 1, 1],
+                                  [1, 1, 0]]], 'x, y, z')
+        expected_values = tensor([[[0, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 0]],
+                                  [[1, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 0]],
+                                  [[0, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 0]]], 'x, y, z')
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 1)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
+    def test_extrapolate_valid_3D_3x3x3_2(self):
+        valid = tensor([[[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]],
+                        [[0, 0, 1],
+                         [0, 0, 0],
+                         [1, 0, 0]],
+                        [[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]]], 'x, y, z')
+        values = tensor([[[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]],
+                         [[1, 0, 4],
+                          [0, 0, 0],
+                          [2, 0, 0]],
+                         [[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]]], 'x, y, z')
+        expected_valid = math.ones(x=3, y=3, z=3)
+        expected_values = tensor([[[3, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 3]],
+                                  [[3, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 3]],
+                                  [[3, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 3]]], 'x, y, z')
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
     # Fourier Laplace
 

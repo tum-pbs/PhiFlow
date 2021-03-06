@@ -208,12 +208,12 @@ def shift(x: Tensor,
 def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -> Tuple[Tensor, Tensor]:
     """
     Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
-    Overlapping extrapolated values get averaged.
+    Overlapping extrapolated values get averaged. Extrapolation also includes diagonals.
 
     Examples (1-step extrapolation), x marks the values for extrapolation:
-        200   000    210        004   00x    044        100   000    100
-        010 + 0x0 => 111        000 + 000 => 204        000 + 000 => 204
-        040   000    010        200   x00    220        204   x0x    234
+        200   000    111        004   00x    044        102   000    144
+        010 + 0x0 => 111        000 + 000 => 234        004 + 00x => 234
+        040   000    111        200   x00    220        200   x00    234
 
     Args:
         values: Tensor which holds the values for extrapolation
@@ -224,17 +224,22 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     """
+    def binarize(x):
+        return math.divide_no_nan(x, x)
     distance_cells = min(distance_cells, max(values.shape))
     for _ in range(distance_cells):
-        valid = math.divide_no_nan(valid, valid)  # ensure binary mask
-        values_l, values_r = shift(values * valid, (-1, 1))
-        mask_l, mask_r = shift(valid, (-1, 1))
-        overlap = math.sum_(mask_l + mask_r, dim='shift')
-        extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
-        new_valid = valid + overlap
-        values = math.where(valid, values, math.where(new_valid, extp, values))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
-        valid = new_valid
-    return values, math.divide_no_nan(valid, valid)
+        valid = binarize(valid)
+        valid_values = valid * values
+        overlap = valid
+        for dim in values.shape.spatial.names:
+            values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+            valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
+            mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+            overlap = math.sum_(mask_l + mask_r + overlap, dim='shift')
+        extp = math.divide_no_nan(valid_values, overlap)  # take mean where extrapolated values overlap
+        values = math.where(valid, values, math.where(binarize(overlap), extp, values))
+        valid = overlap
+    return values, binarize(valid)
 
 
 # Gradient

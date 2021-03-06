@@ -322,7 +322,8 @@ class Domain:
             else:
                 points = math.wrap(points, 'points, vector')
         elements = Sphere(points, radius)
-        return PointCloud(elements, math.ones(), extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
+        values = math.tensor(1., convert=True)
+        return PointCloud(elements, values, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
     def distribute_points(self,
                           geometries: tuple or list,
