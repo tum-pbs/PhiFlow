@@ -119,7 +119,7 @@ class JaxBackend(Backend):
 
         def backward(x, dy):
             dx = gradient(*dy)
-            return dx
+            return tuple(dx)
 
         jax_fun.defvjp(forward, backward)
         return jax_fun
