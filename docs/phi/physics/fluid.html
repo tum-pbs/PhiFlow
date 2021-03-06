@@ -62,12 +62,13 @@ def make_incompressible(velocity: Grid,
 
     &#34;&#34;&#34;
     input_velocity = velocity
-    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries[&#39;active_extrapolation&#39;])
-    accessible = domain.grid(active, extrapolation=domain.boundaries[&#39;accessible_extrapolation&#39;])
-    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries[&#39;accessible_extrapolation&#39;], type=type(velocity))
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
+    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries[&#39;active&#39;])
+    accessible = domain.grid(active, extrapolation=domain.boundaries[&#39;accessible&#39;])
+    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries[&#39;accessible&#39;], type=type(velocity))
+    v_bc_div = domain.boundaries[&#39;vector&#39;] * domain.boundaries[&#39;accessible&#39;]
+    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
     div = divergence(velocity)
-    if domain.boundaries[&#39;near_vector_extrapolation&#39;] == math.extrapolation.BOUNDARY:
+    if domain.boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO:
         div -= field.mean(div)
 
     # Solve pressure
@@ -75,7 +76,7 @@ def make_incompressible(velocity: Grid,
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
-        grad = grad.with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
+        grad = grad.with_(extrapolation=v_bc_div)
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
@@ -84,6 +85,9 @@ def make_incompressible(velocity: Grid,
     converged, pressure, iterations = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f&#34;pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}&#34;)
+    if domain.boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO:
+        remove_div_in_gradient = math.custom_gradient(lambda x: x, lambda dy: (dy - field.mean(pressure.with_(values=dy)),))
+        pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
@@ -232,12 +236,13 @@ Cells outside will be unaffected.</p>
 
     &#34;&#34;&#34;
     input_velocity = velocity
-    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries[&#39;active_extrapolation&#39;])
-    accessible = domain.grid(active, extrapolation=domain.boundaries[&#39;accessible_extrapolation&#39;])
-    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries[&#39;accessible_extrapolation&#39;], type=type(velocity))
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
+    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries[&#39;active&#39;])
+    accessible = domain.grid(active, extrapolation=domain.boundaries[&#39;accessible&#39;])
+    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries[&#39;accessible&#39;], type=type(velocity))
+    v_bc_div = domain.boundaries[&#39;vector&#39;] * domain.boundaries[&#39;accessible&#39;]
+    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
     div = divergence(velocity)
-    if domain.boundaries[&#39;near_vector_extrapolation&#39;] == math.extrapolation.BOUNDARY:
+    if domain.boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO:
         div -= field.mean(div)
 
     # Solve pressure
@@ -245,7 +250,7 @@ Cells outside will be unaffected.</p>
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
-        grad = grad.with_(extrapolation=domain.boundaries[&#39;near_vector_extrapolation&#39;])
+        grad = grad.with_(extrapolation=v_bc_div)
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
@@ -254,6 +259,9 @@ Cells outside will be unaffected.</p>
     converged, pressure, iterations = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f&#34;pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}&#34;)
+    if domain.boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO:
+        remove_div_in_gradient = math.custom_gradient(lambda x: x, lambda dy: (dy - field.mean(pressure.with_(values=dy)),))
+        pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)

@@ -43,7 +43,7 @@ from ._functions import (
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
-    fft, ifft, conv,
+    fft, ifft, convolve,
     dtype, cast,
     close, assert_close,
     solve, minimize,

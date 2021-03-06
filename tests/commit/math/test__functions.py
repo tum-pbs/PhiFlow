@@ -354,3 +354,7 @@ class TestMathFunctions(TestCase):
                 with backend:
                     custom_loss_grad, = math.functional_gradient(loss)(math.ones(x=4))
                     math.assert_close(custom_loss_grad, 0, msg=backend.name)
+
+    def test_convolution(self):
+        math.convolve
+

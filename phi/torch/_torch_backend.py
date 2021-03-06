@@ -352,16 +352,14 @@ class TorchBackend(Backend):
     def exp(self, x):
         return torch.exp(x)
 
-    def conv(self, tensor, kernel, padding='same'):
-        tensor = self.as_tensor(tensor)
+    def conv(self, value, kernel, zero_padding=True):
+        tensor = self.as_tensor(value)
         kernel = self.as_tensor(kernel)
-        if padding.lower() == 'valid':
+        if zero_padding:
             padding = 0
-        elif padding.lower() == 'same':
+        else:
             shape = kernel.shape
             padding = sum([[d // 2, (d + 1) // 2] for d in shape], [])
-        else:
-            raise ValueError(padding)
         tensor = channels_first(tensor)
         kernel = kernel.permute((-2, -1) + tuple(range(len(kernel.shape) - 2)))
         convf = {3: torchf.conv1d, 4: torchf.conv2d, 5: torchf.conv3d}[len(tensor.shape)]

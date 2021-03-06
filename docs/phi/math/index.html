@@ -79,7 +79,7 @@ from ._functions import (
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
-    fft, ifft, conv,
+    fft, ifft, convolve,
     dtype, cast,
     close, assert_close,
     solve, minimize,
@@ -609,7 +609,7 @@ Tensors with different shapes are reshaped before comparing.</p>
 </details>
 </dd>
 <dt id="phi.math.closest_grid_values"><code class="name flex">
-<span>def <span class="ident">closest_grid_values</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, stack_dim_prefix='closest_')</span>
+<span>def <span class="ident">closest_grid_values</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: extrapolation_.Extrapolation, stack_dim_prefix='closest_')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds the neighboring grid points in all spatial directions and returns their values.
@@ -633,7 +633,7 @@ The result will have 2^d values for each vector in coordiantes in d dimensions.<
 </summary>
 <pre><code class="python">def closest_grid_values(grid: Tensor,
                         coordinates: Tensor,
-                        extrap: &#39;extrapolation.Extrapolation&#39;,
+                        extrap: &#39;extrapolation_.Extrapolation&#39;,
                         stack_dim_prefix=&#39;closest_&#39;):
     &#34;&#34;&#34;
     Finds the neighboring grid points in all spatial directions and returns their values.
@@ -697,17 +697,46 @@ The shapes of all values must be equal, except for the size of the concat dimens
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))</code></pre>
 </details>
 </dd>
-<dt id="phi.math.conv"><code class="name flex">
-<span>def <span class="ident">conv</span></span>(<span>value: phi.math._tensors.Tensor, kernel: phi.math._tensors.Tensor, padding='same')</span>
+<dt id="phi.math.convolve"><code class="name flex">
+<span>def <span class="ident">convolve</span></span>(<span>value: phi.math._tensors.Tensor, kernel: phi.math._tensors.Tensor, dims: str = None, extrapolation: extrapolation_.Extrapolation = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Not yet implemented.</p></div>
+<div class="desc"><p><em>Not yet implemented.</em></p>
+<p>Computes the convolution of <code>value</code> and <code>kernel</code> along <code>dims</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> whose shape includes <code>dims</code>.</dd>
+<dt><strong><code>kernel</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> used as convolutional filter.</dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>Dimensions along which <code>value</code> and <code>kernel</code> should be convolved. If <code>None</code>, uses all spatial dimensions.</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>If not None, pads <code>value</code> so that the result has the same shape as <code>value</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conv(value: Tensor, kernel: Tensor, padding=&#39;same&#39;):
-    &#34;&#34;&#34; Not yet implemented. &#34;&#34;&#34;
+<pre><code class="python">def convolve(value: Tensor,
+             kernel: Tensor,
+             dims: str or tuple or list or Shape = None,
+             extrapolation: &#39;extrapolation_.Extrapolation&#39; = None) -&gt; Tensor:
+    &#34;&#34;&#34; *Not yet implemented.*
+
+    Computes the convolution of `value` and `kernel` along `dims`.
+
+    Args:
+        value: `Tensor` whose shape includes `dims`.
+        kernel: `Tensor` used as convolutional filter.
+        dims: Dimensions along which `value` and `kernel` should be convolved. If `None`, uses all spatial dimensions.
+        extrapolation: If not None, pads `value` so that the result has the same shape as `value`.
+
+    Returns:
+        `Tensor`
+    &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -1651,7 +1680,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 </details>
 </dd>
 <dt id="phi.math.grid_sample"><code class="name flex">
-<span>def <span class="ident">grid_sample</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>def <span class="ident">grid_sample</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: extrapolation_.Extrapolation)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1659,7 +1688,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def grid_sample(grid: Tensor, coordinates: Tensor, extrap: &#39;extrapolation.Extrapolation&#39;):
+<pre><code class="python">def grid_sample(grid: Tensor, coordinates: Tensor, extrap: &#39;extrapolation_.Extrapolation&#39;):
     result = broadcast_op(functools.partial(_grid_sample, extrap=extrap), [grid, coordinates])
     return result</code></pre>
 </details>
@@ -2347,10 +2376,10 @@ If channel dimensions are present, this method returns the indices where any ent
 </details>
 </dd>
 <dt id="phi.math.pad"><code class="name flex">
-<span>def <span class="ident">pad</span></span>(<span>value: phi.math._tensors.Tensor, widths: dict, mode: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">pad</span></span>(<span>value: phi.math._tensors.Tensor, widths: dict, mode: extrapolation_.Extrapolation) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.</p>
+<div class="desc"><p>Pads a tensor along the specified dimensions, determining the added values using the given extrapolation_.</p>
 <p>This is equivalent to calling <code>mode.pad(value, widths)</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -2365,7 +2394,7 @@ If channel dimensions are present, this method returns the indices where any ent
 <dt><strong><code>widths</code></strong></dt>
 <dd>dict: </dd>
 <dt><strong><code>mode</code></strong></dt>
-<dd>'extrapolation.Extrapolation': </dd>
+<dd>'extrapolation_.Extrapolation': </dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>padded Tensor</p></div>
@@ -2373,9 +2402,9 @@ If channel dimensions are present, this method returns the indices where any ent
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pad(value: Tensor, widths: dict, mode: &#39;extrapolation.Extrapolation&#39;) -&gt; Tensor:
+<pre><code class="python">def pad(value: Tensor, widths: dict, mode: &#39;extrapolation_.Extrapolation&#39;) -&gt; Tensor:
     &#34;&#34;&#34;
-    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
+    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation_.
     
     This is equivalent to calling `mode.pad(value, widths)`.
 
@@ -2385,7 +2414,7 @@ If channel dimensions are present, this method returns the indices where any ent
       mode: Extrapolation object
       value: Tensor: 
       widths: dict: 
-      mode: &#39;extrapolation.Extrapolation&#39;: 
+      mode: &#39;extrapolation_.Extrapolation&#39;: 
 
     Returns:
       padded Tensor
@@ -7903,7 +7932,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.close" href="#phi.math.close">close</a></code></li>
 <li><code><a title="phi.math.closest_grid_values" href="#phi.math.closest_grid_values">closest_grid_values</a></code></li>
 <li><code><a title="phi.math.concat" href="#phi.math.concat">concat</a></code></li>
-<li><code><a title="phi.math.conv" href="#phi.math.conv">conv</a></code></li>
+<li><code><a title="phi.math.convolve" href="#phi.math.convolve">convolve</a></code></li>
 <li><code><a title="phi.math.cos" href="#phi.math.cos">cos</a></code></li>
 <li><code><a title="phi.math.cross_product" href="#phi.math.cross_product">cross_product</a></code></li>
 <li><code><a title="phi.math.custom_gradient" href="#phi.math.custom_gradient">custom_gradient</a></code></li>

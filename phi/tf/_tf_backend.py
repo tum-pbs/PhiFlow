@@ -246,9 +246,9 @@ class TFBackend(Backend):
     def exp(self, x):
         return tf.exp(x)
 
-    def conv(self, tensor, kernel, padding="SAME"):
-        rank = len(tensor.shape) - 2
-        padding = padding.upper()
+    def conv(self, value, kernel, zero_padding=True):
+        rank = len(value.shape) - 2
+        padding = 'SAME' if zero_padding else 'VALID'
         if rank == 1:
             result = tf.nn.conv1d(tensor, kernel, 1, padding)
         elif rank == 2:

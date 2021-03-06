@@ -279,20 +279,17 @@ class JaxBackend(Backend):
     def exp(self, x):
         return jnp.exp(x)
 
-    def conv(self, tensor, kernel, padding="SAME"):
-        assert tensor.shape[-1] == kernel.shape[-2]
-        # kernel = kernel[[slice(None)] + [slice(None, None, -1)] + [slice(None)]*(len(kernel.shape)-3) + [slice(None)]]
-        if padding.lower() == "same":
-            result = jnp.zeros(tensor.shape[:-1] + (kernel.shape[-1],), dtype=to_numpy_dtype(self.float_type))
-        elif padding.lower() == "valid":
-            valid = [tensor.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(tensor))]
-            result = jnp.zeros([tensor.shape[0]] + valid + [kernel.shape[-1]], dtype=to_numpy_dtype(self.float_type))
+    def conv(self, value, kernel, zero_padding=True):
+        assert value.shape[-1] == kernel.shape[-2]
+        if zero_padding:
+            result = jnp.zeros(value.shape[:-1] + (kernel.shape[-1],), dtype=to_numpy_dtype(self.float_type))
         else:
-            raise ValueError("Illegal padding: %s" % padding)
-        for batch in range(tensor.shape[0]):
+            valid = [value.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(value))]
+            result = jnp.zeros([value.shape[0]] + valid + [kernel.shape[-1]], dtype=to_numpy_dtype(self.float_type))
+        for batch in range(value.shape[0]):
             for o in range(kernel.shape[-1]):
-                for i in range(tensor.shape[-1]):
-                    result[batch, ..., o] += scipy.signal.correlate(tensor[batch, ..., i], kernel[..., i, o], padding.lower())
+                for i in range(value.shape[-1]):
+                    result[batch, ..., o] += scipy.signal.correlate(value[batch, ..., i], kernel[..., i, o], padding.lower())
         return result
 
     def expand_dims(self, a, axis=0, number=1):

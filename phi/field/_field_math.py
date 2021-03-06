@@ -411,7 +411,7 @@ def assert_close(*fields: SampledField or math.Tensor or Number,
 #     kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
 #     kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
 #     scalar_potential = grid.padded([pad_width, pad_width]).values
-#     vector_field = math.conv(scalar_potential, kernel, padding='valid')
+#     vector_field = math.convolve(scalar_potential, kernel, padding='valid')
 #     return StaggeredGrid(vector_field, bounds=grid.box)
 
 

@@ -13,7 +13,7 @@ from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
     _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
-from . import extrapolation
+from . import extrapolation as extrapolation_
 from .backend._optim import SolveResult
 from .backend._profile import get_current_profile
 
@@ -294,9 +294,9 @@ def concat(values: tuple or list, dim: str) -> Tensor:
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
-def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation') -> Tensor:
+def pad(value: Tensor, widths: dict, mode: 'extrapolation_.Extrapolation') -> Tensor:
     """
-    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
+    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation_.
     
     This is equivalent to calling `mode.pad(value, widths)`.
 
@@ -306,7 +306,7 @@ def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation') -> Ten
       mode: Extrapolation object
       value: Tensor: 
       widths: dict: 
-      mode: 'extrapolation.Extrapolation': 
+      mode: 'extrapolation_.Extrapolation': 
 
     Returns:
       padded Tensor
@@ -317,7 +317,7 @@ def pad(value: Tensor, widths: dict, mode: 'extrapolation.Extrapolation') -> Ten
 
 def closest_grid_values(grid: Tensor,
                         coordinates: Tensor,
-                        extrap: 'extrapolation.Extrapolation',
+                        extrap: 'extrapolation_.Extrapolation',
                         stack_dim_prefix='closest_'):
     """
     Finds the neighboring grid points in all spatial directions and returns their values.
@@ -338,7 +338,7 @@ def closest_grid_values(grid: Tensor,
 
 def _closest_grid_values(grid: Tensor,
                          coordinates: Tensor,
-                         extrap: 'extrapolation.Extrapolation',
+                         extrap: 'extrapolation_.Extrapolation',
                          stack_dim_prefix='closest_'):
     # alternative method: pad array for all 2^d combinations, then stack to simplify gather.
     # --- Pad tensor where transform is not possible ---
@@ -367,12 +367,12 @@ def _closest_grid_values(grid: Tensor,
     return result
 
 
-def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation'):
+def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation_.Extrapolation'):
     result = broadcast_op(functools.partial(_grid_sample, extrap=extrap), [grid, coordinates])
     return result
 
 
-def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extrapolation' or None):
+def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation_.Extrapolation' or None):
     if grid.shape.batch == coordinates.shape.batch or grid.shape.batch.volume == 1 or coordinates.shape.batch.volume == 1:
         # reshape batch dimensions, delegate to backend.grid_sample()
         grid_batched = join_dimensions(join_dimensions(grid, grid.shape.batch, 'batch'), grid.shape.channel, 'vector')
@@ -391,7 +391,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
                                          extrap.native_grid_sample_mode)
         if result is NotImplemented:
             # pad one layer
-            grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or extrapolation.ZERO)
+            grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or extrapolation_.ZERO)
             if extrap is not None:
                 from .extrapolation import _CopyExtrapolation
                 if isinstance(extrap, _CopyExtrapolation):
@@ -410,7 +410,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation.Extra
             result = result.batch.split(grid.shape.batch & coordinates.shape.batch).vector.split(grid.shape.channel)
             return result
     # fallback to slower grid sampling
-    neighbors = _closest_grid_values(grid, coordinates, extrap or extrapolation.ZERO, 'closest_')
+    neighbors = _closest_grid_values(grid, coordinates, extrap or extrapolation_.ZERO, 'closest_')
     binary = meshgrid(**{f'closest_{dim}': (0, 1) for dim in grid.shape.spatial.names})
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)
@@ -865,9 +865,28 @@ def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
         return maximum(lower_limit, minimum(x, upper_limit))
 
 
-def conv(value: Tensor, kernel: Tensor, padding='same'):
-    """ Not yet implemented. """
+def convolve(value: Tensor,
+             kernel: Tensor,
+             dims: str or tuple or list or Shape = None,
+             extrapolation: 'extrapolation_.Extrapolation' = None) -> Tensor:
+    """ *Not yet implemented.*
+
+    Computes the convolution of `value` and `kernel` along `dims`.
+
+    Args:
+        value: `Tensor` whose shape includes `dims`.
+        kernel: `Tensor` used as convolutional filter.
+        dims: Dimensions along which `value` and `kernel` should be convolved. If `None`, uses all spatial dimensions.
+        extrapolation: If not None, pads `value` so that the result has the same shape as `value`.
+
+    Returns:
+        `Tensor`
+    """
     raise NotImplementedError()
+    # if dims is None:
+    #     dims = value.shape.spatial
+    # dims = _resolve_dims(dims, value)
+    # assert all(dim in value.shape for dim in dims)
     # value_native, restore_native = _invertible_standard_form(value)
     # backend = choose_backend(value_native, kernel_native)
     # result_native = backend.conv(value_native, kernel_native)
