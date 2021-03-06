@@ -19,6 +19,8 @@ if _platform.system().lower() == 'windows':  # prevent Blas GEMM launch failed o
         _tf.config.experimental.set_memory_growth(device, True)
         _warnings.warn(f"phi.tf: Setting memory_growth on GPU {i} to True to prevent Blas errors")
 
+from ._compile_cuda import compile_cuda_ops
+
 from ._tf_backend import TF_BACKEND
 
 TF_BACKEND = TF_BACKEND  # to show up in pdoc
