@@ -181,6 +181,7 @@ class SampledField(Field):
         self._elements = elements
         self._values = math.wrap(values)
         self._extrapolation = extrapolation
+        self._shape = self._elements.shape.non_channel & self._values.shape.non_spatial  # tests shape compatibility
 
     def with_(self,
               elements: Geometry or None = None,
@@ -230,7 +231,7 @@ class SampledField(Field):
 
     @property
     def shape(self) -> Shape:
-        return self._elements.shape.non_channel & self._values.shape.non_spatial
+        return self._shape
 
     def sample_at(self, points, reduce_channels=()) -> Tensor:
         raise NotImplementedError(self)
