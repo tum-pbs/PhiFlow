@@ -11,7 +11,7 @@ velocity = DOMAIN.staggered_grid(0)  # alternatively vector_grid(0)
 smoke = pressure = divergence = DOMAIN.scalar_grid(0)
 
 for _ in ModuleViewer(display=('smoke', 'velocity')).range():
-    smoke = advect.semi_lagrangian(smoke, velocity, 1) + INFLOW
+    smoke = advect.mac_cormack(smoke, velocity, 1) + INFLOW
     buoyancy_force = smoke * (0, 0.1) >> velocity  # resamples smoke to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
     velocity, pressure, iterations, divergence = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)

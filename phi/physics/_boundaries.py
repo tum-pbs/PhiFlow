@@ -42,35 +42,31 @@ def _create_boundary_conditions(obj: dict or tuple or list, spatial_dims: tuple)
 
 
 OPEN = {
-    'scalar_extrapolation': extrapolation.ZERO,
-    'vector_extrapolation': extrapolation.ZERO,
-    'near_vector_extrapolation': extrapolation.BOUNDARY,
-    'active_extrapolation': extrapolation.ZERO,
-    'accessible_extrapolation': extrapolation.ONE,
+    'scalar': extrapolation.ZERO,
+    'vector': extrapolation.BOUNDARY,
+    'active': extrapolation.ZERO,
+    'accessible': extrapolation.ONE,
 }
 
 SLIPPERY = {
-    'scalar_extrapolation': extrapolation.BOUNDARY,
-    'vector_extrapolation': extrapolation.BOUNDARY,
-    'near_vector_extrapolation': extrapolation.ZERO,
-    'active_extrapolation': extrapolation.ZERO,
-    'accessible_extrapolation': extrapolation.ZERO,
+    'scalar': extrapolation.BOUNDARY,
+    'vector': combine_sides({'normal': extrapolation.ZERO, 'parallel': extrapolation.BOUNDARY}),  # TODO mixed extrapolation types not yet supported
+    'active': extrapolation.ZERO,
+    'accessible': extrapolation.ZERO,
 }
 
 STICKY = {
-    'scalar_extrapolation': extrapolation.BOUNDARY,
-    'vector_extrapolation': extrapolation.ZERO,
-    'near_vector_extrapolation': extrapolation.ZERO,
-    'active_extrapolation': extrapolation.ZERO,
-    'accessible_extrapolation': extrapolation.ZERO,
+    'scalar': extrapolation.BOUNDARY,
+    'vector': extrapolation.ZERO,
+    'active': extrapolation.ZERO,
+    'accessible': extrapolation.ZERO,
 }
 
 PERIODIC = {
-    'scalar_extrapolation': extrapolation.PERIODIC,
-    'vector_extrapolation': extrapolation.PERIODIC,
-    'near_vector_extrapolation': extrapolation.PERIODIC,
-    'active_extrapolation': extrapolation.ONE,
-    'accessible_extrapolation': extrapolation.ONE,
+    'scalar': extrapolation.PERIODIC,
+    'vector': extrapolation.PERIODIC,
+    'active': extrapolation.ONE,
+    'accessible': extrapolation.ONE,
 }
 
 
@@ -153,13 +149,13 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: type of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['scalar_extrapolation']
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['scalar']
 
         Returns:
           Grid of specified type
         """
         warnings.warn("Domain.grid is deprecated. Use scalar_grid or vector_grid instead.", DeprecationWarning)
-        extrapolation = extrapolation or self.boundaries['scalar_extrapolation']
+        extrapolation = extrapolation or self.boundaries['scalar']
         if type is CenteredGrid:
             return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         elif type is StaggeredGrid:
@@ -183,12 +179,12 @@ class Domain:
 
         Args:
           value: constant, Field, Tensor or function specifying the grid values
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['scalar_extrapolation']
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['scalar']
 
         Returns:
           `CenteredGrid` with no channel dimensions
         """
-        extrapolation = extrapolation or self.boundaries['scalar_extrapolation']
+        extrapolation = extrapolation or self.boundaries['scalar']
         if isinstance(value, Field):
             assert_same_rank(value.spatial_rank, self.rank, f"Cannot resample {value.spatial_rank}D field to {self.rank}D domain.")
         elif isinstance(value, Tensor):
@@ -226,13 +222,13 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['vector_extrapolation']
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['vector']
 
         Returns:
           Grid of specified type
 
         """
-        extrapolation = extrapolation or self.boundaries['vector_extrapolation']
+        extrapolation = extrapolation or self.boundaries['vector']
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
             if grid.shape.channel.rank == 0:
@@ -265,7 +261,7 @@ class Domain:
         Args:
           value: constant, Field, Tensor or function specifying the grid values
           type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
-          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['vector_extrapolation']
+          extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['vector']
 
         Returns:
           Grid of specified type
@@ -282,13 +278,13 @@ class Domain:
 
         Returns:
             Binary mask indicating valid fields w.r.t. the boundary conditions.
-            The result is of type `type` and uses the extrapolation `Domain.boundaries['accessible_extrapolation']`.
+            The result is of type `type` and uses the extrapolation `Domain.boundaries['accessible']`.
         """
-        accessible_mask = self.scalar_grid(HardGeometryMask(~union(not_accessible)), extrapolation=self.boundaries['accessible_extrapolation'])
+        accessible_mask = self.scalar_grid(HardGeometryMask(~union(not_accessible)), extrapolation=self.boundaries['accessible'])
         if type is CenteredGrid:
             return accessible_mask
         elif type is StaggeredGrid:
-            return field.stagger(accessible_mask, math.minimum, self.boundaries['accessible_extrapolation'])
+            return field.stagger(accessible_mask, math.minimum, self.boundaries['accessible'])
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
