@@ -320,3 +320,37 @@ class TestMathFunctions(TestCase):
             with backend:
                 converged, x, iterations = math.minimize(loss, x0, solve)
                 math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
+
+    def test_custom_gradient_scalar(self):
+        def f(x):
+            return x
+
+        def grad(df):
+            return df * 0,
+
+        for backend in BACKENDS:
+            if backend.supports(Backend.gradients):
+                with backend:
+                    normal_gradient, = math.functional_gradient(f)(math.ones())
+                    math.assert_close(normal_gradient, 1)
+                    f_custom_grad = math.custom_gradient(f, grad)
+                    custom_gradient, = math.functional_gradient(f_custom_grad)(math.ones())
+                    math.assert_close(custom_gradient, 0)
+
+    def test_custom_gradient_vector(self):
+        def f(x):
+            return x.x[:2]
+
+        def grad(df):
+            return math.flatten(math.expand(df * 0, tmp=2)),
+
+        def loss(x):
+            fg = math.custom_gradient(f, grad)
+            y = fg(x)
+            return math.l1_loss(y)
+
+        for backend in BACKENDS:
+            if backend.supports(Backend.custom_gradient):
+                with backend:
+                    custom_loss_grad, = math.functional_gradient(loss)(math.ones(x=4))
+                    math.assert_close(custom_loss_grad, 0, msg=backend.name)

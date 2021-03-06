@@ -1125,6 +1125,11 @@ def jit_compile(f: Callable) -> Callable:
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     """
+    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf))
+    return wrapper
+
+
+def _native_wrapper(tensor_function: Callable, create_native_function: Callable):
     INPUT_TENSORS = []
     OUTPUT_TENSORS = []
 
@@ -1132,17 +1137,17 @@ def jit_compile(f: Callable) -> Callable:
         natives = list(natives)
         values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
         assert len(natives) == 0, "Not all arguments were converted"
-        result = f(*values)
+        result = tensor_function(*values)
         results = [result] if not isinstance(result, (tuple, list)) else result
         OUTPUT_TENSORS.clear()
         OUTPUT_TENSORS.extend(results)
         return sum([v._natives() for v in results], ())
 
     backend = default_backend()
-    traced = backend.jit_compile(native_function)
+    traced = create_native_function(native_function, backend)
     if traced is NotImplemented:
-        warnings.warn(f"Backend '{backend}' does not support function tracing. Returning original function.")
-        return f
+        warnings.warn(f"Backend '{backend}' not supported. Returning original function.")
+        return tensor_function, None, INPUT_TENSORS, OUTPUT_TENSORS
 
     def wrapper(*values: Tensor):
         INPUT_TENSORS.clear()
@@ -1155,6 +1160,34 @@ def jit_compile(f: Callable) -> Callable:
         assert len(results_native) == 0
         return results[0] if len(results) == 1 else results
 
+    return wrapper, traced, INPUT_TENSORS, OUTPUT_TENSORS
+
+
+def custom_gradient(f: Callable, gradient: Callable):
+    """
+    Creates a function based on `f` that uses a custom gradient for backprop.
+
+    Args:
+        f: Forward function.
+        gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+
+    Returns:
+        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+    """
+    def native_custom_gradient(fun: Callable, backend: Backend):
+        def native_gradient(*dy_natives):
+            dy_natives = list(dy_natives)
+            if len(output_tensors) > 0:
+                dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
+            else:
+                assert len(dy_natives) == 1
+                dy = [NativeTensor(dy_natives[0], EMPTY_SHAPE)]
+            result = gradient(*dy)
+            assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
+            return [r.native() if r is not None else None for r in result]
+        return backend.custom_gradient(fun, native_gradient)
+
+    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient)
     return wrapper
 
 

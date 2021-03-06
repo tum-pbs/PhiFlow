@@ -90,7 +90,7 @@ class TorchBackend(Backend):
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(f)
 
-    def custom_gradient(self, f: Callable, spatial_gradient: Callable = None) -> Callable:
+    def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         class TorchFunction(torch.autograd.Function):
 
             @staticmethod
@@ -99,7 +99,8 @@ class TorchBackend(Backend):
 
             @staticmethod
             def backward(ctx, *grad_args):
-                return gradient(*grad_args)
+                result = gradient(*grad_args)
+                return result[0] if len(result) == 1 else result
 
         return TorchFunction.apply
 

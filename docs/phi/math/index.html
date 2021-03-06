@@ -61,7 +61,7 @@ from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
     map_ as map,
-    jit_compile, functional_gradient,
+    jit_compile, functional_gradient, custom_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
@@ -749,6 +749,52 @@ The shapes of all values must be equal, except for the size of the concat dimens
         raise AssertionError(f&#39;dims = {spatial_rank}. Vector product not available in &gt; 3 dimensions&#39;)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.custom_gradient"><code class="name flex">
+<span>def <span class="ident">custom_gradient</span></span>(<span>f: Callable, gradient: Callable)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for backprop.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Forward function.</dd>
+<dt><strong><code>gradient</code></strong></dt>
+<dd>Function for backprop. Will be called as <code>gradient(*d_out)</code> to compute the gradient of <code>f</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def custom_gradient(f: Callable, gradient: Callable):
+    &#34;&#34;&#34;
+    Creates a function based on `f` that uses a custom gradient for backprop.
+
+    Args:
+        f: Forward function.
+        gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+
+    Returns:
+        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+    &#34;&#34;&#34;
+    def native_custom_gradient(fun: Callable, backend: Backend):
+        def native_gradient(*dy_natives):
+            dy_natives = list(dy_natives)
+            if len(output_tensors) &gt; 0:
+                dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
+            else:
+                assert len(dy_natives) == 1
+                dy = [NativeTensor(dy_natives[0], EMPTY_SHAPE)]
+            result = gradient(*dy)
+            assert isinstance(result, (tuple, list)), &#34;Gradient function must return tuple or list&#34;
+            return [r.native() if r is not None else None for r in result]
+        return backend.custom_gradient(fun, native_gradient)
+
+    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient)
+    return wrapper</code></pre>
+</details>
+</dd>
 <dt id="phi.math.divide_no_nan"><code class="name flex">
 <span>def <span class="ident">divide_no_nan</span></span>(<span>x, y)</span>
 </code></dt>
@@ -978,28 +1024,28 @@ The grid values at the new points are determined via linear interpolation.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Extrapolates the values of <code>values</code> which are marked by the nonzero values of <code>valid</code> for <code>distance_cells</code> steps in all spatial directions.
-Overlapping extrapolated values get averaged.</p>
+Overlapping extrapolated values get averaged. Extrapolation also includes diagonals.</p>
 <p>Examples (1-step extrapolation), x marks the values for extrapolation:
 200
 000
-210
+111
 004
 00x
 044
-100
+102
 000
-100
+144
 010 + 0x0 =&gt; 111
-000 + 000 =&gt; 204
-000 + 000 =&gt; 204
+000 + 000 =&gt; 234
+004 + 00x =&gt; 234
 040
 000
-010
+111
 200
 x00
 220
-204
-x0x
+200
+x00
 234</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -1024,12 +1070,12 @@ x0x
 <pre><code class="python">def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -&gt; Tuple[Tensor, Tensor]:
     &#34;&#34;&#34;
     Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
-    Overlapping extrapolated values get averaged.
+    Overlapping extrapolated values get averaged. Extrapolation also includes diagonals.
 
     Examples (1-step extrapolation), x marks the values for extrapolation:
-        200   000    210        004   00x    044        100   000    100
-        010 + 0x0 =&gt; 111        000 + 000 =&gt; 204        000 + 000 =&gt; 204
-        040   000    010        200   x00    220        204   x0x    234
+        200   000    111        004   00x    044        102   000    144
+        010 + 0x0 =&gt; 111        000 + 000 =&gt; 234        004 + 00x =&gt; 234
+        040   000    111        200   x00    220        200   x00    234
 
     Args:
         values: Tensor which holds the values for extrapolation
@@ -1040,17 +1086,22 @@ x0x
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     &#34;&#34;&#34;
+    def binarize(x):
+        return math.divide_no_nan(x, x)
     distance_cells = min(distance_cells, max(values.shape))
     for _ in range(distance_cells):
-        valid = math.divide_no_nan(valid, valid)  # ensure binary mask
-        values_l, values_r = shift(values * valid, (-1, 1))
-        mask_l, mask_r = shift(valid, (-1, 1))
-        overlap = math.sum_(mask_l + mask_r, dim=&#39;shift&#39;)
-        extp = math.divide_no_nan(math.sum_(values_l + values_r, dim=&#39;shift&#39;), overlap)  # take mean where extrapolated values overlap
-        new_valid = valid + overlap
-        values = math.where(valid, values, math.where(new_valid, extp, values))  # don&#39;t overwrite initial values within the mask / keep values not affected by extrapolation
-        valid = new_valid
-    return values, math.divide_no_nan(valid, valid)</code></pre>
+        valid = binarize(valid)
+        valid_values = valid * values
+        overlap = valid
+        for dim in values.shape.spatial.names:
+            values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+            valid_values = math.sum_(values_l + values_r + valid_values, dim=&#39;shift&#39;)
+            mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+            overlap = math.sum_(mask_l + mask_r + overlap, dim=&#39;shift&#39;)
+        extp = math.divide_no_nan(valid_values, overlap)  # take mean where extrapolated values overlap
+        values = math.where(valid, values, math.where(binarize(overlap), extp, values))
+        valid = overlap
+    return values, binarize(valid)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.fft"><code class="name flex">
@@ -1689,36 +1740,7 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     &#34;&#34;&#34;
-    INPUT_TENSORS = []
-    OUTPUT_TENSORS = []
-
-    def native_function(*natives):
-        natives = list(natives)
-        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
-        assert len(natives) == 0, &#34;Not all arguments were converted&#34;
-        result = f(*values)
-        results = [result] if not isinstance(result, (tuple, list)) else result
-        OUTPUT_TENSORS.clear()
-        OUTPUT_TENSORS.extend(results)
-        return sum([v._natives() for v in results], ())
-
-    backend = default_backend()
-    traced = backend.jit_compile(native_function)
-    if traced is NotImplemented:
-        warnings.warn(f&#34;Backend &#39;{backend}&#39; does not support function tracing. Returning original function.&#34;)
-        return f
-
-    def wrapper(*values: Tensor):
-        INPUT_TENSORS.clear()
-        INPUT_TENSORS.extend(values)
-        for v in values:
-            v._expand()
-        natives = sum([v._natives() for v in values], ())
-        results_native = list(traced(*natives))
-        results = [t._with_natives_replaced(results_native) for t in OUTPUT_TENSORS]
-        assert len(results_native) == 0
-        return results[0] if len(results) == 1 else results
-
+    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf))
     return wrapper</code></pre>
 </details>
 </dd>
@@ -7884,6 +7906,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.conv" href="#phi.math.conv">conv</a></code></li>
 <li><code><a title="phi.math.cos" href="#phi.math.cos">cos</a></code></li>
 <li><code><a title="phi.math.cross_product" href="#phi.math.cross_product">cross_product</a></code></li>
+<li><code><a title="phi.math.custom_gradient" href="#phi.math.custom_gradient">custom_gradient</a></code></li>
 <li><code><a title="phi.math.divide_no_nan" href="#phi.math.divide_no_nan">divide_no_nan</a></code></li>
 <li><code><a title="phi.math.dot" href="#phi.math.dot">dot</a></code></li>
 <li><code><a title="phi.math.downsample2x" href="#phi.math.downsample2x">downsample2x</a></code></li>

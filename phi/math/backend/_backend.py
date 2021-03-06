@@ -235,11 +235,11 @@ class Backend:
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         """
-        Creates a function based on `f` that uses a custom spatial_gradient for backprop.
+        Creates a function based on `f` that uses a custom gradient for backprop.
 
         Args:
-            f: Forward function. All arguments must be
-            gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
+            f: Forward function.
+            gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
 
         Returns:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.

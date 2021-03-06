@@ -369,7 +369,8 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             else:
                 points = math.wrap(points, &#39;points, vector&#39;)
         elements = Sphere(points, radius)
-        return PointCloud(elements, math.ones(), extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
+        values = math.tensor(1., convert=True)
+        return PointCloud(elements, values, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
     def distribute_points(self,
                           geometries: tuple or list,
@@ -685,7 +686,8 @@ The created field has no channel dimensions and all points carry the value <code
         else:
             points = math.wrap(points, &#39;points, vector&#39;)
     elements = Sphere(points, radius)
-    return PointCloud(elements, math.ones(), extrapolation, add_overlapping=False, bounds=self.bounds, color=color)</code></pre>
+    values = math.tensor(1., convert=True)
+    return PointCloud(elements, values, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.Domain.scalar_grid"><code class="name flex">

@@ -25,7 +25,7 @@ from ._functions import (
     choose_backend_t as choose_backend, all_available,
     print_ as print,
     map_ as map,
-    jit_compile, functional_gradient,
+    jit_compile, functional_gradient, custom_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,

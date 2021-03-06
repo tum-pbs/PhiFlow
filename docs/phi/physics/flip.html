@@ -27,10 +27,10 @@
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">from phi import math, field
-from typing import Tuple, List
+from typing import Tuple
 from phi.physics import Domain, Obstacle
-from phi.field import StaggeredGrid, CenteredGrid, PointCloud, HardGeometryMask, Grid, extrapolate_valid
-from phi.geom import union, Sphere, Geometry
+from phi.field import StaggeredGrid, CenteredGrid, PointCloud, Grid, extrapolate_valid
+from phi.geom import union, Sphere
 
 
 def make_incompressible(velocity: StaggeredGrid,
@@ -58,7 +58,7 @@ def make_incompressible(velocity: StaggeredGrid,
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
     points = particles.with_(values=math.wrap(1))
-    occupied_centered = points &gt;&gt; domain.grid()
+    occupied_centered = points &gt;&gt; domain.scalar_grid()
     occupied_staggered = points &gt;&gt; domain.staggered_grid()
 
     if isinstance(obstacles, StaggeredGrid):
@@ -79,13 +79,13 @@ def make_incompressible(velocity: StaggeredGrid,
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
-    converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.grid(), solve_params=solve_params)
+    converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
     return velocity_field - gradp, pressure, iterations, div, occupied_staggered
 
 
 def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
-                              previous_velocity_grid: Grid = None) -&gt; PointCloud:
+                              previous_velocity_grid: Grid = None, viscosity: float = 0.) -&gt; PointCloud:
     &#34;&#34;&#34;
     Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
     updated by the change between projected and initial grid velocities) and PIC (particle velocities are replaced by the the 
@@ -95,22 +95,28 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_g
         previous_particle_velocity: PointCloud with particle positions as elements and their corresponding velocities as values
         velocity_grid: Divergence-free velocity grid
         occupation_mask: Binary Grid (same type as `velocity_grid`) indicating which cells hold particles
-        previous_velocity_grid: Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise
+        previous_velocity_grid: Velocity field before projection and force update
+        viscosity: If previous_velocity_grid is None, the particle-in-cell method (PIC) is applied.
+            Otherwise this is the ratio between FLIP and PIC (0. for pure FLIP)
 
     Returns:
         PointCloud with particle positions as elements and updated particle velocities as values.
     &#34;&#34;&#34;
-    if previous_velocity_grid is not None:
+    viscosity = min(max(0., viscosity), 1.)
+    if previous_velocity_grid is None:
+        viscosity = 1.
+    velocities = math.zeros_like(previous_particle_velocity.values)
+    if viscosity &gt; 0.:
+        # --- PIC ---
+        velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
+        velocities += viscosity * velocity_grid.sample_at(previous_particle_velocity.elements.center)
+    if viscosity &lt; 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
-        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask, 1)
+        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
         v_change = v_change_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=previous_particle_velocity.values + v_change)
-    else:
-        # --- PIC ---
-        v_div_free_field, _ = extrapolate_valid(velocity_grid, occupation_mask, 1)
-        v_values = v_div_free_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=v_values)
+        velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
+    return previous_particle_velocity.with_(values=velocities)
 
 
 def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: list, offset: float = 0.5) -&gt; PointCloud:
@@ -205,7 +211,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
     points = particles.with_(values=math.wrap(1))
-    occupied_centered = points &gt;&gt; domain.grid()
+    occupied_centered = points &gt;&gt; domain.scalar_grid()
     occupied_staggered = points &gt;&gt; domain.staggered_grid()
 
     if isinstance(obstacles, StaggeredGrid):
@@ -226,13 +232,13 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
-    converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.grid(), solve_params=solve_params)
+    converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
     return velocity_field - gradp, pressure, iterations, div, occupied_staggered</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.flip.map_velocity_to_particles"><code class="name flex">
-<span>def <span class="ident">map_velocity_to_particles</span></span>(<span>previous_particle_velocity: phi.field._point_cloud.PointCloud, velocity_grid: phi.field._grid.Grid, occupation_mask: phi.field._grid.Grid, previous_velocity_grid: phi.field._grid.Grid = None) ‑> phi.field._point_cloud.PointCloud</span>
+<span>def <span class="ident">map_velocity_to_particles</span></span>(<span>previous_particle_velocity: phi.field._point_cloud.PointCloud, velocity_grid: phi.field._grid.Grid, occupation_mask: phi.field._grid.Grid, previous_velocity_grid: phi.field._grid.Grid = None, viscosity: float = 0.0) ‑> phi.field._point_cloud.PointCloud</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
@@ -247,7 +253,10 @@ projected velocities) method depending on the value of the <code>initial_v_field
 <dt><strong><code>occupation_mask</code></strong></dt>
 <dd>Binary Grid (same type as <code>velocity_grid</code>) indicating which cells hold particles</dd>
 <dt><strong><code>previous_velocity_grid</code></strong></dt>
-<dd>Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise</dd>
+<dd>Velocity field before projection and force update</dd>
+<dt><strong><code>viscosity</code></strong></dt>
+<dd>If previous_velocity_grid is None, the particle-in-cell method (PIC) is applied.
+Otherwise this is the ratio between FLIP and PIC (0. for pure FLIP)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>PointCloud with particle positions as elements and updated particle velocities as values.</p></div>
@@ -256,7 +265,7 @@ projected velocities) method depending on the value of the <code>initial_v_field
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
-                              previous_velocity_grid: Grid = None) -&gt; PointCloud:
+                              previous_velocity_grid: Grid = None, viscosity: float = 0.) -&gt; PointCloud:
     &#34;&#34;&#34;
     Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
     updated by the change between projected and initial grid velocities) and PIC (particle velocities are replaced by the the 
@@ -266,22 +275,28 @@ projected velocities) method depending on the value of the <code>initial_v_field
         previous_particle_velocity: PointCloud with particle positions as elements and their corresponding velocities as values
         velocity_grid: Divergence-free velocity grid
         occupation_mask: Binary Grid (same type as `velocity_grid`) indicating which cells hold particles
-        previous_velocity_grid: Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise
+        previous_velocity_grid: Velocity field before projection and force update
+        viscosity: If previous_velocity_grid is None, the particle-in-cell method (PIC) is applied.
+            Otherwise this is the ratio between FLIP and PIC (0. for pure FLIP)
 
     Returns:
         PointCloud with particle positions as elements and updated particle velocities as values.
     &#34;&#34;&#34;
-    if previous_velocity_grid is not None:
+    viscosity = min(max(0., viscosity), 1.)
+    if previous_velocity_grid is None:
+        viscosity = 1.
+    velocities = math.zeros_like(previous_particle_velocity.values)
+    if viscosity &gt; 0.:
+        # --- PIC ---
+        velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
+        velocities += viscosity * velocity_grid.sample_at(previous_particle_velocity.elements.center)
+    if viscosity &lt; 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
-        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask, 1)
+        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
         v_change = v_change_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=previous_particle_velocity.values + v_change)
-    else:
-        # --- PIC ---
-        v_div_free_field, _ = extrapolate_valid(velocity_grid, occupation_mask, 1)
-        v_values = v_div_free_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=v_values)</code></pre>
+        velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
+    return previous_particle_velocity.with_(values=velocities)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.flip.respect_boundaries"><code class="name flex">

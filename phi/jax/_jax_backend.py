@@ -112,11 +112,16 @@ class JaxBackend(Backend):
             return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
-        jax_fun = jax.custom_jvp(f)
-        @jax_fun.defjvp
-        def jax_grad(primals, tangents):
-            grad = gradient(*tangents)
-            return jax_fun(primals), grad
+        jax_fun = jax.custom_vjp(f)  # custom vector-Jacobian product (reverse-mode differentiation)
+
+        def forward(*x):
+            return f(*x), x
+
+        def backward(x, dy):
+            dx = gradient(*dy)
+            return dx
+
+        jax_fun.defvjp(forward, backward)
         return jax_fun
 
     def transpose(self, tensor, axes):
