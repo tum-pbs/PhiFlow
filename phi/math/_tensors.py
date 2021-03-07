@@ -1196,7 +1196,7 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
     Returns:
 
     """
-    x, y = tensors(x, y)
+    x, y = tensors(x, y, convert=False)
     result = x._op2(y, l_operator, l_native_function)
     if result is NotImplemented:
         result = y._op2(x, r_operator or l_operator, r_native_function or l_native_function)

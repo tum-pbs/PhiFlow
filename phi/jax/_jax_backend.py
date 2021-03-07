@@ -7,6 +7,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import jax.scipy as scipy
+from jax.core import Tracer
 from jax.scipy.sparse.linalg import cg
 from jax import random
 
@@ -81,7 +82,7 @@ class JaxBackend(Backend):
         return False
 
     def is_available(self, tensor):
-        return True
+        return not isinstance(tensor, Tracer)
 
     def numpy(self, x):
         return np.array(x)
@@ -259,9 +260,13 @@ class JaxBackend(Backend):
         return jnp.floor(x)
 
     def max(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = jnp.stack(x)
         return jnp.max(x, axis, keepdims=keepdims)
 
     def min(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = jnp.stack(x)
         return jnp.min(x, axis, keepdims=keepdims)
 
     def maximum(self, a, b):
