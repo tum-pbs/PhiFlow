@@ -8,9 +8,9 @@ class Solve:
     """
 
     def __init__(self,
-                 solver: str = None,
-                 relative_tolerance: float = 1e-5,
-                 absolute_tolerance: float = 0,
+                 solver: str or None,
+                 relative_tolerance: float,
+                 absolute_tolerance: float,
                  max_iterations: int = 1000,
                  gradient_solve: 'Solve' or None = None,
                  **solver_arguments):
@@ -27,7 +27,7 @@ class Solve:
             assert gradient_solve.solver == solver
         self.solver_arguments: dict = solver_arguments
         """ Additional solver-dependent arguments. """
-        self.result: SolveResult = None
+        self.result: SolveResult or None = None
         """ `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. """
 
     @property
@@ -51,11 +51,11 @@ class LinearSolve(Solve):
     """
 
     def __init__(self,
-                 solver: str = None,
-                 relative_tolerance=1e-5,
-                 absolute_tolerance=0,
-                 max_iterations=1000,
-                 bake='sparse',
+                 solver: str or None,
+                 relative_tolerance,
+                 absolute_tolerance,
+                 max_iterations: int = 1000,
+                 bake: str = 'sparse',
                  gradient_solve: 'Solve' or None = None,
                  **solver_arguments):
         Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, gradient_solve, **solver_arguments)

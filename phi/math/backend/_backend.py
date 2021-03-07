@@ -602,7 +602,7 @@ class Backend:
         """ Optional. """
         return NotImplemented
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
         """
         Solve the system of linear equations
           A * x = y

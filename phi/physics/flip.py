@@ -9,7 +9,7 @@ def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
                         obstacles: tuple or list or StaggeredGrid = (),
                         particles: PointCloud or None = None,
-                        solve_params: math.LinearSolve = math.LinearSolve(),
+                        solve_params: math.LinearSolve = math.LinearSolve('CG', 1e-3, 0),
                         pressure_guess: CenteredGrid = None) -> Tuple[StaggeredGrid, CenteredGrid, math.Tensor, CenteredGrid, StaggeredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.

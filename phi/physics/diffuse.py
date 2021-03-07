@@ -40,7 +40,7 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params: math.Solve = math.LinearSolve(bake='sparse')) -> FieldType:
+             solve_params: math.Solve = math.LinearSolve(None, 1e-5, 0)) -> FieldType:
     """
     Diffusion by solving a linear system of equations.
 

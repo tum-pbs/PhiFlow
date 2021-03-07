@@ -315,10 +315,9 @@ class TestMathFunctions(TestCase):
             return math.l1_loss(x - 1)
 
         x0 = math.zeros(x=4)
-        solve = math.Solve(absolute_tolerance=1e-3, relative_tolerance=None)
         for backend in BACKENDS:
             with backend:
-                converged, x, iterations = math.minimize(loss, x0, solve)
+                converged, x, iterations = math.minimize(loss, x0, math.Solve(None, 0, 1e-3))
                 math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
 
     def test_custom_gradient_scalar(self):
@@ -355,6 +354,9 @@ class TestMathFunctions(TestCase):
                     custom_loss_grad, = math.functional_gradient(loss)(math.ones(x=4))
                     math.assert_close(custom_loss_grad, 0, msg=backend.name)
 
-    def test_convolution(self):
-        math.convolve
+    # def test_convolution(self):
+    #     math.convolve
+
+    # def test_min(self):
+    #     pass
 

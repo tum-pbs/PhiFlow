@@ -287,6 +287,7 @@ def concat(values: tuple or list, dim: str) -> Tensor:
       concatenated tensor
 
     """
+    assert len(values) > 0, "concat() got empty sequence"
     broadcast_shape = values[0].shape
     natives = [v.native(order=broadcast_shape.names) for v in values]
     backend = choose_backend(*natives)
@@ -1314,6 +1315,7 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
         x: solution, the minimum point `x`.
         iterations: number of iterations performed
     """
+    assert solve_params.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve_params.relative_tolerance}"
     backend = choose_backend_t(x0, prefer_default=True)
     x0._expand()
     natives = x0._natives()
@@ -1344,7 +1346,6 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
 
 def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_params: Solve):
     import scipy.optimize as sopt
-    assert solve_params.relative_tolerance is None
     x0 = backend.numpy(x0_flat)
     method = solve_params.solver or 'L-BFGS-B'
 
@@ -1405,7 +1406,7 @@ def solve(operator,
 
         rel_tol_to_abs = solve_params.relative_tolerance * l2_loss(y, batch_norm=True)
         solve_params.absolute_tolerance = rel_tol_to_abs
-        solve_params.relative_tolerance = None
+        solve_params.relative_tolerance = 0
         return minimize(min_func, x0, solve_params=solve_params)
     if solve_params.solver not in (None, 'CG'):
         raise NotImplementedError("Only 'CG' solver currently supported")

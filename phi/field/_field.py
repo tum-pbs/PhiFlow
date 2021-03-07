@@ -118,8 +118,11 @@ class Field:
         """
         Resampling operator.
 
-        :param other: instance of SampledField
-        :return: copy of other with values determined by resampling this Field
+        Args:
+            other: instance of SampledField
+
+        Returns:
+            Copy of other with values and extrapolation from this Field.
         """
         return self.at(other)
 

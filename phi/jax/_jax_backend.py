@@ -429,7 +429,7 @@ class JaxBackend(Backend):
         # else:
         #     raise NotImplementedError("Only sparse tensors supported.")
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)

@@ -488,7 +488,7 @@ class TorchBackend(Backend):
         result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
         if callable(A):
             function = A
         else:

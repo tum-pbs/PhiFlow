@@ -423,7 +423,7 @@ class TFBackend(Backend):
         else:
             raise NotImplementedError()
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
         if callable(A):
             function = A
         else:
