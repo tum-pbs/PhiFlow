@@ -37,7 +37,7 @@ def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
                         obstacles: tuple or list or StaggeredGrid = (),
                         particles: PointCloud or None = None,
-                        solve_params: math.LinearSolve = math.LinearSolve(),
+                        solve_params: math.LinearSolve = math.LinearSolve(&#39;CG&#39;, 1e-3, 0),
                         pressure_guess: CenteredGrid = None) -&gt; Tuple[StaggeredGrid, CenteredGrid, math.Tensor, CenteredGrid, StaggeredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
@@ -190,7 +190,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
                         domain: Domain,
                         obstacles: tuple or list or StaggeredGrid = (),
                         particles: PointCloud or None = None,
-                        solve_params: math.LinearSolve = math.LinearSolve(),
+                        solve_params: math.LinearSolve = math.LinearSolve(&#39;CG&#39;, 1e-3, 0),
                         pressure_guess: CenteredGrid = None) -&gt; Tuple[StaggeredGrid, CenteredGrid, math.Tensor, CenteredGrid, StaggeredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.

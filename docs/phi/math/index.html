@@ -690,6 +690,7 @@ The shapes of all values must be equal, except for the size of the concat dimens
       concatenated tensor
 
     &#34;&#34;&#34;
+    assert len(values) &gt; 0, &#34;concat() got empty sequence&#34;
     broadcast_shape = values[0].shape
     natives = [v.native(order=broadcast_shape.names) for v in values]
     backend = choose_backend(*natives)
@@ -2180,6 +2181,7 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
         x: solution, the minimum point `x`.
         iterations: number of iterations performed
     &#34;&#34;&#34;
+    assert solve_params.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve_params.relative_tolerance}&#34;
     backend = choose_backend_t(x0, prefer_default=True)
     x0._expand()
     natives = x0._natives()
@@ -3033,7 +3035,7 @@ The output of math operations has the same precision as its inputs.</p>
 
         rel_tol_to_abs = solve_params.relative_tolerance * l2_loss(y, batch_norm=True)
         solve_params.absolute_tolerance = rel_tol_to_abs
-        solve_params.relative_tolerance = None
+        solve_params.relative_tolerance = 0
         return minimize(min_func, x0, solve_params=solve_params)
     if solve_params.solver not in (None, &#39;CG&#39;):
         raise NotImplementedError(&#34;Only &#39;CG&#39; solver currently supported&#34;)
@@ -4215,7 +4217,7 @@ This is the default implementation.</p>
 </dd>
 <dt id="phi.math.LinearSolve"><code class="flex name class">
 <span>class <span class="ident">LinearSolve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
+<span>(</span><span>solver: str, relative_tolerance, absolute_tolerance, max_iterations: int = 1000, bake: str = 'sparse', gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a system of linear equations.</p>
@@ -4232,11 +4234,11 @@ This is the default implementation.</p>
     &#34;&#34;&#34;
 
     def __init__(self,
-                 solver: str = None,
-                 relative_tolerance=1e-5,
-                 absolute_tolerance=0,
-                 max_iterations=1000,
-                 bake=&#39;sparse&#39;,
+                 solver: str or None,
+                 relative_tolerance,
+                 absolute_tolerance,
+                 max_iterations: int = 1000,
+                 bake: str = &#39;sparse&#39;,
                  gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
         Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, gradient_solve, **solver_arguments)
@@ -6604,7 +6606,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance: float = 1e-05, absolute_tolerance: float = 0, max_iterations: int = 1000, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
+<span>(</span><span>solver: str, relative_tolerance: float, absolute_tolerance: float, max_iterations: int = 1000, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
@@ -6618,9 +6620,9 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     &#34;&#34;&#34;
 
     def __init__(self,
-                 solver: str = None,
-                 relative_tolerance: float = 1e-5,
-                 absolute_tolerance: float = 0,
+                 solver: str or None,
+                 relative_tolerance: float,
+                 absolute_tolerance: float,
                  max_iterations: int = 1000,
                  gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
@@ -6637,7 +6639,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
             assert gradient_solve.solver == solver
         self.solver_arguments: dict = solver_arguments
         &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
-        self.result: SolveResult = None
+        self.result: SolveResult or None = None
         &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
 
     @property
