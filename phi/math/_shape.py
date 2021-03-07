@@ -808,7 +808,7 @@ class Shape:
             return NotImplemented
 
     def __hash__(self):
-        return hash(self.sizes)
+        return hash(self.names)
 
 
 EMPTY_SHAPE = Shape((), (), ())

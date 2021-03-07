@@ -349,29 +349,38 @@ class JaxBackend(Backend):
     def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
         assert duplicates_handling in ('undefined', 'add', 'mean', 'any')
         assert outside_handling in ('discard', 'clamp', 'undefined')
+        batch_size = combined_dim(indices.shape[0], values.shape[0])
+
+        dnums = jax.lax.ScatterDimensionNumbers(update_window_dims=(1,),  # last dimension of updates
+                                                inserted_window_dims=(0, 1),
+                                                scatter_dims_to_operand_dims=(0, 1,))  # indices correspond to x, y | tuple(range(len(shape)))
+
         shape = jnp.array(shape, jnp.int32)
-        if outside_handling == 'clamp':
-            indices = jnp.maximum(0, jnp.minimum(indices, shape - 1))
-        elif outside_handling == 'discard':
-            indices_inside = (indices >= 0) & (indices < shape)
-            indices_inside = jnp.min(indices_inside, axis=-1)
-            filter_indices = jnp.argwhere(indices_inside)
-            indices = indices[filter_indices][..., 0, :]
-            if values.shape[0] > 1:
-                values = values[filter_indices.reshape(-1)]
-        array = jnp.zeros(tuple(shape) + values.shape[indices.ndim-1:], to_numpy_dtype(self.float_type))
-        indices = self.unstack(indices, axis=-1)
+        # if outside_handling == 'clamp':
+        #     indices = jnp.maximum(0, jnp.minimum(indices, shape - 1))
+        # elif outside_handling == 'discard':
+        #     indices_inside = (indices >= 0) & (indices < shape)
+        #     indices_inside = jnp.min(indices_inside, axis=-1)
+        #     filter_indices = jnp.argwhere(indices_inside)
+        #     indices = indices[filter_indices][..., 0, :]
+        #     if values.shape[0] > 1:
+        #         values = values[filter_indices.reshape(-1)]
         if duplicates_handling == 'add':
-            jnp.add.at(array, tuple(indices), values)
+            raise NotImplementedError()
         elif duplicates_handling == 'mean':
-            count = jnp.zeros(shape, jnp.int32)
-            jnp.add.at(array, tuple(indices), values)
-            jnp.add.at(count, tuple(indices), 1)
-            count = jnp.maximum(1, count)
-            return array / count
+            counts = []
+            sums = []
+            zeros = jnp.zeros((*shape, values.shape[-1]), to_numpy_dtype(self.float_type))
+            ones = jnp.ones(values.shape[1:], to_numpy_dtype(self.float_type))
+            for b in range(batch_size):
+                sums.append(jax.lax.scatter_add(zeros, indices[b, ...], values[b, ...], dnums))
+                counts.append(jax.lax.scatter_add(zeros, indices[b, ...], ones, dnums))
+            sums = jnp.stack(sums)
+            counts = jnp.stack(counts)
+            counts = jnp.maximum(1, counts)
+            return sums / counts
         else:  # last, any, undefined
-            array[indices] = values
-        return array
+            raise NotImplementedError()
 
     def fft(self, x):
         rank = len(x.shape) - 2

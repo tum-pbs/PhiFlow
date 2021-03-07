@@ -496,11 +496,11 @@ class Backend:
         The batch dimension need not be specified in the indices array.
 
         Args:
-          indices: n-dimensional indices corresponding to values
-          values: values to scatter at indices
-          shape: spatial shape of the result tensor, 1D int array
-          duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
-          outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'undefined')
+          indices: n-dimensional indices corresponding to values. Tensor of shape (batch_size, update_count, index_vector)
+          values: Values to scatter at indices. Tensor of shape (batch_size, update_count, channels)
+          shape: Spatial shape of the result tensor, 1D int array
+          duplicates_handling: One of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
+          outside_handling: One of ('discard', 'clamp', 'undefined') (Default value = 'undefined')
 
         Returns:
 

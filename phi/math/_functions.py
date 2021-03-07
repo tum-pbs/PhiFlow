@@ -931,13 +931,13 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
 def gather(values: Tensor, indices: Tensor):
     b_values = join_dimensions(values, values.shape.batch, 'batch')
     b_values = join_dimensions(b_values, b_values.shape.channel, 'channel', pos=-1)
-    b_indices = join_dimensions(indices, indices.shape.batch, 'batch')
+    b_indices = join_dimensions(indices, indices.shape.batch.only(values.shape.batch), 'batch')
     native_values = b_values.native()
     native_indices = b_indices.native()
     native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
-    b_result = tensor(native_result, ('batch', *indices.shape.spatial.names, 'vector'))
+    b_result = tensor(native_result, ('batch', *indices.shape.non_channel.without('batch').names, 'vector'))
     result = split_dimension(b_result.vector, values.shape.channel)
-    result = split_dimension(result.batch, values.shape.batch & indices.shape.batch)
+    result = split_dimension(result.batch, values.shape.batch)
     return result
 
 
@@ -961,12 +961,13 @@ def scatter(indices: Tensor,
     Returns:
         Tensor of shape `size` and dtype matching `values`.
     """
-    indices_ = indices.native()
-    values_ = values.native(values.shape.combined(indices.shape.non_channel).names)
-    backend = choose_backend(indices_, values_)
-    result_ = backend.scatter(indices_, values_, tuple(size), duplicates_handling=duplicates_handling, outside_handling=outside_handling)
-    result_shape = size & indices.shape.batch & values.shape.non_spatial
-    result_shape = result_shape.without(scatter_dims)
+    assert values.shape.non_channel == indices.shape.non_channel
+    batch = values.shape.batch.without(scatter_dims)
+    native_indices = indices.native()
+    native_values = values.native(values.shape.combined(indices.shape.non_channel).names)
+    backend = choose_backend(native_indices, native_values)
+    result_ = backend.scatter(native_indices, native_values, tuple(size), duplicates_handling=duplicates_handling, outside_handling=outside_handling)
+    result_shape = batch & size & values.shape.channel
     return NativeTensor(result_, result_shape)
 
 
