@@ -125,6 +125,9 @@ class JaxBackend(Backend):
         jax_fun.defvjp(forward, backward)
         return jax_fun
 
+    def stop_gradient(self, value):
+        return jax.lax.stop_gradient(value)
+
     def transpose(self, tensor, axes):
         return jnp.transpose(tensor, axes)
 

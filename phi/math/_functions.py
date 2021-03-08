@@ -932,11 +932,16 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
 def gather(values: Tensor, indices: Tensor):
     b_values = join_dimensions(values, values.shape.batch, 'batch')
     b_values = join_dimensions(b_values, b_values.shape.channel, 'channel', pos=-1)
-    b_indices = join_dimensions(indices, indices.shape.batch.only(values.shape.batch), 'batch')
+    b_indices = _expand_dims(indices, values.shape.batch)
+    b_indices = join_dimensions(b_indices, values.shape.batch, 'batch')
     native_values = b_values.native()
     native_indices = b_indices.native()
-    native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
-    b_result = tensor(native_result, ('batch', *indices.shape.non_channel.without('batch').names, 'vector'))
+    backend = choose_backend(native_values, native_indices)
+    native_result = backend.batched_gather_nd(native_values, native_indices)
+    result_shape = Shape(backend.staticshape(native_result),
+                         ('batch', *indices.shape.non_channel.without(values.shape.batch).names, 'vector'),
+                         (BATCH_DIM, *indices.shape.non_channel.without(values.shape.batch).types, CHANNEL_DIM))
+    b_result = NativeTensor(native_result, result_shape)
     result = split_dimension(b_result.vector, values.shape.channel)
     result = split_dimension(result.batch, values.shape.batch)
     return result

@@ -802,7 +802,7 @@ class CollapsedTensor(Tensor):  # package-private
 
     def _with_shape_replaced(self, new_shape):
         if self.is_cached:
-            return self._cached._with_natives_replaced(new_shape)
+            return self._cached._with_shape_replaced(new_shape)
         else:
             replacement = {old: new for old, new in zip(self._shape.names, new_shape.names)}
             inner_shape = self._inner.shape.with_names([replacement[old] for old in self._inner.shape.names])
