@@ -1,3 +1,4 @@
+import traceback
 import warnings
 
 import numpy as np
@@ -39,7 +40,8 @@ def dash_graph_plot(data, settings: dict) -> dict:
             return cloud_plot(data, settings)
         warnings.warn(f"No figure recipe for {data}")
     except BaseException as err:
-        print(f"Error during plotting: {err}")
+        warnings.warn(f"Error during plotting: {err}")
+        traceback.print_exc()
     return EMPTY_FIGURE
 
 
@@ -172,7 +174,11 @@ def heatmap(field, settings):
     if settings.get('slow_colorbar', False):
         z_min, z_max = settings['minmax']
     else:
-        z_min, z_max = np.min(z), np.max(z)
+        z_min, z_max = np.nanmin(z), np.nanmax(z)
+    if not np.isfinite(z_min):
+        z_min = 0
+    if not np.isfinite(z_max):
+        z_max = 0
     color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=settings.get('colormap', None))
     return {'data': [{
         'x': x,
