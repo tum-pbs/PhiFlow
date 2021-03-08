@@ -147,10 +147,10 @@ class JaxBackend(Backend):
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
         return random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
-    def range(self, start, limit=None, delta=1, dtype=None):
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         if limit is None:
             start, limit = 0, start
-        return jnp.arange(start, limit, delta, dtype)
+        return jnp.arange(start, limit, delta, to_numpy_dtype(dtype))
 
     def tile(self, value, multiples):
         return jnp.tile(value, multiples)
@@ -316,12 +316,6 @@ class JaxBackend(Backend):
             return x
         else:
             return jnp.array(x, to_numpy_dtype(dtype))
-
-    def gather(self, values, indices):
-        # if scipy.sparse.issparse(values):  # TODO no sparse matrices?
-        #     if scipy.sparse.isspmatrix_coo(values):
-        #         values = values.tocsc()
-        return values[indices]
 
     def batched_gather_nd(self, values, indices):
         assert indices.shape[-1] == self.ndims(values) - 2

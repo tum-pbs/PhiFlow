@@ -427,6 +427,58 @@ class TestMathFunctions(TestCase):
         updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='discard')
         math.assert_close(updated, math.tensor([[1, 1, 1], [12, 1, 1]], 'y,x'))
 
+    def test_fft(self):
+        dimensions = 'xyz'
+        for backend in BACKENDS:
+            with backend:
+                for d in range(1, len(dimensions) + 1):
+                    x = math.random_normal(**{d: 6 for d in dimensions})
+                    k = math.fft(x)
+                    x_ = math.ifft(k)
+                    math.assert_close(x, x_, abs_tolerance=1e-5, msg=backend.name)
+
+    def test_sin(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.sin(math.zeros(x=4)), 0, abs_tolerance=1e-6, msg=backend.name)
+                math.assert_close(math.sin(math.tensor(math.PI / 2)), 1, abs_tolerance=1e-6, msg=backend.name)
+                math.assert_close(math.sin(math.tensor(math.PI)), 0, abs_tolerance=1e-6, msg=backend.name)
+                math.assert_close(math.sin(math.tensor(math.PI * 3 / 2)), -1, abs_tolerance=1e-6, msg=backend.name)
+
+    def test_cos(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.cos(math.zeros(x=4)), 1, abs_tolerance=1e-6, msg=backend.name)
+                math.assert_close(math.cos(math.tensor(math.PI / 2)), 0, abs_tolerance=1e-6, msg=backend.name)
+                math.assert_close(math.cos(math.tensor(math.PI)), -1, abs_tolerance=1e-6, msg=backend.name)
+                math.assert_close(math.cos(math.tensor(math.PI * 3 / 2)), 0, abs_tolerance=1e-6, msg=backend.name)
+
+    def test_any(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.any(math.tensor([[False, True], [False, False]], 'y,x'), dim='x'), [True, False])
+                math.assert_close(math.any(math.tensor([[False, True], [False, False]], 'y,x'), dim='x,y'), True)
+                math.assert_close(math.any(math.tensor([[False, True], [False, False]], 'y,x')), True)
+
+    def test_all(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.all(math.tensor([[False, True], [True, True]], 'y,x'), dim='x'), [False, True])
+                math.assert_close(math.all(math.tensor([[False, True], [True, True]], 'y,x'), dim='x,y'), False)
+                math.assert_close(math.all(math.tensor([[False, True], [True, True]], 'y,x')), False)
+
+    def test_imag(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.imag(math.ones(x=4)), 0, msg=backend.name)
+                math.assert_close(math.imag(math.ones(x=4) * 1j), 1, msg=backend.name)
+
+    def test_real(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.real(math.ones(x=4)), 1, msg=backend.name)
+                math.assert_close(math.real(math.ones(x=4) * 1j), 0, msg=backend.name)
+
     # def test_convolution(self):
     #     math.convolve
 

@@ -10,14 +10,6 @@ import os
 REF_DATA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'reference_data')
 
 
-def get_2d_sine(grid_size, L):
-    indices = np.array(np.meshgrid(*list(map(range, grid_size))))
-    phys_coord = indices.T * L / (grid_size[0])  # between [0, L)
-    x, y = phys_coord.T
-    d = np.sin(2 * np.pi * x + 1) * np.sin(2 * np.pi * y + 1)
-    return d
-
-
 class TestMathNDNumpy(TestCase):
 
     def test_gradient_scalar(self):
@@ -213,20 +205,20 @@ class TestMathNDNumpy(TestCase):
             sine_field = math.prod(math.sin(2 * PI * params['L'] * vec / params['size'] + 1), 'vector')
             sin_lap_ref = - 2 * (2 * PI * params['L'] / params['size']) ** 2 * sine_field  # leading 2 from from x-y cross terms
             sin_lap = math.fourier_laplace(sine_field, 1)
-            try:
-                math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
-            except BaseException as e:
-                abs_error = math.abs(sin_lap - sin_lap_ref)
-                max_abs_error = math.max(abs_error)
-                max_rel_error = math.max(math.abs(abs_error / sin_lap_ref))
-                variation_str = "\n".join(
-                    [
-                        f"max_absolute_error: {max_abs_error}",
-                        f"max_relative_error: {max_rel_error}",
-                    ]
-                )
-                print(f"{variation_str}\n{params}")
-                raise AssertionError(e, f"{variation_str}\n{params}")
+            # try:
+            math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
+            # except BaseException as e:  # Enable the try/catch to get more info about the deviation
+            #     abs_error = math.abs(sin_lap - sin_lap_ref)
+            #     max_abs_error = math.max(abs_error)
+            #     max_rel_error = math.max(math.abs(abs_error / sin_lap_ref))
+            #     variation_str = "\n".join(
+            #         [
+            #             f"max_absolute_error: {max_abs_error}",
+            #             f"max_relative_error: {max_rel_error}",
+            #         ]
+            #     )
+            #     print(f"{variation_str}\n{params}")
+            #     raise AssertionError(e, f"{variation_str}\n{params}")
 
 
     # Arakawa
@@ -282,16 +274,16 @@ class TestMathNDNumpy(TestCase):
                 d1_tensor = field.CenteredGrid(values=math.tensor(d1, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
                 d2_tensor = field.CenteredGrid(values=math.tensor(d2, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
                 val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
-                try:
-                    math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
-                except BaseException as e:
-                    abs_error = math.abs(val - ref)
-                    max_abs_error = math.max(abs_error)
-                    max_rel_error = math.max(math.abs(abs_error / ref))
-                    variation_str = "\n".join([
-                        f"max_absolute_error: {max_abs_error}",
-                        f"max_relative_error: {max_rel_error}",
-                    ])
-                    print(ref)
-                    print(val)
-                    raise AssertionError(e, params, variation_str)
+                # try:
+                math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
+                # except BaseException as e:  # Enable the try/catch to get more info about the deviation
+                #     abs_error = math.abs(val - ref)
+                #     max_abs_error = math.max(abs_error)
+                #     max_rel_error = math.max(math.abs(abs_error / ref))
+                #     variation_str = "\n".join([
+                #         f"max_absolute_error: {max_abs_error}",
+                #         f"max_relative_error: {max_rel_error}",
+                #     ])
+                #     print(ref)
+                #     print(val)
+                #     raise AssertionError(e, params, variation_str)

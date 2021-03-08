@@ -3,6 +3,7 @@ from unittest import TestCase
 import phi
 from phi.math.backend import ComputeDevice
 
+
 BACKENDS = phi.detect_backends()
 
 

@@ -245,7 +245,7 @@ def arange(start_or_stop: int, stop: int or None = None, step=1, dim='range'):
         start, stop = 0, start_or_stop
     else:
         start = start_or_stop
-    native = choose_backend(start, stop).range(start, stop, step)
+    native = choose_backend(start, stop, prefer_default=True).range(start, stop, step, DType(int, 32))
     return NativeTensor(native, shape_(**{dim: stop - start}))
 
 

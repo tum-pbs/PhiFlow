@@ -4,16 +4,17 @@ exclude_lines =
     pragma: no cover
 
     # Don't complain if tests don't hit abstract methods / defensive assertion code:
-    raise NotImplementedError()
-    raise NotImplementedError(self)
+    raise NotImplementedError
     return NotImplemented
 
     # Don't complain about missing imports, this cannot be tested easily.
-    except ImportError:
-    except ImportError as err:
+    except ImportError
 
     # Don't complain about empty lines
     pass
+
+    # Don't complain about not triggered test fails. This is used when a test is supposed to throw an exception.
+    self.fail
 
 omit =
     phi/physics/_world.py

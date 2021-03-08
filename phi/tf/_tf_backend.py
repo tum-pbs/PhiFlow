@@ -99,8 +99,8 @@ class TFBackend(Backend):
     def rank(self, value):
         return len(value.shape)
 
-    def range(self, start, limit=None, delta=1, dtype=None):
-        return tf.range(start, limit, delta, dtype)
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
+        return tf.range(start, limit, delta, to_numpy_dtype(dtype))
 
     def tile(self, value, multiples):
         if isinstance(multiples, (tuple, list)) and self.ndims(value) < len(multiples):
@@ -274,15 +274,6 @@ class TFBackend(Backend):
             return tuple(tensor.shape.as_list())
         else:
             return np.shape(tensor)
-
-    def gather(self, values, indices):
-        if isinstance(values, tf.SparseTensor):
-            if isinstance(indices, (tuple, list)) and indices[1] == slice(None):
-                result = sparse_select_indices(values, indices[0], axis=0, are_indices_sorted=True, are_indices_uniqua=True)
-                return result
-        if isinstance(indices, slice):
-            return values[indices]
-        return tf.gather(values, indices)
 
     def batched_gather_nd(self, values, indices):
         if self.staticshape(values)[0] == 1 and self.staticshape(indices)[0] != 1:
@@ -519,31 +510,3 @@ class TFBackend(Backend):
 
 TF_BACKEND = TFBackend()
 _TAPES = []
-
-
-def sparse_select_indices(sp_input, indices, axis=0, are_indices_uniqua=False, are_indices_sorted=False):
-    if not are_indices_uniqua:
-        indices, _ = tf.unique(indices)
-    n_indices = tf.size(indices)
-    # Only necessary if indices may not be sorted
-    if not are_indices_sorted:
-        indices, _ = tf.math.top_k(indices, n_indices)
-        indices = tf.reverse(indices, [0])
-    # Get indices for the axis
-    idx = sp_input.indices[:, axis]
-    # Find where indices match the selection
-    eq = tf.equal(tf.expand_dims(idx, 1), tf.cast(indices, tf.int64))
-    # Mask for selected values
-    sel = tf.reduce_any(eq, axis=1)
-    # Selected values
-    values_new = tf.boolean_mask(sp_input.values, sel, axis=0)
-    # New index value for selected elements
-    n_indices = tf.cast(n_indices, tf.int64)
-    idx_new = tf.reduce_sum(tf.cast(eq, tf.int64) * tf.range(n_indices), axis=1)
-    idx_new = tf.boolean_mask(idx_new, sel, axis=0)
-    # New full indices tensor
-    indices_new = tf.boolean_mask(sp_input.indices, sel, axis=0)
-    indices_new = tf.concat([indices_new[:, :axis], tf.expand_dims(idx_new, 1), indices_new[:, axis + 1:]], axis=1)
-    # New shape
-    shape_new = tf.concat([sp_input.dense_shape[:axis], [n_indices], sp_input.dense_shape[axis + 1:]], axis=0)
-    return tf.SparseTensor(indices_new, values_new, shape_new)

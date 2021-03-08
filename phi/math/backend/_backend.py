@@ -327,7 +327,7 @@ class Backend:
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def range(self, start, limit=None, delta=1, dtype: DType = None):
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         raise NotImplementedError(self)
 
     def zeros(self, shape, dtype: DType = None):
@@ -536,10 +536,10 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def imag(self, complex):
+    def imag(self, x):
         raise NotImplementedError(self)
 
-    def real(self, complex):
+    def real(self, x):
         raise NotImplementedError(self)
 
     def sin(self, x):

@@ -24,12 +24,9 @@ class TestExtrapolation(TestCase):
              - math.ones(x=5, y=5, z=6, a=1)),
         ]
         for val_in, func, val_out in test_in_func_out:
-            try:
-                math.assert_close(val_out, func(val_in))
-                # TypeError('__bool__ should return bool, returned NotImplementedType')
-                # self.assertEqual(val_out, func(val_in))
-            except Exception as e:
-                raise BaseException(AssertionError(e, val_in, func, val_out))
+            math.assert_close(val_out, func(val_in))
+            # TypeError('__bool__ should return bool, returned NotImplementedType')
+            # self.assertEqual(val_out, func(val_in))
 
 
 class TestExtrapolationOperators(TestCase):
@@ -59,13 +56,13 @@ class TestExtrapolationOperators(TestCase):
     def test_cross_errors(self):
         try:
             PERIODIC + BOUNDARY
-            assert False
+            self.fail("periodic and boundary are not compatible, should raise a TypeError")
         except TypeError:
             pass
 
         try:
             PERIODIC + ONE
-            assert False
+            self.fail("periodic and constant are not compatible, should raise a TypeError")
         except TypeError:
             pass
 

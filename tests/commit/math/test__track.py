@@ -20,10 +20,7 @@ class TestTensors(TestCase):
             val = val.x[:-2].y[1:] + val.x[2:].y[:-1]
             val = math.pad(val, {'x': (0, 0), 'y': (0, 1)}, extrapolation.ZERO)
             val = math.pad(val, {'x': (2, 2), 'y': (0, 1)}, extrapolation.BOUNDARY)
-            # sl = sl.vector[0]
-            return val
-            val = val.x[1:4].y[:2]
-            return math.sum([val, sl], axis=0) - sl
+            return math.sum([val, val], dim=0) - val
 
         functions = [
             linear_function,

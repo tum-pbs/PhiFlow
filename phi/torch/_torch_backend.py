@@ -238,11 +238,9 @@ class TorchBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return torch.mean(value, dim=axis, keepdim=keepdims)
 
-    def range(self, start, limit=None, delta=1, dtype: DType = None):
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         if limit is None:
             start, limit = 0, start
-        if dtype is None:
-            dtype = torch.int32
         return torch.arange(start, limit, delta, dtype=to_torch_dtype(dtype))
 
     def zeros(self, shape, dtype=None):
@@ -378,10 +376,6 @@ class TorchBackend(Backend):
     def staticshape(self, tensor):
         return tuple(tensor.shape)
 
-    def gather(self, values, indices):
-        # return torch.gather(values, dim=0, index=indices)
-        raise NotImplementedError()
-
     def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
         indices = self.as_tensor(indices).long()
@@ -441,21 +435,19 @@ class TorchBackend(Backend):
             k = torch.fft.ifft(k, dim=i)
         return k
 
-    def imag(self, complex):
-        if isinstance(complex, torch.Tensor):
-            return complex.imag
+    def imag(self, x):
+        dtype = self.dtype(x)
+        if dtype.kind == complex:
+            return torch.imag(x)
         else:
-            if isinstance(complex, np.ndarray):
-                complex = np.imag(complex)
-            return torch.zeros_like(self.as_tensor(complex))
+            return self.zeros(x.shape, DType(float, dtype.precision))
 
-    def real(self, complex):
-        if isinstance(complex, torch.Tensor):
-            return complex.real
+    def real(self, x):
+        dtype = self.dtype(x)
+        if dtype.kind == complex:
+            return torch.real(x)
         else:
-            if isinstance(complex, np.ndarray):
-                complex = np.real(complex)
-            return self.as_tensor(complex)
+            return x
 
     def cast(self, x, dtype: DType):
         if not self.is_tensor(x, only_native=True):
