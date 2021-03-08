@@ -33,8 +33,8 @@ def make_incompressible(velocity: Grid,
 
     """
     input_velocity = velocity
-    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries['active'])
-    accessible = domain.grid(active, extrapolation=domain.boundaries['accessible'])
+    active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
+    accessible = domain.scalar_grid(active, extrapolation='accessible')
     hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries['accessible'], type=type(velocity))
     v_bc_div = domain.boundaries['vector'] * domain.boundaries['accessible']
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
@@ -57,7 +57,10 @@ def make_incompressible(velocity: Grid,
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
     if domain.boundaries['accessible'] == math.extrapolation.ZERO:
-        remove_div_in_gradient = math.custom_gradient(lambda x: x, lambda dy: (_balance_divergence(div.with_(values=dy), active).values,))
+        def pressure_backward(dp):
+            active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
+            return (_balance_divergence(div.with_(values=dp), active).values,)
+        remove_div_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
         pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs

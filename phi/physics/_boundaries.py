@@ -2,13 +2,12 @@ import warnings
 from numbers import Number
 
 from phi import math, struct, field
-from phi.field import CenteredGrid, StaggeredGrid, GeometryMask, PointCloud, Field, HardGeometryMask, Grid
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, HardGeometryMask
 from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
-from phi.math import extrapolation, Tensor
+from phi.math import Tensor
+from phi.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
 from phi.math import spatial_shape
-from ._effect import FieldEffect
-from ._physics import Physics
 from ._physics import State
 from ..math.extrapolation import combine_sides
 
@@ -42,37 +41,37 @@ def _create_boundary_conditions(obj: dict or tuple or list, spatial_dims: tuple)
 
 
 OPEN = {
-    'scalar': extrapolation.ZERO,
-    'vector': extrapolation.BOUNDARY,
-    'active': extrapolation.ZERO,
-    'accessible': extrapolation.ONE,
+    'scalar': ZERO,
+    'vector': BOUNDARY,
+    'active': ZERO,
+    'accessible': ONE,
 }
 
 SLIPPERY = {
-    'scalar': extrapolation.BOUNDARY,
-    'vector': combine_sides({'normal': extrapolation.ZERO, 'parallel': extrapolation.BOUNDARY}),  # TODO mixed extrapolation types not yet supported
-    'active': extrapolation.ZERO,
-    'accessible': extrapolation.ZERO,
+    'scalar': BOUNDARY,
+    'vector': combine_sides({'normal': ZERO, 'parallel': BOUNDARY}),  # TODO mixed extrapolation types not yet supported
+    'active': ZERO,
+    'accessible': ZERO,
 }
 
 STICKY = {
-    'scalar': extrapolation.BOUNDARY,
-    'vector': extrapolation.ZERO,
-    'active': extrapolation.ZERO,
-    'accessible': extrapolation.ZERO,
+    'scalar': BOUNDARY,
+    'vector': ZERO,
+    'active': ZERO,
+    'accessible': ZERO,
 }
 
 PERIODIC = {
-    'scalar': extrapolation.PERIODIC,
-    'vector': extrapolation.PERIODIC,
-    'active': extrapolation.ONE,
-    'accessible': extrapolation.ONE,
+    'scalar': PERIODIC,
+    'vector': PERIODIC,
+    'active': ONE,
+    'accessible': ONE,
 }
 
 
 class Domain:
 
-    def __init__(self, resolution: math.Shape = math.EMPTY_SHAPE, boundaries: dict or tuple or list = OPEN, bounds: Box = None, **resolution_):
+    def __init__(self, boundaries: dict or tuple or list = OPEN, resolution: math.Shape = math.EMPTY_SHAPE, bounds: Box = None, **resolution_):
         """
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
@@ -133,7 +132,7 @@ class Domain:
     def grid(self,
              value: Field or Tensor or Number or Geometry or callable = 0.,
              type: type = CenteredGrid,
-             extrapolation: math.Extrapolation = None) -> CenteredGrid or StaggeredGrid:
+             extrapolation: math.Extrapolation = 'scalar') -> CenteredGrid or StaggeredGrid:
         """
         *Deprecated* due to inconsistent extrapolation selection. Use `scalar_grid()` or `vector_grid()` instead.
 
@@ -155,7 +154,7 @@ class Domain:
           Grid of specified type
         """
         warnings.warn("Domain.grid is deprecated. Use scalar_grid or vector_grid instead.", DeprecationWarning)
-        extrapolation = extrapolation or self.boundaries['scalar']
+        extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         if type is CenteredGrid:
             return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
         elif type is StaggeredGrid:
@@ -165,7 +164,7 @@ class Domain:
 
     def scalar_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
-                    extrapolation: math.Extrapolation = None) -> CenteredGrid:
+                    extrapolation: str or math.Extrapolation = 'scalar') -> CenteredGrid:
         """
         Creates a scalar grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -184,7 +183,7 @@ class Domain:
         Returns:
           `CenteredGrid` with no channel dimensions
         """
-        extrapolation = extrapolation or self.boundaries['scalar']
+        extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         if isinstance(value, Field):
             assert_same_rank(value.spatial_rank, self.rank, f"Cannot resample {value.spatial_rank}D field to {self.rank}D domain.")
         elif isinstance(value, Tensor):
@@ -206,7 +205,7 @@ class Domain:
     def vector_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
                     type: type = CenteredGrid,
-                    extrapolation: math.Extrapolation = None) -> CenteredGrid or StaggeredGrid:
+                    extrapolation: math.Extrapolation = 'vector') -> CenteredGrid or StaggeredGrid:
         """
         Creates a vector grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -228,7 +227,7 @@ class Domain:
           Grid of specified type
 
         """
-        extrapolation = extrapolation or self.boundaries['vector']
+        extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         if type is CenteredGrid:
             grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
             if grid.shape.channel.rank == 0:
@@ -243,7 +242,7 @@ class Domain:
 
     def staggered_grid(self,
                        value: Field or Tensor or Number or Geometry or callable = 0.,
-                       extrapolation: math.Extrapolation = None) -> StaggeredGrid:
+                       extrapolation: math.Extrapolation = 'vector') -> StaggeredGrid:
         """
         Creates a staggered grid matching the resolution and bounds of the domain.
         This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
@@ -260,7 +259,6 @@ class Domain:
 
         Args:
           value: constant, Field, Tensor or function specifying the grid values
-          type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
           extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['vector']
 
         Returns:
@@ -268,30 +266,32 @@ class Domain:
         """
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
 
-    def accessible_mask(self, not_accessible: tuple or list, type: type = CenteredGrid) -> CenteredGrid or StaggeredGrid:
+    def accessible_mask(self, not_accessible: tuple or list, type: type = CenteredGrid, extrapolation='accessible') -> CenteredGrid or StaggeredGrid:
         """
         Unifies domain and Obstacle or Geometry objects into a binary StaggeredGrid mask which can be used
         to enforce boundary conditions.
 
         Args:
             not_accessible: blocked region(s) of space specified by geometries
+            type: class of Grid to create, must be either CenteredGrid or StaggeredGrid
+            extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['accessible']
 
         Returns:
             Binary mask indicating valid fields w.r.t. the boundary conditions.
-            The result is of type `type` and uses the extrapolation `Domain.boundaries['accessible']`.
         """
-        accessible_mask = self.scalar_grid(HardGeometryMask(~union(not_accessible)), extrapolation=self.boundaries['accessible'])
+        extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
+        accessible_mask = self.scalar_grid(HardGeometryMask(~union(not_accessible)), extrapolation=extrapolation)
         if type is CenteredGrid:
             return accessible_mask
         elif type is StaggeredGrid:
-            return field.stagger(accessible_mask, math.minimum, self.boundaries['accessible'])
+            return field.stagger(accessible_mask, math.minimum, extrapolation)
         else:
             raise ValueError('Unknown grid type: %s' % type)
 
     def points(self,
                points: Tensor or Number or tuple or list,
                radius: Tensor or float or int or None = None,
-               extrapolation: math.Extrapolation = None,
+               extrapolation: math.Extrapolation = math.extrapolation.ZERO,
                color: str or Tensor or tuple or list or None = None) -> PointCloud:
         """
         Create a `phi.field.PointCloud` from the given `points`.
@@ -306,7 +306,7 @@ class Domain:
         Returns:
             `phi.field.PointCloud` object
         """
-        extrapolation = extrapolation or math.extrapolation.ZERO
+        extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         if radius is None:
             radius = math.mean(self.bounds.size) * 0.005
         # --- Parse points: tuple / list ---
