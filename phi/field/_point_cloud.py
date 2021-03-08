@@ -88,11 +88,11 @@ class PointCloud(SampledField):
 
         """
         closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution - 0.5))
-        if self._add_overlapping:
-            duplicates_handling = 'add'
-        else:
-            duplicates_handling = 'mean'
-        scattered = math.scatter(closest_index, self.values, resolution, duplicates_handling=duplicates_handling, outside_handling='discard', scatter_dims=('points',))
+        mode = 'add' if self._add_overlapping else 'mean'
+        base = math.zeros(resolution)
+        if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
+            base += self.extrapolation.value
+        scattered = math.scatter(base, closest_index, self.values, scatter_dims=('points',), mode=mode, outside_handling='discard')
         return scattered
 
     def __repr__(self):

@@ -414,7 +414,7 @@ class TorchBackend(Backend):
     def isfinite(self, x):
         return torch.isfinite(x)
 
-    def scatter(self, points, indices, values, shape, duplicates_handling='undefined'):
+    def scatter(self, base_grid, indices, values, mode: str):
         raise NotImplementedError()
 
     def fft(self, x):

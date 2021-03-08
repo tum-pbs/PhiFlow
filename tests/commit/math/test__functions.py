@@ -354,6 +354,79 @@ class TestMathFunctions(TestCase):
                     custom_loss_grad, = math.functional_gradient(loss)(math.ones(x=4))
                     math.assert_close(custom_loss_grad, 0, msg=backend.name)
 
+    def test_scatter_1d(self):
+        for backend in BACKENDS:
+            if backend.name in ('NumPy', 'Jax'):
+                with backend:
+                    base = math.ones(x=4)
+                    indices = math.wrap([1, 2], 'points')
+                    values = math.wrap([11, 12], 'points')
+                    updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='undefined')
+                    math.assert_close(updated, [1, 11, 12, 1])
+                    updated = math.scatter(base, indices, values, 'points', mode='add', outside_handling='undefined')
+                    math.assert_close(updated, [1, 12, 13, 1])
+                    # with vector dim
+                    indices = math.expand_channel(indices, vector=1)
+                    updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='undefined')
+                    math.assert_close(updated, [1, 11, 12, 1])
+
+    def test_scatter_update_1d_batched(self):
+        for backend in BACKENDS:
+            if backend.name in ('NumPy', 'Jax'):
+                with backend:
+                    # Only base batched
+                    base = math.zeros(x=4) + math.tensor([0, 1])
+                    indices = math.wrap([1, 2], 'points')
+                    values = math.wrap([11, 12], 'points')
+                    updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='undefined')
+                    math.assert_close(updated, math.tensor([(0, 1), (11, 11), (12, 12), (0, 1)], 'x,vector'))
+                    # Only values batched
+                    base = math.ones(x=4)
+                    indices = math.wrap([1, 2], 'points')
+                    values = math.wrap([[11, 12], [-11, -12]], 'batch,points')
+                    updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='undefined')
+                    math.assert_close(updated, math.tensor([[1, 11, 12, 1], [1, -11, -12, 1]], 'batch,x'))
+                    # Only indices batched
+                    base = math.ones(x=4)
+                    indices = math.wrap([[0, 1], [1, 2]], 'batch,points')
+                    values = math.wrap([11, 12], 'points')
+                    updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='undefined')
+                    math.assert_close(updated, math.tensor([[11, 12, 1, 1], [1, 11, 12, 1]], 'batch,x'))
+                    # Everything batched
+                    base = math.zeros(x=4) + math.tensor([0, 1], 'batch')
+                    indices = math.wrap([[0, 1], [1, 2]], 'batch,points')
+                    values = math.wrap([[11, 12], [-11, -12]], 'batch,points')
+                    updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='undefined')
+                    math.assert_close(updated, math.tensor([[11, 12, 0, 0], [1, -11, -12, 1]], 'batch,x'))
+
+    def test_scatter_update_2d(self):
+        base = math.ones(x=3, y=2)
+        indices = math.wrap([(0, 0), (0, 1), (2, 1)], 'points,vector')
+        values = math.wrap([11, 12, 13], 'points')
+        updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='undefined')
+        math.assert_close(updated, math.tensor([[11, 1, 1], [12, 1, 13]], 'y,x'))
+
+    def test_scatter_add_2d(self):
+        base = math.ones(x=3, y=2)
+        indices = math.wrap([(0, 0), (0, 0), (0, 1), (2, 1)], 'points,vector')
+        values = math.wrap([11, 11, 12, 13], 'points')
+        updated = math.scatter(base, indices, values, 'points', mode='add', outside_handling='undefined')
+        math.assert_close(updated, math.tensor([[23, 1, 1], [13, 1, 14]], 'y,x'))
+
+    def test_scatter_2d_clamp(self):
+        base = math.ones(x=3, y=2)
+        indices = math.wrap([(-1, 0), (0, 2), (4, 3)], 'points,vector')
+        values = math.wrap([11, 12, 13], 'points')
+        updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='clamp')
+        math.assert_close(updated, math.tensor([[11, 1, 1], [12, 1, 13]], 'y,x'))
+
+    def test_scatter_2d_discard(self):
+        base = math.ones(x=3, y=2)
+        indices = math.wrap([(-1, 0), (0, 1), (3, 1)], 'points,vector')
+        values = math.wrap([11, 12, 13], 'points')
+        updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='discard')
+        math.assert_close(updated, math.tensor([[1, 1, 1], [12, 1, 1]], 'y,x'))
+
     # def test_convolution(self):
     #     math.convolve
 

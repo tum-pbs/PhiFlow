@@ -312,12 +312,7 @@ class TFBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
 
-    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
-        assert duplicates_handling in ('undefined', 'add', 'mean', 'any')
-        assert outside_handling in ('discard', 'clamp', 'undefined')
-        if duplicates_handling == 'undefined':
-            pass
-
+    def scatter(self, base_grid, indices, values, mode: str):
         # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
         buffer = tf.zeros(shape, dtype=values.dtype)
 

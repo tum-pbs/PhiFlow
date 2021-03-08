@@ -346,41 +346,21 @@ class JaxBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return jnp.all(boolean_tensor, axis=axis, keepdims=keepdims)
 
-    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
-        assert duplicates_handling in ('undefined', 'add', 'mean', 'any')
-        assert outside_handling in ('discard', 'clamp', 'undefined')
-        batch_size = combined_dim(indices.shape[0], values.shape[0])
-
-        dnums = jax.lax.ScatterDimensionNumbers(update_window_dims=(1,),  # last dimension of updates
-                                                inserted_window_dims=(0, 1),
-                                                scatter_dims_to_operand_dims=(0, 1,))  # indices correspond to x, y | tuple(range(len(shape)))
-
-        shape = jnp.array(shape, jnp.int32)
-        # if outside_handling == 'clamp':
-        #     indices = jnp.maximum(0, jnp.minimum(indices, shape - 1))
-        # elif outside_handling == 'discard':
-        #     indices_inside = (indices >= 0) & (indices < shape)
-        #     indices_inside = jnp.min(indices_inside, axis=-1)
-        #     filter_indices = jnp.argwhere(indices_inside)
-        #     indices = indices[filter_indices][..., 0, :]
-        #     if values.shape[0] > 1:
-        #         values = values[filter_indices.reshape(-1)]
-        if duplicates_handling == 'add':
-            raise NotImplementedError()
-        elif duplicates_handling == 'mean':
-            counts = []
-            sums = []
-            zeros = jnp.zeros((*shape, values.shape[-1]), to_numpy_dtype(self.float_type))
-            ones = jnp.ones(values.shape[1:], to_numpy_dtype(self.float_type))
-            for b in range(batch_size):
-                sums.append(jax.lax.scatter_add(zeros, indices[b, ...], values[b, ...], dnums))
-                counts.append(jax.lax.scatter_add(zeros, indices[b, ...], ones, dnums))
-            sums = jnp.stack(sums)
-            counts = jnp.stack(counts)
-            counts = jnp.maximum(1, counts)
-            return sums / counts
-        else:  # last, any, undefined
-            raise NotImplementedError()
+    def scatter(self, base_grid, indices, values, mode: str):
+        base_grid, values = self.auto_cast(base_grid, values)
+        batch_size = combined_dim(combined_dim(indices.shape[0], values.shape[0]), base_grid.shape[0])
+        spatial_dims = tuple(range(base_grid.ndim - 2))
+        dnums = jax.lax.ScatterDimensionNumbers(update_window_dims=(1,),  # channel dim of updates (batch dim removed)
+                                                inserted_window_dims=(0,),  # list dim of indices (batch dim removed)
+                                                scatter_dims_to_operand_dims=spatial_dims)  # spatial dims of base_grid (batch dim removed)
+        scatter = jax.lax.scatter_add if mode == 'add' else jax.lax.scatter
+        result = []
+        for b in range(batch_size):
+            b_grid = base_grid[b, ...]
+            b_indices = indices[min(b, indices.shape[0] - 1), ...]
+            b_values = values[min(b, values.shape[0] - 1), ...]
+            result.append(scatter(b_grid, b_indices, b_values, dnums))
+        return jnp.stack(result)
 
     def fft(self, x):
         rank = len(x.shape) - 2

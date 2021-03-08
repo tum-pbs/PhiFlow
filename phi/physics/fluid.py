@@ -38,9 +38,10 @@ def make_incompressible(velocity: Grid,
     hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries['accessible'], type=type(velocity))
     v_bc_div = domain.boundaries['vector'] * domain.boundaries['accessible']
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
-    div = divergence(velocity)
+    div = divergence(velocity) * active
     if domain.boundaries['accessible'] == math.extrapolation.ZERO:
         div = _balance_divergence(div, active)
+        # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
 
@@ -58,6 +59,7 @@ def make_incompressible(velocity: Grid,
         raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
     if domain.boundaries['accessible'] == math.extrapolation.ZERO:
         def pressure_backward(dp):
+            # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
             active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
             return (_balance_divergence(div.with_(values=dp), active).values,)
         remove_div_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)

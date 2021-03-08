@@ -5,11 +5,11 @@ from phi.flow import *
 
 
 DOMAIN = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box(0, (100, 100)))
-points = DOMAIN.points([(10, 10), (20, 20)], color=['#ba0a04', '#344feb'])
+# points = DOMAIN.points([(1, 1), (20, 20)], color=['#ba0a04', '#344feb'])
 
-points1 = DOMAIN.points((10, 10), color='#ba0a04')
+points1 = DOMAIN.points((1, 1), color='#ba0a04')
 points2 = DOMAIN.points((20, 20), color='#344feb')
-points = points1 & points2
+# points = points1 & points2
 points = field.concat(points1, points2, dim='points')
 
 # Advection

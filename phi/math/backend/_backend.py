@@ -490,20 +490,19 @@ class Backend:
     def isfinite(self, x):
         raise NotImplementedError(self)
 
-    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
+    def scatter(self, base_grid, indices, values, mode: str):
         """
-        This method expects the first dimension of indices and values to be the batch dimension.
-        The batch dimension need not be specified in the indices array.
+        Depending on `mode`, performs scatter_update or scatter_add.
 
         Args:
-          indices: n-dimensional indices corresponding to values. Tensor of shape (batch_size, update_count, index_vector)
-          values: Values to scatter at indices. Tensor of shape (batch_size, update_count, channels)
-          shape: Spatial shape of the result tensor, 1D int array
-          duplicates_handling: One of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
-          outside_handling: One of ('discard', 'clamp', 'undefined') (Default value = 'undefined')
+            base_grid: Tensor into which scatter values are inserted at indices.
+                Either tensor of shape (batch_size, spatial..., channels) or tuple of tensors (batch_size, spatial...)
+            indices: Tensor of shape (batch_size or 1, update_count, index_vector)
+            values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
+            mode: One of ('update', 'add')
 
         Returns:
-
+            Copy of base_grid with values at `indices` updated by `values`.
         """
         raise NotImplementedError(self)
 
@@ -661,7 +660,7 @@ class Backend:
             batches = [batches]
         return tensor[batches, ...]
 
-    def unstack(self, tensor, axis=0, keepdims=False):
+    def unstack(self, tensor, axis=0, keepdims=False) -> tuple:
         if axis < 0:
             axis += len(tensor.shape)
         if axis >= len(tensor.shape) or axis < 0:

@@ -1,4 +1,5 @@
 import functools
+import math
 import re
 import time
 import warnings
@@ -941,34 +942,95 @@ def gather(values: Tensor, indices: Tensor):
     return result
 
 
-def scatter(indices: Tensor,
+def scatter(base_grid: Tensor or Shape,
+            indices: Tensor,
             values: Tensor,
-            size: Shape,
             scatter_dims: str or tuple or list or 'Shape',
-            duplicates_handling: str = 'undefined',
-            outside_handling: str = 'discard'):
+            mode: str = 'update',
+            outside_handling: str = 'discard',
+            indices_gradient=False):
     """
-    Create a dense tensor from sparse values.
+    Scatters `values` into `base_grid` at `indices`.
+    Depending on `mode`, this method has one of the following effects:
+
+    * `mode='update'`: Replaces the values of `base_grid` at `indices` by `values`. The result is undefined if `indices` contains duplicates.
+    * `mode='add'`: Adds `values` to `base_grid` at `indices`. The values corresponding to duplicate indices are accumulated.
+    * `mode='mean'`: Replaces the values of `base_grid` at `indices` by the mean of all `values` with the same index.
 
     Args:
-        indices: n-dimensional indices corresponding to values
-        values: values to scatter at indices
-        size: spatial size of dense tensor
-        scatter_dims: dimensions of values/indices to reduce during scattering
-        duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
-        outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'discard')
+        base_grid: `Tensor` into which `values` are scattered.
+        indices: `Tensor` of n-dimensional indices at which to place `values`.
+            Must have a single channel dimension with size matching the number of spatial dimensions of `base_grid`.
+            This dimension is optional if the spatial rank is 1.
+            Must also contain all `scatter_dims`.
+        values: `Tensor` of values to scatter at `indices`.
+        scatter_dims: Dimensions of `values` and/or `indices` to reduce during scattering.
+            These dimensions are not treated as batch dimensions.
+        mode: Scatter mode as `str`. One of ('add', 'mean', 'update')
+        outside_handling: Defines how indices lying outside the bounds of `base_grid` are handled.
+
+            * `'discard'`: outside indices are ignored.
+            * `'clamp'`: outside indices are projected onto the closest point inside the grid.
+            * `'undefined'`: All points are expected to lie inside the grid. Otherwise an error may be thrown or an undefined tensor may be returned.
+        indices_gradient: Whether to allow the gradient of this operation to be backpropagated through `indices`.
 
     Returns:
-        Tensor of shape `size` and dtype matching `values`.
+        Copy of `base_grid` with updated values at `indices`.
     """
-    assert values.shape.non_channel == indices.shape.non_channel
-    batch = values.shape.batch.without(scatter_dims)
-    native_indices = indices.native()
-    native_values = values.native(values.shape.combined(indices.shape.non_channel).names)
-    backend = choose_backend(native_indices, native_values)
-    result_ = backend.scatter(native_indices, native_values, tuple(size), duplicates_handling=duplicates_handling, outside_handling=outside_handling)
-    result_shape = batch & size & values.shape.channel
-    return NativeTensor(result_, result_shape)
+    assert mode in ('update', 'add', 'mean')
+    assert outside_handling in ('discard', 'clamp', 'undefined')
+    assert isinstance(indices_gradient, bool)
+    if indices_gradient:
+        raise NotImplementedError("indices_gradient not yet supported.")
+    grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
+    assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
+    batches = (values.shape.non_channel & indices.shape.non_channel).without(scatter_dims)
+    lists = indices.shape.only(scatter_dims)
+    channels = (grid_shape.channel & values.shape.channel).without(scatter_dims)
+    # Reshape indices to (batch, list, vector)
+    shaped_indices = join_dimensions(indices, batches, 'batch_', pos=0)
+    shaped_indices = join_dimensions(shaped_indices, lists, 'list_', pos=1)
+    # Reshape values to (batch, list, vector)
+    values = _expand_dims(values, channels)
+    shaped_values = join_dimensions(values, batches, 'batch_', pos=0)
+    shaped_values = join_dimensions(shaped_values, lists, 'list_', pos=1)
+    shaped_values = join_dimensions(shaped_values, channels, 'channels_', pos=-1)
+    # Set up grid
+    if isinstance(base_grid, Shape):
+        with choose_backend_t(indices, values):
+            base_grid = zeros(base_grid & batches & values.shape.channel)
+        if mode != 'add':
+            base_grid += math.nan
+    # Handle outside indices
+    if outside_handling == 'clamp':
+        shaped_indices = clip(shaped_indices, 0, tensor(grid_shape.spatial, 'vector') - 1)
+    elif outside_handling == 'discard':
+        indices_inside = min_((shaped_indices >= 0) & (shaped_indices < tensor(grid_shape.spatial, 'vector')), 'vector')
+        shaped_indices = shaped_indices.list_[indices_inside]
+        shaped_values = shaped_values.list_[indices_inside]
+        if shaped_indices.shape.is_non_uniform:
+            raise NotImplementedError()
+
+    base_grid = _expand_dims(base_grid, channels)
+    base_grid = _expand_dims(base_grid, batches)
+    grid_shaped = join_dimensions(base_grid, batches, 'batch_', pos=0)
+    grid_shaped = join_dimensions(grid_shaped, channels, 'channels_', pos=-1)
+    native_grid = grid_shaped.native()
+    native_values = shaped_values.native('batch_, list_, channels_')
+    native_indices = shaped_indices.native('batch_, list_, vector')
+    backend = choose_backend(native_indices, native_values, native_grid)
+    if mode in ('add', 'update'):
+        native_result = backend.scatter(native_grid, native_indices, native_values, mode=mode)
+    else:  # mean
+        zero_grid = backend.zeros_like(native_grid)
+        sum = backend.scatter(zero_grid, native_indices, native_values, mode='add')
+        count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode='add')
+        native_result = sum / count
+        native_result = backend.where(count == 0, native_grid, native_result)
+    result_shaped = NativeTensor(native_result, grid_shaped.shape)
+    result_shaped = split_dimension(result_shaped.batch_, batches)
+    result = split_dimension(result_shaped.channels_, channels)
+    return result
 
 
 def fft(x: Tensor):

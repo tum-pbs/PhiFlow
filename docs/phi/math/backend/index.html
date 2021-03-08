@@ -963,20 +963,19 @@ The output of math operations has the same precision as its inputs.</p>
     def isfinite(self, x):
         raise NotImplementedError(self)
 
-    def scatter(self, indices, values, shape, duplicates_handling=&#39;undefined&#39;, outside_handling=&#39;undefined&#39;):
+    def scatter(self, base_grid, indices, values, mode: str):
         &#34;&#34;&#34;
-        This method expects the first dimension of indices and values to be the batch dimension.
-        The batch dimension need not be specified in the indices array.
+        Depending on `mode`, performs scatter_update or scatter_add.
 
         Args:
-          indices: n-dimensional indices corresponding to values
-          values: values to scatter at indices
-          shape: spatial shape of the result tensor, 1D int array
-          duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
-          outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;undefined&#39;)
+            base_grid: Tensor into which scatter values are inserted at indices.
+                Either tensor of shape (batch_size or 1, spatial..., channels) or tuple of tensors (batch_size, spatial...)
+            indices: Tensor of shape (batch_size or 1, update_count, index_vector)
+            values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
+            mode: One of (&#39;update&#39;, &#39;add&#39;)
 
         Returns:
-
+            Copy of base_grid with values at `indices` updated by `values`.
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -1134,7 +1133,7 @@ The output of math operations has the same precision as its inputs.</p>
             batches = [batches]
         return tensor[batches, ...]
 
-    def unstack(self, tensor, axis=0, keepdims=False):
+    def unstack(self, tensor, axis=0, keepdims=False) -&gt; tuple:
         if axis &lt; 0:
             axis += len(tensor.shape)
         if axis &gt;= len(tensor.shape) or axis &lt; 0:
@@ -2624,43 +2623,41 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.scatter"><code class="name flex">
-<span>def <span class="ident">scatter</span></span>(<span>self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined')</span>
+<span>def <span class="ident">scatter</span></span>(<span>self, base_grid, indices, values, mode: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>This method expects the first dimension of indices and values to be the batch dimension.
-The batch dimension need not be specified in the indices array.</p>
+<div class="desc"><p>Depending on <code>mode</code>, performs scatter_update or scatter_add.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>base_grid</code></strong></dt>
+<dd>Tensor into which scatter values are inserted at indices.
+Either tensor of shape (batch_size or 1, spatial&hellip;, channels) or tuple of tensors (batch_size, spatial&hellip;)</dd>
 <dt><strong><code>indices</code></strong></dt>
-<dd>n-dimensional indices corresponding to values</dd>
+<dd>Tensor of shape (batch_size or 1, update_count, index_vector)</dd>
 <dt><strong><code>values</code></strong></dt>
-<dd>values to scatter at indices</dd>
-<dt><strong><code>shape</code></strong></dt>
-<dd>spatial shape of the result tensor, 1D int array</dd>
-<dt><strong><code>duplicates_handling</code></strong></dt>
-<dd>one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')</dd>
-<dt><strong><code>outside_handling</code></strong></dt>
-<dd>one of ('discard', 'clamp', 'undefined') (Default value = 'undefined')</dd>
+<dd>Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)</dd>
+<dt><strong><code>mode</code></strong></dt>
+<dd>One of ('update', 'add')</dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>Copy of base_grid with values at <code>indices</code> updated by <code>values</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scatter(self, indices, values, shape, duplicates_handling=&#39;undefined&#39;, outside_handling=&#39;undefined&#39;):
+<pre><code class="python">def scatter(self, base_grid, indices, values, mode: str):
     &#34;&#34;&#34;
-    This method expects the first dimension of indices and values to be the batch dimension.
-    The batch dimension need not be specified in the indices array.
+    Depending on `mode`, performs scatter_update or scatter_add.
 
     Args:
-      indices: n-dimensional indices corresponding to values
-      values: values to scatter at indices
-      shape: spatial shape of the result tensor, 1D int array
-      duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
-      outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;undefined&#39;)
+        base_grid: Tensor into which scatter values are inserted at indices.
+            Either tensor of shape (batch_size or 1, spatial..., channels) or tuple of tensors (batch_size, spatial...)
+        indices: Tensor of shape (batch_size or 1, update_count, index_vector)
+        values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
+        mode: One of (&#39;update&#39;, &#39;add&#39;)
 
     Returns:
-
+        Copy of base_grid with values at `indices` updated by `values`.
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -3035,7 +3032,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, tensor, axis=0, keepdims=False)</span>
+<span>def <span class="ident">unstack</span></span>(<span>self, tensor, axis=0, keepdims=False) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3043,7 +3040,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(self, tensor, axis=0, keepdims=False):
+<pre><code class="python">def unstack(self, tensor, axis=0, keepdims=False) -&gt; tuple:
     if axis &lt; 0:
         axis += len(tensor.shape)
     if axis &gt;= len(tensor.shape) or axis &lt; 0:

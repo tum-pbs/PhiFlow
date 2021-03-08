@@ -294,32 +294,34 @@ class NumPyBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return np.all(boolean_tensor, axis=axis, keepdims=keepdims)
 
-    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
-        assert duplicates_handling in ('undefined', 'add', 'mean', 'any')
-        assert outside_handling in ('discard', 'clamp', 'undefined')
-        shape = np.array(shape, np.int32)
-        if outside_handling == 'clamp':
-            indices = np.maximum(0, np.minimum(indices, shape - 1))
-        elif outside_handling == 'discard':
-            indices_inside = (indices >= 0) & (indices < shape)
-            indices_inside = np.min(indices_inside, axis=-1)
-            filter_indices = np.argwhere(indices_inside)
-            indices = indices[filter_indices][..., 0, :]
-            if values.shape[0] > 1:
-                values = values[filter_indices.reshape(-1)]
-        array = np.zeros(tuple(shape) + values.shape[indices.ndim-1:], to_numpy_dtype(self.float_type))
-        indices = self.unstack(indices, axis=-1)
-        if duplicates_handling == 'add':
-            np.add.at(array, tuple(indices), values)
-        elif duplicates_handling == 'mean':
-            count = np.zeros(shape, np.int32)
-            np.add.at(array, tuple(indices), values)
-            np.add.at(count, tuple(indices), 1)
-            count = np.maximum(1, count)
-            return array / count
-        else:  # last, any, undefined
-            array[indices] = values
-        return array
+    def scatter(self, base_grid, indices, values, mode: str):
+        assert mode in ('add', 'update')
+        assert isinstance(base_grid, np.ndarray)
+        assert isinstance(indices, (np.ndarray, tuple))
+        assert isinstance(values, np.ndarray)
+        assert indices.ndim == 3
+        assert values.ndim == 3
+        assert base_grid.ndim >= 3
+        batch_size = combined_dim(combined_dim(base_grid.shape[0], indices.shape[0]), values.shape[0])
+        if base_grid.shape[0] == batch_size:
+            result = np.copy(base_grid)
+        else:
+            result = np.tile(base_grid, (batch_size, *[1] * (base_grid.ndim - 1)))
+        if not isinstance(indices, (tuple, list)):
+            indices = self.unstack(indices, axis=-1)
+        if mode == 'add':
+            for b in range(batch_size):
+                np.add.at(result, (b, *[i[min(b, i.shape[0]-1)] for i in indices]), values[min(b, values.shape[0]-1)])
+        else:  # update
+            for b in range(batch_size):
+                result[(b, *[i[min(b, i.shape[0]-1)] for i in indices])] = values[min(b, values.shape[0]-1)]
+        # elif duplicates_handling == 'mean':
+        #     count = np.zeros(shape, np.int32)
+        #     np.add.at(array, tuple(indices), values)
+        #     np.add.at(count, tuple(indices), 1)
+        #     count = np.maximum(1, count)
+        #     return array / count
+        return result
 
     def fft(self, x):
         rank = len(x.shape) - 2

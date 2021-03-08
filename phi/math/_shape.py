@@ -657,7 +657,7 @@ class Shape:
             sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
             return Shape(sizes, self.names, self.types)
         else:
-            assert len(sizes) == len(self.sizes)
+            assert len(sizes) == len(self.sizes), f"Cannot create shape from {self} with sizes {sizes}"
             return Shape(sizes, self.names, self.types)
 
     def with_size(self, name, size):

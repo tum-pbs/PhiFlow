@@ -733,7 +733,7 @@ class CollapsedTensor(Tensor):  # package-private
         for name in tensor.shape.names:
             assert name in shape
         for size, name, dim_type in tensor.shape.dimensions:
-            assert shape.get_size(name) == size
+            assert shape.get_size(name) == size, f"Shape mismatch while trying to set {name}={shape.get_size(name)} but has size {size}"
             assert shape.get_type(name) == dim_type
         if isinstance(tensor, CollapsedTensor):
             if tensor.is_cached:

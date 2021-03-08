@@ -1508,13 +1508,13 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
 <pre><code class="python">def gather(values: Tensor, indices: Tensor):
     b_values = join_dimensions(values, values.shape.batch, &#39;batch&#39;)
     b_values = join_dimensions(b_values, b_values.shape.channel, &#39;channel&#39;, pos=-1)
-    b_indices = join_dimensions(indices, indices.shape.batch, &#39;batch&#39;)
+    b_indices = join_dimensions(indices, indices.shape.batch.only(values.shape.batch), &#39;batch&#39;)
     native_values = b_values.native()
     native_indices = b_indices.native()
     native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
-    b_result = tensor(native_result, (&#39;batch&#39;, *indices.shape.spatial.names, &#39;vector&#39;))
+    b_result = tensor(native_result, (&#39;batch&#39;, *indices.shape.non_channel.without(&#39;batch&#39;).names, &#39;vector&#39;))
     result = split_dimension(b_result.vector, values.shape.channel)
-    result = split_dimension(result.batch, values.shape.batch &amp; indices.shape.batch)
+    result = split_dimension(result.batch, values.shape.batch)
     return result</code></pre>
 </details>
 </dd>
@@ -2728,58 +2728,139 @@ size: Shape: </p>
 </details>
 </dd>
 <dt id="phi.math.scatter"><code class="name flex">
-<span>def <span class="ident">scatter</span></span>(<span>indices: phi.math._tensors.Tensor, values: phi.math._tensors.Tensor, size: phi.math._shape.Shape, scatter_dims: str, duplicates_handling: str = 'undefined', outside_handling: str = 'discard')</span>
+<span>def <span class="ident">scatter</span></span>(<span>base_grid: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor, values: phi.math._tensors.Tensor, scatter_dims: str, mode: str = 'update', outside_handling: str = 'discard', indices_gradient=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Create a dense tensor from sparse values.</p>
+<div class="desc"><p>Scatters <code>values</code> into <code>base_grid</code> at <code>indices</code>.
+Depending on <code>mode</code>, this method has one of the following effects:</p>
+<ul>
+<li><code>mode='update'</code>: Replaces the values of <code>base_grid</code> at <code>indices</code> by <code>values</code>. The result is undefined if <code>indices</code> contains duplicates.</li>
+<li><code>mode='add'</code>: Adds <code>values</code> to <code>base_grid</code> at <code>indices</code>. The values corresponding to duplicate indices are accumulated.</li>
+<li><code>mode='mean'</code>: Replaces the values of <code>base_grid</code> at <code>indices</code> by the mean of all <code>values</code> with the same index.</li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>base_grid</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> into which <code>values</code> are scattered.</dd>
 <dt><strong><code>indices</code></strong></dt>
-<dd>n-dimensional indices corresponding to values</dd>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of n-dimensional indices at which to place <code>values</code>.
+Must have a single channel dimension with size matching the number of spatial dimensions of <code>base_grid</code>.
+This dimension is optional if the spatial rank is 1.
+Must also contain all <code>scatter_dims</code>.</dd>
 <dt><strong><code>values</code></strong></dt>
-<dd>values to scatter at indices</dd>
-<dt><strong><code>size</code></strong></dt>
-<dd>spatial size of dense tensor</dd>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of values to scatter at <code>indices</code>.</dd>
 <dt><strong><code>scatter_dims</code></strong></dt>
-<dd>dimensions of values/indices to reduce during scattering</dd>
-<dt><strong><code>duplicates_handling</code></strong></dt>
-<dd>one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')</dd>
+<dd>Dimensions of <code>values</code> and/or <code>indices</code> to reduce during scattering.
+These dimensions are not treated as batch dimensions.</dd>
+<dt><strong><code>mode</code></strong></dt>
+<dd>Scatter mode as <code>str</code>. One of ('add', 'mean', 'update')</dd>
 <dt><strong><code>outside_handling</code></strong></dt>
-<dd>one of ('discard', 'clamp', 'undefined') (Default value = 'discard')</dd>
+<dd>
+<p>Defines how indices lying outside the bounds of <code>base_grid</code> are handled.</p>
+<ul>
+<li><code>'discard'</code>: outside indices are ignored.</li>
+<li><code>'clamp'</code>: outside indices are projected onto the closest point inside the grid.</li>
+<li><code>'undefined'</code>: All points are expected to lie inside the grid. Otherwise an error may be thrown or an undefined tensor may be returned.</li>
+</ul>
+</dd>
+<dt><strong><code>indices_gradient</code></strong></dt>
+<dd>Whether to allow the gradient of this operation to be backpropagated through <code>indices</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Tensor of shape <code>size</code> and dtype matching <code>values</code>.</p></div>
+<p>Copy of <code>base_grid</code> with updated values at <code>indices</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scatter(indices: Tensor,
+<pre><code class="python">def scatter(base_grid: Tensor or Shape,
+            indices: Tensor,
             values: Tensor,
-            size: Shape,
             scatter_dims: str or tuple or list or &#39;Shape&#39;,
-            duplicates_handling: str = &#39;undefined&#39;,
-            outside_handling: str = &#39;discard&#39;):
+            mode: str = &#39;update&#39;,
+            outside_handling: str = &#39;discard&#39;,
+            indices_gradient=False):
     &#34;&#34;&#34;
-    Create a dense tensor from sparse values.
+    Scatters `values` into `base_grid` at `indices`.
+    Depending on `mode`, this method has one of the following effects:
+
+    * `mode=&#39;update&#39;`: Replaces the values of `base_grid` at `indices` by `values`. The result is undefined if `indices` contains duplicates.
+    * `mode=&#39;add&#39;`: Adds `values` to `base_grid` at `indices`. The values corresponding to duplicate indices are accumulated.
+    * `mode=&#39;mean&#39;`: Replaces the values of `base_grid` at `indices` by the mean of all `values` with the same index.
 
     Args:
-        indices: n-dimensional indices corresponding to values
-        values: values to scatter at indices
-        size: spatial size of dense tensor
-        scatter_dims: dimensions of values/indices to reduce during scattering
-        duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
-        outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;discard&#39;)
+        base_grid: `Tensor` into which `values` are scattered.
+        indices: `Tensor` of n-dimensional indices at which to place `values`.
+            Must have a single channel dimension with size matching the number of spatial dimensions of `base_grid`.
+            This dimension is optional if the spatial rank is 1.
+            Must also contain all `scatter_dims`.
+        values: `Tensor` of values to scatter at `indices`.
+        scatter_dims: Dimensions of `values` and/or `indices` to reduce during scattering.
+            These dimensions are not treated as batch dimensions.
+        mode: Scatter mode as `str`. One of (&#39;add&#39;, &#39;mean&#39;, &#39;update&#39;)
+        outside_handling: Defines how indices lying outside the bounds of `base_grid` are handled.
+
+            * `&#39;discard&#39;`: outside indices are ignored.
+            * `&#39;clamp&#39;`: outside indices are projected onto the closest point inside the grid.
+            * `&#39;undefined&#39;`: All points are expected to lie inside the grid. Otherwise an error may be thrown or an undefined tensor may be returned.
+        indices_gradient: Whether to allow the gradient of this operation to be backpropagated through `indices`.
 
     Returns:
-        Tensor of shape `size` and dtype matching `values`.
+        Copy of `base_grid` with updated values at `indices`.
     &#34;&#34;&#34;
-    indices_ = indices.native()
-    values_ = values.native(values.shape.combined(indices.shape.non_channel).names)
-    backend = choose_backend(indices_, values_)
-    result_ = backend.scatter(indices_, values_, tuple(size), duplicates_handling=duplicates_handling, outside_handling=outside_handling)
-    result_shape = size &amp; indices.shape.batch &amp; values.shape.non_spatial
-    result_shape = result_shape.without(scatter_dims)
-    return NativeTensor(result_, result_shape)</code></pre>
+    assert mode in (&#39;update&#39;, &#39;add&#39;, &#39;mean&#39;)
+    assert outside_handling in (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;)
+    assert isinstance(indices_gradient, bool)
+    grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
+    assert indices.shape.channel.names == (&#39;vector&#39;,) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
+    batches = (values.shape.non_channel &amp; indices.shape.non_channel).without(scatter_dims)
+    print(f&#34;Batch: {batches}&#34;)
+    lists = indices.shape.only(scatter_dims)
+    print(f&#34;Lists: {lists}&#34;)
+    channels = (grid_shape.channel &amp; values.shape.channel).without(scatter_dims)
+    print(f&#34;Channels: {channels}&#34;)
+    # Reshape indices to (batch, list, vector)
+    shaped_indices = join_dimensions(indices, batches, &#39;batch_&#39;, pos=0)
+    shaped_indices = join_dimensions(shaped_indices, lists, &#39;list_&#39;, pos=1)
+    print(f&#34;Indices: {shaped_indices.shape}&#34;)
+    # Reshape values to (batch, list, vector)
+    values = _expand_dims(values, channels)
+    shaped_values = join_dimensions(values, batches, &#39;batch_&#39;, pos=0)
+    shaped_values = join_dimensions(shaped_values, lists, &#39;list_&#39;, pos=1)
+    shaped_values = join_dimensions(shaped_values, channels, &#39;channels_&#39;, pos=-1)
+    print(f&#34;Values: {shaped_values.shape}&#34;)
+    # Set up grid
+    if isinstance(base_grid, Shape):
+        with choose_backend_t(indices, values):
+            base_grid = zeros(base_grid &amp; batches &amp; values.shape.channel)
+        if mode != &#39;add&#39;:
+            base_grid += 0. / 0.
+    # Handle outside indices
+    if outside_handling == &#39;clamp&#39;:
+        shaped_indices = clip(shaped_indices, 0, tensor(grid_shape.spatial, &#39;vector&#39;) - 1)
+    elif outside_handling == &#39;discard&#39;:
+        indices_inside = min_((shaped_indices &gt;= 0) &amp; (shaped_indices &lt; tensor(grid_shape.spatial, &#39;vector&#39;)), &#39;vector&#39;)
+        shaped_indices = shaped_indices.list_[indices_inside]
+        shaped_values = shaped_values.list_[indices_inside]
+        if shaped_indices.shape.is_non_uniform:
+            raise NotImplementedError()
+
+    base_grid = _expand_dims(base_grid, channels)
+    base_grid = _expand_dims(base_grid, batches)
+    grid_shaped = join_dimensions(base_grid, batches, &#39;batch_&#39;, pos=0)
+    grid_shaped = join_dimensions(grid_shaped, channels, &#39;channels_&#39;, pos=-1)
+    print(f&#34;Grid: {grid_shaped.shape}&#34;)
+    native_grid = grid_shaped.native()
+    native_values = shaped_values.native(&#39;batch_, list_, channels_&#39;)
+    native_indices = shaped_indices.native(&#39;batch_, list_, vector&#39;)
+    backend = choose_backend(native_indices, native_values, native_grid)
+    if mode in (&#39;add&#39;, &#39;update&#39;):
+        native_result = backend.scatter(native_grid, native_indices, native_values, mode=mode)
+        result_shaped = NativeTensor(native_result, grid_shaped.shape)
+        result_shaped = split_dimension(result_shaped.batch_, batches)
+        result = split_dimension(result_shaped.channels_, channels)
+        return result
+    else:  # mean
+        raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.set_global_precision"><code class="name flex">
@@ -4929,7 +5010,7 @@ All arguments must have same length.</p>
             sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
             return Shape(sizes, self.names, self.types)
         else:
-            assert len(sizes) == len(self.sizes)
+            assert len(sizes) == len(self.sizes), f&#34;Cannot create shape from {self} with sizes {sizes}&#34;
             return Shape(sizes, self.names, self.types)
 
     def with_size(self, name, size):
@@ -5080,7 +5161,7 @@ All arguments must have same length.</p>
             return NotImplemented
 
     def __hash__(self):
-        return hash(self.sizes)</code></pre>
+        return hash(self.names)</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -6538,7 +6619,7 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
         sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
         return Shape(sizes, self.names, self.types)
     else:
-        assert len(sizes) == len(self.sizes)
+        assert len(sizes) == len(self.sizes), f&#34;Cannot create shape from {self} with sizes {sizes}&#34;
         return Shape(sizes, self.names, self.types)</code></pre>
 </details>
 </dd>
