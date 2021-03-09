@@ -1482,7 +1482,7 @@ def solve(operator,
     for c in constants:
         c._expand()
 
-    from ._track import lin_placeholder, ShiftLinOp
+    from ._trace import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
     batch = (y.shape & x0.shape).batch

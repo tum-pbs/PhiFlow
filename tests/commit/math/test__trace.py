@@ -3,7 +3,7 @@ from unittest import TestCase
 from phi import math
 from phi.math import *
 from phi.math._tensors import NativeTensor
-from phi.math._track import lin_placeholder, ShiftLinOp
+from phi.math._trace import lin_placeholder, ShiftLinOp
 
 
 class TestTensors(TestCase):

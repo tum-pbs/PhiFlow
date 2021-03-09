@@ -7,7 +7,7 @@ from typing import Union
 
 from . import _functions as math
 from .backend import choose_backend
-from ._track import SparseLinearOperation, ShiftLinOp
+from ._trace import SparseLinearOperation, ShiftLinOp
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 

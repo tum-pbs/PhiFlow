@@ -304,27 +304,25 @@ class SparseLinearOperation(Tensor):
 
 def lin_placeholder(value: Tensor, format='shift', broadcast_dims=()) -> Tensor:
     """
-    Create a placeholder tensor that can be used to track linear operations and construct a matrix to represent them efficiently.
+    Create a placeholder tensor that can be used to trace linear operations and construct a matrix to represent them efficiently.
 
     Args:
-      value: source tensor
-      format: shift' or 'sparse' (Default value = 'shift')
-      broadcast_dims: list of dimension names that are ignored.
-    All values along these dimensions are expected to share the same linear operation. (Default value = ())
-      value: Tensor: 
+        value: source tensor
+        format: shift' or 'sparse' (Default value = 'shift')
+        broadcast_dims: list of dimension names that are ignored.
+            All values along these dimensions are expected to share the same linear operation.
 
     Returns:
-      placeholder tensor matching the values of `value`
-
+        Placeholder tensor matching the values of `value`
     """
-    tracking_shape = value.shape.without(broadcast_dims)
     if format == 'shift':
         return ShiftLinOp(value, {EMPTY_SHAPE: math.ones(EMPTY_SHAPE, value.dtype)}, value.shape)
     elif format == 'sparse':
-        idx = native_math.range(tracking_shape.volume)
+        tracing_shape = value.shape.without(broadcast_dims)
+        idx = native_math.range(tracing_shape.volume)
         ones = native_math.ones_like(idx)
-        sparse_diag = choose_backend(value.native()).sparse_tensor([idx, idx], ones, shape=(tracking_shape.volume,) * 2)
-        return SparseLinearOperation(value, sparse_diag, tracking_shape)
+        sparse_diag = choose_backend(value.native()).sparse_tensor([idx, idx], ones, shape=(tracing_shape.volume,) * 2)
+        return SparseLinearOperation(value, sparse_diag, tracing_shape)
     else:
         raise NotImplementedError(format)
 
