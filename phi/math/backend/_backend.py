@@ -405,12 +405,12 @@ class Backend:
         Higher dimensions may not be supported.
 
         Args:
-            value: tensor of shape (batch_size, spatial..., channel)
-            kernel: tensor of shape (batch_size, spatial...,
+            value: tensor of shape (batch_size, in_channel, spatial...)
+            kernel: tensor of shape (batch_size or 1, out_channel, in_channel, spatial...)
             zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
 
         Returns:
-            convolution result as tensor
+            Convolution result as tensor of shape (batch_size, out_channel, spatial...)
         """
         raise NotImplementedError(self)
 

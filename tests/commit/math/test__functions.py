@@ -479,9 +479,66 @@ class TestMathFunctions(TestCase):
                 math.assert_close(math.real(math.ones(x=4)), 1, msg=backend.name)
                 math.assert_close(math.real(math.ones(x=4) * 1j), 0, msg=backend.name)
 
-    # def test_convolution(self):
-    #     math.convolve
+    def test_convolution_1d_scalar(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.tensor([1, 2, 3, 4], 'x')
+                identity_kernel1 = math.ones(x=1)
+                identity_kernel2 = math.tensor([0, 1], 'x')
+                identity_kernel3 = math.tensor([0, 1, 0], 'x')
+                shift_kernel3 = math.tensor([0, 0, 1], 'x')
+                # no padding
+                math.assert_close(x, math.convolve(x, identity_kernel1), msg=backend.name)
+                math.assert_close(x.x[1:-1], math.convolve(x, identity_kernel3), msg=backend.name)
+                math.assert_close(x.x[1:], math.convolve(x, identity_kernel2), msg=backend.name)
+                math.assert_close(x.x[2:], math.convolve(x, shift_kernel3), msg=backend.name)
+                # zero-padding
+                math.assert_close(x, math.convolve(x, identity_kernel1, math.extrapolation.ZERO), msg=backend.name)
+                math.assert_close(x, math.convolve(x, identity_kernel3, math.extrapolation.ZERO), msg=backend.name)
+                math.assert_close(x, math.convolve(x, identity_kernel2, math.extrapolation.ZERO), msg=backend.name)
+                math.assert_close([2, 3, 4, 0], math.convolve(x, shift_kernel3, math.extrapolation.ZERO), msg=backend.name)
+                # periodic padding
+                math.assert_close(x, math.convolve(x, identity_kernel1, math.extrapolation.PERIODIC), msg=backend.name)
+                math.assert_close(x, math.convolve(x, identity_kernel3, math.extrapolation.PERIODIC), msg=backend.name)
+                math.assert_close(x, math.convolve(x, identity_kernel2, math.extrapolation.PERIODIC), msg=backend.name)
+                math.assert_close([2, 3, 4, 1], math.convolve(x, shift_kernel3, math.extrapolation.PERIODIC), msg=backend.name)
 
-    # def test_min(self):
+    def test_convolution_1d_batched(self):
+        for backend in BACKENDS:
+            with backend:
+                # only values batched
+                x = math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x') * (2, -1)
+                identity_kernel1 = math.ones(x=1)
+                identity_kernel2 = math.tensor([0, 1], 'x')
+                identity_kernel3 = math.tensor([0, 1, 0], 'x')
+                shift_kernel3 = math.tensor([0, 0, 1], 'x')
+                # no padding
+                math.assert_close(math.convolve(x, identity_kernel1), math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, identity_kernel2), math.tensor([[2, 3], [12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, identity_kernel3), math.tensor([[2], [12]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, shift_kernel3), math.tensor([[3], [13]], 'batch,x'), msg=backend.name)
+                # # zero-padding
+                math.assert_close(math.convolve(x, identity_kernel1, math.extrapolation.ZERO), math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, identity_kernel2, math.extrapolation.ZERO), math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, identity_kernel3, math.extrapolation.ZERO), math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, shift_kernel3, math.extrapolation.ZERO), math.tensor([[2, 3, 0], [12, 13, 0]], 'batch,x'), msg=backend.name)
+                # # periodic padding
+                math.assert_close(math.convolve(x, identity_kernel1, math.extrapolation.PERIODIC), math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, identity_kernel2, math.extrapolation.PERIODIC), math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, identity_kernel3, math.extrapolation.PERIODIC), math.tensor([[1, 2, 3], [11, 12, 13]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, shift_kernel3, math.extrapolation.PERIODIC), math.tensor([[2, 3, 1], [12, 13, 11]], 'batch,x'), msg=backend.name)
+                # values and filters batched
+                mixed_kernel = math.tensor([[0, 1, 0], [0, 0, 1]], 'batch,x')
+                math.assert_close(math.convolve(x, mixed_kernel, math.extrapolation.ZERO), math.tensor([[1, 2, 3], [12, 13, 0]], 'batch,x'), msg=backend.name)
+                math.assert_close(math.convolve(x, mixed_kernel, math.extrapolation.PERIODIC), math.tensor([[1, 2, 3], [12, 13, 11]], 'batch,x'), msg=backend.name)
+                # with output channels
+                out_matrix = math.tensor([[1, 0], [0, 1], [1, 1]], 'out,vector').out.as_channel()
+                kernel = identity_kernel3 * out_matrix
+                expected = math.tensor([
+                    [[2, 4, 6], [22, 24, 26]],
+                    [[-1, -2, -3], [-11, -12, -13]],
+                    [[1, 2, 3], [11, 12, 13]]], 'out,batch,x')
+                math.assert_close(math.convolve(x, kernel, math.extrapolation.ZERO), expected, msg=backend.name)
+
+    # def test_convolution_2d(self):  # TODO
     #     pass
-

@@ -232,17 +232,20 @@ class NumPyBackend(Backend):
         return np.exp(x)
 
     def conv(self, value, kernel, zero_padding=True):
-        assert value.shape[-1] == kernel.shape[-2]
-        mode = 'same' if zero_padding else 'valid'
+        assert kernel.shape[0] in (1, value.shape[0])
+        assert value.shape[1] == kernel.shape[2], f"value has {value.shape[1]} channels but kernel has {kernel.shape[2]}"
+        assert value.ndim + 1 == kernel.ndim
         if zero_padding:
-            result = np.zeros(value.shape[:-1] + (kernel.shape[-1],), dtype=to_numpy_dtype(self.float_type))
+            result = np.zeros((value.shape[0], kernel.shape[1], *value.shape[2:]), dtype=to_numpy_dtype(self.float_type))
         else:
-            valid = [value.shape[i + 1] - (kernel.shape[i] + 1) // 2 for i in range(tensor_spatial_rank(value))]
-            result = np.zeros([value.shape[0]] + valid + [kernel.shape[-1]], dtype=to_numpy_dtype(self.float_type))
-        for batch in range(value.shape[0]):
-            for o in range(kernel.shape[-1]):
-                for i in range(value.shape[-1]):
-                    result[batch, ..., o] += scipy.signal.correlate(value[batch, ..., i], kernel[..., i, o], mode=mode)
+            valid = [value.shape[i + 2] - kernel.shape[i + 3] + 1 for i in range(value.ndim - 2)]
+            result = np.zeros([value.shape[0], kernel.shape[1], *valid], dtype=to_numpy_dtype(self.float_type))
+        mode = 'same' if zero_padding else 'valid'
+        for b in range(value.shape[0]):
+            b_kernel = kernel[min(b, kernel.shape[0] - 1)]
+            for o in range(kernel.shape[1]):
+                for i in range(value.shape[1]):
+                    result[b, o, ...] += scipy.signal.correlate(value[b, i, ...], b_kernel[o, i, ...], mode=mode)
         return result
 
     def expand_dims(self, a, axis=0, number=1):

@@ -699,19 +699,18 @@ The shapes of all values must be equal, except for the size of the concat dimens
 </details>
 </dd>
 <dt id="phi.math.convolve"><code class="name flex">
-<span>def <span class="ident">convolve</span></span>(<span>value: phi.math._tensors.Tensor, kernel: phi.math._tensors.Tensor, dims: str = None, extrapolation: extrapolation_.Extrapolation = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">convolve</span></span>(<span>value: phi.math._tensors.Tensor, kernel: phi.math._tensors.Tensor, extrapolation: extrapolation_.Extrapolation = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p><em>Not yet implemented.</em></p>
-<p>Computes the convolution of <code>value</code> and <code>kernel</code> along <code>dims</code>.</p>
+<div class="desc"><p>Computes the convolution of <code>value</code> and <code>kernel</code> along the spatial axes of <code>kernel</code>.</p>
+<p>The channel dimensions of <code>value</code> are reduced against the equally named dimensions of <code>kernel</code>.
+The result will have the non-reduced channel dimensions of <code>kernel</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> whose shape includes <code>dims</code>.</dd>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> whose shape includes all spatial dimensions of <code>kernel</code>.</dd>
 <dt><strong><code>kernel</code></strong></dt>
 <dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> used as convolutional filter.</dd>
-<dt><strong><code>dims</code></strong></dt>
-<dd>Dimensions along which <code>value</code> and <code>kernel</code> should be convolved. If <code>None</code>, uses all spatial dimensions.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>If not None, pads <code>value</code> so that the result has the same shape as <code>value</code>.</dd>
 </dl>
@@ -723,22 +722,50 @@ The shapes of all values must be equal, except for the size of the concat dimens
 </summary>
 <pre><code class="python">def convolve(value: Tensor,
              kernel: Tensor,
-             dims: str or tuple or list or Shape = None,
              extrapolation: &#39;extrapolation_.Extrapolation&#39; = None) -&gt; Tensor:
-    &#34;&#34;&#34; *Not yet implemented.*
+    &#34;&#34;&#34;
+    Computes the convolution of `value` and `kernel` along the spatial axes of `kernel`.
 
-    Computes the convolution of `value` and `kernel` along `dims`.
+    The channel dimensions of `value` are reduced against the equally named dimensions of `kernel`.
+    The result will have the non-reduced channel dimensions of `kernel`.
 
     Args:
-        value: `Tensor` whose shape includes `dims`.
+        value: `Tensor` whose shape includes all spatial dimensions of `kernel`.
         kernel: `Tensor` used as convolutional filter.
-        dims: Dimensions along which `value` and `kernel` should be convolved. If `None`, uses all spatial dimensions.
         extrapolation: If not None, pads `value` so that the result has the same shape as `value`.
 
     Returns:
         `Tensor`
     &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
+    assert all(dim in value.shape for dim in kernel.shape.spatial.names), f&#34;Value must have all spatial dimensions of kernel but got value {value} kernel {kernel}&#34;
+    conv_shape = kernel.shape.spatial
+    in_channels = value.shape.channel
+    out_channels = kernel.shape.channel.without(in_channels)
+    batch = value.shape.batch &amp; kernel.shape.batch
+
+    if extrapolation is not None and extrapolation != extrapolation_.ZERO:
+        value = pad(value, {dim: (kernel.shape.get_size(dim) // 2, (kernel.shape.get_size(dim) - 1) // 2)
+                            for dim in conv_shape.name}, extrapolation)
+
+    kernel_shaped = _expand_dims(kernel, batch) if kernel.shape.batch_rank &gt; 0 else kernel
+    kernel_shaped = join_dimensions(kernel_shaped, batch, &#39;batch_&#39;)
+    kernel_shaped = join_dimensions(kernel_shaped, in_channels, &#39;in_channel_&#39;)
+    kernel_shaped = join_dimensions(kernel_shaped, out_channels, &#39;out_channel_&#39;)
+    native_kernel = kernel_shaped.native([&#39;batch_&#39;, &#39;in_channel_&#39;, &#39;out_channel_&#39;, *conv_shape.names])
+
+    value_shaped = _expand_dims(value, batch)
+    value_shaped = join_dimensions(value_shaped, batch, &#39;batch_&#39;)
+    value_shaped = join_dimensions(value_shaped, in_channels, &#39;in_channel_&#39;)
+    native_value = value_shaped.native([&#39;batch_&#39;, &#39;in_channel_&#39;, *conv_shape.names])
+
+    backend = choose_backend(native_value, native_kernel)
+    native_result = backend.conv(native_value, native_kernel, zero_padding=extrapolation == extrapolation_.ZERO)
+    result_shape = shape_(batch_=batch.volume, out_channels_=out_channels.volume) &amp; conv_shape
+    result_shape = result_shape.with_sizes(backend.staticshape(native_result))
+    result_shaped = NativeTensor(native_result, result_shape)
+    result_shaped = split_dimension(result_shaped.batch_, batch)
+    result = split_dimension(result_shaped.out_channels_, out_channels)
+    return result</code></pre>
 </details>
 </dd>
 <dt id="phi.math.cos"><code class="name flex">
@@ -3129,7 +3156,7 @@ The output of math operations has the same precision as its inputs.</p>
     for c in constants:
         c._expand()
 
-    from ._track import lin_placeholder, ShiftLinOp
+    from ._trace import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
     batch = (y.shape &amp; x0.shape).batch
@@ -7225,8 +7252,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 <li>phi.math._tensors.CollapsedTensor</li>
 <li>phi.math._tensors.NativeTensor</li>
 <li>phi.math._tensors.TensorStack</li>
-<li>phi.math._track.ShiftLinOp</li>
-<li>phi.math._track.SparseLinearOperation</li>
+<li>phi.math._trace.ShiftLinOp</li>
+<li>phi.math._trace.SparseLinearOperation</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>

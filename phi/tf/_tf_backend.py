@@ -1,7 +1,7 @@
 import numbers
 import uuid
 from contextlib import contextmanager
-from functools import wraps
+from functools import wraps, partial
 from typing import List, Tuple, Any, Callable
 
 import numpy as np
@@ -247,16 +247,22 @@ class TFBackend(Backend):
         return tf.exp(x)
 
     def conv(self, value, kernel, zero_padding=True):
-        rank = len(value.shape) - 2
-        padding = 'SAME' if zero_padding else 'VALID'
-        if rank == 1:
-            result = tf.nn.conv1d(tensor, kernel, 1, padding)
-        elif rank == 2:
-            result = tf.nn.conv2d(tensor, kernel, [1, 1, 1, 1], padding)
-        elif rank == 3:
-            result = tf.nn.conv3d(tensor, kernel, [1, 1, 1, 1, 1], padding)
+        value = self.to_float(value)
+        kernel = self.to_float(kernel)  # normally we would use auto_cast() but TensorFlow does not support NCHW for integers
+        if zero_padding:
+            value_padding = [[0, 0]] * 2 + [[s // 2, (s - 1) // 2] for s in kernel.shape[3:]]
+            value = tf.pad(value, value_padding)
+        convf = {3: partial(tf.nn.conv1d, stride=1, data_format='NCW'),
+                 4: partial(tf.nn.conv2d, strides=[1, 1, 1, 1], data_format='NCHW'),
+                 5: partial(tf.nn.conv3d, strides=[1, 1, 1, 1, 1], data_format='NCDHW')}[len(value.shape)]
+        kernel = tf.transpose(kernel, [0, *range(3, kernel.ndim), 2, 1])
+        if kernel.shape[0] == 1:
+            result = convf(value, kernel[0, ...], padding='VALID')
         else:
-            raise ValueError("Tensor must be of rank 1, 2 or 3 but is %d" % rank)
+            result = []
+            for b in range(kernel.shape[0]):
+                result.append(convf(value[b:b+1, ...], kernel[b], padding='VALID'))
+            result = tf.concat(result, 0)
         return result
 
     def expand_dims(self, a, axis=0, number=1):

@@ -22,4 +22,5 @@ omit =
     phi/field/_constant.py
     phi/struct/*
     phi/tf/_tf_cuda_resample.py
+    phi/tf/_compile_cuda.py
     webglviewer/*

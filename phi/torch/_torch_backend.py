@@ -351,18 +351,26 @@ class TorchBackend(Backend):
         return torch.exp(x)
 
     def conv(self, value, kernel, zero_padding=True):
-        tensor = self.as_tensor(value)
+        value = self.as_tensor(value)
         kernel = self.as_tensor(kernel)
+        value, kernel = self.auto_cast(value, kernel)
         if zero_padding:
-            padding = 0
+            if all(s % 2 == 1 for s in kernel.shape[3:]):
+                padding = [s // 2 for s in kernel.shape[3:]]
+            else:
+                padding = 0
+                value_padding = sum([[s // 2, (s - 1) // 2] for s in kernel.shape[3:]], [])
+                value = torchf.pad(value, value_padding)
         else:
-            shape = kernel.shape
-            padding = sum([[d // 2, (d + 1) // 2] for d in shape], [])
-        tensor = channels_first(tensor)
-        kernel = kernel.permute((-2, -1) + tuple(range(len(kernel.shape) - 2)))
-        convf = {3: torchf.conv1d, 4: torchf.conv2d, 5: torchf.conv3d}[len(tensor.shape)]
-        result = convf(tensor, kernel, padding=padding)
-        result = channels_last(result)
+            padding = 0
+        convf = {3: torchf.conv1d, 4: torchf.conv2d, 5: torchf.conv3d}[len(value.shape)]
+        if kernel.shape[0] == 1:
+            result = convf(value, kernel[0, ...], padding=padding)
+        else:
+            result = []
+            for b in range(kernel.shape[0]):
+                result.append(convf(value[b:b+1, ...], kernel[b, ...], padding=padding))
+            result = torch.cat(result, 0)
         return result
 
     def expand_dims(self, a, axis=0, number=1):

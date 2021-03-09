@@ -869,29 +869,51 @@ def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
 
 def convolve(value: Tensor,
              kernel: Tensor,
-             dims: str or tuple or list or Shape = None,
              extrapolation: 'extrapolation_.Extrapolation' = None) -> Tensor:
-    """ *Not yet implemented.*
+    """
+    Computes the convolution of `value` and `kernel` along the spatial axes of `kernel`.
 
-    Computes the convolution of `value` and `kernel` along `dims`.
+    The channel dimensions of `value` are reduced against the equally named dimensions of `kernel`.
+    The result will have the non-reduced channel dimensions of `kernel`.
 
     Args:
-        value: `Tensor` whose shape includes `dims`.
+        value: `Tensor` whose shape includes all spatial dimensions of `kernel`.
         kernel: `Tensor` used as convolutional filter.
-        dims: Dimensions along which `value` and `kernel` should be convolved. If `None`, uses all spatial dimensions.
         extrapolation: If not None, pads `value` so that the result has the same shape as `value`.
 
     Returns:
         `Tensor`
     """
-    raise NotImplementedError()
-    # if dims is None:
-    #     dims = value.shape.spatial
-    # dims = _resolve_dims(dims, value)
-    # assert all(dim in value.shape for dim in dims)
-    # value_native, restore_native = _invertible_standard_form(value)
-    # backend = choose_backend(value_native, kernel_native)
-    # result_native = backend.conv(value_native, kernel_native)
+    assert all(dim in value.shape for dim in kernel.shape.spatial.names), f"Value must have all spatial dimensions of kernel but got value {value} kernel {kernel}"
+    conv_shape = kernel.shape.spatial
+    in_channels = value.shape.channel
+    out_channels = kernel.shape.channel.without(in_channels)
+    batch = value.shape.batch & kernel.shape.batch
+
+    if extrapolation is not None and extrapolation != extrapolation_.ZERO:
+        value = pad(value, {dim: (kernel.shape.get_size(dim) // 2, (kernel.shape.get_size(dim) - 1) // 2)
+                            for dim in conv_shape.name}, extrapolation)
+
+    kernel_shaped = _expand_dims(kernel, batch) if kernel.shape.batch_rank > 0 else kernel
+    kernel_shaped = _expand_dims(kernel_shaped, in_channels)
+    kernel_shaped = join_dimensions(kernel_shaped, batch, 'batch_')
+    kernel_shaped = join_dimensions(kernel_shaped, in_channels, 'in_channel_')
+    kernel_shaped = join_dimensions(kernel_shaped, out_channels, 'out_channel_')
+    native_kernel = kernel_shaped.native(['batch_', 'out_channel_', 'in_channel_', *conv_shape.names])
+
+    value_shaped = _expand_dims(value, batch)
+    value_shaped = join_dimensions(value_shaped, batch, 'batch_')
+    value_shaped = join_dimensions(value_shaped, in_channels, 'in_channel_')
+    native_value = value_shaped.native(['batch_', 'in_channel_', *conv_shape.names])
+
+    backend = choose_backend(native_value, native_kernel)
+    native_result = backend.conv(native_value, native_kernel, zero_padding=extrapolation == extrapolation_.ZERO)
+    result_shape = shape_(batch_=batch.volume, out_channels_=out_channels.volume) & conv_shape
+    result_shape = result_shape.with_sizes(backend.staticshape(native_result))
+    result_shaped = NativeTensor(native_result, result_shape)
+    result_shaped = split_dimension(result_shaped.batch_, batch)
+    result = split_dimension(result_shaped.out_channels_, out_channels)
+    return result
 
 
 def unstack(value: Tensor, dim: str):

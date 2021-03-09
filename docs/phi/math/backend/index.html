@@ -878,12 +878,12 @@ The output of math operations has the same precision as its inputs.</p>
         Higher dimensions may not be supported.
 
         Args:
-            value: tensor of shape (batch_size, spatial..., channel)
-            kernel: tensor of shape (batch_size, spatial...,
+            value: tensor of shape (batch_size, in_channel, spatial...)
+            kernel: tensor of shape (batch_size or 1, in_channel, out_channel, spatial...)
             zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
 
         Returns:
-            convolution result as tensor
+            Convolution result as tensor of shape (batch_size, out_channel, spatial...)
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -1602,14 +1602,14 @@ Higher dimensions may not be supported.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd>tensor of shape (batch_size, spatial&hellip;, channel)</dd>
+<dd>tensor of shape (batch_size, in_channel, spatial&hellip;)</dd>
 <dt><strong><code>kernel</code></strong></dt>
-<dd>tensor of shape (batch_size, spatial&hellip;,</dd>
+<dd>tensor of shape (batch_size or 1, in_channel, out_channel, spatial&hellip;)</dd>
 <dt><strong><code>zero_padding</code></strong></dt>
 <dd>If True, pads the edges of <code>value</code> with zeros so that the result has the same shape as <code>value</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>convolution result as tensor</p></div>
+<p>Convolution result as tensor of shape (batch_size, out_channel, spatial&hellip;)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1621,12 +1621,12 @@ Higher dimensions may not be supported.</p>
     Higher dimensions may not be supported.
 
     Args:
-        value: tensor of shape (batch_size, spatial..., channel)
-        kernel: tensor of shape (batch_size, spatial...,
+        value: tensor of shape (batch_size, in_channel, spatial...)
+        kernel: tensor of shape (batch_size or 1, in_channel, out_channel, spatial...)
         zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
 
     Returns:
-        convolution result as tensor
+        Convolution result as tensor of shape (batch_size, out_channel, spatial...)
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
