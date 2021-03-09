@@ -7,7 +7,7 @@ from typing import Union
 
 from . import _functions as math
 from .backend import choose_backend
-from ._trace import SparseLinearOperation, ShiftLinOp
+from ._trace import ShiftLinOp
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 
@@ -122,7 +122,7 @@ class ConstantExtrapolation(Extrapolation):
     Extrapolate with a constant value.
     """
 
-    def __init__(self, value: Tensor):
+    def __init__(self, value: Tensor or float):
         Extrapolation.__init__(self, 5)
         self.value = wrap(value)
         """ Extrapolation value """
@@ -178,19 +178,6 @@ class ConstantExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, SparseLinearOperation):
-            (row, col), data = choose_backend(value.dependency_matrix).coordinates(value.dependency_matrix, unstack_coordinates=True)
-            assert len(value.shape) == 2  # TODO nd
-            y = row // value.shape[1]
-            dy0, dy1 = widths[value.shape.names[0]]
-            dx0, dx1 = widths[value.shape.names[1]]
-            padded_row = row + dy0 * (value.shape[1] + dx0 + dx1) + dx0 * (y + 1) + dx1 * y
-            new_sizes = list(value.shape.sizes)
-            for i, dim in enumerate(value.shape.names):
-                new_sizes[i] += sum(widths[dim])
-            new_shape = value.shape.with_sizes(new_sizes)
-            padded_matrix = choose_backend(padded_row, col, data).sparse_tensor((padded_row, col), data, shape=(new_shape.volume, value.dependency_matrix.shape[1]))
-            return SparseLinearOperation(value.source, padded_matrix, new_shape)
         elif isinstance(value, ShiftLinOp):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
@@ -200,7 +187,7 @@ class ConstantExtrapolation(Extrapolation):
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         raise NotImplementedError()
-        return math.zeros()
+        # return math.zeros()
 
     def __eq__(self, other):
         return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
@@ -495,19 +482,19 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         raise NotImplementedError()
-        raise NotImplementedError()  # only used by PyTorch which does not support ::-1 axis flips
-        dims = range(math.ndims(value))
-        for dim in dims:
-            pad_lower, pad_upper = pad_width[dim]
-            if pad_lower == 0 and pad_upper == 0:
-                continue  # Nothing to pad
-            top_rows = value[
-                tuple([slice(value.shape[dim] - pad_upper, None) if d == dim else slice(None) for d in dims])]
-            bottom_rows = value[tuple([slice(None, pad_lower) if d == dim else slice(None) for d in dims])]
-            top_rows = math.flip_axis(top_rows, dim)
-            bottom_rows = math.flip_axis(bottom_rows, dim)
-            value = math.concat([bottom_rows, value, top_rows], axis=dim)
-        return value
+        # raise NotImplementedError()  # only used by PyTorch which does not support ::-1 axis flips
+        # dims = range(math.ndims(value))
+        # for dim in dims:
+        #     pad_lower, pad_upper = pad_width[dim]
+        #     if pad_lower == 0 and pad_upper == 0:
+        #         continue  # Nothing to pad
+        #     top_rows = value[
+        #         tuple([slice(value.shape[dim] - pad_upper, None) if d == dim else slice(None) for d in dims])]
+        #     bottom_rows = value[tuple([slice(None, pad_lower) if d == dim else slice(None) for d in dims])]
+        #     top_rows = math.flip_axis(top_rows, dim)
+        #     bottom_rows = math.flip_axis(bottom_rows, dim)
+        #     value = math.concat([bottom_rows, value, top_rows], axis=dim)
+        # return value
 
 
 class _ReflectExtrapolation(_CopyExtrapolation):

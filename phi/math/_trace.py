@@ -231,78 +231,7 @@ class ShiftLinOp(Tensor):
         # return (self.source._natives(),) + sum([v._natives() for v in self.val.values()], ())
 
 
-class SparseLinearOperation(Tensor):
-
-    def __init__(self, source: Tensor, dependency_matrix, shape):
-        self.source = source
-        self.dependency_matrix = dependency_matrix
-        self._shape = shape
-
-    def native(self, order: str or tuple or list = None):
-        order = parse_dim_order(order)
-        native_source = native_math.reshape(self.source.native(), (self.source.shape.batch.volume, self.source.shape.non_batch.volume))
-        native = native_math.matmul(self.dependency_matrix, native_source)
-        new_shape = self.source.shape.batch.combined(self._shape)
-        native = native_math.reshape(native, new_shape.sizes)
-        return NativeTensor(native, new_shape).native(order)
-
-    @property
-    def dtype(self):
-        return self.source.dtype
-
-    @property
-    def shape(self):
-        return self._shape
-
-    def _with_shape_replaced(self, new_shape):
-        raise NotImplementedError()
-
-    @property
-    def _is_special(self) -> bool:
-        return True
-
-    def _getitem(self, selection: dict):
-        indices = NativeTensor(native_math.reshape(native_math.range(self.shape.volume), self.shape.sizes), self.shape)
-        selected_indices = indices[selection]
-        selected_indices_native = native_math.flatten(selected_indices.native())
-        selected_deps = native_math.gather(self.dependency_matrix, (selected_indices_native, slice(None)))
-        return SparseLinearOperation(self.source, selected_deps, selected_indices.shape)
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
-
-    def _op1(self, native_function):
-        deps = native_function(self.dependency_matrix)
-        return SparseLinearOperation(self.source, deps, self._shape)
-
-    def _op2(self, other, operator, native_function):
-        if isinstance(other, SparseLinearOperation):
-            assert self.source is other.source
-            assert self._shape == other._shape
-            new_matrix = native_function(self.dependency_matrix, other.dependency_matrix)
-            return SparseLinearOperation(self.source, new_matrix, self._shape)
-        else:
-            other = self._tensor(other)
-            broadcast_shape = self.shape.combined(other.shape)
-            if other.shape.volume > 1:
-                additional_dims = broadcast_shape.without(self._shape)
-                if len(additional_dims) == 0:
-                    flat = native_math.flatten(other.native(broadcast_shape.names))
-                    vertical = native_math.expand_dims(flat, -1)
-                    new_matrix = native_function(self.dependency_matrix, vertical)  # this can cause matrix to become dense...
-                elif len(additional_dims) == 1:
-                    others = other.unstack(additional_dims.names[0])
-                    results = [self._op2(o, native_function) for o in others]
-                    return TensorStack(results, additional_dims.names[0], additional_dims.types[0])
-                else:
-                    raise NotImplementedError()
-            else:
-                scalar = other[{dim: 0 for dim in other.shape.names}].native()
-                new_matrix = native_function(self.dependency_matrix, scalar)
-            return SparseLinearOperation(self.source, new_matrix, broadcast_shape)
-
-
-def lin_placeholder(value: Tensor, format='shift', broadcast_dims=()) -> Tensor:
+def lin_placeholder(value: Tensor) -> Tensor:
     """
     Create a placeholder tensor that can be used to trace linear operations and construct a matrix to represent them efficiently.
 
@@ -315,23 +244,4 @@ def lin_placeholder(value: Tensor, format='shift', broadcast_dims=()) -> Tensor:
     Returns:
         Placeholder tensor matching the values of `value`
     """
-    if format == 'shift':
-        return ShiftLinOp(value, {EMPTY_SHAPE: math.ones(EMPTY_SHAPE, value.dtype)}, value.shape)
-    elif format == 'sparse':
-        tracing_shape = value.shape.without(broadcast_dims)
-        idx = native_math.range(tracing_shape.volume)
-        ones = native_math.ones_like(idx)
-        sparse_diag = choose_backend(value.native()).sparse_tensor([idx, idx], ones, shape=(tracing_shape.volume,) * 2)
-        return SparseLinearOperation(value, sparse_diag, tracing_shape)
-    else:
-        raise NotImplementedError(format)
-
-
-def sum_operators(operators):
-    for o in operators[1:]:
-        assert isinstance(o, (SparseLinearOperation, ShiftLinOp))
-        assert o.source is operators[0].source
-        assert o.shape == operators[0].shape
-    if isinstance(operators[0], SparseLinearOperation):
-        new_matrix = math.sum([o.dependency_matrix for o in operators], axis=0)
-        return SparseLinearOperation(operators[0].source, new_matrix, operators[0].shape)
+    return ShiftLinOp(value, {EMPTY_SHAPE: math.ones(EMPTY_SHAPE, value.dtype)}, value.shape)
