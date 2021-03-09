@@ -247,7 +247,8 @@ class TFBackend(Backend):
         return tf.exp(x)
 
     def conv(self, value, kernel, zero_padding=True):
-        value, kernel = self.auto_cast(value, kernel)
+        value = self.to_float(value)
+        kernel = self.to_float(kernel)  # should use auto_cast but TensorFlow only supports DT_HALF, DT_BFLOAT16, DT_FLOAT, DT_DOUBLE, DT_INT32
         if zero_padding:
             value_padding = [[0, 0]] * 2 + [[s // 2, (s - 1) // 2] for s in kernel.shape[3:]]
             value = tf.pad(value, value_padding)
