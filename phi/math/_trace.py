@@ -4,7 +4,7 @@ from typing import Tuple, Callable
 import numpy as np
 
 from .backend import choose_backend
-from ._shape import EMPTY_SHAPE, Shape, shape, parse_dim_order
+from ._shape import EMPTY_SHAPE, Shape, shape, parse_dim_order, SPATIAL_DIM
 from ._tensors import Tensor, NativeTensor, TensorStack, CollapsedTensor
 from . import _functions as math
 
@@ -12,7 +12,7 @@ from . import _functions as math
 def simplify_add(val: dict):
     result = {}
     for shift, values in val.items():
-        shift = shift.non_zero
+        shift = shift[[i for i, size in enumerate(shift.sizes) if size != 0]]  # discard zeros
         if shift in result:
             result[shift] += values
         else:
@@ -153,7 +153,7 @@ class ShiftLinOp(Tensor):
                 if dim not in values.shape:
                     values = math._expand_dims(values, self._shape.only(dim))  # dim order may be scrambled
                 if delta:
-                    shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand_spatial(delta, dim)
+                    shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand(delta, dim, SPATIAL_DIM)
             val[shift] = val_fun(values)
         return ShiftLinOp(self.source, val, new_shape)
 

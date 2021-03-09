@@ -210,13 +210,13 @@ class TestMathFunctions(TestCase):
         for backend in BACKENDS:
             with backend:
                 ft = math.jit_compile(f)
-                args1 = math.ones(x=2), math.ones(y=2)
-                args2 = math.ones(x=3), math.ones(y=3)
+                args1 = math.ones(x=2), math.ones(batch=2)
+                args2 = math.ones(x=3), math.ones(batch=3)
                 res1 = ft(*args1)
-                self.assertEqual(math.shape(x=2, y=2), res1.shape, msg=backend.name)
+                self.assertEqual(math.shape(batch=2, x=2), res1.shape, msg=backend.name)
                 math.assert_close(res1, 2, msg=backend.name)
                 res2 = ft(*args2)
-                self.assertEqual(math.shape(x=3, y=3), res2.shape, msg=backend.name)
+                self.assertEqual(math.shape(batch=3, x=3), res2.shape, msg=backend.name)
                 math.assert_close(res2, 2, msg=backend.name)
 
     def test_gradient_function(self):

@@ -737,7 +737,7 @@ def dot(x: Tensor,
         keep_letters = list('abcdefgh')[:-len(KEEP_LETTERS)]
         subscripts = f'{"".join(x_letters)},{"".join(y_letters)}->{"".join(keep_letters)}'
         result_native = backend.einsum(subscripts, x_native, y_native)
-    result_shape = x.shape.without(x_dims) & y.shape.without(y_dims)
+    result_shape = combine_safe(x.shape.without(x_dims), y.shape.without(y_dims))  # don't check group match
     return NativeTensor(result_native, result_shape)
 
 

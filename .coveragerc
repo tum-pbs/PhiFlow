@@ -16,6 +16,9 @@ exclude_lines =
     # Don't complain about not triggered test fails. This is used when a test is supposed to throw an exception.
     self.fail
 
+    # Don't complain about value errors
+    raise ValueError
+
 omit =
     phi/physics/_world.py
     phi/physics/_physics.py

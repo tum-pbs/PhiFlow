@@ -11,3 +11,6 @@ class TestCIInstallation(TestCase):
         self.assertIn('PyTorch', names)
         self.assertIn('Jax', names)
         self.assertIn('TensorFlow', names)
+
+    def test_verify(self):
+        phi.verify()

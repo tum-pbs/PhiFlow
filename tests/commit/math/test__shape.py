@@ -11,10 +11,9 @@ class TestShape(TestCase):
         v = math.ones(batch=10, x=4, y=3, vector=2)
         self.assertEqual(v.x.index, 1)
         self.assertEqual(v.x.name, 'x')
-        self.assertTrue(v.x.is_spatial)
-        self.assertTrue(v.batch.is_batch)
+        self.assertEqual(('batch', 'spatial', 'spatial', 'channel'), v.shape.types)
         b = v.x.as_batch()
-        self.assertTrue(b.x.is_batch)
+        self.assertEqual(('batch', 'batch', 'spatial', 'channel'), b.shape.types)
 
     def test_combine(self):
         self.assertEqual(shape(batch=2, x=3, y=4), shape(batch=2) & shape(x=3, y=4))
