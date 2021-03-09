@@ -1,5 +1,5 @@
 """
-*Experimental* Jax integration.
+Jax integration.
 
 Importing this module registers the Jax backend with `phi.math`.
 Without this, Jax tensors cannot be handled by `phi.math` functions.

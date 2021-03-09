@@ -46,7 +46,7 @@ To run your code with either TensorFlow or PyTorch, [select the corresponding ba
 
 - TensorFlow: `from phi.tf.flow import *`
 - PyTorch: `from phi.torch.flow import *`
-- Jax (*experimental*): `from phi.jax.flow import *`
+- Jax: `from phi.jax.flow import *`
 
 TensorFlow and Jax will use your GPU by default.
 

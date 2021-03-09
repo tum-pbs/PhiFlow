@@ -139,7 +139,7 @@ The easiest way to use a certain backend is via the import statement:
 * [`phi.flow`](phi/flow.html) &rarr; NumPy/SciPy
 * [`phi.tf.flow`](phi/tf/flow.html) &rarr; TensorFlow
 * [`phi.torch.flow`](phi/torch/flow.html) &rarr; PyTorch
-* [`phi.jax.flow`](phi/torch/flow.html) &rarr; Jax (*experimental*)
+* [`phi.jax.flow`](phi/torch/flow.html) &rarr; Jax
 
 This determines what backend is used to create new tensors.
 Existing tensors created with a different backend will keep using that backend.

@@ -800,7 +800,7 @@ The output of math operations has the same precision as its inputs.</p>
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def range(self, start, limit=None, delta=1, dtype: DType = None):
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         raise NotImplementedError(self)
 
     def zeros(self, shape, dtype: DType = None):
@@ -969,7 +969,7 @@ The output of math operations has the same precision as its inputs.</p>
 
         Args:
             base_grid: Tensor into which scatter values are inserted at indices.
-                Either tensor of shape (batch_size or 1, spatial..., channels) or tuple of tensors (batch_size, spatial...)
+                Either tensor of shape (batch_size, spatial..., channels) or tuple of tensors (batch_size, spatial...)
             indices: Tensor of shape (batch_size or 1, update_count, index_vector)
             values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
             mode: One of (&#39;update&#39;, &#39;add&#39;)
@@ -1009,10 +1009,10 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def imag(self, complex):
+    def imag(self, x):
         raise NotImplementedError(self)
 
-    def real(self, complex):
+    def real(self, x):
         raise NotImplementedError(self)
 
     def sin(self, x):
@@ -2053,7 +2053,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>self, complex)</span>
+<span>def <span class="ident">imag</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2061,7 +2061,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(self, complex):
+<pre><code class="python">def imag(self, x):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2558,7 +2558,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>self, start, limit=None, delta=1, dtype: phi.math.backend._dtype.DType = None)</span>
+<span>def <span class="ident">range</span></span>(<span>self, start, limit=None, delta=1, dtype: phi.math.backend._dtype.DType = int32)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2566,12 +2566,12 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def range(self, start, limit=None, delta=1, dtype: DType = None):
+<pre><code class="python">def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>self, complex)</span>
+<span>def <span class="ident">real</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2579,7 +2579,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(self, complex):
+<pre><code class="python">def real(self, x):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2631,7 +2631,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <dl>
 <dt><strong><code>base_grid</code></strong></dt>
 <dd>Tensor into which scatter values are inserted at indices.
-Either tensor of shape (batch_size or 1, spatial&hellip;, channels) or tuple of tensors (batch_size, spatial&hellip;)</dd>
+Either tensor of shape (batch_size, spatial&hellip;, channels) or tuple of tensors (batch_size, spatial&hellip;)</dd>
 <dt><strong><code>indices</code></strong></dt>
 <dd>Tensor of shape (batch_size or 1, update_count, index_vector)</dd>
 <dt><strong><code>values</code></strong></dt>
@@ -2651,7 +2651,7 @@ Either tensor of shape (batch_size or 1, spatial&hellip;, channels) or tuple of 
 
     Args:
         base_grid: Tensor into which scatter values are inserted at indices.
-            Either tensor of shape (batch_size or 1, spatial..., channels) or tuple of tensors (batch_size, spatial...)
+            Either tensor of shape (batch_size, spatial..., channels) or tuple of tensors (batch_size, spatial...)
         indices: Tensor of shape (batch_size or 1, update_count, index_vector)
         values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
         mode: One of (&#39;update&#39;, &#39;add&#39;)

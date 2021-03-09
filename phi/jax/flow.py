@@ -1,6 +1,6 @@
 # pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 """
-Standard import for *experimental* Jax mode.
+Standard import for Jax mode.
 
 Extends the import `from phi.flow import *` by Jax-related functions and modules.
 

@@ -1508,11 +1508,16 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
 <pre><code class="python">def gather(values: Tensor, indices: Tensor):
     b_values = join_dimensions(values, values.shape.batch, &#39;batch&#39;)
     b_values = join_dimensions(b_values, b_values.shape.channel, &#39;channel&#39;, pos=-1)
-    b_indices = join_dimensions(indices, indices.shape.batch.only(values.shape.batch), &#39;batch&#39;)
+    b_indices = _expand_dims(indices, values.shape.batch)
+    b_indices = join_dimensions(b_indices, values.shape.batch, &#39;batch&#39;)
     native_values = b_values.native()
     native_indices = b_indices.native()
-    native_result = choose_backend(native_values, native_indices).batched_gather_nd(native_values, native_indices)
-    b_result = tensor(native_result, (&#39;batch&#39;, *indices.shape.non_channel.without(&#39;batch&#39;).names, &#39;vector&#39;))
+    backend = choose_backend(native_values, native_indices)
+    native_result = backend.batched_gather_nd(native_values, native_indices)
+    result_shape = Shape(backend.staticshape(native_result),
+                         (&#39;batch&#39;, *indices.shape.non_channel.without(values.shape.batch).names, &#39;vector&#39;),
+                         (BATCH_DIM, *indices.shape.non_channel.without(values.shape.batch).types, CHANNEL_DIM))
+    b_result = NativeTensor(native_result, result_shape)
     result = split_dimension(b_result.vector, values.shape.channel)
     result = split_dimension(result.batch, values.shape.batch)
     return result</code></pre>
@@ -2592,7 +2597,7 @@ def precision(floating_point_bits: int):
         start, stop = 0, start_or_stop
     else:
         start = start_or_stop
-    native = choose_backend(start, stop).range(start, stop, step)
+    native = choose_backend(start, stop, prefer_default=True).range(start, stop, step, DType(int, 32))
     return NativeTensor(native, shape_(**{dim: stop - start}))</code></pre>
 </details>
 </dd>
@@ -2810,30 +2815,27 @@ These dimensions are not treated as batch dimensions.</dd>
     assert mode in (&#39;update&#39;, &#39;add&#39;, &#39;mean&#39;)
     assert outside_handling in (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;)
     assert isinstance(indices_gradient, bool)
+    if indices_gradient:
+        raise NotImplementedError(&#34;indices_gradient not yet supported.&#34;)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == (&#39;vector&#39;,) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
     batches = (values.shape.non_channel &amp; indices.shape.non_channel).without(scatter_dims)
-    print(f&#34;Batch: {batches}&#34;)
     lists = indices.shape.only(scatter_dims)
-    print(f&#34;Lists: {lists}&#34;)
     channels = (grid_shape.channel &amp; values.shape.channel).without(scatter_dims)
-    print(f&#34;Channels: {channels}&#34;)
     # Reshape indices to (batch, list, vector)
     shaped_indices = join_dimensions(indices, batches, &#39;batch_&#39;, pos=0)
     shaped_indices = join_dimensions(shaped_indices, lists, &#39;list_&#39;, pos=1)
-    print(f&#34;Indices: {shaped_indices.shape}&#34;)
     # Reshape values to (batch, list, vector)
     values = _expand_dims(values, channels)
     shaped_values = join_dimensions(values, batches, &#39;batch_&#39;, pos=0)
     shaped_values = join_dimensions(shaped_values, lists, &#39;list_&#39;, pos=1)
     shaped_values = join_dimensions(shaped_values, channels, &#39;channels_&#39;, pos=-1)
-    print(f&#34;Values: {shaped_values.shape}&#34;)
     # Set up grid
     if isinstance(base_grid, Shape):
         with choose_backend_t(indices, values):
             base_grid = zeros(base_grid &amp; batches &amp; values.shape.channel)
         if mode != &#39;add&#39;:
-            base_grid += 0. / 0.
+            base_grid += math.nan
     # Handle outside indices
     if outside_handling == &#39;clamp&#39;:
         shaped_indices = clip(shaped_indices, 0, tensor(grid_shape.spatial, &#39;vector&#39;) - 1)
@@ -2848,19 +2850,22 @@ These dimensions are not treated as batch dimensions.</dd>
     base_grid = _expand_dims(base_grid, batches)
     grid_shaped = join_dimensions(base_grid, batches, &#39;batch_&#39;, pos=0)
     grid_shaped = join_dimensions(grid_shaped, channels, &#39;channels_&#39;, pos=-1)
-    print(f&#34;Grid: {grid_shaped.shape}&#34;)
     native_grid = grid_shaped.native()
     native_values = shaped_values.native(&#39;batch_, list_, channels_&#39;)
     native_indices = shaped_indices.native(&#39;batch_, list_, vector&#39;)
     backend = choose_backend(native_indices, native_values, native_grid)
     if mode in (&#39;add&#39;, &#39;update&#39;):
         native_result = backend.scatter(native_grid, native_indices, native_values, mode=mode)
-        result_shaped = NativeTensor(native_result, grid_shaped.shape)
-        result_shaped = split_dimension(result_shaped.batch_, batches)
-        result = split_dimension(result_shaped.channels_, channels)
-        return result
     else:  # mean
-        raise NotImplementedError()</code></pre>
+        zero_grid = backend.zeros_like(native_grid)
+        sum = backend.scatter(zero_grid, native_indices, native_values, mode=&#39;add&#39;)
+        count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode=&#39;add&#39;)
+        native_result = sum / count
+        native_result = backend.where(count == 0, native_grid, native_result)
+    result_shaped = NativeTensor(native_result, grid_shaped.shape)
+    result_shaped = split_dimension(result_shaped.batch_, batches)
+    result = split_dimension(result_shaped.channels_, channels)
+    return result</code></pre>
 </details>
 </dd>
 <dt id="phi.math.set_global_precision"><code class="name flex">

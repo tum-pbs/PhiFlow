@@ -193,6 +193,16 @@ class TestMathFunctions(TestCase):
                         self.assertEqual(fft_tensor.dtype, math.DType(complex, 128), msg=backend.name)
                         math.assert_close(fft_ref_tensor, fft_tensor, abs_tolerance=1e-12, msg=backend.name)  # Should usually be more precise. GitHub Actions has larger errors than usual.
 
+    def test_ifft(self):
+        dimensions = 'xyz'
+        for backend in BACKENDS:
+            with backend:
+                for d in range(1, len(dimensions) + 1):
+                    x = math.random_normal(**{dim: 6 for dim in dimensions[:d]}) + math.tensor((0, 1), 'batch')
+                    k = math.fft(x)
+                    x_ = math.ifft(k)
+                    math.assert_close(x, x_, abs_tolerance=1e-5, msg=backend.name)
+
     def test_trace_function(self):
         def f(x: math.Tensor, y: math.Tensor):
             return x + y
@@ -426,16 +436,6 @@ class TestMathFunctions(TestCase):
         values = math.wrap([11, 12, 13], 'points')
         updated = math.scatter(base, indices, values, 'points', mode='update', outside_handling='discard')
         math.assert_close(updated, math.tensor([[1, 1, 1], [12, 1, 1]], 'y,x'))
-
-    def test_fft(self):
-        dimensions = 'xyz'
-        for backend in BACKENDS:
-            with backend:
-                for d in range(1, len(dimensions) + 1):
-                    x = math.random_normal(**{d: 6 for d in dimensions})
-                    k = math.fft(x)
-                    x_ = math.ifft(k)
-                    math.assert_close(x, x_, abs_tolerance=1e-5, msg=backend.name)
 
     def test_sin(self):
         for backend in BACKENDS:
