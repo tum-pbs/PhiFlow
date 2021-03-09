@@ -247,14 +247,14 @@ class TFBackend(Backend):
         return tf.exp(x)
 
     def conv(self, value, kernel, zero_padding=True):
-        value = self.to_float(value)
-        kernel = self.to_float(kernel)  # normally we would use auto_cast() but TensorFlow does not support NCHW for integers
+        value, kernel = self.auto_cast(value, kernel)
         if zero_padding:
             value_padding = [[0, 0]] * 2 + [[s // 2, (s - 1) // 2] for s in kernel.shape[3:]]
             value = tf.pad(value, value_padding)
-        convf = {3: partial(tf.nn.conv1d, stride=1, data_format='NCW'),
-                 4: partial(tf.nn.conv2d, strides=[1, 1, 1, 1], data_format='NCHW'),
-                 5: partial(tf.nn.conv3d, strides=[1, 1, 1, 1, 1], data_format='NCDHW')}[len(value.shape)]
+        convf = {3: partial(tf.nn.conv1d, stride=1),
+                 4: partial(tf.nn.conv2d, strides=[1, 1, 1, 1]),
+                 5: partial(tf.nn.conv3d, strides=[1, 1, 1, 1, 1])}[len(value.shape)]
+        value = tf.transpose(value, [0, *range(2, value.ndim), 1])  # could use data_format='NC...' but it's supported neither on CPU and for int tensors
         kernel = tf.transpose(kernel, [0, *range(3, kernel.ndim), 2, 1])
         if kernel.shape[0] == 1:
             result = convf(value, kernel[0, ...], padding='VALID')
@@ -263,6 +263,7 @@ class TFBackend(Backend):
             for b in range(kernel.shape[0]):
                 result.append(convf(value[b:b+1, ...], kernel[b], padding='VALID'))
             result = tf.concat(result, 0)
+        result = tf.transpose(result, [0, result.ndim - 1, *range(1, result.ndim - 1)])
         return result
 
     def expand_dims(self, a, axis=0, number=1):

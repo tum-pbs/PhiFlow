@@ -291,6 +291,7 @@ class JaxBackend(Backend):
         assert kernel.shape[0] in (1, value.shape[0])
         assert value.shape[1] == kernel.shape[2], f"value has {value.shape[1]} channels but kernel has {kernel.shape[2]}"
         assert value.ndim + 1 == kernel.ndim
+        # AutoDiff may require jax.lax.conv_general_dilated
         if zero_padding:
             result = np.zeros((value.shape[0], kernel.shape[1], *value.shape[2:]), dtype=to_numpy_dtype(self.float_type))
         else:
