@@ -7,36 +7,81 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 """
+import warnings
 
 from phi import math
 from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Field, PointCloud, extrapolate_valid, Grid
 from phi.field._field_math import GridType
+from phi.geom import Geometry
 
 
-def advect(field: Field, velocity: Field, dt: float) -> Field:
+def euler(elements: Geometry, velocity: Field, dt: float):
+    """ Euler integrator. """
+    return elements.shifted(velocity.sample_in(elements) * dt)
+
+
+def rk4(elements: Geometry, velocity: Field, dt: float):
+    """ Runge-Kutta-4 integrator. """
+    vel_0 = velocity.sample_in(elements)
+    vel_half = velocity.sample_in(elements.shifted(0.5 * dt * vel_0))
+    vel_half2 = velocity.sample_in(elements.shifted(0.5 * dt * vel_half))
+    vel_full = velocity.sample_in(elements.shifted(dt * vel_half2))
+    vel_rk4 = (1 / 6.) * (vel_0 + 2 * (vel_half + vel_half2) + vel_full)
+    return elements.shifted(dt * vel_rk4)
+
+
+def advect(field: SampledField,
+           velocity: Field,
+           dt: float or math.Tensor,
+           integrator=euler) -> Field:
     """
-    Advect `field` along the `velocity` vectors using the default advection method.
+    Advect `field` along the `velocity` vectors using the specified integrator.
+
+    The behavior depends on the type of `field`:
+
+    * `phi.field.PointCloud`: Points are advected forward, see `points`.
+    * `phi.field.Grid`: Sample points are traced backward, see `semi_lagrangian`.
 
     Args:
-      field: any built-in Field
-      velocity: any Field
-      dt: time increment
+        field: Field to be advected as `phi.field.SampledField`.
+        velocity: Any `phi.field.Field` that can be sampled in the elements of `field`.
+        dt: Time increment
+        integrator: ODE integrator for solving the movement.
 
     Returns:
-      Advected field of same type as `field`
+        Advected field of same type as `field`
     """
     if isinstance(field, PointCloud):
-        if isinstance(velocity, PointCloud) and velocity.elements == field.elements:
-            return points(field, velocity, dt)
-        return runge_kutta_4(field, velocity, dt=dt)
-    if isinstance(field, ConstantField):
+        return points(field, velocity, dt=dt, integrator=integrator)
+    elif isinstance(field, Grid):
+        return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
+    elif isinstance(field, ConstantField):
         return field
-    if isinstance(field, (CenteredGrid, StaggeredGrid)):
-        return semi_lagrangian(field, velocity, dt=dt)
     raise NotImplementedError(field)
 
 
-def semi_lagrangian(field: GridType, velocity: Field, dt) -> GridType:
+def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
+    """
+    Advects the sample points of a point cloud using a simple Euler step.
+    Each point moves by an amount equal to the local velocity times `dt`.
+
+    Args:
+        field: point cloud to be advected
+        velocity: velocity sampled at the same points as the point cloud
+        dt: Euler step time increment
+        integrator: ODE integrator for solving the movement.
+
+    Returns:
+        Advected point cloud
+    """
+    new_elements = integrator(field.elements, velocity, dt)
+    return field.with_(elements=new_elements)
+
+
+def semi_lagrangian(field: GridType,
+                    velocity: Field,
+                    dt: float,
+                    integrator=euler) -> GridType:
     """
     Semi-Lagrangian advection with simple backward lookup.
     
@@ -45,51 +90,54 @@ def semi_lagrangian(field: GridType, velocity: Field, dt) -> GridType:
     The new values are then determined by sampling `field` at these lookup locations.
 
     Args:
-      field: quantity to be advected, stored on a grid (CenteredGrid or StaggeredGrid)
-      velocity: vector field, need not be compatible with with `field`.
-      dt: time increment
-      field: GridType: 
-      velocity: Field: 
+        field: quantity to be advected, stored on a grid (CenteredGrid or StaggeredGrid)
+        velocity: vector field, need not be compatible with with `field`.
+        dt: time increment
+        integrator: ODE integrator for solving the movement.
 
     Returns:
-      Field with same sample points as `field`
+        Field with same sample points as `field`
 
     """
-    v = velocity.sample_in(field.elements)
-    x = field.points - v * dt
-    interpolated = field.sample_at(x, reduce_channels=x.shape.non_channel.without(field.shape).names)
+    lookup = integrator(field.elements, velocity, -dt)
+    interpolated = field.sample_in(lookup, reduce_channels=lookup.shape.without(field.shape).names)
     return field.with_(values=interpolated)
 
 
-def mac_cormack(field: GridType, velocity: Field, dt: float, correction_strength=1.0) -> GridType:
+def mac_cormack(field: GridType,
+                velocity: Field,
+                dt: float,
+                correction_strength=1.0,
+                integrator=euler) -> GridType:
     """
     MacCormack advection uses a forward and backward lookup to determine the first-order error of semi-Lagrangian advection.
     It then uses that error estimate to correct the field values.
     To avoid overshoots, the resulting value is bounded by the neighbouring grid cells of the backward lookup.
 
     Args:
-      field: Field to be advected, one of `(CenteredGrid, StaggeredGrid)`
-      velocity: Vector field, need not be sampled at same locations as `field`.
-      dt: Time increment
-      correction_strength: The estimated error is multiplied by this factor before being applied. The case correction_strength=0 equals semi-lagrangian advection. Set lower than 1.0 to avoid oscillations. (Default value = 1.0)
+        field: Field to be advected, one of `(CenteredGrid, StaggeredGrid)`
+        velocity: Vector field, need not be sampled at same locations as `field`.
+        dt: Time increment
+        correction_strength: The estimated error is multiplied by this factor before being applied.
+            The case correction_strength=0 equals semi-lagrangian advection. Set lower than 1.0 to avoid oscillations.
+        integrator: ODE integrator for solving the movement.
 
     Returns:
-      Advected field of type `type(field)`
+        Advected field of type `type(field)`
 
     """
     v = velocity.sample_in(field.elements)
-    x0 = field.points
-    x_bwd = x0 - v * dt
-    x_fwd = x0 + v * dt
-    reduce = x0.shape.non_channel.without(field.shape).names
+    points_bwd = integrator(field.elements, velocity, -dt)
+    points_fwd = integrator(field.elements, velocity, dt)
+    reduce = points_bwd.shape.without(field.shape).names
     # Semi-Lagrangian advection
-    field_semi_la = field.with_(values=field.sample_at(x_bwd, reduce_channels=reduce))
+    field_semi_la = field.with_(values=field.sample_in(points_bwd, reduce_channels=reduce))
     # Inverse semi-Lagrangian advection
-    field_inv_semi_la = field.with_(values=field_semi_la.sample_at(x_fwd, reduce_channels=reduce))
+    field_inv_semi_la = field.with_(values=field_semi_la.sample_in(points_fwd, reduce_channels=reduce))
     # correction
     new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
     # Address overshoots
-    limits = field.closest_values(x_bwd, reduce_channels=reduce)
+    limits = field.closest_values(points_bwd.center, reduce_channels=reduce)
     lower_limit = math.min(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     values_clamped = math.clip(new_field.values, lower_limit, upper_limit)
@@ -111,6 +159,7 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
     Returns:
         PointCloud with advected particle positions and their corresponding values.
     """
+    warnings.warn("runge_kutta_4 is deprecated. Use points() with integrator=rk4 instead.", DeprecationWarning)
     assert isinstance(velocity, Grid), 'runge_kutta advection with extrapolation works for Grids only.'
 
     def extrapolation_helper(elements, t_shift, v_field, mask):
@@ -151,24 +200,3 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     new_points = points.shifted(dt * vel)
     return cloud.with_(elements=new_points)
-
-
-def points(field: PointCloud, velocity: PointCloud, dt):
-    """
-    Advects the sample points of a point cloud using a simple Euler step.
-    Each point moves by an amount equal to the local velocity times `dt`.
-
-    Args:
-      field: point cloud to be advected
-      velocity: velocity sampled at the same points as the point cloud
-      dt: Euler step time increment
-      field: PointCloud: 
-      velocity: PointCloud: 
-
-    Returns:
-      advected point cloud
-
-    """
-    assert field.elements == velocity.elements
-    new_points = field.elements.shifted(dt * velocity.values)
-    return field.with_(elements=new_points)
