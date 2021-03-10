@@ -27,7 +27,7 @@
 <p>The following PyTorch modules are included: <code>torch</code>, <em>torch.nn.functional</em> as <code>torchf</code>, <code>optim</code>.</p>
 <p>Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
 New tensors created via <code><a title="phi.math" href="../math/index.html">phi.math</a></code> functions will be backed by PyTorch tensors.</p>
-<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.tf.flow" href="../tf/flow.html">phi.tf.flow</a></code>.</p>
+<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.tf.flow" href="../tf/flow.html">phi.tf.flow</a></code>, <code><a title="phi.jax.flow" href="../jax/flow.html">phi.jax.flow</a></code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -43,7 +43,7 @@ The following PyTorch modules are included: `torch`, *torch.nn.functional* as `t
 Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
 New tensors created via `phi.math` functions will be backed by PyTorch tensors.
 
-See `phi.flow`, `phi.tf.flow`.
+See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 &#34;&#34;&#34;
 
 from phi.flow import *

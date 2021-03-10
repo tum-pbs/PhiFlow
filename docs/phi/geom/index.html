@@ -785,13 +785,22 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
         self._shape = _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape).non_channel
 
     def unstack(self, dimension):
-        raise NotImplementedError()  # TODO
+        size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
+        lowers = self._lower.dimension(dimension).unstack(size)
+        uppers = self._upper.dimension(dimension).unstack(size)
+        return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))
 
     def __eq__(self, other):
-        return isinstance(other, AbstractBox) and self._lower.shape == other.lower.shape and math.close(self._lower, other.lower)
+        return isinstance(other, AbstractBox)\
+               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and math.close(self._lower, other.lower)\
+               and math.close(self._upper, other.upper)
 
     def __hash__(self):
         return hash(self._upper)
+
+    def __characteristics__(self) -&gt; Dict[str, math.Tensor]:
+        return {&#39;lower&#39;: self._lower, &#39;upper&#39;: self._upper}
 
     @property
     def shape(self):
@@ -816,15 +825,6 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     @struct.derived()
     def half_size(self):
         return self.size * 0.5
-
-    def without_axis(self, axis):
-        lower = []
-        upper = []
-        for ax in range(self.spatial_rank):
-            if ax != axis:
-                lower.append(self.get_lower(ax))
-                upper.append(self.get_upper(ax))
-        return Box(lower, upper)
 
     def shifted(self, delta):
         return Box(self.lower + delta, self.upper + delta)
@@ -969,26 +969,10 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def unstack(self, dimension):
-    raise NotImplementedError()  # TODO</code></pre>
-</details>
-</dd>
-<dt id="phi.geom.Box.without_axis"><code class="name flex">
-<span>def <span class="ident">without_axis</span></span>(<span>self, axis)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def without_axis(self, axis):
-    lower = []
-    upper = []
-    for ax in range(self.spatial_rank):
-        if ax != axis:
-            lower.append(self.get_lower(ax))
-            upper.append(self.get_upper(ax))
-    return Box(lower, upper)</code></pre>
+    size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
+    lowers = self._lower.dimension(dimension).unstack(size)
+    uppers = self._upper.dimension(dimension).unstack(size)
+    return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1212,7 +1196,10 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         copied = copy.copy(self)
         for name, val in attributes.items():
             setattr(copied, name, val)
-        return copied</code></pre>
+        return copied
+
+    def __repr__(self):
+        return f&#34;{self.__class__.__name__}{self.shape}&#34;</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1699,8 +1686,12 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor) -&gt; &#39;GridCell&#39;:
-        return GridCell(self.resolution, self.bounds.shifted(delta))
+    def shifted(self, delta: Tensor) -&gt; AbstractBox:
+        if delta.shape.spatial_rank == 0:
+            return GridCell(self.resolution, self.bounds.shifted(delta))
+        else:
+            center = self.center + delta
+            return Cuboid(center, self.half_size)
 
     def rotated(self, angle) -&gt; Geometry:
         raise NotImplementedError()
@@ -1924,7 +1915,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._box.GridCell</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._box.AbstractBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -1944,8 +1935,12 @@ The geometry is rotated about its center point.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shifted(self, delta: Tensor) -&gt; &#39;GridCell&#39;:
-    return GridCell(self.resolution, self.bounds.shifted(delta))</code></pre>
+<pre><code class="python">def shifted(self, delta: Tensor) -&gt; AbstractBox:
+    if delta.shape.spatial_rank == 0:
+        return GridCell(self.resolution, self.bounds.shifted(delta))
+    else:
+        center = self.center + delta
+        return Cuboid(center, self.half_size)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.unstack"><code class="name flex">
@@ -2315,7 +2310,6 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.Box.size" href="#phi.geom.Box.size">size</a></code></li>
 <li><code><a title="phi.geom.Box.unstack" href="#phi.geom.Box.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.Box.upper" href="#phi.geom.Box.upper">upper</a></code></li>
-<li><code><a title="phi.geom.Box.without_axis" href="#phi.geom.Box.without_axis">without_axis</a></code></li>
 </ul>
 </li>
 <li>

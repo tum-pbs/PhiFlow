@@ -6,7 +6,7 @@ Imports important functions and classes from
 `math`, `geom`, `field`, `physics` and `app` (including sub-modules)
 as well as the modules and sub-modules themselves.
 
-See `phi.tf.flow`, `phi.torch.flow`.
+See `phi.tf.flow`, `phi.torch.flow`, `phi.jax.flow`.
 """
 
 import numpy

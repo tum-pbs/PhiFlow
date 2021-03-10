@@ -9,7 +9,7 @@ The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `la
 Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
 New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
 
-See `phi.flow`, `phi.torch.flow`.
+See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 """
 
 from phi.flow import *

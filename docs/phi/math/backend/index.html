@@ -879,7 +879,7 @@ The output of math operations has the same precision as its inputs.</p>
 
         Args:
             value: tensor of shape (batch_size, in_channel, spatial...)
-            kernel: tensor of shape (batch_size or 1, in_channel, out_channel, spatial...)
+            kernel: tensor of shape (batch_size or 1, out_channel, in_channel, spatial...)
             zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
 
         Returns:
@@ -1604,7 +1604,7 @@ Higher dimensions may not be supported.</p>
 <dt><strong><code>value</code></strong></dt>
 <dd>tensor of shape (batch_size, in_channel, spatial&hellip;)</dd>
 <dt><strong><code>kernel</code></strong></dt>
-<dd>tensor of shape (batch_size or 1, in_channel, out_channel, spatial&hellip;)</dd>
+<dd>tensor of shape (batch_size or 1, out_channel, in_channel, spatial&hellip;)</dd>
 <dt><strong><code>zero_padding</code></strong></dt>
 <dd>If True, pads the edges of <code>value</code> with zeros so that the result has the same shape as <code>value</code>.</dd>
 </dl>
@@ -1622,7 +1622,7 @@ Higher dimensions may not be supported.</p>
 
     Args:
         value: tensor of shape (batch_size, in_channel, spatial...)
-        kernel: tensor of shape (batch_size or 1, in_channel, out_channel, spatial...)
+        kernel: tensor of shape (batch_size or 1, out_channel, in_channel, spatial...)
         zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
 
     Returns:

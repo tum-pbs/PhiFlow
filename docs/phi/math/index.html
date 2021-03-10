@@ -748,10 +748,11 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
                             for dim in conv_shape.name}, extrapolation)
 
     kernel_shaped = _expand_dims(kernel, batch) if kernel.shape.batch_rank &gt; 0 else kernel
+    kernel_shaped = _expand_dims(kernel_shaped, in_channels)
     kernel_shaped = join_dimensions(kernel_shaped, batch, &#39;batch_&#39;)
     kernel_shaped = join_dimensions(kernel_shaped, in_channels, &#39;in_channel_&#39;)
     kernel_shaped = join_dimensions(kernel_shaped, out_channels, &#39;out_channel_&#39;)
-    native_kernel = kernel_shaped.native([&#39;batch_&#39;, &#39;in_channel_&#39;, &#39;out_channel_&#39;, *conv_shape.names])
+    native_kernel = kernel_shaped.native([&#39;batch_&#39;, &#39;out_channel_&#39;, &#39;in_channel_&#39;, *conv_shape.names])
 
     value_shaped = _expand_dims(value, batch)
     value_shaped = join_dimensions(value_shaped, batch, &#39;batch_&#39;)
@@ -935,7 +936,7 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
         keep_letters = list(&#39;abcdefgh&#39;)[:-len(KEEP_LETTERS)]
         subscripts = f&#39;{&#34;&#34;.join(x_letters)},{&#34;&#34;.join(y_letters)}-&gt;{&#34;&#34;.join(keep_letters)}&#39;
         result_native = backend.einsum(subscripts, x_native, y_native)
-    result_shape = x.shape.without(x_dims) &amp; y.shape.without(y_dims)
+    result_shape = combine_safe(x.shape.without(x_dims), y.shape.without(y_dims))  # don&#39;t check group match
     return NativeTensor(result_native, result_shape)</code></pre>
 </details>
 </dd>
@@ -4433,11 +4434,6 @@ All arguments must have same length.</p>
         return zip(self.names, self.sizes)
 
     @property
-    def spatial_dict(self) -&gt; dict:
-        &#34;&#34;&#34; Ordered dictionary mapping dimension names to their respective sizes for all spatial dimensions. &#34;&#34;&#34;
-        return {n: s for s, n, t in zip(self.sizes, self.names, self.types) if t == SPATIAL_DIM}
-
-    @property
     def dimensions(self):
         &#34;&#34;&#34;
         For iterating over sizes, names and types.
@@ -4500,8 +4496,6 @@ All arguments must have same length.</p>
             raise ValueError(dim)
 
     def __getattr__(self, name):
-        if name == &#39;names&#39;:
-            raise AssertionError(&#34;Attribute missing: %s&#34; % name)
         if name in self.names:
             return self.get_size(name)
         raise AttributeError(&#34;Shape has no attribute &#39;%s&#39;&#34; % (name,))
@@ -4529,9 +4523,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
         See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
         Returns:
             New `Shape` object
@@ -4544,9 +4536,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the spatial and channel dimensions as a new `Shape` object.
 
         See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
         Returns:
             New `Shape` object
@@ -4559,9 +4549,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
         See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
         Returns:
             New `Shape` object
@@ -4574,9 +4562,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the batch and channel dimensions as a new `Shape` object.
 
         See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
         Returns:
             New `Shape` object
@@ -4589,9 +4575,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
         See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
         Returns:
             New `Shape` object
@@ -4604,104 +4588,12 @@ All arguments must have same length.</p>
         Filters this shape, returning only the batch and spatial dimensions as a new `Shape` object.
 
         See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
         Returns:
             New `Shape` object
         &#34;&#34;&#34;
         return self[[i for i, t in enumerate(self.types) if t != CHANNEL_DIM]]
-
-    @property
-    def singleton(self) -&gt; &#39;Shape&#39;:
-        &#34;&#34;&#34;
-        Filters this shape, returning only the dimensions with a size of 1 as a new `Shape` object.
-
-        See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-        Returns:
-            New `Shape` object
-        &#34;&#34;&#34;
-        return self[[i for i, size in enumerate(self.sizes) if size == 1]]
-
-    @property
-    def non_singleton(self)-&gt; &#39;Shape&#39;:
-        &#34;&#34;&#34;
-        Filters this shape, returning only the dimensions with a size different from 1 as a new `Shape` object.
-
-        See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-        Returns:
-            New `Shape` object
-        &#34;&#34;&#34;
-        return self[[i for i, size in enumerate(self.sizes) if size != 1]]
-
-    @property
-    def zero(self)-&gt; &#39;Shape&#39;:
-        &#34;&#34;&#34;
-        Filters this shape, returning only the dimensions with a size of 0 as a new `Shape` object.
-
-        See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-        Returns:
-            New `Shape` object
-        &#34;&#34;&#34;
-        return self[[i for i, size in enumerate(self.sizes) if size == 0]]
-
-    @property
-    def non_zero(self)-&gt; &#39;Shape&#39;:
-        &#34;&#34;&#34;
-        Filters this shape, returning only the dimensions with a size different from 0 as a new `Shape` object.
-
-        See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-        Returns:
-            New `Shape` object
-        &#34;&#34;&#34;
-        return self[[i for i, size in enumerate(self.sizes) if size != 0]]
-
-    @property
-    def undefined(self)-&gt; &#39;Shape&#39;:
-        &#34;&#34;&#34;
-        Filters this shape, returning only the dimensions with a size of `None` as a new `Shape` object.
-
-        See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-        Returns:
-            New `Shape` object
-        &#34;&#34;&#34;
-        return self[[i for i, size in enumerate(self.sizes) if size is None]]
-
-    @property
-    def defined(self)-&gt; &#39;Shape&#39;:
-        &#34;&#34;&#34;
-        Filters this shape, returning only the dimensions with a size different from `None` as a new `Shape` object.
-
-        See also:
-
-        * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-        * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-        Returns:
-            New `Shape` object
-        &#34;&#34;&#34;
-        return self[[i for i, size in enumerate(self.sizes) if size is not None]]
 
     def unstack(self, dim=&#39;dims&#39;) -&gt; Tuple[&#39;Shape&#39;]:
         &#34;&#34;&#34;
@@ -4741,21 +4633,6 @@ All arguments must have same length.</p>
         &#34;&#34;&#34; Only for shapes with a single dimension. Returns the name of the dimension. &#34;&#34;&#34;
         assert self.rank == 1, &#39;Shape.name is only defined for shapes of rank 1.&#39;
         return self.names[0]
-
-    @property
-    def is_batch(self) -&gt; bool:
-        &#34;&#34;&#34; Tests if all dimensions are of type *batch* &#34;&#34;&#34;
-        return all([t == BATCH_DIM for t in self.types])
-
-    @property
-    def is_spatial(self) -&gt; bool:
-        &#34;&#34;&#34; Tests if all dimensions are of type *spatial* &#34;&#34;&#34;
-        return all([t == SPATIAL_DIM for t in self.types])
-
-    @property
-    def is_channel(self) -&gt; bool:
-        &#34;&#34;&#34; Tests if all dimensions are of type *channel* &#34;&#34;&#34;
-        return all([t == CHANNEL_DIM for t in self.types])
 
     def mask(self, names: tuple or list or set):
         &#34;&#34;&#34;
@@ -4813,7 +4690,7 @@ All arguments must have same length.</p>
     def alphabetically(self):
         return self.reorder(sorted(self.names))
 
-    def combined(self, other: &#39;Shape&#39;, combine_spatial=False)-&gt; &#39;Shape&#39;:
+    def combined(self, other: &#39;Shape&#39;, combine_spatial=False) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
         Returns a Shape object that both `self` and `other` can be broadcast to.
         If `self` and `other` are incompatible, raises a ValueError.
@@ -4833,30 +4710,7 @@ All arguments must have same length.</p>
     def __and__(self, other):
         return combine_safe(self, other, check_exact=[SPATIAL_DIM])
 
-    def expand_batch(self, size, name: str, pos=None)-&gt; &#39;Shape&#39;:
-        return self.expand(size, name, BATCH_DIM, pos)
-
-    def expand_spatial(self, size, name: str, pos=None)-&gt; &#39;Shape&#39;:
-        return self.expand(size, name, SPATIAL_DIM, pos)
-
-    def expand_channel(self, size, name: str, pos=None)-&gt; &#39;Shape&#39;:
-        return self.expand(size, name, CHANNEL_DIM, pos)
-
-    def expand(self, size, name: str, dim_type: str, pos=None)-&gt; &#39;Shape&#39;:
-        &#34;&#34;&#34;
-        Add a dimension to the shape.
-        
-        The resulting shape has linear indices.
-
-        Args:
-          size: 
-          name: str: 
-          dim_type: str: 
-          pos:  (Default value = None)
-
-        Returns:
-
-        &#34;&#34;&#34;
+    def expand(self, size, name: str, dim_type: str, pos=None) -&gt; &#39;Shape&#39;:
         if pos is None:
             same_type_dims = self[[i for i, t in enumerate(self.types) if t == dim_type]]
             if len(same_type_dims) &gt; 0:
@@ -4873,31 +4727,25 @@ All arguments must have same length.</p>
         types.insert(pos, dim_type)
         return Shape(sizes, names, types)
 
-    def extend(self, other: &#39;Shape&#39;, pos=-1)-&gt; &#39;Shape&#39;:
-        if pos == -1:
-            return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
-        elif pos == None:
-            result = self
-            for size, name, dim_type in other.dimensions:
-                result = result.expand(size, name, dim_type)
-            return result
-        else:
-            raise NotImplementedError(pos)
+    def extend(self, other: &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
+        &#34;&#34;&#34; Appends the dimensions to the end of this `Shape`. The dimensions of `other` must not be included in this shape. &#34;&#34;&#34;
+        for name in other.names:
+            assert name not in self.names
+        return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
 
-    def without(self, dims: str or tuple or list or &#39;Shape&#39; or None)-&gt; &#39;Shape&#39;:
+    def without(self, dims: str or tuple or list or &#39;Shape&#39; or None) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
         
-        The complementary operation is :func:`Shape.only`.
+        The complementary operation is `Shape.only()`.
 
         Args:
-          dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
-          dims: str or tuple or list or Shape or None: 
+          dims: Single dimension (str) or collection of dimensions (tuple, list, Shape)
+          dims: Dimensions to exclude as `str` or `tuple` or `list` or `Shape`. Dimensions that are not included in this shape are ignored.
 
         Returns:
           Shape without specified dimensions
-
         &#34;&#34;&#34;
         if isinstance(dims, str):
             return self[[i for i in range(self.rank) if self.names[i] != dims]]
@@ -4905,8 +4753,8 @@ All arguments must have same length.</p>
             return self[[i for i in range(self.rank) if self.names[i] not in dims]]
         elif isinstance(dims, Shape):
             return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
-        elif dims is None:  # subtract all
-            return EMPTY_SHAPE
+        # elif dims is None:  # subtract all
+        #     return EMPTY_SHAPE
         else:
             raise ValueError(dims)
 
@@ -4937,10 +4785,6 @@ All arguments must have same length.</p>
             return self
         else:
             raise ValueError(dims)
-
-    def select(self, *names):
-        indices = [self.index(name) for name in names]
-        return self[indices]
 
     @property
     def rank(self) -&gt; int:
@@ -4979,7 +4823,7 @@ All arguments must have same length.</p>
                 r += 1
         return r
 
-    def to_batch(self, dims: tuple or list or None = None)-&gt; &#39;Shape&#39;:
+    def to_batch(self, dims: tuple or list or None = None) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
         Returns a shape like this Shape but with `dims` being of type `batch`.
         
@@ -5004,7 +4848,7 @@ All arguments must have same length.</p>
         return None not in self.sizes
 
     @property
-    def shape(self, list_dim=&#39;dims&#39;)-&gt; &#39;Shape&#39;:
+    def shape(self, list_dim=&#39;dims&#39;) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
         Returns the shape of this `Shape`.
         The returned shape will always contain the dimension `list_dim` with a size equal to the `Shape.rank` of this shape.
@@ -5091,14 +4935,14 @@ All arguments must have same length.</p>
         &#34;&#34;&#34; True if this shape has no dimensions. Equivalent to `Shape.rank` `== 0`. &#34;&#34;&#34;
         return len(self.sizes) == 0
 
-    def order(self, sequence, default=None)-&gt; &#39;Shape&#39;:
+    def order(self, sequence, default=None) -&gt; tuple or list:
         &#34;&#34;&#34;
         If sequence is a dict with dimension names as keys, orders its values according to this shape.
         
         Otherwise, the sequence is returned unchanged.
 
         Args:
-          sequence(dict or list or tuple): sequence or dict to be ordered
+          sequence: Sequence or dict to be ordered
           default: default value used for dimensions not contained in sequence
 
         Returns:
@@ -5107,21 +4951,9 @@ All arguments must have same length.</p>
         if isinstance(sequence, dict):
             result = [sequence.get(name, default) for name in self.names]
             return result
-        if isinstance(sequence, (tuple, list)):
+        elif isinstance(sequence, (tuple, list)):
             assert len(sequence) == self.rank
             return sequence
-        else:  # just a constant
-            return sequence
-
-    def sequence_get(self, sequence, name):
-        if isinstance(sequence, dict):
-            return sequence[name]
-        if isinstance(sequence, (tuple, list)):
-            assert len(sequence) == self.rank
-            return sequence[self.names.index(name)]
-        if math.is_tensor(sequence):
-            assert math.staticshape(sequence) == (self.rank,)
-            return sequence[self.names.index(name)]
         else:  # just a constant
             return sequence
 
@@ -5200,11 +5032,8 @@ All arguments must have same length.</p>
 <dt id="phi.math.Shape.batch"><code class="name">var <span class="ident">batch</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the batch dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5217,9 +5046,7 @@ def batch(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
     See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
     Returns:
         New `Shape` object
@@ -5247,11 +5074,8 @@ def batch_rank(self) -&gt; int:
 <dt id="phi.math.Shape.channel"><code class="name">var <span class="ident">channel</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5264,9 +5088,7 @@ def channel(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
     See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
     Returns:
         New `Shape` object
@@ -5291,36 +5113,6 @@ def channel_rank(self) -&gt; int:
     return r</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.defined"><code class="name">var <span class="ident">defined</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"><p>Filters this shape, returning only the dimensions with a size different from <code>None</code> as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
-<h2 id="returns">Returns</h2>
-<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def defined(self)-&gt; &#39;Shape&#39;:
-    &#34;&#34;&#34;
-    Filters this shape, returning only the dimensions with a size different from `None` as a new `Shape` object.
-
-    See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-    Returns:
-        New `Shape` object
-    &#34;&#34;&#34;
-    return self[[i for i, size in enumerate(self.sizes) if size is not None]]</code></pre>
-</details>
-</dd>
 <dt id="phi.math.Shape.dimensions"><code class="name">var <span class="ident">dimensions</span></code></dt>
 <dd>
 <div class="desc"><p>For iterating over sizes, names and types.
@@ -5339,32 +5131,6 @@ def dimensions(self):
     See `Shape.named_sizes()`.
     &#34;&#34;&#34;
     return zip(self.sizes, self.names, self.types)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.is_batch"><code class="name">var <span class="ident">is_batch</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Tests if all dimensions are of type <em>batch</em></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def is_batch(self) -&gt; bool:
-    &#34;&#34;&#34; Tests if all dimensions are of type *batch* &#34;&#34;&#34;
-    return all([t == BATCH_DIM for t in self.types])</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.is_channel"><code class="name">var <span class="ident">is_channel</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Tests if all dimensions are of type <em>channel</em></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def is_channel(self) -&gt; bool:
-    &#34;&#34;&#34; Tests if all dimensions are of type *channel* &#34;&#34;&#34;
-    return all([t == CHANNEL_DIM for t in self.types])</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.is_empty"><code class="name">var <span class="ident">is_empty</span> : bool</code></dt>
@@ -5400,19 +5166,6 @@ def is_non_uniform(self) -&gt; bool:
         if isinstance(size, Tensor) and size.rank &gt; 0:
             return True
     return False</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.is_spatial"><code class="name">var <span class="ident">is_spatial</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Tests if all dimensions are of type <em>spatial</em></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def is_spatial(self) -&gt; bool:
-    &#34;&#34;&#34; Tests if all dimensions are of type *spatial* &#34;&#34;&#34;
-    return all([t == SPATIAL_DIM for t in self.types])</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
@@ -5460,11 +5213,8 @@ def named_sizes(self):
 <dt id="phi.math.Shape.non_batch"><code class="name">var <span class="ident">non_batch</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the spatial and channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5477,9 +5227,7 @@ def non_batch(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the spatial and channel dimensions as a new `Shape` object.
 
     See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
     Returns:
         New `Shape` object
@@ -5490,11 +5238,8 @@ def non_batch(self) -&gt; &#39;Shape&#39;:
 <dt id="phi.math.Shape.non_channel"><code class="name">var <span class="ident">non_channel</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the batch and spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5507,9 +5252,7 @@ def non_channel(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the batch and spatial dimensions as a new `Shape` object.
 
     See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
     Returns:
         New `Shape` object
@@ -5517,44 +5260,11 @@ def non_channel(self) -&gt; &#39;Shape&#39;:
     return self[[i for i, t in enumerate(self.types) if t != CHANNEL_DIM]]</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.non_singleton"><code class="name">var <span class="ident">non_singleton</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"><p>Filters this shape, returning only the dimensions with a size different from 1 as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
-<h2 id="returns">Returns</h2>
-<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def non_singleton(self)-&gt; &#39;Shape&#39;:
-    &#34;&#34;&#34;
-    Filters this shape, returning only the dimensions with a size different from 1 as a new `Shape` object.
-
-    See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-    Returns:
-        New `Shape` object
-    &#34;&#34;&#34;
-    return self[[i for i, size in enumerate(self.sizes) if size != 1]]</code></pre>
-</details>
-</dd>
 <dt id="phi.math.Shape.non_spatial"><code class="name">var <span class="ident">non_spatial</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the batch and channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5567,44 +5277,12 @@ def non_spatial(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the batch and channel dimensions as a new `Shape` object.
 
     See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
     Returns:
         New `Shape` object
     &#34;&#34;&#34;
     return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.non_zero"><code class="name">var <span class="ident">non_zero</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"><p>Filters this shape, returning only the dimensions with a size different from 0 as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
-<h2 id="returns">Returns</h2>
-<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def non_zero(self)-&gt; &#39;Shape&#39;:
-    &#34;&#34;&#34;
-    Filters this shape, returning only the dimensions with a size different from 0 as a new `Shape` object.
-
-    See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-    Returns:
-        New `Shape` object
-    &#34;&#34;&#34;
-    return self[[i for i, size in enumerate(self.sizes) if size != 0]]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
@@ -5644,7 +5322,7 @@ The returned shape will always contain the dimension <code>list_dim</code> with 
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def shape(self, list_dim=&#39;dims&#39;)-&gt; &#39;Shape&#39;:
+def shape(self, list_dim=&#39;dims&#39;) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Returns the shape of this `Shape`.
     The returned shape will always contain the dimension `list_dim` with a size equal to the `Shape.rank` of this shape.
@@ -5665,36 +5343,6 @@ def shape(self, list_dim=&#39;dims&#39;)-&gt; &#39;Shape&#39;:
     return shape</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.singleton"><code class="name">var <span class="ident">singleton</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"><p>Filters this shape, returning only the dimensions with a size of 1 as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
-<h2 id="returns">Returns</h2>
-<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def singleton(self) -&gt; &#39;Shape&#39;:
-    &#34;&#34;&#34;
-    Filters this shape, returning only the dimensions with a size of 1 as a new `Shape` object.
-
-    See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-    Returns:
-        New `Shape` object
-    &#34;&#34;&#34;
-    return self[[i for i, size in enumerate(self.sizes) if size == 1]]</code></pre>
-</details>
-</dd>
 <dt id="phi.math.Shape.sizes"><code class="name">var <span class="ident">sizes</span></code></dt>
 <dd>
 <div class="desc"><p>Ordered dimension sizes as <code>tuple</code></p></div>
@@ -5702,11 +5350,8 @@ def singleton(self) -&gt; &#39;Shape&#39;:
 <dt id="phi.math.Shape.spatial"><code class="name">var <span class="ident">spatial</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5719,27 +5364,12 @@ def spatial(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
     See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
+        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
 
     Returns:
         New `Shape` object
     &#34;&#34;&#34;
     return self[[i for i, t in enumerate(self.types) if t == SPATIAL_DIM]]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.spatial_dict"><code class="name">var <span class="ident">spatial_dict</span> : dict</code></dt>
-<dd>
-<div class="desc"><p>Ordered dictionary mapping dimension names to their respective sizes for all spatial dimensions.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def spatial_dict(self) -&gt; dict:
-    &#34;&#34;&#34; Ordered dictionary mapping dimension names to their respective sizes for all spatial dimensions. &#34;&#34;&#34;
-    return {n: s for s, n, t in zip(self.sizes, self.names, self.types) if t == SPATIAL_DIM}</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.spatial_rank"><code class="name">var <span class="ident">spatial_rank</span> : int</code></dt>
@@ -5757,36 +5387,6 @@ def spatial_rank(self) -&gt; int:
         if ty == SPATIAL_DIM:
             r += 1
     return r</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.undefined"><code class="name">var <span class="ident">undefined</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"><p>Filters this shape, returning only the dimensions with a size of <code>None</code> as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
-<h2 id="returns">Returns</h2>
-<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def undefined(self)-&gt; &#39;Shape&#39;:
-    &#34;&#34;&#34;
-    Filters this shape, returning only the dimensions with a size of `None` as a new `Shape` object.
-
-    See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-    Returns:
-        New `Shape` object
-    &#34;&#34;&#34;
-    return self[[i for i, size in enumerate(self.sizes) if size is None]]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.volume"><code class="name">var <span class="ident">volume</span> : int</code></dt>
@@ -5833,36 +5433,6 @@ def volume(self) -&gt; int or None:
 def well_defined(self):
     &#34;&#34;&#34; Returns True if no dimension is `None`. &#34;&#34;&#34;
     return None not in self.sizes</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.zero"><code class="name">var <span class="ident">zero</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"><p>Filters this shape, returning only the dimensions with a size of 0 as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
-<p>See also:</p>
-<ul>
-<li>Dimension type filters: <code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></li>
-<li>Dimension size filters: <code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">Shape.singleton</a></code>, <code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">Shape.non_singleton</a></code>, <code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">Shape.zero</a></code>, <code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">Shape.non_zero</a></code>, <code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">Shape.undefined</a></code>, <code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">Shape.defined</a></code></li>
-</ul>
-<h2 id="returns">Returns</h2>
-<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def zero(self)-&gt; &#39;Shape&#39;:
-    &#34;&#34;&#34;
-    Filters this shape, returning only the dimensions with a size of 0 as a new `Shape` object.
-
-    See also:
-
-    * Dimension type filters: `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
-    * Dimension size filters: `Shape.singleton`, `Shape.non_singleton`, `Shape.zero`, `Shape.non_zero`, `Shape.undefined`, `Shape.defined`
-
-    Returns:
-        New `Shape` object
-    &#34;&#34;&#34;
-    return self[[i for i, size in enumerate(self.sizes) if size == 0]]</code></pre>
 </details>
 </dd>
 </dl>
@@ -5949,7 +5519,7 @@ If <code>self</code> and <code>other</code> are incompatible, raises a ValueErro
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def combined(self, other: &#39;Shape&#39;, combine_spatial=False)-&gt; &#39;Shape&#39;:
+<pre><code class="python">def combined(self, other: &#39;Shape&#39;, combine_spatial=False) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Returns a Shape object that both `self` and `other` can be broadcast to.
     If `self` and `other` are incompatible, raises a ValueError.
@@ -5971,39 +5541,12 @@ If <code>self</code> and <code>other</code> are incompatible, raises a ValueErro
 <span>def <span class="ident">expand</span></span>(<span>self, size, name: str, dim_type: str, pos=None) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Add a dimension to the shape.</p>
-<p>The resulting shape has linear indices.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>size</code></strong></dt>
-<dd>&nbsp;</dd>
-<dt><strong><code>name</code></strong></dt>
-<dd>str: </dd>
-<dt><strong><code>dim_type</code></strong></dt>
-<dd>str: </dd>
-<dt><strong><code>pos</code></strong></dt>
-<dd>(Default value = None)</dd>
-</dl>
-<p>Returns:</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand(self, size, name: str, dim_type: str, pos=None)-&gt; &#39;Shape&#39;:
-    &#34;&#34;&#34;
-    Add a dimension to the shape.
-    
-    The resulting shape has linear indices.
-
-    Args:
-      size: 
-      name: str: 
-      dim_type: str: 
-      pos:  (Default value = None)
-
-    Returns:
-
-    &#34;&#34;&#34;
+<pre><code class="python">def expand(self, size, name: str, dim_type: str, pos=None) -&gt; &#39;Shape&#39;:
     if pos is None:
         same_type_dims = self[[i for i, t in enumerate(self.types) if t == dim_type]]
         if len(same_type_dims) &gt; 0:
@@ -6021,64 +5564,20 @@ If <code>self</code> and <code>other</code> are incompatible, raises a ValueErro
     return Shape(sizes, names, types)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.expand_batch"><code class="name flex">
-<span>def <span class="ident">expand_batch</span></span>(<span>self, size, name: str, pos=None) ‑> phi.math._shape.Shape</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def expand_batch(self, size, name: str, pos=None)-&gt; &#39;Shape&#39;:
-    return self.expand(size, name, BATCH_DIM, pos)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.expand_channel"><code class="name flex">
-<span>def <span class="ident">expand_channel</span></span>(<span>self, size, name: str, pos=None) ‑> phi.math._shape.Shape</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def expand_channel(self, size, name: str, pos=None)-&gt; &#39;Shape&#39;:
-    return self.expand(size, name, CHANNEL_DIM, pos)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.expand_spatial"><code class="name flex">
-<span>def <span class="ident">expand_spatial</span></span>(<span>self, size, name: str, pos=None) ‑> phi.math._shape.Shape</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def expand_spatial(self, size, name: str, pos=None)-&gt; &#39;Shape&#39;:
-    return self.expand(size, name, SPATIAL_DIM, pos)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.Shape.extend"><code class="name flex">
-<span>def <span class="ident">extend</span></span>(<span>self, other: <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>, pos=-1) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">extend</span></span>(<span>self, other: <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Appends the dimensions to the end of this <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>. The dimensions of <code>other</code> must not be included in this shape.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def extend(self, other: &#39;Shape&#39;, pos=-1)-&gt; &#39;Shape&#39;:
-    if pos == -1:
-        return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
-    elif pos == None:
-        result = self
-        for size, name, dim_type in other.dimensions:
-            result = result.expand(size, name, dim_type)
-        return result
-    else:
-        raise NotImplementedError(pos)</code></pre>
+<pre><code class="python">def extend(self, other: &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
+    &#34;&#34;&#34; Appends the dimensions to the end of this `Shape`. The dimensions of `other` must not be included in this shape. &#34;&#34;&#34;
+    for name in other.names:
+        assert name not in self.names
+    return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.get_size"><code class="name flex">
@@ -6316,14 +5815,15 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </details>
 </dd>
 <dt id="phi.math.Shape.order"><code class="name flex">
-<span>def <span class="ident">order</span></span>(<span>self, sequence, default=None) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">order</span></span>(<span>self, sequence, default=None) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"><p>If sequence is a dict with dimension names as keys, orders its values according to this shape.</p>
 <p>Otherwise, the sequence is returned unchanged.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt>sequence(dict or list or tuple): sequence or dict to be ordered</dt>
+<dt><strong><code>sequence</code></strong></dt>
+<dd>Sequence or dict to be ordered</dd>
 <dt><strong><code>default</code></strong></dt>
 <dd>default value used for dimensions not contained in sequence</dd>
 </dl>
@@ -6333,14 +5833,14 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def order(self, sequence, default=None)-&gt; &#39;Shape&#39;:
+<pre><code class="python">def order(self, sequence, default=None) -&gt; tuple or list:
     &#34;&#34;&#34;
     If sequence is a dict with dimension names as keys, orders its values according to this shape.
     
     Otherwise, the sequence is returned unchanged.
 
     Args:
-      sequence(dict or list or tuple): sequence or dict to be ordered
+      sequence: Sequence or dict to be ordered
       default: default value used for dimensions not contained in sequence
 
     Returns:
@@ -6349,7 +5849,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     if isinstance(sequence, dict):
         result = [sequence.get(name, default) for name in self.names]
         return result
-    if isinstance(sequence, (tuple, list)):
+    elif isinstance(sequence, (tuple, list)):
         assert len(sequence) == self.rank
         return sequence
     else:  # just a constant
@@ -6421,13 +5921,13 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <dd>
 <div class="desc"><p>Builds a new shape from this one that is missing all given dimensions.
 Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
-<p>The complementary operation is :func:<code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">Shape.only()</a></code>.</p>
+<p>The complementary operation is <code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">Shape.only()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dims</code></strong></dt>
-<dd>single dimension (str) or collection of dimensions (tuple, list, Shape)</dd>
+<dd>Single dimension (str) or collection of dimensions (tuple, list, Shape)</dd>
 <dt><strong><code>dims</code></strong></dt>
-<dd>str or tuple or list or Shape or None: </dd>
+<dd>Dimensions to exclude as <code>str</code> or <code>tuple</code> or <code>list</code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>. Dimensions that are not included in this shape are ignored.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Shape without specified dimensions</p></div>
@@ -6435,20 +5935,19 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39; or None)-&gt; &#39;Shape&#39;:
+<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39; or None) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Builds a new shape from this one that is missing all given dimensions.
     Dimensions in `dims` that are not part of this Shape are ignored.
     
-    The complementary operation is :func:`Shape.only`.
+    The complementary operation is `Shape.only()`.
 
     Args:
-      dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
-      dims: str or tuple or list or Shape or None: 
+      dims: Single dimension (str) or collection of dimensions (tuple, list, Shape)
+      dims: Dimensions to exclude as `str` or `tuple` or `list` or `Shape`. Dimensions that are not included in this shape are ignored.
 
     Returns:
       Shape without specified dimensions
-
     &#34;&#34;&#34;
     if isinstance(dims, str):
         return self[[i for i in range(self.rank) if self.names[i] != dims]]
@@ -6456,8 +5955,8 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         return self[[i for i in range(self.rank) if self.names[i] not in dims]]
     elif isinstance(dims, Shape):
         return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
-    elif dims is None:  # subtract all
-        return EMPTY_SHAPE
+    # elif dims is None:  # subtract all
+    #     return EMPTY_SHAPE
     else:
         raise ValueError(dims)</code></pre>
 </details>
@@ -6475,42 +5974,6 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     assert len(names) == self.rank
     order = [self.index(n) for n in names]
     return self[order]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.select"><code class="name flex">
-<span>def <span class="ident">select</span></span>(<span>self, *names)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def select(self, *names):
-    indices = [self.index(name) for name in names]
-    return self[indices]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.Shape.sequence_get"><code class="name flex">
-<span>def <span class="ident">sequence_get</span></span>(<span>self, sequence, name)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sequence_get(self, sequence, name):
-    if isinstance(sequence, dict):
-        return sequence[name]
-    if isinstance(sequence, (tuple, list)):
-        assert len(sequence) == self.rank
-        return sequence[self.names.index(name)]
-    if math.is_tensor(sequence):
-        assert math.staticshape(sequence) == (self.rank,)
-        return sequence[self.names.index(name)]
-    else:  # just a constant
-        return sequence</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.to_batch"><code class="name flex">
@@ -6533,7 +5996,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_batch(self, dims: tuple or list or None = None)-&gt; &#39;Shape&#39;:
+<pre><code class="python">def to_batch(self, dims: tuple or list or None = None) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Returns a shape like this Shape but with `dims` being of type `batch`.
     
@@ -6674,13 +6137,13 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
 <dd>
 <div class="desc"><p>Builds a new shape from this one that is missing all given dimensions.
 Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
-<p>The complementary operation is :func:<code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">Shape.only()</a></code>.</p>
+<p>The complementary operation is <code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">Shape.only()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dims</code></strong></dt>
-<dd>single dimension (str) or collection of dimensions (tuple, list, Shape)</dd>
+<dd>Single dimension (str) or collection of dimensions (tuple, list, Shape)</dd>
 <dt><strong><code>dims</code></strong></dt>
-<dd>str or tuple or list or Shape or None: </dd>
+<dd>Dimensions to exclude as <code>str</code> or <code>tuple</code> or <code>list</code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>. Dimensions that are not included in this shape are ignored.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Shape without specified dimensions</p></div>
@@ -6688,20 +6151,19 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39; or None)-&gt; &#39;Shape&#39;:
+<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39; or None) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Builds a new shape from this one that is missing all given dimensions.
     Dimensions in `dims` that are not part of this Shape are ignored.
     
-    The complementary operation is :func:`Shape.only`.
+    The complementary operation is `Shape.only()`.
 
     Args:
-      dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
-      dims: str or tuple or list or Shape or None: 
+      dims: Single dimension (str) or collection of dimensions (tuple, list, Shape)
+      dims: Dimensions to exclude as `str` or `tuple` or `list` or `Shape`. Dimensions that are not included in this shape are ignored.
 
     Returns:
       Shape without specified dimensions
-
     &#34;&#34;&#34;
     if isinstance(dims, str):
         return self[[i for i in range(self.rank) if self.names[i] != dims]]
@@ -6709,8 +6171,8 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         return self[[i for i in range(self.rank) if self.names[i] not in dims]]
     elif isinstance(dims, Shape):
         return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
-    elif dims is None:  # subtract all
-        return EMPTY_SHAPE
+    # elif dims is None:  # subtract all
+    #     return EMPTY_SHAPE
     else:
         raise ValueError(dims)</code></pre>
 </details>
@@ -7253,7 +6715,6 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 <li>phi.math._tensors.NativeTensor</li>
 <li>phi.math._tensors.TensorStack</li>
 <li>phi.math._trace.ShiftLinOp</li>
-<li>phi.math._trace.SparseLinearOperation</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -8178,22 +7639,15 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">channel</a></code></li>
 <li><code><a title="phi.math.Shape.channel_rank" href="#phi.math.Shape.channel_rank">channel_rank</a></code></li>
 <li><code><a title="phi.math.Shape.combined" href="#phi.math.Shape.combined">combined</a></code></li>
-<li><code><a title="phi.math.Shape.defined" href="#phi.math.Shape.defined">defined</a></code></li>
 <li><code><a title="phi.math.Shape.dimensions" href="#phi.math.Shape.dimensions">dimensions</a></code></li>
 <li><code><a title="phi.math.Shape.expand" href="#phi.math.Shape.expand">expand</a></code></li>
-<li><code><a title="phi.math.Shape.expand_batch" href="#phi.math.Shape.expand_batch">expand_batch</a></code></li>
-<li><code><a title="phi.math.Shape.expand_channel" href="#phi.math.Shape.expand_channel">expand_channel</a></code></li>
-<li><code><a title="phi.math.Shape.expand_spatial" href="#phi.math.Shape.expand_spatial">expand_spatial</a></code></li>
 <li><code><a title="phi.math.Shape.extend" href="#phi.math.Shape.extend">extend</a></code></li>
 <li><code><a title="phi.math.Shape.get_size" href="#phi.math.Shape.get_size">get_size</a></code></li>
 <li><code><a title="phi.math.Shape.get_type" href="#phi.math.Shape.get_type">get_type</a></code></li>
 <li><code><a title="phi.math.Shape.index" href="#phi.math.Shape.index">index</a></code></li>
 <li><code><a title="phi.math.Shape.indices" href="#phi.math.Shape.indices">indices</a></code></li>
-<li><code><a title="phi.math.Shape.is_batch" href="#phi.math.Shape.is_batch">is_batch</a></code></li>
-<li><code><a title="phi.math.Shape.is_channel" href="#phi.math.Shape.is_channel">is_channel</a></code></li>
 <li><code><a title="phi.math.Shape.is_empty" href="#phi.math.Shape.is_empty">is_empty</a></code></li>
 <li><code><a title="phi.math.Shape.is_non_uniform" href="#phi.math.Shape.is_non_uniform">is_non_uniform</a></code></li>
-<li><code><a title="phi.math.Shape.is_spatial" href="#phi.math.Shape.is_spatial">is_spatial</a></code></li>
 <li><code><a title="phi.math.Shape.mask" href="#phi.math.Shape.mask">mask</a></code></li>
 <li><code><a title="phi.math.Shape.meshgrid" href="#phi.math.Shape.meshgrid">meshgrid</a></code></li>
 <li><code><a title="phi.math.Shape.name" href="#phi.math.Shape.name">name</a></code></li>
@@ -8201,9 +7655,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.names" href="#phi.math.Shape.names">names</a></code></li>
 <li><code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">non_batch</a></code></li>
 <li><code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">non_channel</a></code></li>
-<li><code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">non_singleton</a></code></li>
 <li><code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">non_spatial</a></code></li>
-<li><code><a title="phi.math.Shape.non_zero" href="#phi.math.Shape.non_zero">non_zero</a></code></li>
 <li><code><a title="phi.math.Shape.normal_order" href="#phi.math.Shape.normal_order">normal_order</a></code></li>
 <li><code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">only</a></code></li>
 <li><code><a title="phi.math.Shape.order" href="#phi.math.Shape.order">order</a></code></li>
@@ -8213,16 +7665,11 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.rank" href="#phi.math.Shape.rank">rank</a></code></li>
 <li><code><a title="phi.math.Shape.reduce" href="#phi.math.Shape.reduce">reduce</a></code></li>
 <li><code><a title="phi.math.Shape.reorder" href="#phi.math.Shape.reorder">reorder</a></code></li>
-<li><code><a title="phi.math.Shape.select" href="#phi.math.Shape.select">select</a></code></li>
-<li><code><a title="phi.math.Shape.sequence_get" href="#phi.math.Shape.sequence_get">sequence_get</a></code></li>
 <li><code><a title="phi.math.Shape.shape" href="#phi.math.Shape.shape">shape</a></code></li>
-<li><code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">singleton</a></code></li>
 <li><code><a title="phi.math.Shape.sizes" href="#phi.math.Shape.sizes">sizes</a></code></li>
 <li><code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">spatial</a></code></li>
-<li><code><a title="phi.math.Shape.spatial_dict" href="#phi.math.Shape.spatial_dict">spatial_dict</a></code></li>
 <li><code><a title="phi.math.Shape.spatial_rank" href="#phi.math.Shape.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.math.Shape.to_batch" href="#phi.math.Shape.to_batch">to_batch</a></code></li>
-<li><code><a title="phi.math.Shape.undefined" href="#phi.math.Shape.undefined">undefined</a></code></li>
 <li><code><a title="phi.math.Shape.unstack" href="#phi.math.Shape.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.Shape.volume" href="#phi.math.Shape.volume">volume</a></code></li>
 <li><code><a title="phi.math.Shape.well_defined" href="#phi.math.Shape.well_defined">well_defined</a></code></li>
@@ -8231,7 +7678,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.with_sizes" href="#phi.math.Shape.with_sizes">with_sizes</a></code></li>
 <li><code><a title="phi.math.Shape.with_types" href="#phi.math.Shape.with_types">with_types</a></code></li>
 <li><code><a title="phi.math.Shape.without" href="#phi.math.Shape.without">without</a></code></li>
-<li><code><a title="phi.math.Shape.zero" href="#phi.math.Shape.zero">zero</a></code></li>
 </ul>
 </li>
 <li>

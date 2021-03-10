@@ -9,7 +9,7 @@ The following PyTorch modules are included: `torch`, *torch.nn.functional* as `t
 Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
 New tensors created via `phi.math` functions will be backed by PyTorch tensors.
 
-See `phi.flow`, `phi.tf.flow`.
+See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 """
 
 from phi.flow import *

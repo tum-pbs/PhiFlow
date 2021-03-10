@@ -64,6 +64,7 @@ from ._field_math import (
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
     solve, minimize,
     where,
+    vec_squared, vec_abs,
     l2_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
@@ -513,7 +514,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.mean"><code class="name flex">
-<span>def <span class="ident">mean</span></span>(<span>field: phi.field._grid.Grid)</span>
+<span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -521,7 +522,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mean(field: Grid):
+<pre><code class="python">def mean(field: SampledField):
     return math.mean(field.values, field.shape.spatial)</code></pre>
 </details>
 </dd>
@@ -948,6 +949,34 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
         raise ValueError(type(grid))</code></pre>
 </details>
 </dd>
+<dt id="phi.field.vec_abs"><code class="name flex">
+<span>def <span class="ident">vec_abs</span></span>(<span>field: phi.field._field.SampledField)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.vec_abs" href="../math/index.html#phi.math.vec_abs">vec_abs()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vec_abs(field: SampledField):
+    &#34;&#34;&#34; See `phi.math.vec_abs()` &#34;&#34;&#34;
+    return field.with_(values=math.vec_abs(field.values))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.vec_squared"><code class="name flex">
+<span>def <span class="ident">vec_squared</span></span>(<span>field: phi.field._field.SampledField)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.vec_squared" href="../math/index.html#phi.math.vec_squared">vec_squared()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vec_squared(field: SampledField):
+    &#34;&#34;&#34; See `phi.math.vec_squared()` &#34;&#34;&#34;
+    return field.with_(values=math.vec_squared(field.values))</code></pre>
+</details>
+</dd>
 <dt id="phi.field.where"><code class="name flex">
 <span>def <span class="ident">where</span></span>(<span>mask: phi.field._field.Field, field_true: phi.field._field.Field, field_false: phi.field._field.Field)</span>
 </code></dt>
@@ -1239,6 +1268,17 @@ A centered grid is defined through its data tensor, its bounds describing the ph
             data = math.zeros(resolution) + value
         return CenteredGrid(data, box, extrapolation)
 
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None,
+              **other_attributes) -&gt; &#39;CenteredGrid&#39;:
+        assert elements is None
+        assert not other_attributes, other_attributes
+        return CenteredGrid(values if values is not None else self.values,
+                            self.bounds,
+                            extrapolation if extrapolation is not None else self._extrapolation)
+
     def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
         if reduce_channels:
             assert len(reduce_channels) == 1
@@ -1450,6 +1490,27 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
             if fast_resampled is not NotImplemented:
                 return fast_resampled
     return self.sample_at(geometry.center, reduce_channels)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.CenteredGrid.with_"><code class="name flex">
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._grid.CenteredGrid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_(self,
+          elements: Geometry or None = None,
+          values: Tensor = None,
+          extrapolation: math.Extrapolation = None,
+          **other_attributes) -&gt; &#39;CenteredGrid&#39;:
+    assert elements is None
+    assert not other_attributes, other_attributes
+    return CenteredGrid(values if values is not None else self.values,
+                        self.bounds,
+                        extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2739,6 +2800,22 @@ When sampling this field on a grid, scatter functions may be used.</p>
             color = &#39;#0060ff&#39;
         self._color = math.wrap(color, names=&#39;points&#39;) if isinstance(color, (tuple, list)) else math.wrap(color)
 
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None,
+              add_overlapping: bool or None = None,
+              bounds: Box = None,
+              color: str or Tensor or tuple or list or None = None,
+              **other_attributes) -&gt; &#39;SampledField&#39;:
+        assert not other_attributes, other_attributes
+        return PointCloud(elements if elements is not None else self.elements,
+                          values if values is not None else self.values,
+                          extrapolation if extrapolation is not None else self.extrapolation,
+                          add_overlapping if add_overlapping is not None else self._add_overlapping,
+                          bounds if bounds is not None else self._bounds,
+                          color if color is not None else self._color)
+
     @property
     def bounds(self) -&gt; Box:
         return self._bounds
@@ -2913,6 +2990,32 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         return math.channel_stack(sampled, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.PointCloud.with_"><code class="name flex">
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, add_overlapping: bool = None, bounds: phi.geom._box.Box = None, color: str = None, **other_attributes) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_(self,
+          elements: Geometry or None = None,
+          values: Tensor = None,
+          extrapolation: math.Extrapolation = None,
+          add_overlapping: bool or None = None,
+          bounds: Box = None,
+          color: str or Tensor or tuple or list or None = None,
+          **other_attributes) -&gt; &#39;SampledField&#39;:
+    assert not other_attributes, other_attributes
+    return PointCloud(elements if elements is not None else self.elements,
+                      values if values is not None else self.values,
+                      extrapolation if extrapolation is not None else self.extrapolation,
+                      add_overlapping if add_overlapping is not None else self._add_overlapping,
+                      bounds if bounds is not None else self._bounds,
+                      color if color is not None else self._color)</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="phi.field.SampledField"><code class="flex name class">
@@ -2959,7 +3062,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         self._elements = elements
         self._values = math.wrap(values)
         self._extrapolation = extrapolation
-        self._shape = self._elements.shape.non_channel &amp; self._values.shape.non_spatial  # tests shape compatibility
+        self._shape = self._elements.shape.non_channel &amp; self._values.shape.non_spatial
 
     def with_(self,
               elements: Geometry or None = None,
@@ -2967,19 +3070,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
               extrapolation: math.Extrapolation = None,
               **other_attributes) -&gt; &#39;SampledField&#39;:
         &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
-        copied = copy.copy(self)
-        SampledField.__init__(copied,
-                              elements if elements is not None else self._elements,
-                              values if values is not None else self._values,  # do not use == check
-                              extrapolation if extrapolation is not None else self._extrapolation)
-        for name, val in other_attributes.items():
-            try:
-                setattr(copied, name, val)
-            except AttributeError:
-                setattr(copied, f&#39;_{name}&#39;, val)
-        return copied
-
-    copied_with = with_
+        raise NotImplementedError(self)
 
     @property
     def elements(self) -&gt; Geometry:
@@ -3192,34 +3283,6 @@ def values(self) -&gt; Tensor:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.field.SampledField.copied_with"><code class="name flex">
-<span>def <span class="ident">copied_with</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._field.SampledField</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def with_(self,
-          elements: Geometry or None = None,
-          values: Tensor = None,
-          extrapolation: math.Extrapolation = None,
-          **other_attributes) -&gt; &#39;SampledField&#39;:
-    &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
-    copied = copy.copy(self)
-    SampledField.__init__(copied,
-                          elements if elements is not None else self._elements,
-                          values if values is not None else self._values,  # do not use == check
-                          extrapolation if extrapolation is not None else self._extrapolation)
-    for name, val in other_attributes.items():
-        try:
-            setattr(copied, name, val)
-        except AttributeError:
-            setattr(copied, f&#39;_{name}&#39;, val)
-    return copied</code></pre>
-</details>
-</dd>
 <dt id="phi.field.SampledField.sample_at"><code class="name flex">
 <span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -3292,17 +3355,7 @@ The dimension can be batch, spatial or channel.</p>
           extrapolation: math.Extrapolation = None,
           **other_attributes) -&gt; &#39;SampledField&#39;:
     &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
-    copied = copy.copy(self)
-    SampledField.__init__(copied,
-                          elements if elements is not None else self._elements,
-                          values if values is not None else self._values,  # do not use == check
-                          extrapolation if extrapolation is not None else self._extrapolation)
-    for name, val in other_attributes.items():
-        try:
-            setattr(copied, name, val)
-        except AttributeError:
-            setattr(copied, f&#39;_{name}&#39;, val)
-    return copied</code></pre>
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 </dl>
@@ -4623,11 +4676,15 @@ A staggered grid is defined through its values tensor, its bounds describing the
 
     def with_(self,
               elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None) -&gt; &#39;StaggeredGrid&#39;:
+              values: TensorStack = None,
+              extrapolation: math.Extrapolation = None,
+              **other_attributes) -&gt; &#39;StaggeredGrid&#39;:
         assert elements is None
-        values = _validate_staggered_values(values) if values is not None else None
-        return Grid.with_(self, values=values, extrapolation=extrapolation)
+        assert not other_attributes, other_attributes
+        values = _validate_staggered_values(values) if values is not None else self.values
+        return StaggeredGrid(values,
+                             self.bounds,
+                             extrapolation if extrapolation is not None else self._extrapolation)
 
     @property
     def cells(self):
@@ -5052,7 +5109,7 @@ The dimension can be batch, spatial or channel.</p>
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None) ‑> phi.field._grid.StaggeredGrid</span>
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.TensorStack = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._grid.StaggeredGrid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
@@ -5062,11 +5119,15 @@ The dimension can be batch, spatial or channel.</p>
 </summary>
 <pre><code class="python">def with_(self,
           elements: Geometry or None = None,
-          values: Tensor = None,
-          extrapolation: math.Extrapolation = None) -&gt; &#39;StaggeredGrid&#39;:
+          values: TensorStack = None,
+          extrapolation: math.Extrapolation = None,
+          **other_attributes) -&gt; &#39;StaggeredGrid&#39;:
     assert elements is None
-    values = _validate_staggered_values(values) if values is not None else None
-    return Grid.with_(self, values=values, extrapolation=extrapolation)</code></pre>
+    assert not other_attributes, other_attributes
+    values = _validate_staggered_values(values) if values is not None else self.values
+    return StaggeredGrid(values,
+                         self.bounds,
+                         extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
 </details>
 </dd>
 </dl>
@@ -5128,6 +5189,8 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
 <li><code><a title="phi.field.upsample2x" href="#phi.field.upsample2x">upsample2x</a></code></li>
+<li><code><a title="phi.field.vec_abs" href="#phi.field.vec_abs">vec_abs</a></code></li>
+<li><code><a title="phi.field.vec_squared" href="#phi.field.vec_squared">vec_squared</a></code></li>
 <li><code><a title="phi.field.where" href="#phi.field.where">where</a></code></li>
 <li><code><a title="phi.field.write" href="#phi.field.write">write</a></code></li>
 </ul>
@@ -5149,6 +5212,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.CenteredGrid.sample" href="#phi.field.CenteredGrid.sample">sample</a></code></li>
 <li><code><a title="phi.field.CenteredGrid.sample_at" href="#phi.field.CenteredGrid.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.CenteredGrid.sample_in" href="#phi.field.CenteredGrid.sample_in">sample_in</a></code></li>
+<li><code><a title="phi.field.CenteredGrid.with_" href="#phi.field.CenteredGrid.with_">with_</a></code></li>
 </ul>
 </li>
 <li>
@@ -5207,12 +5271,12 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.PointCloud.color" href="#phi.field.PointCloud.color">color</a></code></li>
 <li><code><a title="phi.field.PointCloud.sample_at" href="#phi.field.PointCloud.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.PointCloud.sample_in" href="#phi.field.PointCloud.sample_in">sample_in</a></code></li>
+<li><code><a title="phi.field.PointCloud.with_" href="#phi.field.PointCloud.with_">with_</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></h4>
 <ul class="two-column">
-<li><code><a title="phi.field.SampledField.copied_with" href="#phi.field.SampledField.copied_with">copied_with</a></code></li>
 <li><code><a title="phi.field.SampledField.data" href="#phi.field.SampledField.data">data</a></code></li>
 <li><code><a title="phi.field.SampledField.elements" href="#phi.field.SampledField.elements">elements</a></code></li>
 <li><code><a title="phi.field.SampledField.extrapolation" href="#phi.field.SampledField.extrapolation">extrapolation</a></code></li>
