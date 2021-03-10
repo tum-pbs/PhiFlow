@@ -45,6 +45,22 @@ class PointCloud(SampledField):
             color = '#0060ff'
         self._color = math.wrap(color, names='points') if isinstance(color, (tuple, list)) else math.wrap(color)
 
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None,
+              add_overlapping: bool or None = None,
+              bounds: Box = None,
+              color: str or Tensor or tuple or list or None = None,
+              **other_attributes) -> 'SampledField':
+        assert not other_attributes, other_attributes
+        return PointCloud(elements if elements is not None else self.elements,
+                          values if values is not None else self.values,
+                          extrapolation if extrapolation is not None else self.extrapolation,
+                          add_overlapping if add_overlapping is not None else self._add_overlapping,
+                          bounds if bounds is not None else self._bounds,
+                          color if color is not None else self._color)
+
     @property
     def bounds(self) -> Box:
         return self._bounds

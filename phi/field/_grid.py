@@ -108,6 +108,17 @@ class CenteredGrid(Grid):
             data = math.zeros(resolution) + value
         return CenteredGrid(data, box, extrapolation)
 
+    def with_(self,
+              elements: Geometry or None = None,
+              values: Tensor = None,
+              extrapolation: math.Extrapolation = None,
+              **other_attributes) -> 'CenteredGrid':
+        assert elements is None
+        assert not other_attributes, other_attributes
+        return CenteredGrid(values if values is not None else self.values,
+                            self.bounds,
+                            extrapolation if extrapolation is not None else self._extrapolation)
+
     def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if reduce_channels:
             assert len(reduce_channels) == 1
@@ -234,11 +245,15 @@ class StaggeredGrid(Grid):
 
     def with_(self,
               elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None) -> 'StaggeredGrid':
+              values: TensorStack = None,
+              extrapolation: math.Extrapolation = None,
+              **other_attributes) -> 'StaggeredGrid':
         assert elements is None
-        values = _validate_staggered_values(values) if values is not None else None
-        return Grid.with_(self, values=values, extrapolation=extrapolation)
+        assert not other_attributes, other_attributes
+        values = _validate_staggered_values(values) if values is not None else self.values
+        return StaggeredGrid(values,
+                             self.bounds,
+                             extrapolation if extrapolation is not None else self._extrapolation)
 
     @property
     def cells(self):

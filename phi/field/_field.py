@@ -184,7 +184,7 @@ class SampledField(Field):
         self._elements = elements
         self._values = math.wrap(values)
         self._extrapolation = extrapolation
-        self._shape = self._elements.shape.non_channel & self._values.shape.non_spatial  # tests shape compatibility
+        self._shape = self._elements.shape.non_channel & self._values.shape.non_spatial
 
     def with_(self,
               elements: Geometry or None = None,
@@ -192,19 +192,7 @@ class SampledField(Field):
               extrapolation: math.Extrapolation = None,
               **other_attributes) -> 'SampledField':
         """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
-        copied = copy.copy(self)
-        SampledField.__init__(copied,
-                              elements if elements is not None else self._elements,
-                              values if values is not None else self._values,  # do not use == check
-                              extrapolation if extrapolation is not None else self._extrapolation)
-        for name, val in other_attributes.items():
-            try:
-                setattr(copied, name, val)
-            except AttributeError:
-                setattr(copied, f'_{name}', val)
-        return copied
-
-    copied_with = with_
+        raise NotImplementedError(self)
 
     @property
     def elements(self) -> Geometry:
