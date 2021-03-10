@@ -1,3 +1,5 @@
+from typing import Dict
+
 import numpy as np
 
 from phi import struct, math
@@ -5,6 +7,7 @@ from ._geom import Geometry, _fill_spatial_with_singleton
 from ._transform import rotate
 from ..math import wrap
 from ..math._tensors import Tensor
+from ..math.backend._backend_helper import combined_dim
 
 
 class AbstractBox(Geometry):
@@ -185,13 +188,22 @@ class Box(AbstractBox, metaclass=BoxType):
         self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape).non_channel
 
     def unstack(self, dimension):
-        raise NotImplementedError()  # TODO
+        size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
+        lowers = self._lower.dimension(dimension).unstack(size)
+        uppers = self._upper.dimension(dimension).unstack(size)
+        return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))
 
     def __eq__(self, other):
-        return isinstance(other, AbstractBox) and self._lower.shape == other.lower.shape and math.close(self._lower, other.lower)
+        return isinstance(other, AbstractBox)\
+               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and math.close(self._lower, other.lower)\
+               and math.close(self._upper, other.upper)
 
     def __hash__(self):
         return hash(self._upper)
+
+    def __characteristics__(self) -> Dict[str, math.Tensor]:
+        return {'lower': self._lower, 'upper': self._upper}
 
     @property
     def shape(self):
@@ -217,15 +229,6 @@ class Box(AbstractBox, metaclass=BoxType):
     def half_size(self):
         return self.size * 0.5
 
-    def without_axis(self, axis):
-        lower = []
-        upper = []
-        for ax in range(self.spatial_rank):
-            if ax != axis:
-                lower.append(self.get_lower(ax))
-                upper.append(self.get_upper(ax))
-        return Box(lower, upper)
-
     def shifted(self, delta):
         return Box(self.lower + delta, self.upper + delta)
 
@@ -242,6 +245,21 @@ class Cuboid(AbstractBox):
         self._center = wrap(center)
         self._half_size = wrap(half_size)
         self._shape = _fill_spatial_with_singleton(self._center.shape & self._half_size.shape).without('vector')
+
+    def unstack(self, dimension):
+        raise NotImplementedError()
+
+    def __eq__(self, other):
+        return isinstance(other, AbstractBox)\
+               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and math.close(self._center, other.center)\
+               and math.close(self._half_size, other.half_size)
+
+    def __hash__(self):
+        return hash(self._center)
+
+    def __characteristics__(self) -> Dict[str, math.Tensor]:
+        return {'center': self._center, 'half_size': self._half_size}
 
     @property
     def center(self):
@@ -351,8 +369,12 @@ class GridCell(AbstractBox):
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor) -> 'GridCell':
-        return GridCell(self.resolution, self.bounds.shifted(delta))
+    def shifted(self, delta: Tensor) -> AbstractBox:
+        if delta.shape.spatial_rank == 0:
+            return GridCell(self.resolution, self.bounds.shifted(delta))
+        else:
+            center = self.center + delta
+            return Cuboid(center, self.half_size)
 
     def rotated(self, angle) -> Geometry:
         raise NotImplementedError()

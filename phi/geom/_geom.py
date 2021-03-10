@@ -211,6 +211,9 @@ class Geometry:
             setattr(copied, name, val)
         return copied
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}{self.shape}"
+
 
 class _InvertedGeometry(Geometry):
 

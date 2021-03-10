@@ -45,7 +45,8 @@ class GeometryStack(Geometry):
         return math.batch_stack(values, self.stack_dim_name)
 
     def shifted(self, delta: math.Tensor):
-        geometries = [g.shifted(delta) for g in self.geometries]
+        deltas = delta.dimension(self.stack_dim_name).unstack(len(self.geometries))
+        geometries = [g.shifted(d) for g, d in zip(self.geometries, deltas)]
         return GeometryStack(geometries, self.stack_dim_name)
 
     def rotated(self, angle):
