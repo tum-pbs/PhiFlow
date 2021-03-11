@@ -334,7 +334,7 @@ class TestMathFunctions(TestCase):
         def f(x):
             return x
 
-        def grad(df):
+        def grad(_x, _y, df):
             return df * 0,
 
         for backend in BACKENDS:

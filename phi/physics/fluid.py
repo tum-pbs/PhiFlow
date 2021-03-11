@@ -58,7 +58,7 @@ def make_incompressible(velocity: Grid,
     if math.all_available(converged) and not math.all(converged):
         raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
     if domain.boundaries['accessible'] == math.extrapolation.ZERO:
-        def pressure_backward(dp):
+        def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
             active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
             return (_balance_divergence(div.with_(values=dp), active).values,)

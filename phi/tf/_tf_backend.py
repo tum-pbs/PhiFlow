@@ -76,8 +76,9 @@ class TFBackend(Backend):
         @tf.custom_gradient
         def tf_function(*args, **kwargs):
             def grad(*grad_args):
-                return gradient(*grad_args)
-            return f(*args, **kwargs), grad
+                return gradient(args, y, grad_args)
+            y = f(*args, **kwargs)
+            return y, grad
         return tf_function
 
     def transpose(self, tensor, axes):

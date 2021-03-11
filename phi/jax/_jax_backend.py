@@ -116,10 +116,12 @@ class JaxBackend(Backend):
         jax_fun = jax.custom_vjp(f)  # custom vector-Jacobian product (reverse-mode differentiation)
 
         def forward(*x):
-            return f(*x), x
+            y = f(*x)
+            return y, (x, y)
 
-        def backward(x, dy):
-            dx = gradient(*dy)
+        def backward(x_y, dy):
+            x, y = x_y
+            dx = gradient(x, y, dy)
             return tuple(dx)
 
         jax_fun.defvjp(forward, backward)

@@ -91,15 +91,22 @@ class TorchBackend(Backend):
         return JITFunction(f)
 
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
+        INPUT_COUNT = [-1]
+
         class TorchFunction(torch.autograd.Function):
 
             @staticmethod
             def forward(ctx, *args, **kwargs):
-                return f(*args, **kwargs)
+                y = f(*args, **kwargs)
+                INPUT_COUNT[0] = len(args)
+                ctx.save_for_backward(*args, *y)
+                return y
 
             @staticmethod
             def backward(ctx, *grad_args):
-                result = gradient(*grad_args)
+                x = ctx.saved_tensors[:INPUT_COUNT[0]]
+                y = ctx.saved_tensors[INPUT_COUNT[0]:]
+                result = gradient(x, y, grad_args)
                 return result[0] if len(result) == 1 else result
 
         return TorchFunction.apply

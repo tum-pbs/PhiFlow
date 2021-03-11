@@ -1364,24 +1364,24 @@ def _native_wrapper(tensor_function: Callable, create_native_function: Callable)
 
 def custom_gradient(f: Callable, gradient: Callable):
     """
-    Creates a function based on `f` that uses a custom gradient for backprop.
+    Creates a function based on `f` that uses a custom gradient for the backpropagation pass.
 
     Args:
-        f: Forward function.
-        gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
+        f: Forward function mapping `Tensor` arguments `x` to a single `Tensor` output or sequence of tensors `y`.
+        gradient: Function to compute the vector-Jacobian product for backpropropagation. Will be called as `gradient(*x, *y, *dy) -> *dx`.
 
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     """
     def native_custom_gradient(fun: Callable, backend: Backend):
-        def native_gradient(*dy_natives):
+        def native_gradient(x_natives, y_natives, dy_natives):
+            x_natives = list(x_natives)
+            y_natives = list(y_natives)
             dy_natives = list(dy_natives)
-            if len(output_tensors) > 0:
-                dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
-            else:
-                assert len(dy_natives) == 1
-                dy = [NativeTensor(dy_natives[0], EMPTY_SHAPE)]
-            result = gradient(*dy)
+            x = [t._op1(lambda _: x_natives.pop(0)) for t in input_tensors]
+            y = [t._op1(lambda _: y_natives.pop(0)) for t in output_tensors]
+            dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
+            result = gradient(*x, *y, *dy)
             assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
             return [r.native() if r is not None else None for r in result]
         return backend.custom_gradient(fun, native_gradient)
