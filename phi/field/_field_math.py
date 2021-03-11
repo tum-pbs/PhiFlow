@@ -261,7 +261,7 @@ def data_bounds(field: SampledField):
     return Box(min_vec, max_vec)
 
 
-def mean(field: Grid):
+def mean(field: SampledField):
     return math.mean(field.values, field.shape.spatial)
 
 
@@ -442,6 +442,16 @@ def l2_loss(field: SampledField, batch_norm=True):
 def stop_gradient(field: SampledField):
     """ See `phi.math.stop_gradient()` """
     return field._op1(math.stop_gradient)
+
+
+def vec_abs(field: SampledField):
+    """ See `phi.math.vec_abs()` """
+    return field.with_(values=math.vec_abs(field.values))
+
+
+def vec_squared(field: SampledField):
+    """ See `phi.math.vec_squared()` """
+    return field.with_(values=math.vec_squared(field.values))
 
 
 def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tuple:

@@ -350,7 +350,7 @@ class TestMathFunctions(TestCase):
         def f(x):
             return x.x[:2]
 
-        def grad(df):
+        def grad(_x, _y, df):
             return math.flatten(math.expand(df * 0, tmp=2)),
 
         def loss(x):

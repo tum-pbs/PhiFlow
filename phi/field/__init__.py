@@ -27,6 +27,7 @@ from ._field_math import (
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
     solve, minimize,
     where,
+    vec_squared, vec_abs,
     l2_loss,
     downsample2x, upsample2x,
     extrapolate_valid,

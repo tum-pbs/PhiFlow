@@ -15,18 +15,21 @@ from phi.field._field_math import GridType
 from phi.geom import Geometry
 
 
-def euler(elements: Geometry, velocity: Field, dt: float):
+def euler(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
     """ Euler integrator. """
-    return elements.shifted(velocity.sample_in(elements) * dt)
+    if v0 is None:
+        v0 = velocity.sample_in(elements)
+    return elements.shifted(v0 * dt)
 
 
-def rk4(elements: Geometry, velocity: Field, dt: float):
+def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
     """ Runge-Kutta-4 integrator. """
-    vel_0 = velocity.sample_in(elements)
-    vel_half = velocity.sample_in(elements.shifted(0.5 * dt * vel_0))
+    if v0 is None:
+        v0 = velocity.sample_in(elements)
+    vel_half = velocity.sample_in(elements.shifted(0.5 * dt * v0))
     vel_half2 = velocity.sample_in(elements.shifted(0.5 * dt * vel_half))
     vel_full = velocity.sample_in(elements.shifted(dt * vel_half2))
-    vel_rk4 = (1 / 6.) * (vel_0 + 2 * (vel_half + vel_half2) + vel_full)
+    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
     return elements.shifted(dt * vel_rk4)
 
 
@@ -126,9 +129,9 @@ def mac_cormack(field: GridType,
         Advected field of type `type(field)`
 
     """
-    v = velocity.sample_in(field.elements)
-    points_bwd = integrator(field.elements, velocity, -dt)
-    points_fwd = integrator(field.elements, velocity, dt)
+    v0 = velocity.sample_in(field.elements)
+    points_bwd = integrator(field.elements, velocity, -dt, v0=v0)
+    points_fwd = integrator(field.elements, velocity, dt, v0=v0)
     reduce = points_bwd.shape.without(field.shape).names
     # Semi-Lagrangian advection
     field_semi_la = field.with_(values=field.sample_in(points_bwd, reduce_channels=reduce))
