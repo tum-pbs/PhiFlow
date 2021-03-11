@@ -84,6 +84,16 @@ class TorchBackend(Backend):
         else:
             return tensor.cpu().numpy()
 
+    def to_dlpack(self, tensor):
+        from torch.utils import dlpack
+        return dlpack.to_dlpack(tensor)
+
+    def from_dlpack(self, capsule):
+        from torch.utils import dlpack
+        tensor = dlpack.from_dlpack(capsule)
+        tensor = tensor.to(self.get_default_device().ref)
+        return tensor
+
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
 

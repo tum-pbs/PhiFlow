@@ -8,6 +8,7 @@ from ._backend import (
     ComputeDevice,
     default_backend, set_global_default_backend, BACKENDS, context_backend, _DEFAULT,
     get_precision, precision, set_global_precision,
+    convert,
 )
 from ._numpy_backend import NUMPY_BACKEND
 from ._optim import Solve, LinearSolve

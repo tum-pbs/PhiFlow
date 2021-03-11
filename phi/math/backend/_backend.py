@@ -216,6 +216,12 @@ class Backend:
         """
         raise NotImplementedError()
 
+    def to_dlpack(self, tensor):
+        raise NotImplementedError()
+
+    def from_dlpack(self, capsule):
+        raise NotImplementedError()
+
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
@@ -844,6 +850,36 @@ def precision(floating_point_bits: int):
         yield None
     finally:
         _PRECISION.pop(-1)
+
+
+def convert(tensor, backend: Backend = None, use_dlpack=True):
+    """
+    Convert a Tensor to the native format of `backend`.
+    If the target backend can operate natively on `tensor`, returns `tensor`.
+
+    If both backends support *DLPack* and `use_dlpack=True`, uses zero-copy conversion using the DLPack library.
+    Else, intermediately converts `tensor` to a NumPy array.
+
+    *Warning*: This operation breaks the automatic differentiation chain.
+
+    Args:
+        tensor: Native tensor belonging to any registered backend.
+        backend: Target backend. If `None`, uses the current default backend, see `default_backend()`.
+
+    Returns:
+        Tensor belonging to `backend`.
+    """
+    backend = backend or default_backend()
+    if backend.is_tensor(tensor, True):
+        return tensor
+    current_backend = choose_backend(tensor, prefer_default=False)
+    assert current_backend is not backend
+    if use_dlpack and current_backend.supports(Backend.to_dlpack) and backend.supports(Backend.from_dlpack):
+        capsule = current_backend.to_dlpack(tensor)
+        return backend.from_dlpack(capsule)
+    else:
+        nparray = current_backend.numpy(tensor)
+        return backend.as_tensor(nparray)
 
 
 # Backend choice utility functions

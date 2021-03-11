@@ -87,6 +87,14 @@ class JaxBackend(Backend):
     def numpy(self, x):
         return np.array(x)
 
+    def to_dlpack(self, tensor):
+        from jax import dlpack
+        return dlpack.to_dlpack(tensor)
+
+    def from_dlpack(self, capsule):
+        from jax import dlpack
+        return dlpack.from_dlpack(capsule)
+
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
 

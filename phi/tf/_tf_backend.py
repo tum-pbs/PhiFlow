@@ -63,6 +63,14 @@ class TFBackend(Backend):
             return tensor.numpy()
         return NUMPY_BACKEND.numpy(tensor)
 
+    def to_dlpack(self, tensor):
+        from tensorflow import experimental
+        return experimental.dlpack.to_dlpack(tensor)
+
+    def from_dlpack(self, capsule):
+        from tensorflow import experimental
+        return experimental.dlpack.from_dlpack(capsule)
+
     def copy(self, tensor, only_mutable=False):
         if not only_mutable or tf.executing_eagerly():
             return tf.identity(tensor)

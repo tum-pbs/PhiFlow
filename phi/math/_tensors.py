@@ -6,7 +6,7 @@ import numpy as np
 
 from._config import GLOBAL_AXIS_ORDER
 from . import _shape, DType
-from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend
+from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_
 from ._shape import Shape, CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE
 
 
@@ -1105,7 +1105,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         if convert:
             backend = choose_backend(*data._natives())
             if backend != default_backend():
-                data = data._op1(lambda native: default_backend().as_tensor(backend.numpy(native), convert_external=True))
+                data = data._op1(convert_)
         if names is None:
             return data
         else:
@@ -1124,7 +1124,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, (tuple, list)):
         array = np.array(data)
-        if array.dtype != np.object:
+        if array.dtype != object:
             data = array
         else:
             elements = tensors(*data, names=None if names is None else names[1:], convert=convert)
@@ -1147,9 +1147,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             assert None not in names, f"All names must be specified but got {names}"
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
-        if convert and backend != default_backend():
-            data = backend.numpy(data)
-            data = default_backend().as_tensor(data, convert_external=True)
+        if convert:
+            data = convert_(data)
         return NativeTensor(data, shape)
     raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
 
