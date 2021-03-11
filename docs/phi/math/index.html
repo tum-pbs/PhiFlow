@@ -59,6 +59,7 @@ from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shap
 from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
     choose_backend_t as choose_backend, all_available,
+    native, numpy, reshaped_native, reshaped_tensor,
     print_ as print,
     map_ as map,
     jit_compile, functional_gradient, custom_gradient,
@@ -742,30 +743,14 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
     in_channels = value.shape.channel
     out_channels = kernel.shape.channel.without(in_channels)
     batch = value.shape.batch &amp; kernel.shape.batch
-
     if extrapolation is not None and extrapolation != extrapolation_.ZERO:
         value = pad(value, {dim: (kernel.shape.get_size(dim) // 2, (kernel.shape.get_size(dim) - 1) // 2)
                             for dim in conv_shape.name}, extrapolation)
-
-    kernel_shaped = _expand_dims(kernel, batch) if kernel.shape.batch_rank &gt; 0 else kernel
-    kernel_shaped = _expand_dims(kernel_shaped, in_channels)
-    kernel_shaped = join_dimensions(kernel_shaped, batch, &#39;batch_&#39;)
-    kernel_shaped = join_dimensions(kernel_shaped, in_channels, &#39;in_channel_&#39;)
-    kernel_shaped = join_dimensions(kernel_shaped, out_channels, &#39;out_channel_&#39;)
-    native_kernel = kernel_shaped.native([&#39;batch_&#39;, &#39;out_channel_&#39;, &#39;in_channel_&#39;, *conv_shape.names])
-
-    value_shaped = _expand_dims(value, batch)
-    value_shaped = join_dimensions(value_shaped, batch, &#39;batch_&#39;)
-    value_shaped = join_dimensions(value_shaped, in_channels, &#39;in_channel_&#39;)
-    native_value = value_shaped.native([&#39;batch_&#39;, &#39;in_channel_&#39;, *conv_shape.names])
-
+    native_kernel = reshaped_native(kernel, (batch, out_channels, in_channels, *conv_shape.names), force_expand=in_channels)
+    native_value = reshaped_native(value, (batch, in_channels, *conv_shape.names), force_expand=batch)
     backend = choose_backend(native_value, native_kernel)
     native_result = backend.conv(native_value, native_kernel, zero_padding=extrapolation == extrapolation_.ZERO)
-    result_shape = shape_(batch_=batch.volume, out_channels_=out_channels.volume) &amp; conv_shape
-    result_shape = result_shape.with_sizes(backend.staticshape(native_result))
-    result_shaped = NativeTensor(native_result, result_shape)
-    result_shaped = split_dimension(result_shaped.batch_, batch)
-    result = split_dimension(result_shaped.out_channels_, out_channels)
+    result = reshaped_tensor(native_result, (batch, out_channels, *conv_shape.names))
     return result</code></pre>
 </details>
 </dd>
@@ -1546,8 +1531,8 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
                          (&#39;batch&#39;, *indices.shape.non_channel.without(values.shape.batch).names, &#39;vector&#39;),
                          (BATCH_DIM, *indices.shape.non_channel.without(values.shape.batch).types, CHANNEL_DIM))
     b_result = NativeTensor(native_result, result_shape)
-    result = split_dimension(b_result.vector, values.shape.channel)
-    result = split_dimension(result.batch, values.shape.batch)
+    result = split_dimension(b_result, &#39;vector&#39;, values.shape.channel)
+    result = split_dimension(result, &#39;batch&#39;, values.shape.batch)
     return result</code></pre>
 </details>
 </dd>
@@ -2256,6 +2241,48 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
     return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.native"><code class="name flex">
+<span>def <span class="ident">native</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the native tensor representation of <code>value</code>.
+If <code>value</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, this is equal to calling <code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">Tensor.native()</a></code>.
+Otherwise, checks that <code>value</code> is a valid tensor object and returns it.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or native tensor or tensor-like.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Native tensor representation</p>
+<h2 id="raises">Raises</h2>
+<p>ValueError if the tensor cannot be transposed to match target_shape</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def native(value: Tensor or Number or tuple or list or Any):
+    &#34;&#34;&#34;
+    Returns the native tensor representation of `value`.
+    If `value` is a `phi.math.Tensor`, this is equal to calling `phi.math.Tensor.native()`.
+    Otherwise, checks that `value` is a valid tensor object and returns it.
+
+    Args:
+        value: `Tensor` or native tensor or tensor-like.
+
+    Returns:
+        Native tensor representation
+
+    Raises:
+        ValueError if the tensor cannot be transposed to match target_shape
+    &#34;&#34;&#34;
+    if isinstance(value, Tensor):
+        return value.native()
+    else:
+        choose_backend(value, raise_error=True)
+        return value</code></pre>
+</details>
+</dd>
 <dt id="phi.math.nonzero"><code class="name flex">
 <span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim='nonzero', index_dim='vector')</span>
 </code></dt>
@@ -2353,6 +2380,51 @@ If channel dimensions are present, this method returns the indices where any ent
     denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
     source_total = math.sum_(source, dim=source.shape.non_batch.names)
     return target * (source_total / denominator)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.numpy"><code class="name flex">
+<span>def <span class="ident">numpy</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Converts <code>value</code> to a <code>numpy.ndarray</code> where value must be a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, backend tensor or tensor-like.
+If <code>value</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, this is equal to calling <code><a title="phi.math.Tensor.numpy" href="#phi.math.Tensor.numpy">Tensor.numpy()</a></code>.</p>
+<p><em>Note</em>: Using this function breaks the autograd chain. The returned tensor is not differentiable.
+To get a differentiable tensor, use <code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">Tensor.native()</a></code> instead.</p>
+<p>Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
+If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueError</code> is raised.</p>
+<p>If <code>value</code> is a NumPy array, it may be returned directly.</p>
+<h2 id="returns">Returns</h2>
+<p>NumPy representation of <code>value</code></p>
+<h2 id="raises">Raises</h2>
+<p>ValueError if the tensor cannot be transposed to match target_shape</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def numpy(value: Tensor or Number or tuple or list or Any):
+    &#34;&#34;&#34;
+    Converts `value` to a `numpy.ndarray` where value must be a `Tensor`, backend tensor or tensor-like.
+    If `value` is a `phi.math.Tensor`, this is equal to calling `phi.math.Tensor.numpy()`.
+
+    *Note*: Using this function breaks the autograd chain. The returned tensor is not differentiable.
+    To get a differentiable tensor, use `Tensor.native()` instead.
+
+    Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
+    If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
+
+    If `value` is a NumPy array, it may be returned directly.
+
+    Returns:
+        NumPy representation of `value`
+
+    Raises:
+        ValueError if the tensor cannot be transposed to match target_shape
+    &#34;&#34;&#34;
+    if isinstance(value, Tensor):
+        return value.numpy()
+    else:
+        backend = choose_backend(value)
+        return backend.numpy(value)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.ones"><code class="name flex">
@@ -2684,6 +2756,118 @@ def record_gradients(*x: Tensor, persistent=False):
         _PARAM_STACK.pop(0)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.reshaped_native"><code class="name flex">
+<span>def <span class="ident">reshaped_native</span></span>(<span>value: phi.math._tensors.Tensor, groups: tuple, force_expand: Any = False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a native representation of <code>value</code> where dimensions are laid out according to <code>groups</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>groups</code></strong></dt>
+<dd>Sequence of dimension names as <code>str</code> or groups of dimensions to be joined as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
+<dt><strong><code>force_expand</code></strong></dt>
+<dd><code>bool</code> or sequence of dimensions.
+If <code>True</code>, repeats the tensor along missing dimensions.
+If <code>False</code>, puts singleton dimensions where possible.
+If a sequence of dimensions is provided, only forces the expansion for groups containing those dimensions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Native tensor with dimensions matching <code>groups</code>.
+See Also:
+<code><a title="phi.math.native" href="#phi.math.native">native()</a></code>, <code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions()</a></code>, <code><a title="phi.math.reshaped_tensor" href="#phi.math.reshaped_tensor">reshaped_tensor()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reshaped_native(value: Tensor,
+                    groups: tuple or list,
+                    force_expand: Any = False):
+    &#34;&#34;&#34;
+    Returns a native representation of `value` where dimensions are laid out according to `groups`.
+
+    Args:
+        value: `Tensor`
+        groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
+        force_expand: `bool` or sequence of dimensions.
+            If `True`, repeats the tensor along missing dimensions.
+            If `False`, puts singleton dimensions where possible.
+            If a sequence of dimensions is provided, only forces the expansion for groups containing those dimensions.
+
+    Returns:
+        Native tensor with dimensions matching `groups`.
+
+    See Also:
+        `native()`, `join_dimensions()`, `reshaped_tensor()`
+    &#34;&#34;&#34;
+    order = []
+    for i, group in enumerate(groups):
+        if isinstance(group, Shape):
+            present = value.shape.only(group)
+            if force_expand is True or present.volume &gt; 1 or (force_expand is not False and group.only(force_expand).volume &gt; 1):
+                value = _expand_dims(value, group)
+            value = join_dimensions(value, group, f&#34;group{i}&#34;)
+            order.append(f&#34;group{i}&#34;)
+        else:
+            assert isinstance(group, str), f&#34;Groups must be either str or Shape but got {group}&#34;
+            order.append(group)
+    return value.native(order=order)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.reshaped_tensor"><code class="name flex">
+<span>def <span class="ident">reshaped_tensor</span></span>(<span>value: Any, groups: tuple, check_sizes=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> from a native tensor or tensor-like whereby the dimensions of <code>value</code> are split according to <code>groups</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>Native tensor or tensor-like.</dd>
+<dt><strong><code>groups</code></strong></dt>
+<dd>Sequence of dimension names as <code>str</code> or groups of dimensions to be joined as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
+<dt><strong><code>check_sizes</code></strong></dt>
+<dd>If True, group sizes must match the sizes of <code>value</code> exactly. Otherwise, allows singleton dimensions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with all dimensions from <code>groups</code>
+See Also:
+<code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.reshaped_native" href="#phi.math.reshaped_native">reshaped_native()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reshaped_tensor(value: Any,
+                    groups: tuple or list,
+                    check_sizes=False):
+    &#34;&#34;&#34;
+    Creates a `Tensor` from a native tensor or tensor-like whereby the dimensions of `value` are split according to `groups`.
+
+    Args:
+        value: Native tensor or tensor-like.
+        groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
+        check_sizes: If True, group sizes must match the sizes of `value` exactly. Otherwise, allows singleton dimensions.
+
+    Returns:
+        `Tensor` with all dimensions from `groups`
+
+    See Also:
+        `phi.math.tensor()`, `reshaped_native()`
+    &#34;&#34;&#34;
+    names = [group if isinstance(group, str) else f&#39;group{i}&#39; for i, group in enumerate(groups)]
+    value = tensor(value, names)
+    for i, group in enumerate(groups):
+        if isinstance(group, Shape):
+            if value.shape.get_size(f&#39;group{i}&#39;) == group.volume:
+                value = split_dimension(value, f&#39;group{i}&#39;, group)
+            else:
+                if check_sizes:
+                    raise AssertionError()
+                value = value.dimension(f&#39;group{i}&#39;)[0]  # remove group dim
+                value = _expand_dims(value, group)
+    return value</code></pre>
+</details>
+</dd>
 <dt id="phi.math.round"><code class="name flex">
 <span>def <span class="ident">round</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -2874,11 +3058,7 @@ These dimensions are not treated as batch dimensions.</dd>
         if shaped_indices.shape.is_non_uniform:
             raise NotImplementedError()
 
-    base_grid = _expand_dims(base_grid, channels)
-    base_grid = _expand_dims(base_grid, batches)
-    grid_shaped = join_dimensions(base_grid, batches, &#39;batch_&#39;, pos=0)
-    grid_shaped = join_dimensions(grid_shaped, channels, &#39;channels_&#39;, pos=-1)
-    native_grid = grid_shaped.native()
+    native_grid = reshaped_native(base_grid, (batches, *base_grid.shape.spatial.names, channels), force_expand=True)
     native_values = shaped_values.native(&#39;batch_, list_, channels_&#39;)
     native_indices = shaped_indices.native(&#39;batch_, list_, vector&#39;)
     backend = choose_backend(native_indices, native_values, native_grid)
@@ -2890,10 +3070,7 @@ These dimensions are not treated as batch dimensions.</dd>
         count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode=&#39;add&#39;)
         native_result = sum / count
         native_result = backend.where(count == 0, native_grid, native_result)
-    result_shaped = NativeTensor(native_result, grid_shaped.shape)
-    result_shaped = split_dimension(result_shaped.batch_, batches)
-    result = split_dimension(result_shaped.channels_, channels)
-    return result</code></pre>
+    return reshaped_tensor(native_result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.set_global_precision"><code class="name flex">
@@ -3287,7 +3464,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.split_dimension"><code class="name flex">
-<span>def <span class="ident">split_dimension</span></span>(<span>dim: phi.math._tensors.TensorDim, split_dims: phi.math._shape.Shape)</span>
+<span>def <span class="ident">split_dimension</span></span>(<span>value: phi.math._tensors.Tensor, dim: str, split_dims: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Decompresses a tensor dimension by unstacking the elements along it.
@@ -3296,6 +3473,8 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions()</a></code></p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> for which one dimension should be split.</dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Compressed dimension to be decompressed.</dd>
 <dt><strong><code>split_dims</code></strong></dt>
@@ -3307,7 +3486,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def split_dimension(dim: TensorDim, split_dims: Shape):
+<pre><code class="python">def split_dimension(value: Tensor, dim: str, split_dims: Shape):
     &#34;&#34;&#34;
     Decompresses a tensor dimension by unstacking the elements along it.
     The compressed dimension `dim` is assumed to contain elements laid out according to the order or `split_dims`.
@@ -3316,6 +3495,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
         `join_dimensions()`
 
     Args:
+        value: `Tensor` for which one dimension should be split.
         dim: Compressed dimension to be decompressed.
         split_dims: Ordered new dimensions to replace `dim` as `Shape`.
 
@@ -3323,16 +3503,14 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
         `Tensor` with decompressed shape
     &#34;&#34;&#34;
     if split_dims.rank == 0:
-        return dim[0]
+        return value.dimension(dim)[0]  # remove dim
     if split_dims.rank == 1:
-        value = dim.tensor
-        new_shape = value.shape.with_names([split_dims.name if name == dim.name else name for name in value.shape.names])
+        new_shape = value.shape.with_names([split_dims.name if name == dim else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     else:
-        value = dim.tensor
         native = value.native()
-        new_shape = value.shape.without(dim.name)
-        i = dim.index
+        new_shape = value.shape.without(dim)
+        i = value.shape.index(dim)
         for size, name, dim_type in split_dims.dimensions:
             new_shape = new_shape.expand(size, name, dim_type, pos=i)
             i += 1
@@ -4904,7 +5082,9 @@ All arguments must have same length.</p>
         return Shape(self.sizes, self.names, [types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)])
 
     def perm(self, names):
-        assert set(names) == set(self.names), &#39;names must match existing dimensions %s but got %s&#39; % (self.names, names)
+        assert len(set(names)) == len(names), f&#34;No duplicates allowed but got {names}&#34;
+        assert len(names) &gt;= len(self.names), f&#34;Cannot find permutation for {self} because names {set(self.names) - set(names)} are missing&#34;
+        assert len(names) &lt;= len(self.names), f&#34;Cannot find permutation for {self} because too many names were passed: {names}&#34;
         perm = [self.names.index(name) for name in names]
         return perm
 
@@ -5888,7 +6068,9 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def perm(self, names):
-    assert set(names) == set(self.names), &#39;names must match existing dimensions %s but got %s&#39; % (self.names, names)
+    assert len(set(names)) == len(names), f&#34;No duplicates allowed but got {names}&#34;
+    assert len(names) &gt;= len(self.names), f&#34;Cannot find permutation for {self} because names {set(self.names) - set(names)} are missing&#34;
+    assert len(names) &lt;= len(self.names), f&#34;Cannot find permutation for {self} because too many names were passed: {names}&#34;
     perm = [self.names.index(name) for name in names]
     return perm</code></pre>
 </details>
@@ -6320,39 +6502,42 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         Returns a native tensor object with the dimensions ordered according to `order`.
         
         Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-        
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
         Args:
-          order: optional) list of dimension names. If not given, the current order is kept.
-          order: str or tuple or list:  (Default value = None)
+            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
         Returns:
-          native tensor object
-          :raise: ValueError if the tensor cannot be transposed to match target_shape
+            Native tensor representation
 
+        Raises:
+            ValueError if the tensor cannot be transposed to match target_shape
         &#34;&#34;&#34;
         raise NotImplementedError()
 
     def numpy(self, order: str or tuple or list = None) -&gt; np.ndarray:
         &#34;&#34;&#34;
-        Returns this tensor as a NumPy ndarray object with dimensions ordered according to `order`.
+        Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
         
         *Note*: Using this function breaks the autograd chain. The returned tensor is not differentiable.
-        To get a differentiable tensor, use :func:`Tensor.native` instead.
+        To get a differentiable tensor, use `Tensor.native()` instead.
         
         Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-        
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
+        If this `Tensor` is backed by a NumPy array, a reference to this array may be returned.
+
         Args:
-          order: optional) list of dimension names. If not given, the current order is kept.
-          order: str or tuple or list:  (Default value = None)
+            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
         Returns:
-          NumPy representation
-          :raise: ValueError if the tensor cannot be transposed to match target_shape
+            NumPy representation
 
+        Raises:
+            ValueError if the tensor cannot be transposed to match target_shape
+
+        See Also:
+            `phi.math.numpy()`
         &#34;&#34;&#34;
         native = self.native(order=order)
         return choose_backend(native).numpy(native)
@@ -6828,19 +7013,17 @@ This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a native tensor object with the dimensions ordered according to <code>order</code>.</p>
-<p>Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.</p>
-<p>If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueError</code> is raised.</p>
+<p>Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
+If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueError</code> is raised.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>order</code></strong></dt>
-<dd>optional) list of dimension names. If not given, the current order is kept.</dd>
-<dt><strong><code>order</code></strong></dt>
-<dd>str or tuple or list:
-(Default value = None)</dd>
+<dd>(Optional) list of dimension names. If not given, the current dimension order is kept.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>native tensor object
-:raise: ValueError if the tensor cannot be transposed to match target_shape</p></div>
+<p>Native tensor representation</p>
+<h2 id="raises">Raises</h2>
+<p>ValueError if the tensor cannot be transposed to match target_shape</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6850,17 +7033,16 @@ This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
     Returns a native tensor object with the dimensions ordered according to `order`.
     
     Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-    
     If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
     Args:
-      order: optional) list of dimension names. If not given, the current order is kept.
-      order: str or tuple or list:  (Default value = None)
+        order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
     Returns:
-      native tensor object
-      :raise: ValueError if the tensor cannot be transposed to match target_shape
+        Native tensor representation
 
+    Raises:
+        ValueError if the tensor cannot be transposed to match target_shape
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -6869,45 +7051,50 @@ This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
 <span>def <span class="ident">numpy</span></span>(<span>self, order: str = None) ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns this tensor as a NumPy ndarray object with dimensions ordered according to <code>order</code>.</p>
+<div class="desc"><p>Converts this tensor to a <code>numpy.ndarray</code> with dimensions ordered according to <code>order</code>.</p>
 <p><em>Note</em>: Using this function breaks the autograd chain. The returned tensor is not differentiable.
-To get a differentiable tensor, use :func:<code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">Tensor.native()</a></code> instead.</p>
-<p>Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.</p>
-<p>If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueError</code> is raised.</p>
+To get a differentiable tensor, use <code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">Tensor.native()</a></code> instead.</p>
+<p>Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
+If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueError</code> is raised.</p>
+<p>If this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> is backed by a NumPy array, a reference to this array may be returned.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>order</code></strong></dt>
-<dd>optional) list of dimension names. If not given, the current order is kept.</dd>
-<dt><strong><code>order</code></strong></dt>
-<dd>str or tuple or list:
-(Default value = None)</dd>
+<dd>(Optional) list of dimension names. If not given, the current dimension order is kept.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>NumPy representation
-:raise: ValueError if the tensor cannot be transposed to match target_shape</p></div>
+<p>NumPy representation</p>
+<h2 id="raises">Raises</h2>
+<p>ValueError if the tensor cannot be transposed to match target_shape
+See Also:
+<code><a title="phi.math.numpy" href="#phi.math.numpy">numpy()</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def numpy(self, order: str or tuple or list = None) -&gt; np.ndarray:
     &#34;&#34;&#34;
-    Returns this tensor as a NumPy ndarray object with dimensions ordered according to `order`.
+    Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
     
     *Note*: Using this function breaks the autograd chain. The returned tensor is not differentiable.
-    To get a differentiable tensor, use :func:`Tensor.native` instead.
+    To get a differentiable tensor, use `Tensor.native()` instead.
     
     Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-    
     If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
+    If this `Tensor` is backed by a NumPy array, a reference to this array may be returned.
+
     Args:
-      order: optional) list of dimension names. If not given, the current order is kept.
-      order: str or tuple or list:  (Default value = None)
+        order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
     Returns:
-      NumPy representation
-      :raise: ValueError if the tensor cannot be transposed to match target_shape
+        NumPy representation
 
+    Raises:
+        ValueError if the tensor cannot be transposed to match target_shape
+
+    See Also:
+        `phi.math.numpy()`
     &#34;&#34;&#34;
     native = self.native(order=order)
     return choose_backend(native).numpy(native)</code></pre>
@@ -7149,7 +7336,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
     def split(self, split_dimensions: Shape):
         &#34;&#34;&#34; See `phi.math.split_dimension()` &#34;&#34;&#34;
         from ._functions import split_dimension
-        return split_dimension(self, split_dimensions)
+        return split_dimension(self.tensor, self.name, split_dimensions)
 
     def __mul__(self, other):
         if isinstance(other, TensorDim):
@@ -7354,7 +7541,7 @@ Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.
 <pre><code class="python">def split(self, split_dimensions: Shape):
     &#34;&#34;&#34; See `phi.math.split_dimension()` &#34;&#34;&#34;
     from ._functions import split_dimension
-    return split_dimension(self, split_dimensions)</code></pre>
+    return split_dimension(self.tensor, self.name, split_dimensions)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.TensorDim.unstack"><code class="name flex">
@@ -7553,8 +7740,10 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.min" href="#phi.math.min">min</a></code></li>
 <li><code><a title="phi.math.minimize" href="#phi.math.minimize">minimize</a></code></li>
 <li><code><a title="phi.math.minimum" href="#phi.math.minimum">minimum</a></code></li>
+<li><code><a title="phi.math.native" href="#phi.math.native">native</a></code></li>
 <li><code><a title="phi.math.nonzero" href="#phi.math.nonzero">nonzero</a></code></li>
 <li><code><a title="phi.math.normalize_to" href="#phi.math.normalize_to">normalize_to</a></code></li>
+<li><code><a title="phi.math.numpy" href="#phi.math.numpy">numpy</a></code></li>
 <li><code><a title="phi.math.ones" href="#phi.math.ones">ones</a></code></li>
 <li><code><a title="phi.math.ones_like" href="#phi.math.ones_like">ones_like</a></code></li>
 <li><code><a title="phi.math.pad" href="#phi.math.pad">pad</a></code></li>
@@ -7566,6 +7755,8 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.range" href="#phi.math.range">range</a></code></li>
 <li><code><a title="phi.math.real" href="#phi.math.real">real</a></code></li>
 <li><code><a title="phi.math.record_gradients" href="#phi.math.record_gradients">record_gradients</a></code></li>
+<li><code><a title="phi.math.reshaped_native" href="#phi.math.reshaped_native">reshaped_native</a></code></li>
+<li><code><a title="phi.math.reshaped_tensor" href="#phi.math.reshaped_tensor">reshaped_tensor</a></code></li>
 <li><code><a title="phi.math.round" href="#phi.math.round">round</a></code></li>
 <li><code><a title="phi.math.sample_subgrid" href="#phi.math.sample_subgrid">sample_subgrid</a></code></li>
 <li><code><a title="phi.math.scatter" href="#phi.math.scatter">scatter</a></code></li>

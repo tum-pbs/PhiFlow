@@ -31,39 +31,42 @@ class Tensor:
         Returns a native tensor object with the dimensions ordered according to `order`.
         
         Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-        
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
         Args:
-          order: optional) list of dimension names. If not given, the current order is kept.
-          order: str or tuple or list:  (Default value = None)
+            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
         Returns:
-          native tensor object
-          :raise: ValueError if the tensor cannot be transposed to match target_shape
+            Native tensor representation
 
+        Raises:
+            ValueError if the tensor cannot be transposed to match target_shape
         """
         raise NotImplementedError()
 
     def numpy(self, order: str or tuple or list = None) -> np.ndarray:
         """
-        Returns this tensor as a NumPy ndarray object with dimensions ordered according to `order`.
+        Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
         
         *Note*: Using this function breaks the autograd chain. The returned tensor is not differentiable.
-        To get a differentiable tensor, use :func:`Tensor.native` instead.
+        To get a differentiable tensor, use `Tensor.native()` instead.
         
         Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
-        
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
+        If this `Tensor` is backed by a NumPy array, a reference to this array may be returned.
+
         Args:
-          order: optional) list of dimension names. If not given, the current order is kept.
-          order: str or tuple or list:  (Default value = None)
+            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
         Returns:
-          NumPy representation
-          :raise: ValueError if the tensor cannot be transposed to match target_shape
+            NumPy representation
 
+        Raises:
+            ValueError if the tensor cannot be transposed to match target_shape
+
+        See Also:
+            `phi.math.numpy()`
         """
         native = self.native(order=order)
         return choose_backend(native).numpy(native)
@@ -605,7 +608,7 @@ class TensorDim:
     def split(self, split_dimensions: Shape):
         """ See `phi.math.split_dimension()` """
         from ._functions import split_dimension
-        return split_dimension(self, split_dimensions)
+        return split_dimension(self.tensor, self.name, split_dimensions)
 
     def __mul__(self, other):
         if isinstance(other, TensorDim):

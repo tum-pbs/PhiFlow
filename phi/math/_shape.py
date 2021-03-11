@@ -518,7 +518,9 @@ class Shape:
         return Shape(self.sizes, self.names, [types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)])
 
     def perm(self, names):
-        assert set(names) == set(self.names), 'names must match existing dimensions %s but got %s' % (self.names, names)
+        assert len(set(names)) == len(names), f"No duplicates allowed but got {names}"
+        assert len(names) >= len(self.names), f"Cannot find permutation for {self} because names {set(self.names) - set(names)} are missing"
+        assert len(names) <= len(self.names), f"Cannot find permutation for {self} because too many names were passed: {names}"
         perm = [self.names.index(name) for name in names]
         return perm
 

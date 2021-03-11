@@ -542,3 +542,33 @@ class TestMathFunctions(TestCase):
 
     # def test_convolution_2d(self):  # TODO
     #     pass
+
+    def test_reshaped_native(self):
+        a = math.random_uniform(vector=2, x=4, y=3)
+        nat = math.reshaped_native(a, ['batch', a.shape.spatial, 'vector'], force_expand=False)
+        self.assertEqual((1, 12, 2), nat.shape)
+        nat = math.reshaped_native(a, [math.shape(batch=10), a.shape.spatial, math.shape(vector=2)], force_expand=False)
+        self.assertEqual((1, 12, 2), nat.shape)
+        nat = math.reshaped_native(a, [math.shape(batch=10), a.shape.spatial, math.shape(vector=2)], force_expand=['x'])
+        self.assertEqual((1, 12, 2), nat.shape)
+        nat = math.reshaped_native(a, [math.shape(batch=10), a.shape.spatial, math.shape(vector=2)], force_expand=True)
+        self.assertEqual((10, 12, 2), nat.shape)
+        nat = math.reshaped_native(a, [math.shape(batch=10), a.shape.spatial, math.shape(vector=2)], force_expand=['batch'])
+        self.assertEqual((10, 12, 2), nat.shape)
+        nat = math.reshaped_native(a, [a.shape.spatial, math.shape(vector=2, v2=2)], force_expand=False)
+        self.assertEqual((12, 4), nat.shape)
+        try:
+            math.reshaped_native(a, [math.shape(vector=2, v2=2)], force_expand=False)
+        except AssertionError as err:
+            print(err)
+            pass
+
+    def test_native(self):
+        nat = np.zeros(4)
+        self.assertIs(math.native(nat), nat)
+        self.assertIs(math.native(math.tensor(nat)), nat)
+
+    def test_numpy(self):
+        nat = np.zeros(4)
+        self.assertIs(math.numpy(nat), nat)
+        self.assertIs(math.numpy(math.tensor(nat)), nat)
