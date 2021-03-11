@@ -56,6 +56,9 @@ class Tensor:
 
         If this `Tensor` is backed by a NumPy array, a reference to this array may be returned.
 
+        See Also:
+            `phi.math.numpy()`
+
         Args:
             order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
@@ -64,9 +67,6 @@ class Tensor:
 
         Raises:
             ValueError if the tensor cannot be transposed to match target_shape
-
-        See Also:
-            `phi.math.numpy()`
         """
         native = self.native(order=order)
         return choose_backend(native).numpy(native)

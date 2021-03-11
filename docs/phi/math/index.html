@@ -2761,6 +2761,8 @@ def record_gradients(*x: Tensor, persistent=False):
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a native representation of <code>value</code> where dimensions are laid out according to <code>groups</code>.</p>
+<p>See Also:
+<code><a title="phi.math.native" href="#phi.math.native">native()</a></code>, <code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions()</a></code>, <code><a title="phi.math.reshaped_tensor" href="#phi.math.reshaped_tensor">reshaped_tensor()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -2774,9 +2776,7 @@ If <code>False</code>, puts singleton dimensions where possible.
 If a sequence of dimensions is provided, only forces the expansion for groups containing those dimensions.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Native tensor with dimensions matching <code>groups</code>.
-See Also:
-<code><a title="phi.math.native" href="#phi.math.native">native()</a></code>, <code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions()</a></code>, <code><a title="phi.math.reshaped_tensor" href="#phi.math.reshaped_tensor">reshaped_tensor()</a></code></p></div>
+<p>Native tensor with dimensions matching <code>groups</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2786,6 +2786,9 @@ See Also:
                     force_expand: Any = False):
     &#34;&#34;&#34;
     Returns a native representation of `value` where dimensions are laid out according to `groups`.
+
+    See Also:
+        `native()`, `join_dimensions()`, `reshaped_tensor()`.
 
     Args:
         value: `Tensor`
@@ -2797,9 +2800,6 @@ See Also:
 
     Returns:
         Native tensor with dimensions matching `groups`.
-
-    See Also:
-        `native()`, `join_dimensions()`, `reshaped_tensor()`
     &#34;&#34;&#34;
     order = []
     for i, group in enumerate(groups):
@@ -2820,6 +2820,8 @@ See Also:
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> from a native tensor or tensor-like whereby the dimensions of <code>value</code> are split according to <code>groups</code>.</p>
+<p>See Also:
+<code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.reshaped_native" href="#phi.math.reshaped_native">reshaped_native()</a></code>, <code><a title="phi.math.split_dimension" href="#phi.math.split_dimension">split_dimension()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -2830,9 +2832,7 @@ See Also:
 <dd>If True, group sizes must match the sizes of <code>value</code> exactly. Otherwise, allows singleton dimensions.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with all dimensions from <code>groups</code>
-See Also:
-<code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.reshaped_native" href="#phi.math.reshaped_native">reshaped_native()</a></code></p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with all dimensions from <code>groups</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2843,6 +2843,9 @@ See Also:
     &#34;&#34;&#34;
     Creates a `Tensor` from a native tensor or tensor-like whereby the dimensions of `value` are split according to `groups`.
 
+    See Also:
+        `phi.math.tensor()`, `reshaped_native()`, `split_dimension()`.
+
     Args:
         value: Native tensor or tensor-like.
         groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
@@ -2850,9 +2853,6 @@ See Also:
 
     Returns:
         `Tensor` with all dimensions from `groups`
-
-    See Also:
-        `phi.math.tensor()`, `reshaped_native()`
     &#34;&#34;&#34;
     names = [group if isinstance(group, str) else f&#39;group{i}&#39; for i, group in enumerate(groups)]
     value = tensor(value, names)
@@ -6527,6 +6527,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
         If this `Tensor` is backed by a NumPy array, a reference to this array may be returned.
 
+        See Also:
+            `phi.math.numpy()`
+
         Args:
             order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
@@ -6535,9 +6538,6 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
         Raises:
             ValueError if the tensor cannot be transposed to match target_shape
-
-        See Also:
-            `phi.math.numpy()`
         &#34;&#34;&#34;
         native = self.native(order=order)
         return choose_backend(native).numpy(native)
@@ -7057,6 +7057,8 @@ To get a differentiable tensor, use <code><a title="phi.math.Tensor.native" href
 <p>Transposes the underlying tensor to match the name order and adds singleton dimensions for new dimension names.
 If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueError</code> is raised.</p>
 <p>If this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> is backed by a NumPy array, a reference to this array may be returned.</p>
+<p>See Also:
+<code><a title="phi.math.numpy" href="#phi.math.numpy">numpy()</a></code></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>order</code></strong></dt>
@@ -7065,9 +7067,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <h2 id="returns">Returns</h2>
 <p>NumPy representation</p>
 <h2 id="raises">Raises</h2>
-<p>ValueError if the tensor cannot be transposed to match target_shape
-See Also:
-<code><a title="phi.math.numpy" href="#phi.math.numpy">numpy()</a></code></p></div>
+<p>ValueError if the tensor cannot be transposed to match target_shape</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7084,6 +7084,9 @@ See Also:
 
     If this `Tensor` is backed by a NumPy array, a reference to this array may be returned.
 
+    See Also:
+        `phi.math.numpy()`
+
     Args:
         order: (Optional) list of dimension names. If not given, the current dimension order is kept.
 
@@ -7092,9 +7095,6 @@ See Also:
 
     Raises:
         ValueError if the tensor cannot be transposed to match target_shape
-
-    See Also:
-        `phi.math.numpy()`
     &#34;&#34;&#34;
     native = self.native(order=order)
     return choose_backend(native).numpy(native)</code></pre>

@@ -101,6 +101,9 @@ def reshaped_native(value: Tensor,
     """
     Returns a native representation of `value` where dimensions are laid out according to `groups`.
 
+    See Also:
+        `native()`, `join_dimensions()`, `reshaped_tensor()`.
+
     Args:
         value: `Tensor`
         groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
@@ -111,9 +114,6 @@ def reshaped_native(value: Tensor,
 
     Returns:
         Native tensor with dimensions matching `groups`.
-
-    See Also:
-        `native()`, `join_dimensions()`, `reshaped_tensor()`
     """
     order = []
     for i, group in enumerate(groups):
@@ -135,6 +135,9 @@ def reshaped_tensor(value: Any,
     """
     Creates a `Tensor` from a native tensor or tensor-like whereby the dimensions of `value` are split according to `groups`.
 
+    See Also:
+        `phi.math.tensor()`, `reshaped_native()`, `split_dimension()`.
+
     Args:
         value: Native tensor or tensor-like.
         groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
@@ -142,9 +145,6 @@ def reshaped_tensor(value: Any,
 
     Returns:
         `Tensor` with all dimensions from `groups`
-
-    See Also:
-        `phi.math.tensor()`, `reshaped_native()`
     """
     names = [group if isinstance(group, str) else f'group{i}' for i, group in enumerate(groups)]
     value = tensor(value, names)
