@@ -417,11 +417,14 @@ class TestMathFunctions(TestCase):
         math.assert_close(updated, math.tensor([[11, 1, 1], [12, 1, 13]], 'y,x'))
 
     def test_scatter_add_2d(self):
-        base = math.ones(x=3, y=2)
-        indices = math.wrap([(0, 0), (0, 0), (0, 1), (2, 1)], 'points,vector')
-        values = math.wrap([11, 11, 12, 13], 'points')
-        updated = math.scatter(base, indices, values, 'points', mode='add', outside_handling='undefined')
-        math.assert_close(updated, math.tensor([[23, 1, 1], [13, 1, 14]], 'y,x'))
+        for backend in BACKENDS:
+            if backend.name in ('NumPy', 'Jax'):
+                with backend:
+                    base = math.ones(x=3, y=2)
+                    indices = math.wrap([(0, 0), (0, 0), (0, 1), (2, 1)], 'points,vector')
+                    values = math.wrap([11, 11, 12, 13], 'points')
+                    updated = math.scatter(base, indices, values, 'points', mode='add', outside_handling='undefined')
+                    math.assert_close(updated, math.tensor([[23, 1, 1], [13, 1, 14]], 'y,x'))
 
     def test_scatter_2d_clamp(self):
         base = math.ones(x=3, y=2)

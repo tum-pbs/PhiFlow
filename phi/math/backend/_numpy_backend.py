@@ -408,17 +408,4 @@ class NumPyBackend(Backend):
         return self.stack(results)
 
 
-def clamp(coordinates, shape):
-    assert coordinates.shape[-1] == len(shape)
-    for i in range(len(shape)):
-        coordinates[...,i] = np.maximum(0, np.minimum(shape[i] - 1, coordinates[..., i]))
-    return coordinates
-
-
-def tensor_spatial_rank(field):
-    dims = len(field.shape) - 2
-    assert dims > 0, "channel has no spatial dimensions"
-    return dims
-
-
 NUMPY_BACKEND = NumPyBackend()

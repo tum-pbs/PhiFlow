@@ -363,7 +363,7 @@ class JaxBackend(Backend):
         batch_size = combined_dim(combined_dim(indices.shape[0], values.shape[0]), base_grid.shape[0])
         spatial_dims = tuple(range(base_grid.ndim - 2))
         dnums = jax.lax.ScatterDimensionNumbers(update_window_dims=(1,),  # channel dim of updates (batch dim removed)
-                                                inserted_window_dims=(0,),  # list dim of indices (batch dim removed)
+                                                inserted_window_dims=spatial_dims,  # no idea what this does but spatial_dims seems to work
                                                 scatter_dims_to_operand_dims=spatial_dims)  # spatial dims of base_grid (batch dim removed)
         scatter = jax.lax.scatter_add if mode == 'add' else jax.lax.scatter
         result = []
@@ -453,19 +453,6 @@ class JaxBackend(Backend):
             results.append(x)
         solve_params.result = SolveResult(success=True, iterations=-1)
         return self.stack(results)
-
-
-def clamp(coordinates, shape):
-    assert coordinates.shape[-1] == len(shape)
-    for i in range(len(shape)):
-        coordinates[...,i] = jnp.maximum(0, jnp.minimum(shape[i] - 1, coordinates[..., i]))
-    return coordinates
-
-
-def tensor_spatial_rank(field):
-    dims = len(field.shape) - 2
-    assert dims > 0, "channel has no spatial dimensions"
-    return dims
 
 
 JAX_BACKEND = JaxBackend()
