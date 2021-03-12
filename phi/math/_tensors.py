@@ -158,6 +158,12 @@ class Tensor:
     def __repr__(self):
         return self._summary_str()
 
+    def __format__(self, format_spec):
+        if self.shape.volume > 1:
+            return NotImplemented
+        val = self.numpy()
+        return format(val, format_spec)
+
     def __getitem__(self, item):
         if isinstance(item, Tensor):
             from ._functions import gather

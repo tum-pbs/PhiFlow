@@ -87,16 +87,17 @@ class ModuleViewer(App):
         However, do not call this method while one `range` is still active.
 
         Args:
-            *args:
-                No arguments for infinite loop.
-                `(stop: int)` to set number of iterations.
+            *args: No arguments for infinite loop,
+                `(stop: int)` to set number of iterations,
                 `(start: int, stop: int)` to additionally set initial value of `step`.
+            warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
 
         Returns:
             generator yielding `ModuleViewer.step`
         """
         for _ in range(warmup):
             yield self.steps
+            self.invalidate()
 
         if len(args) == 0:
             while True:
