@@ -11,7 +11,7 @@ from ._boundaries import Domain
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve_params: math.LinearSolve = math.LinearSolve('CG', 1e-3, 0),
+                        solve_params: math.LinearSolve = math.LinearSolve('CG', 1e-5, 0),
                         pressure_guess: CenteredGrid = None):
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
@@ -30,7 +30,6 @@ def make_incompressible(velocity: Grid,
       pressure: solved pressure field, `CenteredGrid`
       iterations: Number of iterations required to solve for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
-
     """
     input_velocity = velocity
     active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
