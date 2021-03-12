@@ -179,6 +179,19 @@ def reshaped_tensor(value: Any,
     return value
 
 
+def copy(value: Tensor):
+    """
+    Copies the data buffer and encapsulating `Tensor` object.
+
+    Args:
+        value: `Tensor` to be copied.
+
+    Returns:
+        Copy of `value`.
+    """
+    return value._op1(lambda native: choose_backend(native).copy(native))
+
+
 def print_(value: Tensor = None, name: str = None):
     """
     Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.

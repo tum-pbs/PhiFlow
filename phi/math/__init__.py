@@ -23,7 +23,7 @@ from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shap
 from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
     choose_backend_t as choose_backend, all_available, convert,
-    native, numpy, reshaped_native, reshaped_tensor,
+    native, numpy, reshaped_native, reshaped_tensor, copy,
     print_ as print,
     map_ as map,
     jit_compile, functional_gradient, custom_gradient,
