@@ -870,10 +870,9 @@ def convert(tensor, backend: Backend = None, use_dlpack=True):
         Tensor belonging to `backend`.
     """
     backend = backend or default_backend()
-    if backend.is_tensor(tensor, True):
-        return tensor
     current_backend = choose_backend(tensor, prefer_default=False)
-    assert current_backend is not backend
+    if backend.is_tensor(tensor, True) or backend is current_backend:
+        return tensor
     if use_dlpack and current_backend.supports(Backend.to_dlpack) and backend.supports(Backend.from_dlpack):
         capsule = current_backend.to_dlpack(tensor)
         return backend.from_dlpack(capsule)

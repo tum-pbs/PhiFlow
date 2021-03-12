@@ -57,7 +57,7 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
-    assert_close,
+    assert_close, convert,
     laplace, spatial_gradient, divergence, stagger,  # spatial operators
     mean, pad, shift, normalize,
     concat, batch_stack,
@@ -195,6 +195,26 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
         return fields[0].with_(elements=elements, values=values, color=colors)
     raise NotImplementedError(type(fields[0]))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.convert"><code class="name flex">
+<span>def <span class="ident">convert</span></span>(<span>field: phi.field._field.SampledField, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def convert(field: SampledField, backend: Backend = None, use_dlpack=True):
+    if isinstance(field, Grid):
+        return field.with_(values=math.convert(field.values, backend, use_dlpack=use_dlpack))
+    elif isinstance(field, PointCloud):
+        e_char = field.elements.__characteristics__()
+        elements = field.elements.__with__(**{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in e_char.items()})
+        return field.with_(elements=elements, values=math.convert(field.values, backend, use_dlpack=use_dlpack))
+    else:
+        raise ValueError(field)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.cos"><code class="name flex">
@@ -5159,6 +5179,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.cast" href="#phi.field.cast">cast</a></code></li>
 <li><code><a title="phi.field.ceil" href="#phi.field.ceil">ceil</a></code></li>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
+<li><code><a title="phi.field.convert" href="#phi.field.convert">convert</a></code></li>
 <li><code><a title="phi.field.cos" href="#phi.field.cos">cos</a></code></li>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
 <li><code><a title="phi.field.downsample2x" href="#phi.field.downsample2x">downsample2x</a></code></li>

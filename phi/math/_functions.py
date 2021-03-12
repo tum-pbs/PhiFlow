@@ -9,7 +9,7 @@ from typing import Tuple, Callable, Any
 
 import numpy as np
 
-from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision
+from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision, convert as b_convert
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
     _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
@@ -23,6 +23,25 @@ def choose_backend_t(*values, prefer_default=False):
     """ Choose backend for given `Tensor` or native tensor values. """
     natives = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
     return choose_backend(*natives, prefer_default=prefer_default)
+
+
+def convert(value: Tensor, backend: Backend = None, use_dlpack=True):
+    """
+    Convert the native representation of a `Tensor` to the native format of `backend`.
+
+    *Warning*: This operation breaks the automatic differentiation chain.
+
+    See Also:
+        `phi.math.backend.convert()`.
+
+    Args:
+        value: `Tensor` to convert.
+        backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
+
+    Returns:
+        `Tensor` with native representation belonging to `backend`.
+    """
+    return value._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
 
 
 def all_available(*values: Tensor):

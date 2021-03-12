@@ -37,6 +37,7 @@ from ._backend import (
     ComputeDevice,
     default_backend, set_global_default_backend, BACKENDS, context_backend, _DEFAULT,
     get_precision, precision, set_global_precision,
+    convert,
 )
 from ._numpy_backend import NUMPY_BACKEND
 from ._optim import Solve, LinearSolve
@@ -155,6 +156,57 @@ If called outside a backend context, returns <code>None</code>.</p>
         `Backend` or `None`
     &#34;&#34;&#34;
     return _DEFAULT[-1] if len(_DEFAULT) &gt; 1 else None</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.convert"><code class="name flex">
+<span>def <span class="ident">convert</span></span>(<span>tensor, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert a Tensor to the native format of <code>backend</code>.
+If the target backend can operate natively on <code>tensor</code>, returns <code>tensor</code>.</p>
+<p>If both backends support <em>DLPack</em> and <code>use_dlpack=True</code>, uses zero-copy conversion using the DLPack library.
+Else, intermediately converts <code>tensor</code> to a NumPy array.</p>
+<p><em>Warning</em>: This operation breaks the automatic differentiation chain.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>Native tensor belonging to any registered backend.</dd>
+<dt><strong><code>backend</code></strong></dt>
+<dd>Target backend. If <code>None</code>, uses the current default backend, see <code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor belonging to <code>backend</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def convert(tensor, backend: Backend = None, use_dlpack=True):
+    &#34;&#34;&#34;
+    Convert a Tensor to the native format of `backend`.
+    If the target backend can operate natively on `tensor`, returns `tensor`.
+
+    If both backends support *DLPack* and `use_dlpack=True`, uses zero-copy conversion using the DLPack library.
+    Else, intermediately converts `tensor` to a NumPy array.
+
+    *Warning*: This operation breaks the automatic differentiation chain.
+
+    Args:
+        tensor: Native tensor belonging to any registered backend.
+        backend: Target backend. If `None`, uses the current default backend, see `default_backend()`.
+
+    Returns:
+        Tensor belonging to `backend`.
+    &#34;&#34;&#34;
+    backend = backend or default_backend()
+    current_backend = choose_backend(tensor, prefer_default=False)
+    if backend.is_tensor(tensor, True) or backend is current_backend:
+        return tensor
+    if use_dlpack and current_backend.supports(Backend.to_dlpack) and backend.supports(Backend.from_dlpack):
+        capsule = current_backend.to_dlpack(tensor)
+        return backend.from_dlpack(capsule)
+    else:
+        nparray = current_backend.numpy(tensor)
+        return backend.as_tensor(nparray)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.default_backend"><code class="name flex">
@@ -687,6 +739,12 @@ The output of math operations has the same precision as its inputs.</p>
           NumPy representation of the values stored in the tensor
 
         &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def to_dlpack(self, tensor):
+        raise NotImplementedError()
+
+    def from_dlpack(self, capsule):
         raise NotImplementedError()
 
     def copy(self, tensor, only_mutable=False):
@@ -1906,6 +1964,19 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.from_dlpack"><code class="name flex">
+<span>def <span class="ident">from_dlpack</span></span>(<span>self, capsule)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def from_dlpack(self, capsule):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.functional_gradient"><code class="name flex">
 <span>def <span class="ident">functional_gradient</span></span>(<span>self, f, wrt: tuple, get_output: bool)</span>
 </code></dt>
@@ -2965,6 +3036,19 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
     return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.to_dlpack"><code class="name flex">
+<span>def <span class="ident">to_dlpack</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_dlpack(self, tensor):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.to_float"><code class="name flex">
 <span>def <span class="ident">to_float</span></span>(<span>self, x)</span>
 </code></dt>
@@ -3857,6 +3941,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <ul class="">
 <li><code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend</a></code></li>
 <li><code><a title="phi.math.backend.context_backend" href="#phi.math.backend.context_backend">context_backend</a></code></li>
+<li><code><a title="phi.math.backend.convert" href="#phi.math.backend.convert">convert</a></code></li>
 <li><code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend</a></code></li>
 <li><code><a title="phi.math.backend.from_numpy_dtype" href="#phi.math.backend.from_numpy_dtype">from_numpy_dtype</a></code></li>
 <li><code><a title="phi.math.backend.get_current_profile" href="#phi.math.backend.get_current_profile">get_current_profile</a></code></li>
@@ -3908,6 +3993,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.flip" href="#phi.math.backend.Backend.flip">flip</a></code></li>
 <li><code><a title="phi.math.backend.Backend.float_type" href="#phi.math.backend.Backend.float_type">float_type</a></code></li>
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.from_dlpack" href="#phi.math.backend.Backend.from_dlpack">from_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.functional_gradient" href="#phi.math.backend.Backend.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
@@ -3969,6 +4055,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.tensordot" href="#phi.math.backend.Backend.tensordot">tensordot</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_dlpack" href="#phi.math.backend.Backend.to_dlpack">to_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_float" href="#phi.math.backend.Backend.to_float">to_float</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_int" href="#phi.math.backend.Backend.to_int">to_int</a></code></li>
 <li><code><a title="phi.math.backend.Backend.transpose" href="#phi.math.backend.Backend.transpose">transpose</a></code></li>

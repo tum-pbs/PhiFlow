@@ -1995,6 +1995,7 @@ Defined through center position and radius.</p>
 
     def __init__(self, center, radius):
         self._center = wrap(center)
+        assert &#39;vector&#39; in self._center.shape, &#34;center must have a &#39;vector&#39; dimension&#34;
         self._radius = wrap(radius)
         self._shape = _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape)
 

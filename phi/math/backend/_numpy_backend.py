@@ -46,7 +46,7 @@ class NumPyBackend(Backend):
             return True
         if scipy.sparse.issparse(x):
             return True
-        if isinstance(x, np.bool_):
+        if isinstance(x, (np.bool_, np.float32, np.float64, np.float16, np.int8, np.int16, np.int32, np.int64, np.complex128, np.complex64)):
             return True
         # --- Above considered native ---
         if only_native:

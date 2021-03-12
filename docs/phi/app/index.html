@@ -1887,7 +1887,7 @@ All fields must exist as global variables before the ModuleViewer is instantiate
                 If not provided, searches all global variables for Field or Tensor values.
                 All fields must exist as global variables before the ModuleViewer is instantiated.
         &#34;&#34;&#34;
-        module = inspect.getmodule(inspect.stack()[1].frame)
+        self._module = module = inspect.getmodule(inspect.stack()[1].frame)
         doc = module.__doc__
         if doc is None:
             name = os.path.basename(module.__file__)[:-3]
@@ -1897,18 +1897,23 @@ All fields must exist as global variables before the ModuleViewer is instantiate
             name = doc[:end_of_line].strip()
             subtitle = doc[end_of_line:].strip() or None
         App.__init__(self, name, subtitle, fields=None, stride=stride, base_dir=base_dir, summary=summary, custom_properties=custom_properties, target_scene=target_scene, objects_to_save=objects_to_save, framerate=framerate, dt=dt)
+        self._initial_field_values = {}
         if fields is None:
             for name in dir(module):
                 if not name.startswith(&#39;_&#39;):
                     val = getattr(module, name)
                     if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank &gt; 0):
                         self.add_field(name, lambda name=name: getattr(module, name))
+                        self._initial_field_values[name] = val
         else:
             for name in fields:
                 self.add_field(name, lambda name=name: getattr(module, name))
+                self._initial_field_values[name] = getattr(module, name)
         self.step_exec_event = Event()
         self.step_finished_event = Event()
         self._interrupt = False
+
+        self.add_action(&#34;Reset&#34;, lambda: self.restore_initial_field_values())
 
         def async_show():
             show(self, **show_config)
@@ -1932,16 +1937,17 @@ All fields must exist as global variables before the ModuleViewer is instantiate
         However, do not call this method while one `range` is still active.
 
         Args:
-            *args:
-                No arguments for infinite loop.
-                `(stop: int)` to set number of iterations.
+            *args: No arguments for infinite loop,
+                `(stop: int)` to set number of iterations,
                 `(start: int, stop: int)` to additionally set initial value of `step`.
+            warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
 
         Returns:
             generator yielding `ModuleViewer.step`
         &#34;&#34;&#34;
         for _ in range(warmup):
             yield self.steps
+            self.invalidate()
 
         if len(args) == 0:
             while True:
@@ -1986,7 +1992,11 @@ All fields must exist as global variables before the ModuleViewer is instantiate
         self.step_finished_event.wait()
 
     def interrupt(self):
-        self._interrupt = True</code></pre>
+        self._interrupt = True
+
+    def restore_initial_field_values(self):
+        for name, value in self._initial_field_values.items():
+            setattr(self._module, name, value)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2021,10 +2031,14 @@ Each element returned by the generator waits for <code><a title="phi.app.ModuleV
 <p>This method can be invoked multiple times.
 However, do not call this method while one <code>range</code> is still active.</p>
 <h2 id="args">Args</h2>
-<p>*args:
-No arguments for infinite loop.
-<code>(stop: int)</code> to set number of iterations.
-<code>(start: int, stop: int)</code> to additionally set initial value of <code>step</code>.</p>
+<dl>
+<dt><strong><code>*args</code></strong></dt>
+<dd>No arguments for infinite loop,
+<code>(stop: int)</code> to set number of iterations,
+<code>(start: int, stop: int)</code> to additionally set initial value of <code>step</code>.</dd>
+<dt><strong><code>warmup</code></strong></dt>
+<dd>Number of uncounted loop iterations to perform before <code>step()</code> is invoked for the first time.</dd>
+</dl>
 <h2 id="returns">Returns</h2>
 <p>generator yielding <code><a title="phi.app.ModuleViewer.step" href="#phi.app.ModuleViewer.step">ModuleViewer.step()</a></code></p></div>
 <details class="source">
@@ -2047,16 +2061,17 @@ No arguments for infinite loop.
     However, do not call this method while one `range` is still active.
 
     Args:
-        *args:
-            No arguments for infinite loop.
-            `(stop: int)` to set number of iterations.
+        *args: No arguments for infinite loop,
+            `(stop: int)` to set number of iterations,
             `(start: int, stop: int)` to additionally set initial value of `step`.
+        warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
 
     Returns:
         generator yielding `ModuleViewer.step`
     &#34;&#34;&#34;
     for _ in range(warmup):
         yield self.steps
+        self.invalidate()
 
     if len(args) == 0:
         while True:
@@ -2077,6 +2092,20 @@ No arguments for infinite loop.
             self.step_finished_event.set()
     else:
         raise ValueError(args)</code></pre>
+</details>
+</dd>
+<dt id="phi.app.ModuleViewer.restore_initial_field_values"><code class="name flex">
+<span>def <span class="ident">restore_initial_field_values</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def restore_initial_field_values(self):
+    for name, value in self._initial_field_values.items():
+        setattr(self._module, name, value)</code></pre>
 </details>
 </dd>
 <dt id="phi.app.ModuleViewer.step"><code class="name flex">
@@ -2203,6 +2232,7 @@ In typical scenarios, this will run one loop iteration in the top-level script.<
 <ul class="">
 <li><code><a title="phi.app.ModuleViewer.interrupt" href="#phi.app.ModuleViewer.interrupt">interrupt</a></code></li>
 <li><code><a title="phi.app.ModuleViewer.range" href="#phi.app.ModuleViewer.range">range</a></code></li>
+<li><code><a title="phi.app.ModuleViewer.restore_initial_field_values" href="#phi.app.ModuleViewer.restore_initial_field_values">restore_initial_field_values</a></code></li>
 <li><code><a title="phi.app.ModuleViewer.step" href="#phi.app.ModuleViewer.step">step</a></code></li>
 </ul>
 </li>

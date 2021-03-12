@@ -328,7 +328,7 @@ def _rank(rank):
     return None if rank == 0 else rank
 
 
-def _fill_spatial_with_singleton(shape):
+def _fill_spatial_with_singleton(shape: Shape):
     if shape.spatial.rank == shape.vector:
         return shape
     else:

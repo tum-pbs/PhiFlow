@@ -119,3 +119,17 @@ class TestFieldMath(TestCase):
     def test_cos(self):
         grid = Domain(x=4, y=3).staggered_grid(0)
         field.assert_close(field.cos(grid), 1)
+
+    def test_convert_grid(self):
+        grid = Domain(x=4, y=3).scalar_grid(0)
+        for backend in BACKENDS:
+            converted = field.convert(grid, backend)
+            self.assertTrue(backend.is_tensor(converted.values.native(), True))
+
+    def test_convert_point_cloud(self):
+        points = Domain(x=4, y=3).points(math.random_uniform(points=4, vector=2)).with_(values=math.random_normal(points=4, vector=2))
+        for backend in BACKENDS:
+            converted = field.convert(points, backend)
+            self.assertTrue(backend.is_tensor(converted.values.native(), True))
+            self.assertTrue(backend.is_tensor(converted.elements.center.native(), True))
+            self.assertTrue(backend.is_tensor(converted.elements.radius.native(), True))

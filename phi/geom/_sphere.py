@@ -19,6 +19,7 @@ class Sphere(Geometry):
 
     def __init__(self, center, radius):
         self._center = wrap(center)
+        assert 'vector' in self._center.shape, "center must have a 'vector' dimension"
         self._radius = wrap(radius)
         self._shape = _fill_spatial_with_singleton(self._center.shape & self._radius.shape)
 

@@ -58,7 +58,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
-    choose_backend_t as choose_backend, all_available,
+    choose_backend_t as choose_backend, all_available, convert,
     native, numpy, reshaped_native, reshaped_tensor,
     print_ as print,
     map_ as map,
@@ -697,6 +697,46 @@ The shapes of all values must be equal, except for the size of the concat dimens
     backend = choose_backend(*natives)
     concatenated = backend.concat(natives, broadcast_shape.index(dim))
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.convert"><code class="name flex">
+<span>def <span class="ident">convert</span></span>(<span>value: phi.math._tensors.Tensor, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert the native representation of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to the native format of <code><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code>.</p>
+<p><em>Warning</em>: This operation breaks the automatic differentiation chain.</p>
+<p>See Also:
+<code><a title="phi.math.backend.convert" href="backend/index.html#phi.math.backend.convert">convert()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to convert.</dd>
+<dt><strong><code>backend</code></strong></dt>
+<dd>Target backend. If <code>None</code>, uses the current default backend, see <code><a title="phi.math.backend.default_backend" href="backend/index.html#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with native representation belonging to <code><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def convert(value: Tensor, backend: Backend = None, use_dlpack=True):
+    &#34;&#34;&#34;
+    Convert the native representation of a `Tensor` to the native format of `backend`.
+
+    *Warning*: This operation breaks the automatic differentiation chain.
+
+    See Also:
+        `phi.math.backend.convert()`.
+
+    Args:
+        value: `Tensor` to convert.
+        backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
+
+    Returns:
+        `Tensor` with native representation belonging to `backend`.
+    &#34;&#34;&#34;
+    return value._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.convolve"><code class="name flex">
@@ -3677,7 +3717,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         if convert:
             backend = choose_backend(*data._natives())
             if backend != default_backend():
-                data = data._op1(lambda native: default_backend().as_tensor(backend.numpy(native), convert_external=True))
+                data = data._op1(convert_)
         if names is None:
             return data
         else:
@@ -3696,7 +3736,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, (tuple, list)):
         array = np.array(data)
-        if array.dtype != np.object:
+        if array.dtype != object:
             data = array
         else:
             elements = tensors(*data, names=None if names is None else names[1:], convert=convert)
@@ -3719,9 +3759,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             assert None not in names, f&#34;All names must be specified but got {names}&#34;
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
-        if convert and backend != default_backend():
-            data = backend.numpy(data)
-            data = default_backend().as_tensor(data, convert_external=True)
+        if convert:
+            data = convert_(data)
         return NativeTensor(data, shape)
     raise ValueError(f&#34;{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}&#34;)</code></pre>
 </details>
@@ -6629,6 +6668,12 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     def __repr__(self):
         return self._summary_str()
 
+    def __format__(self, format_spec):
+        if self.shape.volume &gt; 1:
+            return NotImplemented
+        val = self.numpy()
+        return format(val, format_spec)
+
     def __getitem__(self, item):
         if isinstance(item, Tensor):
             from ._functions import gather
@@ -7695,6 +7740,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.close" href="#phi.math.close">close</a></code></li>
 <li><code><a title="phi.math.closest_grid_values" href="#phi.math.closest_grid_values">closest_grid_values</a></code></li>
 <li><code><a title="phi.math.concat" href="#phi.math.concat">concat</a></code></li>
+<li><code><a title="phi.math.convert" href="#phi.math.convert">convert</a></code></li>
 <li><code><a title="phi.math.convolve" href="#phi.math.convolve">convolve</a></code></li>
 <li><code><a title="phi.math.cos" href="#phi.math.cos">cos</a></code></li>
 <li><code><a title="phi.math.cross_product" href="#phi.math.cross_product">cross_product</a></code></li>

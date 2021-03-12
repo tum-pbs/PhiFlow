@@ -10,6 +10,7 @@ from ._field import Field, SampledField
 from ._grid import CenteredGrid, Grid, StaggeredGrid
 from ._point_cloud import PointCloud
 from ._mask import HardGeometryMask
+from ..math.backend import Backend
 
 
 def laplace(field: Grid, axes=None):
@@ -252,6 +253,17 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False
         return result
 
     return wrapper
+
+
+def convert(field: SampledField, backend: Backend = None, use_dlpack=True):
+    if isinstance(field, Grid):
+        return field.with_(values=math.convert(field.values, backend, use_dlpack=use_dlpack))
+    elif isinstance(field, PointCloud):
+        e_char = field.elements.__characteristics__()
+        elements = field.elements.__with__(**{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in e_char.items()})
+        return field.with_(elements=elements, values=math.convert(field.values, backend, use_dlpack=use_dlpack))
+    else:
+        raise ValueError(field)
 
 
 def data_bounds(field: SampledField):
