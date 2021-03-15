@@ -87,6 +87,9 @@ class Backend:
         impl_fun = getattr(self.__class__, feature)
         return impl_fun is not backend_fun
 
+    def prefers_channels_last(self) -> bool:
+        raise NotImplementedError()
+
     @property
     def precision(self) -> int:
         """ Short for math.backend.get_precision() """

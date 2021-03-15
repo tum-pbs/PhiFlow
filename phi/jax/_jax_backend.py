@@ -27,6 +27,9 @@ class JaxBackend(Backend):
             warnings.warn(f"{err}")
             self.rnd_key = None
 
+    def prefers_channels_last(self) -> bool:
+        return True
+
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         devices = []
         for jax_dev in jax.devices():
@@ -106,7 +109,9 @@ class JaxBackend(Backend):
             @wraps(f)
             def aux_f(*args):
                 result = f(*args)
-                return (result[0], result[1:]) if isinstance(result, (tuple, list)) and len(result) > 1 else (result, None)
+                if isinstance(result, (tuple, list)) and len(result) == 1:
+                    result = result[0]
+                return (result[0], result[1:]) if isinstance(result, (tuple, list)) else (result, None)
             jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
             @wraps(f)
             def unwrap_outputs(*args):

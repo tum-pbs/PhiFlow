@@ -20,6 +20,9 @@ class TFBackend(Backend):
     def __init__(self):
         Backend.__init__(self, "TensorFlow", default_device=None)
 
+    def prefers_channels_last(self) -> bool:
+        return True
+
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         tf_devices = device_lib.list_local_devices()
         devices = []

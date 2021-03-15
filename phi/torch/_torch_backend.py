@@ -23,6 +23,9 @@ class TorchBackend(Backend):
         self.cpu = ComputeDevice(self, "CPU", 'CPU', -1, -1, "", ref='cpu')
         Backend.__init__(self, 'PyTorch', default_device=self.cpu)
 
+    def prefers_channels_last(self) -> bool:
+        return False
+
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         devices = []
         if device_type in (None, 'CPU'):
