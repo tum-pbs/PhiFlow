@@ -89,11 +89,13 @@ COLORMAPS = {
 
 # --- Load available Matplotlib color maps ---
 try:
-    from matplotlib import cm
-    for name, colormap in cm.cmap_d.items():
+    from matplotlib.pyplot import colormaps
+    from matplotlib.cm import get_cmap
+    for name in colormaps():
+        colormap = get_cmap(name)
         if isinstance(colormap, ListedColormap):
-            pos = np.expand_dims(np.linspace(0, 1, len(cm.get_cmap(name).colors)), axis=-1)
-            cols = np.array(cm.get_cmap(name).colors) * 255
+            pos = np.expand_dims(np.linspace(0, 1, len(colormap.colors)), axis=-1)
+            cols = np.array(colormap.colors) * 255
             COLORMAPS[name] = np.concatenate([pos, cols], axis=-1)
 except ImportError:
     warnings.warn('matplotlib is not installed. Corresponding colormaps are not available.')
