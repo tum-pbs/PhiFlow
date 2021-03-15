@@ -14,6 +14,8 @@ See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 
 from phi.flow import *
 from ._torch_backend import TORCH_BACKEND
+from ._torch_nn_util import u_net, parameter_count
+
 import torch
 import torch.nn.functional as torchf
 import torch.optim as optim
