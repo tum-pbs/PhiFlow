@@ -33,6 +33,9 @@ class NumPyBackend(Backend):
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         return [self.cpu]
 
+    def seed(self, seed: int):
+        np.random.seed(seed)
+
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
             array = x

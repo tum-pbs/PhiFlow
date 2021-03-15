@@ -9,7 +9,8 @@ from typing import Tuple, Callable, Any
 
 import numpy as np
 
-from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision, convert as b_convert
+from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision, convert as b_convert, \
+    BACKENDS
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
     _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
@@ -64,6 +65,22 @@ def all_available(*values: Tensor):
         if not all(natives_available):
             return False
     return True
+
+
+def seed(seed: int):
+    """
+    Sets the current seed of all backends and the built-in `random` package.
+
+    Calling this function with a fixed value at the start of an application yields reproducible results
+    as long as the same backend is used.
+
+    Args:
+        seed: Seed to use.
+    """
+    for backend in BACKENDS:
+        backend.seed(seed)
+    import random
+    random.seed(0)
 
 
 def native(value: Tensor or Number or tuple or list or Any):

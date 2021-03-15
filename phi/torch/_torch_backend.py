@@ -42,6 +42,9 @@ class TorchBackend(Backend):
                                              ref=f'cuda:{index}'))
         return devices
 
+    def seed(self, seed: int):
+        torch.manual_seed(seed)
+
     def is_tensor(self, x, only_native=False):
         if isinstance(x, (torch.Tensor, JITFunction)):
             return True

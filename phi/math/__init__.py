@@ -22,7 +22,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
-    choose_backend_t as choose_backend, all_available, convert,
+    choose_backend_t as choose_backend, all_available, convert, seed,
     native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
     print_ as print,
     map_ as map,

@@ -153,6 +153,9 @@ class Backend:
             device = devices[0]
         self._default_device = device
 
+    def seed(self, seed: int):
+        raise NotImplementedError()
+
     def is_tensor(self, x, only_native=False):
         """
         An object is considered a native tensor by a backend if no internal conversion is required by backend methods.

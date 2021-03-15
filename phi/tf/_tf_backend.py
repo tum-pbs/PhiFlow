@@ -34,6 +34,9 @@ class TFBackend(Backend):
                                              ref=device))
         return devices
 
+    def seed(self, seed: int):
+        tf.random.set_seed(seed)
+
     def is_tensor(self, x, only_native=False):
         if only_native:
             return tf.is_tensor(x)

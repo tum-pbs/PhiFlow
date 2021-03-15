@@ -53,6 +53,9 @@ class JaxBackend(Backend):
                 jax.config.update('jax_enable_x64', True)
             assert jax.config.read('jax_enable_x64'), "FP64 is disabled for Jax."
 
+    def seed(self, seed: int):
+        self.rnd_key = jax.random.PRNGKey(seed)
+
     def as_tensor(self, x, convert_external=True):
         self._check_float64()
         if self.is_tensor(x, only_native=convert_external):
