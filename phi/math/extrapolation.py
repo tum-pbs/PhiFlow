@@ -159,7 +159,7 @@ class ConstantExtrapolation(Extrapolation):
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
             if value._inner.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
-                return self.pad(value._expand(), widths)
+                return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
                 for size, dim, dim_type in value.shape.dimensions:
@@ -418,29 +418,29 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
         return result
 
     def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
-        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
-        if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key])
-            _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
-            return result
-        else:
+        # key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        # if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
+        #     result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key])
+        #     _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
+        #     return result
+        # else:
             mask = ZERO.pad(math.zeros(shape), {bound_dim: (bound_lo - i - 1, 0)})
             mask = ONE.pad(mask, {bound_dim: (1, 0)})
             mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
-            _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = mask
+            # _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = mask
             return mask
 
     def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
-        key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
-        if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
-            result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key])
-            _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
-            return result
-        else:
+        # key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        # if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
+        #     result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key])
+        #     _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
+        #     return result
+        # else:
             mask = ZERO.pad(math.zeros(shape), {bound_dim: (0, bound_hi - i - 1)})
             mask = ONE.pad(mask, {bound_dim: (0, 1)})
             mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
-            _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
+            # _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
             return mask
 
 

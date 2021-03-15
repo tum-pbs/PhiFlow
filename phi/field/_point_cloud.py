@@ -71,7 +71,7 @@ class PointCloud(SampledField):
 
     def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
         if not reduce_channels:
-            if geometry == self.elements:
+            if geometry is self.elements:
                 return self.values
             elif isinstance(geometry, GridCell):
                 return self._grid_scatter(geometry.bounds, geometry.resolution)

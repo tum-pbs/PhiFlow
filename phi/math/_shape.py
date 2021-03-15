@@ -877,6 +877,7 @@ def combine_safe(*shapes: Shape, check_exact: tuple or list = ()):
 
 
 def _check_exact_match(*shapes: Shape, check_types: tuple or list = ()):
+    shapes = [s.alphabetically() for s in shapes]
     shape0 = shapes[0]
     for check_type in check_types:
         dims0 = shape0[[i for i, t in enumerate(shape0.types) if t == check_type]]

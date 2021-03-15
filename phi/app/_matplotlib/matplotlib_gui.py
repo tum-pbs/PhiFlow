@@ -46,7 +46,7 @@ class MatplotlibGui(AppDisplay):
                 v = self.app.get_field(self.shown_fields[i])
                 if isinstance(v, StaggeredGrid):
                     v = v.at_centers()
-                v = math.vec_squared(v.values).native('y, x')
+                v = math.vec_squared(v.values).numpy('y, x')
                 self.axes[i].imshow(v, origin='lower')
                 self.axes[i].set_title(self.shown_fields[i])
             plt.draw()

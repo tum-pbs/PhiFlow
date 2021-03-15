@@ -832,7 +832,7 @@ class CollapsedTensor(Tensor):  # package-private
             inner_dict = {name: selection for name, selection in selection.items() if name in self._inner.shape}
             inner = self._inner._getitem(inner_dict)
             new_shape = self.shape.after_gather(selection)
-            inner.shape.combined(new_shape)  # check that sizes match
+            inner.shape.combined(new_shape, combine_spatial=True)  # check that sizes match
             return CollapsedTensor(inner, new_shape)
 
     def flip(self, *dims: str) -> 'Tensor':
@@ -880,7 +880,7 @@ class CollapsedTensor(Tensor):  # package-private
         return self._cached._with_natives_replaced(natives)
 
     def _expand(self):
-        return self._cache()
+        self._cache()
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
@@ -931,6 +931,8 @@ class TensorStack(Tensor):
 
     def _cache(self):
         if self._cached is None:
+            if self.requires_broadcast:
+                return None
             natives = [t.native(order=self._shape.names) for t in self.tensors]
             native = choose_backend(*natives).concat(natives, axis=self.shape.index(self.stack_dim_name))
             self._cached = NativeTensor(native, self._shape)
@@ -945,24 +947,30 @@ class TensorStack(Tensor):
         return self._shape
 
     def native(self, order: str or tuple or list = None):
-        order = _shape.parse_dim_order(order)
         if self._cached is not None:
             return self._cached.native(order=order)
-        # Is only the stack dimension shifted?
-        if order is not None and self._shape.without(self.stack_dim_name).names == tuple(filter(lambda name: name != self.stack_dim_name, order)):
-            natives = [t.native() for t in self.tensors]
-            native = choose_backend(*natives).stack(natives, axis=tuple(order).index(self.stack_dim_name))
-            return native
-        assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
-        return self._cache().native(order=order)
+        else:
+            order = _shape.parse_dim_order(order)
+            # Is only the stack dimension shifted?
+            if order is not None and self._shape.without(self.stack_dim_name).names == tuple(filter(lambda name: name != self.stack_dim_name, order)):
+                natives = [t.native() for t in self.tensors]
+                native = choose_backend(*natives).stack(natives, axis=tuple(order).index(self.stack_dim_name))
+                return native
+            assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
+            return self._cache().native(order=order)
 
     def _with_shape_replaced(self, new_shape: Shape):
-        stack_dim_name = new_shape.names[self._shape.index(self.stack_dim_name)]
-        inner_shape = new_shape.without(stack_dim_name)
-        tensors = [t._with_shape_replaced(inner_shape) for t in self.tensors]
-        return TensorStack(tensors, stack_dim_name, new_shape.get_type(stack_dim_name))
+        if self._cached is not None:
+            return self._cached._with_shape_replaced(new_shape)
+        else:
+            stack_dim_name = new_shape.names[self._shape.index(self.stack_dim_name)]
+            inner_shape = new_shape.without(stack_dim_name)
+            tensors = [t._with_shape_replaced(inner_shape) for t in self.tensors]
+            return TensorStack(tensors, stack_dim_name, new_shape.get_type(stack_dim_name))
 
     def _getitem(self, selection: dict):
+        if self._cached is not None:
+            return self._cached._getitem(selection)
         if (self.stack_dim_name not in selection or len(selection) != 1) and not self.requires_broadcast:
             return self._cache()._getitem(selection)
         # --- Inner dims ---
@@ -983,12 +991,17 @@ class TensorStack(Tensor):
             return TensorStack(tensors, self.stack_dim_name, self.shape.get_type(self.stack_dim_name))
 
     def flip(self, *dims: str) -> 'Tensor':
-        tensors = [t.flip(*dims) for t in self.tensors]
-        if self.stack_dim_name in dims:
-            tensors = tensors[::-1]
-        return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+        if self._cached is not None:
+            return self._cached.flip(*dims)
+        else:
+            tensors = [t.flip(*dims) for t in self.tensors]
+            if self.stack_dim_name in dims:
+                tensors = tensors[::-1]
+            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
 
     def unstack(self, dimension):
+        if self._cached is not None:
+            return self._cached.unstack(dimension)
         if dimension == self.stack_dim_name:
             return self.tensors
         else:
@@ -1023,15 +1036,29 @@ class TensorStack(Tensor):
             return NotImplemented
 
     def _natives(self) -> tuple:
-        return sum([t._natives() for t in self.tensors], ())
+        if self._cached is not None:
+            return self._cached._natives()
+        else:
+            return sum([t._natives() for t in self.tensors], ())
 
     def _with_natives_replaced(self, natives: list):
-        tensors = [t._with_natives_replaced(natives) for t in self.tensors]
-        return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+        if self._cached is not None:
+            return self._cached._with_natives_replaced(natives)
+        else:
+            tensors = [t._with_natives_replaced(natives) for t in self.tensors]
+            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
 
     def _expand(self):
-        for t in self.tensors:
-            t._expand()
+        if self.requires_broadcast:
+            for t in self.tensors:
+                t._expand()
+        self._cache()
+
+    def __simplify__(self):
+        if self._cached is not None:
+            return self._cached
+        else:
+            return self
 
     def __tensor_reduce__(self,
                 dims: Tuple[str],
@@ -1040,6 +1067,8 @@ class TensorStack(Tensor):
                 unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
+        if self._cached is not None:
+            return self._cached.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
         # --- inner reduce ---
         inner_axes = [dim for dim in dims if dim != self.stack_dim_name]
         red_inners = [t.__tensor_reduce__(inner_axes, native_function, collapsed_function, unaffected_function) for t in self.tensors]
