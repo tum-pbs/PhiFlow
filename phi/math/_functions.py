@@ -19,7 +19,7 @@ from .backend._optim import SolveResult
 from .backend._profile import get_current_profile
 
 
-def choose_backend_t(*values, prefer_default=False):
+def choose_backend_t(*values, prefer_default=False) -> Backend:
     """ Choose backend for given `Tensor` or native tensor values. """
     natives = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
     return choose_backend(*natives, prefer_default=prefer_default)
@@ -189,7 +189,28 @@ def copy(value: Tensor):
     Returns:
         Copy of `value`.
     """
+    if value._is_special:
+        warnings.warn("Tracing tensors cannot be copied.")
+        return value
     return value._op1(lambda native: choose_backend(native).copy(native))
+
+
+def native_call(f: Callable, *inputs, channels_last=None, channel_dim='vector'):
+    if channels_last is None:
+        backend = choose_backend_t(*inputs, prefer_default=True)
+        channels_last = backend.prefers_channels_last()
+    batch = combine_safe(*[i.shape.batch for i in inputs])
+    spatial = combine_safe(*[i.shape.spatial for i in inputs])
+    natives = []
+    for i in inputs:
+        groups = (batch, *i.shape.spatial.names, i.shape.channel) if channels_last else (batch, i.shape.channel, *i.shape.spatial.names)
+        natives.append(reshaped_native(i, groups))
+    output = f(*natives)
+    if isinstance(output, (tuple, list)):
+        raise NotImplementedError()
+    else:
+        groups = (batch, *spatial.names, channel_dim) if channels_last else (batch, channel_dim, *spatial.names)
+        return reshaped_tensor(output, groups)
 
 
 def print_(value: Tensor = None, name: str = None):
