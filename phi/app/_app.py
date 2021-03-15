@@ -126,7 +126,7 @@ class App(object):
                     break
                 else:
                     index += 1
-        # Setup logging
+        # Message logging
         logFormatter = logging.Formatter('%(message)s (%(levelname)s), %(asctime)sn\n')
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
@@ -139,6 +139,9 @@ class App(object):
         consoleHandler.setLevel(logging.INFO)
         customLogger.addHandler(consoleHandler)
         self.logger = customLogger
+        # Data logging
+        self._scalars = {}  # name -> (frame, value)
+        self._scalar_streams = {}
         # Framerate
         self.sequence_stride = stride if stride is not None else 1
         self.framerate = framerate if framerate is not None else stride
@@ -209,7 +212,6 @@ class App(object):
         return self.scene.path
 
     def _progress(self):
-        # actual method called to step.
         self.step()
         self.steps += 1
         self.invalidate()
@@ -229,11 +231,6 @@ class App(object):
         
         App.steps automatically counts how many steps have been completed.
         If this method is not overridden, `App.time` is additionally increased by `App.dt`.
-
-        Args:
-
-        Returns:
-
         """
         dt = self.dt  # prevent race conditions
         if self.step_function is None:
@@ -275,10 +272,6 @@ class App(object):
         Args:
           name: unique human-readable name
           value: data to display
-          name: str: 
-
-        Returns:
-
         """
         assert not self.prepared, 'Cannot add fields to a prepared model'
         if isinstance(value, StateProxy):
@@ -294,6 +287,21 @@ class App(object):
                 return value
             generator = get_constant
         self.fields[name] = TimeDependentField(name, generator)
+
+    def log_scalar(self, name: str, value: float or math.Tensor):
+        value = float(value)
+        if name not in self._scalars:
+            self._scalars[name] = []
+            path = self.scene.subpath(f'log_{name}.txt')
+            self._scalar_streams[name] = open(path, 'w')
+        self._scalars[name].append((self.frame, value))
+        self._scalar_streams[name].write(f"{value}\n")
+        self._scalar_streams[name].flush()
+
+    def get_scalar_curve(self, name) -> tuple:
+        frames = np.array([item[0] for item in self._scalars[name]])
+        values = np.array([item[1] for item in self._scalars[name]])
+        return frames, values
 
     @property
     def actions(self):
@@ -341,13 +349,9 @@ class App(object):
         * Detecting editable values from member variables that start with 'value_'
         * Detecting actions from member functions that start with 'action_'
         * Initializing the scene directory with a JSON file and copying related Python source files
-        
-        :return: self
-
-        Args:
 
         Returns:
-
+            `self`
         """
         if self.prepared:
             return
@@ -521,7 +525,7 @@ class App(object):
             callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
 
         Returns:
-            self
+            `self`
         """
         if framerate is None:
             framerate = self.framerate
