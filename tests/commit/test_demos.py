@@ -59,8 +59,8 @@ class TestDemos(TestCase):
     def test_burgers_sim(self):
         demo_run('burgers_sim')
 
-    def test_differentiate_pressure(self):
-        demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.gradients)])
+    # def test_differentiate_pressure(self):
+    #     demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.gradients)])
 
     def test_flip_liquid(self):
         demo_run('flip_liquid', [backend.NUMPY_BACKEND])
