@@ -42,7 +42,7 @@ class ModuleViewer(App):
                 If not provided, searches all global variables for Field or Tensor values.
                 All fields must exist as global variables before the ModuleViewer is instantiated.
         """
-        module = inspect.getmodule(inspect.stack()[1].frame)
+        self._module = module = inspect.getmodule(inspect.stack()[1].frame)
         doc = module.__doc__
         if doc is None:
             name = os.path.basename(module.__file__)[:-3]
@@ -52,18 +52,23 @@ class ModuleViewer(App):
             name = doc[:end_of_line].strip()
             subtitle = doc[end_of_line:].strip() or None
         App.__init__(self, name, subtitle, fields=None, stride=stride, base_dir=base_dir, summary=summary, custom_properties=custom_properties, target_scene=target_scene, objects_to_save=objects_to_save, framerate=framerate, dt=dt)
+        self._initial_field_values = {}
         if fields is None:
             for name in dir(module):
                 if not name.startswith('_'):
                     val = getattr(module, name)
                     if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank > 0):
                         self.add_field(name, lambda name=name: getattr(module, name))
+                        self._initial_field_values[name] = val
         else:
             for name in fields:
                 self.add_field(name, lambda name=name: getattr(module, name))
+                self._initial_field_values[name] = getattr(module, name)
         self.step_exec_event = Event()
         self.step_finished_event = Event()
         self._interrupt = False
+
+        self.add_action("Reset", lambda: self.restore_initial_field_values())
 
         def async_show():
             show(self, **show_config)
@@ -143,4 +148,10 @@ class ModuleViewer(App):
 
     def interrupt(self):
         self._interrupt = True
+
+    def restore_initial_field_values(self, reset_steps=True):
+        for name, value in self._initial_field_values.items():
+            setattr(self._module, name, value)
+        if reset_steps:
+            self.steps = 0
 
