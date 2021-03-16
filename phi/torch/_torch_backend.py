@@ -440,31 +440,25 @@ class TorchBackend(Backend):
         return torch.isfinite(x)
 
     def scatter(self, base_grid, indices, values, mode: str):
-        if isinstance(base_grid, tuple):
-            base_grid = torch.stack(base_grid, base_grid[0].ndim)  # (batch_size, spatial..., channels)
+        base_grid, values = self.auto_cast(base_grid, values)
+        indices = self.as_tensor(indices)
         batch_size = combined_dim(combined_dim(indices.shape[0], values.shape[0]), base_grid.shape[0])
-        channel_size = base_grid.shape[-1]
-        values = values.expand(values.shape[0], indices.shape[1], channel_size)  # (batch_size or 1, update_count, channels)
         scatter = torch.scatter_add if mode == 'add' else torch.scatter
-        result = []
-        for b in range(batch_size):
-            b_grid = base_grid[b, ...]
-            b_indices = indices[min(b, indices.shape[0] - 1), ...]
-            b_values = values[min(b, values.shape[0] - 1), ...]
-
-            # --- Reshape everything to 1D and transform indices accordingly. This is necessary because PyTorch
-            # scatter method restricts dimensionality of base_grid, indices and values ---
-            shaped_b_grid = b_grid.reshape(-1, channel_size)
-            shaped_b_values = b_values.reshape(-1, channel_size)
-            shaped_b_indices = torch.zeros_like(b_indices[:, 0], dtype=torch.long)
-            for c in range(b_indices.shape[-1]):
-                shaped_b_indices += (b_indices[:, c] * torch.prod(torch.tensor(b_grid.shape[c+1:-1]))).long()
-            shaped_b_indices = shaped_b_indices.reshape(-1, 1).expand(b_indices.shape[0], channel_size)
-
-            shaped_scattered = scatter(shaped_b_grid, 0, shaped_b_indices, shaped_b_values)
-            result.append(shaped_scattered.reshape(b_grid.shape))
-        return torch.stack(result)
-
+        if indices.shape[0] < batch_size:
+            indices = indices.repeat([batch_size] + [1] * (len(indices.shape)-1))
+        if values.shape[0] < batch_size or values.shape[1] == 1:
+            values = values.repeat([batch_size // values.shape[0], indices.shape[1] // indices.shape[1]] + [1] * (len(values.shape)-2))
+        if len(base_grid.shape) > 3:
+            resolution = base_grid.shape[1:-1]
+            ravel = [1]
+            for i in range(1, len(resolution)):
+                ravel.insert(0, ravel[0] * resolution[-i])
+            ravel = self.to_int(ravel, int64=True)
+            indices = torch.sum(indices * ravel, dim=-1, keepdim=True)
+        base_grid_flat = torch.reshape(base_grid, [base_grid.shape[0], -1, base_grid.shape[-1]])
+        indices = indices.long().repeat([1, 1, values.shape[-1]])
+        result = scatter(base_grid_flat, dim=1, index=indices, src=values)
+        return torch.reshape(result, base_grid.shape)
 
     def fft(self, x):
         if not x.is_complex():
