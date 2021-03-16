@@ -33,4 +33,5 @@ app = ModuleViewer(display=['incompressible_velocity', 'gradient'])
 for iteration in app.range(warmup=1):
     loss, incompressible_velocity, pressure_guess, gradient = gradient_function(velocity_fit, _pressure_guess)
     app.info(f"Loss = {loss:.2f}")
+    app.log_scalar('loss', loss)
     velocity_fit -= gradient

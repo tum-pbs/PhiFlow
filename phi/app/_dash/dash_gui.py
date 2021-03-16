@@ -1,7 +1,8 @@
 import dash_core_components as dcc
 import dash_html_components as html
 
-from .board import build_benchmark, build_tf_profiler, build_tensorboard_launcher, build_system_controls
+from .board import build_benchmark, build_tf_profiler, build_tensorboard_launcher, build_system_controls, \
+    build_graph_view
 from .log import build_log
 from .model_controls import build_model_controls
 from .viewsettings import build_view_selection
@@ -118,6 +119,7 @@ class DashGui(AppDisplay):
         # --- Board ---
         layout = html.Div([
             dcc.Markdown(u'# Φ Board'),
+            build_graph_view(dash_app),
             status_bar,
             player_controls,
         ] + ([] if 'tensorflow' not in dash_app.app.traits else [
@@ -146,7 +148,14 @@ class DashGui(AppDisplay):
         if not caller_is_main and self.config.get('external_web_server', False):
             return self.dash_app.server
         else:
+            import logging
+            log = logging.getLogger('werkzeug')
+            log.setLevel(logging.ERROR)
+
             port = self.config.get('port', 8051)
             print('Starting Dash server on http://localhost:%d/' % port)
-            self.dash_app.dash.run_server(debug=True, host='0.0.0.0', port=port, use_reloader=False)
+            self.dash_app.dash.run_server(debug=self.config.get('debug', False),
+                                          host=self.config.get('host', '0.0.0.0'),
+                                          port=port,
+                                          use_reloader=False)
             return self

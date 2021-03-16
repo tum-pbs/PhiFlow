@@ -289,7 +289,7 @@ class App(object):
         self.fields[name] = TimeDependentField(name, generator)
 
     def log_scalar(self, name: str, value: float or math.Tensor):
-        value = float(value)
+        value = float(math.mean(value))
         if name not in self._scalars:
             self._scalars[name] = []
             path = self.scene.subpath(f'log_{name}.txt')
@@ -302,6 +302,9 @@ class App(object):
         frames = np.array([item[0] for item in self._scalars[name]])
         values = np.array([item[1] for item in self._scalars[name]])
         return frames, values
+
+    def get_logged_scalars(self):
+        return self._scalars.keys()
 
     @property
     def actions(self):

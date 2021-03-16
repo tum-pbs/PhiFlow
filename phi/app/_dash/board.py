@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 import dash_core_components as dcc
 import dash_html_components as html
@@ -7,14 +8,17 @@ from dash.dependencies import Output, Input
 from dash.exceptions import PreventUpdate
 
 from .dash_app import DashApp
+from .dash_plotting import EMPTY_FIGURE, dash_plot_graphs
 from .player_controls import STEP_COUNT, parse_step_count
-
+from .._app import display_name
 
 BENCHMARK_BUTTON = Input('benchmark-button', 'n_clicks')
 PROFILE_BUTTON = Input('profile-button', 'n_clicks')
 
 NO_BENCHMARK_TEXT = '*No benchmarks available.*'
 NO_PROFILES_TEXT = '*No profiles available.*'
+
+REFRESH_GRAPHS_BUTTON = Input('refresh-graphs-button', 'n_clicks')
 
 
 def build_benchmark(dashapp):
@@ -128,5 +132,40 @@ def build_system_controls(dashapp):
         if n:
             logging.info('DashGUI: Exiting...')
             os._exit(0)  # exit() does not work from Dash threads
+
+    return layout
+
+
+def build_graph_view(dashapp):
+    layout = html.Div(style={'width': '90%', 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
+        html.H2("Graphs"),
+        html.Div([
+            html.Button('Refresh now', id=REFRESH_GRAPHS_BUTTON.component_id),
+            dcc.Checklist(id='auto-refresh-checkbox', options=[{'label': 'Auto-refresh', 'value': 'refresh'}], value=['refresh'], style={'display': 'inline-block'})
+        ]),
+        dcc.Interval(id='graph-update', interval=2000, disabled=False),
+        html.Div(id='graph-figure-container', style={'height': 600, 'width': '100%'}, children=[
+            dcc.Graph(figure=EMPTY_FIGURE, id='board-graph', style={'height': '100%'})
+        ])
+    ])
+
+    @dashapp.dash.callback(Output('board-graph', 'figure'), [REFRESH_GRAPHS_BUTTON, Input('graph-update', 'n_intervals')])
+    def update_figure(_n1, _n2):
+        names = dashapp.app.get_logged_scalars()
+        curves = [dashapp.app.get_scalar_curve(n) for n in names]
+        labels = [display_name(n) for n in names]
+        try:
+            figure = dash_plot_graphs(curves, labels)
+            return figure
+        except BaseException as exc:
+            traceback.print_exc()
+            return EMPTY_FIGURE
+
+    @dashapp.dash.callback(Output('graph-update', 'disabled'), [Input('auto-refresh-checkbox', 'value')])
+    def enable_auto_refresh(selected):
+        if selected:
+            return False
+        else:
+            return True
 
     return layout

@@ -56,7 +56,7 @@ def get_color_interpolation(val, cm_arr):
     Returns:
 
     """
-    if 0 in cm_arr[:, 0]-val:
+    if 0 in cm_arr[:, 0] - val:
         center = cm_arr[cm_arr[:, 0] == val][-1]
     else:
         offset_positions = cm_arr[:, 0] - val
@@ -65,8 +65,8 @@ def get_color_interpolation(val, cm_arr):
         if color1[0] == color2[0]:
             center = color1
         else:
-            x = (val-color1[0]) / (color2[0]-color1[0])  # weight of row2
-            center = color1 * (1-x) + color2 * x
+            x = (val - color1[0]) / (color2[0] - color1[0])  # weight of row2
+            center = color1 * (1 - x) + color2 * x
     center[0] = val
     return center
 
@@ -104,18 +104,18 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
         # Full range, Zero-centered
         neg_flag = cm_arr[:, 0] < 0.5
         pos_flag = cm_arr[:, 0] >= 0.5
-        cm_arr[neg_flag, 0] = cm_arr[neg_flag, 0]*2*center  # Scale (0, 0.5) -> (0, center)
-        cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0]-0.5)*2*(1-center)+center  # Scale (0.5, 1) -> (center, 0.5)
+        cm_arr[neg_flag, 0] = cm_arr[neg_flag, 0] * 2 * center  # Scale (0, 0.5) -> (0, center)
+        cm_arr[pos_flag, 0] = (cm_arr[pos_flag, 0] - 0.5) * 2 * (1 - center) + center  # Scale (0.5, 1) -> (center, 0.5)
         # Drop duplicate zeros. Allow for not center value in original map.
         if zmin == 0:
             cm_arr = cm_arr[np.max(np.arange(len(cm_arr))[cm_arr[:, 0] == 0]):]
     else:
-        cm_arr[:, 0] = cm_arr[:, 0]-0.5  # center at zero (-0.5, 0.5)
+        cm_arr[:, 0] = cm_arr[:, 0] - 0.5  # center at zero (-0.5, 0.5)
         # Scale desired range
         if zmax > abs(zmin):
-            cm_scale = (1-center)/(np.max(cm_arr[:, 0]))  # scale by plositives
+            cm_scale = (1 - center) / (np.max(cm_arr[:, 0]))  # scale by plositives
         else:
-            cm_scale = center/(np.max(cm_arr[:, 0]))  # scale by negatives
+            cm_scale = center / (np.max(cm_arr[:, 0]))  # scale by negatives
         # Scale the maximum to +1 when centered
         cm_arr[:, 0] *= cm_scale
         cm_arr[:, 0] += center  # center
@@ -128,8 +128,8 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
             new_max = get_color_interpolation(1, cm_arr)
             cm_arr = np.vstack([cm_arr, new_max])
         # Compare center
-        #new_center = get_color_interpolation(center, cm_arr)
-        #if not all(new_center == [center, *central_color]):
+        # new_center = get_color_interpolation(center, cm_arr)
+        # if not all(new_center == [center, *central_color]):
         #    print("Failed center comparison.")
         #    print("Center: {}".format(new_center))
         #    print("Center should be: {}".format([center, *central_color]))
@@ -137,7 +137,8 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
         # Cut to (0, 1)
         cm_arr = cm_arr[cm_arr[:, 0] >= 0]
         cm_arr = cm_arr[cm_arr[:, 0] <= 1]
-    cm_str = [("{}".format(val), "rgb({:.0f},{:.0f},{:.0f})".format(*colors)) for val, colors in zip(cm_arr[:, 0], cm_arr[:, 1:])]
+    cm_str = [("{}".format(val), "rgb({:.0f},{:.0f},{:.0f})".format(*colors)) for val, colors in
+              zip(cm_arr[:, 0], cm_arr[:, 1:])]
     return cm_str
 
 
@@ -180,17 +181,19 @@ def heatmap(field, settings):
     if not np.isfinite(z_max):
         z_max = 0
     color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=settings.get('colormap', None))
-    return {'data': [{
-        'x': x,
-        'y': y,
-        'z': z,
-        'zauto': 'false',
-        'zmin': str(z_min),
-        'zmax': str(z_max),
-        'type': 'heatmap',
-        'colorscale': color_scale,
-        # 'colorbar': {'title': settings.units,  }  # TODO: Implement units into PhiFlow
-    }]}
+    return {
+        'data': [{
+            'x': x,
+            'y': y,
+            'z': z,
+            'zauto': 'false',
+            'zmin': str(z_min),
+            'zmax': str(z_max),
+            'type': 'heatmap',
+            'colorscale': color_scale,
+            # 'colorbar': {'title': settings.units,  }  # TODO: Implement units into PhiFlow
+        }]
+    }
 
 
 def slice_2d(field3d, settings):
@@ -199,7 +202,8 @@ def slice_2d(field3d, settings):
     if isinstance(field3d, StaggeredGrid):
         component = settings.get('component', 'length')
         if component in ('z', 'y', 'x'):
-            field3d = field3d.unstack()[{'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component] % 3]
+            field3d = field3d.unstack()[
+                {'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component] % 3]
         else:
             field3d = field3d.at_centers()
     assert isinstance(field3d, CenteredGrid) and field3d.spatial_rank == 3
@@ -208,7 +212,8 @@ def slice_2d(field3d, settings):
 
     removed_axis = {FRONT: physics_config.y, RIGHT: physics_config.x, TOP: physics_config.z}[projection] % 3
 
-    data = field3d.values[(slice(None),) + tuple([min(depth, field3d.resolution[i]) if i == removed_axis else slice(None) for i in range(3)]) + (slice(None),)]
+    data = field3d.values[(slice(None),) + tuple(
+        [min(depth, field3d.resolution[i]) if i == removed_axis else slice(None) for i in range(3)]) + (slice(None),)]
     if projection == RIGHT and not physics_config.is_x_first:
         data = np.transpose(data, axes=(0, 2, 1, 3))
 
@@ -332,7 +337,7 @@ def vector_field(field2d, settings):
     data_x = data_x.flatten()
 
     if max_arrows is not None or min_arrow_length > 0:
-        length = np.sqrt(data_y**2 + data_x**2)
+        length = np.sqrt(data_y ** 2 + data_x ** 2)
         keep_indices = np.argsort(length)
         keep_indices = keep_indices[length[keep_indices] > min_arrow_length]
         if len(keep_indices) > max_arrows:
@@ -379,3 +384,27 @@ def vector_field(field2d, settings):
                 'yaxis': {'range': y_range},
             }
         }
+
+
+def dash_plot_graphs(curves: tuple or list, labels):
+    if not curves:
+        return EMPTY_FIGURE
+    lines = []
+    for label, (x, y) in zip(labels, curves):
+        backtracks = np.argwhere(x[1:] < x[:-1])[:, 0] + 1
+        if len(backtracks) > 0:
+            x = np.insert(np.array(x, np.float), backtracks, np.nan)
+            y = np.insert(np.array(y, np.float), backtracks, np.nan)
+        lines.append({
+            'mode': 'lines',
+            'type': 'scatter',
+            'x': x,
+            'y': y,
+            'name': label,
+        })
+    return {
+        'data': lines,
+        'layout': {
+            'showlegend': True,
+            'margin': dict(t=20, l=40, b=20, r=20),
+        }}

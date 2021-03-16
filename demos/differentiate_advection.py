@@ -9,7 +9,7 @@ from phi.torch.flow import *
 # from phi.tf.flow import *
 
 
-DOMAIN = Domain(x=62, y=62, boundaries=CLOSED, bounds=Box[0:100, 0:100])
+DOMAIN = Domain(x=50, y=50, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 MARKER_0 = DOMAIN.scalar_grid(Sphere((40, 50), radius=20))
 MARKER_TARGET = DOMAIN.scalar_grid(Sphere((60, 50), radius=20))
 
@@ -31,4 +31,5 @@ app = ModuleViewer(display=['marker_fit', 'gradient'])
 for iteration in app.range(warmup=1):
     loss, marker_fit, smooth_difference, gradient = gradient_function(velocity_fit)
     app.info(f"Loss = {loss:.2f}")
+    app.log_scalar('loss', loss)
     velocity_fit -= gradient
