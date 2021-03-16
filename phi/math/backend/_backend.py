@@ -725,6 +725,23 @@ class Backend:
         dividend, divisor = self.auto_cast(dividend, divisor)
         return dividend % divisor
 
+    def and_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a & b
+
+    def or_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a | b
+
+    def xor(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a ^ b
+
+    def floordiv(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a // b
+
+
 
 BACKENDS = []  # documented in __init__.py
 _DEFAULT = []  # [0] = global default, [1:] from 'with' blocks

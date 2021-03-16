@@ -271,13 +271,13 @@ class Tensor:
         return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x))
 
     def __and__(self, other):
-        return self._op2(other, lambda x, y: x & y, lambda x, y: x & y)
+        return self._op2(other, lambda x, y: x & y, lambda x, y: choose_backend(x, y).and_(x, y))
 
     def __or__(self, other):
-        return self._op2(other, lambda x, y: x | y, lambda x, y: x | y)
+        return self._op2(other, lambda x, y: x | y, lambda x, y: choose_backend(x, y).or_(x, y))
 
     def __xor__(self, other):
-        return self._op2(other, lambda x, y: x ^ y, lambda x, y: x ^ y)
+        return self._op2(other, lambda x, y: x ^ y, lambda x, y: choose_backend(x, y).xor(x, y))
 
     def __mul__(self, other):
         return self._op2(other, lambda x, y: x * y, lambda x, y: choose_backend(x, y).mul(x, y))
@@ -298,10 +298,10 @@ class Tensor:
         return self._op2(other, lambda x, y: divmod(y, x), lambda x, y: divmod(y, x))
 
     def __floordiv__(self, other):
-        return self._op2(other, lambda x, y: x // y, lambda x, y: x // y)
+        return self._op2(other, lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y))
 
     def __rfloordiv__(self, other):
-        return self._op2(other, lambda x, y: y // x, lambda x, y: y // x)
+        return self._op2(other, lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x))
 
     def __pow__(self, power, modulo=None):
         assert modulo is None
