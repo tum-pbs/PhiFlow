@@ -27,7 +27,7 @@ class Solve:
             assert gradient_solve.solver == solver
         self.solver_arguments: dict = solver_arguments
         """ Additional solver-dependent arguments. """
-        self.result: SolveResult or None = None
+        self.result: SolveResult = SolveResult(False, 0)
         """ `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. """
 
     @property

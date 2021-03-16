@@ -466,6 +466,8 @@ class TFBackend(Backend):
                 residual -= step_size * dy
                 dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
                 dy = function(dx)
+            if not self.all(self.isfinite(x)):
+                converged = False
             params.result = SolveResult(converged, iterations)
             return x
 
