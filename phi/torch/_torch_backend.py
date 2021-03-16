@@ -440,7 +440,31 @@ class TorchBackend(Backend):
         return torch.isfinite(x)
 
     def scatter(self, base_grid, indices, values, mode: str):
-        raise NotImplementedError()
+        if isinstance(base_grid, tuple):
+            base_grid = torch.stack(base_grid, base_grid[0].ndim)  # (batch_size, spatial..., channels)
+        batch_size = combined_dim(combined_dim(indices.shape[0], values.shape[0]), base_grid.shape[0])
+        channel_size = base_grid.shape[-1]
+        values = values.expand(values.shape[0], indices.shape[1], channel_size)  # (batch_size or 1, update_count, channels)
+        scatter = torch.scatter_add if mode == 'add' else torch.scatter
+        result = []
+        for b in range(batch_size):
+            b_grid = base_grid[b, ...]
+            b_indices = indices[min(b, indices.shape[0] - 1), ...]
+            b_values = values[min(b, values.shape[0] - 1), ...]
+
+            # --- Reshape everything to 1D and transform indices accordingly. This is necessary because PyTorch
+            # scatter method restricts dimensionality of base_grid, indices and values ---
+            shaped_b_grid = b_grid.reshape(-1, channel_size)
+            shaped_b_values = b_values.reshape(-1, channel_size)
+            shaped_b_indices = torch.zeros_like(b_indices[:, 0], dtype=torch.long)
+            for c in range(b_indices.shape[-1]):
+                shaped_b_indices += (b_indices[:, c] * torch.prod(torch.tensor(b_grid.shape[c+1:-1]))).long()
+            shaped_b_indices = shaped_b_indices.reshape(-1, 1).expand(b_indices.shape[0], channel_size)
+
+            shaped_scattered = scatter(shaped_b_grid, 0, shaped_b_indices, shaped_b_values)
+            result.append(shaped_scattered.reshape(b_grid.shape))
+        return torch.stack(result)
+
 
     def fft(self, x):
         if not x.is_complex():
