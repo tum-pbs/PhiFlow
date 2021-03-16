@@ -289,6 +289,17 @@ class App(object):
         self.fields[name] = TimeDependentField(name, generator)
 
     def log_scalar(self, name: str, value: float or math.Tensor):
+        """
+        Adds `value` to the curve `name` at the current step.
+        This can be used to log the evolution of scalar quantities or summaries.
+
+        The values are stored in a text file within the scene directory.
+        The curves may also be directly viewed in the user interface.
+
+        Args:
+            name: Name of the curve. If no such curve exists, a new one is created.
+            value: Value to append to the curve, must be a number or `phi.math.Tensor`.
+        """
         value = float(math.mean(value))
         if name not in self._scalars:
             self._scalars[name] = []

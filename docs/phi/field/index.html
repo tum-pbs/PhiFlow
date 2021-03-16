@@ -488,7 +488,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
         results = [result] if not isinstance(result, (tuple, list)) else result
         OUTPUT_FIELDS.clear()
         OUTPUT_FIELDS.extend(results)
-        result_tensors = [field.values for field in results]
+        result_tensors = [field.values if isinstance(field, SampledField) else math.tensor(field) for field in results]
         return result_tensors
 
     tensor_trace = math.jit_compile(tensor_function)
@@ -499,7 +499,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
         tensors = [field.values for field in fields]
         result_tensors = tensor_trace(*tensors)
         result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
-        result = [field.with_(values=t) for field, t in zip(OUTPUT_FIELDS, result_tensors)]
+        result = [f.with_(values=t) if isinstance(f, SampledField) else t for f, t in zip(OUTPUT_FIELDS, result_tensors)]
         return result[0] if len(result) == 1 else result
 
     return wrapper</code></pre>

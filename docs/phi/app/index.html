@@ -231,7 +231,7 @@ All fields need to be registered before the app is prepared or shown.</p>
                     break
                 else:
                     index += 1
-        # Setup logging
+        # Message logging
         logFormatter = logging.Formatter(&#39;%(message)s (%(levelname)s), %(asctime)sn\n&#39;)
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
@@ -244,6 +244,9 @@ All fields need to be registered before the app is prepared or shown.</p>
         consoleHandler.setLevel(logging.INFO)
         customLogger.addHandler(consoleHandler)
         self.logger = customLogger
+        # Data logging
+        self._scalars = {}  # name -&gt; (frame, value)
+        self._scalar_streams = {}
         # Framerate
         self.sequence_stride = stride if stride is not None else 1
         self.framerate = framerate if framerate is not None else stride
@@ -314,7 +317,6 @@ All fields need to be registered before the app is prepared or shown.</p>
         return self.scene.path
 
     def _progress(self):
-        # actual method called to step.
         self.step()
         self.steps += 1
         self.invalidate()
@@ -334,11 +336,6 @@ All fields need to be registered before the app is prepared or shown.</p>
         
         App.steps automatically counts how many steps have been completed.
         If this method is not overridden, `App.time` is additionally increased by `App.dt`.
-
-        Args:
-
-        Returns:
-
         &#34;&#34;&#34;
         dt = self.dt  # prevent race conditions
         if self.step_function is None:
@@ -380,10 +377,6 @@ All fields need to be registered before the app is prepared or shown.</p>
         Args:
           name: unique human-readable name
           value: data to display
-          name: str: 
-
-        Returns:
-
         &#34;&#34;&#34;
         assert not self.prepared, &#39;Cannot add fields to a prepared model&#39;
         if isinstance(value, StateProxy):
@@ -399,6 +392,35 @@ All fields need to be registered before the app is prepared or shown.</p>
                 return value
             generator = get_constant
         self.fields[name] = TimeDependentField(name, generator)
+
+    def log_scalar(self, name: str, value: float or math.Tensor):
+        &#34;&#34;&#34;
+        Adds `value` to the curve `name` at the current step.
+        This can be used to log the evolution of scalar quantities or summaries.
+
+        The values are stored in a text file within the scene directory.
+        The curves may also be directly viewed in the user interface.
+
+        Args:
+            name: Name of the curve. If no such curve exists, a new one is created.
+            value: Value to append to the curve, must be a number or `phi.math.Tensor`.
+        &#34;&#34;&#34;
+        value = float(math.mean(value))
+        if name not in self._scalars:
+            self._scalars[name] = []
+            path = self.scene.subpath(f&#39;log_{name}.txt&#39;)
+            self._scalar_streams[name] = open(path, &#39;w&#39;)
+        self._scalars[name].append((self.frame, value))
+        self._scalar_streams[name].write(f&#34;{value}\n&#34;)
+        self._scalar_streams[name].flush()
+
+    def get_scalar_curve(self, name) -&gt; tuple:
+        frames = np.array([item[0] for item in self._scalars[name]])
+        values = np.array([item[1] for item in self._scalars[name]])
+        return frames, values
+
+    def get_logged_scalars(self):
+        return self._scalars.keys()
 
     @property
     def actions(self):
@@ -446,13 +468,9 @@ All fields need to be registered before the app is prepared or shown.</p>
         * Detecting editable values from member variables that start with &#39;value_&#39;
         * Detecting actions from member functions that start with &#39;action_&#39;
         * Initializing the scene directory with a JSON file and copying related Python source files
-        
-        :return: self
-
-        Args:
 
         Returns:
-
+            `self`
         &#34;&#34;&#34;
         if self.prepared:
             return
@@ -626,7 +644,7 @@ All fields need to be registered before the app is prepared or shown.</p>
             callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
 
         Returns:
-            self
+            `self`
         &#34;&#34;&#34;
         if framerate is None:
             framerate = self.framerate
@@ -894,10 +912,7 @@ This method must be called before the user interface is launched, i.e. before <c
 <dd>unique human-readable name</dd>
 <dt><strong><code>value</code></strong></dt>
 <dd>data to display</dd>
-<dt><strong><code>name</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<p>Returns:</p></div>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -916,10 +931,6 @@ This method must be called before the user interface is launched, i.e. before <c
     Args:
       name: unique human-readable name
       value: data to display
-      name: str: 
-
-    Returns:
-
     &#34;&#34;&#34;
     assert not self.prepared, &#39;Cannot add fields to a prepared model&#39;
     if isinstance(value, StateProxy):
@@ -1050,6 +1061,34 @@ Fields can be added using <code>add_field()</code>.</p>
     return self.fields[fieldname].get(self._invalidation_counter)</code></pre>
 </details>
 </dd>
+<dt id="phi.app.App.get_logged_scalars"><code class="name flex">
+<span>def <span class="ident">get_logged_scalars</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_logged_scalars(self):
+    return self._scalars.keys()</code></pre>
+</details>
+</dd>
+<dt id="phi.app.App.get_scalar_curve"><code class="name flex">
+<span>def <span class="ident">get_scalar_curve</span></span>(<span>self, name) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_scalar_curve(self, name) -&gt; tuple:
+    frames = np.array([item[0] for item in self._scalars[name]])
+    values = np.array([item[1] for item in self._scalars[name]])
+    return frames, values</code></pre>
+</details>
+</dd>
 <dt id="phi.app.App.info"><code class="name flex">
 <span>def <span class="ident">info</span></span>(<span>self, message: str)</span>
 </code></dt>
@@ -1095,6 +1134,47 @@ Additionally, it may be displayed by the user interface.</p>
 <pre><code class="python">def invalidate(self):
     &#34;&#34;&#34; Causes the user interface to update. &#34;&#34;&#34;
     self._invalidation_counter += 1</code></pre>
+</details>
+</dd>
+<dt id="phi.app.App.log_scalar"><code class="name flex">
+<span>def <span class="ident">log_scalar</span></span>(<span>self, name: str, value: float)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Adds <code>value</code> to the curve <code>name</code> at the current step.
+This can be used to log the evolution of scalar quantities or summaries.</p>
+<p>The values are stored in a text file within the scene directory.
+The curves may also be directly viewed in the user interface.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>Name of the curve. If no such curve exists, a new one is created.</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Value to append to the curve, must be a number or <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log_scalar(self, name: str, value: float or math.Tensor):
+    &#34;&#34;&#34;
+    Adds `value` to the curve `name` at the current step.
+    This can be used to log the evolution of scalar quantities or summaries.
+
+    The values are stored in a text file within the scene directory.
+    The curves may also be directly viewed in the user interface.
+
+    Args:
+        name: Name of the curve. If no such curve exists, a new one is created.
+        value: Value to append to the curve, must be a number or `phi.math.Tensor`.
+    &#34;&#34;&#34;
+    value = float(math.mean(value))
+    if name not in self._scalars:
+        self._scalars[name] = []
+        path = self.scene.subpath(f&#39;log_{name}.txt&#39;)
+        self._scalar_streams[name] = open(path, &#39;w&#39;)
+    self._scalars[name].append((self.frame, value))
+    self._scalar_streams[name].write(f&#34;{value}\n&#34;)
+    self._scalar_streams[name].flush()</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.new_scene"><code class="name flex">
@@ -1146,7 +1226,7 @@ Additionally, it may be displayed by the user interface.</p>
 <dd>Whether to invoke <code>callback</code> if <code>pause()</code> causes this method to abort prematurely.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>self</p></div>
+<p><code>self</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1162,7 +1242,7 @@ Additionally, it may be displayed by the user interface.</p>
         callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
 
     Returns:
-        self
+        `self`
     &#34;&#34;&#34;
     if framerate is None:
         framerate = self.framerate
@@ -1197,9 +1277,8 @@ If not invoked manually, it is automatically called before the user interface is
 <li>Detecting actions from member functions that start with 'action_'</li>
 <li>Initializing the scene directory with a JSON file and copying related Python source files</li>
 </ul>
-<p>:return: self</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p><code>self</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1216,13 +1295,9 @@ If not invoked manually, it is automatically called before the user interface is
     * Detecting editable values from member variables that start with &#39;value_&#39;
     * Detecting actions from member functions that start with &#39;action_&#39;
     * Initializing the scene directory with a JSON file and copying related Python source files
-    
-    :return: self
-
-    Args:
 
     Returns:
-
+        `self`
     &#34;&#34;&#34;
     if self.prepared:
         return
@@ -1420,9 +1495,7 @@ You may override this method to specify what happens when the user presses the b
 <p>If a step function has been passed to <code><a title="phi.app.App.set_state" href="#phi.app.App.set_state">App.set_state()</a></code>, the state is progressed using that function.</p>
 <p>Otherwise, <code>world.step()</code> is executed (for phiflow 1 style simulations).</p>
 <p>App.steps automatically counts how many steps have been completed.
-If this method is not overridden, <code><a title="phi.app.App.time" href="#phi.app.App.time">App.time</a></code> is additionally increased by <code><a title="phi.app.App.dt" href="#phi.app.App.dt">App.dt</a></code>.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+If this method is not overridden, <code><a title="phi.app.App.time" href="#phi.app.App.time">App.time</a></code> is additionally increased by <code><a title="phi.app.App.dt" href="#phi.app.App.dt">App.dt</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1438,11 +1511,6 @@ If this method is not overridden, <code><a title="phi.app.App.time" href="#phi.a
     
     App.steps automatically counts how many steps have been completed.
     If this method is not overridden, `App.time` is additionally increased by `App.dt`.
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
     dt = self.dt  # prevent race conditions
     if self.step_function is None:
@@ -1994,9 +2062,11 @@ All fields must exist as global variables before the ModuleViewer is instantiate
     def interrupt(self):
         self._interrupt = True
 
-    def restore_initial_field_values(self):
+    def restore_initial_field_values(self, reset_steps=True):
         for name, value in self._initial_field_values.items():
-            setattr(self._module, name, value)</code></pre>
+            setattr(self._module, name, value)
+        if reset_steps:
+            self.steps = 0</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2095,7 +2165,7 @@ However, do not call this method while one <code>range</code> is still active.</
 </details>
 </dd>
 <dt id="phi.app.ModuleViewer.restore_initial_field_values"><code class="name flex">
-<span>def <span class="ident">restore_initial_field_values</span></span>(<span>self)</span>
+<span>def <span class="ident">restore_initial_field_values</span></span>(<span>self, reset_steps=True)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2103,9 +2173,11 @@ However, do not call this method while one <code>range</code> is still active.</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def restore_initial_field_values(self):
+<pre><code class="python">def restore_initial_field_values(self, reset_steps=True):
     for name, value in self._initial_field_values.items():
-        setattr(self._module, name, value)</code></pre>
+        setattr(self._module, name, value)
+    if reset_steps:
+        self.steps = 0</code></pre>
 </details>
 </dd>
 <dt id="phi.app.ModuleViewer.step"><code class="name flex">
@@ -2171,8 +2243,11 @@ In typical scenarios, this will run one loop iteration in the top-level script.<
 <li><code><a title="phi.app.App.frame" href="#phi.app.App.frame">frame</a></code></li>
 <li><code><a title="phi.app.App.framerate" href="#phi.app.App.framerate">framerate</a></code></li>
 <li><code><a title="phi.app.App.get_field" href="#phi.app.App.get_field">get_field</a></code></li>
+<li><code><a title="phi.app.App.get_logged_scalars" href="#phi.app.App.get_logged_scalars">get_logged_scalars</a></code></li>
+<li><code><a title="phi.app.App.get_scalar_curve" href="#phi.app.App.get_scalar_curve">get_scalar_curve</a></code></li>
 <li><code><a title="phi.app.App.info" href="#phi.app.App.info">info</a></code></li>
 <li><code><a title="phi.app.App.invalidate" href="#phi.app.App.invalidate">invalidate</a></code></li>
+<li><code><a title="phi.app.App.log_scalar" href="#phi.app.App.log_scalar">log_scalar</a></code></li>
 <li><code><a title="phi.app.App.name" href="#phi.app.App.name">name</a></code></li>
 <li><code><a title="phi.app.App.new_scene" href="#phi.app.App.new_scene">new_scene</a></code></li>
 <li><code><a title="phi.app.App.pause" href="#phi.app.App.pause">pause</a></code></li>

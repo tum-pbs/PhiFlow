@@ -58,8 +58,8 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
 from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
-    choose_backend_t as choose_backend, all_available, convert,
-    native, numpy, reshaped_native, reshaped_tensor,
+    choose_backend_t as choose_backend, all_available, convert, seed,
+    native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
     print_ as print,
     map_ as map,
     jit_compile, functional_gradient, custom_gradient,
@@ -529,7 +529,7 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 </details>
 </dd>
 <dt id="phi.math.choose_backend"><code class="name flex">
-<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False)</span>
+<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False) ‑> phi.math.backend._backend.Backend</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Choose backend for given <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or native tensor values.</p></div>
@@ -537,7 +537,7 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def choose_backend_t(*values, prefer_default=False):
+<pre><code class="python">def choose_backend_t(*values, prefer_default=False) -&gt; Backend:
     &#34;&#34;&#34; Choose backend for given `Tensor` or native tensor values. &#34;&#34;&#34;
     natives = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
     return choose_backend(*natives, prefer_default=prefer_default)</code></pre>
@@ -792,6 +792,38 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
     native_result = backend.conv(native_value, native_kernel, zero_padding=extrapolation == extrapolation_.ZERO)
     result = reshaped_tensor(native_result, (batch, out_channels, *conv_shape.names))
     return result</code></pre>
+</details>
+</dd>
+<dt id="phi.math.copy"><code class="name flex">
+<span>def <span class="ident">copy</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Copies the data buffer and encapsulating <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> object.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to be copied.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Copy of <code>value</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy(value: Tensor):
+    &#34;&#34;&#34;
+    Copies the data buffer and encapsulating `Tensor` object.
+
+    Args:
+        value: `Tensor` to be copied.
+
+    Returns:
+        Copy of `value`.
+    &#34;&#34;&#34;
+    if value._is_special:
+        warnings.warn(&#34;Tracing tensors cannot be copied.&#34;)
+        return value
+    return value._op1(lambda native: choose_backend(native).copy(native))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.cos"><code class="name flex">
@@ -2323,6 +2355,33 @@ Otherwise, checks that <code>value</code> is a valid tensor object and returns i
         return value</code></pre>
 </details>
 </dd>
+<dt id="phi.math.native_call"><code class="name flex">
+<span>def <span class="ident">native_call</span></span>(<span>f: Callable, *inputs, channels_last=None, channel_dim='vector')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def native_call(f: Callable, *inputs, channels_last=None, channel_dim=&#39;vector&#39;):
+    if channels_last is None:
+        backend = choose_backend_t(*inputs, prefer_default=True)
+        channels_last = backend.prefers_channels_last()
+    batch = combine_safe(*[i.shape.batch for i in inputs])
+    spatial = combine_safe(*[i.shape.spatial for i in inputs])
+    natives = []
+    for i in inputs:
+        groups = (batch, *i.shape.spatial.names, i.shape.channel) if channels_last else (batch, i.shape.channel, *i.shape.spatial.names)
+        natives.append(reshaped_native(i, groups))
+    output = f(*natives)
+    if isinstance(output, (tuple, list)):
+        raise NotImplementedError()
+    else:
+        groups = (batch, *spatial.names, channel_dim) if channels_last else (batch, channel_dim, *spatial.names)
+        return reshaped_tensor(output, groups)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.nonzero"><code class="name flex">
 <span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim='nonzero', index_dim='vector')</span>
 </code></dt>
@@ -3111,6 +3170,38 @@ These dimensions are not treated as batch dimensions.</dd>
         native_result = sum / count
         native_result = backend.where(count == 0, native_grid, native_result)
     return reshaped_tensor(native_result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.seed"><code class="name flex">
+<span>def <span class="ident">seed</span></span>(<span>seed: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sets the current seed of all backends and the built-in <code>random</code> package.</p>
+<p>Calling this function with a fixed value at the start of an application yields reproducible results
+as long as the same backend is used.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>seed</code></strong></dt>
+<dd>Seed to use.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def seed(seed: int):
+    &#34;&#34;&#34;
+    Sets the current seed of all backends and the built-in `random` package.
+
+    Calling this function with a fixed value at the start of an application yields reproducible results
+    as long as the same backend is used.
+
+    Args:
+        seed: Seed to use.
+    &#34;&#34;&#34;
+    for backend in BACKENDS:
+        backend.seed(seed)
+    import random
+    random.seed(0)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.set_global_precision"><code class="name flex">
@@ -6435,7 +6526,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
             assert gradient_solve.solver == solver
         self.solver_arguments: dict = solver_arguments
         &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
-        self.result: SolveResult or None = None
+        self.result: SolveResult = SolveResult(False, 0)
         &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
 
     @property
@@ -6670,7 +6761,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def __format__(self, format_spec):
         if self.shape.volume &gt; 1:
-            return NotImplemented
+            return self._summary_str()
         val = self.numpy()
         return format(val, format_spec)
 
@@ -6781,13 +6872,13 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x))
 
     def __and__(self, other):
-        return self._op2(other, lambda x, y: x &amp; y, lambda x, y: x &amp; y)
+        return self._op2(other, lambda x, y: x &amp; y, lambda x, y: choose_backend(x, y).and_(x, y))
 
     def __or__(self, other):
-        return self._op2(other, lambda x, y: x | y, lambda x, y: x | y)
+        return self._op2(other, lambda x, y: x | y, lambda x, y: choose_backend(x, y).or_(x, y))
 
     def __xor__(self, other):
-        return self._op2(other, lambda x, y: x ^ y, lambda x, y: x ^ y)
+        return self._op2(other, lambda x, y: x ^ y, lambda x, y: choose_backend(x, y).xor(x, y))
 
     def __mul__(self, other):
         return self._op2(other, lambda x, y: x * y, lambda x, y: choose_backend(x, y).mul(x, y))
@@ -6808,10 +6899,10 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self._op2(other, lambda x, y: divmod(y, x), lambda x, y: divmod(y, x))
 
     def __floordiv__(self, other):
-        return self._op2(other, lambda x, y: x // y, lambda x, y: x // y)
+        return self._op2(other, lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y))
 
     def __rfloordiv__(self, other):
-        return self._op2(other, lambda x, y: y // x, lambda x, y: y // x)
+        return self._op2(other, lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x))
 
     def __pow__(self, power, modulo=None):
         assert modulo is None
@@ -7742,6 +7833,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.concat" href="#phi.math.concat">concat</a></code></li>
 <li><code><a title="phi.math.convert" href="#phi.math.convert">convert</a></code></li>
 <li><code><a title="phi.math.convolve" href="#phi.math.convolve">convolve</a></code></li>
+<li><code><a title="phi.math.copy" href="#phi.math.copy">copy</a></code></li>
 <li><code><a title="phi.math.cos" href="#phi.math.cos">cos</a></code></li>
 <li><code><a title="phi.math.cross_product" href="#phi.math.cross_product">cross_product</a></code></li>
 <li><code><a title="phi.math.custom_gradient" href="#phi.math.custom_gradient">custom_gradient</a></code></li>
@@ -7787,6 +7879,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.minimize" href="#phi.math.minimize">minimize</a></code></li>
 <li><code><a title="phi.math.minimum" href="#phi.math.minimum">minimum</a></code></li>
 <li><code><a title="phi.math.native" href="#phi.math.native">native</a></code></li>
+<li><code><a title="phi.math.native_call" href="#phi.math.native_call">native_call</a></code></li>
 <li><code><a title="phi.math.nonzero" href="#phi.math.nonzero">nonzero</a></code></li>
 <li><code><a title="phi.math.normalize_to" href="#phi.math.normalize_to">normalize_to</a></code></li>
 <li><code><a title="phi.math.numpy" href="#phi.math.numpy">numpy</a></code></li>
@@ -7806,6 +7899,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.round" href="#phi.math.round">round</a></code></li>
 <li><code><a title="phi.math.sample_subgrid" href="#phi.math.sample_subgrid">sample_subgrid</a></code></li>
 <li><code><a title="phi.math.scatter" href="#phi.math.scatter">scatter</a></code></li>
+<li><code><a title="phi.math.seed" href="#phi.math.seed">seed</a></code></li>
 <li><code><a title="phi.math.set_global_precision" href="#phi.math.set_global_precision">set_global_precision</a></code></li>
 <li><code><a title="phi.math.shape" href="#phi.math.shape">shape</a></code></li>
 <li><code><a title="phi.math.shift" href="#phi.math.shift">shift</a></code></li>

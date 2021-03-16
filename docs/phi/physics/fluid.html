@@ -59,7 +59,6 @@ def make_incompressible(velocity: Grid,
       pressure: solved pressure field, `CenteredGrid`
       iterations: Number of iterations required to solve for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
-
     &#34;&#34;&#34;
     input_velocity = velocity
     active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=&#39;active&#39;)
@@ -242,7 +241,6 @@ Cells outside will be unaffected.</p>
       pressure: solved pressure field, `CenteredGrid`
       iterations: Number of iterations required to solve for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
-
     &#34;&#34;&#34;
     input_velocity = velocity
     active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=&#39;active&#39;)

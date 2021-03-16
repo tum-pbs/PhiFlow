@@ -612,6 +612,9 @@ The output of math operations has the same precision as its inputs.</p>
         impl_fun = getattr(self.__class__, feature)
         return impl_fun is not backend_fun
 
+    def prefers_channels_last(self) -&gt; bool:
+        raise NotImplementedError()
+
     @property
     def precision(self) -&gt; int:
         &#34;&#34;&#34; Short for math.backend.get_precision() &#34;&#34;&#34;
@@ -674,6 +677,9 @@ The output of math operations has the same precision as its inputs.</p>
             assert len(devices) &gt;= 1, f&#34;{self.name}: Cannot select &#39;{device} because no device of this type is available.&#34;
             device = devices[0]
         self._default_device = device
+
+    def seed(self, seed: int):
+        raise NotImplementedError()
 
     def is_tensor(self, x, only_native=False):
         &#34;&#34;&#34;
@@ -1026,8 +1032,7 @@ The output of math operations has the same precision as its inputs.</p>
         Depending on `mode`, performs scatter_update or scatter_add.
 
         Args:
-            base_grid: Tensor into which scatter values are inserted at indices.
-                Either tensor of shape (batch_size, spatial..., channels) or tuple of tensors (batch_size, spatial...)
+            base_grid: Tensor into which scatter values are inserted at indices. Tensor of shape (batch_size, spatial..., channels)
             indices: Tensor of shape (batch_size or 1, update_count, index_vector)
             values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
             mode: One of (&#39;update&#39;, &#39;add&#39;)
@@ -1242,7 +1247,23 @@ The output of math operations has the same precision as its inputs.</p>
 
     def mod(self, dividend, divisor):
         dividend, divisor = self.auto_cast(dividend, divisor)
-        return dividend % divisor</code></pre>
+        return dividend % divisor
+
+    def and_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a &amp; b
+
+    def or_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a | b
+
+    def xor(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a ^ b
+
+    def floordiv(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a // b</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1342,6 +1363,20 @@ def precision(self) -&gt; int:
 </summary>
 <pre><code class="python">def all(self, boolean_tensor, axis=None, keepdims=False):
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.and_"><code class="name flex">
+<span>def <span class="ident">and_</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def and_(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a &amp; b</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.any"><code class="name flex">
@@ -1964,6 +1999,20 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.floordiv"><code class="name flex">
+<span>def <span class="ident">floordiv</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def floordiv(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a // b</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.from_dlpack"><code class="name flex">
 <span>def <span class="ident">from_dlpack</span></span>(<span>self, capsule)</span>
 </code></dt>
@@ -2527,6 +2576,20 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.or_"><code class="name flex">
+<span>def <span class="ident">or_</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def or_(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a | b</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.pad"><code class="name flex">
 <span>def <span class="ident">pad</span></span>(<span>self, value, pad_width, mode: str = 'constant', constant_values=0)</span>
 </code></dt>
@@ -2585,6 +2648,19 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <pre><code class="python">def pow(self, base, exp):
     base, exp = self.auto_cast(base, exp)
     return base ** exp</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.prefers_channels_last"><code class="name flex">
+<span>def <span class="ident">prefers_channels_last</span></span>(<span>self) ‑> bool</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def prefers_channels_last(self) -&gt; bool:
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.prod"><code class="name flex">
@@ -2701,8 +2777,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>base_grid</code></strong></dt>
-<dd>Tensor into which scatter values are inserted at indices.
-Either tensor of shape (batch_size, spatial&hellip;, channels) or tuple of tensors (batch_size, spatial&hellip;)</dd>
+<dd>Tensor into which scatter values are inserted at indices. Tensor of shape (batch_size, spatial&hellip;, channels)</dd>
 <dt><strong><code>indices</code></strong></dt>
 <dd>Tensor of shape (batch_size or 1, update_count, index_vector)</dd>
 <dt><strong><code>values</code></strong></dt>
@@ -2721,8 +2796,7 @@ Either tensor of shape (batch_size, spatial&hellip;, channels) or tuple of tenso
     Depending on `mode`, performs scatter_update or scatter_add.
 
     Args:
-        base_grid: Tensor into which scatter values are inserted at indices.
-            Either tensor of shape (batch_size, spatial..., channels) or tuple of tensors (batch_size, spatial...)
+        base_grid: Tensor into which scatter values are inserted at indices. Tensor of shape (batch_size, spatial..., channels)
         indices: Tensor of shape (batch_size or 1, update_count, index_vector)
         values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
         mode: One of (&#39;update&#39;, &#39;add&#39;)
@@ -2731,6 +2805,19 @@ Either tensor of shape (batch_size, spatial&hellip;, channels) or tuple of tenso
         Copy of base_grid with values at `indices` updated by `values`.
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.seed"><code class="name flex">
+<span>def <span class="ident">seed</span></span>(<span>self, seed: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def seed(self, seed: int):
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.set_default_device"><code class="name flex">
@@ -3177,6 +3264,20 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <pre><code class="python">def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
                swap_memory=False, name=None, maximum_iterations=None):
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.xor"><code class="name flex">
+<span>def <span class="ident">xor</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def xor(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a ^ b</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.zeros"><code class="name flex">
@@ -3847,7 +3948,7 @@ def retime(self):
             assert gradient_solve.solver == solver
         self.solver_arguments: dict = solver_arguments
         &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
-        self.result: SolveResult or None = None
+        self.result: SolveResult = SolveResult(False, 0)
         &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
 
     @property
@@ -3958,10 +4059,11 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <ul>
 <li>
 <h4><code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="phi.math.backend.Backend.abs" href="#phi.math.backend.Backend.abs">abs</a></code></li>
 <li><code><a title="phi.math.backend.Backend.add" href="#phi.math.backend.Backend.add">add</a></code></li>
 <li><code><a title="phi.math.backend.Backend.all" href="#phi.math.backend.Backend.all">all</a></code></li>
+<li><code><a title="phi.math.backend.Backend.and_" href="#phi.math.backend.Backend.and_">and_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.any" href="#phi.math.backend.Backend.any">any</a></code></li>
 <li><code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">as_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
@@ -3993,6 +4095,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.flip" href="#phi.math.backend.Backend.flip">flip</a></code></li>
 <li><code><a title="phi.math.backend.Backend.float_type" href="#phi.math.backend.Backend.float_type">float_type</a></code></li>
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.floordiv" href="#phi.math.backend.Backend.floordiv">floordiv</a></code></li>
 <li><code><a title="phi.math.backend.Backend.from_dlpack" href="#phi.math.backend.Backend.from_dlpack">from_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.functional_gradient" href="#phi.math.backend.Backend.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
@@ -4026,9 +4129,11 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.numpy" href="#phi.math.backend.Backend.numpy">numpy</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ones" href="#phi.math.backend.Backend.ones">ones</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ones_like" href="#phi.math.backend.Backend.ones_like">ones_like</a></code></li>
+<li><code><a title="phi.math.backend.Backend.or_" href="#phi.math.backend.Backend.or_">or_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.pad" href="#phi.math.backend.Backend.pad">pad</a></code></li>
 <li><code><a title="phi.math.backend.Backend.pow" href="#phi.math.backend.Backend.pow">pow</a></code></li>
 <li><code><a title="phi.math.backend.Backend.precision" href="#phi.math.backend.Backend.precision">precision</a></code></li>
+<li><code><a title="phi.math.backend.Backend.prefers_channels_last" href="#phi.math.backend.Backend.prefers_channels_last">prefers_channels_last</a></code></li>
 <li><code><a title="phi.math.backend.Backend.prod" href="#phi.math.backend.Backend.prod">prod</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_normal" href="#phi.math.backend.Backend.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
@@ -4038,6 +4143,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.reshape" href="#phi.math.backend.Backend.reshape">reshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.round" href="#phi.math.backend.Backend.round">round</a></code></li>
 <li><code><a title="phi.math.backend.Backend.scatter" href="#phi.math.backend.Backend.scatter">scatter</a></code></li>
+<li><code><a title="phi.math.backend.Backend.seed" href="#phi.math.backend.Backend.seed">seed</a></code></li>
 <li><code><a title="phi.math.backend.Backend.set_default_device" href="#phi.math.backend.Backend.set_default_device">set_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.shape" href="#phi.math.backend.Backend.shape">shape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sign" href="#phi.math.backend.Backend.sign">sign</a></code></li>
@@ -4063,6 +4169,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.variable" href="#phi.math.backend.Backend.variable">variable</a></code></li>
 <li><code><a title="phi.math.backend.Backend.where" href="#phi.math.backend.Backend.where">where</a></code></li>
 <li><code><a title="phi.math.backend.Backend.while_loop" href="#phi.math.backend.Backend.while_loop">while_loop</a></code></li>
+<li><code><a title="phi.math.backend.Backend.xor" href="#phi.math.backend.Backend.xor">xor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.zeros" href="#phi.math.backend.Backend.zeros">zeros</a></code></li>
 <li><code><a title="phi.math.backend.Backend.zeros_like" href="#phi.math.backend.Backend.zeros_like">zeros_like</a></code></li>
 </ul>
