@@ -69,10 +69,10 @@ class Sphere(Geometry):
         return self
 
     def __eq__(self, other):
-        return isinstance(other, Sphere) \
-               and self._shape == other.shape \
-               and math.all(self._radius == other.radius) \
-               and math.all(self._center == other.center)
+        return self is other or (isinstance(other, Sphere)
+                                 and self._shape == other.shape
+                                 and (self._radius is other.radius or math.all(self._radius == other.radius))
+                                 and (self._center is other.center or math.all(self._center == other.center)))
 
     def __characteristics__(self) -> Dict[str, math.Tensor]:
         return {

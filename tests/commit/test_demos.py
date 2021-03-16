@@ -19,7 +19,10 @@ BACKENDS = [b for b in BACKENDS if b.name != 'Jax']
 def validate_fields(app):
     for name in app.fieldnames:
         value = app.get_field(name)
-        assert isinstance(value, (np.ndarray, Field)) or value is None, f"Field '{name}' has an invalid value: {value}"
+        assert isinstance(value, Field) \
+               or value is None \
+               or backend.choose_backend(value, raise_error=False) is not None, \
+            f"Field '{name}' has an invalid value: {value}"
 
 
 class PerformModelTests(display.AppDisplay):

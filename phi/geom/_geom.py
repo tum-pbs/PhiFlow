@@ -194,7 +194,24 @@ class Geometry:
         return _InvertedGeometry(self)
 
     def __eq__(self, other):
+        """
+        Slow equality check.
+        Unlike `==`, this method compares all tensor elements to check whether they are equal.
+        Use `==` for a faster check which only checks whether the referenced tensors are the same.
+        """
         raise NotImplementedError(self.__class__)
+
+    # def fast_equals(self, other):
+    #     """
+    #     Quick equality check.
+    #     This method may returns `False` even if `other` equals `self`.
+    #
+    #     The `fast_equals()` check does not compare all tensor elements but may merely check whether the referenced tensors are the same.
+    #
+    #     See Also:
+    #         `equals()`
+    #     """
+    #     raise NotImplementedError(self.__class__)
 
     def __ne__(self, other):
         return not self == other

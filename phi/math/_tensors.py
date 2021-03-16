@@ -160,7 +160,7 @@ class Tensor:
 
     def __format__(self, format_spec):
         if self.shape.volume > 1:
-            return NotImplemented
+            return self._summary_str()
         val = self.numpy()
         return format(val, format_spec)
 
