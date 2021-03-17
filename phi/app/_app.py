@@ -17,12 +17,18 @@ from phi.field import CenteredGrid, Field, StaggeredGrid, Scene
 from phi.physics._world import StateProxy, world
 
 from ._control import Action, Control
-from ._value import (EditableBool, EditableFloat, EditableInt, EditableString, EditableValue)
+from ._value import (
+    EditableBool,
+    EditableFloat,
+    EditableInt,
+    EditableString,
+    EditableValue,
+)
 
 
 def synchronized_method(method):
     outer_lock = threading.Lock()
-    lock_name = '__' + method.__name__ + '_lock' + '__'
+    lock_name = "__" + method.__name__ + "_lock" + "__"
 
     def sync_method(self, *args, **kws):
         with outer_lock:
@@ -36,7 +42,6 @@ def synchronized_method(method):
 
 
 class TimeDependentField(object):
-
     def __init__(self, name, generator):
         self.name = name
         self.generator = generator
@@ -63,18 +68,20 @@ class App(object):
     See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
     """
 
-    def __init__(self,
-                 name=None,
-                 subtitle='',
-                 fields=None,
-                 stride=None,
-                 base_dir='~/phi/data/',
-                 summary=None,
-                 custom_properties=None,
-                 target_scene=None,
-                 objects_to_save=None,
-                 framerate=None,
-                 dt=1.0):
+    def __init__(
+        self,
+        name=None,
+        subtitle="",
+        fields=None,
+        stride=None,
+        base_dir="~/phi/data/",
+        summary=None,
+        custom_properties=None,
+        target_scene=None,
+        objects_to_save=None,
+        framerate=None,
+        dt=1.0,
+    ):
         self.start_time = time.time()
         """ Time of creation (`App` constructor invocation) """
         self.name = name if name is not None else self.__class__.__name__
@@ -84,7 +91,10 @@ class App(object):
         self.summary = summary if summary else name
         """ The scene directory is derived from the summary. Defaults to `name`. """
         if fields:
-            self.fields = {name: TimeDependentField(name, generator) for (name, generator) in fields.items()}
+            self.fields = {
+                name: TimeDependentField(name, generator)
+                for (name, generator) in fields.items()
+            }
         else:
             self.fields = {}
         self.message = None
@@ -100,15 +110,19 @@ class App(object):
         """ Wheter `prepare()` has been called. """
         self.current_action = None
         self._pause = False
-        self.detect_fields = 'default'  # False, True, 'default'
+        self.detect_fields = "default"  # False, True, 'default'
         self.world = world
         self._dt = dt.initial_value if isinstance(dt, EditableValue) else dt
         if isinstance(dt, EditableValue):
             self._controls.append(Control(self, "dt", dt))
         self.min_dt = self._dt
-        self.dt_history = {}  # sparse representation of time when new timestep was set (for the next step)
+        self.dt_history = (
+            {}
+        )  # sparse representation of time when new timestep was set (for the next step)
         # Setup directory & Logging
-        self.objects_to_save = [self.__class__] if objects_to_save is None else list(objects_to_save)
+        self.objects_to_save = (
+            [self.__class__] if objects_to_save is None else list(objects_to_save)
+        )
         self.base_dir = os.path.expanduser(base_dir)
         if not target_scene:
             self.new_scene()
@@ -116,21 +130,21 @@ class App(object):
         else:
             self.scene = target_scene
             self.uses_existing_scene = True
-        if not isfile(self.scene.subpath('info.log')):
-            log_file = self.log_file = self.scene.subpath('info.log')
+        if not isfile(self.scene.subpath("info.log")):
+            log_file = self.log_file = self.scene.subpath("info.log")
         else:
             index = 2
             while True:
-                log_file = self.scene.subpath('info_%d.log' % index)
+                log_file = self.scene.subpath("info_%d.log" % index)
                 if not isfile(log_file):
                     break
                 else:
                     index += 1
         # Message logging
-        logFormatter = logging.Formatter('%(message)s (%(levelname)s), %(asctime)sn\n')
+        logFormatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
-        customLogger = logging.Logger('app', logging.DEBUG)
+        customLogger = logging.Logger("app", logging.DEBUG)
         fileHandler = logging.FileHandler(log_file)
         fileHandler.setFormatter(logFormatter)
         customLogger.addHandler(fileHandler)
@@ -151,7 +165,7 @@ class App(object):
         self.state = None
         self.step_function = None
         # Initial log message
-        self.info('App created. Scene directory is %s' % self.scene.path)
+        self.info("App created. Scene directory is %s" % self.scene.path)
 
     @property
     def dt(self):
@@ -183,7 +197,8 @@ class App(object):
 
         """
         self.state = initial_state
-        self.step_function = step_function
+        if step_function is not None:
+            self.step_function = step_function
         if dt is not None:
             self.dt = dt
         if show:
@@ -191,7 +206,9 @@ class App(object):
                 for field_name in show:
                     self.add_field(field_name, lambda n=field_name: self.state[n])
                 else:
-                    warnings.warn('Ignoring show argument because App is already prepared.')
+                    warnings.warn(
+                        "Ignoring show argument because App is already prepared."
+                    )
 
     @property
     def frame(self):
@@ -202,7 +219,9 @@ class App(object):
         if count is None:
             count = 1 if self.world.batch_size is None else self.world.batch_size
         if count > 1:
-            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
+            self.scene = Scene.create(
+                os.path.join(self.base_dir, self.scene_summary()), batch=count
+            )
         else:
             self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))
 
@@ -237,8 +256,11 @@ class App(object):
             world.step(dt=dt)
         else:
             new_state = self.step_function(dt=dt, **self.state)
-            assert isinstance(self.state, dict), 'step_function must return a dict'
-            assert new_state.keys() == self.state.keys(), 'step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s' % (self.state.keys(), new_state.keys())
+            assert isinstance(self.state, dict), "step_function must return a dict"
+            assert new_state.keys() == self.state.keys(), (
+                "step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s"
+                % (self.state.keys(), new_state.keys())
+            )
             self.state = new_state
         self.time += dt
 
@@ -255,7 +277,10 @@ class App(object):
         If a generator function was registered as the field data, this method may invoke the function which may take some time to complete.
         """
         if fieldname not in self.fields:
-            raise KeyError('Field %s not declared. Available fields are %s' % (fieldname, self.fields.keys()))
+            raise KeyError(
+                "Field %s not declared. Available fields are %s"
+                % (fieldname, self.fields.keys())
+            )
         return self.fields[fieldname].get(self._invalidation_counter)
 
     def add_field(self, name: str, value):
@@ -273,18 +298,23 @@ class App(object):
           name: unique human-readable name
           value: data to display
         """
-        assert not self.prepared, 'Cannot add fields to a prepared model'
+        assert not self.prepared, "Cannot add fields to a prepared model"
         if isinstance(value, StateProxy):
+
             def current_state():
                 return value.state
+
             generator = current_state
         elif callable(value):
             generator = value
         else:
-            assert isinstance(value, (np.ndarray, Field, float, int, math.Tensor)), 'Unsupported type for field "%s": %s' % (name, type(value))
+            assert isinstance(
+                value, (np.ndarray, Field, float, int, math.Tensor)
+            ), 'Unsupported type for field "%s": %s' % (name, type(value))
 
             def get_constant():
                 return value
+
             generator = get_constant
         self.fields[name] = TimeDependentField(name, generator)
 
@@ -303,8 +333,8 @@ class App(object):
         value = float(math.mean(value))
         if name not in self._scalars:
             self._scalars[name] = []
-            path = self.scene.subpath(f'log_{name}.txt')
-            self._scalar_streams[name] = open(path, 'w')
+            path = self.scene.subpath(f"log_{name}.txt")
+            self._scalar_streams[name] = open(path, "w")
         self._scalars[name].append((self.frame, value))
         self._scalar_streams[name].write(f"{value}\n")
         self._scalar_streams[name].flush()
@@ -334,17 +364,17 @@ class App(object):
         self.invalidate()
         message_after = self.message
         if message_before == message_after:
-            if self.message is None or self.message == '':
+            if self.message is None or self.message == "":
                 self.message = display_name(action.name)
             else:
-                self.message += ' | ' + display_name(action.name)
+                self.message += " | " + display_name(action.name)
 
     @property
     def traits(self):
         return self._traits
 
     def add_trait(self, trait):
-        assert not self.prepared, 'Cannot add traits to a prepared model'
+        assert not self.prepared, "Cannot add traits to a prepared model"
         self._traits.append(trait)
 
     @property
@@ -369,15 +399,17 @@ class App(object):
         """
         if self.prepared:
             return
-        logging.info('Gathering model data...')
+        logging.info("Gathering model data...")
         # Controls
         for name in self.__dict__:
             val = getattr(self, name)
             editable_value = None
             if isinstance(val, EditableValue):
                 editable_value = val
-                setattr(self, name, val.initial_value)  # Replace EditableValue with initial value
-            elif name.startswith('value_'):
+                setattr(
+                    self, name, val.initial_value
+                )  # Replace EditableValue with initial value
+            elif name.startswith("value_"):
                 value_name = display_name(name[6:])
                 dtype = type(val)
                 if dtype == bool:
@@ -392,8 +424,16 @@ class App(object):
                 self._controls.append(Control(self, name, editable_value))
         # Actions
         for method_name in dir(self):
-            if method_name.startswith('action_') and callable(getattr(self, method_name)):
-                self._actions.append(Action(display_name(method_name[7:]), getattr(self, method_name), method_name))
+            if method_name.startswith("action_") and callable(
+                getattr(self, method_name)
+            ):
+                self._actions.append(
+                    Action(
+                        display_name(method_name[7:]),
+                        getattr(self, method_name),
+                        method_name,
+                    )
+                )
         # Default fields
         if len(self.fields) == 0:
             self._add_default_fields()
@@ -415,12 +455,21 @@ class App(object):
         def add_default_field(trace):
             field = trace.value
             if isinstance(field, (CenteredGrid, StaggeredGrid)):
+
                 def field_generator():
                     world_state = self.world.state
                     return trace.find_in(world_state)
+
                 self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
-        struct.map(add_default_field, self.world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True, content_type=struct.INVALID)
+
+        struct.map(
+            add_default_field,
+            self.world.state,
+            leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
+            trace=True,
+            content_type=struct.INVALID,
+        )
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
@@ -439,29 +488,27 @@ class App(object):
             app_name = os.path.basename(inspect.getfile(self.__class__))
             app_path = inspect.getabsfile(self.__class__)
         except TypeError:
-            app_name = app_path = ''
+            app_name = app_path = ""
         properties = {
-            'instigator': 'App',
-            'traits': self.traits,
-            'app': str(app_name),
-            'app_path': str(app_path),
-            'name': self.name,
-            'description': self.subtitle,
-            'all_fields': self.fieldnames,
-            'actions': [action.name for action in self.actions],
-            'controls': [{control.name: control.value} for control in self.controls],
-            'summary': self.scene_summary(),
-            'steps': self.steps,
-            'time': self.time,
-            'world': struct.properties_dict(self.world.state)
+            "instigator": "App",
+            "traits": self.traits,
+            "app": str(app_name),
+            "app_path": str(app_path),
+            "name": self.name,
+            "description": self.subtitle,
+            "all_fields": self.fieldnames,
+            "actions": [action.name for action in self.actions],
+            "controls": [{control.name: control.value} for control in self.controls],
+            "summary": self.scene_summary(),
+            "steps": self.steps,
+            "time": self.time,
+            "world": struct.properties_dict(self.world.state),
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties
 
     def settings_str(self):
-        return ''.join([
-            ' ' + str(control) for control in self.controls
-        ])
+        return "".join([" " + str(control) for control in self.controls])
 
     def custom_properties(self):
         return self._custom_properties
@@ -498,21 +545,22 @@ class App(object):
     def show(self, **config):
         warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
         from ._display import show
+
         show(self, **config)
 
     @property
     def status(self):
-        pausing = '/Pausing' if (self._pause and self.current_action) else ''
-        action = self.current_action if self.current_action else 'Idle'
-        message = f' - {self.message}' if self.message else ''
-        return f'{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}'
+        pausing = "/Pausing" if (self._pause and self.current_action) else ""
+        action = self.current_action if self.current_action else "Idle"
+        message = f" - {self.message}" if self.message else ""
+        return f"{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}"
 
     def format_time(self, time):
         commas = int(np.ceil(np.abs(np.log10(self.min_dt))))
         return ("{time:," + f".{commas}f" + "}").format(time=time)
 
     def run_step(self, framerate=None):
-        self.current_action = 'Running'
+        self.current_action = "Running"
         starttime = time.time()
         try:
             self._progress()
@@ -520,15 +568,20 @@ class App(object):
                 duration = time.time() - starttime
                 rest = 1.0 / framerate - duration
                 if rest > 0:
-                    self.current_action = 'Waiting'
+                    self.current_action = "Waiting"
                     time.sleep(rest)
         except Exception as e:
-            self.info('Error during %s.step() \n %s: %s' % (type(self).__name__, type(e).__name__, e))
+            self.info(
+                "Error during %s.step() \n %s: %s"
+                % (type(self).__name__, type(e).__name__, e)
+            )
             self.logger.exception(e)
         finally:
             self.current_action = None
 
-    def play(self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
+    def play(
+        self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False
+    ):
         """
         Run a number of steps.
 
@@ -586,8 +639,9 @@ def display_name(python_name):
     n = list(python_name)
     n[0] = n[0].upper()
     for i in range(1, len(n)):
-        if n[i] == '_':
-            n[i] = ' '
+        if n[i] == "_":
+            n[i] = " "
             if len(n) > i + 1:
                 n[i + 1] = n[i + 1].upper()
-    return ''.join(n)
+    return "".join(n)
+
