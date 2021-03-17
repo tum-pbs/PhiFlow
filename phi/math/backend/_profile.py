@@ -427,6 +427,12 @@ class ProfilingBackend:
     def __repr__(self):
         return f"profile[{self._backend}]"
 
+    def __enter__(self):
+        _DEFAULT.append(self)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _DEFAULT.pop(-1)
+
 
 _PROFILE = []
 

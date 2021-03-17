@@ -240,11 +240,15 @@ class TFBackend(Backend):
         return tf.floor(x)
 
     def max(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = tf.stack(x)
         if x.dtype == tf.bool:
             return tf.cast(tf.reduce_max(tf.cast(x, tf.uint8), axis=axis, keepdims=keepdims), tf.bool)  # reduce_max allows no bool
         return tf.reduce_max(x, axis=axis, keepdims=keepdims)
 
     def min(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = tf.stack(x)
         if x.dtype == tf.bool:
             return tf.cast(tf.reduce_min(tf.cast(x, tf.uint8), axis=axis, keepdims=keepdims), tf.bool)  # reduce_min allows no bool
         return tf.reduce_min(x, axis=axis, keepdims=keepdims)

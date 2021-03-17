@@ -198,8 +198,11 @@ def shift(x: Tensor,
     for offset in offsets:
         components = []
         for dimension in dims:
-            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower, -pad_upper) for dim in dims}
-            slices = {dim: slice(sl.start, sl.stop if sl.stop < 0 else None) for dim, sl in slices.items()}  # replace stop=0 by stop=None
+            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower,
+                                                                                                         -pad_upper) for
+                      dim in dims}
+            slices = {dim: slice(sl.start, sl.stop if sl.stop < 0 else None) for dim, sl in
+                      slices.items()}  # replace stop=0 by stop=None
             components.append(x[slices])
         offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors
@@ -224,8 +227,10 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     """
+
     def binarize(x):
         return math.divide_no_nan(x, x)
+
     distance_cells = min(distance_cells, max(values.shape))
     for _ in range(distance_cells):
         valid = binarize(valid)
@@ -244,12 +249,12 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
 
 # Gradient
 
-def gradient(grid: Tensor,
-             dx: float or int = 1,
-             difference: str = 'central',
-             padding: Extrapolation or None = extrapolation.BOUNDARY,
-             dims: tuple or None = None,
-             stack_dim: str = 'spatial_gradient'):
+def spatial_gradient(grid: Tensor,
+                     dx: float or int = 1,
+                     difference: str = 'central',
+                     padding: Extrapolation or None = extrapolation.BOUNDARY,
+                     dims: tuple or None = None,
+                     stack_dim: str = 'spatial_gradient'):
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -345,7 +350,7 @@ def fourier_laplace(grid: Tensor,
     """
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
-    fft_laplace = -(2 * np.pi)**2 * k_squared
+    fft_laplace = -(2 * np.pi) ** 2 * k_squared
     result = math.real(math.ifft(frequencies * fft_laplace ** times))
     return math.cast(result / wrap(dx) ** 2, grid.dtype)
 
@@ -366,7 +371,7 @@ def fourier_poisson(grid: Tensor,
     """
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
-    fft_laplace = -(2 * np.pi)**2 * k_squared
+    fft_laplace = -(2 * np.pi) ** 2 * k_squared
     # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
     result = math.real(math.ifft(math.divide_no_nan(frequencies, math.to_complex(fft_laplace ** times))))
     return math.cast(result * wrap(dx) ** 2, grid.dtype)
@@ -475,11 +480,11 @@ def poisson_bracket(grid1, grid2):
         return _periodic_2d_arakawa_poisson_bracket(grid1.values, grid2.values, grid1.dx)
     else:
         raise NotImplementedError("\n".join[
-            "Not implemented for:"
-            f"ranks ({grid1.rank}, {grid2.rank}) != 2",
-            f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
-            f"dx uniform ({grid1.dx}, {grid2.dx})"
-        ])
+                                      "Not implemented for:"
+                                      f"ranks ({grid1.rank}, {grid2.rank}) != 2",
+                                      f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
+                                      f"dx uniform ({grid1.dx}, {grid2.dx})"
+                                  ])
 
 
 def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: float):
@@ -508,4 +513,4 @@ def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: f
             + zeta.x[2:].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[1:-1].y[0:-2])
             + zeta.x[2:].y[2:] * (psi.x[1:-1].y[2:] - psi.x[2:].y[1:-1])
             - zeta.x[0:-2].y[2:] * (psi.x[1:-1].y[2:] - psi.x[0:-2].y[1:-1])
-            - zeta.x[0:-2].y[0:-2] * (psi.x[0:-2].y[1:-1] - psi.x[1:-1].y[0:-2])) / (12 * dx**2)
+            - zeta.x[0:-2].y[0:-2] * (psi.x[0:-2].y[1:-1] - psi.x[1:-1].y[0:-2])) / (12 * dx ** 2)

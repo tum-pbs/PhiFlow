@@ -39,8 +39,9 @@ def spatial_gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='
         spatial_gradient field of type `type`.
 
     """
+    assert isinstance(field, Grid)
     if type == CenteredGrid:
-        values = math.gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
+        values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
         return CenteredGrid(values, field.bounds, field.extrapolation.spatial_gradient())
     elif type == StaggeredGrid:
         assert stack_dim == 'vector'
@@ -123,7 +124,7 @@ def divergence(field: Grid) -> CenteredGrid:
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).spatial_gradient[0]
+            div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).spatial_gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
         return CenteredGrid(data, field.box, field.extrapolation.spatial_gradient())

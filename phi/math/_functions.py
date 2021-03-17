@@ -152,6 +152,7 @@ def reshaped_native(value: Tensor,
     Returns:
         Native tensor with dimensions matching `groups`.
     """
+    assert isinstance(value, Tensor), f"value must be a Tensor but got {type(value)}"
     order = []
     for i, group in enumerate(groups):
         if isinstance(group, Shape):
