@@ -430,23 +430,6 @@ class JaxBackend(Backend):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def sparse_tensor(self, indices, values, shape):
-        raise NotImplementedError()  # TODO
-        # if not isinstance(indices, (tuple, list)):
-        #     indices = self.unstack(indices, -1)
-        # if len(indices) == 2:
-        #     return scipy.sparse.csc_matrix((values, indices), shape=shape)
-        # else:
-        #     raise NotImplementedError(f"len(indices) = {len(indices)} not supported. Only (2) allowed.")
-
-    def coordinates(self, tensor, unstack_coordinates=False):
-        raise NotImplementedError()  # TODO
-        # if scipy.sparse.issparse(tensor):
-        #     coo = tensor.tocoo()
-        #     return (coo.row, coo.col), coo.data
-        # else:
-        #     raise NotImplementedError("Only sparse tensors supported.")
-
     def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]

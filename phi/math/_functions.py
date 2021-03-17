@@ -1654,10 +1654,11 @@ def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_
 def linear_function(f: Callable, jit_compile=True) -> Callable:
     if not jit_compile:
         return LinearFunction(f)
-    if not default_backend().supports(Backend.sparse_tensor):
-        warnings.warn(f"Cannot compile linear function with {default_backend()} because sparse matrices are not supported.")
+    backend = default_backend()
+    if not backend.supports(Backend.sparse_tensor):
+        warnings.warn(f"Cannot compile linear function with {backend} because sparse matrices are not supported.")
         return LinearFunction(f)
-    return JitLinearFunction(f, default_backend())
+    return JitLinearFunction(f, backend)
 
 
 class LinearFunction:
@@ -1696,7 +1697,7 @@ class JitLinearFunction(LinearFunction):
                 self._cached_coo = self._trace_result.build_sparse_coordinate_matrix()
                 build_time = time.perf_counter() - build_time
             except NotImplementedError as err:
-                raise AssertionError(f"Failed to build sparse matrix, using function directly. {err}")
+                raise AssertionError(f"Failed to build sparse matrix for linear function", err)
             if get_current_profile():
                 get_current_profile().add_external_message(
                     f"Sparse Linear track: {round(trace_time * 1000)} ms, \tbuild: {round(build_time * 1000)} ms")
