@@ -89,8 +89,8 @@ class TestDemos(TestCase):
     def test_profile_navier_stokes(self):
         demo_run('profile_navier_stokes')
 
-    def test_rotating_bar(self):
-        demo_run('rotating_bar')
+    # def test_rotating_bar(self):
+    #     demo_run('rotating_bar')
 
     def test_smoke_plume(self):
         demo_run('smoke_plume')
