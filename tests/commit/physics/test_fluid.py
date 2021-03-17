@@ -92,7 +92,7 @@ class FluidTest(TestCase):
             with backend:
                 velocity = param = velocity0.with_(values=math.tensor(velocity0.values))
                 with math.record_gradients(param.values):
-                    velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN, solve_params=math.LinearSolve('CG', 1e-5, 0))
+                    velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN)
                     loss = field.l2_loss(velocity)
                     assert math.isfinite(loss)
                     grad = math.gradients(loss, param.values)

@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi import math, field
-from phi.math import extrapolation
+from phi.math import extrapolation, SolveNotConverged
 from phi.physics import Domain, diffuse, PERIODIC, OPEN
 
 
@@ -54,6 +54,6 @@ class TestDiffusion(TestCase):
             implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=10)
             print(implicit.values)
             field.assert_close(0 <= implicit <= 1.0001, True)
-        except AssertionError as err:
+        except SolveNotConverged as err:
             print(err)
             pass  # solve did not converge

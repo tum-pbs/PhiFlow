@@ -4,7 +4,7 @@ Functions to simulate diffusion processes on `phi.field.Field` objects.
 import warnings
 
 from phi import math
-from phi.field import ConstantField, Grid, Field, laplace, solve
+from phi.field import ConstantField, Grid, Field, laplace, solve, linear_function
 from phi.field._field_math import FieldType, GridType
 
 
@@ -40,13 +40,13 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params: math.Solve = math.LinearSolve(None, 1e-5, 0)) -> FieldType:
+             solve_params=math.Solve('CG', 1e-5, 0)) -> FieldType:
     """
     Diffusion by solving a linear system of equations.
 
     Args:
         order: Order of method, 1=first order. This translates to `substeps` for the explicit sharpening.
-        field:
+        field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         solve_params:
@@ -54,13 +54,11 @@ def implicit(field: FieldType,
     Returns:
         Diffused field of same type as `field`.
     """
+    @linear_function
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    converged, diffused, iterations = solve(sharpen, field, field, solve_params=solve_params)
-    if math.all_available(converged):
-        assert converged, f"Implicit diffusion solve did not converge after {iterations} iterations. Last estimate: {diffused.values}"
-    return diffused
+    return solve(sharpen, y=field, x0=field, solve_params=solve_params)
 
 
 def fourier(field: GridType,

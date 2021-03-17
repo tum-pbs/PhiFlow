@@ -40,7 +40,7 @@ from ._backend import (
     convert,
 )
 from ._numpy_backend import NUMPY_BACKEND
-from ._optim import Solve, LinearSolve
+from ._optim import Solve, SolveResult, SolveNotConverged
 from ._profile import Profile, get_current_profile, profile, profile_function
 
 
@@ -1137,7 +1137,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34; Optional. &#34;&#34;&#34;
         return NotImplemented
 
-    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
         &#34;&#34;&#34;
         Solve the system of linear equations
           A * x = y
@@ -1639,7 +1639,7 @@ This method may be used to register internal calls with the profiler.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params: phi.math.backend._optim.LinearSolve, callback=None)</span>
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params: phi.math.backend._optim.Solve, callback=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solve the system of linear equations
@@ -1666,7 +1666,7 @@ A * x = y</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
+<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
     &#34;&#34;&#34;
     Solve the system of linear equations
       A * x = y
@@ -3488,48 +3488,6 @@ def precision(self):
 </dd>
 </dl>
 </dd>
-<dt id="phi.math.backend.LinearSolve"><code class="flex name class">
-<span>class <span class="ident">LinearSolve</span></span>
-<span>(</span><span>solver: str, relative_tolerance, absolute_tolerance, max_iterations: int = 1000, bake: str = 'sparse', gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of linear equations.</p>
-<p>Extends <code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code> by the property <code>bake</code> which determines whether and how the equations are stored.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class LinearSolve(Solve):
-    &#34;&#34;&#34;
-    Specifies parameters and stopping criteria for solving a system of linear equations.
-
-    Extends `Solve` by the property `bake` which determines whether and how the equations are stored.
-    &#34;&#34;&#34;
-
-    def __init__(self,
-                 solver: str or None,
-                 relative_tolerance,
-                 absolute_tolerance,
-                 max_iterations: int = 1000,
-                 bake: str = &#39;sparse&#39;,
-                 gradient_solve: &#39;Solve&#39; or None = None,
-                 **solver_arguments):
-        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, gradient_solve, **solver_arguments)
-        self.bake = bake
-        &#34;&#34;&#34; Baking method: None to use original function, `&#39;sparse&#39;` to create a sparse matrix. &#34;&#34;&#34;</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>phi.math.backend._optim.Solve</li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.math.backend.LinearSolve.bake"><code class="name">var <span class="ident">bake</span></code></dt>
-<dd>
-<div class="desc"><p>Baking method: None to use original function, <code>'sparse'</code> to create a sparse matrix.</p></div>
-</dd>
-</dl>
-</dd>
 <dt id="phi.math.backend.NoBackendFound"><code class="flex name class">
 <span>class <span class="ident">NoBackendFound</span></span>
 <span>(</span><span>msg)</span>
@@ -3929,13 +3887,14 @@ def retime(self):
     &#34;&#34;&#34;
 
     def __init__(self,
-                 solver: str or None,
+                 solver: str,
                  relative_tolerance: float,
                  absolute_tolerance: float,
                  max_iterations: int = 1000,
                  gradient_solve: &#39;Solve&#39; or None = None,
                  **solver_arguments):
-        self.solver = solver
+        assert isinstance(solver, str)
+        self.solver: str = solver
         &#34;&#34;&#34; (Optional) Name of method to use. &#34;&#34;&#34;
         self.relative_tolerance: float = relative_tolerance
         &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
@@ -3948,7 +3907,7 @@ def retime(self):
             assert gradient_solve.solver == solver
         self.solver_arguments: dict = solver_arguments
         &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
-        self.result: SolveResult = SolveResult(False, 0)
+        self.result: SolveResult = SolveResult(0)
         &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
 
     @property
@@ -3963,10 +3922,6 @@ def retime(self):
             self._gradient_solve = copy(self)
         return self._gradient_solve</code></pre>
 </details>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li>phi.math.backend._optim.LinearSolve</li>
-</ul>
 <h3>Instance variables</h3>
 <dl>
 <dt id="phi.math.backend.Solve.absolute_tolerance"><code class="name">var <span class="ident">absolute_tolerance</span></code></dt>
@@ -4005,7 +3960,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </dd>
 <dt id="phi.math.backend.Solve.result"><code class="name">var <span class="ident">result</span></code></dt>
 <dd>
-<div class="desc"><p><code>SolveResult</code> storing information about the found solution and the performed solving process. This variable is assigned during the solve.</p></div>
+<div class="desc"><p><code><a title="phi.math.backend.SolveResult" href="#phi.math.backend.SolveResult">SolveResult</a></code> storing information about the found solution and the performed solving process. This variable is assigned during the solve.</p></div>
 </dd>
 <dt id="phi.math.backend.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
 <dd>
@@ -4014,6 +3969,85 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <dt id="phi.math.backend.Solve.solver_arguments"><code class="name">var <span class="ident">solver_arguments</span></code></dt>
 <dd>
 <div class="desc"><p>Additional solver-dependent arguments.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="phi.math.backend.SolveNotConverged"><code class="flex name class">
+<span>class <span class="ident">SolveNotConverged</span></span>
+<span>(</span><span>solve: phi.math.backend._optim.Solve, diverged: bool, msg: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This exception is thrown when a solve did not converge to the specified accuracy.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SolveNotConverged(RuntimeError):
+    &#34;&#34;&#34;
+    This exception is thrown when a solve did not converge to the specified accuracy.
+    &#34;&#34;&#34;
+
+    def __init__(self, solve: Solve, diverged: bool, msg: str = None):
+        if msg is None:
+            if diverged:
+                msg = f&#34;Solve diverged within {solve.result.iterations} iterations.&#34;
+            else:
+                msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations.&#34;
+        RuntimeError.__init__(self, msg)
+        self.solve: Solve = solve
+        &#34;&#34;&#34; The specified solve parameters. &#34;&#34;&#34;
+        self.diverged: bool = diverged
+        &#34;&#34;&#34; Whether the solve stopped because the solution diverged. &#34;&#34;&#34;
+        self.partial_result: SolveResult = solve.result
+        &#34;&#34;&#34; `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. &#34;&#34;&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.RuntimeError</li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.SolveNotConverged.diverged"><code class="name">var <span class="ident">diverged</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the solve stopped because the solution diverged.</p></div>
+</dd>
+<dt id="phi.math.backend.SolveNotConverged.partial_result"><code class="name">var <span class="ident">partial_result</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.backend.SolveResult" href="#phi.math.backend.SolveResult">SolveResult</a></code> containing information about the failed solve. Equivalent to <code><a title="phi.math.backend.Solve.result" href="#phi.math.backend.Solve.result">Solve.result</a></code> at the time this exception was created.</p></div>
+</dd>
+<dt id="phi.math.backend.SolveNotConverged.solve"><code class="name">var <span class="ident">solve</span></code></dt>
+<dd>
+<div class="desc"><p>The specified solve parameters.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="phi.math.backend.SolveResult"><code class="flex name class">
+<span>class <span class="ident">SolveResult</span></span>
+<span>(</span><span>iterations: int, **solve_info)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Stores information about the found solution and the performed solving process.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SolveResult:
+    &#34;&#34;&#34;
+    Stores information about the found solution and the performed solving process.
+    &#34;&#34;&#34;
+
+    def __init__(self, iterations: int, **solve_info):
+        self.iterations = iterations
+        &#34;&#34;&#34; Number of iterations performed. &#34;&#34;&#34;
+        self.solve_info = solve_info</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.backend.SolveResult.iterations"><code class="name">var <span class="ident">iterations</span></code></dt>
+<dd>
+<div class="desc"><p>Number of iterations performed.</p></div>
 </dd>
 </dl>
 </dd>
@@ -4196,12 +4230,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </ul>
 </li>
 <li>
-<h4><code><a title="phi.math.backend.LinearSolve" href="#phi.math.backend.LinearSolve">LinearSolve</a></code></h4>
-<ul class="">
-<li><code><a title="phi.math.backend.LinearSolve.bake" href="#phi.math.backend.LinearSolve.bake">bake</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="phi.math.backend.NoBackendFound" href="#phi.math.backend.NoBackendFound">NoBackendFound</a></code></h4>
 </li>
 <li>
@@ -4225,6 +4253,20 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Solve.result" href="#phi.math.backend.Solve.result">result</a></code></li>
 <li><code><a title="phi.math.backend.Solve.solver" href="#phi.math.backend.Solve.solver">solver</a></code></li>
 <li><code><a title="phi.math.backend.Solve.solver_arguments" href="#phi.math.backend.Solve.solver_arguments">solver_arguments</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.backend.SolveNotConverged" href="#phi.math.backend.SolveNotConverged">SolveNotConverged</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.backend.SolveNotConverged.diverged" href="#phi.math.backend.SolveNotConverged.diverged">diverged</a></code></li>
+<li><code><a title="phi.math.backend.SolveNotConverged.partial_result" href="#phi.math.backend.SolveNotConverged.partial_result">partial_result</a></code></li>
+<li><code><a title="phi.math.backend.SolveNotConverged.solve" href="#phi.math.backend.SolveNotConverged.solve">solve</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.backend.SolveResult" href="#phi.math.backend.SolveResult">SolveResult</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.backend.SolveResult.iterations" href="#phi.math.backend.SolveResult.iterations">iterations</a></code></li>
 </ul>
 </li>
 </ul>

@@ -9,8 +9,8 @@ def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
                         obstacles: tuple or list or StaggeredGrid = (),
                         particles: PointCloud or None = None,
-                        solve_params: math.LinearSolve = math.LinearSolve('CG', 1e-3, 0),
-                        pressure_guess: CenteredGrid = None) -> Tuple[StaggeredGrid, CenteredGrid, math.Tensor, CenteredGrid, StaggeredGrid]:
+                        solve_params=math.Solve('CG', 1e-5, 0),
+                        pressure_guess: CenteredGrid = None) -> Tuple[StaggeredGrid, CenteredGrid, int, CenteredGrid, StaggeredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 
@@ -48,12 +48,13 @@ def make_incompressible(velocity: StaggeredGrid,
     velocity_field *= accessible  # Enforces boundary conditions after extrapolation
     div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve
 
+    @field.linear_function
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
-    converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
+    pressure = field.solve(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
-    return velocity_field - gradp, pressure, iterations, div, occupied_staggered
+    return velocity_field - gradp, pressure, solve_params.result.iterations, div, occupied_staggered
 
 
 def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,

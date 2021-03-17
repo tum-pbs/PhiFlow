@@ -40,7 +40,7 @@ from ._boundaries import Domain
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve_params: math.LinearSolve = math.LinearSolve(&#39;CG&#39;, 1e-5, 0),
+                        solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0),
                         pressure_guess: CenteredGrid = None):
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
@@ -72,7 +72,7 @@ def make_incompressible(velocity: Grid,
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
-
+    @field.linear_function
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
@@ -82,20 +82,18 @@ def make_incompressible(velocity: Grid,
         return lap
 
     pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
-    converged, pressure, iterations = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
-    if math.all_available(converged) and not math.all(converged):
-        raise AssertionError(f&#34;pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}&#34;)
+    pressure = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
     if domain.boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
             active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=&#39;active&#39;)
-            return (_balance_divergence(div.with_(values=dp), active).values,)
+            return _balance_divergence(div.with_(values=dp), active).values,
         remove_div_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
         pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
-    return velocity, pressure, iterations, div
+    return velocity, pressure, solve_params.result.iterations, div
 
 
 def _balance_divergence(div, active):
@@ -186,7 +184,7 @@ Cells outside will be unaffected.</p>
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), solve_params: phi.math.backend._optim.LinearSolve = &lt;phi.math.backend._optim.LinearSolve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None)</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), solve_params=&lt;phi.math.backend._optim.Solve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -222,7 +220,7 @@ Cells outside will be unaffected.</p>
 <pre><code class="python">def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve_params: math.LinearSolve = math.LinearSolve(&#39;CG&#39;, 1e-5, 0),
+                        solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0),
                         pressure_guess: CenteredGrid = None):
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
@@ -254,7 +252,7 @@ Cells outside will be unaffected.</p>
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
-
+    @field.linear_function
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
@@ -264,20 +262,18 @@ Cells outside will be unaffected.</p>
         return lap
 
     pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
-    converged, pressure, iterations = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
-    if math.all_available(converged) and not math.all(converged):
-        raise AssertionError(f&#34;pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}&#34;)
+    pressure = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
     if domain.boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
             active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=&#39;active&#39;)
-            return (_balance_divergence(div.with_(values=dp), active).values,)
+            return _balance_divergence(div.with_(values=dp), active).values,
         remove_div_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
         pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
-    return velocity, pressure, iterations, div</code></pre>
+    return velocity, pressure, solve_params.result.iterations, div</code></pre>
 </details>
 </dd>
 </dl>

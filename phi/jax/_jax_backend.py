@@ -13,7 +13,7 @@ from jax import random
 
 from phi.math.backend._optim import SolveResult
 from phi.math.backend import Backend, ComputeDevice, to_numpy_dtype, from_numpy_dtype
-from phi.math import Solve, LinearSolve, DType, NUMPY_BACKEND
+from phi.math import Solve, DType, NUMPY_BACKEND
 from phi.math.backend._backend_helper import combined_dim
 
 
@@ -443,7 +443,7 @@ class JaxBackend(Backend):
         # else:
         #     raise NotImplementedError("Only sparse tensors supported.")
 
-    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
@@ -459,7 +459,7 @@ class JaxBackend(Backend):
             x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations)
 
             results.append(x)
-        solve_params.result = SolveResult(success=True, iterations=-1)
+        solve_params.result = SolveResult(-1)
         return self.stack(results)
 
 

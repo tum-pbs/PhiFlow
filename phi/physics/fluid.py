@@ -11,7 +11,7 @@ from ._boundaries import Domain
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve_params: math.LinearSolve = math.LinearSolve('CG', 1e-5, 0),
+                        solve_params=math.Solve('CG', 1e-5, 0),
                         pressure_guess: CenteredGrid = None):
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
@@ -43,7 +43,7 @@ def make_incompressible(velocity: Grid,
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
-
+    @field.linear_function
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
@@ -53,20 +53,18 @@ def make_incompressible(velocity: Grid,
         return lap
 
     pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
-    converged, pressure, iterations = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
-    if math.all_available(converged) and not math.all(converged):
-        raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
+    pressure = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
     if domain.boundaries['accessible'] == math.extrapolation.ZERO:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
             active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
-            return (_balance_divergence(div.with_(values=dp), active).values,)
+            return _balance_divergence(div.with_(values=dp), active).values,
         remove_div_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
         pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
-    return velocity, pressure, iterations, div
+    return velocity, pressure, solve_params.result.iterations, div
 
 
 def _balance_divergence(div, active):

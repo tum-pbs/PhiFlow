@@ -9,14 +9,15 @@ from typing import Tuple, Callable, Any
 
 import numpy as np
 
-from .backend import default_backend, choose_backend, Solve, LinearSolve, Backend, get_precision, convert as b_convert, \
+from .backend import default_backend, choose_backend, Solve, Backend, get_precision, convert as b_convert, \
     BACKENDS
+from .backend._backend_helper import combined_dim
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
     _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation as extrapolation_
-from .backend._optim import SolveResult
+from .backend._optim import SolveResult, SolveNotConverged
 from .backend._profile import get_current_profile
 
 
@@ -212,7 +213,32 @@ def copy(value: Tensor):
     return value._op1(lambda native: choose_backend(native).copy(native))
 
 
-def native_call(f: Callable, *inputs, channels_last=None, channel_dim='vector'):
+def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='vector'):
+    """
+    Calls `f` with the native representations of the `inputs` tensors in standard layout and returns the result as a `Tensor`.
+
+    All inputs are converted to native tensors depending on `channels_last`:
+
+    * `channels_last=True`: Dimension layout `(total_batch_size, spatial_dims..., total_channel_size)`
+    * `channels_last=False`: Dimension layout `(total_batch_size, total_channel_size, spatial_dims...)`
+
+    All batch dimensions are compressed into a single dimension with `total_batch_size = input.shape.batch.volume`.
+    The same is done for all channel dimensions.
+
+    Additionally, missing batch and spatial dimensions are added so that all `inputs` have the same batch and spatial shape.
+
+    Args:
+        f: Function to be called on native tensors of `inputs`.
+            The function output must have the same dimension layout as the inputs and the batch size must be identical.
+        *inputs: Uniform `Tensor` arguments
+        channels_last: (Optional) Whether to put channels as the last dimension of the native representation.
+            If `None`, the channels are put in the default position associated with the current backend,
+            see `phi.math.backend.Backend.prefers_channels_last()`.
+        channel_dim: Name of the channel dimension of the result.
+
+    Returns:
+        `Tensor` with batch and spatial dimensions of `inputs` and single channel dimension `channel_dim`.
+    """
     if channels_last is None:
         backend = choose_backend_t(*inputs, prefer_default=True)
         channels_last = backend.prefers_channels_last()
@@ -1545,7 +1571,7 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False
     return wrapper
 
 
-def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor, Tensor]:
+def minimize(function, x0: Tensor, solve_params: Solve) -> Tensor:
     """
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
     The `solver` argument of `solve_params` determines which method is used.
@@ -1554,15 +1580,15 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
     For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
     Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
 
+    Information about the performed solve will be added to `solve_params.result`.
+
     Args:
         function: Function to be minimized
         x0: Initial guess for `x`
         solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
 
     Returns:
-        converged: scalar bool tensor representing whether the solve found a solution within the specified accuracy within the allowed iterations
         x: solution, the minimum point `x`.
-        iterations: number of iterations performed
     """
     assert solve_params.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve_params.relative_tolerance}"
     backend = choose_backend_t(x0, prefer_default=True)
@@ -1590,7 +1616,7 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tuple[Tensor, Tensor,
     if x_native is NotImplemented:
         x_native = _default_minimize(native_function, x0_flat, backend, solve_params)
     x = unflatten_assemble(x_native)
-    return wrap(solve_params.result.success), x, wrap(solve_params.result.iterations)
+    return x
 
 
 def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_params: Solve):
@@ -1616,22 +1642,88 @@ def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_
             val = native_function(x)
             return backend.numpy(val).astype(np.float64)
 
-        finite_diff_epsilon = {64: 1e-8, 32: 1e-3, 16: 1e-1}[get_precision()]
+        finite_diff_epsilon = {64: 1e-9, 32: 1e-4, 16: 1e-1}[get_precision()]
         res = sopt.minimize(fun=min_target, x0=x0, method=method, tol=solve_params.absolute_tolerance,
                             options={'maxiter': solve_params.max_iterations, 'eps': finite_diff_epsilon})
-
-    solve_params.result = SolveResult(res.success, res.nit)
+    solve_params.result = SolveResult(res.nit)
+    if not res.success:
+        raise SolveNotConverged(solve_params, False, msg=res.message)
     return res.x
 
 
-def solve(operator,
+def linear_function(f: Callable, jit_compile=True) -> Callable:
+    if not jit_compile:
+        return LinearFunction(f)
+    if not default_backend().supports(Backend.sparse_tensor):
+        warnings.warn(f"Cannot compile linear function with {default_backend()} because sparse matrices are not supported.")
+        return LinearFunction(f)
+    return JitLinearFunction(f, default_backend())
+
+
+class LinearFunction:
+
+    def __init__(self, f):
+        self.f = f
+
+    def __call__(self, *args, **kwargs):
+        assert not kwargs, "kwargs not supported, pass all values as positional arguments."
+        return self.f(*args)
+
+
+class JitLinearFunction(LinearFunction):
+
+    def __init__(self, f, backend: Backend):
+        LinearFunction.__init__(self, f)
+        self.backend = backend
+        self._cached_coo = None
+        self._trace_result = None
+
+    def sparse_coordinate_matrix(self, x0):
+        if self._cached_coo is None:
+            self.build(x0)
+        return self._cached_coo
+
+    def build(self, x0):
+        from ._trace import lin_placeholder, ShiftLinOp
+        with self.backend:
+            trace_time = time.perf_counter()
+            x_track = lin_placeholder(x0)
+            self._trace_result = self.f(x_track)
+            assert isinstance(self._trace_result, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
+            trace_time = time.perf_counter() - trace_time
+            try:
+                build_time = time.perf_counter()
+                self._cached_coo = self._trace_result.build_sparse_coordinate_matrix()
+                build_time = time.perf_counter() - build_time
+            except NotImplementedError as err:
+                raise AssertionError(f"Failed to build sparse matrix, using function directly. {err}")
+            if get_current_profile():
+                get_current_profile().add_external_message(
+                    f"Sparse Linear track: {round(trace_time * 1000)} ms, \tbuild: {round(build_time * 1000)} ms")
+
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError("Currently only supported in solve()")
+        # assert not kwargs, "kwargs not supported, pass all values as positional arguments."
+        # if len(args) > 1:
+        #     raise NotImplementedError("Only single-argument functions can be compiled")
+        #
+        # x0 = tensor(args[0])
+        #
+        # if self._trace_result is None:
+        #     self.build(x0)
+
+
+def solve(operator: Callable,
           y: Tensor,
           x0: Tensor,
           solve_params: Solve,
           constants: tuple or list = (),
-          callback=None) -> Tuple[Tensor, Tensor, Tensor]:
+          callback=None) -> Tensor:
     """
     Solves the system of linear or nonlinear equations *operator · x = y*.
+
+    Information about the performed solve will be added to `solve_params.result`.
+    In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve_params.gradient_solve.result`.
 
     Args:
         operator: Function `operator(x)` or matrix
@@ -1641,11 +1733,9 @@ def solve(operator,
         callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
 
     Returns:
-        converged: scalar bool tensor representing whether the solve found a solution within the specified accuracy within the allowed iterations
         x: solution of the linear system of equations `operator · x = y`.
-        iterations: number of iterations performed
     """
-    if not isinstance(solve_params, LinearSolve):
+    if not isinstance(operator, LinearFunction):
         from ._nd import l2_loss
 
         def min_func(x):
@@ -1657,54 +1747,92 @@ def solve(operator,
         solve_params.absolute_tolerance = rel_tol_to_abs
         solve_params.relative_tolerance = 0
         return minimize(min_func, x0, solve_params=solve_params)
-    if solve_params.solver not in (None, 'CG'):
+    if solve_params.solver != 'CG':
         raise NotImplementedError("Only 'CG' solver currently supported")
 
     for c in constants:
         c._expand()
 
-    from ._trace import lin_placeholder, ShiftLinOp
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
-    batch = (y.shape & x0.shape).batch
-    x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
-    y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
 
-    if callable(operator):
-        operator_or_matrix = None
-        if solve_params.bake == 'sparse':
-            track_time = time.perf_counter()
-            x_track = lin_placeholder(x0)
-            Ax_track = operator(x_track)
-            assert isinstance(Ax_track, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
-            track_time = time.perf_counter() - track_time
-            build_time = time.perf_counter()
-            try:
-                operator_or_matrix = Ax_track.build_sparse_coordinate_matrix()
-            except NotImplementedError as err:
-                warnings.warn(f"Failed to build sparse matrix, using function directly. {err}")
-            # TODO reshape x0, y so that independent dimensions are batch
-            build_time = time.perf_counter() - build_time
-        if operator_or_matrix is None:
-            def operator_or_matrix(native_x):
-                native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
-                x = NativeTensor(native_x_shaped, x0.shape.non_batch)
-                Ax = operator(x)
-                Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
-                return Ax_native
+    if isinstance(operator, JitLinearFunction):
+        operator_or_matrix = operator.sparse_coordinate_matrix(x0)
     else:
-        operator_or_matrix = backend.reshape(operator.native(), (y.shape.non_batch.volume, x0.shape.non_batch.volume))
+        def operator_or_matrix(native_x):
+            native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
+            x = NativeTensor(native_x_shaped, x0.shape.non_batch)
+            Ax = operator(x)
+            Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
+            return Ax_native
 
     loop_time = time.perf_counter()
-    x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, callback)
-    converged = solve_params.result.success
-    iterations = solve_params.result.iterations
-    loop_time = time.perf_counter() - loop_time
+    if backend.supports(Backend.conjugate_gradient):
+        x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
+        y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
+        x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, callback)
+        batch = (y.shape & x0.shape).batch
+        x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
+        x = NativeTensor(x, batch.combined(x0.shape.non_batch))
+    else:
+        x = _default_cg(operator_or_matrix, y, x0, solve_params, callback)
     if get_current_profile():
+        iterations = solve_params.result.iterations
+        loop_time = time.perf_counter() - loop_time
         info = "  \tProfile with trace=False to get more accurate results." if get_current_profile()._trace else ""
-        get_current_profile().add_external_message(f"CG   track: {round(track_time * 1000)} ms  \tbuild: {round(build_time * 1000)} ms  \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}")
-    x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
-    return NativeTensor(converged, EMPTY_SHAPE), NativeTensor(x, batch.combined(x0.shape.non_batch)), NativeTensor(iterations, EMPTY_SHAPE)
+        get_current_profile().add_external_message(f"CG \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}")
+    return x
+
+
+def _default_cg(A, y_t: Tensor, x0: Tensor, solve_params: Solve, callback=None):
+    """ This conjugate gradient algorithm should work with all backends. The gradient pass performs a second CG. """
+    if callback is not None:
+        warnings.warn("callback is not yet supported and will not be called.")
+    batch = (y_t.shape & x0.shape).batch
+    backend = choose_backend_t(y_t, x0)
+
+    if callable(A):
+        function = A
+    else:
+        A = backend.as_tensor(A)
+        A_shape = backend.staticshape(A)
+        assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
+        assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
+
+        def function(vec):
+            return backend.matmul(A, vec)
+
+    def cg(y: Tensor, x0_t: Tensor, params: Solve):
+        y = backend.to_float(backend.reshape(y.native(), (y.shape.batch.volume, -1)))
+        x0 = backend.to_float(backend.reshape(x0_t.native(), (x0_t.shape.batch.volume, -1)))
+        batch_size = combined_dim(x0.shape[0], y.shape[0])
+        if x0.shape[0] < batch_size:
+            x0 = backend.tile(x0, [batch_size, 1])
+        tolerance_sq = backend.maximum(params.relative_tolerance ** 2 * backend.sum(y ** 2, -1), params.absolute_tolerance ** 2)
+        x = x0
+        dx = residual = y - function(x)
+        dy = function(dx)
+        iterations = 0
+        while backend.all(backend.sum(residual ** 2, -1) > tolerance_sq):
+            if iterations == params.max_iterations:
+                solve_params.result = SolveResult(iterations)
+                raise SolveNotConverged(solve_params, diverged=False)
+            iterations += 1
+            dx_dy = backend.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = backend.divide_no_nan(backend.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            x += step_size * dx
+            residual -= step_size * dy
+            dx = residual - backend.divide_no_nan(backend.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+            dy = function(dx)
+        if not backend.all(backend.isfinite(x)):
+            solve_params.result = SolveResult(iterations)
+            raise SolveNotConverged(solve_params, diverged=True)
+        x = backend.reshape(x, batch.sizes + x0_t.shape.non_batch.sizes)
+        params.result = SolveResult(iterations)
+        return NativeTensor(x, batch.combined(x0_t.shape.non_batch))
+
+    return custom_gradient(lambda y: cg(y, x0, solve_params),
+                           lambda y, x, dx: (cg(dx, zeros_like(x0), solve_params.gradient_solve),))(y_t)
 
 
 # def variable(x: Tensor) -> Tensor:

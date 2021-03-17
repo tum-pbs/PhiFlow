@@ -4,7 +4,7 @@ from typing import Tuple, List, Any, Callable
 import numpy
 
 from ._dtype import DType, combine_types
-from ._optim import Solve, LinearSolve
+from ._optim import Solve
 
 
 class ComputeDevice:
@@ -612,7 +612,7 @@ class Backend:
         """ Optional. """
         return NotImplemented
 
-    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
+    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
         """
         Solve the system of linear equations
           A * x = y

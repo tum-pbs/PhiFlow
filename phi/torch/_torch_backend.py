@@ -11,7 +11,7 @@ import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math import LinearSolve
+from phi.math import Solve
 from phi.math.backend import Backend, DType, NUMPY_BACKEND, ComputeDevice
 from phi.math.backend._backend_helper import combined_dim
 from phi.math.backend._optim import SolveResult
@@ -527,60 +527,6 @@ class TorchBackend(Backend):
         indices_ = self.to_int(indices, int64=True)
         values_ = self.to_float(values)
         result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
-        return result
-
-    def conjugate_gradient(self, A, y, x0, solve_params: LinearSolve, callback=None):
-        if callable(A):
-            function = A
-        else:
-            A = self.as_tensor(A)
-            A_shape = self.staticshape(A)
-            assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
-            assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
-
-            def function(vec):
-                return self.matmul(A, vec)
-
-        y = self.to_float(y)
-        x0 = self.to_float(x0)
-        batch_size = combined_dim(x0.shape[0], y.shape[0])
-        if x0.shape[0] < batch_size:
-            x0 = x0.repeat([batch_size, 1])
-
-        def cg_forward(y, x0, params: LinearSolve):
-            tolerance_sq = self.maximum(params.relative_tolerance ** 2 * torch.sum(y ** 2, -1), params.absolute_tolerance ** 2)
-            x = x0
-            dx = residual = y - function(x)
-            dy = function(dx)
-            iterations = 0
-            converged = True
-            while self.all(self.sum(residual ** 2, -1) > tolerance_sq):
-                if iterations == params.max_iterations:
-                    converged = False
-                    break
-                iterations += 1
-                dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-                step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
-                x += step_size * dx
-                residual -= step_size * dy
-                dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-                dy = function(dx)
-            if not self.all(self.isfinite(x)):
-                converged = False
-            params.result = SolveResult(converged, iterations)
-            return x
-
-        class CGVariant(torch.autograd.Function):
-
-            @staticmethod
-            def forward(ctx, y):
-                return cg_forward(y, x0, solve_params)
-
-            @staticmethod
-            def backward(ctx, dX):
-                return cg_forward(dX, torch.zeros_like(x0), solve_params.gradient_solve)
-
-        result = CGVariant.apply(y)
         return result
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):

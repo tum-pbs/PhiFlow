@@ -33,7 +33,7 @@ Functions to simulate diffusion processes on `phi.field.Field` objects.
 import warnings
 
 from phi import math
-from phi.field import ConstantField, Grid, Field, laplace, solve
+from phi.field import ConstantField, Grid, Field, laplace, solve, linear_function
 from phi.field._field_math import FieldType, GridType
 
 
@@ -69,13 +69,13 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params: math.Solve = math.LinearSolve(None, 1e-5, 0)) -&gt; FieldType:
+             solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
     &#34;&#34;&#34;
     Diffusion by solving a linear system of equations.
 
     Args:
         order: Order of method, 1=first order. This translates to `substeps` for the explicit sharpening.
-        field:
+        field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         solve_params:
@@ -83,13 +83,11 @@ def implicit(field: FieldType,
     Returns:
         Diffused field of same type as `field`.
     &#34;&#34;&#34;
+    @linear_function
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    converged, diffused, iterations = solve(sharpen, field, field, solve_params=solve_params)
-    if math.all_available(converged):
-        assert converged, f&#34;Implicit diffusion solve did not converge after {iterations} iterations. Last estimate: {diffused.values}&#34;
-    return diffused
+    return solve(sharpen, y=field, x0=field, solve_params=solve_params)
 
 
 def fourier(field: GridType,
@@ -234,7 +232,7 @@ Otherwise, finite differencing is used to approximate the</p>
 </details>
 </dd>
 <dt id="phi.physics.diffuse.implicit"><code class="name flex">
-<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve_params: phi.math.backend._optim.Solve = &lt;phi.math.backend._optim.LinearSolve object&gt;) ‑> ~FieldType</span>
+<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve_params=&lt;phi.math.backend._optim.Solve object&gt;) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Diffusion by solving a linear system of equations.</p>
@@ -242,7 +240,8 @@ Otherwise, finite differencing is used to approximate the</p>
 <dl>
 <dt><strong><code>order</code></strong></dt>
 <dd>Order of method, 1=first order. This translates to <code>substeps</code> for the explicit sharpening.</dd>
-<dt>field:</dt>
+<dt><strong><code>field</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code> to diffuse.</dd>
 <dt><strong><code>diffusivity</code></strong></dt>
 <dd>Diffusion per time. <code>diffusion_amount = diffusivity * dt</code></dd>
 <dt><strong><code>dt</code></strong></dt>
@@ -259,13 +258,13 @@ Otherwise, finite differencing is used to approximate the</p>
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params: math.Solve = math.LinearSolve(None, 1e-5, 0)) -&gt; FieldType:
+             solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
     &#34;&#34;&#34;
     Diffusion by solving a linear system of equations.
 
     Args:
         order: Order of method, 1=first order. This translates to `substeps` for the explicit sharpening.
-        field:
+        field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         solve_params:
@@ -273,13 +272,11 @@ Otherwise, finite differencing is used to approximate the</p>
     Returns:
         Diffused field of same type as `field`.
     &#34;&#34;&#34;
+    @linear_function
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    converged, diffused, iterations = solve(sharpen, field, field, solve_params=solve_params)
-    if math.all_available(converged):
-        assert converged, f&#34;Implicit diffusion solve did not converge after {iterations} iterations. Last estimate: {diffused.values}&#34;
-    return diffused</code></pre>
+    return solve(sharpen, y=field, x0=field, solve_params=solve_params)</code></pre>
 </details>
 </dd>
 </dl>

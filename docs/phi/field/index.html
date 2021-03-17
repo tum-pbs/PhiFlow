@@ -68,7 +68,7 @@ from ._field_math import (
     l2_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
-    jit_compile, functional_gradient,  # function wrappers
+    jit_compile, functional_gradient, linear_function,
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -479,29 +479,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 
     Here, the arguments and output of `f` should be instances of `Field`.
     &#34;&#34;&#34;
-    INPUT_FIELDS = []
-    OUTPUT_FIELDS = []
-
-    def tensor_function(*tensors):
-        fields = [field.with_(values=t) for field, t in zip(INPUT_FIELDS, tensors)]
-        result = f(*fields)
-        results = [result] if not isinstance(result, (tuple, list)) else result
-        OUTPUT_FIELDS.clear()
-        OUTPUT_FIELDS.extend(results)
-        result_tensors = [field.values if isinstance(field, SampledField) else math.tensor(field) for field in results]
-        return result_tensors
-
-    tensor_trace = math.jit_compile(tensor_function)
-
-    def wrapper(*fields):
-        INPUT_FIELDS.clear()
-        INPUT_FIELDS.extend(fields)
-        tensors = [field.values for field in fields]
-        result_tensors = tensor_trace(*tensors)
-        result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
-        result = [f.with_(values=t) if isinstance(f, SampledField) else t for f, t in zip(OUTPUT_FIELDS, result_tensors)]
-        return result[0] if len(result) == 1 else result
-
+    wrapper, _, _, _ = _tensor_wrapper(f, lambda tensor_function: math.jit_compile(tensor_function))
     return wrapper</code></pre>
 </details>
 </dd>
@@ -533,6 +511,20 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
     return result</code></pre>
 </details>
 </dd>
+<dt id="phi.field.linear_function"><code class="name flex">
+<span>def <span class="ident">linear_function</span></span>(<span>f, jit_compile=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Equivalent to <code><a title="phi.math.linear_function" href="../math/index.html#phi.math.linear_function">linear_function()</a></code> for field functions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def linear_function(f, jit_compile=True):
+    &#34;&#34;&#34; Equivalent to `phi.math.linear_function()` for field functions. &#34;&#34;&#34;
+    return LinearFieldFunction(f, jit_compile)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.mean"><code class="name flex">
 <span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
@@ -557,8 +549,8 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </summary>
 <pre><code class="python">def minimize(function, x0: Grid, solve_params: math.Solve):
     data_function = _operate_on_values(function, x0)
-    converged, x, iterations = math.minimize(data_function, x0.values, solve_params=solve_params)
-    return converged, x0.with_(values=x), iterations</code></pre>
+    x = math.minimize(data_function, x0.values, solve_params=solve_params)
+    return x0.with_(values=x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.normalize"><code class="name flex">
@@ -754,11 +746,14 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
             callback(x)
     else:
         field_callback = None
-    data_function = _operate_on_values(function, x0)
+    if isinstance(function, LinearFieldFunction):
+        value_function = function.value_function(x0)
+    else:
+        value_function = _operate_on_values(function, x0)
     constants = [c.values if isinstance(c, SampledField) else c for c in constants]
     assert all(isinstance(c, math.Tensor) for c in constants)
-    converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
-    return converged, x0.with_(values=x), iterations</code></pre>
+    x = math.solve(value_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
+    return x0.with_(values=x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
@@ -5192,6 +5187,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>
+<li><code><a title="phi.field.linear_function" href="#phi.field.linear_function">linear_function</a></code></li>
 <li><code><a title="phi.field.mean" href="#phi.field.mean">mean</a></code></li>
 <li><code><a title="phi.field.minimize" href="#phi.field.minimize">minimize</a></code></li>
 <li><code><a title="phi.field.normalize" href="#phi.field.normalize">normalize</a></code></li>

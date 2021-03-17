@@ -11,7 +11,7 @@ from ._backend import (
     convert,
 )
 from ._numpy_backend import NUMPY_BACKEND
-from ._optim import Solve, LinearSolve
+from ._optim import Solve, SolveResult, SolveNotConverged
 from ._profile import Profile, get_current_profile, profile, profile_function
 
 

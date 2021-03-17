@@ -1,3 +1,4 @@
+import copy
 from functools import wraps, partial
 from numbers import Number
 from typing import TypeVar, Tuple, Callable
@@ -10,6 +11,7 @@ from ._field import Field, SampledField
 from ._grid import CenteredGrid, Grid, StaggeredGrid
 from ._point_cloud import PointCloud
 from ._mask import HardGeometryMask
+from ..math._functions import LinearFunction
 from ..math.backend import Backend
 
 
@@ -141,8 +143,8 @@ GridType = TypeVar('GridType', bound=Grid)
 
 def minimize(function, x0: Grid, solve_params: math.Solve):
     data_function = _operate_on_values(function, x0)
-    converged, x, iterations = math.minimize(data_function, x0.values, solve_params=solve_params)
-    return converged, x0.with_(values=x), iterations
+    x = math.minimize(data_function, x0.values, solve_params=solve_params)
+    return x0.with_(values=x)
 
 
 def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = (), callback=None):
@@ -152,11 +154,14 @@ def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tupl
             callback(x)
     else:
         field_callback = None
-    data_function = _operate_on_values(function, x0)
+    if isinstance(function, LinearFieldFunction):
+        value_function = function.value_function(x0)
+    else:
+        value_function = _operate_on_values(function, x0)
     constants = [c.values if isinstance(c, SampledField) else c for c in constants]
     assert all(isinstance(c, math.Tensor) for c in constants)
-    converged, x, iterations = math.solve(data_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
-    return converged, x0.with_(values=x), iterations
+    x = math.solve(value_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
+    return x0.with_(values=x)
 
 
 def _operate_on_values(field_function, *proto_fields):
@@ -186,7 +191,58 @@ def _operate_on_values(field_function, *proto_fields):
     return wrapper
 
 
+def linear_function(f, jit_compile=True):
+    """ Equivalent to `phi.math.linear_function()` for field functions. """
+    return LinearFieldFunction(f, jit_compile)
+
+
+class LinearFieldFunction:
+
+    def __init__(self, f: Callable, jit_compile):
+        self.f = f
+        self.jit_compile = jit_compile
+        self._tensor_function = None
+        self.input_fields = []
+        self.output: tuple or list or SampledField = None
+
+    def __call__(self, *args, **kwargs):
+        assert not kwargs
+        tensor_function = self.value_function(*args)
+        tensors = [field.values for field in args]
+        result_tensors = tensor_function(*tensors)
+        if isinstance(self.output, (tuple, list)):
+            assert isinstance(result_tensors, (tuple, list)), result_tensors
+            return [f.with_(values=t) if isinstance(f, SampledField) else t for f, t in zip(self.output, result_tensors)]
+        else:
+            if isinstance(result_tensors, (tuple, list)):
+                result_tensors = result_tensors[0]
+            return self.output.with_(values=result_tensors)
+
+    def value_function(self, *proto_fields):
+        self.input_fields = proto_fields
+        if self._tensor_function is None:
+            def tensor_function(*tensors):
+                fields = [field.with_(values=t) for field, t in zip(self.input_fields, tensors)]
+                self.output = self.f(*fields)
+                if isinstance(self.output, (tuple, list)):
+                    return [field.values if isinstance(field, SampledField) else math.tensor(field) for field in self.output]
+                else:
+                    return self.output.values if isinstance(self.output, SampledField) else math.tensor(self.output)
+            self._tensor_function = math.linear_function(tensor_function, jit_compile=self.jit_compile)
+        return self._tensor_function
+
+
 def jit_compile(f: Callable):
+    """
+    Wrapper for `phi.math.jit_compile()` where `f` is a function operating on fields instead of tensors.
+
+    Here, the arguments and output of `f` should be instances of `Field`.
+    """
+    wrapper, _, _, _ = _tensor_wrapper(f, lambda tensor_function: math.jit_compile(tensor_function))
+    return wrapper
+
+
+def _tensor_wrapper(f: Callable, create_tensor_function: Callable):
     """
     Wrapper for `phi.math.jit_compile()` where `f` is a function operating on fields instead of tensors.
 
@@ -204,7 +260,7 @@ def jit_compile(f: Callable):
         result_tensors = [field.values if isinstance(field, SampledField) else math.tensor(field) for field in results]
         return result_tensors
 
-    tensor_trace = math.jit_compile(tensor_function)
+    tensor_trace = create_tensor_function(tensor_function)
 
     def wrapper(*fields):
         INPUT_FIELDS.clear()
@@ -215,7 +271,7 @@ def jit_compile(f: Callable):
         result = [f.with_(values=t) if isinstance(f, SampledField) else t for f, t in zip(OUTPUT_FIELDS, result_tensors)]
         return result[0] if len(result) == 1 else result
 
-    return wrapper
+    return wrapper, tensor_trace, INPUT_FIELDS, OUTPUT_FIELDS
 
 
 def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:

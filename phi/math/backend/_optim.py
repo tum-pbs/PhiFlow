@@ -8,13 +8,14 @@ class Solve:
     """
 
     def __init__(self,
-                 solver: str or None,
+                 solver: str,
                  relative_tolerance: float,
                  absolute_tolerance: float,
                  max_iterations: int = 1000,
                  gradient_solve: 'Solve' or None = None,
                  **solver_arguments):
-        self.solver = solver
+        assert isinstance(solver, str)
+        self.solver: str = solver
         """ (Optional) Name of method to use. """
         self.relative_tolerance: float = relative_tolerance
         """ The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. """
@@ -27,7 +28,7 @@ class Solve:
             assert gradient_solve.solver == solver
         self.solver_arguments: dict = solver_arguments
         """ Additional solver-dependent arguments. """
-        self.result: SolveResult = SolveResult(False, 0)
+        self.result: SolveResult = SolveResult(0)
         """ `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. """
 
     @property
@@ -43,34 +44,32 @@ class Solve:
         return self._gradient_solve
 
 
-class LinearSolve(Solve):
-    """
-    Specifies parameters and stopping criteria for solving a system of linear equations.
-
-    Extends `Solve` by the property `bake` which determines whether and how the equations are stored.
-    """
-
-    def __init__(self,
-                 solver: str or None,
-                 relative_tolerance,
-                 absolute_tolerance,
-                 max_iterations: int = 1000,
-                 bake: str = 'sparse',
-                 gradient_solve: 'Solve' or None = None,
-                 **solver_arguments):
-        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, gradient_solve, **solver_arguments)
-        self.bake = bake
-        """ Baking method: None to use original function, `'sparse'` to create a sparse matrix. """
-
-
 class SolveResult:
     """
     Stores information about the found solution and the performed solving process.
     """
 
-    def __init__(self, success: bool, iterations: int, **solve_info):
-        self.success = success
-        """ Whether the solve converged. """
+    def __init__(self, iterations: int, **solve_info):
         self.iterations = iterations
         """ Number of iterations performed. """
         self.solve_info = solve_info
+
+
+class SolveNotConverged(RuntimeError):
+    """
+    This exception is thrown when a solve did not converge to the specified accuracy.
+    """
+
+    def __init__(self, solve: Solve, diverged: bool, msg: str = None):
+        if msg is None:
+            if diverged:
+                msg = f"Solve diverged within {solve.result.iterations} iterations."
+            else:
+                msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations."
+        RuntimeError.__init__(self, msg)
+        self.solve: Solve = solve
+        """ The specified solve parameters. """
+        self.diverged: bool = diverged
+        """ Whether the solve stopped because the solution diverged. """
+        self.partial_result: SolveResult = solve.result
+        """ `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. """

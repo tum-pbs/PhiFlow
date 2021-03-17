@@ -327,7 +327,7 @@ class TestMathFunctions(TestCase):
         x0 = math.zeros(x=4)
         for backend in BACKENDS:
             with backend:
-                converged, x, iterations = math.minimize(loss, x0, math.Solve(None, 0, 1e-3))
+                x = math.minimize(loss, x0, math.Solve('L-BFGS-B', 0, 1e-3))
                 math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
 
     def test_custom_gradient_scalar(self):
