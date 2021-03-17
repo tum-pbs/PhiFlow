@@ -7,8 +7,8 @@ from phi.geom import union, Sphere
 
 def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
+                        particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        particles: PointCloud or None = None,
                         solve_params=math.Solve('CG', 1e-5, 0),
                         pressure_guess: CenteredGrid = None) -> Tuple[StaggeredGrid, CenteredGrid, int, CenteredGrid, StaggeredGrid]:
     """
@@ -16,11 +16,11 @@ def make_incompressible(velocity: StaggeredGrid,
 
     Args:
         velocity: Current velocity field as StaggeredGrid
+        domain: Domain object
+        particles: Pointcloud holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        particles (Optional if occupation masks are provided): Pointcloud holding the current positions of the particles
-        domain (Optional if occupation masks are provided): Domain object
+        solve_params (Optional): Parameters for the pressure solve
         pressure_guess (Optional): Initial pressure guess as CenteredGrid
-        solve_params: Parameters for the pressure solve
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
@@ -29,7 +29,7 @@ def make_incompressible(velocity: StaggeredGrid,
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     """
-    points = particles.with_(values=math.wrap(1))
+    points = particles.with_(values=math.tensor(1., convert=True))
     occupied_centered = points >> domain.scalar_grid()
     occupied_staggered = points >> domain.staggered_grid()
 

@@ -1240,7 +1240,7 @@ def scatter(base_grid: Tensor or Shape,
         zero_grid = backend.zeros_like(native_grid)
         sum = backend.scatter(zero_grid, native_indices, native_values, mode='add')
         count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode='add')
-        native_result = sum / count
+        native_result = sum / backend.maximum(count, 1)
         native_result = backend.where(count == 0, native_grid, native_result)
     return reshaped_tensor(native_result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)
 

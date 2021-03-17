@@ -6,14 +6,14 @@ from phi.flow import *
 def step(particles, domain, dt, accessible):
     velocity = particles >> domain.staggered_grid()
     div_free_velocity, pressure, _, _, occupied = \
-        flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, accessible, particles)
+        flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, particles, accessible)
     particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity)
     particles = advect.runge_kutta_4(particles, div_free_velocity, dt, accessible=accessible, occupied=occupied)
     particles = flip.respect_boundaries(particles, domain, [])
     return dict(particles=particles, domain=domain, dt=dt, accessible=accessible)
 
 
-class FluidTest(TestCase):
+class FlipTest(TestCase):
 
     def test_single_particles(self):
         """ Tests if single particles at the boundaries and within the domain really fall down. """
@@ -42,10 +42,10 @@ class FluidTest(TestCase):
         for i in range(100):
             state = step(**state)
 
-        occupied_start = PARTICLES.with_(values=1) >> DOMAIN.grid()
-        occupied_end = state['particles'].with_(values=1) >> DOMAIN.grid()
+        occupied_start = PARTICLES.with_(values=1) >> DOMAIN.scalar_grid()
+        occupied_end = state['particles'].with_(values=1) >> DOMAIN.scalar_grid()
         math.assert_close(occupied_start.values, occupied_end.values)
-        math.assert_close(PARTICLES.points, state['particles'].points, abs_tolerance=1e-5)
+        math.assert_close(PARTICLES.points, state['particles'].points, abs_tolerance=1e-3)
 
     def test_falling_block_long(self):
         """ Tests if a block of liquid has a constant shape during free fall. """
@@ -116,8 +116,6 @@ class FluidTest(TestCase):
             mse = np.square(smirrored - left).mean()
             if i < 45:
                 assert mse == 0  # block was falling until this step, hits obstacles at step 46
-            elif i < 80:
-                assert mse <= 1e-7  # error increases gradually after block and obstacles collide
             else:
-                assert mse <= 1e-3
+                assert mse <= 1e-3  # error increases gradually after block and obstacles collide
 

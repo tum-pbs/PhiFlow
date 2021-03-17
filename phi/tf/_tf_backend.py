@@ -164,6 +164,9 @@ class TFBackend(Backend):
         return c * x + (1 - c) * y
         # return tf.where(condition, x, y)  # TF1 has an inconsistent broadcasting rule for where
 
+    def nonzero(self, values):
+        return tf.where(tf.not_equal(values, 0))
+
     def mean(self, value, axis=None, keepdims=False):
         if axis is not None:
             if not isinstance(axis, int):
@@ -237,9 +240,13 @@ class TFBackend(Backend):
         return tf.floor(x)
 
     def max(self, x, axis=None, keepdims=False):
+        if x.dtype == tf.bool:
+            return tf.cast(tf.reduce_max(tf.cast(x, tf.uint8), axis=axis, keepdims=keepdims), tf.bool)  # reduce_max allows no bool
         return tf.reduce_max(x, axis=axis, keepdims=keepdims)
 
     def min(self, x, axis=None, keepdims=False):
+        if x.dtype == tf.bool:
+            return tf.cast(tf.reduce_min(tf.cast(x, tf.uint8), axis=axis, keepdims=keepdims), tf.bool)  # reduce_min allows no bool
         return tf.reduce_min(x, axis=axis, keepdims=keepdims)
 
     def maximum(self, a, b):
@@ -326,44 +333,17 @@ class TFBackend(Backend):
         return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
 
     def scatter(self, base_grid, indices, values, mode: str):
-        # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
-        buffer = tf.zeros(shape, dtype=values.dtype)
-
-        repetitions = []
-        for dim in range(len(indices.shape) - 1):
-            if values.shape[dim] == 1:
-                repetitions.append(indices.shape[dim])
-            else:
-                assert indices.shape[dim] == values.shape[dim]
-                repetitions.append(1)
-        repetitions.append(1)
-        values = self.tile(values, repetitions)
-
-        if duplicates_handling == 'add':
-            # Only for Tensorflow with custom spatial_gradient
-            @tf.custom_gradient
-            def scatter_density(points, indices, values):
-                result = tf.tensor_scatter_add(buffer, indices, values)
-
-                def grad(dr):
-                    return self.resample(gradient(dr, difference='central'), points), None, None
-
-                return result, grad
-
-            return scatter_density(points, indices, values)
-        elif duplicates_handling == 'mean':
-            # Won't entirely work with out of bounds particles (still counted in mean)
-            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
-            total = tf.tensor_scatter_add(buffer, indices, values)
-            return total / tf.maximum(1.0, count)
-        else:  # last, any, undefined
-            # indices = self.to_int(indices, int64=True)
-            # st = tf.SparseTensor(indices, values, shape)  # ToDo this only supports 2D shapes
-            # st = tf.sparse.reorder(st)   # only needed if not ordered
-            # return tf.sparse.to_dense(st)
-            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
-            total = tf.tensor_scatter_add(buffer, indices, values)
-            return total / tf.maximum(1.0, count)
+        base_grid, values = self.auto_cast(base_grid, values)
+        indices = self.as_tensor(indices)
+        batch_size = combined_dim(combined_dim(indices.shape[0], values.shape[0]), base_grid.shape[0])
+        scatter = tf.tensor_scatter_nd_add if mode == 'add' else tf.tensor_scatter_nd_update
+        result = []
+        for b in range(batch_size):
+            b_grid = base_grid[b, ...]
+            b_indices = indices[min(b, indices.shape[0] - 1), ...]
+            b_values = values[min(b, values.shape[0] - 1), ...]
+            result.append(scatter(b_grid, b_indices, b_values))
+        return self.stack(result, axis=0)
 
     def fft(self, x):
         rank = len(x.shape) - 2

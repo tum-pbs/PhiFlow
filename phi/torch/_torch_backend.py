@@ -123,7 +123,7 @@ class TorchBackend(Backend):
                 x = ctx.saved_tensors[:INPUT_COUNT[0]]
                 y = ctx.saved_tensors[INPUT_COUNT[0]:]
                 result = gradient(x, y, grad_args)
-                return result[0] if len(result) == 1 else result
+                return result[0] if len(result) == 1 else (*result, )
 
         return TorchFunction.apply
 
@@ -249,7 +249,10 @@ class TorchBackend(Backend):
 
     def divide_no_nan(self, x, y):
         x, y = self.auto_cast(x, y)
-        result = self.as_tensor(x) / self.as_tensor(y)
+        # --- PyTorch backward pass of where produces nan gradients when inf values are present.
+        # Workaround is to avoid zero division by replacing zeros with ones (which then get filtered
+        # in the return where). ---
+        result = self.as_tensor(x) / torch.where(y == 0, torch.ones_like(y), y)
         return torch.where(y == 0, torch.zeros_like(result), result)
 
     def where(self, condition, x=None, y=None):
@@ -257,6 +260,9 @@ class TorchBackend(Backend):
         x = self.as_tensor(x)
         y = self.as_tensor(y)
         return torch.where(condition, x, y)
+
+    def nonzero(self, values):
+        return torch.nonzero(values)
 
     def mean(self, value, axis=None, keepdims=False):
         return torch.mean(value, dim=axis, keepdim=keepdims)

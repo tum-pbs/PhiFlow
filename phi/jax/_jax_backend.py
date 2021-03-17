@@ -361,9 +361,13 @@ class JaxBackend(Backend):
         return jnp.isfinite(x)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
+        if isinstance(boolean_tensor, (tuple, list)):
+            boolean_tensor = jnp.stack(boolean_tensor)
         return jnp.any(boolean_tensor, axis=axis, keepdims=keepdims)
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
+        if isinstance(boolean_tensor, (tuple, list)):
+            boolean_tensor = jnp.stack(boolean_tensor)
         return jnp.all(boolean_tensor, axis=axis, keepdims=keepdims)
 
     def scatter(self, base_grid, indices, values, mode: str):

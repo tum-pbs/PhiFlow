@@ -6,14 +6,14 @@ from phi.flow import *
 def step(particles, domain, dt, accessible):
     velocity = particles >> domain.staggered_grid()
     div_free_velocity, pressure, _, _, occupied = \
-        flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, accessible, particles)
+        flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, particles, accessible)
     particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity, viscosity=0.9)
     particles = advect.runge_kutta_4(particles, div_free_velocity, dt, accessible=accessible, occupied=occupied)
     particles = flip.respect_boundaries(particles, domain, [])
     return dict(particles=particles, domain=domain, dt=dt, accessible=accessible)
 
 
-class FluidTest(TestCase):
+class FlipTest(TestCase):
 
     def test_falling_block_short(self):
         """ Tests if a block of liquid has a constant shape during free fall for 4 steps. """
