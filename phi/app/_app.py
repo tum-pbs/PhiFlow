@@ -253,6 +253,7 @@ class App(object):
         """
         dt = self.dt  # prevent race conditions
         if self.step_function is None:
+            print("WARNING: No Step Function Defined!")
             world.step(dt=dt)
         else:
             new_state = self.step_function(dt=dt, **self.state)
