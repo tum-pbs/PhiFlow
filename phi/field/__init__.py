@@ -32,6 +32,7 @@ from ._field_math import (
     downsample2x, upsample2x,
     extrapolate_valid,
     jit_compile, functional_gradient, linear_function,
+    native_call,
 )
 from ._field_io import write, read
 from ._scene import Scene

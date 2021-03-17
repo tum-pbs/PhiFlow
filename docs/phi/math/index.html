@@ -98,7 +98,7 @@ from ._nd import (
     spatial_sum, vec_abs, vec_squared, cross_product,
     normalize_to,
     l1_loss, l2_loss, l_n_loss, frequency_loss,
-    gradient, laplace,
+    spatial_gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
     extrapolate_valid_values,
@@ -1208,8 +1208,10 @@ x00
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     &#34;&#34;&#34;
+
     def binarize(x):
         return math.divide_no_nan(x, x)
+
     distance_cells = min(distance_cells, max(values.shape))
     for _ in range(distance_cells):
         valid = binarize(valid)
@@ -1382,7 +1384,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
     &#34;&#34;&#34;
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, &#39;vector&#39;)
-    fft_laplace = -(2 * np.pi)**2 * k_squared
+    fft_laplace = -(2 * np.pi) ** 2 * k_squared
     result = math.real(math.ifft(frequencies * fft_laplace ** times))
     return math.cast(result / wrap(dx) ** 2, grid.dtype)</code></pre>
 </details>
@@ -1423,7 +1425,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
     &#34;&#34;&#34;
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, &#39;vector&#39;)
-    fft_laplace = -(2 * np.pi)**2 * k_squared
+    fft_laplace = -(2 * np.pi) ** 2 * k_squared
     # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
     result = math.real(math.ifft(math.divide_no_nan(frequencies, math.to_complex(fft_laplace ** times))))
     return math.cast(result * wrap(dx) ** 2, grid.dtype)</code></pre>
@@ -1639,92 +1641,6 @@ The precision can be set globally using <code><a title="phi.math.set_global_prec
         16 for half, 32 for single, 64 for double
     &#34;&#34;&#34;
     return _PRECISION[-1]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: str = 'spatial_gradient')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
-The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>grid</code></strong></dt>
-<dd>grid values</dd>
-<dt><strong><code>dims</code></strong></dt>
-<dd>optional) sequence of dimension names</dd>
-<dt><strong><code>dx</code></strong></dt>
-<dd>physical distance between grid points (default 1)</dd>
-<dt><strong><code>difference</code></strong></dt>
-<dd>type of difference, one of ('forward', 'backward', 'central') (default 'forward')</dd>
-<dt><strong><code>padding</code></strong></dt>
-<dd>tensor padding mode</dd>
-<dt><strong><code>stack_dim</code></strong></dt>
-<dd>name of the new vector dimension listing the spatial_gradient w.r.t. the various axes</dd>
-<dt><strong><code>grid</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>dx</code></strong></dt>
-<dd>float or int:
-(Default value = 1)</dd>
-<dt><strong><code>difference</code></strong></dt>
-<dd>str:
-(Default value = 'central')</dd>
-<dt><strong><code>padding</code></strong></dt>
-<dd>Extrapolation or None:
-(Default value = extrapolation.BOUNDARY)</dd>
-<dt><strong><code>dims</code></strong></dt>
-<dd>tuple or None:
-(Default value = None)</dd>
-<dt><strong><code>stack_dim</code></strong></dt>
-<dd>str:
-(Default value = 'spatial_gradient')</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tensor of shape (batch_size, spatial_dimensions&hellip;, spatial rank)</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gradient(grid: Tensor,
-             dx: float or int = 1,
-             difference: str = &#39;central&#39;,
-             padding: Extrapolation or None = extrapolation.BOUNDARY,
-             dims: tuple or None = None,
-             stack_dim: str = &#39;spatial_gradient&#39;):
-    &#34;&#34;&#34;
-    Calculates the spatial_gradient of a scalar channel from finite differences.
-    The spatial_gradient vectors are in reverse order, lowest dimension first.
-
-    Args:
-      grid: grid values
-      dims: optional) sequence of dimension names
-      dx: physical distance between grid points (default 1)
-      difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
-      padding: tensor padding mode
-      stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
-      grid: Tensor: 
-      dx: float or int:  (Default value = 1)
-      difference: str:  (Default value = &#39;central&#39;)
-      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
-      dims: tuple or None:  (Default value = None)
-      stack_dim: str:  (Default value = &#39;spatial_gradient&#39;)
-
-    Returns:
-      tensor of shape (batch_size, spatial_dimensions..., spatial rank)
-
-    &#34;&#34;&#34;
-    grid = wrap(grid)
-    if difference.lower() == &#39;central&#39;:
-        left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
-        return (right - left) / (dx * 2)
-    elif difference.lower() == &#39;forward&#39;:
-        left, right = shift(grid, (0, 1), dims, padding, stack_dim=stack_dim)
-        return (right - left) / dx
-    elif difference.lower() == &#39;backward&#39;:
-        left, right = shift(grid, (-1, 0), dims, padding, stack_dim=stack_dim)
-        return (right - left) / dx
-    else:
-        raise ValueError(&#39;Invalid difference type: {}. Can be CENTRAL or FORWARD&#39;.format(difference))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.gradients"><code class="name flex">
@@ -2081,18 +1997,54 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <span>def <span class="ident">linear_function</span></span>(<span>f: Callable, jit_compile=True) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Mark <code>f</code> as a linear function.
+This is required for performing a linear solve using <code><a title="phi.math.solve" href="#phi.math.solve">solve()</a></code>.</p>
+<p>Can be used as a decorator:</p>
+<pre><code class="language-python">@math.linear_function
+def my_linear_function(x):
+</code></pre>
+<p>If <code>jit_compile=True</code>, a sparse matrix representation of <code>f</code> will be created when the returned function is called.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> arguments and return value(s).</dd>
+<dt><strong><code>jit_compile</code></strong></dt>
+<dd>Whether to compile a matrix representation for <code>f</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def linear_function(f: Callable, jit_compile=True) -&gt; Callable:
+    &#34;&#34;&#34;
+    Mark `f` as a linear function.
+    This is required for performing a linear solve using `solve()`.
+
+    Can be used as a decorator:
+
+    ```python
+    @math.linear_function
+    def my_linear_function(x):
+    ```
+
+    If `jit_compile=True`, a sparse matrix representation of `f` will be created when the returned function is called.
+
+    Args:
+        f: Linear function with `Tensor` arguments and return value(s).
+        jit_compile: Whether to compile a matrix representation for `f`.
+
+    Returns:
+        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+    &#34;&#34;&#34;
     if not jit_compile:
         return LinearFunction(f)
-    if not default_backend().supports(Backend.sparse_tensor):
-        warnings.warn(f&#34;Cannot compile linear function with {default_backend()} because sparse matrices are not supported.&#34;)
+    backend = default_backend()
+    if not backend.supports(Backend.sparse_tensor):
+        warnings.warn(f&#34;Cannot compile linear function with {backend} because sparse matrices are not supported.&#34;)
         return LinearFunction(f)
-    return JitLinearFunction(f, default_backend())</code></pre>
+    return JitLinearFunction(f, backend)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.linspace"><code class="name flex">
@@ -2971,6 +2923,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
     Returns:
         Native tensor with dimensions matching `groups`.
     &#34;&#34;&#34;
+    assert isinstance(value, Tensor), f&#34;value must be a Tensor but got {type(value)}&#34;
     order = []
     for i, group in enumerate(groups):
         if isinstance(group, Shape):
@@ -3238,7 +3191,7 @@ These dimensions are not treated as batch dimensions.</dd>
         zero_grid = backend.zeros_like(native_grid)
         sum = backend.scatter(zero_grid, native_indices, native_values, mode=&#39;add&#39;)
         count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode=&#39;add&#39;)
-        native_result = sum / count
+        native_result = sum / backend.maximum(count, 1)
         native_result = backend.where(count == 0, native_grid, native_result)
     return reshaped_tensor(native_result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)</code></pre>
 </details>
@@ -3433,8 +3386,11 @@ The output of math operations has the same precision as its inputs.</p>
     for offset in offsets:
         components = []
         for dimension in dims:
-            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower, -pad_upper) for dim in dims}
-            slices = {dim: slice(sl.start, sl.stop if sl.stop &lt; 0 else None) for dim, sl in slices.items()}  # replace stop=0 by stop=None
+            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower,
+                                                                                                         -pad_upper) for
+                      dim in dims}
+            slices = {dim: slice(sl.start, sl.stop if sl.stop &lt; 0 else None) for dim, sl in
+                      slices.items()}  # replace stop=0 by stop=None
             components.append(x[slices])
         offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors</code></pre>
@@ -3467,15 +3423,19 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.solve"><code class="name flex">
-<span>def <span class="ident">solve</span></span>(<span>operator: Callable, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, constants: tuple = (), callback=None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">solve</span></span>(<span>f: Callable, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, constants: tuple = (), callback=None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Solves the system of linear or nonlinear equations <em>operator · x = y</em>.</p>
-<p>Information about the performed solve will be added to <code>solve_params.result</code>.
+<div class="desc"><p>Solves the system of linear or nonlinear equations <em>f(x) = y</em>.
+To solve a linear system, decorate <code>f</code> with <code>@math.linear_function</code>.
+Otherwise, a nonlinear solver will be used which may be slower.</p>
+<p>Information about the performed solve will be stored in <code>solve_params.result</code>.
 In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to <code>solve_params.gradient_solve.result</code>.</p>
+<p>See Also:
+<code><a title="phi.math.minimize" href="#phi.math.minimize">minimize()</a></code>, <code><a title="phi.math.linear_function" href="#phi.math.linear_function">linear_function()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>operator</code></strong></dt>
+<dt><strong><code>f</code></strong></dt>
 <dd>Function <code>operator(x)</code> or matrix</dd>
 <dt><strong><code>y</code></strong></dt>
 <dd>Desired output of <code>operator · x</code></dd>
@@ -3495,20 +3455,25 @@ In case the gradient of this operation is computed during backpropagation, infor
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve(operator: Callable,
+<pre><code class="python">def solve(f: Callable,
           y: Tensor,
           x0: Tensor,
           solve_params: Solve,
           constants: tuple or list = (),
           callback=None) -&gt; Tensor:
     &#34;&#34;&#34;
-    Solves the system of linear or nonlinear equations *operator · x = y*.
+    Solves the system of linear or nonlinear equations *f(x) = y*.
+    To solve a linear system, decorate `f` with `@math.linear_function`.
+    Otherwise, a nonlinear solver will be used which may be slower.
 
-    Information about the performed solve will be added to `solve_params.result`.
+    Information about the performed solve will be stored in `solve_params.result`.
     In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve_params.gradient_solve.result`.
 
+    See Also:
+        `minimize()`, `linear_function()`.
+
     Args:
-        operator: Function `operator(x)` or matrix
+        f: Function `operator(x)` or matrix
         y: Desired output of `operator · x`
         x0: Initial guess for `x`
         solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
@@ -3517,11 +3482,11 @@ In case the gradient of this operation is computed during backpropagation, infor
     Returns:
         x: solution of the linear system of equations `operator · x = y`.
     &#34;&#34;&#34;
-    if not isinstance(operator, LinearFunction):
+    if not isinstance(f, LinearFunction):
         from ._nd import l2_loss
 
         def min_func(x):
-            diff = operator(x) - y
+            diff = f(x) - y
             l2 = l2_loss(diff)
             return l2
 
@@ -3538,13 +3503,13 @@ In case the gradient of this operation is computed during backpropagation, infor
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
 
-    if isinstance(operator, JitLinearFunction):
-        operator_or_matrix = operator.sparse_coordinate_matrix(x0)
+    if isinstance(f, JitLinearFunction):
+        operator_or_matrix = f.sparse_coordinate_matrix(x0)
     else:
         def operator_or_matrix(native_x):
             native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
             x = NativeTensor(native_x_shaped, x0.shape.non_batch)
-            Ax = operator(x)
+            Ax = f(x)
             Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
             return Ax_native
 
@@ -3564,6 +3529,92 @@ In case the gradient of this operation is computed during backpropagation, infor
         info = &#34;  \tProfile with trace=False to get more accurate results.&#34; if get_current_profile()._trace else &#34;&#34;
         get_current_profile().add_external_message(f&#34;CG \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}&#34;)
     return x</code></pre>
+</details>
+</dd>
+<dt id="phi.math.spatial_gradient"><code class="name flex">
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: str = 'spatial_gradient')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
+The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd>grid values</dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>optional) sequence of dimension names</dd>
+<dt><strong><code>dx</code></strong></dt>
+<dd>physical distance between grid points (default 1)</dd>
+<dt><strong><code>difference</code></strong></dt>
+<dd>type of difference, one of ('forward', 'backward', 'central') (default 'forward')</dd>
+<dt><strong><code>padding</code></strong></dt>
+<dd>tensor padding mode</dd>
+<dt><strong><code>stack_dim</code></strong></dt>
+<dd>name of the new vector dimension listing the spatial_gradient w.r.t. the various axes</dd>
+<dt><strong><code>grid</code></strong></dt>
+<dd>Tensor: </dd>
+<dt><strong><code>dx</code></strong></dt>
+<dd>float or int:
+(Default value = 1)</dd>
+<dt><strong><code>difference</code></strong></dt>
+<dd>str:
+(Default value = 'central')</dd>
+<dt><strong><code>padding</code></strong></dt>
+<dd>Extrapolation or None:
+(Default value = extrapolation.BOUNDARY)</dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>tuple or None:
+(Default value = None)</dd>
+<dt><strong><code>stack_dim</code></strong></dt>
+<dd>str:
+(Default value = 'spatial_gradient')</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tensor of shape (batch_size, spatial_dimensions&hellip;, spatial rank)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def spatial_gradient(grid: Tensor,
+                     dx: float or int = 1,
+                     difference: str = &#39;central&#39;,
+                     padding: Extrapolation or None = extrapolation.BOUNDARY,
+                     dims: tuple or None = None,
+                     stack_dim: str = &#39;spatial_gradient&#39;):
+    &#34;&#34;&#34;
+    Calculates the spatial_gradient of a scalar channel from finite differences.
+    The spatial_gradient vectors are in reverse order, lowest dimension first.
+
+    Args:
+      grid: grid values
+      dims: optional) sequence of dimension names
+      dx: physical distance between grid points (default 1)
+      difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
+      padding: tensor padding mode
+      stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
+      grid: Tensor: 
+      dx: float or int:  (Default value = 1)
+      difference: str:  (Default value = &#39;central&#39;)
+      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
+      dims: tuple or None:  (Default value = None)
+      stack_dim: str:  (Default value = &#39;spatial_gradient&#39;)
+
+    Returns:
+      tensor of shape (batch_size, spatial_dimensions..., spatial rank)
+
+    &#34;&#34;&#34;
+    grid = wrap(grid)
+    if difference.lower() == &#39;central&#39;:
+        left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
+        return (right - left) / (dx * 2)
+    elif difference.lower() == &#39;forward&#39;:
+        left, right = shift(grid, (0, 1), dims, padding, stack_dim=stack_dim)
+        return (right - left) / dx
+    elif difference.lower() == &#39;backward&#39;:
+        left, right = shift(grid, (-1, 0), dims, padding, stack_dim=stack_dim)
+        return (right - left) / dx
+    else:
+        raise ValueError(&#39;Invalid difference type: {}. Can be CENTRAL or FORWARD&#39;.format(difference))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.spatial_shape"><code class="name flex">
@@ -7948,7 +7999,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.gather" href="#phi.math.gather">gather</a></code></li>
 <li><code><a title="phi.math.get_precision" href="#phi.math.get_precision">get_precision</a></code></li>
-<li><code><a title="phi.math.gradient" href="#phi.math.gradient">gradient</a></code></li>
 <li><code><a title="phi.math.gradients" href="#phi.math.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.grid_sample" href="#phi.math.grid_sample">grid_sample</a></code></li>
 <li><code><a title="phi.math.ifft" href="#phi.math.ifft">ifft</a></code></li>
@@ -7998,6 +8048,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.sign" href="#phi.math.sign">sign</a></code></li>
 <li><code><a title="phi.math.sin" href="#phi.math.sin">sin</a></code></li>
 <li><code><a title="phi.math.solve" href="#phi.math.solve">solve</a></code></li>
+<li><code><a title="phi.math.spatial_gradient" href="#phi.math.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.spatial_shape" href="#phi.math.spatial_shape">spatial_shape</a></code></li>
 <li><code><a title="phi.math.spatial_stack" href="#phi.math.spatial_stack">spatial_stack</a></code></li>
 <li><code><a title="phi.math.spatial_sum" href="#phi.math.spatial_sum">spatial_sum</a></code></li>

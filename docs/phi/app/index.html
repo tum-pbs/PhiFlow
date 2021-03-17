@@ -168,18 +168,20 @@ All fields need to be registered before the app is prepared or shown.</p>
     See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
     &#34;&#34;&#34;
 
-    def __init__(self,
-                 name=None,
-                 subtitle=&#39;&#39;,
-                 fields=None,
-                 stride=None,
-                 base_dir=&#39;~/phi/data/&#39;,
-                 summary=None,
-                 custom_properties=None,
-                 target_scene=None,
-                 objects_to_save=None,
-                 framerate=None,
-                 dt=1.0):
+    def __init__(
+        self,
+        name=None,
+        subtitle=&#34;&#34;,
+        fields=None,
+        stride=None,
+        base_dir=&#34;~/phi/data/&#34;,
+        summary=None,
+        custom_properties=None,
+        target_scene=None,
+        objects_to_save=None,
+        framerate=None,
+        dt=1.0,
+    ):
         self.start_time = time.time()
         &#34;&#34;&#34; Time of creation (`App` constructor invocation) &#34;&#34;&#34;
         self.name = name if name is not None else self.__class__.__name__
@@ -189,7 +191,10 @@ All fields need to be registered before the app is prepared or shown.</p>
         self.summary = summary if summary else name
         &#34;&#34;&#34; The scene directory is derived from the summary. Defaults to `name`. &#34;&#34;&#34;
         if fields:
-            self.fields = {name: TimeDependentField(name, generator) for (name, generator) in fields.items()}
+            self.fields = {
+                name: TimeDependentField(name, generator)
+                for (name, generator) in fields.items()
+            }
         else:
             self.fields = {}
         self.message = None
@@ -205,15 +210,19 @@ All fields need to be registered before the app is prepared or shown.</p>
         &#34;&#34;&#34; Wheter `prepare()` has been called. &#34;&#34;&#34;
         self.current_action = None
         self._pause = False
-        self.detect_fields = &#39;default&#39;  # False, True, &#39;default&#39;
+        self.detect_fields = &#34;default&#34;  # False, True, &#39;default&#39;
         self.world = world
         self._dt = dt.initial_value if isinstance(dt, EditableValue) else dt
         if isinstance(dt, EditableValue):
             self._controls.append(Control(self, &#34;dt&#34;, dt))
         self.min_dt = self._dt
-        self.dt_history = {}  # sparse representation of time when new timestep was set (for the next step)
+        self.dt_history = (
+            {}
+        )  # sparse representation of time when new timestep was set (for the next step)
         # Setup directory &amp; Logging
-        self.objects_to_save = [self.__class__] if objects_to_save is None else list(objects_to_save)
+        self.objects_to_save = (
+            [self.__class__] if objects_to_save is None else list(objects_to_save)
+        )
         self.base_dir = os.path.expanduser(base_dir)
         if not target_scene:
             self.new_scene()
@@ -221,21 +230,21 @@ All fields need to be registered before the app is prepared or shown.</p>
         else:
             self.scene = target_scene
             self.uses_existing_scene = True
-        if not isfile(self.scene.subpath(&#39;info.log&#39;)):
-            log_file = self.log_file = self.scene.subpath(&#39;info.log&#39;)
+        if not isfile(self.scene.subpath(&#34;info.log&#34;)):
+            log_file = self.log_file = self.scene.subpath(&#34;info.log&#34;)
         else:
             index = 2
             while True:
-                log_file = self.scene.subpath(&#39;info_%d.log&#39; % index)
+                log_file = self.scene.subpath(&#34;info_%d.log&#34; % index)
                 if not isfile(log_file):
                     break
                 else:
                     index += 1
         # Message logging
-        logFormatter = logging.Formatter(&#39;%(message)s (%(levelname)s), %(asctime)sn\n&#39;)
+        logFormatter = logging.Formatter(&#34;%(message)s (%(levelname)s), %(asctime)sn\n&#34;)
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
-        customLogger = logging.Logger(&#39;app&#39;, logging.DEBUG)
+        customLogger = logging.Logger(&#34;app&#34;, logging.DEBUG)
         fileHandler = logging.FileHandler(log_file)
         fileHandler.setFormatter(logFormatter)
         customLogger.addHandler(fileHandler)
@@ -256,7 +265,7 @@ All fields need to be registered before the app is prepared or shown.</p>
         self.state = None
         self.step_function = None
         # Initial log message
-        self.info(&#39;App created. Scene directory is %s&#39; % self.scene.path)
+        self.info(&#34;App created. Scene directory is %s&#34; % self.scene.path)
 
     @property
     def dt(self):
@@ -288,7 +297,8 @@ All fields need to be registered before the app is prepared or shown.</p>
 
         &#34;&#34;&#34;
         self.state = initial_state
-        self.step_function = step_function
+        if step_function is not None:
+            self.step_function = step_function
         if dt is not None:
             self.dt = dt
         if show:
@@ -296,7 +306,9 @@ All fields need to be registered before the app is prepared or shown.</p>
                 for field_name in show:
                     self.add_field(field_name, lambda n=field_name: self.state[n])
                 else:
-                    warnings.warn(&#39;Ignoring show argument because App is already prepared.&#39;)
+                    warnings.warn(
+                        &#34;Ignoring show argument because App is already prepared.&#34;
+                    )
 
     @property
     def frame(self):
@@ -307,7 +319,9 @@ All fields need to be registered before the app is prepared or shown.</p>
         if count is None:
             count = 1 if self.world.batch_size is None else self.world.batch_size
         if count &gt; 1:
-            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
+            self.scene = Scene.create(
+                os.path.join(self.base_dir, self.scene_summary()), batch=count
+            )
         else:
             self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))
 
@@ -339,11 +353,15 @@ All fields need to be registered before the app is prepared or shown.</p>
         &#34;&#34;&#34;
         dt = self.dt  # prevent race conditions
         if self.step_function is None:
+            print(&#34;WARNING: No Step Function Defined!&#34;)
             world.step(dt=dt)
         else:
             new_state = self.step_function(dt=dt, **self.state)
-            assert isinstance(self.state, dict), &#39;step_function must return a dict&#39;
-            assert new_state.keys() == self.state.keys(), &#39;step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s&#39; % (self.state.keys(), new_state.keys())
+            assert isinstance(self.state, dict), &#34;step_function must return a dict&#34;
+            assert new_state.keys() == self.state.keys(), (
+                &#34;step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s&#34;
+                % (self.state.keys(), new_state.keys())
+            )
             self.state = new_state
         self.time += dt
 
@@ -360,7 +378,10 @@ All fields need to be registered before the app is prepared or shown.</p>
         If a generator function was registered as the field data, this method may invoke the function which may take some time to complete.
         &#34;&#34;&#34;
         if fieldname not in self.fields:
-            raise KeyError(&#39;Field %s not declared. Available fields are %s&#39; % (fieldname, self.fields.keys()))
+            raise KeyError(
+                &#34;Field %s not declared. Available fields are %s&#34;
+                % (fieldname, self.fields.keys())
+            )
         return self.fields[fieldname].get(self._invalidation_counter)
 
     def add_field(self, name: str, value):
@@ -378,18 +399,23 @@ All fields need to be registered before the app is prepared or shown.</p>
           name: unique human-readable name
           value: data to display
         &#34;&#34;&#34;
-        assert not self.prepared, &#39;Cannot add fields to a prepared model&#39;
+        assert not self.prepared, &#34;Cannot add fields to a prepared model&#34;
         if isinstance(value, StateProxy):
+
             def current_state():
                 return value.state
+
             generator = current_state
         elif callable(value):
             generator = value
         else:
-            assert isinstance(value, (np.ndarray, Field, float, int, math.Tensor)), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
+            assert isinstance(
+                value, (np.ndarray, Field, float, int, math.Tensor)
+            ), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
 
             def get_constant():
                 return value
+
             generator = get_constant
         self.fields[name] = TimeDependentField(name, generator)
 
@@ -408,8 +434,8 @@ All fields need to be registered before the app is prepared or shown.</p>
         value = float(math.mean(value))
         if name not in self._scalars:
             self._scalars[name] = []
-            path = self.scene.subpath(f&#39;log_{name}.txt&#39;)
-            self._scalar_streams[name] = open(path, &#39;w&#39;)
+            path = self.scene.subpath(f&#34;log_{name}.txt&#34;)
+            self._scalar_streams[name] = open(path, &#34;w&#34;)
         self._scalars[name].append((self.frame, value))
         self._scalar_streams[name].write(f&#34;{value}\n&#34;)
         self._scalar_streams[name].flush()
@@ -439,17 +465,17 @@ All fields need to be registered before the app is prepared or shown.</p>
         self.invalidate()
         message_after = self.message
         if message_before == message_after:
-            if self.message is None or self.message == &#39;&#39;:
+            if self.message is None or self.message == &#34;&#34;:
                 self.message = display_name(action.name)
             else:
-                self.message += &#39; | &#39; + display_name(action.name)
+                self.message += &#34; | &#34; + display_name(action.name)
 
     @property
     def traits(self):
         return self._traits
 
     def add_trait(self, trait):
-        assert not self.prepared, &#39;Cannot add traits to a prepared model&#39;
+        assert not self.prepared, &#34;Cannot add traits to a prepared model&#34;
         self._traits.append(trait)
 
     @property
@@ -474,15 +500,17 @@ All fields need to be registered before the app is prepared or shown.</p>
         &#34;&#34;&#34;
         if self.prepared:
             return
-        logging.info(&#39;Gathering model data...&#39;)
+        logging.info(&#34;Gathering model data...&#34;)
         # Controls
         for name in self.__dict__:
             val = getattr(self, name)
             editable_value = None
             if isinstance(val, EditableValue):
                 editable_value = val
-                setattr(self, name, val.initial_value)  # Replace EditableValue with initial value
-            elif name.startswith(&#39;value_&#39;):
+                setattr(
+                    self, name, val.initial_value
+                )  # Replace EditableValue with initial value
+            elif name.startswith(&#34;value_&#34;):
                 value_name = display_name(name[6:])
                 dtype = type(val)
                 if dtype == bool:
@@ -497,8 +525,16 @@ All fields need to be registered before the app is prepared or shown.</p>
                 self._controls.append(Control(self, name, editable_value))
         # Actions
         for method_name in dir(self):
-            if method_name.startswith(&#39;action_&#39;) and callable(getattr(self, method_name)):
-                self._actions.append(Action(display_name(method_name[7:]), getattr(self, method_name), method_name))
+            if method_name.startswith(&#34;action_&#34;) and callable(
+                getattr(self, method_name)
+            ):
+                self._actions.append(
+                    Action(
+                        display_name(method_name[7:]),
+                        getattr(self, method_name),
+                        method_name,
+                    )
+                )
         # Default fields
         if len(self.fields) == 0:
             self._add_default_fields()
@@ -520,12 +556,21 @@ All fields need to be registered before the app is prepared or shown.</p>
         def add_default_field(trace):
             field = trace.value
             if isinstance(field, (CenteredGrid, StaggeredGrid)):
+
                 def field_generator():
                     world_state = self.world.state
                     return trace.find_in(world_state)
+
                 self.add_field(field.name[0].upper() + field.name[1:], field_generator)
             return None
-        struct.map(add_default_field, self.world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True, content_type=struct.INVALID)
+
+        struct.map(
+            add_default_field,
+            self.world.state,
+            leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
+            trace=True,
+            content_type=struct.INVALID,
+        )
 
     def add_custom_property(self, key, value):
         self._custom_properties[key] = value
@@ -544,29 +589,27 @@ All fields need to be registered before the app is prepared or shown.</p>
             app_name = os.path.basename(inspect.getfile(self.__class__))
             app_path = inspect.getabsfile(self.__class__)
         except TypeError:
-            app_name = app_path = &#39;&#39;
+            app_name = app_path = &#34;&#34;
         properties = {
-            &#39;instigator&#39;: &#39;App&#39;,
-            &#39;traits&#39;: self.traits,
-            &#39;app&#39;: str(app_name),
-            &#39;app_path&#39;: str(app_path),
-            &#39;name&#39;: self.name,
-            &#39;description&#39;: self.subtitle,
-            &#39;all_fields&#39;: self.fieldnames,
-            &#39;actions&#39;: [action.name for action in self.actions],
-            &#39;controls&#39;: [{control.name: control.value} for control in self.controls],
-            &#39;summary&#39;: self.scene_summary(),
-            &#39;steps&#39;: self.steps,
-            &#39;time&#39;: self.time,
-            &#39;world&#39;: struct.properties_dict(self.world.state)
+            &#34;instigator&#34;: &#34;App&#34;,
+            &#34;traits&#34;: self.traits,
+            &#34;app&#34;: str(app_name),
+            &#34;app_path&#34;: str(app_path),
+            &#34;name&#34;: self.name,
+            &#34;description&#34;: self.subtitle,
+            &#34;all_fields&#34;: self.fieldnames,
+            &#34;actions&#34;: [action.name for action in self.actions],
+            &#34;controls&#34;: [{control.name: control.value} for control in self.controls],
+            &#34;summary&#34;: self.scene_summary(),
+            &#34;steps&#34;: self.steps,
+            &#34;time&#34;: self.time,
+            &#34;world&#34;: struct.properties_dict(self.world.state),
         }
         properties.update(self.custom_properties())
         self.scene.properties = properties
 
     def settings_str(self):
-        return &#39;&#39;.join([
-            &#39; &#39; + str(control) for control in self.controls
-        ])
+        return &#34;&#34;.join([&#34; &#34; + str(control) for control in self.controls])
 
     def custom_properties(self):
         return self._custom_properties
@@ -603,21 +646,22 @@ All fields need to be registered before the app is prepared or shown.</p>
     def show(self, **config):
         warnings.warn(&#34;Use show(model) instead.&#34;, DeprecationWarning, stacklevel=2)
         from ._display import show
+
         show(self, **config)
 
     @property
     def status(self):
-        pausing = &#39;/Pausing&#39; if (self._pause and self.current_action) else &#39;&#39;
-        action = self.current_action if self.current_action else &#39;Idle&#39;
-        message = f&#39; - {self.message}&#39; if self.message else &#39;&#39;
-        return f&#39;{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}&#39;
+        pausing = &#34;/Pausing&#34; if (self._pause and self.current_action) else &#34;&#34;
+        action = self.current_action if self.current_action else &#34;Idle&#34;
+        message = f&#34; - {self.message}&#34; if self.message else &#34;&#34;
+        return f&#34;{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}&#34;
 
     def format_time(self, time):
         commas = int(np.ceil(np.abs(np.log10(self.min_dt))))
         return (&#34;{time:,&#34; + f&#34;.{commas}f&#34; + &#34;}&#34;).format(time=time)
 
     def run_step(self, framerate=None):
-        self.current_action = &#39;Running&#39;
+        self.current_action = &#34;Running&#34;
         starttime = time.time()
         try:
             self._progress()
@@ -625,15 +669,20 @@ All fields need to be registered before the app is prepared or shown.</p>
                 duration = time.time() - starttime
                 rest = 1.0 / framerate - duration
                 if rest &gt; 0:
-                    self.current_action = &#39;Waiting&#39;
+                    self.current_action = &#34;Waiting&#34;
                     time.sleep(rest)
         except Exception as e:
-            self.info(&#39;Error during %s.step() \n %s: %s&#39; % (type(self).__name__, type(e).__name__, e))
+            self.info(
+                &#34;Error during %s.step() \n %s: %s&#34;
+                % (type(self).__name__, type(e).__name__, e)
+            )
             self.logger.exception(e)
         finally:
             self.current_action = None
 
-    def play(self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
+    def play(
+        self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False
+    ):
         &#34;&#34;&#34;
         Run a number of steps.
 
@@ -814,10 +863,10 @@ def running(self):
 </summary>
 <pre><code class="python">@property
 def status(self):
-    pausing = &#39;/Pausing&#39; if (self._pause and self.current_action) else &#39;&#39;
-    action = self.current_action if self.current_action else &#39;Idle&#39;
-    message = f&#39; - {self.message}&#39; if self.message else &#39;&#39;
-    return f&#39;{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}&#39;</code></pre>
+    pausing = &#34;/Pausing&#34; if (self._pause and self.current_action) else &#34;&#34;
+    action = self.current_action if self.current_action else &#34;Idle&#34;
+    message = f&#34; - {self.message}&#34; if self.message else &#34;&#34;
+    return f&#34;{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}&#34;</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.steps"><code class="name">var <span class="ident">steps</span></code></dt>
@@ -932,18 +981,23 @@ This method must be called before the user interface is launched, i.e. before <c
       name: unique human-readable name
       value: data to display
     &#34;&#34;&#34;
-    assert not self.prepared, &#39;Cannot add fields to a prepared model&#39;
+    assert not self.prepared, &#34;Cannot add fields to a prepared model&#34;
     if isinstance(value, StateProxy):
+
         def current_state():
             return value.state
+
         generator = current_state
     elif callable(value):
         generator = value
     else:
-        assert isinstance(value, (np.ndarray, Field, float, int, math.Tensor)), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
+        assert isinstance(
+            value, (np.ndarray, Field, float, int, math.Tensor)
+        ), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
 
         def get_constant():
             return value
+
         generator = get_constant
     self.fields[name] = TimeDependentField(name, generator)</code></pre>
 </details>
@@ -958,7 +1012,7 @@ This method must be called before the user interface is launched, i.e. before <c
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def add_trait(self, trait):
-    assert not self.prepared, &#39;Cannot add traits to a prepared model&#39;
+    assert not self.prepared, &#34;Cannot add traits to a prepared model&#34;
     self._traits.append(trait)</code></pre>
 </details>
 </dd>
@@ -1057,7 +1111,10 @@ Fields can be added using <code>add_field()</code>.</p>
     If a generator function was registered as the field data, this method may invoke the function which may take some time to complete.
     &#34;&#34;&#34;
     if fieldname not in self.fields:
-        raise KeyError(&#39;Field %s not declared. Available fields are %s&#39; % (fieldname, self.fields.keys()))
+        raise KeyError(
+            &#34;Field %s not declared. Available fields are %s&#34;
+            % (fieldname, self.fields.keys())
+        )
     return self.fields[fieldname].get(self._invalidation_counter)</code></pre>
 </details>
 </dd>
@@ -1170,8 +1227,8 @@ The curves may also be directly viewed in the user interface.</p>
     value = float(math.mean(value))
     if name not in self._scalars:
         self._scalars[name] = []
-        path = self.scene.subpath(f&#39;log_{name}.txt&#39;)
-        self._scalar_streams[name] = open(path, &#39;w&#39;)
+        path = self.scene.subpath(f&#34;log_{name}.txt&#34;)
+        self._scalar_streams[name] = open(path, &#34;w&#34;)
     self._scalars[name].append((self.frame, value))
     self._scalar_streams[name].write(f&#34;{value}\n&#34;)
     self._scalar_streams[name].flush()</code></pre>
@@ -1190,7 +1247,9 @@ The curves may also be directly viewed in the user interface.</p>
     if count is None:
         count = 1 if self.world.batch_size is None else self.world.batch_size
     if count &gt; 1:
-        self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
+        self.scene = Scene.create(
+            os.path.join(self.base_dir, self.scene_summary()), batch=count
+        )
     else:
         self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))</code></pre>
 </details>
@@ -1231,7 +1290,9 @@ The curves may also be directly viewed in the user interface.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def play(self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
+<pre><code class="python">def play(
+    self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False
+):
     &#34;&#34;&#34;
     Run a number of steps.
 
@@ -1301,15 +1362,17 @@ If not invoked manually, it is automatically called before the user interface is
     &#34;&#34;&#34;
     if self.prepared:
         return
-    logging.info(&#39;Gathering model data...&#39;)
+    logging.info(&#34;Gathering model data...&#34;)
     # Controls
     for name in self.__dict__:
         val = getattr(self, name)
         editable_value = None
         if isinstance(val, EditableValue):
             editable_value = val
-            setattr(self, name, val.initial_value)  # Replace EditableValue with initial value
-        elif name.startswith(&#39;value_&#39;):
+            setattr(
+                self, name, val.initial_value
+            )  # Replace EditableValue with initial value
+        elif name.startswith(&#34;value_&#34;):
             value_name = display_name(name[6:])
             dtype = type(val)
             if dtype == bool:
@@ -1324,8 +1387,16 @@ If not invoked manually, it is automatically called before the user interface is
             self._controls.append(Control(self, name, editable_value))
     # Actions
     for method_name in dir(self):
-        if method_name.startswith(&#39;action_&#39;) and callable(getattr(self, method_name)):
-            self._actions.append(Action(display_name(method_name[7:]), getattr(self, method_name), method_name))
+        if method_name.startswith(&#34;action_&#34;) and callable(
+            getattr(self, method_name)
+        ):
+            self._actions.append(
+                Action(
+                    display_name(method_name[7:]),
+                    getattr(self, method_name),
+                    method_name,
+                )
+            )
     # Default fields
     if len(self.fields) == 0:
         self._add_default_fields()
@@ -1359,10 +1430,10 @@ If not invoked manually, it is automatically called before the user interface is
     self.invalidate()
     message_after = self.message
     if message_before == message_after:
-        if self.message is None or self.message == &#39;&#39;:
+        if self.message is None or self.message == &#34;&#34;:
             self.message = display_name(action.name)
         else:
-            self.message += &#39; | &#39; + display_name(action.name)</code></pre>
+            self.message += &#34; | &#34; + display_name(action.name)</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.run_step"><code class="name flex">
@@ -1375,7 +1446,7 @@ If not invoked manually, it is automatically called before the user interface is
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def run_step(self, framerate=None):
-    self.current_action = &#39;Running&#39;
+    self.current_action = &#34;Running&#34;
     starttime = time.time()
     try:
         self._progress()
@@ -1383,10 +1454,13 @@ If not invoked manually, it is automatically called before the user interface is
             duration = time.time() - starttime
             rest = 1.0 / framerate - duration
             if rest &gt; 0:
-                self.current_action = &#39;Waiting&#39;
+                self.current_action = &#34;Waiting&#34;
                 time.sleep(rest)
     except Exception as e:
-        self.info(&#39;Error during %s.step() \n %s: %s&#39; % (type(self).__name__, type(e).__name__, e))
+        self.info(
+            &#34;Error during %s.step() \n %s: %s&#34;
+            % (type(self).__name__, type(e).__name__, e)
+        )
         self.logger.exception(e)
     finally:
         self.current_action = None</code></pre>
@@ -1445,7 +1519,8 @@ The current physics state of the app is stored in <code>app.state</code>.</p>
 
     &#34;&#34;&#34;
     self.state = initial_state
-    self.step_function = step_function
+    if step_function is not None:
+        self.step_function = step_function
     if dt is not None:
         self.dt = dt
     if show:
@@ -1453,7 +1528,9 @@ The current physics state of the app is stored in <code>app.state</code>.</p>
             for field_name in show:
                 self.add_field(field_name, lambda n=field_name: self.state[n])
             else:
-                warnings.warn(&#39;Ignoring show argument because App is already prepared.&#39;)</code></pre>
+                warnings.warn(
+                    &#34;Ignoring show argument because App is already prepared.&#34;
+                )</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.settings_str"><code class="name flex">
@@ -1466,9 +1543,7 @@ The current physics state of the app is stored in <code>app.state</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def settings_str(self):
-    return &#39;&#39;.join([
-        &#39; &#39; + str(control) for control in self.controls
-    ])</code></pre>
+    return &#34;&#34;.join([&#34; &#34; + str(control) for control in self.controls])</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.show"><code class="name flex">
@@ -1483,6 +1558,7 @@ The current physics state of the app is stored in <code>app.state</code>.</p>
 <pre><code class="python">def show(self, **config):
     warnings.warn(&#34;Use show(model) instead.&#34;, DeprecationWarning, stacklevel=2)
     from ._display import show
+
     show(self, **config)</code></pre>
 </details>
 </dd>
@@ -1514,11 +1590,15 @@ If this method is not overridden, <code><a title="phi.app.App.time" href="#phi.a
     &#34;&#34;&#34;
     dt = self.dt  # prevent race conditions
     if self.step_function is None:
+        print(&#34;WARNING: No Step Function Defined!&#34;)
         world.step(dt=dt)
     else:
         new_state = self.step_function(dt=dt, **self.state)
-        assert isinstance(self.state, dict), &#39;step_function must return a dict&#39;
-        assert new_state.keys() == self.state.keys(), &#39;step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s&#39; % (self.state.keys(), new_state.keys())
+        assert isinstance(self.state, dict), &#34;step_function must return a dict&#34;
+        assert new_state.keys() == self.state.keys(), (
+            &#34;step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s&#34;
+            % (self.state.keys(), new_state.keys())
+        )
         self.state = new_state
     self.time += dt</code></pre>
 </details>

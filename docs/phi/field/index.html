@@ -69,6 +69,7 @@ from ._field_math import (
     downsample2x, upsample2x,
     extrapolate_valid,
     jit_compile, functional_gradient, linear_function,
+    native_call,
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -269,7 +270,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).spatial_gradient[0]
+            div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).spatial_gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
         return CenteredGrid(data, field.box, field.extrapolation.spatial_gradient())
@@ -553,6 +554,48 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
     return x0.with_(values=x)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.native_call"><code class="name flex">
+<span>def <span class="ident">native_call</span></span>(<span>f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) ‑> phi.field._field.SampledField</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Similar to <code><a title="phi.math.native_call" href="../math/index.html#phi.math.native_call">native_call()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to be called on native tensors of <code>inputs.values</code>.
+The function output must have the same dimension layout as the inputs and the batch size must be identical.</dd>
+<dt><strong><code>*inputs</code></strong></dt>
+<dd><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> or <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> instances.</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>(Optional) Extrapolation of the output field. If <code>None</code>, uses the extrapolation of the first input field.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> matching the first <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> in <code>inputs</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def native_call(f, *inputs, channels_last=None, channel_dim=&#39;vector&#39;, extrapolation=None) -&gt; SampledField or math.Tensor:
+    &#34;&#34;&#34;
+    Similar to `phi.math.native_call()`.
+
+    Args:
+        f: Function to be called on native tensors of `inputs.values`.
+            The function output must have the same dimension layout as the inputs and the batch size must be identical.
+        *inputs: `SampledField` or `phi.math.Tensor` instances.
+        extrapolation: (Optional) Extrapolation of the output field. If `None`, uses the extrapolation of the first input field.
+
+    Returns:
+        `SampledField` matching the first `SampledField` in `inputs`.
+    &#34;&#34;&#34;
+    inputs = [i.values if isinstance(inputs, SampledField) else math.tensor(i) for i in inputs]
+    result = math.native_call(f, *inputs, channels_last=channels_last, channel_dim=channel_dim)
+    for i in inputs:
+        if isinstance(i, SampledField):
+            return i.with_(values=result, extrapolation=extrapolation)
+    return result</code></pre>
+</details>
+</dd>
 <dt id="phi.field.normalize"><code class="name flex">
 <span>def <span class="ident">normalize</span></span>(<span>field: phi.field._field.SampledField, norm: phi.field._field.SampledField, epsilon=1e-05)</span>
 </code></dt>
@@ -801,8 +844,9 @@ The <code>field</code> must not have a dimension of the same name.</dd>
         spatial_gradient field of type `type`.
 
     &#34;&#34;&#34;
+    assert isinstance(field, Grid)
     if type == CenteredGrid:
-        values = math.gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
+        values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
         return CenteredGrid(values, field.bounds, field.extrapolation.spatial_gradient())
     elif type == StaggeredGrid:
         assert stack_dim == &#39;vector&#39;
@@ -5190,6 +5234,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.linear_function" href="#phi.field.linear_function">linear_function</a></code></li>
 <li><code><a title="phi.field.mean" href="#phi.field.mean">mean</a></code></li>
 <li><code><a title="phi.field.minimize" href="#phi.field.minimize">minimize</a></code></li>
+<li><code><a title="phi.field.native_call" href="#phi.field.native_call">native_call</a></code></li>
 <li><code><a title="phi.field.normalize" href="#phi.field.normalize">normalize</a></code></li>
 <li><code><a title="phi.field.pad" href="#phi.field.pad">pad</a></code></li>
 <li><code><a title="phi.field.read" href="#phi.field.read">read</a></code></li>

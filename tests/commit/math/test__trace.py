@@ -24,9 +24,9 @@ class TestTensors(TestCase):
 
         functions = [
             linear_function,
-            lambda val: math.gradient(val, difference='forward', padding=extrapolation.ZERO, dims='x').spatial_gradient[0],
-            lambda val: math.gradient(val, difference='backward', padding=extrapolation.PERIODIC, dims='x').spatial_gradient[0],
-            lambda val: math.gradient(val, difference='central', padding=extrapolation.BOUNDARY, dims='x').spatial_gradient[0],
+            lambda val: math.spatial_gradient(val, difference='forward', padding=extrapolation.ZERO, dims='x').gradient[0],
+            lambda val: math.spatial_gradient(val, difference='backward', padding=extrapolation.PERIODIC, dims='x').gradient[0],
+            lambda val: math.spatial_gradient(val, difference='central', padding=extrapolation.BOUNDARY, dims='x').gradient[0],
         ]
 
         for f in functions:

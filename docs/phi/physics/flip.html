@@ -35,8 +35,8 @@ from phi.geom import union, Sphere
 
 def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
+                        particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        particles: PointCloud or None = None,
                         solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0),
                         pressure_guess: CenteredGrid = None) -&gt; Tuple[StaggeredGrid, CenteredGrid, int, CenteredGrid, StaggeredGrid]:
     &#34;&#34;&#34;
@@ -44,11 +44,11 @@ def make_incompressible(velocity: StaggeredGrid,
 
     Args:
         velocity: Current velocity field as StaggeredGrid
+        domain: Domain object
+        particles: Pointcloud holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        particles (Optional if occupation masks are provided): Pointcloud holding the current positions of the particles
-        domain (Optional if occupation masks are provided): Domain object
+        solve_params (Optional): Parameters for the pressure solve
         pressure_guess (Optional): Initial pressure guess as CenteredGrid
-        solve_params: Parameters for the pressure solve
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
@@ -57,7 +57,7 @@ def make_incompressible(velocity: StaggeredGrid,
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
-    points = particles.with_(values=math.wrap(1))
+    points = particles.with_(values=math.tensor(1., convert=True))
     occupied_centered = points &gt;&gt; domain.scalar_grid()
     occupied_staggered = points &gt;&gt; domain.staggered_grid()
 
@@ -151,7 +151,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.flip.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), particles: phi.field._point_cloud.PointCloud = None, solve_params=&lt;phi.math.backend._optim.Solve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None) ‑> Tuple[phi.field._grid.StaggeredGrid, phi.field._grid.CenteredGrid, int, phi.field._grid.CenteredGrid, phi.field._grid.StaggeredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, particles: phi.field._point_cloud.PointCloud, obstacles: tuple = (), solve_params=&lt;phi.math.backend._optim.Solve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None) ‑> Tuple[phi.field._grid.StaggeredGrid, phi.field._grid.CenteredGrid, int, phi.field._grid.CenteredGrid, phi.field._grid.StaggeredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -159,16 +159,16 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <dl>
 <dt><strong><code>velocity</code></strong></dt>
 <dd>Current velocity field as StaggeredGrid</dd>
+<dt><strong><code>domain</code></strong></dt>
+<dd>Domain object</dd>
+<dt><strong><code>particles</code></strong></dt>
+<dd>Pointcloud holding the current positions of the particles</dd>
 <dt><strong><code>obstacles</code></strong></dt>
 <dd>Sequence of <code><a title="phi.physics.Obstacle" href="index.html#phi.physics.Obstacle">Obstacle</a></code> objects or binary StaggeredGrid marking through-flow cell faces</dd>
-<dt><strong><code>particles</code></strong> :&ensp;<code>Optional if occupation masks are provided</code></dt>
-<dd>Pointcloud holding the current positions of the particles</dd>
-<dt><strong><code>domain</code></strong> :&ensp;<code>Optional if occupation masks are provided</code></dt>
-<dd>Domain object</dd>
+<dt><strong><code>solve_params</code></strong> :&ensp;<code>Optional</code></dt>
+<dd>Parameters for the pressure solve</dd>
 <dt><strong><code>pressure_guess</code></strong> :&ensp;<code>Optional</code></dt>
 <dd>Initial pressure guess as CenteredGrid</dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>Parameters for the pressure solve</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -189,8 +189,8 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 </summary>
 <pre><code class="python">def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
+                        particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        particles: PointCloud or None = None,
                         solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0),
                         pressure_guess: CenteredGrid = None) -&gt; Tuple[StaggeredGrid, CenteredGrid, int, CenteredGrid, StaggeredGrid]:
     &#34;&#34;&#34;
@@ -198,11 +198,11 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 
     Args:
         velocity: Current velocity field as StaggeredGrid
+        domain: Domain object
+        particles: Pointcloud holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        particles (Optional if occupation masks are provided): Pointcloud holding the current positions of the particles
-        domain (Optional if occupation masks are provided): Domain object
+        solve_params (Optional): Parameters for the pressure solve
         pressure_guess (Optional): Initial pressure guess as CenteredGrid
-        solve_params: Parameters for the pressure solve
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
@@ -211,7 +211,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
-    points = particles.with_(values=math.wrap(1))
+    points = particles.with_(values=math.tensor(1., convert=True))
     occupied_centered = points &gt;&gt; domain.scalar_grid()
     occupied_staggered = points &gt;&gt; domain.staggered_grid()
 

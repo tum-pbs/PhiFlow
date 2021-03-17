@@ -142,6 +142,27 @@ FieldType = TypeVar('FieldType', bound=Field)
 GridType = TypeVar('GridType', bound=Grid)
 
 
+def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or math.Tensor:
+    """
+    Similar to `phi.math.native_call()`.
+
+    Args:
+        f: Function to be called on native tensors of `inputs.values`.
+            The function output must have the same dimension layout as the inputs and the batch size must be identical.
+        *inputs: `SampledField` or `phi.math.Tensor` instances.
+        extrapolation: (Optional) Extrapolation of the output field. If `None`, uses the extrapolation of the first input field.
+
+    Returns:
+        `SampledField` matching the first `SampledField` in `inputs`.
+    """
+    inputs = [i.values if isinstance(inputs, SampledField) else math.tensor(i) for i in inputs]
+    result = math.native_call(f, *inputs, channels_last=channels_last, channel_dim=channel_dim)
+    for i in inputs:
+        if isinstance(i, SampledField):
+            return i.with_(values=result, extrapolation=extrapolation)
+    return result
+
+
 def minimize(function, x0: Grid, solve_params: math.Solve):
     data_function = _operate_on_values(function, x0)
     x = math.minimize(data_function, x0.values, solve_params=solve_params)

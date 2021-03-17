@@ -254,7 +254,7 @@ def spatial_gradient(grid: Tensor,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: tuple or None = None,
-                     stack_dim: str = 'spatial_gradient'):
+                     stack_dim: str = 'gradient'):
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.

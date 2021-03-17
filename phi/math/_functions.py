@@ -1653,6 +1653,26 @@ def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_
 
 
 def linear_function(f: Callable, jit_compile=True) -> Callable:
+    """
+    Mark `f` as a linear function.
+    This is required for performing a linear solve using `solve()`.
+
+    Can be used as a decorator:
+
+    ```python
+    @math.linear_function
+    def my_linear_function(x):
+    ```
+
+    If `jit_compile=True`, a sparse matrix representation of `f` will be created when the returned function is called.
+
+    Args:
+        f: Linear function with `Tensor` arguments and return value(s).
+        jit_compile: Whether to compile a matrix representation for `f`.
+
+    Returns:
+        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+    """
     if not jit_compile:
         return LinearFunction(f)
     backend = default_backend()
@@ -1715,20 +1735,25 @@ class JitLinearFunction(LinearFunction):
         #     self.build(x0)
 
 
-def solve(operator: Callable,
+def solve(f: Callable,
           y: Tensor,
           x0: Tensor,
           solve_params: Solve,
           constants: tuple or list = (),
           callback=None) -> Tensor:
     """
-    Solves the system of linear or nonlinear equations *operator · x = y*.
+    Solves the system of linear or nonlinear equations *f(x) = y*.
+    To solve a linear system, decorate `f` with `@math.linear_function`.
+    Otherwise, a nonlinear solver will be used which may be slower.
 
-    Information about the performed solve will be added to `solve_params.result`.
+    Information about the performed solve will be stored in `solve_params.result`.
     In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve_params.gradient_solve.result`.
 
+    See Also:
+        `minimize()`, `linear_function()`.
+
     Args:
-        operator: Function `operator(x)` or matrix
+        f: Function `operator(x)` or matrix
         y: Desired output of `operator · x`
         x0: Initial guess for `x`
         solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
@@ -1737,11 +1762,11 @@ def solve(operator: Callable,
     Returns:
         x: solution of the linear system of equations `operator · x = y`.
     """
-    if not isinstance(operator, LinearFunction):
+    if not isinstance(f, LinearFunction):
         from ._nd import l2_loss
 
         def min_func(x):
-            diff = operator(x) - y
+            diff = f(x) - y
             l2 = l2_loss(diff)
             return l2
 
@@ -1758,13 +1783,13 @@ def solve(operator: Callable,
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
 
-    if isinstance(operator, JitLinearFunction):
-        operator_or_matrix = operator.sparse_coordinate_matrix(x0)
+    if isinstance(f, JitLinearFunction):
+        operator_or_matrix = f.sparse_coordinate_matrix(x0)
     else:
         def operator_or_matrix(native_x):
             native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
             x = NativeTensor(native_x_shaped, x0.shape.non_batch)
-            Ax = operator(x)
+            Ax = f(x)
             Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
             return Ax_native
 

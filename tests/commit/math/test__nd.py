@@ -17,7 +17,7 @@ class TestMathNDNumpy(TestCase):
         cases = dict(difference=('central', 'forward', 'backward'),
                      padding=(None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
-            scalar_grad = math.gradient(ones, dx=0.1, **case_dict)
+            scalar_grad = math.spatial_gradient(ones, dx=0.1, **case_dict)
             math.assert_close(scalar_grad, 0)
             self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'spatial_gradient'))
             ref_shape = (2, 4, 3, 2) if case_dict['padding'] is not None else ((2, 2, 1, 2) if case_dict['difference'] == 'central' else (2, 3, 2, 2))
@@ -30,7 +30,7 @@ class TestMathNDNumpy(TestCase):
                      dx=(0.1, 1),
                      dims=(None, ('x', 'y'), ))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
-            grad = math.gradient(meshgrid, **case_dict)
+            grad = math.spatial_gradient(meshgrid, **case_dict)
             inner = grad.x[1:-1].y[1:-1]
             math.assert_close(inner.spatial_gradient[0].vector[1], 0)
             math.assert_close(inner.spatial_gradient[1].vector[0], 0)
