@@ -22,6 +22,7 @@ from ._angular_velocity import AngularVelocity
 from ._field_math import (
     assert_close, convert,
     laplace, spatial_gradient, divergence, stagger,  # spatial operators
+    fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize,
     concat, batch_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1

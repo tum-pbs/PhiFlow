@@ -7,11 +7,10 @@ from phi import math
 from phi import geom
 from phi.geom import Box, Geometry
 from phi.math import extrapolate_valid_values, DType
-from ._field import Field, SampledField
-from ._grid import CenteredGrid, Grid, StaggeredGrid
+from ._field import Field, SampledField, FieldType, SampledFieldType
+from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
 from ._mask import HardGeometryMask
-from ..math._functions import LinearFunction
 from ..math.backend import Backend
 
 
@@ -138,8 +137,15 @@ def divergence(field: Grid) -> CenteredGrid:
         raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")
 
 
-FieldType = TypeVar('FieldType', bound=Field)
-GridType = TypeVar('GridType', bound=Grid)
+def fourier_laplace(grid: GridType, times=1) -> GridType:
+    """ See `phi.math.fourier_laplace()` """
+    extrapolation = grid.extrapolation.spatial_gradient().spatial_gradient()
+    return grid.with_(values=math.fourier_laplace(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)
+
+
+def fourier_poisson(grid: GridType, extrapolation: math.Extrapolation = None, times=1) -> GridType:
+    """ See `phi.math.fourier_poisson()` """
+    return grid.with_(values=math.fourier_poisson(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)
 
 
 def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or math.Tensor:

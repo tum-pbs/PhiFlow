@@ -1,5 +1,6 @@
 import copy
 from abc import ABC
+from typing import TypeVar
 
 from phi import math
 from phi.geom import Geometry
@@ -190,7 +191,7 @@ class SampledField(Field):
               elements: Geometry or None = None,
               values: Tensor = None,
               extrapolation: math.Extrapolation = None,
-              **other_attributes) -> 'SampledField':
+              **other_attributes) -> 'SampledFieldType':
         """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
         raise NotImplementedError(self)
 
@@ -350,3 +351,7 @@ class _FieldDim:
 
     def __getitem__(self, item):
         return self.field.unstack(self.name)[item]
+
+
+FieldType = TypeVar('FieldType', bound=Field)
+SampledFieldType = TypeVar('SampledFieldType', bound=SampledField)

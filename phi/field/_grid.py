@@ -1,3 +1,5 @@
+from typing import TypeVar
+
 import numpy as np
 
 from phi import math
@@ -70,6 +72,9 @@ class Grid(SampledField):
 
     def __repr__(self):
         return f"{self.__class__.__name__}[{self.shape}, size={self.box.size}, extrapolation={self._extrapolation}]"
+
+
+GridType = TypeVar('GridType', bound=Grid)
 
 
 class CenteredGrid(Grid):
