@@ -1804,7 +1804,7 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     &#34;&#34;&#34;
-    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf))
+    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf), persistent_refs=True)
     return wrapper</code></pre>
 </details>
 </dd>
@@ -2250,6 +2250,13 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
 <dl>
 <dt><code>x</code></dt>
 <dd>solution, the minimum point <code>x</code>.</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code></dt>
+<dd>If the desired accuracy was not be reached within the maximum number of iterations.</dd>
+<dt><code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code></dt>
+<dd>If the optimization failed prematurely.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2273,6 +2280,10 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
 
     Returns:
         x: solution, the minimum point `x`.
+
+    Raises:
+        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
+        Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
     assert solve_params.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve_params.relative_tolerance}&#34;
     backend = choose_backend_t(x0, prefer_default=True)
@@ -3508,6 +3519,13 @@ In case the gradient of this operation is computed during backpropagation, infor
 <dl>
 <dt><code>x</code></dt>
 <dd>solution of the linear system of equations <code>operator · x = y</code>.</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code></dt>
+<dd>If the desired accuracy was not be reached within the maximum number of iterations.</dd>
+<dt><code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code></dt>
+<dd>If the solve failed prematurely.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -3539,6 +3557,10 @@ In case the gradient of this operation is computed during backpropagation, infor
 
     Returns:
         x: solution of the linear system of equations `operator · x = y`.
+
+    Raises:
+        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
+        Diverged: If the solve failed prematurely.
     &#34;&#34;&#34;
     if not isinstance(f, LinearFunction):
         from ._nd import l2_loss
@@ -4364,21 +4386,27 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>This exception is thrown when a solve did not converge to the specified accuracy.</p></div>
+<div class="desc"><p>Base class for exceptions raised when a solve did not converge.</p>
+<p>See Also:
+<code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code>, <code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ConvergenceException(RuntimeError):
     &#34;&#34;&#34;
-    This exception is thrown when a solve did not converge to the specified accuracy.
+    Base class for exceptions raised when a solve did not converge.
+
+    See Also:
+        `Diverged`, `NotConverged`.
+
     &#34;&#34;&#34;
 
     def __init__(self, solve: Solve, x0, x, msg: str):
         # subclasses must have the same signature to be instantiated as type(snc)(...)
         RuntimeError.__init__(self, msg)
         self.solve: Solve = solve
-        &#34;&#34;&#34; The specified solve parameters. &#34;&#34;&#34;
+        &#34;&#34;&#34; The specified solve parameters as `Solve`. &#34;&#34;&#34;
         self.partial_result: SolveResult = solve.result
         &#34;&#34;&#34; `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. &#34;&#34;&#34;
         self.x = x
@@ -4387,7 +4415,8 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
         &#34;&#34;&#34; Initial guess provided to the solver. &#34;&#34;&#34;
 
     @property
-    def msg(self):
+    def msg(self) -&gt; str:
+        &#34;&#34;&#34; Human-readable message describing the reason why the optimization failed. &#34;&#34;&#34;
         return self.args[0]</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -4403,15 +4432,16 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.math.ConvergenceException.msg"><code class="name">var <span class="ident">msg</span></code></dt>
+<dt id="phi.math.ConvergenceException.msg"><code class="name">var <span class="ident">msg</span> : str</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Human-readable message describing the reason why the optimization failed.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def msg(self):
+def msg(self) -&gt; str:
+    &#34;&#34;&#34; Human-readable message describing the reason why the optimization failed. &#34;&#34;&#34;
     return self.args[0]</code></pre>
 </details>
 </dd>
@@ -4421,7 +4451,7 @@ def msg(self):
 </dd>
 <dt id="phi.math.ConvergenceException.solve"><code class="name">var <span class="ident">solve</span></code></dt>
 <dd>
-<div class="desc"><p>The specified solve parameters.</p></div>
+<div class="desc"><p>The specified solve parameters as <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code>.</p></div>
 </dd>
 <dt id="phi.math.ConvergenceException.x"><code class="name">var <span class="ident">x</span></code></dt>
 <dd>
@@ -4549,7 +4579,10 @@ def precision(self):
 <dd>
 <div class="desc"><p>Raised if the optimization was stopped prematurely and cannot continue.
 This may indicate that no solution exists.</p>
-<p>The values of the last estimate <code>x</code> may or may not be finite.</p></div>
+<p>The values of the last estimate <code>x</code> may or may not be finite.</p>
+<p>This exception inherits from <code><a title="phi.math.ConvergenceException" href="#phi.math.ConvergenceException">ConvergenceException</a></code>.</p>
+<p>See Also:
+<code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4560,6 +4593,11 @@ This may indicate that no solution exists.</p>
     This may indicate that no solution exists.
 
     The values of the last estimate `x` may or may not be finite.
+
+    This exception inherits from `ConvergenceException`.
+
+    See Also:
+        `NotConverged`.
     &#34;&#34;&#34;
 
     def __init__(self, solve: Solve, x0, x, msg: str = None):
@@ -4915,7 +4953,10 @@ This is the default implementation.</p>
 <span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.</p></div>
+<div class="desc"><p>Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.</p>
+<p>This exception inherits from <code><a title="phi.math.ConvergenceException" href="#phi.math.ConvergenceException">ConvergenceException</a></code>.</p>
+<p>See Also:
+<code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4923,6 +4964,11 @@ This is the default implementation.</p>
 <pre><code class="python">class NotConverged(ConvergenceException):
     &#34;&#34;&#34;
     Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.
+
+    This exception inherits from `ConvergenceException`.
+
+    See Also:
+        `Diverged`.
     &#34;&#34;&#34;
 
     def __init__(self, solve: Solve, x0, x, msg: str = None):

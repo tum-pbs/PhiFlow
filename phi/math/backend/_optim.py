@@ -56,14 +56,18 @@ class SolveResult:
 
 class ConvergenceException(RuntimeError):
     """
-    This exception is thrown when a solve did not converge to the specified accuracy.
+    Base class for exceptions raised when a solve did not converge.
+
+    See Also:
+        `Diverged`, `NotConverged`.
+
     """
 
     def __init__(self, solve: Solve, x0, x, msg: str):
         # subclasses must have the same signature to be instantiated as type(snc)(...)
         RuntimeError.__init__(self, msg)
         self.solve: Solve = solve
-        """ The specified solve parameters. """
+        """ The specified solve parameters as `Solve`. """
         self.partial_result: SolveResult = solve.result
         """ `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. """
         self.x = x
@@ -72,13 +76,19 @@ class ConvergenceException(RuntimeError):
         """ Initial guess provided to the solver. """
 
     @property
-    def msg(self):
+    def msg(self) -> str:
+        """ Human-readable message describing the reason why the optimization failed. """
         return self.args[0]
 
 
 class NotConverged(ConvergenceException):
     """
     Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.
+
+    This exception inherits from `ConvergenceException`.
+
+    See Also:
+        `Diverged`.
     """
 
     def __init__(self, solve: Solve, x0, x, msg: str = None):
@@ -93,6 +103,11 @@ class Diverged(ConvergenceException):
     This may indicate that no solution exists.
 
     The values of the last estimate `x` may or may not be finite.
+
+    This exception inherits from `ConvergenceException`.
+
+    See Also:
+        `NotConverged`.
     """
 
     def __init__(self, solve: Solve, x0, x, msg: str = None):

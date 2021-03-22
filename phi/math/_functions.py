@@ -1434,7 +1434,7 @@ def jit_compile(f: Callable) -> Callable:
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     """
-    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf))
+    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf), persistent_refs=True)
     return wrapper
 
 
@@ -1468,7 +1468,7 @@ def _native_wrapper(tensor_function: Callable, create_native_function: Callable,
         results = [t._with_natives_replaced(results_native) for t in OUTPUT_TENSORS]
         if not persistent_refs:
             INPUT_TENSORS.clear()
-            OUTPUT_TENSORS.clear()
+            # OUTPUT_TENSORS.clear()  outputs need to be saved because native_function may be called only the first time. Will get garbage collected once the function is not referenced anymore.
         assert len(results_native) == 0
         return results[0] if len(results) == 1 else results
 
@@ -1614,6 +1614,10 @@ def minimize(function, x0: Tensor, solve_params: Solve, callback: Callable = Non
 
     Returns:
         x: solution, the minimum point `x`.
+
+    Raises:
+        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
+        Diverged: If the optimization failed prematurely.
     """
     assert solve_params.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve_params.relative_tolerance}"
     backend = choose_backend_t(x0, prefer_default=True)
@@ -1798,6 +1802,10 @@ def solve(f: Callable,
 
     Returns:
         x: solution of the linear system of equations `operator · x = y`.
+
+    Raises:
+        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
+        Diverged: If the solve failed prematurely.
     """
     if not isinstance(f, LinearFunction):
         from ._nd import l2_loss
