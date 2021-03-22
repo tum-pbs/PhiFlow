@@ -26,9 +26,7 @@ for step in app.range(100, warmup=1):
     prediction_div = field.divergence(prediction)
     # Define loss
     loss = field.l2_loss(prediction_div) + field.l2_loss(prediction - data)
-    app.log_scalar('loss', loss)
-    app.log_scalar('div', field.mean(abs(prediction_div)))
-    app.log_scalar('distance', math.vec_abs(field.mean(abs(prediction - data))))
+    app.log_scalars(loss=loss, div=field.mean(abs(prediction_div)), distance=math.vec_abs(field.mean(abs(prediction - data))))
     # Compute gradients and update weights
     loss.native().backward()
     optimizer.step()

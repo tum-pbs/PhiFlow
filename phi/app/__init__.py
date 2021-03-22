@@ -7,5 +7,6 @@ from ._value import EditableValue, EditableFloat, EditableInt, EditableBool, Edi
 from ._app import App
 from ._module_app import ModuleViewer
 from ._display import show
+from ._plot_util import plot_scalars
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

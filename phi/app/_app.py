@@ -331,6 +331,7 @@ class App(object):
             name: Name of the curve. If no such curve exists, a new one is created.
             value: Value to append to the curve, must be a number or `phi.math.Tensor`.
         """
+        assert isinstance(name, str)
         value = float(math.mean(value))
         if name not in self._scalars:
             self._scalars[name] = []
@@ -339,6 +340,10 @@ class App(object):
         self._scalars[name].append((self.frame, value))
         self._scalar_streams[name].write(f"{value}\n")
         self._scalar_streams[name].flush()
+
+    def log_scalars(self, **values: float or math.Tensor):
+        for name, value in values.items():
+            self.log_scalar(name, value)
 
     def get_scalar_curve(self, name) -> tuple:
         frames = np.array([item[0] for item in self._scalars[name]])
