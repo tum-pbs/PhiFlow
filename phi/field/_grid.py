@@ -265,7 +265,7 @@ class StaggeredGrid(Grid):
         return GridCell(self.resolution, self.bounds)
 
     def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
-        if geometry == self.elements and reduce_channels:
+        if self.elements.shallow_equals(geometry) and reduce_channels:
             return self.values
         if not reduce_channels:
             channels = [component.sample_in(geometry) for component in self.unstack()]

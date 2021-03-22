@@ -59,6 +59,15 @@ class GeometryStack(Geometry):
                and self.stack_dim_name == other.stack_dim_name \
                and self.geometries == other.geometries
 
+    def shallow_equals(self, other):
+        if self is other:
+            return True
+        if not isinstance(other, GeometryStack) or self._shape != other.shape:
+            return False
+        if self.stack_dim_name != other.stack_dim_name:
+            return False
+        return all(g1.shallow_equals(g2) for g1, g2 in zip(self.geometries, other.geometries))
+
     def __hash__(self):
         return hash(self.geometries)
 

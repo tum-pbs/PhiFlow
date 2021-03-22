@@ -385,6 +385,9 @@ class GridCell(AbstractBox):
     def __eq__(self, other):
         return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution
 
+    def shallow_equals(self, other):
+        return self == other
+
     def __hash__(self):
         return hash(self._resolution) + hash(self._bounds)
 

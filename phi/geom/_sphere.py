@@ -68,12 +68,6 @@ class Sphere(Geometry):
     def rotated(self, angle):
         return self
 
-    def __eq__(self, other):
-        return self is other or (isinstance(other, Sphere)
-                                 and self._shape == other.shape
-                                 and (self._radius is other.radius or math.all(self._radius == other.radius))
-                                 and (self._center is other.center or math.all(self._center == other.center)))
-
     def __characteristics__(self) -> Dict[str, math.Tensor]:
         return {
             'radius': self._radius,

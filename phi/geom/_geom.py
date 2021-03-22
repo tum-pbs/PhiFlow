@@ -198,20 +198,43 @@ class Geometry:
         Slow equality check.
         Unlike `==`, this method compares all tensor elements to check whether they are equal.
         Use `==` for a faster check which only checks whether the referenced tensors are the same.
-        """
-        raise NotImplementedError(self.__class__)
 
-    # def fast_equals(self, other):
-    #     """
-    #     Quick equality check.
-    #     This method may returns `False` even if `other` equals `self`.
-    #
-    #     The `fast_equals()` check does not compare all tensor elements but may merely check whether the referenced tensors are the same.
-    #
-    #     See Also:
-    #         `equals()`
-    #     """
-    #     raise NotImplementedError(self.__class__)
+        See Also:
+            `shallow_equals()`
+        """
+        if self is other:
+            return True
+        if not isinstance(other, type(self)):
+            return False
+        if self.shape != other.shape:
+            return False
+        c1 = self.__characteristics__()
+        c2 = other.__characteristics__()
+        for c in c1.keys():
+            if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
+                return False
+        return True
+
+    def shallow_equals(self, other):
+        """
+        Quick equality check.
+        May return `False` even if `other == self`.
+        However, if `True` is returned, the geometries are guaranteed to be equal.
+
+        The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
+        """
+        if self is other:
+            return True
+        if not isinstance(other, type(self)):
+            return False
+        if self.shape != other.shape:
+            return False
+        c1 = self.__characteristics__()
+        c2 = other.__characteristics__()
+        for c in c1.keys():
+            if c1[c] is not c2[c]:
+                return False
+        return True
 
     def __ne__(self, other):
         return not self == other
