@@ -337,6 +337,9 @@ class Tensor:
     def __abs__(self):
         return self._op1(lambda t: choose_backend(t).abs(t))
 
+    def __round__(self, n=None):
+        return self._op1(lambda t: choose_backend(t).round(t))
+
     def __copy__(self):
         return self._op1(lambda t: choose_backend(t).copy(t, only_mutable=True))
 
@@ -672,15 +675,19 @@ class NativeTensor(Tensor):
         return False
 
     def _getitem(self, selection: dict):
+        if len(selection) == 0:
+            return self
         new_shape = self.shape
         selections = [slice(None)] * self.rank
-        for name, selection in selection.items():
+        for name, sel in selection.items():
             if name in self.shape:
-                selections[self.shape.index(name)] = selection
-                if isinstance(selection, int):
+                selections[self.shape.index(name)] = sel
+                if isinstance(sel, int):
                     new_shape = new_shape.without(name)
             else:
-                assert isinstance(selection, int), f"Attempting slice missing dimension {name} with {selection}"
+                assert isinstance(sel, int), f"Attempting slice missing dimension {name} with {selection}"
+        if len(selections) == 0:
+            return self
         gathered = self._native[tuple(selections)]
         new_shape = new_shape.with_sizes(choose_backend(gathered).staticshape(gathered))
         return NativeTensor(gathered, new_shape)
@@ -743,7 +750,7 @@ class CollapsedTensor(Tensor):  # package-private
             assert name in shape
         for size, name, dim_type in tensor.shape.dimensions:
             assert shape.get_size(name) == size, f"Shape mismatch while trying to set {name}={shape.get_size(name)} but has size {size}"
-            assert shape.get_type(name) == dim_type
+            assert shape.get_type(name) == dim_type, f"Dimension type mismatch for dimension '{name}': {shape.get_type(name)}, {dim_type}"
         if isinstance(tensor, CollapsedTensor):
             if tensor.is_cached:
                 self._inner = tensor._cached
@@ -1140,7 +1147,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         if convert:
             backend = choose_backend(*data._natives())
             if backend != default_backend():
-                data = data._op1(convert_)
+                data = data._op1(lambda n: convert_(n, use_dlpack=False))
         if names is None:
             return data
         else:
@@ -1183,7 +1190,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
         if convert:
-            data = convert_(data)
+            data = convert_(data, use_dlpack=False)
         return NativeTensor(data, shape)
     raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
 

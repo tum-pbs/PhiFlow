@@ -64,8 +64,8 @@ STICKY = {
 PERIODIC = {
     'scalar': PERIODIC,
     'vector': PERIODIC,
-    'active': ONE,
-    'accessible': ONE,
+    'active': PERIODIC,
+    'accessible': PERIODIC,
 }
 
 
@@ -153,7 +153,6 @@ class Domain:
         Returns:
           Grid of specified type
         """
-        warnings.warn("Domain.grid is deprecated. Use scalar_grid or vector_grid instead.", DeprecationWarning)
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         if type is CenteredGrid:
             return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)

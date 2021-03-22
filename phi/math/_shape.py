@@ -28,7 +28,11 @@ class Shape:
             types: Ordered types, all values should be one of (CHANNEL_DIM, SPATIAL_DIM, BATCH_DIM)
         """
         assert len(sizes) == len(names) == len(types), f"sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})"
-        self.sizes = tuple(sizes)
+        if len(sizes) > 0:
+            from ._tensors import Tensor
+            self.sizes = tuple(s if isinstance(s, Tensor) or s is None else int(s) for s in sizes)
+        else:
+            self.sizes = ()
         """ Ordered dimension sizes as `tuple`  """
         self.names = tuple(names)
         """ Ordered dimension names as `tuple` of `str` """
@@ -347,7 +351,7 @@ class Shape:
             assert name not in self.names
         return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
 
-    def without(self, dims: str or tuple or list or 'Shape' or None) -> 'Shape':
+    def without(self, dims: str or tuple or list or 'Shape') -> 'Shape':
         """
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -390,7 +394,7 @@ class Shape:
 
         """
         if isinstance(dims, str):
-            return self[[i for i in range(self.rank) if self.names[i] == dims]]
+            dims = parse_dim_order(dims)
         if isinstance(dims, (tuple, list)):
             return self[[i for i in range(self.rank) if self.names[i] in dims]]
         elif isinstance(dims, Shape):

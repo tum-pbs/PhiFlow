@@ -212,7 +212,7 @@ class Scene(object):
             return Scene(paths)
 
     @staticmethod
-    def at(directory: str or math.Tensor, id: int or math.Tensor or None = None) -> 'Scene':
+    def at(directory: str or tuple or list or math.Tensor or 'Scene', id: int or math.Tensor or None = None) -> 'Scene':
         """
         Creates a `Scene` for an existing directory.
 
@@ -226,6 +226,11 @@ class Scene(object):
         Returns:
             `Scene` object for existing scene.
         """
+        if isinstance(directory, Scene):
+            assert id is None, f"Got id={id} but directory is already a Scene."
+            return directory
+        if isinstance(directory, (tuple, list)):
+            directory = math.wrap(directory, 'scenes')
         directory = math.map(lambda d: expanduser(d), math.wrap(directory))
         if id is None:
             paths = directory

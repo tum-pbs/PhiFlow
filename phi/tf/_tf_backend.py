@@ -431,7 +431,8 @@ class TFBackend(Backend):
                     tape.watch(arg)
                 output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            grads = tape.gradient(loss, wrt_args)
+            grads = list(tape.gradient(loss, wrt_args))
+            assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
             if get_output:
                 if aux is not None:
                     return (loss, *aux, *grads)
