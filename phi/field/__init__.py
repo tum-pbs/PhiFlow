@@ -29,7 +29,7 @@ from ._field_math import (
     solve, minimize,
     where,
     vec_squared, vec_abs,
-    l2_loss,
+    l2_loss, l1_loss, frequency_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
     jit_compile, functional_gradient, linear_function,

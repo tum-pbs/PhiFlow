@@ -534,9 +534,22 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field):
     return field_true.with_(values=values)
 
 
-def l2_loss(field: SampledField, batch_norm=True):
+def l1_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
+    """ L1 loss for the unweighted values of the field. See `phi.math.l1_loss()`. """
+    return math.l1_loss(field.values, batch_norm=batch_norm)
+
+
+def l2_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
     """ L2 loss for the unweighted values of the field. See `phi.math.l2_loss()`. """
     return math.l2_loss(field.values, batch_norm=batch_norm)
+
+
+def frequency_loss(field: SampledField,
+                   frequency_falloff=100,
+                   batch_norm: bool or str or tuple or list or math.Shape = True,
+                   ignore_mean=False):
+    """ Frequency loss for the unweighted values of the field. See `phi.math.frequency_loss()`. """
+    return math.frequency_loss(field.values, frequency_falloff=frequency_falloff, batch_norm=batch_norm, ignore_mean=ignore_mean)
 
 
 def stop_gradient(field: SampledField):

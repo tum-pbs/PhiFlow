@@ -63,17 +63,19 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(tensor: Tensor, batch_norm=True) -> Tensor:
+def l1_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -> Tensor:
     """ Computes L1 loss. See `l_n_loss()` """
     return l_n_loss(abs(tensor), 1, batch_norm=batch_norm)
 
 
-def l2_loss(tensor: Tensor, batch_norm=True) -> Tensor:
+def l2_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -> Tensor:
     """ Computes L2 loss. See `l_n_loss()` """
     return l_n_loss(tensor, 2, batch_norm=batch_norm)
 
 
-def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -> Tensor:
+def l_n_loss(tensor: Tensor,
+             n: int,
+             batch_norm: bool or str or tuple or list or Shape = True) -> Tensor:
     """
     Computes the vector norm of a tensor.
     This is defined as *sum x**n / n*.
@@ -81,7 +83,7 @@ def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -> Tensor:
     Args:
       tensor: Loss values.
       n: norm order, 1 for L1 loss, 2 for L2 loss.
-      batch_norm:  Whether to divide by the batch size.
+      batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
 
     Returns:
         Scalar float `Tensor`
@@ -89,43 +91,53 @@ def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -> Tensor:
     assert isinstance(tensor, Tensor), f"Must be a Tensor but got {type(tensor).__name__}"
     total_loss = math.sum_(tensor ** n) / n
     if batch_norm:
-        batch_size = tensor.shape.batch.volume
+        if isinstance(batch_norm, bool):
+            batch_size = tensor.shape.batch.volume
+        else:
+            batch_size = tensor.shape.only(batch_norm).volume
         return math.divide_no_nan(total_loss, batch_size)
     else:
         return total_loss
 
 
-def frequency_loss(tensor, frequency_falloff=100, batch_norm=True):
+def frequency_loss(values: Tensor,
+                   frequency_falloff: float = 100,
+                   batch_norm: bool or str or tuple or list or Shape = True,
+                   ignore_mean=False) -> Tensor:
     """
-    Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
+    Penalizes the squared `values` in frequency (Fourier) space.
+    Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-      batch_norm: Whether to divide by the batch size.
-      tensor: typically actual - target
-      frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)
+        values: Values to penalize, typically `actual - target`
+        frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
+            *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
+        batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
+        ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
 
     Returns:
-      scalar loss value
-
+      Scalar loss value
     """
-    diff_fft = abs_square(math.fft(tensor))
-    k_squared = math.sum_(math.fftfreq(tensor.shape[1:-1]) ** 2, 'vector')
+    if ignore_mean:
+        values -= math.mean(values, values.shape.non_batch)
+    diff_fft = abs_square(math.fft(values))
+    k_squared = vec_squared(math.fftfreq(values.shape.spatial))
     weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
     return l1_loss(diff_fft * weights, batch_norm=batch_norm)
 
 
-def abs_square(complex):
+def abs_square(complex_values: Tensor) -> Tensor:
     """
     get the square magnitude
 
     Args:
-      complex(Tensor): complex input data
+      complex_values: complex input data
 
     Returns:
       Tensor: real valued magnitude squared
 
     """
-    return math.imag(complex) ** 2 + math.real(complex) ** 2
+    return math.imag(complex_values) ** 2 + math.real(complex_values) ** 2
 
 
 # Divergence
