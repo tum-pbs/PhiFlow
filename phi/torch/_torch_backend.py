@@ -1,9 +1,8 @@
 import numbers
-import time
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import Tuple, List, Callable
+from typing import List, Callable
 
 import numpy as np
 
@@ -14,7 +13,7 @@ import torch.nn.functional as torchf
 from phi.math import Solve
 from phi.math.backend import Backend, DType, NUMPY_BACKEND, ComputeDevice
 from phi.math.backend._backend_helper import combined_dim
-from phi.math.backend._optim import SolveResult
+from phi.math.backend._optim import SolveResult, Diverged, NotConverged
 
 
 class TorchBackend(Backend):
@@ -249,11 +248,7 @@ class TorchBackend(Backend):
 
     def divide_no_nan(self, x, y):
         x, y = self.auto_cast(x, y)
-        # --- PyTorch backward pass of where produces nan gradients when inf values are present.
-        # Workaround is to avoid zero division by replacing zeros with ones (which then get filtered
-        # in the return where). ---
-        result = self.as_tensor(x) / torch.where(y == 0, torch.ones_like(y), y)
-        return torch.where(y == 0, torch.zeros_like(result), result)
+        return divide_no_nan(x, y)
 
     def where(self, condition, x=None, y=None):
         condition = self.as_tensor(condition).bool()
@@ -535,6 +530,44 @@ class TorchBackend(Backend):
         result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
 
+    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
+        if not (isinstance(A, torch.Tensor) and A.is_sparse):
+            return NotImplemented
+        A_shape = self.staticshape(A)
+        assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
+        assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
+        y = self.to_float(y)
+        x0 = self.to_float(x0)
+        batch_size = combined_dim(x0.shape[0], y.shape[0])
+        if x0.shape[0] < batch_size:
+            x0 = x0.repeat([batch_size, 1])
+
+        def cg_script_wrapper(y, x0, s: Solve):
+            dtype = to_torch_dtype(self.float_type)
+            x, iterations, converged, diverged = torch_cg(A, y, x0,
+                                                          torch.tensor(s.relative_tolerance, dtype=dtype, device=self.get_default_device().ref),
+                                                          torch.tensor(s.absolute_tolerance, dtype=dtype, device=self.get_default_device().ref),
+                                                          torch.tensor(s.max_iterations, dtype=torch.int32, device=self.get_default_device().ref))
+            s.result = SolveResult(iterations)
+            if diverged:
+                raise Diverged(s, x0, x)
+            if not converged:
+                raise NotConverged(s, x0, x)
+            return x
+
+        class CGVariant(torch.autograd.Function):
+
+            @staticmethod
+            def forward(ctx, y):
+                return cg_script_wrapper(y, x0, solve_params)
+
+            @staticmethod
+            def backward(ctx, dX):
+                return cg_script_wrapper(dX, torch.zeros_like(x0), solve_params.gradient_solve)
+
+        result = CGVariant.apply(y)
+        return result
+
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
@@ -635,3 +668,53 @@ _TO_TORCH = {
     DType(bool): torch.bool,
 }
 _FROM_TORCH = {np: dtype for dtype, np in _TO_TORCH.items()}
+
+
+@torch.jit._script_if_tracing
+def torch_cg(A_sparse, y, x0, relative_tolerance, absolute_tolerance, max_iterations):
+    """
+
+    Args:
+        A_sparse:
+        y:
+        x0:
+        relative_tolerance:
+        absolute_tolerance:
+        max_iterations:
+
+    Returns:
+        x: tensor
+        iterations: `int`
+        converged: `bool`
+        diverged: `bool`
+    """
+    tolerance_sq = torch.maximum(relative_tolerance ** 2 * torch.sum(y ** 2, -1), absolute_tolerance ** 2)
+    x = x0
+    dx = residual = y - sparse_matmul(A_sparse, x)
+    dy = sparse_matmul(A_sparse, dx)
+    iterations = torch.tensor(0, dtype=torch.int32, device=x.device)
+    while torch.all(torch.sum(residual ** 2, -1) > tolerance_sq):
+        if iterations == max_iterations:
+            return x, iterations, torch.tensor(False), torch.tensor(False)
+        if not torch.all(torch.isfinite(x)):
+            return x, iterations, torch.tensor(False), torch.tensor(True)
+        iterations += 1
+        dx_dy = torch.sum(dx * dy, dim=-1, keepdim=True)
+        step_size = divide_no_nan(torch.sum(dx * residual, dim=-1, keepdim=True), dx_dy)
+        x += step_size * dx
+        residual -= step_size * dy
+        dx = residual - divide_no_nan(torch.sum(residual * dy, dim=-1, keepdim=True) * dx, dx_dy)
+        dy = sparse_matmul(A_sparse, dx)
+    return x, iterations, torch.tensor(True), torch.tensor(False)
+
+
+def sparse_matmul(matrix: torch.sparse.Tensor, b: torch.Tensor):
+    return torch.transpose(torch.sparse.mm(matrix, torch.transpose(b, 0, 1)), 0, 1)
+
+
+def divide_no_nan(x: torch.Tensor, y: torch.Tensor):
+    # --- PyTorch backward pass of where produces nan gradients when inf values are present.
+    # Workaround is to avoid zero division by replacing zeros with ones (which then get filtered
+    # in the return where). ---
+    result = x / torch.where(y == 0, torch.ones_like(y), y)
+    return torch.where(y == 0, torch.zeros_like(result), result)

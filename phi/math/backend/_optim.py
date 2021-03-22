@@ -42,6 +42,9 @@ class Solve:
             self._gradient_solve = copy(self)
         return self._gradient_solve
 
+    def __repr__(self):
+        return f"{self.solver} with tolerance {self.relative_tolerance} (rel), {self.absolute_tolerance} (abs), max_iterations={self.max_iterations}"
+
 
 class SolveResult:
     """
@@ -52,6 +55,9 @@ class SolveResult:
         self.iterations = iterations
         """ Number of iterations performed. """
         self.solve_info = solve_info
+
+    def __repr__(self):
+        return f"[{self.iterations} iterations]"
 
 
 class ConvergenceException(RuntimeError):
