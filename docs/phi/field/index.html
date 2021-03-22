@@ -59,13 +59,14 @@ from ._angular_velocity import AngularVelocity
 from ._field_math import (
     assert_close, convert,
     laplace, spatial_gradient, divergence, stagger,  # spatial operators
+    fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize,
     concat, batch_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
     solve, minimize,
     where,
     vec_squared, vec_abs,
-    l2_loss,
+    l2_loss, l1_loss, frequency_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
     jit_compile, functional_gradient, linear_function,
@@ -270,7 +271,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     if isinstance(field, StaggeredGrid):
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).spatial_gradient[0]
+            div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
         return CenteredGrid(data, field.box, field.extrapolation.spatial_gradient())
@@ -390,6 +391,52 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
     return x._op1(math.floor)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.fourier_laplace"><code class="name flex">
+<span>def <span class="ident">fourier_laplace</span></span>(<span>grid: ~GridType, times=1) ‑> ~GridType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.fourier_laplace" href="../math/index.html#phi.math.fourier_laplace">fourier_laplace()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def fourier_laplace(grid: GridType, times=1) -&gt; GridType:
+    &#34;&#34;&#34; See `phi.math.fourier_laplace()` &#34;&#34;&#34;
+    extrapolation = grid.extrapolation.spatial_gradient().spatial_gradient()
+    return grid.with_(values=math.fourier_laplace(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.fourier_poisson"><code class="name flex">
+<span>def <span class="ident">fourier_poisson</span></span>(<span>grid: ~GridType, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, times=1) ‑> ~GridType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.fourier_poisson" href="../math/index.html#phi.math.fourier_poisson">fourier_poisson()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def fourier_poisson(grid: GridType, extrapolation: math.Extrapolation = None, times=1) -&gt; GridType:
+    &#34;&#34;&#34; See `phi.math.fourier_poisson()` &#34;&#34;&#34;
+    return grid.with_(values=math.fourier_poisson(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.frequency_loss"><code class="name flex">
+<span>def <span class="ident">frequency_loss</span></span>(<span>field: phi.field._field.SampledField, frequency_falloff=100, batch_norm: bool = True, ignore_mean=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Frequency loss for the unweighted values of the field. See <code><a title="phi.math.frequency_loss" href="../math/index.html#phi.math.frequency_loss">frequency_loss()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def frequency_loss(field: SampledField,
+                   frequency_falloff=100,
+                   batch_norm: bool or str or tuple or list or math.Shape = True,
+                   ignore_mean=False):
+    &#34;&#34;&#34; Frequency loss for the unweighted values of the field. See `phi.math.frequency_loss()`. &#34;&#34;&#34;
+    return math.frequency_loss(field.values, frequency_falloff=frequency_falloff, batch_norm=batch_norm, ignore_mean=ignore_mean)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.functional_gradient"><code class="name flex">
 <span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
 </code></dt>
@@ -484,8 +531,22 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
     return wrapper</code></pre>
 </details>
 </dd>
+<dt id="phi.field.l1_loss"><code class="name flex">
+<span>def <span class="ident">l1_loss</span></span>(<span>field: phi.field._field.SampledField, batch_norm: bool = True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>L1 loss for the unweighted values of the field. See <code><a title="phi.math.l1_loss" href="../math/index.html#phi.math.l1_loss">l1_loss()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def l1_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
+    &#34;&#34;&#34; L1 loss for the unweighted values of the field. See `phi.math.l1_loss()`. &#34;&#34;&#34;
+    return math.l1_loss(field.values, batch_norm=batch_norm)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>field: phi.field._field.SampledField, batch_norm=True)</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>field: phi.field._field.SampledField, batch_norm: bool = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>L2 loss for the unweighted values of the field. See <code><a title="phi.math.l2_loss" href="../math/index.html#phi.math.l2_loss">l2_loss()</a></code>.</p></div>
@@ -493,7 +554,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l2_loss(field: SampledField, batch_norm=True):
+<pre><code class="python">def l2_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
     &#34;&#34;&#34; L2 loss for the unweighted values of the field. See `phi.math.l2_loss()`. &#34;&#34;&#34;
     return math.l2_loss(field.values, batch_norm=batch_norm)</code></pre>
 </details>
@@ -540,7 +601,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.field._grid.Grid, solve_params: phi.math.backend._optim.Solve)</span>
+<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.field._grid.Grid, solve_params: phi.math.backend._optim.Solve, callback: Callable = None)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -548,10 +609,12 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(function, x0: Grid, solve_params: math.Solve):
+<pre><code class="python">def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None):
     data_function = _operate_on_values(function, x0)
-    x = math.minimize(data_function, x0.values, solve_params=solve_params)
-    return x0.with_(values=x)</code></pre>
+    try:
+        return x0.with_(values=math.minimize(data_function, x0.values, solve_params=solve_params, callback=callback))
+    except math.ConvergenceException as exc:
+        raise type(exc)(exc.solve, x0, x0.with_(values=exc.x), exc.msg)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.native_call"><code class="name flex">
@@ -3127,7 +3190,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
               elements: Geometry or None = None,
               values: Tensor = None,
               extrapolation: math.Extrapolation = None,
-              **other_attributes) -&gt; &#39;SampledField&#39;:
+              **other_attributes) -&gt; &#39;SampledFieldType&#39;:
         &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -3400,7 +3463,7 @@ The dimension can be batch, spatial or channel.</p>
 </details>
 </dd>
 <dt id="phi.field.SampledField.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
@@ -3412,7 +3475,7 @@ The dimension can be batch, spatial or channel.</p>
           elements: Geometry or None = None,
           values: Tensor = None,
           extrapolation: math.Extrapolation = None,
-          **other_attributes) -&gt; &#39;SampledField&#39;:
+          **other_attributes) -&gt; &#39;SampledFieldType&#39;:
     &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -3549,7 +3612,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             return Scene(paths)
 
     @staticmethod
-    def at(directory: str or math.Tensor, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
+    def at(directory: str or tuple or list or math.Tensor or &#39;Scene&#39;, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
         &#34;&#34;&#34;
         Creates a `Scene` for an existing directory.
 
@@ -3563,6 +3626,11 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         Returns:
             `Scene` object for existing scene.
         &#34;&#34;&#34;
+        if isinstance(directory, Scene):
+            assert id is None, f&#34;Got id={id} but directory is already a Scene.&#34;
+            return directory
+        if isinstance(directory, (tuple, list)):
+            directory = math.wrap(directory, &#39;scenes&#39;)
         directory = math.map(lambda d: expanduser(d), math.wrap(directory))
         if id is None:
             paths = directory
@@ -3786,7 +3854,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@staticmethod
-def at(directory: str or math.Tensor, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
+def at(directory: str or tuple or list or math.Tensor or &#39;Scene&#39;, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
     &#34;&#34;&#34;
     Creates a `Scene` for an existing directory.
 
@@ -3800,6 +3868,11 @@ def at(directory: str or math.Tensor, id: int or math.Tensor or None = None) -&g
     Returns:
         `Scene` object for existing scene.
     &#34;&#34;&#34;
+    if isinstance(directory, Scene):
+        assert id is None, f&#34;Got id={id} but directory is already a Scene.&#34;
+        return directory
+    if isinstance(directory, (tuple, list)):
+        directory = math.wrap(directory, &#39;scenes&#39;)
     directory = math.map(lambda d: expanduser(d), math.wrap(directory))
     if id is None:
         paths = directory
@@ -4750,7 +4823,7 @@ A staggered grid is defined through its values tensor, its bounds describing the
         return GridCell(self.resolution, self.bounds)
 
     def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        if geometry == self.elements and reduce_channels:
+        if self.elements.shallow_equals(geometry) and reduce_channels:
             return self.values
         if not reduce_channels:
             channels = [component.sample_in(geometry) for component in self.unstack()]
@@ -5112,7 +5185,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    if geometry == self.elements and reduce_channels:
+    if self.elements.shallow_equals(geometry) and reduce_channels:
         return self.values
     if not reduce_channels:
         channels = [component.sample_in(geometry) for component in self.unstack()]
@@ -5225,10 +5298,14 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.exp" href="#phi.field.exp">exp</a></code></li>
 <li><code><a title="phi.field.extrapolate_valid" href="#phi.field.extrapolate_valid">extrapolate_valid</a></code></li>
 <li><code><a title="phi.field.floor" href="#phi.field.floor">floor</a></code></li>
+<li><code><a title="phi.field.fourier_laplace" href="#phi.field.fourier_laplace">fourier_laplace</a></code></li>
+<li><code><a title="phi.field.fourier_poisson" href="#phi.field.fourier_poisson">fourier_poisson</a></code></li>
+<li><code><a title="phi.field.frequency_loss" href="#phi.field.frequency_loss">frequency_loss</a></code></li>
 <li><code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
 <li><code><a title="phi.field.isfinite" href="#phi.field.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile</a></code></li>
+<li><code><a title="phi.field.l1_loss" href="#phi.field.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>
 <li><code><a title="phi.field.linear_function" href="#phi.field.linear_function">linear_function</a></code></li>

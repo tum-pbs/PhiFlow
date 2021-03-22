@@ -1185,20 +1185,43 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         Slow equality check.
         Unlike `==`, this method compares all tensor elements to check whether they are equal.
         Use `==` for a faster check which only checks whether the referenced tensors are the same.
-        &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
-    # def fast_equals(self, other):
-    #     &#34;&#34;&#34;
-    #     Quick equality check.
-    #     This method may returns `False` even if `other` equals `self`.
-    #
-    #     The `fast_equals()` check does not compare all tensor elements but may merely check whether the referenced tensors are the same.
-    #
-    #     See Also:
-    #         `equals()`
-    #     &#34;&#34;&#34;
-    #     raise NotImplementedError(self.__class__)
+        See Also:
+            `shallow_equals()`
+        &#34;&#34;&#34;
+        if self is other:
+            return True
+        if not isinstance(other, type(self)):
+            return False
+        if self.shape != other.shape:
+            return False
+        c1 = self.__characteristics__()
+        c2 = other.__characteristics__()
+        for c in c1.keys():
+            if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
+                return False
+        return True
+
+    def shallow_equals(self, other):
+        &#34;&#34;&#34;
+        Quick equality check.
+        May return `False` even if `other == self`.
+        However, if `True` is returned, the geometries are guaranteed to be equal.
+
+        The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
+        &#34;&#34;&#34;
+        if self is other:
+            return True
+        if not isinstance(other, type(self)):
+            return False
+        if self.shape != other.shape:
+            return False
+        c1 = self.__characteristics__()
+        c2 = other.__characteristics__()
+        for c in c1.keys():
+            if c1[c] is not c2[c]:
+                return False
+        return True
 
     def __ne__(self, other):
         return not self == other
@@ -1538,6 +1561,40 @@ The geometry is rotated about its center point.</p>
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Geometry.shallow_equals"><code class="name flex">
+<span>def <span class="ident">shallow_equals</span></span>(<span>self, other)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Quick equality check.
+May return <code>False</code> even if <code>other == self</code>.
+However, if <code>True</code> is returned, the geometries are guaranteed to be equal.</p>
+<p>The <code>shallow_equals()</code> check does not compare all tensor elements but merely checks whether the same tensors are referenced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shallow_equals(self, other):
+    &#34;&#34;&#34;
+    Quick equality check.
+    May return `False` even if `other == self`.
+    However, if `True` is returned, the geometries are guaranteed to be equal.
+
+    The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
+    &#34;&#34;&#34;
+    if self is other:
+        return True
+    if not isinstance(other, type(self)):
+        return False
+    if self.shape != other.shape:
+        return False
+    c1 = self.__characteristics__()
+    c2 = other.__characteristics__()
+    for c in c1.keys():
+        if c1[c] is not c2[c]:
+            return False
+    return True</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Geometry.shifted"><code class="name flex">
 <span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
@@ -1718,6 +1775,9 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 
     def __eq__(self, other):
         return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution
+
+    def shallow_equals(self, other):
+        return self == other
 
     def __hash__(self):
         return hash(self._resolution) + hash(self._bounds)
@@ -1931,6 +1991,22 @@ The geometry is rotated about its center point.</p>
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.GridCell.shallow_equals"><code class="name flex">
+<span>def <span class="ident">shallow_equals</span></span>(<span>self, other)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Quick equality check.
+May return <code>False</code> even if <code>other == self</code>.
+However, if <code>True</code> is returned, the geometries are guaranteed to be equal.</p>
+<p>The <code>shallow_equals()</code> check does not compare all tensor elements but merely checks whether the same tensors are referenced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shallow_equals(self, other):
+    return self == other</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.GridCell.shifted"><code class="name flex">
 <span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._box.AbstractBox</span>
 </code></dt>
@@ -2060,12 +2136,6 @@ Defined through center position and radius.</p>
 
     def rotated(self, angle):
         return self
-
-    def __eq__(self, other):
-        return self is other or (isinstance(other, Sphere)
-                                 and self._shape == other.shape
-                                 and (self._radius is other.radius or math.all(self._radius == other.radius))
-                                 and (self._center is other.center or math.all(self._center == other.center)))
 
     def __characteristics__(self) -&gt; Dict[str, math.Tensor]:
         return {
@@ -2341,6 +2411,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.Geometry.lies_inside" href="#phi.geom.Geometry.lies_inside">lies_inside</a></code></li>
 <li><code><a title="phi.geom.Geometry.push" href="#phi.geom.Geometry.push">push</a></code></li>
 <li><code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.Geometry.shallow_equals" href="#phi.geom.Geometry.shallow_equals">shallow_equals</a></code></li>
 <li><code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Geometry.shifted" href="#phi.geom.Geometry.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Geometry.spatial_rank" href="#phi.geom.Geometry.spatial_rank">spatial_rank</a></code></li>
@@ -2360,6 +2431,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.GridCell.lower" href="#phi.geom.GridCell.lower">lower</a></code></li>
 <li><code><a title="phi.geom.GridCell.resolution" href="#phi.geom.GridCell.resolution">resolution</a></code></li>
 <li><code><a title="phi.geom.GridCell.rotated" href="#phi.geom.GridCell.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.GridCell.shallow_equals" href="#phi.geom.GridCell.shallow_equals">shallow_equals</a></code></li>
 <li><code><a title="phi.geom.GridCell.shape" href="#phi.geom.GridCell.shape">shape</a></code></li>
 <li><code><a title="phi.geom.GridCell.shifted" href="#phi.geom.GridCell.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.GridCell.size" href="#phi.geom.GridCell.size">size</a></code></li>

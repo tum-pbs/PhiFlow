@@ -49,12 +49,9 @@ This allows the user to write simulation code once and have it run with various 
 See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 &#34;&#34;&#34;
 
-from .backend import (
-    precision, set_global_precision, get_precision,
-    Solve, SolveResult, SolveNotConverged,
-    DType,
-    NUMPY_BACKEND,
-)
+from .backend._optim import Solve, SolveResult, ConvergenceException, NotConverged, Diverged
+from .backend._dtype import DType
+from .backend import NUMPY_BACKEND, precision, set_global_precision, get_precision
 
 from .extrapolation import Extrapolation
 
@@ -70,7 +67,7 @@ from ._functions import (
     print_ as print,
     map_ as map,
     jit_compile, functional_gradient, custom_gradient, linear_function,
-    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range,  # creation operators (use default backend)
+    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad,
@@ -163,12 +160,15 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.math.abs_square"><code class="name flex">
-<span>def <span class="ident">abs_square</span></span>(<span>complex)</span>
+<span>def <span class="ident">abs_square</span></span>(<span>complex_values: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>get the square magnitude</p>
 <h2 id="args">Args</h2>
-<p>complex(Tensor): complex input data</p>
+<dl>
+<dt><strong><code>complex_values</code></strong></dt>
+<dd>complex input data</dd>
+</dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dt>
@@ -178,18 +178,18 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs_square(complex):
+<pre><code class="python">def abs_square(complex_values: Tensor) -&gt; Tensor:
     &#34;&#34;&#34;
     get the square magnitude
 
     Args:
-      complex(Tensor): complex input data
+      complex_values: complex input data
 
     Returns:
       Tensor: real valued magnitude squared
 
     &#34;&#34;&#34;
-    return math.imag(complex) ** 2 + math.real(complex) ** 2</code></pre>
+    return math.imag(complex_values) ** 2 + math.real(complex_values) ** 2</code></pre>
 </details>
 </dd>
 <dt id="phi.math.all"><code class="name flex">
@@ -1432,40 +1432,51 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>tensor, frequency_falloff=100, batch_norm=True)</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>values: phi.math._tensors.Tensor, frequency_falloff: float = 100, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.</p>
+<div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
+Lower frequencies are weighted more strongly then higher frequencies, depending on <code>frequency_falloff</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>batch_norm</code></strong></dt>
-<dd>Whether to divide by the batch size.</dd>
-<dt><strong><code>tensor</code></strong></dt>
-<dd>typically actual - target</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Values to penalize, typically <code>actual - target</code></dd>
 <dt><strong><code>frequency_falloff</code></strong></dt>
-<dd>large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)</dd>
+<dd>Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
+<em>Note</em>: The total loss is not normalized. Varying the value will result in losses of different magnitudes.</dd>
+<dt><strong><code>batch_norm</code></strong></dt>
+<dd>Either <code>bool</code> specifying whether to divide by the product of all batch sizes or specific dimensions.</dd>
+<dt><strong><code>ignore_mean</code></strong></dt>
+<dd>If <code>True</code>, does not penalize the mean value (frequency=0 component).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>scalar loss value</p></div>
+<p>Scalar loss value</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def frequency_loss(tensor, frequency_falloff=100, batch_norm=True):
+<pre><code class="python">def frequency_loss(values: Tensor,
+                   frequency_falloff: float = 100,
+                   batch_norm: bool or str or tuple or list or Shape = True,
+                   ignore_mean=False) -&gt; Tensor:
     &#34;&#34;&#34;
-    Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
+    Penalizes the squared `values` in frequency (Fourier) space.
+    Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-      batch_norm: Whether to divide by the batch size.
-      tensor: typically actual - target
-      frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)
+        values: Values to penalize, typically `actual - target`
+        frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
+            *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
+        batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
+        ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
 
     Returns:
-      scalar loss value
-
+      Scalar loss value
     &#34;&#34;&#34;
-    diff_fft = abs_square(math.fft(tensor))
-    k_squared = math.sum_(math.fftfreq(tensor.shape[1:-1]) ** 2, &#39;vector&#39;)
+    if ignore_mean:
+        values -= math.mean(values, values.shape.non_batch)
+    diff_fft = abs_square(math.fft(values))
+    k_squared = vec_squared(math.fftfreq(values.shape.spatial))
     weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
     return l1_loss(diff_fft * weights, batch_norm=batch_norm)</code></pre>
 </details>
@@ -1579,6 +1590,7 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
             for _ in range(len(n)):
                 ARG_INDICES.append(arg_index)
         results_native = list(grad_native(*natives))
+        assert None not in results_native, f&#34;None found in gradient result {results_native}&#34;
         proto_tensors = []
         if get_output:
             proto_tensors.extend(OUTPUT_TENSORS)
@@ -1857,7 +1869,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 </details>
 </dd>
 <dt id="phi.math.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm=True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes L1 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
@@ -1865,13 +1877,13 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l1_loss(tensor: Tensor, batch_norm=True) -&gt; Tensor:
+<pre><code class="python">def l1_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
     &#34;&#34;&#34; Computes L1 loss. See `l_n_loss()` &#34;&#34;&#34;
     return l_n_loss(abs(tensor), 1, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm=True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes L2 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
@@ -1879,13 +1891,13 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l2_loss(tensor: Tensor, batch_norm=True) -&gt; Tensor:
+<pre><code class="python">def l2_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
     &#34;&#34;&#34; Computes L2 loss. See `l_n_loss()` &#34;&#34;&#34;
     return l_n_loss(tensor, 2, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l_n_loss"><code class="name flex">
-<span>def <span class="ident">l_n_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, n: int, batch_norm=True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l_n_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, n: int, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the vector norm of a tensor.
@@ -1897,7 +1909,7 @@ This is defined as <em>sum x</em><em>n / n</em>.</p>
 <dt><strong><code>n</code></strong></dt>
 <dd>norm order, 1 for L1 loss, 2 for L2 loss.</dd>
 <dt><strong><code>batch_norm</code></strong></dt>
-<dd>Whether to divide by the batch size.</dd>
+<dd>Either <code>bool</code> specifying whether to divide by the product of all batch sizes or specific dimensions.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Scalar float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
@@ -1905,7 +1917,9 @@ This is defined as <em>sum x</em><em>n / n</em>.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -&gt; Tensor:
+<pre><code class="python">def l_n_loss(tensor: Tensor,
+             n: int,
+             batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the vector norm of a tensor.
     This is defined as *sum x**n / n*.
@@ -1913,7 +1927,7 @@ This is defined as <em>sum x</em><em>n / n</em>.</p>
     Args:
       tensor: Loss values.
       n: norm order, 1 for L1 loss, 2 for L2 loss.
-      batch_norm:  Whether to divide by the batch size.
+      batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
 
     Returns:
         Scalar float `Tensor`
@@ -1921,7 +1935,10 @@ This is defined as <em>sum x</em><em>n / n</em>.</p>
     assert isinstance(tensor, Tensor), f&#34;Must be a Tensor but got {type(tensor).__name__}&#34;
     total_loss = math.sum_(tensor ** n) / n
     if batch_norm:
-        batch_size = tensor.shape.batch.volume
+        if isinstance(batch_norm, bool):
+            batch_size = tensor.shape.batch.volume
+        else:
+            batch_size = tensor.shape.only(batch_norm).volume
         return math.divide_no_nan(total_loss, batch_size)
     else:
         return total_loss</code></pre>
@@ -2096,6 +2113,9 @@ def my_linear_function(x):
     result = []
     for items in zip(*flat):
         result.append(function(*items))
+    if None in result:
+        assert all(r is None for r in result), f&#34;map function returned None for some elements, {result}&#34;
+        return
     return wrap(result).vector.split(shape)</code></pre>
 </details>
 </dd>
@@ -2199,7 +2219,7 @@ def my_linear_function(x):
 </details>
 </dd>
 <dt id="phi.math.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, callback: Callable = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds a minimum of the scalar function <code>function(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> like <code>x0</code>.
@@ -2226,7 +2246,7 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(function, x0: Tensor, solve_params: Solve) -&gt; Tensor:
+<pre><code class="python">def minimize(function, x0: Tensor, solve_params: Solve, callback: Callable = None) -&gt; Tensor:
     &#34;&#34;&#34;
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
     The `solver` argument of `solve_params` determines which method is used.
@@ -2265,13 +2285,20 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
     def native_function(native_x):
         x = unflatten_assemble(native_x)
         y = function(x)
-        return y.native()
+        if isinstance(y, (tuple, list)):
+            return [y_.native() for y_ in y]
+        else:
+            return y.native()
 
-    x_native = backend.minimize(native_function, x0_flat, solve_params)
-    if x_native is NotImplemented:
-        x_native = _default_minimize(native_function, x0_flat, backend, solve_params)
-    x = unflatten_assemble(x_native)
-    return x</code></pre>
+    try:
+        x_native = backend.minimize(native_function, x0_flat, solve_params)
+        if x_native is NotImplemented:
+            x_native = _default_minimize(native_function, x0_flat, backend, solve_params, callback)
+        x = unflatten_assemble(x_native)
+        return x
+    except ConvergenceException as exc:
+        x = unflatten_assemble(exc.x)
+        raise type(exc)(exc.solve, x0, x, exc.msg)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.minimum"><code class="name flex">
@@ -2823,6 +2850,22 @@ def precision(floating_point_bits: int):
     return NativeTensor(native, shape_(**{dim: stop - start}))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.range_tensor"><code class="name flex">
+<span>def <span class="ident">range_tensor</span></span>(<span>shape: phi.math._shape.Shape, **dims)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def range_tensor(shape: Shape, **dims):
+    shape &amp;= shape_(**dims)
+    data = arange(0, shape.volume)
+    result = split_dimension(data, &#39;range&#39;, shape)
+    return result</code></pre>
+</details>
+</dd>
 <dt id="phi.math.real"><code class="name flex">
 <span>def <span class="ident">real</span></span>(<span>complex: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -2939,7 +2982,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 </details>
 </dd>
 <dt id="phi.math.reshaped_tensor"><code class="name flex">
-<span>def <span class="ident">reshaped_tensor</span></span>(<span>value: Any, groups: tuple, check_sizes=False)</span>
+<span>def <span class="ident">reshaped_tensor</span></span>(<span>value: Any, groups: tuple, check_sizes=False, convert=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> from a native tensor or tensor-like whereby the dimensions of <code>value</code> are split according to <code>groups</code>.</p>
@@ -2953,6 +2996,9 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 <dd>Sequence of dimension names as <code>str</code> or groups of dimensions to be joined as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
 <dt><strong><code>check_sizes</code></strong></dt>
 <dd>If True, group sizes must match the sizes of <code>value</code> exactly. Otherwise, allows singleton dimensions.</dd>
+<dt><strong><code>convert</code></strong></dt>
+<dd>If True, converts the data to the native format of the current default backend.
+If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> but keeps the given data reference if possible.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with all dimensions from <code>groups</code></p></div>
@@ -2962,7 +3008,8 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 </summary>
 <pre><code class="python">def reshaped_tensor(value: Any,
                     groups: tuple or list,
-                    check_sizes=False):
+                    check_sizes=False,
+                    convert=True):
     &#34;&#34;&#34;
     Creates a `Tensor` from a native tensor or tensor-like whereby the dimensions of `value` are split according to `groups`.
 
@@ -2973,12 +3020,14 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
         value: Native tensor or tensor-like.
         groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
         check_sizes: If True, group sizes must match the sizes of `value` exactly. Otherwise, allows singleton dimensions.
+        convert: If True, converts the data to the native format of the current default backend.
+            If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
     Returns:
         `Tensor` with all dimensions from `groups`
     &#34;&#34;&#34;
     names = [group if isinstance(group, str) else f&#39;group{i}&#39; for i, group in enumerate(groups)]
-    value = tensor(value, names)
+    value = tensor(value, names, convert=convert)
     for i, group in enumerate(groups):
         if isinstance(group, Shape):
             if value.shape.get_size(f&#39;group{i}&#39;) == group.volume:
@@ -3532,7 +3581,7 @@ In case the gradient of this operation is computed during backpropagation, infor
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: str = 'spatial_gradient')</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: str = 'gradient')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -3580,7 +3629,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
                      difference: str = &#39;central&#39;,
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: tuple or None = None,
-                     stack_dim: str = &#39;spatial_gradient&#39;):
+                     stack_dim: str = &#39;gradient&#39;):
     &#34;&#34;&#34;
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -3744,7 +3793,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
     if split_dims.rank == 0:
         return value.dimension(dim)[0]  # remove dim
     if split_dims.rank == 1:
-        new_shape = value.shape.with_names([split_dims.name if name == dim else name for name in value.shape.names])
+        new_shape = value.shape.without(dim).expand(split_dims.sizes[0], split_dims.name, split_dims.types[0], pos=value.shape.index(dim))
         return value._with_shape_replaced(new_shape)
     else:
         native = value.native()
@@ -3916,7 +3965,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         if convert:
             backend = choose_backend(*data._natives())
             if backend != default_backend():
-                data = data._op1(convert_)
+                data = data._op1(lambda n: convert_(n, use_dlpack=False))
         if names is None:
             return data
         else:
@@ -3959,7 +4008,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             types = [_shape._infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
         if convert:
-            data = convert_(data)
+            data = convert_(data, use_dlpack=False)
         return NativeTensor(data, shape)
     raise ValueError(f&#34;{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}&#34;)</code></pre>
 </details>
@@ -4301,6 +4350,80 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="phi.math.ConvergenceException"><code class="flex name class">
+<span>class <span class="ident">ConvergenceException</span></span>
+<span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This exception is thrown when a solve did not converge to the specified accuracy.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ConvergenceException(RuntimeError):
+    &#34;&#34;&#34;
+    This exception is thrown when a solve did not converge to the specified accuracy.
+    &#34;&#34;&#34;
+
+    def __init__(self, solve: Solve, x0, x, msg: str):
+        # subclasses must have the same signature to be instantiated as type(snc)(...)
+        RuntimeError.__init__(self, msg)
+        self.solve: Solve = solve
+        &#34;&#34;&#34; The specified solve parameters. &#34;&#34;&#34;
+        self.partial_result: SolveResult = solve.result
+        &#34;&#34;&#34; `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. &#34;&#34;&#34;
+        self.x = x
+        &#34;&#34;&#34; Estimate of result at the end of the failed solve. &#34;&#34;&#34;
+        self.x0 = x0
+        &#34;&#34;&#34; Initial guess provided to the solver. &#34;&#34;&#34;
+
+    @property
+    def msg(self):
+        return self.args[0]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.RuntimeError</li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li>phi.math.backend._optim.Diverged</li>
+<li>phi.math.backend._optim.NotConverged</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.math.ConvergenceException.msg"><code class="name">var <span class="ident">msg</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def msg(self):
+    return self.args[0]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.ConvergenceException.partial_result"><code class="name">var <span class="ident">partial_result</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> containing information about the failed solve. Equivalent to <code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">Solve.result</a></code> at the time this exception was created.</p></div>
+</dd>
+<dt id="phi.math.ConvergenceException.solve"><code class="name">var <span class="ident">solve</span></code></dt>
+<dd>
+<div class="desc"><p>The specified solve parameters.</p></div>
+</dd>
+<dt id="phi.math.ConvergenceException.x"><code class="name">var <span class="ident">x</span></code></dt>
+<dd>
+<div class="desc"><p>Estimate of result at the end of the failed solve.</p></div>
+</dd>
+<dt id="phi.math.ConvergenceException.x0"><code class="name">var <span class="ident">x0</span></code></dt>
+<dd>
+<div class="desc"><p>Initial guess provided to the solver.</p></div>
+</dd>
+</dl>
+</dd>
 <dt id="phi.math.DType"><code class="flex name class">
 <span>class <span class="ident">DType</span></span>
 <span>(</span><span>kind: type, bits: int = 8)</span>
@@ -4409,6 +4532,39 @@ def precision(self):
 </details>
 </dd>
 </dl>
+</dd>
+<dt id="phi.math.Diverged"><code class="flex name class">
+<span>class <span class="ident">Diverged</span></span>
+<span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Raised if the optimization was stopped prematurely and cannot continue.
+This may indicate that no solution exists.</p>
+<p>The values of the last estimate <code>x</code> may or may not be finite.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Diverged(ConvergenceException):
+    &#34;&#34;&#34;
+    Raised if the optimization was stopped prematurely and cannot continue.
+    This may indicate that no solution exists.
+
+    The values of the last estimate `x` may or may not be finite.
+    &#34;&#34;&#34;
+
+    def __init__(self, solve: Solve, x0, x, msg: str = None):
+        if msg is None:
+            msg = f&#34;Solve diverged within {solve.result.iterations} iterations.&#34;
+        ConvergenceException.__init__(self, solve, x0, x, msg=msg)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.math.backend._optim.ConvergenceException</li>
+<li>builtins.RuntimeError</li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
 </dd>
 <dt id="phi.math.Extrapolation"><code class="flex name class">
 <span>class <span class="ident">Extrapolation</span></span>
@@ -4745,6 +4901,34 @@ This is the default implementation.</p>
 </dd>
 </dl>
 </dd>
+<dt id="phi.math.NotConverged"><code class="flex name class">
+<span>class <span class="ident">NotConverged</span></span>
+<span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NotConverged(ConvergenceException):
+    &#34;&#34;&#34;
+    Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.
+    &#34;&#34;&#34;
+
+    def __init__(self, solve: Solve, x0, x, msg: str = None):
+        if msg is None:
+            msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations.&#34;
+        ConvergenceException.__init__(self, solve, x0, x, msg=msg)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.math.backend._optim.ConvergenceException</li>
+<li>builtins.RuntimeError</li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
+</dd>
 <dt id="phi.math.Shape"><code class="flex name class">
 <span>class <span class="ident">Shape</span></span>
 <span>(</span><span>sizes: tuple, names: tuple, types: tuple)</span>
@@ -4788,7 +4972,11 @@ All arguments must have same length.</p>
             types: Ordered types, all values should be one of (CHANNEL_DIM, SPATIAL_DIM, BATCH_DIM)
         &#34;&#34;&#34;
         assert len(sizes) == len(names) == len(types), f&#34;sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})&#34;
-        self.sizes = tuple(sizes)
+        if len(sizes) &gt; 0:
+            from ._tensors import Tensor
+            self.sizes = tuple(s if isinstance(s, Tensor) or s is None else int(s) for s in sizes)
+        else:
+            self.sizes = ()
         &#34;&#34;&#34; Ordered dimension sizes as `tuple`  &#34;&#34;&#34;
         self.names = tuple(names)
         &#34;&#34;&#34; Ordered dimension names as `tuple` of `str` &#34;&#34;&#34;
@@ -5107,7 +5295,7 @@ All arguments must have same length.</p>
             assert name not in self.names
         return Shape(self.sizes + other.sizes, self.names + other.names, self.types + other.types)
 
-    def without(self, dims: str or tuple or list or &#39;Shape&#39; or None) -&gt; &#39;Shape&#39;:
+    def without(self, dims: str or tuple or list or &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -5150,7 +5338,7 @@ All arguments must have same length.</p>
 
         &#34;&#34;&#34;
         if isinstance(dims, str):
-            return self[[i for i in range(self.rank) if self.names[i] == dims]]
+            dims = parse_dim_order(dims)
         if isinstance(dims, (tuple, list)):
             return self[[i for i in range(self.rank) if self.names[i] in dims]]
         elif isinstance(dims, Shape):
@@ -5719,10 +5907,6 @@ def shape(self, list_dim=&#39;dims&#39;) -&gt; &#39;Shape&#39;:
     return shape</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.sizes"><code class="name">var <span class="ident">sizes</span></code></dt>
-<dd>
-<div class="desc"><p>Ordered dimension sizes as <code>tuple</code></p></div>
-</dd>
 <dt id="phi.math.Shape.spatial"><code class="name">var <span class="ident">spatial</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
@@ -6179,7 +6363,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 
     &#34;&#34;&#34;
     if isinstance(dims, str):
-        return self[[i for i in range(self.rank) if self.names[i] == dims]]
+        dims = parse_dim_order(dims)
     if isinstance(dims, (tuple, list)):
         return self[[i for i in range(self.rank) if self.names[i] in dims]]
     elif isinstance(dims, Shape):
@@ -6313,7 +6497,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39; or None) -&gt; &#39;Shape&#39;:
+<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Builds a new shape from this one that is missing all given dimensions.
     Dimensions in `dims` that are not part of this Shape are ignored.
@@ -6529,7 +6713,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39; or None) -&gt; &#39;Shape&#39;:
+<pre><code class="python">def without(self, dims: str or tuple or list or &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Builds a new shape from this one that is missing all given dimensions.
     Dimensions in `dims` that are not part of this Shape are ignored.
@@ -6655,57 +6839,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <dt id="phi.math.Solve.solver_arguments"><code class="name">var <span class="ident">solver_arguments</span></code></dt>
 <dd>
 <div class="desc"><p>Additional solver-dependent arguments.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="phi.math.SolveNotConverged"><code class="flex name class">
-<span>class <span class="ident">SolveNotConverged</span></span>
-<span>(</span><span>solve: phi.math.backend._optim.Solve, diverged: bool, msg: str = None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>This exception is thrown when a solve did not converge to the specified accuracy.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class SolveNotConverged(RuntimeError):
-    &#34;&#34;&#34;
-    This exception is thrown when a solve did not converge to the specified accuracy.
-    &#34;&#34;&#34;
-
-    def __init__(self, solve: Solve, diverged: bool, msg: str = None):
-        if msg is None:
-            if diverged:
-                msg = f&#34;Solve diverged within {solve.result.iterations} iterations.&#34;
-            else:
-                msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations.&#34;
-        RuntimeError.__init__(self, msg)
-        self.solve: Solve = solve
-        &#34;&#34;&#34; The specified solve parameters. &#34;&#34;&#34;
-        self.diverged: bool = diverged
-        &#34;&#34;&#34; Whether the solve stopped because the solution diverged. &#34;&#34;&#34;
-        self.partial_result: SolveResult = solve.result
-        &#34;&#34;&#34; `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. &#34;&#34;&#34;</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>builtins.RuntimeError</li>
-<li>builtins.Exception</li>
-<li>builtins.BaseException</li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.math.SolveNotConverged.diverged"><code class="name">var <span class="ident">diverged</span></code></dt>
-<dd>
-<div class="desc"><p>Whether the solve stopped because the solution diverged.</p></div>
-</dd>
-<dt id="phi.math.SolveNotConverged.partial_result"><code class="name">var <span class="ident">partial_result</span></code></dt>
-<dd>
-<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> containing information about the failed solve. Equivalent to <code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">Solve.result</a></code> at the time this exception was created.</p></div>
-</dd>
-<dt id="phi.math.SolveNotConverged.solve"><code class="name">var <span class="ident">solve</span></code></dt>
-<dd>
-<div class="desc"><p>The specified solve parameters.</p></div>
 </dd>
 </dl>
 </dd>
@@ -7079,6 +7212,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def __abs__(self):
         return self._op1(lambda t: choose_backend(t).abs(t))
+
+    def __round__(self, n=None):
+        return self._op1(lambda t: choose_backend(t).round(t))
 
     def __copy__(self):
         return self._op1(lambda t: choose_backend(t).copy(t, only_mutable=True))
@@ -8034,6 +8170,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.random_normal" href="#phi.math.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.random_uniform" href="#phi.math.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.range" href="#phi.math.range">range</a></code></li>
+<li><code><a title="phi.math.range_tensor" href="#phi.math.range_tensor">range_tensor</a></code></li>
 <li><code><a title="phi.math.real" href="#phi.math.real">real</a></code></li>
 <li><code><a title="phi.math.record_gradients" href="#phi.math.record_gradients">record_gradients</a></code></li>
 <li><code><a title="phi.math.reshaped_native" href="#phi.math.reshaped_native">reshaped_native</a></code></li>
@@ -8076,6 +8213,16 @@ int: repeating unstack if dimension does not exist</dd>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="phi.math.ConvergenceException" href="#phi.math.ConvergenceException">ConvergenceException</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.ConvergenceException.msg" href="#phi.math.ConvergenceException.msg">msg</a></code></li>
+<li><code><a title="phi.math.ConvergenceException.partial_result" href="#phi.math.ConvergenceException.partial_result">partial_result</a></code></li>
+<li><code><a title="phi.math.ConvergenceException.solve" href="#phi.math.ConvergenceException.solve">solve</a></code></li>
+<li><code><a title="phi.math.ConvergenceException.x" href="#phi.math.ConvergenceException.x">x</a></code></li>
+<li><code><a title="phi.math.ConvergenceException.x0" href="#phi.math.ConvergenceException.x0">x0</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="phi.math.DType" href="#phi.math.DType">DType</a></code></h4>
 <ul class="">
 <li><code><a title="phi.math.DType.bits" href="#phi.math.DType.bits">bits</a></code></li>
@@ -8083,6 +8230,9 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.DType.kind" href="#phi.math.DType.kind">kind</a></code></li>
 <li><code><a title="phi.math.DType.precision" href="#phi.math.DType.precision">precision</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code></h4>
 </li>
 <li>
 <h4><code><a title="phi.math.Extrapolation" href="#phi.math.Extrapolation">Extrapolation</a></code></h4>
@@ -8095,6 +8245,9 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Extrapolation.to_dict" href="#phi.math.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.Extrapolation.transform_coordinates" href="#phi.math.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code></h4>
 </li>
 <li>
 <h4><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></h4>
@@ -8134,7 +8287,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.reduce" href="#phi.math.Shape.reduce">reduce</a></code></li>
 <li><code><a title="phi.math.Shape.reorder" href="#phi.math.Shape.reorder">reorder</a></code></li>
 <li><code><a title="phi.math.Shape.shape" href="#phi.math.Shape.shape">shape</a></code></li>
-<li><code><a title="phi.math.Shape.sizes" href="#phi.math.Shape.sizes">sizes</a></code></li>
 <li><code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">spatial</a></code></li>
 <li><code><a title="phi.math.Shape.spatial_rank" href="#phi.math.Shape.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.math.Shape.to_batch" href="#phi.math.Shape.to_batch">to_batch</a></code></li>
@@ -8158,14 +8310,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">result</a></code></li>
 <li><code><a title="phi.math.Solve.solver" href="#phi.math.Solve.solver">solver</a></code></li>
 <li><code><a title="phi.math.Solve.solver_arguments" href="#phi.math.Solve.solver_arguments">solver_arguments</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="phi.math.SolveNotConverged" href="#phi.math.SolveNotConverged">SolveNotConverged</a></code></h4>
-<ul class="">
-<li><code><a title="phi.math.SolveNotConverged.diverged" href="#phi.math.SolveNotConverged.diverged">diverged</a></code></li>
-<li><code><a title="phi.math.SolveNotConverged.partial_result" href="#phi.math.SolveNotConverged.partial_result">partial_result</a></code></li>
-<li><code><a title="phi.math.SolveNotConverged.solve" href="#phi.math.SolveNotConverged.solve">solve</a></code></li>
 </ul>
 </li>
 <li>

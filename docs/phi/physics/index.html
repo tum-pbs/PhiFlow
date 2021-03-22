@@ -205,7 +205,6 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
         Returns:
           Grid of specified type
         &#34;&#34;&#34;
-        warnings.warn(&#34;Domain.grid is deprecated. Use scalar_grid or vector_grid instead.&#34;, DeprecationWarning)
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         if type is CenteredGrid:
             return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
@@ -629,7 +628,6 @@ The grid is created from the given <code>value</code> which must be one of the f
     Returns:
       Grid of specified type
     &#34;&#34;&#34;
-    warnings.warn(&#34;Domain.grid is deprecated. Use scalar_grid or vector_grid instead.&#34;, DeprecationWarning)
     extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
     if type is CenteredGrid:
         return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)

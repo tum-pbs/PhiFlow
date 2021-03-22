@@ -8,7 +8,7 @@ from phi.math import Tensor
 
 from ._app import App
 from ._display import show
-from . import _display
+from . import _display, EditableValue
 
 
 class ModuleViewer(App):
@@ -33,6 +33,7 @@ class ModuleViewer(App):
                  objects_to_save=None,
                  framerate=None,
                  dt=1.0,
+                 controls: dict = None,
                  **show_config):
         """
         Creates the ModuleViewer `App` and `show()`s it.
@@ -67,6 +68,13 @@ class ModuleViewer(App):
         self.step_exec_event = Event()
         self.step_finished_event = Event()
         self._interrupt = False
+
+        if controls:
+            for name, value in controls.items():
+                if isinstance(value, EditableValue):
+                    setattr(self, name, value)
+                else:
+                    setattr(self, f'value_{name}', value)
 
         self.add_action("Reset", lambda: self.restore_initial_field_values())
 
