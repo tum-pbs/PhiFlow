@@ -95,7 +95,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
             axis.set_title(display_name(str(names[b])))
         elif paths_equal:
             axis.set_title(os.path.basename(str(scene.paths[b])))
-        # TODO if all paths / names equal, use them as title
 
         def single_plot(name, path, i):
             curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
@@ -2074,7 +2073,7 @@ def min_value(self):
 </dd>
 <dt id="phi.app.ModuleViewer"><code class="flex name class">
 <span>class <span class="ident">ModuleViewer</span></span>
-<span>(</span><span>fields=None, stride=None, base_dir='~/phi/data/', summary=None, custom_properties=None, target_scene=None, objects_to_save=None, framerate=None, dt=1.0, controls: dict = None, **show_config)</span>
+<span>(</span><span>fields=None, stride=None, base_dir='~/phi/data/', summary=None, custom_properties=None, target_scene=None, objects_to_save=None, framerate=None, dt=1.0, controls: dict = None, log_performance=True, **show_config)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>ModuleViewer launches the user interface to display the contents of the calling Python script.</p>
@@ -2090,6 +2089,12 @@ If not specified, a generic name and description is chosen.</p>
 <dd>(Optional) names of global variables to be displayed.
 If not provided, searches all global variables for Field or Tensor values.
 All fields must exist as global variables before the ModuleViewer is instantiated.</dd>
+<dt><strong><code>log_performance</code></strong></dt>
+<dd>Whether to log the time elapsed during each step as a scalar value.
+The values will be written to the app's directory and shown in the user interface.</dd>
+<dt><strong><code>controls</code></strong></dt>
+<dd><code>dict</code> mapping valid Python names to initial values or <code><a title="phi.app.EditableValue" href="#phi.app.EditableValue">EditableValue</a></code> instances.
+The display names for the controls will be generated based on the python names.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2118,6 +2123,7 @@ All fields must exist as global variables before the ModuleViewer is instantiate
                  framerate=None,
                  dt=1.0,
                  controls: dict = None,
+                 log_performance=True,
                  **show_config):
         &#34;&#34;&#34;
         Creates the ModuleViewer `App` and `show()`s it.
@@ -2126,6 +2132,10 @@ All fields must exist as global variables before the ModuleViewer is instantiate
             fields: (Optional) names of global variables to be displayed.
                 If not provided, searches all global variables for Field or Tensor values.
                 All fields must exist as global variables before the ModuleViewer is instantiated.
+            log_performance: Whether to log the time elapsed during each step as a scalar value.
+                The values will be written to the app&#39;s directory and shown in the user interface.
+            controls: `dict` mapping valid Python names to initial values or `EditableValue` instances.
+                The display names for the controls will be generated based on the python names.
         &#34;&#34;&#34;
         self._module = module = inspect.getmodule(inspect.stack()[1].frame)
         doc = module.__doc__
@@ -2152,6 +2162,8 @@ All fields must exist as global variables before the ModuleViewer is instantiate
         self.step_exec_event = Event()
         self.step_finished_event = Event()
         self._interrupt = False
+        self._elapsed = None
+        self.log_performance = log_performance
 
         if controls:
             for name, value in controls.items():
@@ -2235,8 +2247,12 @@ All fields must exist as global variables before the ModuleViewer is instantiate
         In typical scenarios, this will run one loop iteration in the top-level script.
         &#34;&#34;&#34;
         self.step_finished_event.clear()
+        t = time.perf_counter()
         self.step_exec_event.set()
         self.step_finished_event.wait()
+        self._elapsed = time.perf_counter() - t
+        if self.log_performance:
+            self.log_scalar(&#39;step_time&#39;, self._elapsed)
 
     def interrupt(self):
         self._interrupt = True
@@ -2375,8 +2391,12 @@ In typical scenarios, this will run one loop iteration in the top-level script.<
     In typical scenarios, this will run one loop iteration in the top-level script.
     &#34;&#34;&#34;
     self.step_finished_event.clear()
+    t = time.perf_counter()
     self.step_exec_event.set()
-    self.step_finished_event.wait()</code></pre>
+    self.step_finished_event.wait()
+    self._elapsed = time.perf_counter() - t
+    if self.log_performance:
+        self.log_scalar(&#39;step_time&#39;, self._elapsed)</code></pre>
 </details>
 </dd>
 </dl>

@@ -1,5 +1,6 @@
 import inspect
 import os
+import time
 from contextlib import contextmanager
 from threading import Thread, Event
 
@@ -34,6 +35,7 @@ class ModuleViewer(App):
                  framerate=None,
                  dt=1.0,
                  controls: dict = None,
+                 log_performance=True,
                  **show_config):
         """
         Creates the ModuleViewer `App` and `show()`s it.
@@ -42,6 +44,10 @@ class ModuleViewer(App):
             fields: (Optional) names of global variables to be displayed.
                 If not provided, searches all global variables for Field or Tensor values.
                 All fields must exist as global variables before the ModuleViewer is instantiated.
+            log_performance: Whether to log the time elapsed during each step as a scalar value.
+                The values will be written to the app's directory and shown in the user interface.
+            controls: `dict` mapping valid Python names to initial values or `EditableValue` instances.
+                The display names for the controls will be generated based on the python names.
         """
         self._module = module = inspect.getmodule(inspect.stack()[1].frame)
         doc = module.__doc__
@@ -68,6 +74,8 @@ class ModuleViewer(App):
         self.step_exec_event = Event()
         self.step_finished_event = Event()
         self._interrupt = False
+        self._elapsed = None
+        self.log_performance = log_performance
 
         if controls:
             for name, value in controls.items():
@@ -151,8 +159,12 @@ class ModuleViewer(App):
         In typical scenarios, this will run one loop iteration in the top-level script.
         """
         self.step_finished_event.clear()
+        t = time.perf_counter()
         self.step_exec_event.set()
         self.step_finished_event.wait()
+        self._elapsed = time.perf_counter() - t
+        if self.log_performance:
+            self.log_scalar('step_time', self._elapsed)
 
     def interrupt(self):
         self._interrupt = True
