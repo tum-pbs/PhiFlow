@@ -1,4 +1,3 @@
-from collections import namedtuple
 from copy import copy
 
 
@@ -55,21 +54,48 @@ class SolveResult:
         self.solve_info = solve_info
 
 
-class SolveNotConverged(RuntimeError):
+class ConvergenceException(RuntimeError):
     """
     This exception is thrown when a solve did not converge to the specified accuracy.
     """
 
-    def __init__(self, solve: Solve, diverged: bool, msg: str = None):
-        if msg is None:
-            if diverged:
-                msg = f"Solve diverged within {solve.result.iterations} iterations."
-            else:
-                msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations."
+    def __init__(self, solve: Solve, x0, x, msg: str):
+        # subclasses must have the same signature to be instantiated as type(snc)(...)
         RuntimeError.__init__(self, msg)
         self.solve: Solve = solve
         """ The specified solve parameters. """
-        self.diverged: bool = diverged
-        """ Whether the solve stopped because the solution diverged. """
         self.partial_result: SolveResult = solve.result
         """ `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. """
+        self.x = x
+        """ Estimate of result at the end of the failed solve. """
+        self.x0 = x0
+        """ Initial guess provided to the solver. """
+
+    @property
+    def msg(self):
+        return self.args[0]
+
+
+class NotConverged(ConvergenceException):
+    """
+    Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.
+    """
+
+    def __init__(self, solve: Solve, x0, x, msg: str = None):
+        if msg is None:
+            msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations."
+        ConvergenceException.__init__(self, solve, x0, x, msg=msg)
+
+
+class Diverged(ConvergenceException):
+    """
+    Raised if the optimization was stopped prematurely and cannot continue.
+    This may indicate that no solution exists.
+
+    The values of the last estimate `x` may or may not be finite.
+    """
+
+    def __init__(self, solve: Solve, x0, x, msg: str = None):
+        if msg is None:
+            msg = f"Solve diverged within {solve.result.iterations} iterations."
+        ConvergenceException.__init__(self, solve, x0, x, msg=msg)

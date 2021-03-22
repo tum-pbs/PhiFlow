@@ -9,22 +9,29 @@ as well as the modules and sub-modules themselves.
 See `phi.tf.flow`, `phi.torch.flow`, `phi.jax.flow`.
 """
 
+# Modules
 import numpy
 import numpy as np
-
 import phi
+from . import math, geom, field, physics, app
+from .math import extrapolation, backend
+from .physics import fluid, flip, advect, diffuse
 
-from . import math
-from .math import extrapolation, PI, DType, wrap, shape, backend, tensor
-
-from . import geom
-from .geom import Geometry, Sphere, Box, union
-
-from . import field
+# Classes
+from .math import DType
+from .geom import Geometry, Sphere, Box
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
+from .physics import Domain, Obstacle
+from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer
 
-from . import physics
-from .physics import fluid, flip, advect, diffuse, Domain, OPEN, CLOSED, PERIODIC, Obstacle
+# Constants
+from .math import PI
+from .physics import OPEN, CLOSED, PERIODIC
 
-from . import app
-from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show
+# Functions
+from .math import wrap, tensor, shape
+from .geom import union
+from .app import show
+
+# Exceptions
+from .math import ConvergenceException, NotConverged, Diverged

@@ -1,18 +1,17 @@
 import numbers
 import os
 import sys
-import warnings
 from typing import List
 
 import numpy as np
 import scipy.signal
 import scipy.sparse
-from scipy.sparse.linalg import cg, LinearOperator
+from scipy.sparse.linalg import cg
 
 from . import Backend, ComputeDevice
 from ._backend_helper import combined_dim
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
-from ._optim import Solve, SolveResult, SolveNotConverged
+from ._optim import Solve, SolveResult, Diverged, NotConverged
 
 
 class NumPyBackend(Backend):
@@ -391,7 +390,8 @@ class NumPyBackend(Backend):
         batch_size = combined_dim(bs_y, bs_x0)
 
         if callable(A):
-            A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
+            raise NotImplementedError()
+            # A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
         elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
             batch_size = combined_dim(batch_size, self.staticshape(A)[0])
 
@@ -409,7 +409,10 @@ class NumPyBackend(Backend):
             x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations, callback=count_callback)
             if ret_val != 0:
                 solve_params.result = SolveResult(max(iterations))
-                raise SolveNotConverged(solve_params, diverged=ret_val < 0)
+                if ret_val < 0:
+                    raise Diverged(solve_params, x0, x)
+                else:
+                    raise NotConverged(solve_params, x0, x)
             results.append(x)
         solve_params.result = SolveResult(max(iterations))
         return self.stack(results)

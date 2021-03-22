@@ -9,7 +9,7 @@ from typing import Tuple, Callable, Any
 
 import numpy as np
 
-from .backend import default_backend, choose_backend, Solve, Backend, get_precision, convert as b_convert, \
+from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, \
     BACKENDS
 from .backend._backend_helper import combined_dim
 from .backend._dtype import DType, combine_types
@@ -17,7 +17,7 @@ from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spa
     _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
 from . import extrapolation as extrapolation_
-from .backend._optim import SolveResult, SolveNotConverged
+from .backend._optim import SolveResult, Solve, ConvergenceException, NotConverged, Diverged
 from .backend._profile import get_current_profile
 
 
@@ -169,7 +169,8 @@ def reshaped_native(value: Tensor,
 
 def reshaped_tensor(value: Any,
                     groups: tuple or list,
-                    check_sizes=False):
+                    check_sizes=False,
+                    convert=True):
     """
     Creates a `Tensor` from a native tensor or tensor-like whereby the dimensions of `value` are split according to `groups`.
 
@@ -180,12 +181,14 @@ def reshaped_tensor(value: Any,
         value: Native tensor or tensor-like.
         groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
         check_sizes: If True, group sizes must match the sizes of `value` exactly. Otherwise, allows singleton dimensions.
+        convert: If True, converts the data to the native format of the current default backend.
+            If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
     Returns:
         `Tensor` with all dimensions from `groups`
     """
     names = [group if isinstance(group, str) else f'group{i}' for i, group in enumerate(groups)]
-    value = tensor(value, names)
+    value = tensor(value, names, convert=convert)
     for i, group in enumerate(groups):
         if isinstance(group, Shape):
             if value.shape.get_size(f'group{i}') == group.volume:
@@ -314,6 +317,9 @@ def map_(function, *values: Tensor) -> Tensor:
     result = []
     for items in zip(*flat):
         result.append(function(*items))
+    if None in result:
+        assert all(r is None for r in result), f"map function returned None for some elements, {result}"
+        return
     return wrap(result).vector.split(shape)
 
 
@@ -457,6 +463,13 @@ def arange(start_or_stop: int, stop: int or None = None, step=1, dim='range'):
         start = start_or_stop
     native = choose_backend(start, stop, prefer_default=True).range(start, stop, step, DType(int, 32))
     return NativeTensor(native, shape_(**{dim: stop - start}))
+
+
+def range_tensor(shape: Shape, **dims):
+    shape &= shape_(**dims)
+    data = arange(0, shape.volume)
+    result = split_dimension(data, 'range', shape)
+    return result
 
 
 def channel_stack(values, dim: str):
@@ -693,7 +706,7 @@ def split_dimension(value: Tensor, dim: str, split_dims: Shape):
     if split_dims.rank == 0:
         return value.dimension(dim)[0]  # remove dim
     if split_dims.rank == 1:
-        new_shape = value.shape.with_names([split_dims.name if name == dim else name for name in value.shape.names])
+        new_shape = value.shape.without(dim).expand(split_dims.sizes[0], split_dims.name, split_dims.types[0], pos=value.shape.index(dim))
         return value._with_shape_replaced(new_shape)
     else:
         native = value.native()
@@ -1561,6 +1574,7 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False
             for _ in range(len(n)):
                 ARG_INDICES.append(arg_index)
         results_native = list(grad_native(*natives))
+        assert None not in results_native, f"None found in gradient result {results_native}"
         proto_tensors = []
         if get_output:
             proto_tensors.extend(OUTPUT_TENSORS)
@@ -1572,7 +1586,7 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False
     return wrapper
 
 
-def minimize(function, x0: Tensor, solve_params: Solve) -> Tensor:
+def minimize(function, x0: Tensor, solve_params: Solve, callback: Callable = None) -> Tensor:
     """
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
     The `solver` argument of `solve_params` determines which method is used.
@@ -1611,16 +1625,23 @@ def minimize(function, x0: Tensor, solve_params: Solve) -> Tensor:
     def native_function(native_x):
         x = unflatten_assemble(native_x)
         y = function(x)
-        return y.native()
+        if isinstance(y, (tuple, list)):
+            return [y_.native() for y_ in y]
+        else:
+            return y.native()
 
-    x_native = backend.minimize(native_function, x0_flat, solve_params)
-    if x_native is NotImplemented:
-        x_native = _default_minimize(native_function, x0_flat, backend, solve_params)
-    x = unflatten_assemble(x_native)
-    return x
+    try:
+        x_native = backend.minimize(native_function, x0_flat, solve_params)
+        if x_native is NotImplemented:
+            x_native = _default_minimize(native_function, x0_flat, backend, solve_params, callback)
+        x = unflatten_assemble(x_native)
+        return x
+    except ConvergenceException as exc:
+        x = unflatten_assemble(exc.x)
+        raise type(exc)(exc.solve, x0, x, exc.msg)
 
 
-def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_params: Solve):
+def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_params: Solve, callback: Callable = None):
     import scipy.optimize as sopt
     x0 = backend.numpy(x0_flat)
     method = solve_params.solver or 'L-BFGS-B'
@@ -1630,8 +1651,12 @@ def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_
 
         def min_target(x):
             x = backend.as_tensor(x, convert_external=True)
-            val, grad = val_and_grad(x)
-            return backend.numpy(val).astype(np.float64), backend.numpy(grad).astype(np.float64)
+            eval = val_and_grad(x)
+            loss = eval[0]
+            grad = eval[-1]
+            if callback is not None:
+                callback(x, *eval[:-1])
+            return backend.numpy(loss).astype(np.float64), backend.numpy(grad).astype(np.float64)
 
         res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=solve_params.absolute_tolerance,
                             options={'maxiter': solve_params.max_iterations})
@@ -1640,15 +1665,17 @@ def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_
 
         def min_target(x):
             x = backend.as_tensor(x, convert_external=True)
-            val = native_function(x)
-            return backend.numpy(val).astype(np.float64)
+            loss = native_function(x)
+            if isinstance(loss, (tuple, list)):
+                loss = loss[0]
+            return backend.numpy(loss).astype(np.float64)
 
         finite_diff_epsilon = {64: 1e-9, 32: 1e-4, 16: 1e-1}[get_precision()]
         res = sopt.minimize(fun=min_target, x0=x0, method=method, tol=solve_params.absolute_tolerance,
                             options={'maxiter': solve_params.max_iterations, 'eps': finite_diff_epsilon})
     solve_params.result = SolveResult(res.nit)
     if not res.success:
-        raise SolveNotConverged(solve_params, False, msg=res.message)
+        raise NotConverged(solve_params, x0, res.x, msg=res.message)
     return res.x
 
 
@@ -1831,7 +1858,7 @@ def _default_cg(A, y_t: Tensor, x0: Tensor, solve_params: Solve, callback=None):
 
     def cg(y: Tensor, x0_t: Tensor, params: Solve):
         y = backend.to_float(backend.reshape(y.native(), (y.shape.batch.volume, -1)))
-        x0 = backend.to_float(backend.reshape(x0_t.native(), (x0_t.shape.batch.volume, -1)))
+        x0 = backend.copy(backend.to_float(backend.reshape(x0_t.native(), (x0_t.shape.batch.volume, -1))), only_mutable=True)
         batch_size = combined_dim(x0.shape[0], y.shape[0])
         if x0.shape[0] < batch_size:
             x0 = backend.tile(x0, [batch_size, 1])
@@ -1843,7 +1870,7 @@ def _default_cg(A, y_t: Tensor, x0: Tensor, solve_params: Solve, callback=None):
         while backend.all(backend.sum(residual ** 2, -1) > tolerance_sq):
             if iterations == params.max_iterations:
                 solve_params.result = SolveResult(iterations)
-                raise SolveNotConverged(solve_params, diverged=False)
+                raise NotConverged(solve_params, x0, x)
             iterations += 1
             dx_dy = backend.sum(dx * dy, axis=-1, keepdims=True)
             step_size = backend.divide_no_nan(backend.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
@@ -1853,7 +1880,7 @@ def _default_cg(A, y_t: Tensor, x0: Tensor, solve_params: Solve, callback=None):
             dy = function(dx)
         if not backend.all(backend.isfinite(x)):
             solve_params.result = SolveResult(iterations)
-            raise SolveNotConverged(solve_params, diverged=True)
+            raise Diverged(solve_params, x0, x)
         x = backend.reshape(x, batch.sizes + x0_t.shape.non_batch.sizes)
         params.result = SolveResult(iterations)
         return NativeTensor(x, batch.combined(x0_t.shape.non_batch))

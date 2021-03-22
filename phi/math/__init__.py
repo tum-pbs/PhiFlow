@@ -13,12 +13,9 @@ This allows the user to write simulation code once and have it run with various 
 See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 """
 
-from .backend import (
-    precision, set_global_precision, get_precision,
-    Solve, SolveResult, SolveNotConverged,
-    DType,
-    NUMPY_BACKEND,
-)
+from .backend._optim import Solve, SolveResult, ConvergenceException, NotConverged, Diverged
+from .backend._dtype import DType
+from .backend import NUMPY_BACKEND, precision, set_global_precision, get_precision
 
 from .extrapolation import Extrapolation
 
@@ -34,7 +31,7 @@ from ._functions import (
     print_ as print,
     map_ as map,
     jit_compile, functional_gradient, custom_gradient, linear_function,
-    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range,  # creation operators (use default backend)
+    zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
     pad,

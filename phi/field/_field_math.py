@@ -169,10 +169,12 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     return result
 
 
-def minimize(function, x0: Grid, solve_params: math.Solve):
+def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None):
     data_function = _operate_on_values(function, x0)
-    x = math.minimize(data_function, x0.values, solve_params=solve_params)
-    return x0.with_(values=x)
+    try:
+        return x0.with_(values=math.minimize(data_function, x0.values, solve_params=solve_params, callback=callback))
+    except math.ConvergenceException as exc:
+        raise type(exc)(exc.solve, x0, x0.with_(values=exc.x), exc.msg)
 
 
 def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = (), callback=None):
@@ -214,6 +216,8 @@ def _operate_on_values(field_function, *proto_fields):
             return result
         elif isinstance(result, SampledField):
             return result.values
+        elif isinstance(result, (tuple, list)):
+            return [r.values if isinstance(r, SampledField) else r for r in result]
         else:
             raise ValueError(f"function must return an instance of SampledField or Tensor but returned {result}")
     return wrapper
