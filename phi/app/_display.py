@@ -75,24 +75,24 @@ class AppDisplay(object):
 
 DEFAULT_DISPLAY_CLASS = None
 
-if 'headless' not in sys.argv:
+if 'google.colab' not in sys.modules:
     try:
         from ._dash.dash_gui import DashGui
         DEFAULT_DISPLAY_CLASS = DashGui
     except ImportError as import_error:
         warnings.warn(f"Web interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
-        try:
-            from ._matplotlib.matplotlib_gui import MatplotlibGui
-            DEFAULT_DISPLAY_CLASS = MatplotlibGui
-        except ImportError as import_error:
-            warnings.warn(f"Matplotlib interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
+if DEFAULT_DISPLAY_CLASS is None:
+    try:
+        from ._matplotlib.matplotlib_gui import MatplotlibGui
+        DEFAULT_DISPLAY_CLASS = MatplotlibGui
+    except ImportError as import_error:
+        warnings.warn(f"Matplotlib interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
 
 
-AUTORUN = 'autorun' in sys.argv
 KEEP_ALIVE = True  # internal; whether the UI keeps the app alive
 
 
-def show(app: App or None = None, autorun=AUTORUN, gui: AppDisplay = None, **config):
+def show(app: App or None = None, autorun=False, gui: AppDisplay = None, **config):
     """
     Launch the registered user interface (web interface by default).
     
