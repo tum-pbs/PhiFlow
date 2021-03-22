@@ -1438,7 +1438,7 @@ def jit_compile(f: Callable) -> Callable:
     return wrapper
 
 
-def _native_wrapper(tensor_function: Callable, create_native_function: Callable):
+def _native_wrapper(tensor_function: Callable, create_native_function: Callable, persistent_refs=False):
     INPUT_TENSORS = []
     OUTPUT_TENSORS = []
 
@@ -1466,6 +1466,9 @@ def _native_wrapper(tensor_function: Callable, create_native_function: Callable)
         natives = sum([v._natives() for v in values], ())
         results_native = list(traced(*natives))
         results = [t._with_natives_replaced(results_native) for t in OUTPUT_TENSORS]
+        if not persistent_refs:
+            INPUT_TENSORS.clear()
+            OUTPUT_TENSORS.clear()
         assert len(results_native) == 0
         return results[0] if len(results) == 1 else results
 
@@ -1475,6 +1478,9 @@ def _native_wrapper(tensor_function: Callable, create_native_function: Callable)
 def custom_gradient(f: Callable, gradient: Callable):
     """
     Creates a function based on `f` that uses a custom gradient for the backpropagation pass.
+
+    *Warning* This method can lead to memory leaks if the gradient funcion is not called.
+    Make sure to pass tensors without gradients if the gradient is not required, see `stop_gradient()`.
 
     Args:
         f: Forward function mapping `Tensor` arguments `x` to a single `Tensor` output or sequence of tensors `y`.
@@ -1493,10 +1499,12 @@ def custom_gradient(f: Callable, gradient: Callable):
             dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
             result = gradient(*x, *y, *dy)
             assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
+            input_tensors.clear()  # release tensors manually since persistent_refs=True
+            output_tensors.clear()
             return [r.native() if r is not None else None for r in result]
         return backend.custom_gradient(fun, native_gradient)
 
-    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient)
+    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient, persistent_refs=True)
     return wrapper
 
 
@@ -1580,6 +1588,8 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False
             proto_tensors.extend(OUTPUT_TENSORS)
         proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
         results = [t._with_natives_replaced(results_native) for t in proto_tensors]
+        INPUT_TENSORS.clear()
+        OUTPUT_TENSORS.clear()
         assert len(results_native) == 0
         return results
 

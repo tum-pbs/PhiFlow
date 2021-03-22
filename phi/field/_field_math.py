@@ -234,32 +234,33 @@ class LinearFieldFunction:
         self.f = f
         self.jit_compile = jit_compile
         self._tensor_function = None
-        self.input_fields = []
-        self.output: tuple or list or SampledField = None
+        # self.input_fields = []
+        # self.output: tuple or list or SampledField = None
 
-    def __call__(self, *args, **kwargs):
-        assert not kwargs
-        tensor_function = self.value_function(*args)
-        tensors = [field.values for field in args]
-        result_tensors = tensor_function(*tensors)
-        if isinstance(self.output, (tuple, list)):
-            assert isinstance(result_tensors, (tuple, list)), result_tensors
-            return [f.with_(values=t) if isinstance(f, SampledField) else t for f, t in zip(self.output, result_tensors)]
-        else:
-            if isinstance(result_tensors, (tuple, list)):
-                result_tensors = result_tensors[0]
-            return self.output.with_(values=result_tensors)
+    # def __call__(self, *args, **kwargs):
+    #     """ *args are Tensors """
+    #     assert not kwargs
+    #     tensor_function = self.value_function(*args)
+    #     tensors = [field.values for field in args]
+    #     result_tensors = tensor_function(*tensors)
+    #     if isinstance(self.output, (tuple, list)):
+    #         assert isinstance(result_tensors, (tuple, list)), result_tensors
+    #         return [f.with_(values=t) if isinstance(f, SampledField) else t for f, t in zip(self.output, result_tensors)]
+    #     else:
+    #         if isinstance(result_tensors, (tuple, list)):
+    #             result_tensors = result_tensors[0]
+    #         return self.output.with_(values=result_tensors)
 
     def value_function(self, *proto_fields):
-        self.input_fields = proto_fields
+        # self.input_fields = proto_fields
         if self._tensor_function is None:
             def tensor_function(*tensors):
-                fields = [field.with_(values=t) for field, t in zip(self.input_fields, tensors)]
-                self.output = self.f(*fields)
-                if isinstance(self.output, (tuple, list)):
-                    return [field.values if isinstance(field, SampledField) else math.tensor(field) for field in self.output]
+                fields = [field.with_(values=t) for field, t in zip(proto_fields, tensors)]
+                output = self.f(*fields)
+                if isinstance(output, (tuple, list)):
+                    return [field.values if isinstance(field, SampledField) else math.tensor(field) for field in output]
                 else:
-                    return self.output.values if isinstance(self.output, SampledField) else math.tensor(self.output)
+                    return output.values if isinstance(output, SampledField) else math.tensor(output)
             self._tensor_function = math.linear_function(tensor_function, jit_compile=self.jit_compile)
         return self._tensor_function
 

@@ -876,6 +876,8 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for the backpropagation pass.</p>
+<p><em>Warning</em> This method can lead to memory leaks if the gradient funcion is not called.
+Make sure to pass tensors without gradients if the gradient is not required, see <code><a title="phi.math.stop_gradient" href="#phi.math.stop_gradient">stop_gradient()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
@@ -892,6 +894,9 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
 <pre><code class="python">def custom_gradient(f: Callable, gradient: Callable):
     &#34;&#34;&#34;
     Creates a function based on `f` that uses a custom gradient for the backpropagation pass.
+
+    *Warning* This method can lead to memory leaks if the gradient funcion is not called.
+    Make sure to pass tensors without gradients if the gradient is not required, see `stop_gradient()`.
 
     Args:
         f: Forward function mapping `Tensor` arguments `x` to a single `Tensor` output or sequence of tensors `y`.
@@ -910,10 +915,12 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
             dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
             result = gradient(*x, *y, *dy)
             assert isinstance(result, (tuple, list)), &#34;Gradient function must return tuple or list&#34;
+            input_tensors.clear()  # release tensors manually since persistent_refs=True
+            output_tensors.clear()
             return [r.native() if r is not None else None for r in result]
         return backend.custom_gradient(fun, native_gradient)
 
-    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient)
+    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient, persistent_refs=True)
     return wrapper</code></pre>
 </details>
 </dd>
@@ -1596,6 +1603,8 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
             proto_tensors.extend(OUTPUT_TENSORS)
         proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
         results = [t._with_natives_replaced(results_native) for t in proto_tensors]
+        INPUT_TENSORS.clear()
+        OUTPUT_TENSORS.clear()
         assert len(results_native) == 0
         return results
 
