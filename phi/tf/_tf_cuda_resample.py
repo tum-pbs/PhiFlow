@@ -2,21 +2,35 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework import ops
+from tensorflow.python.framework.errors_impl import NotFoundError
 
 # Load Custom Ops
 librariesLoaded = False
 try:
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    resample_op_path = os.path.join(current_dir, 'cuda/build/resample.so')
-    resample_gradient_op_path = os.path.join(current_dir, 'cuda/build/resample_gradient.so')
-    assert os.path.isfile(
-        resample_op_path), 'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to compile them' % resample_op_path
-    assert os.path.isfile(resample_gradient_op_path), 'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to ' \
-                                                      'compile them' % resample_gradient_op_path
+    resample_op_path = os.path.join(current_dir, "cuda/build/resample.so")
+    resample_gradient_op_path = os.path.join(
+        current_dir, "cuda/build/resample_gradient.so"
+    )
+    assert os.path.isfile(resample_op_path), (
+        'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to compile them'
+        % resample_op_path
+    )
+    assert os.path.isfile(resample_gradient_op_path), (
+        'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to '
+        "compile them" % resample_gradient_op_path
+    )
     resample_op = tf.load_op_library(resample_op_path)
     resample_gradient_op = tf.load_op_library(resample_gradient_op_path)
     librariesLoaded = True
 except (RuntimeError, AssertionError) as e:
+    librariesLoaded = False
+except NotFoundError as e:
+    # e.g.: tensorflow.python.framework.errors_impl.NotFoundError: libcudart.so.10.0: cannot open shared object file: No such file or directory
+    librariesLoaded = False
+    print(f"Could not find resample library.  {e}")
+except Exception as e:
+    print(e)
     librariesLoaded = False
 
 # Register spatial_gradient
@@ -24,7 +38,9 @@ except (RuntimeError, AssertionError) as e:
 
 @ops.RegisterGradient("Resample")
 def _resample_gradient(op, gradient):
-    gradients = resample_gradient_op.resample_gradient(gradient, op.inputs[0], op.inputs[1], op.inputs[2])
+    gradients = resample_gradient_op.resample_gradient(
+        gradient, op.inputs[0], op.inputs[1], op.inputs[2]
+    )
     return [gradients[0], gradients[1], None]
 
 
@@ -59,15 +75,15 @@ def resample_cuda(inputs, sample_coords, boundary):
     for i in range(dims):
         for j in range(2):
             current_boundary = collapsed_gather_nd(boundary, [i, j]).lower()
-            if current_boundary == 'zero' or current_boundary == 'constant':
+            if current_boundary == "zero" or current_boundary == "constant":
                 boundary_array[i, j] = ZERO
-            elif current_boundary == 'replicate':
+            elif current_boundary == "replicate":
                 boundary_array[i, j] = REPLICATE
-            elif current_boundary == 'circular' or current_boundary == 'wrap':
+            elif current_boundary == "circular" or current_boundary == "wrap":
                 boundary_array[i, j] = CIRCULAR
-            elif current_boundary == 'symmetric':
+            elif current_boundary == "symmetric":
                 boundary_array[i, j] = SYMMETRIC
-            elif current_boundary == 'reflect':
+            elif current_boundary == "reflect":
                 boundary_array[i, j] = REFLECT
 
     return resample_op.resample(inputs, sample_coords, boundary_array)
