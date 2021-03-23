@@ -47,8 +47,6 @@ _DEFAULT.append(NUMPY_BACKEND)
 BACKENDS = BACKENDS  # to show up in pdoc
 &#34;&#34;&#34; Global list of all registered backends. Register a `Backend` by adding it to the list. &#34;&#34;&#34;
 
-SCIPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
-&#34;&#34;&#34; Alias for `NUMPY_BACKEND` &#34;&#34;&#34;
 NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
 
@@ -68,10 +66,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dt id="phi.math.backend.NUMPY_BACKEND"><code class="name">var <span class="ident">NUMPY_BACKEND</span></code></dt>
 <dd>
 <div class="desc"><p>Default backend for NumPy arrays and SciPy objects.</p></div>
-</dd>
-<dt id="phi.math.backend.SCIPY_BACKEND"><code class="name">var <span class="ident">SCIPY_BACKEND</span></code></dt>
-<dd>
-<div class="desc"><p>Alias for <code><a title="phi.math.backend.NUMPY_BACKEND" href="#phi.math.backend.NUMPY_BACKEND">NUMPY_BACKEND</a></code></p></div>
 </dd>
 </dl>
 </section>
@@ -3739,7 +3733,6 @@ def retime(self):
 <ul class="">
 <li><code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code></li>
 <li><code><a title="phi.math.backend.NUMPY_BACKEND" href="#phi.math.backend.NUMPY_BACKEND">NUMPY_BACKEND</a></code></li>
-<li><code><a title="phi.math.backend.SCIPY_BACKEND" href="#phi.math.backend.SCIPY_BACKEND">SCIPY_BACKEND</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>

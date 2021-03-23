@@ -18,8 +18,6 @@ _DEFAULT.append(NUMPY_BACKEND)
 BACKENDS = BACKENDS  # to show up in pdoc
 """ Global list of all registered backends. Register a `Backend` by adding it to the list. """
 
-SCIPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
-""" Alias for `NUMPY_BACKEND` """
 NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""
 

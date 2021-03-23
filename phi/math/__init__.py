@@ -69,8 +69,6 @@ PI = 3.14159265358979323846
 """Value of π to double precision """
 pi = PI
 
-SCIPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
-""" Alias for `NUMPY_BACKEND` """
 NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""
 
