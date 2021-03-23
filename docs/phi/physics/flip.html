@@ -151,7 +151,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.flip.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, particles: phi.field._point_cloud.PointCloud, obstacles: tuple = (), solve_params=&lt;phi.math.backend._optim.Solve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None) ‑> Tuple[phi.field._grid.StaggeredGrid, phi.field._grid.CenteredGrid, int, phi.field._grid.CenteredGrid, phi.field._grid.StaggeredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, particles: phi.field._point_cloud.PointCloud, obstacles: tuple = (), solve_params=CG with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000, pressure_guess: phi.field._grid.CenteredGrid = None) ‑> Tuple[phi.field._grid.StaggeredGrid, phi.field._grid.CenteredGrid, int, phi.field._grid.CenteredGrid, phi.field._grid.StaggeredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>

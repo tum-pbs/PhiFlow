@@ -1,17 +1,16 @@
 import numbers
-import uuid
 from contextlib import contextmanager
 from functools import wraps, partial
-from typing import List, Tuple, Any, Callable
+from typing import List, Callable
 
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, NUMPY_BACKEND
-from ._tf_cuda_resample import resample_cuda, use_cuda
 from ..math.backend._backend_helper import combined_dim
-from ..math.backend._optim import SolveResult, Solve
+from ..math.backend._dtype import DType, to_numpy_dtype, from_numpy_dtype
+from phi.math.backend import Backend, ComputeDevice, NUMPY_BACKEND
+from ._tf_cuda_resample import resample_cuda, use_cuda
 
 
 class TFBackend(Backend):

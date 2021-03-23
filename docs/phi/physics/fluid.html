@@ -184,7 +184,7 @@ Cells outside will be unaffected.</p>
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), solve_params=&lt;phi.math.backend._optim.Solve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None)</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), solve_params=CG with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000, pressure_guess: phi.field._grid.CenteredGrid = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>

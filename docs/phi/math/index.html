@@ -6845,7 +6845,10 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         &#34;&#34;&#34;
         if self._gradient_solve is None:
             self._gradient_solve = copy(self)
-        return self._gradient_solve</code></pre>
+        return self._gradient_solve
+
+    def __repr__(self):
+        return f&#34;{self.solver} with tolerance {self.relative_tolerance} (rel), {self.absolute_tolerance} (abs), max_iterations={self.max_iterations}&#34;</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -6915,7 +6918,10 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
     def __init__(self, iterations: int, **solve_info):
         self.iterations = iterations
         &#34;&#34;&#34; Number of iterations performed. &#34;&#34;&#34;
-        self.solve_info = solve_info</code></pre>
+        self.solve_info = solve_info
+
+    def __repr__(self):
+        return f&#34;[{self.iterations} iterations]&#34;</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>

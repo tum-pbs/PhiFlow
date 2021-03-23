@@ -10,8 +10,8 @@ import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math import Solve
-from phi.math.backend import Backend, DType, NUMPY_BACKEND, ComputeDevice
+from phi.math import Solve, DType
+from phi.math.backend import Backend, NUMPY_BACKEND, ComputeDevice
 from phi.math.backend._backend_helper import combined_dim
 from phi.math.backend._optim import SolveResult, Diverged, NotConverged
 
@@ -537,7 +537,7 @@ class TorchBackend(Backend):
         assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
         assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
         y = self.to_float(y)
-        x0 = self.to_float(x0)
+        x0 = self.copy(self.to_float(x0))
         batch_size = combined_dim(x0.shape[0], y.shape[0])
         if x0.shape[0] < batch_size:
             x0 = x0.repeat([batch_size, 1])

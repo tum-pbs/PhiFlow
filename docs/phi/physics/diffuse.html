@@ -232,7 +232,7 @@ Otherwise, finite differencing is used to approximate the</p>
 </details>
 </dd>
 <dt id="phi.physics.diffuse.implicit"><code class="name flex">
-<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve_params=&lt;phi.math.backend._optim.Solve object&gt;) ‑> ~FieldType</span>
+<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve_params=CG with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Diffusion by solving a linear system of equations.</p>

@@ -30,8 +30,6 @@
 <pre><code class="python">&#34;&#34;&#34;
 Low-level library wrappers for delegating vector operations.
 &#34;&#34;&#34;
-
-from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import (
     Backend, choose_backend, NoBackendFound,
     ComputeDevice,
@@ -230,27 +228,6 @@ Else, intermediately converts <code>tensor</code> to a NumPy array.</p>
         current default `Backend`
     &#34;&#34;&#34;
     return _DEFAULT[-1]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.from_numpy_dtype"><code class="name flex">
-<span>def <span class="ident">from_numpy_dtype</span></span>(<span>np_dtype) ‑> phi.math.backend._dtype.DType</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def from_numpy_dtype(np_dtype) -&gt; DType:
-    if np_dtype in _FROM_NUMPY:
-        return _FROM_NUMPY[np_dtype]
-    else:
-        for base_np_dtype, dtype in _FROM_NUMPY.items():
-            if np_dtype == base_np_dtype:
-                return dtype
-        if np_dtype.char == &#39;U&#39;:
-            return DType(str, 8 * np_dtype.itemsize)
-        raise ValueError(np_dtype)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.get_current_profile"><code class="name flex">
@@ -518,23 +495,6 @@ The output of math operations has the same precision as its inputs.</p>
       floating_point_bits: one of (16, 32, 64, None)
     &#34;&#34;&#34;
     _PRECISION[0] = floating_point_bits</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.to_numpy_dtype"><code class="name flex">
-<span>def <span class="ident">to_numpy_dtype</span></span>(<span>dtype: phi.math.backend._dtype.DType)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def to_numpy_dtype(dtype: DType):
-    if dtype in _TO_NUMPY:
-        return _TO_NUMPY[dtype]
-    if dtype.kind == str:
-        bytes_per_char = np.dtype(&#39;&lt;U1&#39;).itemsize
-        return np.dtype(f&#39;&lt;U{dtype.itemsize // bytes_per_char}&#39;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3378,115 +3338,6 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </dd>
 </dl>
 </dd>
-<dt id="phi.math.backend.DType"><code class="flex name class">
-<span>class <span class="ident">DType</span></span>
-<span>(</span><span>kind: type, bits: int = 8)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Data type for tensors.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>kind</code></strong></dt>
-<dd>Python type, one of <code>(bool, int, float, complex, str)</code></dd>
-<dt><strong><code>bits</code></strong></dt>
-<dd>number of bits, typically a multiple of 8.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class DType:
-
-    def __init__(self, kind: type, bits: int = 8):
-        &#34;&#34;&#34;
-        Data type for tensors.
-
-        Args:
-          kind: Python type, one of `(bool, int, float, complex, str)`
-          bits: number of bits, typically a multiple of 8.
-        &#34;&#34;&#34;
-        assert kind in (bool, int, float, complex, str)
-        if kind is bool:
-            assert bits == 8
-        else:
-            assert isinstance(bits, int)
-        self.kind = kind
-        &#34;&#34;&#34; Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex) &#34;&#34;&#34;
-        self.bits = bits
-        &#34;&#34;&#34; Number of bits used to store a single value of this type. See `DType.itemsize`. &#34;&#34;&#34;
-
-    @property
-    def precision(self):
-        &#34;&#34;&#34; Floating point precision. Only defined if `kind in (float, complex)`. For complex values, returns half of `DType.bits`. &#34;&#34;&#34;
-        if self.kind == float:
-            return self.bits
-        if self.kind == complex:
-            return self.bits // 2
-        else:
-            return None
-
-    @property
-    def itemsize(self):
-        &#34;&#34;&#34; Number of bytes used to storea single value of this type. See `DType.bits`. &#34;&#34;&#34;
-        assert self.bits % 8 == 0
-        return self.bits // 8
-
-    def __eq__(self, other):
-        return isinstance(other, DType) and self.kind == other.kind and self.bits == other.bits
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __hash__(self):
-        return hash(self.kind) + hash(self.bits)
-
-    def __repr__(self):
-        return f&#34;{self.kind.__name__}{self.bits}&#34;</code></pre>
-</details>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.math.backend.DType.bits"><code class="name">var <span class="ident">bits</span></code></dt>
-<dd>
-<div class="desc"><p>Number of bits used to store a single value of this type. See <code><a title="phi.math.backend.DType.itemsize" href="#phi.math.backend.DType.itemsize">DType.itemsize</a></code>.</p></div>
-</dd>
-<dt id="phi.math.backend.DType.itemsize"><code class="name">var <span class="ident">itemsize</span></code></dt>
-<dd>
-<div class="desc"><p>Number of bytes used to storea single value of this type. See <code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">DType.bits</a></code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def itemsize(self):
-    &#34;&#34;&#34; Number of bytes used to storea single value of this type. See `DType.bits`. &#34;&#34;&#34;
-    assert self.bits % 8 == 0
-    return self.bits // 8</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.DType.kind"><code class="name">var <span class="ident">kind</span></code></dt>
-<dd>
-<div class="desc"><p>Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex)</p></div>
-</dd>
-<dt id="phi.math.backend.DType.precision"><code class="name">var <span class="ident">precision</span></code></dt>
-<dd>
-<div class="desc"><p>Floating point precision. Only defined if <code>kind in (float, complex)</code>. For complex values, returns half of <code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">DType.bits</a></code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def precision(self):
-    &#34;&#34;&#34; Floating point precision. Only defined if `kind in (float, complex)`. For complex values, returns half of `DType.bits`. &#34;&#34;&#34;
-    if self.kind == float:
-        return self.bits
-    if self.kind == complex:
-        return self.bits // 2
-    else:
-        return None</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 <dt id="phi.math.backend.NoBackendFound"><code class="flex name class">
 <span>class <span class="ident">NoBackendFound</span></span>
 <span>(</span><span>msg)</span>
@@ -3897,7 +3748,6 @@ def retime(self):
 <li><code><a title="phi.math.backend.context_backend" href="#phi.math.backend.context_backend">context_backend</a></code></li>
 <li><code><a title="phi.math.backend.convert" href="#phi.math.backend.convert">convert</a></code></li>
 <li><code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend</a></code></li>
-<li><code><a title="phi.math.backend.from_numpy_dtype" href="#phi.math.backend.from_numpy_dtype">from_numpy_dtype</a></code></li>
 <li><code><a title="phi.math.backend.get_current_profile" href="#phi.math.backend.get_current_profile">get_current_profile</a></code></li>
 <li><code><a title="phi.math.backend.get_precision" href="#phi.math.backend.get_precision">get_precision</a></code></li>
 <li><code><a title="phi.math.backend.precision" href="#phi.math.backend.precision">precision</a></code></li>
@@ -3905,7 +3755,6 @@ def retime(self):
 <li><code><a title="phi.math.backend.profile_function" href="#phi.math.backend.profile_function">profile_function</a></code></li>
 <li><code><a title="phi.math.backend.set_global_default_backend" href="#phi.math.backend.set_global_default_backend">set_global_default_backend</a></code></li>
 <li><code><a title="phi.math.backend.set_global_precision" href="#phi.math.backend.set_global_precision">set_global_precision</a></code></li>
-<li><code><a title="phi.math.backend.to_numpy_dtype" href="#phi.math.backend.to_numpy_dtype">to_numpy_dtype</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -4037,15 +3886,6 @@ def retime(self):
 <li><code><a title="phi.math.backend.ComputeDevice.name" href="#phi.math.backend.ComputeDevice.name">name</a></code></li>
 <li><code><a title="phi.math.backend.ComputeDevice.processor_count" href="#phi.math.backend.ComputeDevice.processor_count">processor_count</a></code></li>
 <li><code><a title="phi.math.backend.ComputeDevice.ref" href="#phi.math.backend.ComputeDevice.ref">ref</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="phi.math.backend.DType" href="#phi.math.backend.DType">DType</a></code></h4>
-<ul class="">
-<li><code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">bits</a></code></li>
-<li><code><a title="phi.math.backend.DType.itemsize" href="#phi.math.backend.DType.itemsize">itemsize</a></code></li>
-<li><code><a title="phi.math.backend.DType.kind" href="#phi.math.backend.DType.kind">kind</a></code></li>
-<li><code><a title="phi.math.backend.DType.precision" href="#phi.math.backend.DType.precision">precision</a></code></li>
 </ul>
 </li>
 <li>

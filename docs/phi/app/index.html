@@ -314,15 +314,14 @@ All fields need to be registered before the app is prepared or shown.</p>
         logFormatter = logging.Formatter(&#34;%(message)s (%(levelname)s), %(asctime)sn\n&#34;)
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
-        customLogger = logging.Logger(&#34;app&#34;, logging.DEBUG)
-        fileHandler = logging.FileHandler(log_file)
-        fileHandler.setFormatter(logFormatter)
-        customLogger.addHandler(fileHandler)
-        consoleHandler = logging.StreamHandler(sys.stdout)
-        consoleHandler.setFormatter(logFormatter)
-        consoleHandler.setLevel(logging.INFO)
-        customLogger.addHandler(consoleHandler)
-        self.logger = customLogger
+        self.logger = logging.Logger(&#34;app&#34;, logging.DEBUG)
+        file_handler = self.file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(logFormatter)
+        self.logger.addHandler(file_handler)
+        console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(logFormatter)
+        console_handler.setLevel(logging.INFO)
+        self.logger.addHandler(console_handler)
         # Data logging
         self._scalars = {}  # name -&gt; (frame, value)
         self._scalar_streams = {}

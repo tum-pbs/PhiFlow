@@ -12,8 +12,9 @@ from jax.scipy.sparse.linalg import cg
 from jax import random
 
 from phi.math.backend._optim import SolveResult
-from phi.math.backend import Backend, ComputeDevice, to_numpy_dtype, from_numpy_dtype
-from phi.math import Solve, DType, NUMPY_BACKEND
+from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
+from phi.math.backend import Backend, ComputeDevice
+from phi.math import Solve, DType
 from phi.math.backend._backend_helper import combined_dim
 
 
