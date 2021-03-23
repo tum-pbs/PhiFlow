@@ -575,12 +575,16 @@ class TorchBackend(Backend):
             for i, arg in enumerate(args):
                 if self.is_tensor(arg, True) and arg.requires_grad and not arg.is_leaf:
                     arg = torch.clone(arg).detach()
+                    arg.requires_grad = i in wrt
+                    args[i] = arg
+                elif i in wrt:
+                    arg = self.as_tensor(arg, True)
+                    arg = arg.detach()  # returns a new tensor in any case
                     arg.requires_grad = True
                     args[i] = arg
             wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
-            for i, arg in enumerate(wrt_args):
-                if not arg.requires_grad:
-                    arg.requires_grad = True
+            for t in wrt_args:
+                assert t.requires_grad
             output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
             grads = torch.autograd.grad(loss, wrt_args)
