@@ -89,10 +89,29 @@ if DEFAULT_DISPLAY_CLASS is None:
         warnings.warn(f"Matplotlib interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
 
 
+def _display_class(gui: str or type):
+    if isinstance(gui, str):
+        if gui == 'dash':
+            from ._dash.dash_gui import DashGui
+            return DashGui
+        elif gui == 'console':
+            from ._console import ConsoleGui
+            return ConsoleGui
+        elif gui == 'matplotlib':
+            from ._matplotlib.matplotlib_gui import MatplotlibGui
+            return MatplotlibGui
+        else:
+            raise NotImplementedError(f"No display available with name {gui}")
+    elif isinstance(gui, type):
+        return gui
+    else:
+        raise ValueError(gui)
+
+
 KEEP_ALIVE = True  # internal; whether the UI keeps the app alive
 
 
-def show(app: App or None = None, autorun=False, gui: AppDisplay = None, **config):
+def show(app: App or None = None, autorun=False, gui: AppDisplay or str = None, **config):
     """
     Launch the registered user interface (web interface by default).
     
@@ -133,6 +152,7 @@ def show(app: App or None = None, autorun=False, gui: AppDisplay = None, **confi
 
     display = None
     gui = gui or DEFAULT_DISPLAY_CLASS
+    gui = _display_class(gui)
     if gui is not None:
         display = gui(app)
         display.configure(config)

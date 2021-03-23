@@ -144,15 +144,14 @@ class App(object):
         logFormatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
-        customLogger = logging.Logger("app", logging.DEBUG)
-        fileHandler = logging.FileHandler(log_file)
-        fileHandler.setFormatter(logFormatter)
-        customLogger.addHandler(fileHandler)
-        consoleHandler = logging.StreamHandler(sys.stdout)
-        consoleHandler.setFormatter(logFormatter)
-        consoleHandler.setLevel(logging.INFO)
-        customLogger.addHandler(consoleHandler)
-        self.logger = customLogger
+        self.logger = logging.Logger("app", logging.DEBUG)
+        file_handler = self.file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(logFormatter)
+        self.logger.addHandler(file_handler)
+        console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(logFormatter)
+        console_handler.setLevel(logging.INFO)
+        self.logger.addHandler(console_handler)
         # Data logging
         self._scalars = {}  # name -> (frame, value)
         self._scalar_streams = {}
