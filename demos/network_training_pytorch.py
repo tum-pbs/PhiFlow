@@ -20,8 +20,7 @@ for step in app.range(100, warmup=1):
     # Initialize optimizer
     optimizer.zero_grad()
     # Prediction
-    pred_tensor = net(data.values.native('batch,vector,x,y'))
-    prediction = DOMAIN.vector_grid(math.wrap(pred_tensor, 'batch,vector,x,y'))
+    prediction = field.native_call(net, data)  # calls net with shape (batch_size, channels, spatial...)
     # Simulation
     prediction_div = field.divergence(prediction)
     # Define loss

@@ -161,8 +161,8 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     Returns:
         `SampledField` matching the first `SampledField` in `inputs`.
     """
-    inputs = [i.values if isinstance(inputs, SampledField) else math.tensor(i) for i in inputs]
-    result = math.native_call(f, *inputs, channels_last=channels_last, channel_dim=channel_dim)
+    input_tensors = [i.values if isinstance(i, SampledField) else math.tensor(i) for i in inputs]
+    result = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
             return i.with_(values=result, extrapolation=extrapolation)
@@ -596,3 +596,15 @@ def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tupl
         return grid.with_(values=math.channel_stack(new_values, 'vector')), valid.with_(values=math.channel_stack(new_valid, 'vector'))
     else:
         raise NotImplementedError()
+
+
+def discretize(grid: Grid, filled_fraction=0.25):
+    """ Treats channel dimensions as batch dimensions. """
+    import numpy as np
+    data = math.reshaped_native(grid.values, [grid.shape.non_spatial, grid.shape.spatial])
+    ranked_idx = np.argsort(data, axis=-1)
+    filled_idx = ranked_idx[:, int(round(grid.shape.spatial.volume * (1 - filled_fraction))):]
+    filled = np.zeros_like(data)
+    np.put_along_axis(filled, filled_idx, 1, axis=-1)
+    filled_t = math.reshaped_tensor(filled, [grid.shape.non_spatial, grid.shape.spatial])
+    return grid.with_(values=filled_t)
