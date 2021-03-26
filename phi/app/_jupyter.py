@@ -1,7 +1,5 @@
 from threading import Event, Thread
 
-from IPython import get_ipython
-
 from ._app import App
 from ._display import show
 from . import _display, ModuleViewer
@@ -19,7 +17,8 @@ class NotebookViewer(ModuleViewer):
 
     def __init__(self,
                  **show_config):
-        App.__init__(self, "Notebook")
+        App.__init__(self, "Notebook", base_dir=None)
+        from IPython import get_ipython
         self.shell = get_ipython()
         self._initial_field_values = {}
         for name, val in notebook_variables(self.shell).items():
@@ -32,8 +31,8 @@ class NotebookViewer(ModuleViewer):
         if 'gui' not in show_config:
             show_config['gui'] = 'widgets'
 
-        def async_show():
-            show(self, **show_config)
+        # def async_show():
+        show(self, **show_config)
 
-        self._display_thread = Thread(target=async_show, name="ModuleViewer_show", daemon=not _display.KEEP_ALIVE)
-        self._display_thread.start()
+        # self._display_thread = Thread(target=async_show, name="ModuleViewer_show", daemon=not _display.KEEP_ALIVE)
+        # self._display_thread.start()
