@@ -100,6 +100,9 @@ def _display_class(gui: str or type):
         elif gui == 'matplotlib':
             from ._matplotlib.matplotlib_gui import MatplotlibGui
             return MatplotlibGui
+        elif gui == 'widgets':
+            from ._widgets._widgets_gui import WidgetsGui
+            return WidgetsGui
         else:
             raise NotImplementedError(f"No display available with name {gui}")
     elif isinstance(gui, type):
@@ -134,19 +137,16 @@ def show(app: App or None = None, autorun=False, gui: AppDisplay or str = None, 
       reference to the GUI, depending on the implementation. For the web interface this may be the web server instance.
 
     """
-    frame_records = inspect.stack()[1]
-    calling_module = inspect.getmodulename(frame_records[1])
-    python_file = os.path.basename(sys.argv[0])[:-3]
 
     if app is None:
+        frame_records = inspect.stack()[1]
+        calling_module = inspect.getmodulename(frame_records[1])
         fitting_models = _find_subclasses_in_module(App, calling_module, [])
         assert len(fitting_models) == 1, 'show() called without model but detected %d possible classes: %s' % (len(fitting_models), fitting_models)
         app = fitting_models[0]
 
     if inspect.isclass(app) and issubclass(app, App):
         app = app()
-
-    called_from_main = inspect.getmodule(app.__class__).__name__ == '__main__' or calling_module == python_file
 
     app.prepare()
 
@@ -169,7 +169,7 @@ def show(app: App or None = None, autorun=False, gui: AppDisplay or str = None, 
         warnings.warn('show() has no effect because no display is available. To use the web interface, run $ pip install phiflow')
         return app
     else:
-        return display.show(called_from_main)  # blocking call
+        return display.show(True)  # may be blocking call
 
 
 def _find_subclasses_in_module(base_class, module_name, result_list):
