@@ -123,31 +123,33 @@ class App(object):
         self.objects_to_save = (
             [self.__class__] if objects_to_save is None else list(objects_to_save)
         )
-        self.base_dir = os.path.expanduser(base_dir)
+        self.base_dir = os.path.expanduser(base_dir) if base_dir is not None else None
         if not target_scene:
             self.new_scene()
             self.uses_existing_scene = False
         else:
             self.scene = target_scene
             self.uses_existing_scene = True
-        if not isfile(self.scene.subpath("info.log")):
-            log_file = self.log_file = self.scene.subpath("info.log")
-        else:
-            index = 2
-            while True:
-                log_file = self.scene.subpath("info_%d.log" % index)
-                if not isfile(log_file):
-                    break
-                else:
-                    index += 1
+        if self.scene is not None:
+            if not isfile(self.scene.subpath("info.log")):
+                log_file = self.log_file = self.scene.subpath("info.log")
+            else:
+                index = 2
+                while True:
+                    log_file = self.scene.subpath("info_%d.log" % index)
+                    if not isfile(log_file):
+                        break
+                    else:
+                        index += 1
         # Message logging
         logFormatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
         rootLogger = logging.getLogger()
         rootLogger.setLevel(logging.WARNING)
         self.logger = logging.Logger("app", logging.DEBUG)
-        file_handler = self.file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(logFormatter)
-        self.logger.addHandler(file_handler)
+        if self.scene is not None:
+            file_handler = self.file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(logFormatter)
+            self.logger.addHandler(file_handler)
         console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(logFormatter)
         console_handler.setLevel(logging.INFO)
@@ -164,7 +166,8 @@ class App(object):
         self.state = None
         self.step_function = None
         # Initial log message
-        self.info("App created. Scene directory is %s" % self.scene.path)
+        if self.scene is not None:
+            self.info("App created. Scene directory is %s" % self.scene.path)
 
     @property
     def dt(self):
@@ -215,6 +218,9 @@ class App(object):
         return self.steps
 
     def new_scene(self, count=None):
+        if self.base_dir is None:
+            self.scene = None
+            return
         if count is None:
             count = 1 if self.world.batch_size is None else self.world.batch_size
         if count > 1:
@@ -443,15 +449,16 @@ class App(object):
         if len(self.fields) == 0:
             self._add_default_fields()
         # Scene
-        self._update_scene_properties()
-        source_files_to_save = set()
-        for object in self.objects_to_save:
-            try:
-                source_files_to_save.add(inspect.getabsfile(object))
-            except TypeError:
-                pass
-        for source_file in source_files_to_save:
-            self.scene.copy_src(source_file)
+        if self.scene is not None:
+            self._update_scene_properties()
+            source_files_to_save = set()
+            for object in self.objects_to_save:
+                try:
+                    source_files_to_save.add(inspect.getabsfile(object))
+                except TypeError:
+                    pass
+            for source_file in source_files_to_save:
+                self.scene.copy_src(source_file)
         # End
         self.prepared = True
         return self
@@ -487,7 +494,7 @@ class App(object):
             self._update_scene_properties()
 
     def _update_scene_properties(self):
-        if self.uses_existing_scene:
+        if self.uses_existing_scene or self.scene is None:
             return
         try:
             app_name = os.path.basename(inspect.getfile(self.__class__))
