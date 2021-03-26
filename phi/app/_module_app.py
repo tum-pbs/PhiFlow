@@ -126,17 +126,13 @@ class ModuleViewer(App):
                     yield self.steps
         elif len(args) == 1:
             for _ in range(args[0]):
-                self.step_exec_event.wait()
-                yield self.steps
-                self.step_exec_event.clear()
-                self.step_finished_event.set()
+                with self._perform_step_context():
+                    yield self.steps
         elif len(args) == 2:
             for i in range(args[0], args[1]):
-                self.step_exec_event.wait()
-                self.steps = i
-                yield self.steps
-                self.step_exec_event.clear()
-                self.step_finished_event.set()
+                with self._perform_step_context():
+                    self.steps = i
+                    yield self.steps
         else:
             raise ValueError(args)
 
