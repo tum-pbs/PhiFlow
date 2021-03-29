@@ -898,7 +898,8 @@ class CollapsedTensor(Tensor):  # package-private
             return self._cached.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
-        inner_reduce = self._inner.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
+        inner_dims = [dim for dim in dims if dim in self._inner.shape]
+        inner_reduce = self._inner.__tensor_reduce__(inner_dims, native_function, collapsed_function, unaffected_function)
         collapsed_dims = self._shape.without(self._inner.shape)
         final_shape = self._shape.without(dims)
         total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
