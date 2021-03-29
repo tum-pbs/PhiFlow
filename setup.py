@@ -2,6 +2,7 @@ import distutils.cmd
 import distutils.log
 import subprocess
 import os
+import sys
 from os.path import join, isfile, abspath, isdir, dirname
 from setuptools import setup
 
@@ -126,6 +127,10 @@ with open(join(dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
     version = version_file.read()
 
 
+dependencies = ['scipy', 'plotly', 'imageio', 'matplotlib']
+if 'google.colab' not in sys.modules:
+    dependencies.append('dash')
+
 setup(
     name='phiflow',
     version=version,
@@ -154,7 +159,7 @@ setup(
     author_email='philipp.holl@tum.de',
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
-    install_requires=['scipy', 'dash', 'plotly', 'imageio', 'matplotlib'],
+    install_requires=dependencies,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
