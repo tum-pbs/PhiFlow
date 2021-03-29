@@ -50,7 +50,7 @@ class Noise(Field):
             k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
             k = math.vec_squared(k)
         lowest_frequency = 0.1
-        weight_mask = 1 / (1 + math.exp((lowest_frequency - k) * 1e3))  # High pass filter
+        weight_mask = math.to_float(k > lowest_frequency)
         # --- Compute 1/k ---
         k.native()[(0,) * len(k.shape)] = np.inf
         inv_k = 1 / k
