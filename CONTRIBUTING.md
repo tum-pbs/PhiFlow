@@ -37,6 +37,7 @@ For commits, we use the following tags in the header:
 * `[field]` for changes to `phi.field` except Scene
 * `[io]` for changes to Scenes, data layout
 * `[physics]` for changes to `phi.physics`
+* `[learning]` for non-backend changes to `phi.tf`, `phi.torch`
 
 Example commit header: `[doc] Improve markdown layout`
 

@@ -13,11 +13,39 @@ def parameter_count(model: nn.Module):
     return int(total)
 
 
+def dense_net(in_channels: int,
+              out_channels: int,
+              layers: tuple or list,
+              batch_norm=False) -> nn.Module:
+    if batch_norm:
+        raise NotImplementedError("only batch_norm=False currently supported")
+    layers = [in_channels, *layers, out_channels]
+    return DenseNet(layers)
+
+
+class DenseNet(nn.Module):
+
+    def __init__(self,
+                 layers: list):
+        super(DenseNet, self).__init__()
+        self._layers = layers
+        for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
+            self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
+
+    def forward(self, x):
+        for i in range(len(self._layers) - 2):
+            x = F.relu(getattr(self, f'linear{i}')(x))
+        x = getattr(self, f'linear{len(self._layers) - 2}')(x)
+        return x
+
+
 def u_net(in_channels: int,
           out_channels: int,
           levels: int = 4,
           filters: int or tuple or list = 16,
           batch_norm=True) -> nn.Module:
+    if not batch_norm:
+        raise NotImplementedError("only batch_norm=True currently supported")
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -28,7 +56,9 @@ def u_net(in_channels: int,
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels: int,
+
+    def __init__(self,
+                 in_channels: int,
                  out_channels: int,
                  filter_counts: tuple,
                  batch_norm=True):
