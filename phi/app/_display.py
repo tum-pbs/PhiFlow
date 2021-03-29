@@ -239,4 +239,5 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
                     if val is field:
                         names.append(name)
                         values.append(field)
+    assert names, "Nothing to view. Store SampledField instances in top-level variables to have them auto-detected."
     return {n: v for n, v in zip(names, values)}

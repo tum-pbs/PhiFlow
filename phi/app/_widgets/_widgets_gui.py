@@ -32,6 +32,7 @@ class WidgetsGui(Gui):
         self.fields = None
         self.field = None
         self._in_loop = None
+        self._last_plot_update_time = None
         # Components will be created during show()
         self.figure_display = None
         self.status = None
@@ -76,7 +77,7 @@ class WidgetsGui(Gui):
         self.status = widgets.Label(value=self._get_status())
         layout = [self.buttons, self.status]
 
-        self.field_select = widgets.Dropdown(options=self.fields, value=self.fields[0], description='Display:')
+        self.field_select = widgets.Dropdown(options=[*self.fields, 'Scalars'], value=self.fields[0], description='Display:')
         self.field_select.layout.visibility = 'visible' if len(self.app.fieldnames) > 1 else 'hidden'
         self.field_select.observe(lambda change: self.show_field(change['new']) if change['type'] == 'change' and change['name'] == 'value' else None)
         layout.append(self.field_select)
@@ -93,30 +94,33 @@ class WidgetsGui(Gui):
         if self._in_loop is None:  # no loop yet
             return self.app.message or ""
         elif self._in_loop is True:
-            playing = self.max_step is None or self.max_step >= self.app.steps
-            action = "Playing" if playing else "Idle"
+            action = "Playing" if self._is_playing() else "Idle"
             return f"{action} ({self.app.steps} steps){message}"
         else:
             return f"Finished {self.app.steps} steps."
+
+    def _is_playing(self):
+        return self.max_step is None or self.max_step >= self.app.steps
 
     def show_field(self, field: str):
         self.field = field
         self.update_widgets()
 
-    def update_widgets(self):
+    def update_widgets(self, plot=True):
         self.status.value = self._get_status()
         scalars = self.app.get_logged_scalars()
         if not self._graphs_enabled and scalars:
             self._graphs_enabled = True
-            self.field_select.options = [*self.fields, 'Scalars']
             self.field_select.layout.visibility = 'visible'
         # Figure
-        self.figure_display.clear_output()
-        if 'style' in self.config:
-            with plt.style.context(self.config['style']):
+        if plot:
+            self.figure_display.clear_output()
+            if 'style' in self.config:
+                with plt.style.context(self.config['style']):
+                    self._plot(self.field, self.figure_display)
+            else:
                 self._plot(self.field, self.figure_display)
-        else:
-            self._plot(self.field, self.figure_display)
+            self._last_plot_update_time = time.time()
 
     def _plot(self, selection: str, output: widgets.Output):
         with output:
@@ -164,7 +168,7 @@ class WidgetsGui(Gui):
 
     def pre_step(self, app):
         self._process_kernel_events()
-        while self.max_step is not None and self.max_step < app.steps:
+        while not self._is_playing():
             time.sleep(.1)
             self._process_kernel_events()
             if self._interrupted:
@@ -180,7 +184,14 @@ class WidgetsGui(Gui):
             self.kernel.set_parent(*self.loop_parent)
 
     def post_step(self, _):
-        self.update_widgets()
+        if self._is_playing():  # maybe skip update
+            update_interval = self.config.get('update_interval')
+            if update_interval is None:
+                update_interval = 2.5 if 'google.colab' in sys.modules else 1.2
+            elapsed = time.time() - self._last_plot_update_time
+            self.update_widgets(plot=elapsed >= update_interval)
+        else:
+            self.update_widgets()
 
     def on_loop_exit(self, _):
         self._in_loop = False
