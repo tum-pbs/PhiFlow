@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 
 from phi.field.plt import plot
 from .. import App
+from .._app import display_name
 from .._display import Gui
 from .._display_util import ordered_field_names
 from .._viewer import Viewer
@@ -35,6 +36,8 @@ class WidgetsGui(Gui):
         self.figure_display = None
         self.status = None
         self.buttons = None
+        self.field_select = None
+        self._graphs_enabled = False
 
     def setup(self, app: App):
         Gui.setup(self, app)
@@ -73,10 +76,10 @@ class WidgetsGui(Gui):
         self.status = widgets.Label(value=self._get_status())
         layout = [self.buttons, self.status]
 
-        if len(self.app.fieldnames) > 1:
-            dropdown = widgets.Dropdown(options=self.fields, value=self.fields[0], description='Display:')
-            dropdown.observe(lambda change: self.show_field(change['new']) if change['type'] == 'change' and change['name'] == 'value' else None)
-            layout.append(dropdown)
+        self.field_select = widgets.Dropdown(options=self.fields, value=self.fields[0], description='Display:')
+        self.field_select.layout.visibility = 'visible' if len(self.app.fieldnames) > 1 else 'hidden'
+        self.field_select.observe(lambda change: self.show_field(change['new']) if change['type'] == 'change' and change['name'] == 'value' else None)
+        layout.append(self.field_select)
 
         layout.append(self.figure_display)
         layout = VBox(layout)
@@ -101,18 +104,37 @@ class WidgetsGui(Gui):
         self.update_widgets()
 
     def update_widgets(self):
-        if 'style' in self.config:
-            plt.style.use(self.config['style'])
-        self.figure_display.clear_output()
         self.status.value = self._get_status()
-        with self.figure_display:
-            field = self.app.get_field(self.field)
-            if isinstance(field, SampledField):
-                plot(field)
+        scalars = self.app.get_logged_scalars()
+        if not self._graphs_enabled and scalars:
+            self._graphs_enabled = True
+            self.field_select.options = [*self.fields, 'Scalars']
+            self.field_select.layout.visibility = 'visible'
+        # Figure
+        self.figure_display.clear_output()
+        if 'style' in self.config:
+            with plt.style.context(self.config['style']):
+                self._plot(self.field, self.figure_display)
+        else:
+            self._plot(self.field, self.figure_display)
+
+    def _plot(self, selection: str, output: widgets.Output):
+        with output:
+            if selection == 'Scalars':
+                plt.figure(figsize=(12, 5))
+                for name in self.app.get_logged_scalars():
+                    plt.plot(*self.app.get_scalar_curve(name), label=display_name(name))
+                plt.legend()
+                plt.tight_layout()
                 show_inline_matplotlib_plots()
             else:
-                self.figure_display.append_stdout(f"{self.field} = {field}")
-            # self.figure_display.append_stdout(self.app.message)
+                field = self.app.get_field(selection)
+                if isinstance(field, SampledField):
+                    plot(field, figsize=(12, 5))
+                    show_inline_matplotlib_plots()
+                else:
+                    self.figure_display.append_stdout(f"{selection} = {field}")
+
 
     def play(self, _):
         self.max_step = None

@@ -88,7 +88,8 @@ def _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args):
             x, y = field.points.vector.unstack_spatial('x,y', to_numpy=True)
             data = math.join_dimensions(field.values, field.shape.batch, 'batch').batch[b]
             u, v = data.vector.unstack_spatial('x,y', to_numpy=True)
-            axes[b].quiver(x-u/2, y-v/2, u, v)
+            color = axes[b].xaxis.label.get_color()
+            axes[b].quiver(x-u/2, y-v/2, u, v, color=color)
     elif isinstance(field, PointCloud):
         for b in range(batch_size):
             points = math.join_dimensions(field.points, field.points.shape.batch.without('points'), 'batch').batch[b]
