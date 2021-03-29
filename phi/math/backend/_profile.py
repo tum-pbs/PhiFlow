@@ -381,7 +381,7 @@ def _format_values(values: dict, backend):
             dtype = backend.dtype(value)
             try:
                 shape = (int(dim) if dim is not None else '?' for dim in shape)
-            except:
+            except Exception:
                 pass
             return f"{tuple(shape)}, {dtype}"
         except BaseException:

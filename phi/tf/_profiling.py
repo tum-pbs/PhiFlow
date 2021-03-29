@@ -54,7 +54,7 @@ def launch_tensorboard(log_dir, same_process=False, port=6006):
     try:
         import phi.local.hostname
         host = phi.local.hostname.hostname
-    except:
+    except (ImportError, AttributeError):
         host = 'localhost'  # socket.gethostname()
     url = "http://%s:%d/" % (host,port)
     return url
