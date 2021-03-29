@@ -237,6 +237,6 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
             else:
                 for name, val in user_variables.items():
                     if val is field:
-                        name.append(name)
+                        names.append(name)
                         values.append(field)
     return {n: v for n, v in zip(names, values)}
