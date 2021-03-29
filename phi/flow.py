@@ -22,7 +22,7 @@ from .math import DType
 from .geom import Geometry, Sphere, Box
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
 from .physics import Domain, Obstacle
-from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, NotebookViewer
+from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, view
 
 # Constants
 from .math import PI

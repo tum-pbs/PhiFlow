@@ -22,4 +22,4 @@ scattered_data = points.sample_in(DOMAIN.cells)
 scattered_grid = points >> DOMAIN.vector_grid()
 scattered_sgrid = points >> DOMAIN.staggered_grid()
 
-ModuleViewer()
+view()

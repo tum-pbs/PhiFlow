@@ -204,8 +204,6 @@ def rk4_step(dt, gradient_func=step_gradient_2d, **kwargs):
     )
 
 
-app = App("Hasegawa Wakatani", framerate=10, dt=EditableFloat("dt", dt))
-app.set_state(state, step_function=rk4_step, show=["density", "omega", "phi"])
-app.prepare()
-show(app, display=("density", "omega", "phi"))
-
+app = view('density', 'omega', 'phi', play=False, framerate=10, controls=[EditableFloat("dt", dt)])
+for _ in app.range():
+    state = rk4_step(dt, **state)

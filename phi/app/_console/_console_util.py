@@ -6,6 +6,45 @@ FULL_BLOCK = "\u2588"
 MOVE_TO_PREV_LINE_START = "\033[F"
 CLEAR_LINE = "\033[K"
 
+BASIC_LINES = "--||\\/\\/"
+ARROWS = "🡠🡢🡡🡣🡤🡥🡦🡧"
+HEAVY_ARROWS = "🡸🡺🡹🡻🡼🡽🡾🡿"
+
+
+def get_arrow(x, y, thick=False, basic_char=False):
+    charset = BASIC_LINES if basic_char else (HEAVY_ARROWS if thick else ARROWS)
+    if x == 0:
+        return charset[2] if y > 0 else charset[3]  # 🡡 🡣
+    frac = y / x
+    if x > 0:
+        if frac > 2.41421:  # tan(3/2 45°)
+            return charset[2]  # 🡡
+        elif frac > 0.41421:  # tan(1/2 45°)
+            return charset[5]  # 🡥
+        elif frac > -0.41421:
+            return charset[1]  # 🡢
+        elif frac > -2.41421:
+            return charset[6]  # 🡦
+        else:
+            return charset[3]  # 🡣
+    else:
+        if -frac > 2.41421:  # tan(3/2 45°)
+            return charset[2]  # 🡡
+        elif -frac > 0.41421:  # tan(1/2 45°)
+            return charset[4]  # 🡤
+        elif -frac > -0.41421:
+            return charset[0]  # 🡠
+        elif -frac > -2.41421:
+            return charset[7]  # 🡧
+        else:
+            return charset[3]  # 🡣
+
+
+
+
+def underline(text):
+    return f"\033[4m{text}\033[0m"
+
 
 def cursor_up(n: int):
     return f"\x1b[{n}A"

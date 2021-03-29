@@ -1,18 +1,99 @@
-import inspect
-import os
 import time
 from contextlib import contextmanager
-from threading import Thread, Event
-
-from phi.field import Field
-from phi.math import Tensor
+from threading import Event
 
 from ._app import App
-from ._display import show
-from . import _display, EditableValue
+from . import EditableValue
+from ._user_namespace import UserNamespace
+from ..field import Scene
 
 
-class ModuleViewer(App):
+def create_viewer(namespace: UserNamespace,
+                  fields: dict,
+                  name: str = None,
+                  subtitle: str = "",
+                  scene: Scene = None,
+                  asynchronous: bool = False,
+                  controls: tuple or list = None,
+                  log_performance: bool = True
+                  ):
+    cls = AsyncViewer if asynchronous else SyncViewer
+    viewer = cls(namespace, fields, name, subtitle, scene, log_performance)
+    if controls:
+        for name, value in controls.items():
+            if isinstance(value, EditableValue):
+                setattr(viewer, name, value)
+            else:
+                setattr(viewer, f'value_{name}', value)
+    return viewer
+
+
+class Viewer(App):
+
+    def __init__(self,
+                 namespace: UserNamespace,
+                 fields: dict,
+                 name: str,
+                 subtitle: str,
+                 scene: Scene,
+                 log_performance: bool):
+        App.__init__(self, name, subtitle, scene=scene, log_performance=log_performance)
+        self._initial_field_values = fields
+        self.namespace = namespace
+        self.on_loop_start = []
+        self.on_loop_exit = []
+        for name, value in fields.items():
+            self.add_field(name, lambda n=name: self.namespace.get_variable(n))
+        self.add_action("Reset", lambda: self.restore_initial_field_values())
+
+    def range(self, *args, warmup=0):
+        raise NotImplementedError(self)
+
+    def restore_initial_field_values(self, reset_steps=True):
+        for name, value in self._initial_field_values.items():
+            self.namespace.set_variable(name, value)
+        if reset_steps:
+            self.steps = 0
+
+
+class SyncViewer(Viewer):
+
+    def step(self):
+        pass
+
+    def range(self, *args, warmup=0):
+        for _ in range(warmup):
+            yield self.steps
+            self.invalidate()
+
+        for obs in self.on_loop_start:
+            obs(self)
+
+        try:
+            if len(args) == 0:
+                while True:
+                    self._pre_step()
+                    yield self.steps
+                    self._post_step()
+            elif len(args) == 1:
+                for _ in range(args[0]):
+                    self._pre_step()
+                    yield self.steps
+                    self._post_step()
+            elif len(args) == 2:
+                for i in range(args[0], args[1]):
+                    self.steps = i
+                    self._pre_step()
+                    yield self.steps
+                    self._post_step()
+            else:
+                raise ValueError(args)
+        finally:
+            for obs in self.on_loop_exit:
+                obs(self)
+
+
+class AsyncViewer(Viewer):
     """
     ModuleViewer launches the user interface to display the contents of the calling Python script.
 
@@ -24,19 +105,8 @@ class ModuleViewer(App):
 
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
     """
-    def __init__(self,
-                 fields=None,
-                 stride=None,
-                 base_dir='~/phi/data/',
-                 summary=None,
-                 custom_properties=None,
-                 target_scene=None,
-                 objects_to_save=None,
-                 framerate=None,
-                 dt=1.0,
-                 controls: dict = None,
-                 log_performance=True,
-                 **show_config):
+
+    def __init__(self, *args):
         """
         Creates the ModuleViewer `App` and `show()`s it.
 
@@ -49,48 +119,10 @@ class ModuleViewer(App):
             controls: `dict` mapping valid Python names to initial values or `EditableValue` instances.
                 The display names for the controls will be generated based on the python names.
         """
-        self._module = module = inspect.getmodule(inspect.stack()[1].frame)
-        doc = module.__doc__
-        if doc is None:
-            name = os.path.basename(module.__file__)[:-3]
-            subtitle = module.__doc__ or module.__file__
-        else:
-            end_of_line = doc.index('\n')
-            name = doc[:end_of_line].strip()
-            subtitle = doc[end_of_line:].strip() or None
-        App.__init__(self, name, subtitle, fields=None, stride=stride, base_dir=base_dir, summary=summary, custom_properties=custom_properties, target_scene=target_scene, objects_to_save=objects_to_save, framerate=framerate, dt=dt)
-        self._initial_field_values = {}
-        if fields is None:
-            for name in dir(module):
-                if not name.startswith('_'):
-                    val = getattr(module, name)
-                    if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank > 0):
-                        self.add_field(name, lambda name=name: getattr(module, name))
-                        self._initial_field_values[name] = val
-        else:
-            for name in fields:
-                self.add_field(name, lambda name=name: getattr(module, name))
-                self._initial_field_values[name] = getattr(module, name)
+        Viewer.__init__(self, *args)
         self.step_exec_event = Event()
         self.step_finished_event = Event()
         self._interrupt = False
-        self._elapsed = None
-        self.log_performance = log_performance
-
-        if controls:
-            for name, value in controls.items():
-                if isinstance(value, EditableValue):
-                    setattr(self, name, value)
-                else:
-                    setattr(self, f'value_{name}', value)
-
-        self.add_action("Reset", lambda: self.restore_initial_field_values())
-
-        def async_show():
-            show(self, **show_config)
-
-        self._display_thread = Thread(target=async_show, name="ModuleViewer_show", daemon=not _display.KEEP_ALIVE)
-        self._display_thread.start()
 
     def range(self, *args, warmup=0):
         """
@@ -155,19 +187,8 @@ class ModuleViewer(App):
         In typical scenarios, this will run one loop iteration in the top-level script.
         """
         self.step_finished_event.clear()
-        t = time.perf_counter()
         self.step_exec_event.set()
         self.step_finished_event.wait()
-        self._elapsed = time.perf_counter() - t
-        if self.log_performance:
-            self.log_scalar('step_time', self._elapsed)
 
     def interrupt(self):
         self._interrupt = True
-
-    def restore_initial_field_values(self, reset_steps=True):
-        for name, value in self._initial_field_values.items():
-            setattr(self._module, name, value)
-        if reset_steps:
-            self.steps = 0
-

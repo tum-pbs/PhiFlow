@@ -10,17 +10,19 @@ from .dash_app import DashApp
 from .info import build_app_details, build_description, build_phiflow_info, build_app_time
 from .viewer import build_viewer
 from .player_controls import build_status_bar, build_player_controls
-from .._display import AppDisplay
+from .. import App
+from .._display import Gui
 from .._display_util import ordered_field_names
 
 
-class DashGui(AppDisplay):
+class DashGui(Gui):
 
-    def __init__(self, app):
-        AppDisplay.__init__(self, app)
+    def __init__(self):
+        Gui.__init__(self, asynchronous=True)
         self.dash_app = None
 
-    def setup(self):
+    def setup(self, app: App):
+        Gui.setup(self, app)
         header_layout = html.Div([
                 dcc.Link('Home', href='/'),
                 ' - ',
@@ -122,14 +124,14 @@ class DashGui(AppDisplay):
             build_graph_view(dash_app),
             status_bar,
             player_controls,
-        ] + ([] if 'tensorflow' not in dash_app.app.traits else [
-            build_tensorboard_launcher(dash_app),
-        ]) + [
+        # ] + ([] if 'tensorflow' not in dash_app.app.traits else [
+        #     build_tensorboard_launcher(dash_app),
+        ] + [
             model_controls,
             build_benchmark(dash_app),
-        ] + ([] if 'tensorflow' not in dash_app.app.traits else [
-            build_tf_profiler(dash_app),
-        ]) + [
+        # ] + ([] if 'tensorflow' not in dash_app.app.traits else [
+        #     build_tf_profiler(dash_app),
+        ] + [
             build_system_controls(dash_app),
             # ToDo: Graphs, Record/Animate
         ])

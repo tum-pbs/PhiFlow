@@ -4,19 +4,21 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 
 from phi import math
-from .._display import AppDisplay
+from .. import App
+from .._display import Gui
 from .._display_util import ordered_field_names
 from ...field import StaggeredGrid
 
 
-class MatplotlibGui(AppDisplay):
+class MatplotlibGui(Gui):
 
-    def __init__(self, app):
-        AppDisplay.__init__(self, app)
+    def __init__(self):
+        Gui.__init__(self)
         self.axes = None
         self.fig = None
 
-    def setup(self):
+    def setup(self, app: App):
+        Gui.setup(self, app)
         self.shown_fields = ordered_field_names(self.app, self.config.get('display'), min_count=4, fill_with='None')
         self.fig_count = min(self.config.get('figs', 2), len(self.app.fieldnames))
 
@@ -51,9 +53,6 @@ class MatplotlibGui(AppDisplay):
                 self.axes[i].set_title(self.shown_fields[i])
             plt.draw()
             plt.pause(0.01)
-
-    def play(self, _event=None):
-        self.app.play(framerate=self.app.framerate)
 
     def step(self, _event=None):
         self.app.run_step()

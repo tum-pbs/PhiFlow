@@ -5,6 +5,7 @@ from dash.exceptions import PreventUpdate
 
 from .dash_app import DashApp
 from .viewsettings import refresh_rate_ms, REFRESH_RATE
+from .._app import play_async
 
 
 def build_status_bar(dashapp):
@@ -46,8 +47,9 @@ def build_player_controls(dashapp):
         if n_clicks and not dashapp.app.running:
             step_count = parse_step_count(step_count, dashapp, default=None)
             if step_count is None:
-                dashapp.app.play()
+                play_async(dashapp.app, framerate=dashapp.config.get('framerate', None))
             else:
+                play_async(dashapp.app, max_steps=step_count, framerate=dashapp.config.get('framerate', None))
                 dashapp.app.play(step_count)
         else:
             raise PreventUpdate()
@@ -81,7 +83,7 @@ def build_player_controls(dashapp):
     return layout
 
 
-def parse_step_count(step_count, dashapp, default=1):
+def parse_step_count(step_count, dashapp, default: int or None = 1):
     if step_count is None:
         return default
     try:

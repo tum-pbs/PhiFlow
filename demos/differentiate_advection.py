@@ -26,7 +26,7 @@ velocity_fit = DOMAIN.staggered_grid(0)
 marker_fit = DOMAIN.scalar_grid(0)
 smooth_difference = DOMAIN.scalar_grid(0)
 gradient = DOMAIN.staggered_grid(0)
-app = ModuleViewer(display=['marker_fit', 'gradient'])
+app = view(display=['marker_fit', 'gradient'], play=False)
 
 for iteration in app.range(warmup=1):
     loss, marker_fit, smooth_difference, gradient = gradient_function(velocity_fit)

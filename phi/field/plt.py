@@ -7,9 +7,12 @@ import numpy as np
 from phi import math
 from . import Grid, StaggeredGrid, PointCloud
 from ._field import SampledField
+from ._field_math import batch_stack
 
 
-def plot(field: SampledField, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+    if isinstance(field, (tuple, list)):
+        field = batch_stack(*field, dim='fields')
     batch_size, b_values = _batch(field)
     fig, axes = plt.subplots(1, batch_size, figsize=figsize)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
@@ -30,7 +33,27 @@ def plot(field: SampledField, title=False, colorbar=False, figsize=(12, 5), same
     return fig, axes
 
 
-def animate(fields, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, **plt_args) -> animation.Animation:
+def animate(fields: SampledField or tuple or list,
+            colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -> animation.Animation:
+    """
+    Creates a Matplotlib animation from `fields`.
+    `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
+
+    Args:
+        fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
+        colorbar: Whether to show a color bar
+        figsize: Figure size
+        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
+        repeat: Whether the video should loop.
+        interval: Frame time in milliseconds.
+        **plt_args: Further plotting arguments, see `plot()`.
+
+    Returns:
+        Matplotlib `Animation`
+    """
+    if isinstance(fields, SampledField):
+        assert 'frames' in fields.shape, "When passing a single Field, it must have a dimension with name 'frames'."
+        fields = fields.unstack('frames')
     fields = list(fields)
     field = fields[0]
     batch_size, b_values = _batch(field)
@@ -38,14 +61,14 @@ def animate(fields, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True
     axes = axes if isinstance(axes, np.ndarray) else [axes]
 
     def func(frame: int):
-        print(f"Getting frame {frame}")
         field = fields[frame]
         batch_size, b_values = _batch(field)
         for axis in axes:
             axis.clear()
         _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
 
-    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields))
+    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
+    plt.close(fig)
     return ani
 
 

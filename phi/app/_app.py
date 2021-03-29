@@ -1,6 +1,3 @@
-# coding=utf-8
-from __future__ import print_function
-
 import inspect
 import logging
 import numbers
@@ -13,17 +10,11 @@ from os.path import isfile
 
 import numpy as np
 from phi import struct, math
-from phi.field import CenteredGrid, Field, StaggeredGrid, Scene
+from phi.field import Field, Scene
 from phi.physics._world import StateProxy, world
 
 from ._control import Action, Control
-from ._value import (
-    EditableBool,
-    EditableFloat,
-    EditableInt,
-    EditableString,
-    EditableValue,
-)
+from ._value import EditableBool, EditableFloat, EditableInt, EditableString, EditableValue
 
 
 def synchronized_method(method):
@@ -68,35 +59,21 @@ class App(object):
     See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
     """
 
-    def __init__(
-        self,
-        name=None,
-        subtitle="",
-        fields=None,
-        stride=None,
-        base_dir="~/phi/data/",
-        summary=None,
-        custom_properties=None,
-        target_scene=None,
-        objects_to_save=None,
-        framerate=None,
-        dt=1.0,
-    ):
+    def __init__(self,
+                 name: str = None,
+                 subtitle: str = "",
+                 scene: Scene = None,
+                 log_performance=True):
         self.start_time = time.time()
         """ Time of creation (`App` constructor invocation) """
         self.name = name if name is not None else self.__class__.__name__
         """ Human-readable name. """
         self.subtitle = subtitle
         """ Description to be displayed. """
-        self.summary = summary if summary else name
-        """ The scene directory is derived from the summary. Defaults to `name`. """
-        if fields:
-            self.fields = {
-                name: TimeDependentField(name, generator)
-                for (name, generator) in fields.items()
-            }
-        else:
-            self.fields = {}
+        self.scene = scene
+        """ Directory to which data and logging information should be written as `Scene` instance. """
+        self.uses_existing_scene = scene.exist_properties() if scene is not None else False
+        self.fields = {}
         self.message = None
         self.steps = 0
         """ Counts the number of times `step()` has been called. May be set by the user. """
@@ -105,31 +82,24 @@ class App(object):
         self._invalidation_counter = 0
         self._controls = []
         self._actions = []
-        self._traits = []
         self.prepared = False
         """ Wheter `prepare()` has been called. """
         self.current_action = None
         self._pause = False
-        self.detect_fields = "default"  # False, True, 'default'
+        self.pre_step = []  # callback(app)
+        self.post_step = []  # callback(app)
         self.world = world
-        self._dt = dt.initial_value if isinstance(dt, EditableValue) else dt
-        if isinstance(dt, EditableValue):
-            self._controls.append(Control(self, "dt", dt))
-        self.min_dt = self._dt
-        self.dt_history = (
-            {}
-        )  # sparse representation of time when new timestep was set (for the next step)
-        # Setup directory & Logging
-        self.objects_to_save = (
-            [self.__class__] if objects_to_save is None else list(objects_to_save)
-        )
-        self.base_dir = os.path.expanduser(base_dir) if base_dir is not None else None
-        if not target_scene:
-            self.new_scene()
-            self.uses_existing_scene = False
-        else:
-            self.scene = target_scene
-            self.uses_existing_scene = True
+        self.log_performance = log_performance
+        self._elapsed = None
+        # Message logging
+        log_formatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.WARNING)
+        self.logger = logging.Logger("app", logging.DEBUG)
+        console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(log_formatter)
+        console_handler.setLevel(logging.INFO)
+        self.logger.addHandler(console_handler)
         if self.scene is not None:
             if not isfile(self.scene.subpath("info.log")):
                 log_file = self.log_file = self.scene.subpath("info.log")
@@ -141,94 +111,20 @@ class App(object):
                         break
                     else:
                         index += 1
-        # Message logging
-        logFormatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
-        rootLogger = logging.getLogger()
-        rootLogger.setLevel(logging.WARNING)
-        self.logger = logging.Logger("app", logging.DEBUG)
-        if self.scene is not None:
             file_handler = self.file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(logFormatter)
+            file_handler.setFormatter(log_formatter)
             self.logger.addHandler(file_handler)
-        console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(logFormatter)
-        console_handler.setLevel(logging.INFO)
-        self.logger.addHandler(console_handler)
         # Data logging
         self._scalars = {}  # name -> (frame, value)
         self._scalar_streams = {}
-        # Framerate
-        self.sequence_stride = stride if stride is not None else 1
-        self.framerate = framerate if framerate is not None else stride
-        """ Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate. """
-        self._custom_properties = custom_properties if custom_properties else {}
-        # State
-        self.state = None
-        self.step_function = None
         # Initial log message
         if self.scene is not None:
             self.info("App created. Scene directory is %s" % self.scene.path)
 
     @property
-    def dt(self):
-        """
-        Current time increment per step.
-        Used for `step_function` set by `set_state()` or for `world.step()` in legacy-style simulations. """
-        return self._dt
-
-    @dt.setter
-    def dt(self, value):
-        self._dt = value
-        self.min_dt = min(self.min_dt, self.dt)
-        self.dt_history[self.time] = self.dt
-
-    def set_state(self, initial_state, step_function=None, show=(), dt=None):
-        """
-        Specifies the current physics state of the app and optionally the solver step function.
-        The current physics state of the app is stored in `app.state`.
-        
-        This method replaces `world.add()` calls from Φ-Flow 1.
-
-        Args:
-          initial_state: dict mapping names (str) to Fields or Tensors
-          step_function: function to progress the state. Called as step_function(dt=dt, **current_state) (Default value = None)
-          show: list of names to expose to the user interface (Default value = ())
-          dt: optional) value of dt to be passed to step_function (Default value = None)
-
-        Returns:
-
-        """
-        self.state = initial_state
-        if step_function is not None:
-            self.step_function = step_function
-        if dt is not None:
-            self.dt = dt
-        if show:
-            if not self.prepared:
-                for field_name in show:
-                    self.add_field(field_name, lambda n=field_name: self.state[n])
-                else:
-                    warnings.warn(
-                        "Ignoring show argument because App is already prepared."
-                    )
-
-    @property
     def frame(self):
         """ Alias for `steps`. """
         return self.steps
-
-    def new_scene(self, count=None):
-        if self.base_dir is None:
-            self.scene = None
-            return
-        if count is None:
-            count = 1 if self.world.batch_size is None else self.world.batch_size
-        if count > 1:
-            self.scene = Scene.create(
-                os.path.join(self.base_dir, self.scene_summary()), batch=count
-            )
-        else:
-            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))
 
     @property
     def directory(self):
@@ -236,9 +132,23 @@ class App(object):
         return self.scene.path
 
     def _progress(self):
+        self._pre_step()
         self.step()
+        self._post_step()
+
+    def _pre_step(self):
+        for obs in self.pre_step:
+            obs(self)
+        self._step_start_time = time.perf_counter()
+
+    def _post_step(self):
+        self._elapsed = time.perf_counter() - self._step_start_time
+        if self.log_performance:
+            self.log_scalar('step_time', self._elapsed)
         self.steps += 1
         self.invalidate()
+        for obs in self.post_step:
+            obs(self)
 
     def invalidate(self):
         """ Causes the user interface to update. """
@@ -256,19 +166,7 @@ class App(object):
         App.steps automatically counts how many steps have been completed.
         If this method is not overridden, `App.time` is additionally increased by `App.dt`.
         """
-        dt = self.dt  # prevent race conditions
-        if self.step_function is None:
-            print("WARNING: No Step Function Defined!")
-            world.step(dt=dt)
-        else:
-            new_state = self.step_function(dt=dt, **self.state)
-            assert isinstance(self.state, dict), "step_function must return a dict"
-            assert new_state.keys() == self.state.keys(), (
-                "step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s"
-                % (self.state.keys(), new_state.keys())
-            )
-            self.state = new_state
-        self.time += dt
+        raise NotImplementedError("step() must be overridden.")
 
     @property
     def fieldnames(self):
@@ -340,11 +238,13 @@ class App(object):
         value = float(math.mean(value))
         if name not in self._scalars:
             self._scalars[name] = []
-            path = self.scene.subpath(f"log_{name}.txt")
-            self._scalar_streams[name] = open(path, "w")
+            if self.scene is not None:
+                path = self.scene.subpath(f"log_{name}.txt")
+                self._scalar_streams[name] = open(path, "w")
         self._scalars[name].append((self.frame, value))
-        self._scalar_streams[name].write(f"{value}\n")
-        self._scalar_streams[name].flush()
+        if self.scene is not None:
+            self._scalar_streams[name].write(f"{value}\n")
+            self._scalar_streams[name].flush()
 
     def log_scalars(self, **values: float or math.Tensor):
         for name, value in values.items():
@@ -381,14 +281,6 @@ class App(object):
                 self.message += " | " + display_name(action.name)
 
     @property
-    def traits(self):
-        return self._traits
-
-    def add_trait(self, trait):
-        assert not self.prepared, "Cannot add traits to a prepared model"
-        self._traits.append(trait)
-
-    @property
     def controls(self):
         return self._controls
 
@@ -406,7 +298,7 @@ class App(object):
         * Initializing the scene directory with a JSON file and copying related Python source files
 
         Returns:
-            `self`
+            `app`
         """
         if self.prepared:
             return
@@ -445,14 +337,11 @@ class App(object):
                         method_name,
                     )
                 )
-        # Default fields
-        if len(self.fields) == 0:
-            self._add_default_fields()
         # Scene
         if self.scene is not None:
             self._update_scene_properties()
             source_files_to_save = set()
-            for object in self.objects_to_save:
+            for object in [self.__class__]:
                 try:
                     source_files_to_save.add(inspect.getabsfile(object))
                 except TypeError:
@@ -462,36 +351,6 @@ class App(object):
         # End
         self.prepared = True
         return self
-
-    def _add_default_fields(self):
-        def add_default_field(trace):
-            field = trace.value
-            if isinstance(field, (CenteredGrid, StaggeredGrid)):
-
-                def field_generator():
-                    world_state = self.world.state
-                    return trace.find_in(world_state)
-
-                self.add_field(field.name[0].upper() + field.name[1:], field_generator)
-            return None
-
-        struct.map(
-            add_default_field,
-            self.world.state,
-            leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)),
-            trace=True,
-            content_type=struct.INVALID,
-        )
-
-    def add_custom_property(self, key, value):
-        self._custom_properties[key] = value
-        if self.prepared:
-            self._update_scene_properties()
-
-    def add_custom_properties(self, dictionary):
-        self._custom_properties.update(dictionary)
-        if self.prepared:
-            self._update_scene_properties()
 
     def _update_scene_properties(self):
         if self.uses_existing_scene or self.scene is None:
@@ -503,7 +362,6 @@ class App(object):
             app_name = app_path = ""
         properties = {
             "instigator": "App",
-            "traits": self.traits,
             "app": str(app_name),
             "app_path": str(app_path),
             "name": self.name,
@@ -511,19 +369,14 @@ class App(object):
             "all_fields": self.fieldnames,
             "actions": [action.name for action in self.actions],
             "controls": [{control.name: control.value} for control in self.controls],
-            "summary": self.scene_summary(),
             "steps": self.steps,
             "time": self.time,
             "world": struct.properties_dict(self.world.state),
         }
-        properties.update(self.custom_properties())
         self.scene.properties = properties
 
     def settings_str(self):
         return "".join([" " + str(control) for control in self.controls])
-
-    def custom_properties(self):
-        return self._custom_properties
 
     def info(self, message: str):
         """
@@ -551,9 +404,6 @@ class App(object):
         """
         logging.info(message)
 
-    def scene_summary(self):
-        return self.summary
-
     def show(self, **config):
         warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
         from ._display import show
@@ -565,11 +415,7 @@ class App(object):
         pausing = "/Pausing" if (self._pause and self.current_action) else ""
         action = self.current_action if self.current_action else "Idle"
         message = f" - {self.message}" if self.message else ""
-        return f"{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}"
-
-    def format_time(self, time):
-        commas = int(np.ceil(np.abs(np.log10(self.min_dt))))
-        return ("{time:," + f".{commas}f" + "}").format(time=time)
+        return f"{action}{pausing} ({self.steps} steps){message}"
 
     def run_step(self, framerate=None):
         self.current_action = "Running"
@@ -591,43 +437,12 @@ class App(object):
         finally:
             self.current_action = None
 
-    def play(
-        self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False
-    ):
-        """
-        Run a number of steps.
-
-        Args:
-            max_steps: (optional) stop when this many steps have been completed (independent of the `steps` variable) or `pause()` is called.
-            callback: Function to be run after all steps have been completed.
-            framerate: Target frame rate in Hz.
-            callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
-
-        Returns:
-            `self`
-        """
-        if framerate is None:
-            framerate = self.framerate
-
-        def target():
-            self._pause = False
-            step_count = 0
-            while not self._pause:
-                self.run_step(framerate=framerate)
-                step_count += 1
-                if max_steps and step_count >= max_steps:
-                    break
-            if callback is not None:
-                if not self._pause or callback_if_aborted:
-                    callback()
-
-        thread = threading.Thread(target=target)
-        thread.start()
-        return self
-
     def pause(self):
         """ Causes the `play()` method to stop after finishing the current step. """
         self._pause = True
+
+    def is_paused(self):
+        return self._pause
 
     @property
     def running(self):
@@ -657,3 +472,29 @@ def display_name(python_name):
                 n[i + 1] = n[i + 1].upper()
     return "".join(n)
 
+
+def play_async(app: App, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
+    """
+    Run a number of steps.
+
+    Args:
+        app: `App`
+        max_steps: (optional) stop when this many steps have been completed (independent of the `steps` variable) or `pause()` is called.
+        callback: Function to be run after all steps have been completed.
+        framerate: Target frame rate in Hz.
+        callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
+    """
+    def target():
+        app._pause = False
+        step_count = 0
+        while not app.is_paused():
+            app.run_step(framerate=framerate)
+            step_count += 1
+            if max_steps and step_count >= max_steps:
+                break
+        if callback is not None:
+            if not app.is_paused() or callback_if_aborted:
+                callback()
+
+    thread = threading.Thread(target=target)
+    thread.start()

@@ -21,20 +21,13 @@ def build_app_details(dashapp):
         app_file = inspect.getfile(app.__class__)
     except TypeError:
         app_file = 'Unknown'
-    details = dcc.Markdown("""
+    return dcc.Markdown(f"""
 ## Details
 
-Summary: %s
+Script path: {app_file}
 
-Stride: %d
-
-Traits: %s
-
-Script path: %s
-
-Data path: %s
-    """ % (app.summary, app.sequence_stride, app.traits, app_file, app.scene))
-    return details
+Data path: {app.scene}
+    """)
 
 
 def build_description(dashapp):

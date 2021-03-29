@@ -2,21 +2,25 @@ import sys
 import inspect
 import os
 import warnings
+from contextlib import contextmanager
+from threading import Thread
 
-from phi.app._app import App
+from phi.app._app import App, play_async
+from ._user_namespace import default_user_namespace, UserNamespace
+from ._viewer import create_viewer, Viewer
+from ..field import SampledField, Field, Scene
+from ..field._scene import _slugify_filename
 
 
-class AppDisplay(object):
+class Gui:
 
-    def __init__(self, app: App):
+    def __init__(self, asynchronous=False):
         """
         Creates a display for the given app and initializes the configuration.
-        This method does not set up the display. It only sets up the AppDisplay object and returns as quickly as possible.
-
-        Args:
-          app: app to be displayed, may not be prepared or be otherwise invalid at this point.
+        This method does not set up the display. It only sets up the Gui object and returns as quickly as possible.
         """
-        self.app = app
+        self.app = None
+        self.asynchronous = asynchronous
         self.config = {}
 
     def configure(self, config: dict):
@@ -37,7 +41,7 @@ class AppDisplay(object):
         """
         return self.config
 
-    def setup(self):
+    def setup(self, app: App):
         """
         Sets up all necessary GUI components.
         
@@ -45,10 +49,11 @@ class AppDisplay(object):
         The app can be assumed to be prepared when this method is called.
         
         This method is called after set_configuration() but before show()
-        
-        The return value of this method will be returned by show(app).
+
+        Args:
+          app: app to be displayed, may not be prepared or be otherwise invalid at this point.
         """
-        pass
+        self.app = app
 
     def show(self, caller_is_main: bool) -> bool:
         """
@@ -65,56 +70,67 @@ class AppDisplay(object):
         """
         return False
 
-    def play(self):
+    def auto_play(self):
         """
-        Called if AUTORUN is enabled.
-        If no Display is specified, App.run() is called instead.
+        Called if `autorun=True`.
+        If no Gui is specified, `App.run()` is called instead.
         """
-        self.app.play()
+        framerate = self.config.get('framerate', None)
+        play_async(self.app, framerate=framerate)
 
 
-DEFAULT_DISPLAY_CLASS = None
+def default_gui() -> Gui:
+    if GUI_OVERRIDES:
+        return GUI_OVERRIDES[-1]
+    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+        options = ['widgets']
+    else:
+        options = ['dash', 'console']
+    for option in options:
+        try:
+            return get_gui(option)
+        except ImportError as import_error:
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+    raise RuntimeError("No user interface available.")
 
-if 'google.colab' not in sys.modules:
-    try:
-        from ._dash.dash_gui import DashGui
-        DEFAULT_DISPLAY_CLASS = DashGui
-    except ImportError as import_error:
-        warnings.warn(f"Web interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
-if DEFAULT_DISPLAY_CLASS is None:
-    try:
-        from ._matplotlib.matplotlib_gui import MatplotlibGui
-        DEFAULT_DISPLAY_CLASS = MatplotlibGui
-    except ImportError as import_error:
-        warnings.warn(f"Matplotlib interface is disabled because of missing dependency: {import_error}. To install all dependencies, run $ pip install phiflow")
 
-
-def _display_class(gui: str or type):
+def get_gui(gui: str or Gui) -> Gui:
+    if GUI_OVERRIDES:
+        return GUI_OVERRIDES[-1]
     if isinstance(gui, str):
         if gui == 'dash':
             from ._dash.dash_gui import DashGui
-            return DashGui
+            return DashGui()
         elif gui == 'console':
             from ._console import ConsoleGui
-            return ConsoleGui
+            return ConsoleGui()
         elif gui == 'matplotlib':
             from ._matplotlib.matplotlib_gui import MatplotlibGui
-            return MatplotlibGui
+            return MatplotlibGui()
         elif gui == 'widgets':
-            from ._widgets._widgets_gui import WidgetsGui
-            return WidgetsGui
+            from ._widgets import WidgetsGui
+            return WidgetsGui()
         else:
             raise NotImplementedError(f"No display available with name {gui}")
-    elif isinstance(gui, type):
+    elif isinstance(gui, Gui):
         return gui
     else:
         raise ValueError(gui)
 
 
-KEEP_ALIVE = True  # internal; whether the UI keeps the app alive
+GUI_OVERRIDES = []
 
 
-def show(app: App or None = None, autorun=False, gui: AppDisplay or str = None, **config):
+@contextmanager
+def force_use_gui(gui: Gui):
+    GUI_OVERRIDES.append(gui)
+    try:
+        yield None
+    finally:
+        assert GUI_OVERRIDES.pop(-1) is gui
+
+
+def show(app: App or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
     """
     Launch the registered user interface (web interface by default).
     
@@ -125,51 +141,27 @@ def show(app: App or None = None, autorun=False, gui: AppDisplay or str = None, 
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
     Args:
-      autorun: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
+      app: App or None:  (Default value = None)
+      play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
       app: optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
       gui: (optional) class of GUI to use
       config: additional GUI configuration parameters.
-    For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
-      app: App or None:  (Default value = None)
-      **config: 
-
-    Returns:
-      reference to the GUI, depending on the implementation. For the web interface this may be the web server instance.
-
+        For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
+      keep_alive: Whether the GUI keeps the app alive. If `False`, the program will exit when the main script is finished.
     """
-
-    if app is None:
-        frame_records = inspect.stack()[1]
-        calling_module = inspect.getmodulename(frame_records[1])
-        fitting_models = _find_subclasses_in_module(App, calling_module, [])
-        assert len(fitting_models) == 1, 'show() called without model but detected %d possible classes: %s' % (len(fitting_models), fitting_models)
-        app = fitting_models[0]
-
-    if inspect.isclass(app) and issubclass(app, App):
-        app = app()
-
+    assert isinstance(app, App), f"show() first argument must be an App instance but got {app}"
     app.prepare()
-
-    display = None
-    gui = gui or DEFAULT_DISPLAY_CLASS
-    gui = _display_class(gui)
-    if gui is not None:
-        display = gui(app)
-        display.configure(config)
-        display.setup()
-    # --- Autorun ---
-    if autorun:
-        if display is None:
-            app.info('Starting execution because autorun is enabled.')
-            app.play()  # asynchronous call
-        else:
-            display.play()
-    # --- Show ---
-    if display is None:
-        warnings.warn('show() has no effect because no display is available. To use the web interface, run $ pip install phiflow')
-        return app
+    # --- Setup Gui ---
+    gui = default_gui() if gui is None else get_gui(gui)
+    gui.configure(config)
+    gui.setup(app)
+    if play:
+        gui.auto_play()
+    if gui.asynchronous:
+        display_thread = Thread(target=lambda: gui.show(True), name="ModuleViewer_show", daemon=not keep_alive)
+        display_thread.start()
     else:
-        return display.show(True)  # may be blocking call
+        gui.show(True)  # may be blocking call
 
 
 def _find_subclasses_in_module(base_class, module_name, result_list):
@@ -181,3 +173,70 @@ def _find_subclasses_in_module(base_class, module_name, result_list):
                 result_list.append(subclass)
             _find_subclasses_in_module(subclass, module_name, result_list)
     return result_list
+
+
+def view(*fields: str or SampledField,
+         play: bool = True,
+         gui=None,
+         name: str = None,
+         description: str = None,
+         scene: bool or Scene = None,
+         controls=None,
+         keep_alive=True,
+         **config) -> Viewer:
+    """
+    Show `fields` in a graphical user interface.
+
+    `fields` may contain instances of `Field` or variable names of top-level variables (main module or Jupyter notebook).
+    During loops, e.g. `view().range()`, the variable status is tracked and the GUI is updated.
+
+    Args:
+        *fields: Contents to be displayed. Either variable names or values.
+            If given values, all variables referencing the value will be shown.
+        play: Whether to immediately start executing loops.
+        gui: (Optional) Name of GUI as `str` or GUI class.
+        name: Name to display in GUI and use for the output directory if `scene=True`
+        # framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
+
+    Returns:
+        Viewer as instance of `App`.
+    """
+    user_namespace = default_user_namespace()
+    variables = _default_field_variables(user_namespace, fields)
+    if scene is None:
+        scene = not ('google.colab' in sys.modules or 'ipykernel' in sys.modules)
+    if scene is False:
+        scene = None
+    elif scene is True:
+        scene = Scene.create(os.path.join("~", "phi", _slugify_filename(name or user_namespace.get_reference())))
+    else:
+        assert isinstance(scene, Scene)
+    name = name or user_namespace.get_title()
+    description = description or user_namespace.get_description()
+    gui = default_gui() if gui is None else get_gui(gui)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls)
+    show(viewer, play=play, gui=gui, keep_alive=keep_alive, **config)
+    return viewer
+
+
+def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
+    names = []
+    values = []
+    if len(fields) == 0:  # view all Fields
+        user_variables = user_namespace.list_variables(only_public=True, only_current_scope=True)
+        for name, val in user_variables.items():
+            if isinstance(val, Field):
+                names.append(name)
+                values.append(val)
+    elif any(not isinstance(f, str) for f in fields):  # find variable names
+        user_variables = user_namespace.list_variables()
+        for field in fields:
+            if isinstance(field, str):
+                names.append(field)
+                values.append(user_namespace.get_variable(field, default=None))
+            else:
+                for name, val in user_variables.items():
+                    if val is field:
+                        name.append(name)
+                        values.append(field)
+    return {n: v for n, v in zip(names, values)}

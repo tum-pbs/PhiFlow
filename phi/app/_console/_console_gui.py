@@ -1,14 +1,17 @@
 import shutil
 from logging import Handler, LogRecord
 
-from .._display import AppDisplay
-from ._console_plot import heatmap
+from .._display import Gui
+from ._console_plot import heatmap, quiver
 from .._display_util import ordered_field_names
 from ... import field
 from ...field import StaggeredGrid
 
 
-class ConsoleGui(AppDisplay):
+class ConsoleGui(Gui):
+
+    def __init__(self):
+        Gui.__init__(self, asynchronous=True)
 
     # def setup(self):
     #     app = self.app
@@ -65,14 +68,16 @@ class ConsoleGui(AppDisplay):
             except KeyError:
                 print(f"The field {n} does not exist. Available fields are {self.app.fieldnames}")
                 return
-        cols, rows = shutil.get_terminal_size(fallback=(80, 20))
+        cols, rows = shutil.get_terminal_size(fallback=(80, 14))
         plt_width = cols // len(values)
         plt_height = rows - 1
         lines = [""] * plt_height
-        for v in values:
+        for name, v in zip(field_names, values):
             if isinstance(v, StaggeredGrid):
                 v = v.at_centers()
-            v = field.vec_squared(v)
-            plt_lines = heatmap(v, plt_width, plt_height)
+            if v.vector.exists:
+                plt_lines = quiver(v, plt_width, plt_height, name, threshold=0.1, basic_chars=True)
+            else:
+                plt_lines = heatmap(v, plt_width, plt_height, name)
             lines = [l+p for l, p in zip(lines, plt_lines)]
         print("\n".join(lines))
