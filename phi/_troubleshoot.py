@@ -122,7 +122,7 @@ def troubleshoot_dash():
     try:
         import imageio
     except ImportError:
-        return "ImageIO not installed"
+        return "ImageIO not installed, 3D view might not work."
     try:
         import matplotlib
     except ImportError:

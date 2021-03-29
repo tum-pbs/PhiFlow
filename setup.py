@@ -126,11 +126,6 @@ except FileNotFoundError:
 with open(join(dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
     version = version_file.read()
 
-
-dependencies = ['scipy', 'plotly', 'imageio', 'matplotlib']
-if 'google.colab' not in sys.modules:
-    dependencies.append('dash')
-
 setup(
     name='phiflow',
     version=version,
@@ -159,7 +154,17 @@ setup(
     author_email='philipp.holl@tum.de',
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
-    install_requires=dependencies,
+    install_requires=[
+        'scipy',
+        'matplotlib'  # also required by dash for color maps
+    ],
+    # Optional packages:
+    # - dash + plotly + imageio (for webgl-viewer)
+    # - torch
+    # - tensorflow
+    # - jax
+    #
+    # phi.verify() should detect missing packages.
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

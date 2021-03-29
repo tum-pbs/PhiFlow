@@ -1,6 +1,5 @@
 import warnings
 
-import imageio
 import numpy as np
 import os
 import inspect
@@ -14,6 +13,7 @@ from .dash_plotting import reduce_component
 def load_sky(file, image_format=None, flatten=True, resolution=None, scale=1.0):
     # type: (str, str, bool, int, float) -> tuple
     assert image_format in ('cubemap', 'equiangular', None)
+    import imageio
     imageio.plugins.freeimage.download()
     if not os.path.isabs(file):
         file = os.path.join(os.path.dirname(inspect.getfile(webglviewer)), file)
