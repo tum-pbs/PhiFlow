@@ -73,7 +73,8 @@ class App(object):
         self.scene = scene
         """ Directory to which data and logging information should be written as `Scene` instance. """
         self.uses_existing_scene = scene.exist_properties() if scene is not None else False
-        self.fields = {}
+        self._field_names = []
+        self._fields = {}
         self.message = None
         self.steps = 0
         """ Counts the number of times `step()` has been called. May be set by the user. """
@@ -171,21 +172,18 @@ class App(object):
     @property
     def fieldnames(self):
         """ Alphabetical list of field names. See `get_field()`. """
-        return sorted(self.fields.keys())
+        return self._field_names
 
-    def get_field(self, fieldname):
+    def get_field(self, name):
         """
         Reads the current value of a field.
         Fields can be added using `add_field()`.
 
         If a generator function was registered as the field data, this method may invoke the function which may take some time to complete.
         """
-        if fieldname not in self.fields:
-            raise KeyError(
-                "Field %s not declared. Available fields are %s"
-                % (fieldname, self.fields.keys())
-            )
-        return self.fields[fieldname].get(self._invalidation_counter)
+        if name not in self._fields:
+            raise KeyError(f"Field {name} not declared. Available fields are {self._fields.keys()}")
+        return self._fields[name].get(self._invalidation_counter)
 
     def add_field(self, name: str, value):
         """
@@ -220,7 +218,8 @@ class App(object):
                 return value
 
             generator = get_constant
-        self.fields[name] = TimeDependentField(name, generator)
+        self._field_names.append(name)
+        self._fields[name] = TimeDependentField(name, generator)
 
     def log_scalar(self, name: str, value: float or math.Tensor):
         """

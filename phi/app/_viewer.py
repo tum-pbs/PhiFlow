@@ -1,4 +1,3 @@
-import time
 from contextlib import contextmanager
 from threading import Event
 
@@ -42,12 +41,15 @@ class Viewer(App):
         self.namespace = namespace
         self.on_loop_start = []
         self.on_loop_exit = []
-        for name, value in fields.items():
+        for name in fields.keys():
             self.add_field(name, lambda n=name: self.namespace.get_variable(n))
         self.add_action("Reset", lambda: self.restore_initial_field_values())
 
     def range(self, *args, warmup=0):
         raise NotImplementedError(self)
+
+    def step(self):
+        pass
 
     def restore_initial_field_values(self, reset_steps=True):
         for name, value in self._initial_field_values.items():
@@ -57,9 +59,6 @@ class Viewer(App):
 
 
 class SyncViewer(Viewer):
-
-    def step(self):
-        pass
 
     def range(self, *args, warmup=0):
         for _ in range(warmup):
