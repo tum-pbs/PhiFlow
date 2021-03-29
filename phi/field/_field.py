@@ -1,5 +1,3 @@
-import copy
-from abc import ABC
 from typing import TypeVar
 
 from phi import math
@@ -350,7 +348,7 @@ class _FieldDim:
         return self.dim_type == CHANNEL_DIM
 
     def __getitem__(self, item):
-        return self.field.unstack(self.name)[item]
+        return self.field[{self.name: item}]
 
 
 FieldType = TypeVar('FieldType', bound=Field)
