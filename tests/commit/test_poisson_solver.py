@@ -118,7 +118,7 @@ def compare(reference, dics, plot=True, fnc_list=[np.min, np.mean, np.max]):
 def attempt(fnc):
     try:
         return fnc()
-    except:
+    except Exception:
         return ""
 
 

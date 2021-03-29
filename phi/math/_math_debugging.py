@@ -18,6 +18,6 @@ def count_tensors_in_memory(min_print_size: int = None):
                     print(f"Tensor '{obj}' ({sys.getrefcount(obj)} references)")
                     # referrers = gc.get_referrers(obj)
                     # print([type(r) for r in referrers])
-        except:
+        except Exception:
             pass
     print(f"There are {total} Φ-Tensors with a total size of {bytes / 1024 / 1024:.1f} MB")
