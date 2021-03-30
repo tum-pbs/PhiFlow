@@ -3,6 +3,7 @@ import sys
 import time
 import traceback
 import warnings
+from contextlib import contextmanager
 
 import ipywidgets as widgets
 from IPython import get_ipython
@@ -42,7 +43,6 @@ class WidgetsGui(Gui):
         self.field_select = None
         self.dim_sliders = {}
         self._graphs_enabled = False
-        self._last_plot = None
 
     def setup(self, app: App):
         Gui.setup(self, app)
@@ -86,7 +86,7 @@ class WidgetsGui(Gui):
             slider = widgets.IntSlider(value=0, min=0, max=0, description=sel_dim, continuous_update=False)
             self.dim_sliders[sel_dim] = slider
             dim_sliders.append(slider)
-            slider.observe(lambda e: self.update_widgets(), 'value')
+            slider.observe(lambda e: None if IGNORE_EVENTS else self.update_widgets(), 'value')
         layout = VBox([
             self.buttons,
             self.status,
@@ -136,7 +136,8 @@ class WidgetsGui(Gui):
                     slider.layout.visibility = 'visible'
                     slider.max = field.shape.get_size(sel_dim) - 1
                     if scroll_to_last and sel_dim in self.app.growing_dims:
-                        slider.value = field.shape.get_size(sel_dim) - 1
+                        with ignore_events():
+                            slider.value = field.shape.get_size(sel_dim) - 1
                 else:
                     slider.layout.visibility = 'hidden'
         # Figure
@@ -149,9 +150,6 @@ class WidgetsGui(Gui):
 
     def _plot(self, field_name: str, output: widgets.Output):
         dim_selection = {name: slider.value for name, slider in self.dim_sliders.items()}
-        if self._last_plot == (self.app.steps, self.field, dim_selection):
-            return  # plot has not changed
-        self._last_plot = (self.app.steps, self.field, dim_selection)
         self.figure_display.clear_output()
         with output:
             try:
@@ -251,6 +249,18 @@ def _replay_events(shell, events):
             return  # kernel._send_abort_reply(stream, parent, ident)
         else:
             kernel.execute_request(stream, ident, parent)
+
+
+IGNORE_EVENTS = []
+
+
+@contextmanager
+def ignore_events():
+    IGNORE_EVENTS.append(object())
+    try:
+        yield None
+    finally:
+        IGNORE_EVENTS.pop(-1)
 
 
 class GuiInterrupt(KeyboardInterrupt):
