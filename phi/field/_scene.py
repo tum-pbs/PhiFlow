@@ -421,7 +421,7 @@ class Scene(object):
             elif 'ipython' in script_path:
                 from IPython import get_ipython
                 cells = get_ipython().user_ns['In']
-                blocks = [f"# In[{i}]\n\n{cell}" for i, cell in enumerate(cells)]
+                blocks = [f"#%% In[{i}]\n{cell}" for i, cell in enumerate(cells)]
                 text = "\n\n".join(blocks)
                 self.copy_src_text('ipython.py', text)
         if include_context_information:

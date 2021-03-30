@@ -191,15 +191,16 @@ def view(*fields: str or SampledField,
     During loops, e.g. `view().range()`, the variable status is tracked and the GUI is updated.
 
     Args:
-        *fields: Contents to be displayed. Either variable names or values.
-            If given values, all variables referencing the value will be shown.
+        *fields: (Optional) Contents to be displayed. Either variable names or values.
+            For field instances, all variables referencing the value will be shown.
+            If not provided, the user namespace is searched for Field variables.
         play: Whether to immediately start executing loops.
         gui: (Optional) Name of GUI as `str` or GUI class.
         name: Name to display in GUI and use for the output directory if `scene=True`
-        # framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
+        framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
 
     Returns:
-        Viewer as instance of `App`.
+        `Viewer`
     """
     user_namespace = default_user_namespace()
     variables = _default_field_variables(user_namespace, fields)
@@ -232,8 +233,9 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
         user_variables = user_namespace.list_variables()
         for field in fields:
             if isinstance(field, str):
-                names.append(field)
-                values.append(user_namespace.get_variable(field, default=None))
+                split = [n.strip() for n in field.split(',')]
+                names.extend(split)
+                values.extend([user_namespace.get_variable(n, default=None) for n in split])
             else:
                 for name, val in user_variables.items():
                     if val is field:

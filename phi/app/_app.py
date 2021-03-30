@@ -48,22 +48,29 @@ class TimeDependentField(object):
 
 
 class App(object):
-    """
-    Main class for defining an application that can be displayed in the user interface.
-    
-    To display data, call App.add_field().
-    All fields need to be registered before the app is prepared or shown.
-    
-    To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
-    
-    See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
-    """
 
     def __init__(self,
                  name: str = None,
                  subtitle: str = "",
                  scene: Scene = None,
                  log_performance=True):
+        """
+        Main class for defining an application that can be displayed in the user interface.
+
+        To display data, call App.add_field().
+        All fields need to be registered before the app is prepared or shown.
+
+        To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
+
+        See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
+
+        Args:
+            name: Display name of the app.
+            subtitle: Description.
+            scene: (Optional) Directory to which data is stored.
+            log_performance: Whether to log the time elapsed during each step as a scalar value.
+                The values will be written to the app's directory and shown in the user interface.
+        """
         self.start_time = time.time()
         """ Time of creation (`App` constructor invocation) """
         self.name = name if name is not None else self.__class__.__name__

@@ -10,7 +10,7 @@ from ipywidgets import HBox, VBox
 from ipywidgets.widgets.interaction import show_inline_matplotlib_plots
 from matplotlib import pyplot as plt
 
-from phi.field.plt import plot
+from phi.app._matplotlib._matplotlib_plots import plot
 from .. import App
 from .._app import display_name
 from .._display import Gui
@@ -64,13 +64,14 @@ class WidgetsGui(Gui):
         self.figure_display = widgets.Output()
         # self.status = widgets.Output()
         # self.status.append_stdout('Status')
-        play_button = widgets.Button(description="Play")
+        # Icons: https://en.wikipedia.org/wiki/Media_control_symbols️  ⏮ ⏭ ⏺ ⏏
+        play_button = widgets.Button(description="️▶ Play")
         play_button.on_click(self.play)
-        pause_button = widgets.Button(description="Pause")
+        pause_button = widgets.Button(description="⏸ Pause")
         pause_button.on_click(self.pause)
-        step_button = widgets.Button(description="Step")
+        step_button = widgets.Button(description="⏯ Step")
         step_button.on_click(self.step)
-        interrupt_button = widgets.Button(description="Break")
+        interrupt_button = widgets.Button(description="⏹ Break")
         interrupt_button.on_click(self.interrupt)
         self.buttons = HBox([play_button, pause_button, step_button, interrupt_button])
         self.buttons.layout.visibility = 'hidden'
