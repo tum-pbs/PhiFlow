@@ -58,18 +58,18 @@ class App(object):
         Main class for defining an application that can be displayed in the user interface.
 
         To display data, call App.add_field().
-        All fields need to be registered before the app is prepared or shown.
+        All fields need to be registered before the viz is prepared or shown.
 
-        To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
+        To launch the GUI, call show(viz). This calls App.prepare() if the viz was not prepared.
 
         See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
         Args:
-            name: Display name of the app.
+            name: Display name of the viz.
             subtitle: Description.
             scene: (Optional) Directory to which data is stored.
             log_performance: Whether to log the time elapsed during each step as a scalar value.
-                The values will be written to the app's directory and shown in the user interface.
+                The values will be written to the viz's directory and shown in the user interface.
         """
         self.start_time = time.time()
         """ Time of creation (`App` constructor invocation) """
@@ -94,8 +94,8 @@ class App(object):
         """ Wheter `prepare()` has been called. """
         self.current_action = None
         self._pause = False
-        self.pre_step = []  # callback(app)
-        self.post_step = []  # callback(app)
+        self.pre_step = []  # callback(viz)
+        self.post_step = []  # callback(viz)
         self.world = world
         self.log_performance = log_performance
         self._elapsed = None
@@ -103,7 +103,7 @@ class App(object):
         log_formatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.WARNING)
-        self.logger = logging.Logger("app", logging.DEBUG)
+        self.logger = logging.Logger("viz", logging.DEBUG)
         console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(log_formatter)
         console_handler.setLevel(logging.INFO)
@@ -195,7 +195,7 @@ class App(object):
     def add_field(self, name: str, value):
         """
         Expose data to be displayed in the user interface.
-        This method must be called before the user interface is launched, i.e. before `show(app)` or `app.prepare()` are invoked.
+        This method must be called before the user interface is launched, i.e. before `show(viz)` or `viz.prepare()` are invoked.
         
         `value` must be one of the following
         
@@ -292,7 +292,7 @@ class App(object):
 
     def prepare(self):
         """
-        Prepares the app to be displayed in a user interface.
+        Prepares the viz to be displayed in a user interface.
         
         This method can only be called once.
         If not invoked manually, it is automatically called before the user interface is launched.
@@ -304,7 +304,7 @@ class App(object):
         * Initializing the scene directory with a JSON file and copying related Python source files
 
         Returns:
-            `app`
+            `viz`
         """
         if self.prepared:
             return
@@ -368,7 +368,7 @@ class App(object):
             app_name = app_path = ""
         properties = {
             "instigator": "App",
-            "app": str(app_name),
+            "viz": str(app_name),
             "app_path": str(app_path),
             "name": self.name,
             "description": self.subtitle,

@@ -38,7 +38,7 @@ def build_benchmark(dashapp):
         if n_clicks is None:
             return NO_BENCHMARK_TEXT
         if dashapp.app.running:
-            return '*Pause the app before starting a benchmark.*'
+            return '*Pause the viz before starting a benchmark.*'
         # --- Run benchmark ---
         step_count, time_elapsed = dashapp.app.benchmark(step_count)
         output = '### Benchmark Results\n'
@@ -69,7 +69,7 @@ def build_tf_profiler(dashapp):
         if n_clicks is None:
             return NO_PROFILES_TEXT
         if dashapp.app.running:
-            return '*Pause the app before starting a profiled run.*'
+            return '*Pause the viz before starting a profiled run.*'
         # --- Profile ---
         with dashapp.app.session.profiler() as profiler:
             timeline_file = profiler.timeline_file

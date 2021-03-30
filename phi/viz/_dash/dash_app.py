@@ -7,7 +7,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from phi.app import App
+from phi.viz import App
 from phi import struct
 
 

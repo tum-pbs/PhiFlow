@@ -10,7 +10,7 @@ from ipywidgets import HBox, VBox
 from ipywidgets.widgets.interaction import show_inline_matplotlib_plots
 from matplotlib import pyplot as plt
 
-from phi.app._matplotlib._matplotlib_plots import plot
+from phi.viz._matplotlib._matplotlib_plots import plot
 from .. import App
 from .._app import display_name
 from .._display import Gui

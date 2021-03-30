@@ -7,7 +7,7 @@ import numpy as np
 from matplotlib import animation
 
 from phi import math
-from phi.app._app import display_name
+from phi.viz._app import display_name
 from phi.field import Grid, StaggeredGrid, PointCloud
 from phi.field import Scene
 from phi.field._field import SampledField

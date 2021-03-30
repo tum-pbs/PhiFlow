@@ -124,12 +124,12 @@ class DashGui(Gui):
             build_graph_view(dash_app),
             status_bar,
             player_controls,
-        # ] + ([] if 'tensorflow' not in dash_app.app.traits else [
+        # ] + ([] if 'tensorflow' not in dash_app.viz.traits else [
         #     build_tensorboard_launcher(dash_app),
         ] + [
             model_controls,
             build_benchmark(dash_app),
-        # ] + ([] if 'tensorflow' not in dash_app.app.traits else [
+        # ] + ([] if 'tensorflow' not in dash_app.viz.traits else [
         #     build_tf_profiler(dash_app),
         ] + [
             build_system_controls(dash_app),

@@ -14,8 +14,8 @@ class ConsoleGui(Gui):
         Gui.__init__(self, asynchronous=True)
 
     # def setup(self):
-    #     app = self.app
-    #     self.app.logger.removeHandler(self.app.console_handler)
+    #     viz = self.viz
+    #     self.viz.logger.removeHandler(self.viz.console_handler)
     #     terminal_size = shutil.get_terminal_size(fallback=(80, 20))
     #
     #     class CustomHandler(Handler):
@@ -24,13 +24,13 @@ class ConsoleGui(Gui):
     #             pass
     #
     #         def handle(self, record: LogRecord) -> None:
-    #             line = app.message + " " * (max(1, terminal_size[0]-len(app.message)-1))
+    #             line = viz.message + " " * (max(1, terminal_size[0]-len(viz.message)-1))
     #             print(line, end="\r")
     #
     #         def createLock(self) -> None:
     #             pass
     #
-    #     self.app.logger.addHandler(CustomHandler())
+    #     self.viz.logger.addHandler(CustomHandler())
 
     def show(self, caller_is_main: bool) -> bool:
         print("PhiFlow console interface active. Type 'help' for a list of available commands.")

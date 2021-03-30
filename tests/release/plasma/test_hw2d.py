@@ -6,7 +6,7 @@ import time
 
 from phi import math
 from phi import field
-from phi.app import App
+from phi.viz import App
 from phi.geom import Box
 from phi.physics import Domain, PERIODIC
 from .numpy_reference import HW, Namespace

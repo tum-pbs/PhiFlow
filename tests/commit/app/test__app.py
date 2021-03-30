@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from phi.app import App, EditableFloat, EditableBool, EditableString, EditableInt
+from phi.viz import App, EditableFloat, EditableBool, EditableString, EditableInt
 
 
 class TestApp(TestCase):

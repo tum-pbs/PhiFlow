@@ -5,7 +5,7 @@ import warnings
 from contextlib import contextmanager
 from threading import Thread
 
-from phi.app._app import App, play_async
+from phi.viz._app import App, play_async
 from ._user_namespace import default_user_namespace, UserNamespace
 from ._viewer import create_viewer, Viewer
 from ..field import SampledField, Field, Scene
@@ -16,7 +16,7 @@ class Gui:
 
     def __init__(self, asynchronous=False):
         """
-        Creates a display for the given app and initializes the configuration.
+        Creates a display for the given viz and initializes the configuration.
         This method does not set up the display. It only sets up the Gui object and returns as quickly as possible.
         """
         self.app = None
@@ -45,13 +45,13 @@ class Gui:
         """
         Sets up all necessary GUI components.
         
-        The GUI can register callbacks with the app to be informed about app-state changes induced externally.
-        The app can be assumed to be prepared when this method is called.
+        The GUI can register callbacks with the viz to be informed about viz-state changes induced externally.
+        The viz can be assumed to be prepared when this method is called.
         
         This method is called after set_configuration() but before show()
 
         Args:
-          app: app to be displayed, may not be prepared or be otherwise invalid at this point.
+          app: viz to be displayed, may not be prepared or be otherwise invalid at this point.
         """
         self.app = app
 
@@ -136,7 +136,7 @@ def show(app: App or None = None, play=True, gui: Gui or str = None, keep_alive=
     
     This method may block until the GUI is closed.
     
-    This method prepares the app before showing it. No more fields should be added to the app after this method is invoked.
+    This method prepares the viz before showing it. No more fields should be added to the viz after this method is invoked.
     
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
@@ -147,7 +147,7 @@ def show(app: App or None = None, play=True, gui: Gui or str = None, keep_alive=
       gui: (optional) class of GUI to use
       config: additional GUI configuration parameters.
         For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
-      keep_alive: Whether the GUI keeps the app alive. If `False`, the program will exit when the main script is finished.
+      keep_alive: Whether the GUI keeps the viz alive. If `False`, the program will exit when the main script is finished.
     """
     assert isinstance(app, App), f"show() first argument must be an App instance but got {app}"
     app.prepare()
