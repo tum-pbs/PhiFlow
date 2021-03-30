@@ -3,8 +3,8 @@ from os.path import join, dirname, abspath
 from unittest import TestCase
 
 import phi
-import phi.viz._display as display
-from phi.viz._viewer import AsyncViewer
+import phi.vis._display as display
+from phi.vis._viewer import AsyncViewer
 from phi.field import Field
 from phi.math import backend
 

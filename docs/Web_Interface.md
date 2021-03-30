@@ -58,7 +58,7 @@ for _ in ModuleViewer().range(100):
 
 The web interface is based on [Dash by Plotly](https://plot.ly/dash/) which uses the popular framework [Flask](https://www.palletsprojects.com/p/flask/).
 
-The web interface interacts with the application using an instance of [`App`](../phi/app/_app.py) and can be explicitly launched using the `show(App)` method.
+The web interface interacts with the application using an instance of [`App`](../phi/vis/_app.py) and can be explicitly launched using the `show(App)` method.
 `App` can be instanced directly or subclassed.
 
 Example:

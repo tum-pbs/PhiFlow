@@ -30,7 +30,7 @@ For commits, we use the following tags in the header:
 * `[build]` for changes to the installation
 * `[tests]` for adding or changing unit tests
 * `[demos]` for adding or changing demo scripts
-* `[viz]` for general changes in `phi.viz` as well as changes to any GUI, e.g. dash, widgets, console.
+* `[vis]` for general changes in `phi.vis` as well as changes to any GUI, e.g. dash, widgets, console.
 * `[math]` for changes to `phi.math`
 * `[backend]` for changes specific to `phi.math.backend` which leave the `phi.math` API untouched.
 * `[geom]` for changes to `phi.geom`

@@ -79,13 +79,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
-<dl>
-<dt><code class="name"><a title="phi.field.plt" href="plt.html">phi.field.plt</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -133,8 +126,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def batch_stack(*fields, dim: str):
-    assert all(isinstance(f, SampledField) for f in fields)
-    assert all(isinstance(f, type(fields[0])) for f in fields)
+    assert all(isinstance(f, SampledField) for f in fields), f&#34;All fields must be SampledFields of the same type but got {fields}&#34;
+    assert all(isinstance(f, type(fields[0])) for f in fields), f&#34;All fields must be SampledFields of the same type but got {fields}&#34;
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
         raise NotImplementedError(&#34;Concatenating extrapolations not supported&#34;)
     if isinstance(fields[0], Grid):
@@ -651,8 +644,8 @@ The function output must have the same dimension layout as the inputs and the ba
     Returns:
         `SampledField` matching the first `SampledField` in `inputs`.
     &#34;&#34;&#34;
-    inputs = [i.values if isinstance(inputs, SampledField) else math.tensor(i) for i in inputs]
-    result = math.native_call(f, *inputs, channels_last=channels_last, channel_dim=channel_dim)
+    input_tensors = [i.values if isinstance(i, SampledField) else math.tensor(i) for i in inputs]
+    result = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
             return i.with_(values=result, extrapolation=extrapolation)
@@ -2663,7 +2656,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
             k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
             k = math.vec_squared(k)
         lowest_frequency = 0.1
-        weight_mask = 1 / (1 + math.exp((lowest_frequency - k) * 1e3))  # High pass filter
+        weight_mask = math.to_float(k &gt; lowest_frequency)
         # --- Compute 1/k ---
         k.native()[(0,) * len(k.shape)] = np.inf
         inv_k = 1 / k
@@ -2726,7 +2719,7 @@ def shape(self):
         k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
         k = math.vec_squared(k)
     lowest_frequency = 0.1
-    weight_mask = 1 / (1 + math.exp((lowest_frequency - k) * 1e3))  # High pass filter
+    weight_mask = math.to_float(k &gt; lowest_frequency)
     # --- Compute 1/k ---
     k.native()[(0,) * len(k.shape)] = np.inf
     inv_k = 1 / k
@@ -3670,12 +3663,22 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
     def _init_properties(self):
         if self._properties is not None:
             return
-        dfile = join(next(iter(math.flatten(self._paths))), &#34;description.json&#34;)
-        if isfile(dfile):
-            with open(dfile) as stream:
+        json_file = join(next(iter(math.flatten(self._paths))), &#34;description.json&#34;)
+        if isfile(json_file):
+            with open(json_file) as stream:
                 self._properties = json.load(stream)
         else:
             self._properties = {}
+
+    def exist_properties(self):
+        &#34;&#34;&#34;
+        Checks whether the file `description.json` exists or has existed.
+        &#34;&#34;&#34;
+        if self._properties is not None:
+            return True  # must have been written or read
+        else:
+            json_file = join(next(iter(math.flatten(self._paths))), &#34;description.json&#34;)
+            return isfile(json_file)
 
     def exists_config(self):
         &#34;&#34;&#34; Tests if the configuration file *description.json* exists. In batch mode, tests if any configuration exists. &#34;&#34;&#34;
@@ -3806,7 +3809,14 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
         self.subpath(&#39;src&#39;, create=True)
         for script_path in script_paths:
-            self.copy_src(script_path, only_external=False)
+            if script_path.endswith(&#39;.py&#39;):
+                self.copy_src(script_path, only_external=False)
+            elif &#39;ipython&#39; in script_path:
+                from IPython import get_ipython
+                cells = get_ipython().user_ns[&#39;In&#39;]
+                blocks = [f&#34;#%% In[{i}]\n{cell}&#34; for i, cell in enumerate(cells)]
+                text = &#34;\n\n&#34;.join(blocks)
+                self.copy_src_text(&#39;ipython.py&#39;, text)
         if include_context_information:
             for path in math.flatten(self._paths):
                 with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
@@ -3819,6 +3829,12 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         for path in math.flatten(self._paths):
             if not only_external or not _is_phi_file(script_path):
                 shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))
+
+    def copy_src_text(self, filename, text):
+        for path in math.flatten(self._paths):
+            target = join(path, &#39;src&#39;, filename)
+            with open(target, &#34;w&#34;) as file:
+                file.writelines(text)
 
     def mkdir(self):
         for path in math.flatten(self._paths):
@@ -4172,7 +4188,14 @@ def shape(self):
     script_paths = set(script_paths) if full_trace else [script_paths[0]]
     self.subpath(&#39;src&#39;, create=True)
     for script_path in script_paths:
-        self.copy_src(script_path, only_external=False)
+        if script_path.endswith(&#39;.py&#39;):
+            self.copy_src(script_path, only_external=False)
+        elif &#39;ipython&#39; in script_path:
+            from IPython import get_ipython
+            cells = get_ipython().user_ns[&#39;In&#39;]
+            blocks = [f&#34;#%% In[{i}]\n{cell}&#34; for i, cell in enumerate(cells)]
+            text = &#34;\n\n&#34;.join(blocks)
+            self.copy_src_text(&#39;ipython.py&#39;, text)
     if include_context_information:
         for path in math.flatten(self._paths):
             with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
@@ -4195,6 +4218,42 @@ def shape(self):
     for path in math.flatten(self._paths):
         if not only_external or not _is_phi_file(script_path):
             shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.copy_src_text"><code class="name flex">
+<span>def <span class="ident">copy_src_text</span></span>(<span>self, filename, text)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_src_text(self, filename, text):
+    for path in math.flatten(self._paths):
+        target = join(path, &#39;src&#39;, filename)
+        with open(target, &#34;w&#34;) as file:
+            file.writelines(text)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Scene.exist_properties"><code class="name flex">
+<span>def <span class="ident">exist_properties</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Checks whether the file <code>description.json</code> exists or has existed.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def exist_properties(self):
+    &#34;&#34;&#34;
+    Checks whether the file `description.json` exists or has existed.
+    &#34;&#34;&#34;
+    if self._properties is not None:
+        return True  # must have been written or read
+    else:
+        json_file = join(next(iter(math.flatten(self._paths))), &#34;description.json&#34;)
+        return isfile(json_file)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Scene.exists_config"><code class="name flex">
@@ -5278,11 +5337,6 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi" href="../index.html">phi</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="phi.field.plt" href="plt.html">phi.field.plt</a></code></li>
-</ul>
-</li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.field.abs" href="#phi.field.abs">abs</a></code></li>
@@ -5435,7 +5489,9 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.Scene.complete_frames" href="#phi.field.Scene.complete_frames">complete_frames</a></code></li>
 <li><code><a title="phi.field.Scene.copy_calling_script" href="#phi.field.Scene.copy_calling_script">copy_calling_script</a></code></li>
 <li><code><a title="phi.field.Scene.copy_src" href="#phi.field.Scene.copy_src">copy_src</a></code></li>
+<li><code><a title="phi.field.Scene.copy_src_text" href="#phi.field.Scene.copy_src_text">copy_src_text</a></code></li>
 <li><code><a title="phi.field.Scene.create" href="#phi.field.Scene.create">create</a></code></li>
+<li><code><a title="phi.field.Scene.exist_properties" href="#phi.field.Scene.exist_properties">exist_properties</a></code></li>
 <li><code><a title="phi.field.Scene.exists_config" href="#phi.field.Scene.exists_config">exists_config</a></code></li>
 <li><code><a title="phi.field.Scene.fieldnames" href="#phi.field.Scene.fieldnames">fieldnames</a></code></li>
 <li><code><a title="phi.field.Scene.frames" href="#phi.field.Scene.frames">frames</a></code></li>
