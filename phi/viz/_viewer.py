@@ -57,7 +57,14 @@ class Viewer(App):
         self.on_loop_start = []
         self.on_loop_exit = []
         for name in fields.keys():
-            self.add_field(name, lambda n=name: self.namespace.get_variable(n))
+
+            def get_field(n=name):
+                if self.rec:
+                    return self.rec[n]
+                else:
+                    return self.namespace.get_variable(n)
+
+            self.add_field(name, get_field)
         self.add_action("Reset", lambda: self.restore_initial_field_values())
         self.rec = None
 
@@ -105,6 +112,7 @@ class Viewer(App):
             self.rec = Record(rec_dim_name)
             self.rec.append(self.initial_field_values, warn_missing=False)
             args = [size]
+            self.growing_dims = [rec_dim_name]
 
         if len(args) == 0:
             step_source = itertools.count(start=1)
@@ -120,9 +128,11 @@ class Viewer(App):
                 self.steps = step
                 self._pre_step()
                 yield step
-                self._post_step()
+                self._post_step(notify_observers=False)
                 if rec_dim:
-                    self.rec.append({name: self.get_field(name) for name in self.fieldnames})
+                    self.rec.append({name: self.namespace.get_variable(name) for name in self.fieldnames})
+                for obs in self.post_step:
+                    obs(self)
         finally:
             for obs in self.on_loop_exit:
                 obs(self)
@@ -199,7 +209,10 @@ class Record:
     def __getattr__(self, item: str):
         assert item in self.history, f"No recording available for '{item}'. The following fields were recorded: {self.recorded_fields}"
         snapshots = [v for v in self.history[item] if v is not None]
-        return field.batch_stack(*snapshots, dim=self.dim)
+        if snapshots:
+            return field.batch_stack(*snapshots, dim=self.dim)
+        else:
+            return None
 
     def __getitem__(self, item):
         assert isinstance(item, str)

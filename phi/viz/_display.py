@@ -183,6 +183,8 @@ def view(*fields: str or SampledField,
          scene: bool or Scene = None,
          controls=None,
          keep_alive=True,
+         select: str or tuple or list = 'frames,',
+         framerate=None,
          **config) -> Viewer:
     """
     Show `fields` in a graphical user interface.
@@ -198,6 +200,9 @@ def view(*fields: str or SampledField,
         gui: (Optional) Name of GUI as `str` or GUI class.
         name: Name to display in GUI and use for the output directory if `scene=True`
         framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
+        select: Dimension names along which one item to show is selected.
+            For each `select` dimension, an associated selection slider will be created.
+        **config: Additional GUI configuration arguments.
 
     Returns:
         `Viewer`
@@ -216,7 +221,7 @@ def view(*fields: str or SampledField,
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
     viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls)
-    show(viewer, play=play, gui=gui, keep_alive=keep_alive, **config)
+    show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer
 
 

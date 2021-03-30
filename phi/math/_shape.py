@@ -690,7 +690,7 @@ def parse_dim_order(order: str or tuple or list or Shape or None) -> tuple or No
         return order
     elif isinstance(order, str):
         parts = order.split(',')
-        parts = [p.strip() for p in parts]
+        parts = [p.strip() for p in parts if p]
         return tuple(parts)
     raise ValueError(order)
 

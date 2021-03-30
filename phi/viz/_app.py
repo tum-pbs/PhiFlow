@@ -99,6 +99,7 @@ class App(object):
         self.world = world
         self.log_performance = log_performance
         self._elapsed = None
+        self.growing_dims = ()  # tuple or list, used by GUI to determine whether to scroll to last element
         # Message logging
         log_formatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
         root_logger = logging.getLogger()
@@ -149,14 +150,15 @@ class App(object):
             obs(self)
         self._step_start_time = time.perf_counter()
 
-    def _post_step(self):
+    def _post_step(self, notify_observers=True):
         self._elapsed = time.perf_counter() - self._step_start_time
         if self.log_performance:
             self.log_scalar('step_time', self._elapsed)
         self.steps += 1
         self.invalidate()
-        for obs in self.post_step:
-            obs(self)
+        if notify_observers:
+            for obs in self.post_step:
+                obs(self)
 
     def invalidate(self):
         """ Causes the user interface to update. """

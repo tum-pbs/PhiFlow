@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import time
+import traceback
 import warnings
 
 import ipywidgets as widgets
@@ -17,6 +18,7 @@ from .._display import Gui
 from .._display_util import ordered_field_names
 from .._viewer import Viewer
 from ...field import SampledField
+from ...math._shape import parse_dim_order
 
 
 class WidgetsGui(Gui):
@@ -38,7 +40,9 @@ class WidgetsGui(Gui):
         self.status = None
         self.buttons = None
         self.field_select = None
+        self.dim_sliders = {}
         self._graphs_enabled = False
+        self._last_plot = None
 
     def setup(self, app: App):
         Gui.setup(self, app)
@@ -62,8 +66,6 @@ class WidgetsGui(Gui):
 
     def show(self, caller_is_main: bool) -> bool:
         self.figure_display = widgets.Output()
-        # self.status = widgets.Output()
-        # self.status.append_stdout('Status')
         # Icons: https://en.wikipedia.org/wiki/Media_control_symbols️  ⏮ ⏭ ⏺ ⏏
         play_button = widgets.Button(description="️▶ Play")
         play_button.on_click(self.play)
@@ -76,16 +78,28 @@ class WidgetsGui(Gui):
         self.buttons = HBox([play_button, pause_button, step_button, interrupt_button])
         self.buttons.layout.visibility = 'hidden'
         self.status = widgets.Label(value=self._get_status())
-        layout = [self.buttons, self.status]
-
         self.field_select = widgets.Dropdown(options=[*self.fields, 'Scalars'], value=self.fields[0], description='Display:')
         self.field_select.layout.visibility = 'visible' if len(self.app.fieldnames) > 1 else 'hidden'
         self.field_select.observe(lambda change: self.show_field(change['new']) if change['type'] == 'change' and change['name'] == 'value' else None)
-        layout.append(self.field_select)
-
-        layout.append(self.figure_display)
-        layout = VBox(layout)
-
+        dim_sliders = []
+        for sel_dim in parse_dim_order(self.config.get('select', [])):
+            slider = widgets.IntSlider(value=0, min=0, max=0, description=sel_dim, continuous_update=False)
+            self.dim_sliders[sel_dim] = slider
+            dim_sliders.append(slider)
+            slider.observe(lambda e: self.update_widgets(), 'value')
+        layout = VBox([
+            self.buttons,
+            self.status,
+            HBox([self.field_select, *dim_sliders]),  # sliders in line with select
+            self.figure_display
+        ] if len(dim_sliders) <= 1 else [
+            self.buttons,
+            self.status,
+            self.field_select,
+            HBox(dim_sliders),  # sliders below field select
+            self.figure_display
+        ])
+        # Show initial value and display UI
         self.update_widgets()
         display(layout)
         return True
@@ -107,39 +121,59 @@ class WidgetsGui(Gui):
         self.field = field
         self.update_widgets()
 
-    def update_widgets(self, plot=True):
+    def update_widgets(self, plot=True, scroll_to_last=False):
         self.status.value = self._get_status()
         scalars = self.app.get_logged_scalars()
         if not self._graphs_enabled and scalars:
             self._graphs_enabled = True
             self.field_select.layout.visibility = 'visible'
+        for sel_dim, slider in self.dim_sliders.items():
+            if self.field == 'Scalars':
+                slider.layout.visibility = 'hidden'
+            else:
+                field = self.app.get_field(self.field)
+                if isinstance(field, SampledField) and sel_dim in field.shape:
+                    slider.layout.visibility = 'visible'
+                    slider.max = field.shape.get_size(sel_dim) - 1
+                    if scroll_to_last and sel_dim in self.app.growing_dims:
+                        slider.value = field.shape.get_size(sel_dim) - 1
+                else:
+                    slider.layout.visibility = 'hidden'
         # Figure
         if plot:
-            self.figure_display.clear_output()
             if 'style' in self.config:
                 with plt.style.context(self.config['style']):
                     self._plot(self.field, self.figure_display)
             else:
                 self._plot(self.field, self.figure_display)
-            self._last_plot_update_time = time.time()
 
-    def _plot(self, selection: str, output: widgets.Output):
+    def _plot(self, field_name: str, output: widgets.Output):
+        dim_selection = {name: slider.value for name, slider in self.dim_sliders.items()}
+        if self._last_plot == (self.app.steps, self.field, dim_selection):
+            return  # plot has not changed
+        self._last_plot = (self.app.steps, self.field, dim_selection)
+        self.figure_display.clear_output()
         with output:
-            if selection == 'Scalars':
-                plt.figure(figsize=(12, 5))
-                for name in self.app.get_logged_scalars():
-                    plt.plot(*self.app.get_scalar_curve(name), label=display_name(name))
-                plt.legend()
-                plt.tight_layout()
-                show_inline_matplotlib_plots()
-            else:
-                field = self.app.get_field(selection)
-                if isinstance(field, SampledField):
-                    plot(field, figsize=(12, 5))
+            try:
+                if field_name == 'Scalars':
+                    plt.figure(figsize=(12, 5))
+                    for name in self.app.get_logged_scalars():
+                        plt.plot(*self.app.get_scalar_curve(name), label=display_name(name))
+                    plt.legend()
+                    plt.tight_layout()
                     show_inline_matplotlib_plots()
                 else:
-                    self.figure_display.append_stdout(f"{selection} = {field}")
-
+                    field = self.app.get_field(field_name)
+                    # self.figure_display.append_stdout(f"Accessing {dim_selection} in {field}")
+                    field = field[dim_selection]
+                    if isinstance(field, SampledField):
+                        plot(field, figsize=(12, 5))
+                        show_inline_matplotlib_plots()
+                    else:
+                        self.figure_display.append_stdout(f"{field_name} = {field}")
+            except Exception:
+                self.figure_display.append_stdout(traceback.format_exc())
+        self._last_plot_update_time = time.time()
 
     def play(self, _):
         self.max_step = None
@@ -190,9 +224,9 @@ class WidgetsGui(Gui):
             if update_interval is None:
                 update_interval = 2.5 if 'google.colab' in sys.modules else 1.2
             elapsed = time.time() - self._last_plot_update_time
-            self.update_widgets(plot=elapsed >= update_interval)
+            self.update_widgets(plot=elapsed >= update_interval, scroll_to_last=True)
         else:
-            self.update_widgets()
+            self.update_widgets(scroll_to_last=True)
 
     def on_loop_exit(self, _):
         self._in_loop = False

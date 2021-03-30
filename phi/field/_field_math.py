@@ -430,8 +430,8 @@ def concat(*fields: SampledField, dim: str):
 
 
 def batch_stack(*fields, dim: str):
-    assert all(isinstance(f, SampledField) for f in fields)
-    assert all(isinstance(f, type(fields[0])) for f in fields)
+    assert all(isinstance(f, SampledField) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
+    assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
         raise NotImplementedError("Concatenating extrapolations not supported")
     if isinstance(fields[0], Grid):
