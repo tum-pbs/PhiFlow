@@ -2,33 +2,25 @@ import itertools
 import time
 import warnings
 from threading import Event
+from typing import Tuple
 
-from ._value import EditableValue
 from ._log import SceneLog
 from ._user_namespace import UserNamespace
-from ._vis_base import VisModel
+from ._vis_base import VisModel, Control
 from .. import field
 from ..field import Scene, SampledField
 
 
 def create_viewer(namespace: UserNamespace,
                   fields: dict,
-                  name: str = None,
-                  description: str = "",
-                  scene: Scene = None,
-                  asynchronous: bool = False,
-                  controls: tuple or list = None,
-                  log_performance: bool = True) -> 'Viewer':
-    # controls: `dict` mapping valid Python names to initial values or `EditableValue` instances.
-    # The display names for the controls will be generated based on the python names.
+                  name: str,
+                  description: str,
+                  scene: Scene,
+                  asynchronous: bool,
+                  controls: tuple,
+                  log_performance: bool) -> 'Viewer':
     cls = AsyncViewer if asynchronous else Viewer
-    viewer = cls(namespace, fields, name, description, scene, log_performance)
-    if controls:
-        for name, value in controls.items():
-            if isinstance(value, EditableValue):
-                setattr(viewer, name, value)
-            else:
-                setattr(viewer, f'value_{name}', value)
+    viewer = cls(namespace, fields, name, description, scene, controls, log_performance)
     return viewer
 
 
@@ -48,10 +40,12 @@ class Viewer(VisModel):
                  name: str,
                  description: str,
                  scene: Scene,
+                 controls: tuple,
                  log_performance: bool,
                  ):
         VisModel.__init__(self, name, description, scene=scene)
         self.initial_field_values = fields
+        self._controls = controls
         self.namespace = namespace
         self.log_performance = log_performance
         self._rec = None
@@ -80,14 +74,11 @@ class Viewer(VisModel):
         return self._log.get_scalar_curve(name)
 
     @property
-    def control_names(self) -> tuple:
-        return ()
-
-    def get_control(self, name) -> EditableValue:
-        raise NotImplementedError(self)
+    def controls(self) -> Tuple[Control]:
+        return self._controls
 
     def set_control_value(self, name, value):
-        raise NotImplementedError(self)
+        self.namespace.set_variable(name, value)
 
     @property
     def action_names(self) -> tuple:

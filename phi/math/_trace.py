@@ -228,7 +228,7 @@ class ShiftLinOp(Tensor):
 
     def _natives(self) -> tuple:
         raise NotImplementedError()  # should not be used, this tensor should be regarded as not available
-        # return (self.source._natives(),) + sum([v._natives() for v in self.val.values()], ())
+        # return (self.source._natives(),) + sum([v._natives() for v in self.control.values()], ())
 
 
 def lin_placeholder(value: Tensor) -> Tensor:

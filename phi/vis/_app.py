@@ -15,7 +15,6 @@ from phi.physics._world import StateProxy, world
 
 from ._log import SceneLog
 from ._vis_base import VisModel
-from ._value import EditableBool, EditableFloat, EditableInt, EditableString, EditableValue
 
 
 def synchronized_method(method):
@@ -249,7 +248,7 @@ class App(VisModel):
                 editable_value = val
                 setattr(
                     self, name, val.initial_value
-                )  # Replace EditableValue with initial value
+                )  # Replace Control with initial value
             elif name.startswith("value_"):
                 value_name = display_name(name[6:])
                 dtype = type(val)

@@ -411,7 +411,7 @@ class Scene(object):
             full_trace: Whether to include scripts that indirectly called this method.
             include_context_information: If True, writes the phiflow version and `sys.argv` into `context.json`.
         """
-        script_paths = [frame[1] for frame in inspect.stack()]
+        script_paths = [frame.filename for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
         self.subpath('src', create=True)

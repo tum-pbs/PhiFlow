@@ -1,9 +1,9 @@
+import inspect
 import os
-import sys
 
 from ._user_namespace import default_user_namespace, UserNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import get_gui, default_gui, show
+from ._vis_base import get_gui, default_gui, show, Control, display_name
 from ..field import SampledField, Scene
 from ..field._scene import _slugify_filename
 
@@ -14,7 +14,6 @@ def view(*fields: str or SampledField,
          name: str = None,
          description: str = None,
          scene: bool or Scene = False,
-         controls=(),
          keep_alive=True,
          select: str or tuple or list = 'frames,',
          framerate=None,
@@ -62,7 +61,7 @@ def view(*fields: str or SampledField,
     name = name or user_namespace.get_title()
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=tuple(CONTROL_VARS), log_performance=True)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer
 
@@ -90,3 +89,37 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
                         values.append(field)
     assert names, "Nothing to view. Store SampledField instances in top-level variables to have them auto-detected."
     return {n: v for n, v in zip(names, values)}
+
+
+def control(value, range: tuple = None, **kwargs):
+    """
+    Mark a variable as controllable by any GUI created via `view()`.
+
+    Example:
+    ```python
+    dt = control(1.0, (0.1, 10), name="Time increment")
+    ```
+
+    The value o
+
+    Args:
+        value: Initial value. Must be either `int`, `float´, `bool` or `str`.
+        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int` and `float` values.
+        **kwargs: Additional arguments to determine the appearance of the GUI component,
+            e.g. `rows` for text fields or `log=False` for float sliders.
+
+    Returns:
+        `value`
+    """
+    assert type(value) in (int, float, bool, str), f"Value must be one of (int, float, bool, str) but {type(value)}"
+    calling_code = inspect.stack()[1].code_context[0]
+    assert 'control' in calling_code and '=' in calling_code, f"control() must be used in a variable assignment statement but context is: {calling_code}"
+    calling_code = calling_code[:calling_code.index('control')]
+    var_names = [var.strip() for var in calling_code.split('=')[:-1]]
+    var_names = [n for n in var_names if n]
+    for var_name in var_names:
+        CONTROL_VARS.append(Control(var_name, type(value), value, range, kwargs))
+    return value
+
+
+CONTROL_VARS = []

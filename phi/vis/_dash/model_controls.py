@@ -5,7 +5,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from .dash_app import DashApp
-from .._vis_base import display_name
+from .._vis_base import display_name, value_range, is_log_control
 
 MODEL_CONTROLS = []
 MODEL_ACTIONS = []
@@ -13,22 +13,22 @@ MODEL_ACTIONS = []
 
 def build_model_controls(dashapp):
     assert isinstance(dashapp, DashApp)
-    controls = [dashapp.app.get_control(n) for n in dashapp.app.control_names]
+    controls = dashapp.app.controls
     actions = dashapp.app.action_names
 
     if len(controls) == len(actions) == 0:
         return html.Div()
 
-    model_floats = [control for control in controls if control.type == 'float']
-    model_bools = [control for control in controls if control.type == 'bool']
-    model_ints = [control for control in controls if control.type == 'int']
-    model_texts = [control for control in controls if control.type == 'text']
+    model_floats = [control for control in controls if control.control_type == float]
+    model_bools = [control for control in controls if control.control_type == bool]
+    model_ints = [control for control in controls if control.control_type == int]
+    model_texts = [control for control in controls if control.control_type == str]
 
     MODEL_CONTROLS.clear()
     MODEL_CONTROLS.extend([Input(name, 'n_clicks') for name in actions])
-    MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_floats])
-    MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_ints])
-    MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_bools])
+    MODEL_CONTROLS.extend([Input(control.name, 'value') for control in model_floats])
+    MODEL_CONTROLS.extend([Input(control.name, 'value') for control in model_ints])
+    MODEL_CONTROLS.extend([Input(control.name, 'value') for control in model_bools])
     MODEL_ACTIONS.clear()
     MODEL_ACTIONS.extend([Input(name, 'n_clicks') for name in actions])
 
@@ -44,15 +44,15 @@ def build_model_controls(dashapp):
         model_sliders_float = create_sliders(model_floats)
         model_sliders_int = create_sliders(model_ints)
 
-        model_checkboxes = [dcc.Checklist(options=[{'label': control.name, 'value': control.id}],
-                                          value=[control.id] if control.value else [], id=control.id)
+        model_checkboxes = [dcc.Checklist(options=[{'label': display_name(control.name), 'value': control.name}],
+                                          value=[control.name] if control.initial else [], id=control.name)
                             for control in model_bools]
 
         model_textfields = []
         for control in model_texts:
-            text_area = dcc.Textarea(placeholder=control.value, id=control.id, value=control.value, rows=1,
+            text_area = dcc.Textarea(placeholder=control.initial, id=control.name, value=control.initial, rows=1,
                                     style={'width': '600px', 'display': 'inline-block'})
-            model_textfields.append(html.Div([control.name + '  ', text_area]))
+            model_textfields.append(html.Div([display_name(control.name) + '  ', text_area]))
         return [dcc.Markdown('### Model')] + model_sliders_float + model_sliders_int + model_buttons + model_textfields + model_checkboxes
 
     for action in actions:
@@ -63,35 +63,34 @@ def build_model_controls(dashapp):
             return False
 
     for control in model_floats:
-        @dashapp.dash.callback(Output(control.id, 'disabled'), [Input(control.id, 'value')])
+        @dashapp.dash.callback(Output(control.name, 'disabled'), [Input(control.name, 'value')])
         def set_model_value(slider_value, control=control):
-            use_log = False if control.type == 'int' else control.editable_value.use_log_scale
-            if use_log:
+            if is_log_control(control):
                 value = 10.0 ** slider_value
-                if value * 0.99 <= control.range[0]:
+                if value * 0.99 <= value_range(control)[0]:
                     value = 0.0
             else:
                 value = slider_value
-            control.value = value
+            dashapp.app.set_control_value(control.name, value)
             return False
 
     for control in model_ints:
-        @dashapp.dash.callback(Output(control.id, 'step'), [Input(control.id, 'value')])
+        @dashapp.dash.callback(Output(control.name, 'step'), [Input(control.name, 'value')])
         def set_model_value(value, control=control):
-            control.value = value
+            dashapp.app.set_control_value(control.name, value)
             return 1
 
     for control in model_bools:
-        @dashapp.dash.callback(Output(control.id, 'style'), [Input(control.id, 'value')])
+        @dashapp.dash.callback(Output(control.name, 'style'), [Input(control.name, 'value')])
         def set_model_bool(values, control=control):
-            control.value = True if values else False
+            dashapp.app.set_control_value(control.name, True if values else False)
             return {}
 
     for control in model_texts:
-        @dashapp.dash.callback(Output(control.id, 'disabled'), [Input(control.id, 'value')])
+        @dashapp.dash.callback(Output(control.name, 'disabled'), [Input(control.name, 'value')])
         def set_model_text(value, control=control):
             if value is not None:
-                control.value = value
+                dashapp.app.set_control_value(control.name, value)
             return False
 
     return layout
@@ -100,24 +99,24 @@ def build_model_controls(dashapp):
 def create_sliders(controls):
     sliders = []
     for control in controls:
-        val = control.value
-        lower, upper = control.range
-        use_log = False if control.type == 'int' else control.editable_value.use_log_scale
+        val = control.initial
+        lower, upper = value_range(control)
+        use_log = is_log_control(control)
         if use_log:
             magn = np.log10(val)
             slider_min = np.log10(lower)
             slider_max = np.log10(upper)
             stepsize_magn = 0.1
             marks = {e: '{:.1e}'.format(np.power(10.0, e)) for e in range(-20, 20) if slider_min <= e <= slider_max}
-            slider = dcc.Slider(min=slider_min, max=slider_max, value=magn, id=control.id, step=stepsize_magn, updatemode='drag', marks=marks)
+            slider = dcc.Slider(min=slider_min, max=slider_max, value=magn, id=control.name, step=stepsize_magn, updatemode='drag', marks=marks)
         else:
-            if control.type == 'int':
+            if control.control_type == int:
                 marks = {v: str(v) for v in range(lower, upper + 1)}
                 step = 1
             else:
                 marks = {float(v): str(round(v, 4)) for v in np.linspace(lower, upper, 21)}
                 step = (upper-lower) / (len(marks)-1)
-            slider = dcc.Slider(min=lower, max=upper, value=val, id=control.id, step=step, marks=marks, updatemode='drag')
-        slider_container = html.Div(style={'height': '50px', 'width': '100%', 'display': 'inline-block'}, children=[control.name, slider])
+            slider = dcc.Slider(min=lower, max=upper, value=val, id=control.name, step=step, marks=marks, updatemode='drag')
+        slider_container = html.Div(style={'height': '50px', 'width': '100%', 'display': 'inline-block'}, children=[display_name(control.name), slider])
         sliders.append(slider_container)
     return sliders

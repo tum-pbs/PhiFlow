@@ -2,11 +2,57 @@ import sys
 import threading
 import time
 import warnings
+from collections import namedtuple
 from contextlib import contextmanager
+from math import log10
 from threading import Thread, Lock
+from typing import Tuple
 
 from phi.field import SampledField, Scene
-from phi.vis._value import EditableValue
+
+
+Control = namedtuple('Control', ['name', 'control_type', 'initial', 'value_range', 'kwargs'])
+
+
+def value_range(control: Control):
+    if isinstance(control.value_range, tuple):
+        assert len(control.value_range) == 2, f"Tuple must be (min, max) but got length {len(control.value_range)}"
+        return control.value_range
+    if control.control_type == float:
+        log_scale = is_log_control(control)
+        if log_scale:
+            magn = log10(control.initial)
+            val_range = (10.0 ** (magn - 3.2), 10.0 ** (magn + 2.2))
+        else:
+            if control.initial == 0.0:
+                val_range = (-10.0, 10.0)
+            elif control.initial > 0:
+                val_range = (0., 4. * control.initial)
+            else:
+                val_range = (2. * control.initial, -2. * control.initial)
+    elif control.control_type == int:
+        if control.initial == 0:
+            val_range = (-10, 10)
+        elif control.initial > 0:
+            val_range = (0, 4 * control.initial)
+        else:
+            val_range = (2 * control.initial, -2 * control.initial)
+    else:
+        raise AssertionError(f"Not a numeric control: {control}")
+    return val_range
+
+
+def is_log_control(control: Control):
+    if control.control_type != float:
+        return False
+    log_scale = control.kwargs.get('log')
+    if log_scale is not None:
+        return log_scale
+    else:
+        if control.value_range is None:
+            return True
+        else:
+            return control.value_range[1] / float(control.value_range[0]) > 10
 
 
 class VisModel:
@@ -72,10 +118,7 @@ class VisModel:
         raise NotImplementedError(self)
 
     @property
-    def control_names(self) -> tuple:
-        raise NotImplementedError(self)
-
-    def get_control(self, name) -> EditableValue:
+    def controls(self) -> Tuple[Control]:
         raise NotImplementedError(self)
 
     def set_control_value(self, name, value):
