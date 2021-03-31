@@ -13,7 +13,8 @@ from phi import struct, math
 from phi.field import Field, Scene
 from phi.physics._world import StateProxy, world
 
-from ._control import Action, Control
+from ._log import SceneLog
+from ._vis_base import VisModel
 from ._value import EditableBool, EditableFloat, EditableInt, EditableString, EditableValue
 
 
@@ -47,13 +48,12 @@ class TimeDependentField(object):
         return self.array
 
 
-class App(object):
+class App(VisModel):
 
     def __init__(self,
                  name: str = None,
                  subtitle: str = "",
-                 scene: Scene = None,
-                 log_performance=True):
+                 scene: Scene = None):
         """
         Main class for defining an application that can be displayed in the user interface.
 
@@ -71,61 +71,19 @@ class App(object):
             log_performance: Whether to log the time elapsed during each step as a scalar value.
                 The values will be written to the vis's directory and shown in the user interface.
         """
-        self.start_time = time.time()
-        """ Time of creation (`App` constructor invocation) """
-        self.name = name if name is not None else self.__class__.__name__
-        """ Human-readable name. """
-        self.subtitle = subtitle
-        """ Description to be displayed. """
-        self.scene = scene
-        """ Directory to which data and logging information should be written as `Scene` instance. """
-        self.uses_existing_scene = scene.exist_properties() if scene is not None else False
-        self._field_names = []
-        self._fields = {}
-        self.message = None
-        self.steps = 0
-        """ Counts the number of times `step()` has been called. May be set by the user. """
-        self.time = 0
-        """ Time variable for simulations. Can be set by the user. """
-        self._invalidation_counter = 0
-        self._controls = []
-        self._actions = []
-        self.prepared = False
-        """ Wheter `prepare()` has been called. """
+        VisModel.__init__(self, name, subtitle, scene)
         self.current_action = None
         self._pause = False
-        self.pre_step = []  # callback(vis)
-        self.post_step = []  # callback(vis)
-        self.world = world
-        self.log_performance = log_performance
         self._elapsed = None
-        self.growing_dims = ()  # tuple or list, used by GUI to determine whether to scroll to last element
-        # Message logging
-        log_formatter = logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n")
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.WARNING)
-        self.logger = logging.Logger("vis", logging.DEBUG)
-        console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(log_formatter)
-        console_handler.setLevel(logging.INFO)
-        self.logger.addHandler(console_handler)
-        if self.scene is not None:
-            if not isfile(self.scene.subpath("info.log")):
-                log_file = self.log_file = self.scene.subpath("info.log")
-            else:
-                index = 2
-                while True:
-                    log_file = self.scene.subpath("info_%d.log" % index)
-                    if not isfile(log_file):
-                        break
-                    else:
-                        index += 1
-            file_handler = self.file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(log_formatter)
-            self.logger.addHandler(file_handler)
-        # Data logging
-        self._scalars = {}  # name -> (frame, value)
-        self._scalar_streams = {}
+        self.time = 0
+        """ Time variable for simulations. Can be set by the user. """
+        self.prepared = False
+        """ Wheter `prepare()` has been called. """
+        self._controls = []
+        self._actions = []
+        self._invalidation_counter = 0
+        self._fields = {}
+        self._log = SceneLog(scene)
         # Initial log message
         if self.scene is not None:
             self.info("App created. Scene directory is %s" % self.scene.path)
@@ -140,10 +98,18 @@ class App(object):
         """ This directory is automatically created upon `App` creation. Equal to `scene.path`. """
         return self.scene.path
 
-    def _progress(self):
-        self._pre_step()
-        self.step()
-        self._post_step()
+    def progress(self):
+        with self.progress_lock:
+            self._pre_step()
+            try:
+                self.step()
+            except Exception as e:
+                self.info(
+                    "Error during %s.step() \n %s: %s"
+                    % (type(self).__name__, type(e).__name__, e)
+                )
+                self.logger.exception(e)
+            self._post_step()
 
     def _pre_step(self):
         for obs in self.pre_step:
@@ -229,42 +195,6 @@ class App(object):
             generator = get_constant
         self._field_names.append(name)
         self._fields[name] = TimeDependentField(name, generator)
-
-    def log_scalar(self, name: str, value: float or math.Tensor):
-        """
-        Adds `value` to the curve `name` at the current step.
-        This can be used to log the evolution of scalar quantities or summaries.
-
-        The values are stored in a text file within the scene directory.
-        The curves may also be directly viewed in the user interface.
-
-        Args:
-            name: Name of the curve. If no such curve exists, a new one is created.
-            value: Value to append to the curve, must be a number or `phi.math.Tensor`.
-        """
-        assert isinstance(name, str)
-        value = float(math.mean(value))
-        if name not in self._scalars:
-            self._scalars[name] = []
-            if self.scene is not None:
-                path = self.scene.subpath(f"log_{name}.txt")
-                self._scalar_streams[name] = open(path, "w")
-        self._scalars[name].append((self.frame, value))
-        if self.scene is not None:
-            self._scalar_streams[name].write(f"{value}\n")
-            self._scalar_streams[name].flush()
-
-    def log_scalars(self, **values: float or math.Tensor):
-        for name, value in values.items():
-            self.log_scalar(name, value)
-
-    def get_scalar_curve(self, name) -> tuple:
-        frames = np.array([item[0] for item in self._scalars[name]])
-        values = np.array([item[1] for item in self._scalars[name]])
-        return frames, values
-
-    def get_logged_scalars(self):
-        return self._scalars.keys()
 
     @property
     def actions(self):
@@ -411,98 +341,3 @@ class App(object):
             message: Message to log.
         """
         logging.info(message)
-
-    def show(self, **config):
-        warnings.warn("Use show(model) instead.", DeprecationWarning, stacklevel=2)
-        from ._display import show
-
-        show(self, **config)
-
-    @property
-    def status(self):
-        pausing = "/Pausing" if (self._pause and self.current_action) else ""
-        action = self.current_action if self.current_action else "Idle"
-        message = f" - {self.message}" if self.message else ""
-        return f"{action}{pausing} ({self.steps} steps){message}"
-
-    def run_step(self, framerate=None):
-        self.current_action = "Running"
-        starttime = time.time()
-        try:
-            self._progress()
-            if framerate is not None:
-                duration = time.time() - starttime
-                rest = 1.0 / framerate - duration
-                if rest > 0:
-                    self.current_action = "Waiting"
-                    time.sleep(rest)
-        except Exception as e:
-            self.info(
-                "Error during %s.step() \n %s: %s"
-                % (type(self).__name__, type(e).__name__, e)
-            )
-            self.logger.exception(e)
-        finally:
-            self.current_action = None
-
-    def pause(self):
-        """ Causes the `play()` method to stop after finishing the current step. """
-        self._pause = True
-
-    def is_paused(self):
-        return self._pause
-
-    @property
-    def running(self):
-        """ Whether `play()` is currently executing. """
-        return self.current_action is not None
-
-    def benchmark(self, sequence_count):
-        self._pause = False
-        step_count = 0
-        starttime = time.time()
-        for i in range(sequence_count):
-            self.run_step(framerate=np.inf)
-            step_count += 1
-            if self._pause:
-                break
-        time_elapsed = time.time() - starttime
-        return step_count, time_elapsed
-
-
-def display_name(python_name):
-    n = list(python_name)
-    n[0] = n[0].upper()
-    for i in range(1, len(n)):
-        if n[i] == "_":
-            n[i] = " "
-            if len(n) > i + 1:
-                n[i + 1] = n[i + 1].upper()
-    return "".join(n)
-
-
-def play_async(app: App, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
-    """
-    Run a number of steps.
-
-    Args:
-        app: `App`
-        max_steps: (optional) stop when this many steps have been completed (independent of the `steps` variable) or `pause()` is called.
-        callback: Function to be run after all steps have been completed.
-        framerate: Target frame rate in Hz.
-        callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
-    """
-    def target():
-        app._pause = False
-        step_count = 0
-        while not app.is_paused():
-            app.run_step(framerate=framerate)
-            step_count += 1
-            if max_steps and step_count >= max_steps:
-                break
-        if callback is not None:
-            if not app.is_paused() or callback_if_aborted:
-                callback()
-
-    thread = threading.Thread(target=target)
-    thread.start()

@@ -2,11 +2,10 @@ import numpy
 
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input
 
-from phi.vis._app import App
 from phi.field import Field, CenteredGrid, StaggeredGrid
-
+from phi.vis._vis_base import VisModel
 
 FRONT = 'front'
 RIGHT = 'right'
@@ -106,9 +105,9 @@ _COMPONENT_DICT = {name: label for name, label in zip(_COMPONENTS, _COMPONENT_LA
 
 
 def detect_slices(app):
-    assert isinstance(app, App)
+    assert isinstance(app, VisModel)
     batch_size = resolution3d = None
-    for fieldname in app.fieldnames:
+    for fieldname in app.field_names:
         if batch_size is None or resolution3d is None:
             field = app.get_field(fieldname)
             if batch_size is None:

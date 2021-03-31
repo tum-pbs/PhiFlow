@@ -5,7 +5,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from .dash_app import DashApp
-
+from .._vis_base import display_name
 
 MODEL_CONTROLS = []
 MODEL_ACTIONS = []
@@ -13,8 +13,8 @@ MODEL_ACTIONS = []
 
 def build_model_controls(dashapp):
     assert isinstance(dashapp, DashApp)
-    controls = dashapp.app.controls
-    actions = dashapp.app.actions
+    controls = [dashapp.app.get_control(n) for n in dashapp.app.control_names]
+    actions = dashapp.app.action_names
 
     if len(controls) == len(actions) == 0:
         return html.Div()
@@ -25,12 +25,12 @@ def build_model_controls(dashapp):
     model_texts = [control for control in controls if control.type == 'text']
 
     MODEL_CONTROLS.clear()
-    MODEL_CONTROLS.extend([Input(control.id, 'n_clicks') for control in actions])
+    MODEL_CONTROLS.extend([Input(name, 'n_clicks') for name in actions])
     MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_floats])
     MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_ints])
     MODEL_CONTROLS.extend([Input(control.id, 'value') for control in model_bools])
     MODEL_ACTIONS.clear()
-    MODEL_ACTIONS.extend([Input(action.id, 'n_clicks') for action in actions])
+    MODEL_ACTIONS.extend([Input(name, 'n_clicks') for name in actions])
 
     layout = html.Div(style={'width': '75%', 'margin-left': 'auto', 'margin-right': 'auto', 'background-color': '#F0F0F0'}, children=[
         html.Div(id='control-div', style={'width': '95%', 'height': '90%', 'margin-left': 'auto', 'margin-right': 'auto', 'margin-top': 15, 'margin-bottom': 'auto'}, children=[
@@ -40,7 +40,7 @@ def build_model_controls(dashapp):
 
     @dashapp.dash.callback(Output('control-div', 'children'), [Input('initialize-controls', 'n_intervals')])
     def build_controls(_):
-        model_buttons = [html.Button(control.name, id=control.id) for control in actions]
+        model_buttons = [html.Button(display_name(name), id=name) for name in actions]
         model_sliders_float = create_sliders(model_floats)
         model_sliders_int = create_sliders(model_ints)
 
@@ -56,7 +56,7 @@ def build_model_controls(dashapp):
         return [dcc.Markdown('### Model')] + model_sliders_float + model_sliders_int + model_buttons + model_textfields + model_checkboxes
 
     for action in actions:
-        @dashapp.dash.callback(Output(action.id, 'disabled'), [Input(action.id, 'n_clicks')])
+        @dashapp.dash.callback(Output(action, 'disabled'), [Input(action, 'n_clicks')])
         def perform_action(n_clicks, action=action):
             if n_clicks is not None:
                 dashapp.app.run_action(action)

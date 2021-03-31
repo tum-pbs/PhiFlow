@@ -9,13 +9,12 @@ import webglviewer
 from .viewsettings import parse_view_settings
 from .webgl_util import default_sky, EMPTY_GRID, webgl_prepare_data
 
-# --- Viewer ---
 
 def build_viewer(dashapp, height, initial_field_name=None, id='viewer', config=None):
 
-    field_options = [{'label': item, 'value': item} for item in dashapp.app.fieldnames] + [{'label': '<None>', 'value': 'None'}]
+    field_options = [{'label': item, 'value': item} for item in dashapp.app.field_names] + [{'label': '<None>', 'value': 'None'}]
     if initial_field_name is None:
-        initial_field_name = dashapp.app.fieldnames[0] if len(dashapp.app.fieldnames) > 0 else 'None'
+        initial_field_name = dashapp.app.field_names[0] if len(dashapp.app.field_names) > 0 else 'None'
 
     layout = html.Div(style={'height': '100%'}, children=[
         html.Div(style={'width': '100%', 'height': '5%', 'display': 'inline-block', 'vertical-align': 'middle'}, children=[

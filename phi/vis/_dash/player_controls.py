@@ -5,10 +5,10 @@ from dash.exceptions import PreventUpdate
 
 from .dash_app import DashApp
 from .viewsettings import refresh_rate_ms, REFRESH_RATE
-from .._app import play_async
+from .._vis_base import play_async
 
 
-def build_status_bar(dashapp):
+def build_status_bar(dashapp: DashApp):
     layout = html.Div([
         html.Div(id='status-bar', children=['Loading status...'], style={'backgroundColor': '#E0E0FF'}),
         dcc.Interval(id='status-interval', interval=500),
@@ -16,7 +16,7 @@ def build_status_bar(dashapp):
 
     @dashapp.dash.callback(Output('status-bar', 'children'), [Input('status-interval', 'n_intervals'), STEP_COMPLETE, PLAYING])
     def update_status_bar(*args):
-        return [dashapp.app.status]
+        return [dashapp.status_message]
 
     return layout
 
@@ -44,26 +44,22 @@ def build_player_controls(dashapp):
 
     @dashapp.dash.callback(Output(PLAY_BUTTON.component_id, 'style'), inputs=[PLAY_BUTTON], state=[STEP_COUNT])
     def play(n_clicks, step_count):
-        if n_clicks and not dashapp.app.running:
+        if n_clicks and not dashapp.play_status:
             step_count = parse_step_count(step_count, dashapp, default=None)
-            if step_count is None:
-                play_async(dashapp.app, framerate=dashapp.config.get('framerate', None))
-            else:
-                play_async(dashapp.app, max_steps=step_count, framerate=dashapp.config.get('framerate', None))
-                dashapp.app.play(step_count)
+            dashapp.play(max_steps=step_count)
         else:
             raise PreventUpdate()
 
     @dashapp.dash.callback(Output(PAUSE_BUTTON.component_id, 'style'), [PAUSE_BUTTON])
     def pause_simulation(n_clicks):
         if n_clicks:
-            dashapp.app.pause()
+            dashapp.pause()
         raise PreventUpdate()
 
     @dashapp.dash.callback(Output(STEP_BUTTON.component_id, 'style'), [STEP_BUTTON])
     def simulation_step(n_clicks):
-        if n_clicks and not dashapp.app.running:
-            dashapp.app.run_step()
+        if n_clicks and not dashapp.play_status:
+            dashapp.app.progress()
         raise PreventUpdate()
 
     @dashapp.dash.callback(Output(STEP_COMPLETE.component_id, 'children'), [STEP_BUTTON, PAUSE_BUTTON])
@@ -74,7 +70,7 @@ def build_player_controls(dashapp):
     def set_refresh_interval(refresh_rate_value, *args):
         if refresh_rate_value is None:
             result = 1000
-        elif dashapp.app.running:
+        elif dashapp.play_status:
             result = refresh_rate_ms(refresh_rate_value)
         else:
             result = refresh_rate_ms(None)

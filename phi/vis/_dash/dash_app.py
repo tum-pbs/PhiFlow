@@ -1,20 +1,16 @@
-# coding=utf-8
-import numpy
-
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from phi.vis._app import App
-from phi import struct
+from phi.vis._vis_base import VisModel, play_async, status_message, gui_interrupt
 
 
 class DashApp:
 
     def __init__(self, app, config, header_layout):
-        assert isinstance(app, App)
+        assert isinstance(app, VisModel)
         self.app = app
         self.config = config
         self.dash = dash.Dash(u'PhiFlow')
@@ -23,6 +19,7 @@ class DashApp:
         self.page_urls = {}
         self.field_minmax = {}
         self.minmax_decay = 0.975
+        self.play_status = None
         
         # The index page encapsulates the specific pages.
         self.dash.layout = html.Div([
@@ -79,3 +76,22 @@ class DashApp:
             return self.field_minmax[field]
         else:
             return 0, 0
+
+    def play(self, max_steps=None, framerate=None):
+        if not self.play_status:
+            framerate = self.config.get('framerate', None)
+            self.play_status = play_async(self.app, max_steps=max_steps, framerate=framerate)
+
+    def pause(self):
+        if self.play_status:
+            self.play_status.pause()
+
+    @property
+    def status_message(self):
+        return status_message(self.app, self.play_status)
+
+    def exit_interrupt(self):
+        self.pause()
+        if self.app.can_progress:
+            self.app.pre_step.append(gui_interrupt)
+            self.app.progress()

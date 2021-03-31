@@ -1,7 +1,7 @@
 import dash_core_components as dcc
 import dash_html_components as html
 
-from .board import build_benchmark, build_tf_profiler, build_tensorboard_launcher, build_system_controls, \
+from .board import build_benchmark, build_system_controls, \
     build_graph_view
 from .log import build_log
 from .model_controls import build_model_controls
@@ -11,8 +11,7 @@ from .info import build_app_details, build_description, build_phiflow_info, buil
 from .viewer import build_viewer
 from .player_controls import build_status_bar, build_player_controls
 from .._app import App
-from .._display import Gui
-from .._display_util import ordered_field_names
+from .._vis_base import Gui
 
 
 class DashGui(Gui):
@@ -42,7 +41,7 @@ class DashGui(Gui):
             ])
         dash_app = self.dash_app = DashApp(self.app, self.config, header_layout)
 
-        disp_fields = ordered_field_names(self.app, self.config.get('display'), min_count=4, fill_with='None')
+        disp_fields = app.field_names + ('None',) * max(0, 4 - len(app.field_names))
 
         # --- Shared components ---
         player_controls = build_player_controls(dash_app)

@@ -10,7 +10,7 @@ from dash.exceptions import PreventUpdate
 from .dash_app import DashApp
 from .dash_plotting import EMPTY_FIGURE, dash_plot_graphs
 from .player_controls import STEP_COUNT, parse_step_count
-from .._app import display_name
+from .._vis_base import display_name, gui_interrupt, benchmark
 
 BENCHMARK_BUTTON = Input('benchmark-button', 'n_clicks')
 PROFILE_BUTTON = Input('profile-button', 'n_clicks')
@@ -37,10 +37,10 @@ def build_benchmark(dashapp):
         step_count = parse_step_count(step_count, dashapp, default=1)
         if n_clicks is None:
             return NO_BENCHMARK_TEXT
-        if dashapp.app.running:
+        if dashapp.play_status:
             return '*Pause the vis before starting a benchmark.*'
         # --- Run benchmark ---
-        step_count, time_elapsed = dashapp.app.benchmark(step_count)
+        step_count, time_elapsed = benchmark(dashapp.app, step_count)
         output = '### Benchmark Results\n'
         if step_count != step_count:
             output += 'The benchmark was stopped prematurely.  \n'
@@ -68,7 +68,7 @@ def build_tf_profiler(dashapp):
         step_count = parse_step_count(step_count, dashapp, default=1)
         if n_clicks is None:
             return NO_PROFILES_TEXT
-        if dashapp.app.running:
+        if dashapp.play_status:
             return '*Pause the vis before starting a profiled run.*'
         # --- Profile ---
         with dashapp.app.session.profiler() as profiler:
@@ -124,14 +124,20 @@ def build_system_controls(dashapp):
 
     layout = html.Div([
         dcc.Markdown('## Application'),
-        html.Button('Terminate', id='exit-button')
+        html.Button('Exit / Interrupt', id='exit-button'),
+        html.Button('Kill', id='kill-button'),
     ])
 
-    @dashapp.dash.callback(Output('exit-button', 'style'), [Input('exit-button', 'n_clicks')])
+    @dashapp.dash.callback(Output('kill-button', 'style'), [Input('kill-button', 'n_clicks')])
     def exit_application(n):
         if n:
             logging.info('DashGUI: Exiting...')
             os._exit(0)  # exit() does not work from Dash threads
+
+    @dashapp.dash.callback(Output('exit-button', 'style'), [Input('exit-button', 'n_clicks')])
+    def exit_application(n):
+        if n:
+            dashapp.exit_interrupt()
 
     return layout
 
@@ -151,13 +157,12 @@ def build_graph_view(dashapp):
 
     @dashapp.dash.callback(Output('board-graph', 'figure'), [REFRESH_GRAPHS_BUTTON, Input('graph-update', 'n_intervals')])
     def update_figure(_n1, _n2):
-        names = dashapp.app.get_logged_scalars()
-        curves = [dashapp.app.get_scalar_curve(n) for n in names]
-        labels = [display_name(n) for n in names]
+        curves = [dashapp.app.get_curve(n) for n in dashapp.app.curve_names]
+        labels = [display_name(n) for n in dashapp.app.curve_names]
         try:
             figure = dash_plot_graphs(curves, labels)
             return figure
-        except BaseException as exc:
+        except BaseException:
             traceback.print_exc()
             return EMPTY_FIGURE
 

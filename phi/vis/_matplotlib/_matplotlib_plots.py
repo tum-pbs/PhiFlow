@@ -7,7 +7,7 @@ import numpy as np
 from matplotlib import animation
 
 from phi import math
-from phi.vis._app import display_name
+from phi.vis._vis_base import display_name
 from phi.field import Grid, StaggeredGrid, PointCloud
 from phi.field import Scene
 from phi.field._field import SampledField
@@ -16,6 +16,23 @@ from phi.field._scene import _str
 
 
 def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+    """
+    Creates a Matplotlib figure to display a single field or batch of fields.
+
+    Use [`matplotlib.pyplot.show()`](https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.show.html) or
+    [`matplotlib.pyplot.savefig()`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html) to view the figure.
+
+    Args:
+        field: `SampledField`, may contain batch dimensions which will create subfigures.
+        title: Figure title.
+        colorbar: Whether to show a colorbar for heatmap plots.
+        figsize: Figure (width, height) in inches.
+        same_scale: Whether to use the same value scale for all subplots.
+        **plt_args: Additional plotting arguments passed to Matplotlib.
+
+    Returns:
+        [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
+    """
     if isinstance(field, (tuple, list)):
         field = batch_stack(*field, dim='fields')
     batch_size, b_values = _batch(field)

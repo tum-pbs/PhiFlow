@@ -12,14 +12,10 @@ from ipywidgets import HBox, VBox
 from ipywidgets.widgets.interaction import show_inline_matplotlib_plots
 from matplotlib import pyplot as plt
 
-from phi.vis._matplotlib._matplotlib_plots import plot
-from .._app import App
-from .._app import display_name
-from .._display import Gui
-from .._display_util import ordered_field_names
-from .._viewer import Viewer
-from ...field import SampledField
-from ...math._shape import parse_dim_order
+from phi.math._shape import parse_dim_order
+from phi.field import SampledField
+from .._matplotlib._matplotlib_plots import plot
+from .._vis_base import Gui, VisModel, display_name, GuiInterrupt
 
 
 class WidgetsGui(Gui):
@@ -44,15 +40,14 @@ class WidgetsGui(Gui):
         self.dim_sliders = {}
         self._graphs_enabled = False
 
-    def setup(self, app: App):
+    def setup(self, app: VisModel):
         Gui.setup(self, app)
-        self.fields = self.app.fieldnames
+        self.fields = self.app.field_names
         self.field = self.fields[0]
         app.pre_step.append(self.pre_step)
         app.post_step.append(self.post_step)
-        if isinstance(app, Viewer):
-            app.on_loop_start.append(self.on_loop_start)
-            app.on_loop_exit.append(self.on_loop_exit)
+        app.progress_available.append(self.on_loop_start)
+        app.progress_unavailable.append(self.on_loop_exit)
 
         def custom_traceback(exc_tuple=None, filename=None, tb_offset=None, exception_only=False, running_compiled_code=False):
             etype, value, tb = sys.exc_info()
@@ -79,7 +74,7 @@ class WidgetsGui(Gui):
         self.buttons.layout.visibility = 'hidden'
         self.status = widgets.Label(value=self._get_status())
         self.field_select = widgets.Dropdown(options=[*self.fields, 'Scalars'], value=self.fields[0], description='Display:')
-        self.field_select.layout.visibility = 'visible' if len(self.app.fieldnames) > 1 else 'hidden'
+        self.field_select.layout.visibility = 'visible' if len(self.app.field_names) > 1 else 'hidden'
         self.field_select.observe(lambda change: self.show_field(change['new']) if change['type'] == 'change' and change['name'] == 'value' else None)
         dim_sliders = []
         for sel_dim in parse_dim_order(self.config.get('select', [])):
@@ -102,7 +97,6 @@ class WidgetsGui(Gui):
         # Show initial value and display UI
         self.update_widgets()
         display(layout)
-        return True
 
     def _get_status(self):
         message = f" - {self.app.message}" if self.app.message else ""
@@ -123,8 +117,7 @@ class WidgetsGui(Gui):
 
     def update_widgets(self, plot=True, scroll_to_last=False):
         self.status.value = self._get_status()
-        scalars = self.app.get_logged_scalars()
-        if not self._graphs_enabled and scalars:
+        if not self._graphs_enabled and self.app.curve_names:
             self._graphs_enabled = True
             self.field_select.layout.visibility = 'visible'
         for sel_dim, slider in self.dim_sliders.items():
@@ -155,8 +148,8 @@ class WidgetsGui(Gui):
             try:
                 if field_name == 'Scalars':
                     plt.figure(figsize=(12, 5))
-                    for name in self.app.get_logged_scalars():
-                        plt.plot(*self.app.get_scalar_curve(name), label=display_name(name))
+                    for name in self.app.curve_names:
+                        plt.plot(*self.app.get_curve(name), label=display_name(name))
                     plt.legend()
                     plt.tight_layout()
                     show_inline_matplotlib_plots()
@@ -261,7 +254,3 @@ def ignore_events():
         yield None
     finally:
         IGNORE_EVENTS.pop(-1)
-
-
-class GuiInterrupt(KeyboardInterrupt):
-    pass

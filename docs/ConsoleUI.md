@@ -10,11 +10,15 @@ Launch via `gui='console'` in [`view()`](phi/vis/index.html#phi.vis.view) or [`s
 
 `play`
 
+`play <frames>`
+
 `pause`
 
 `step`
 
 `help` prints available commands.
+
+`exit`
 
 ## Configuration
 

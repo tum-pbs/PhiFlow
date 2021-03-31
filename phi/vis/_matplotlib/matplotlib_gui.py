@@ -4,9 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 
 from phi import math
-from .._app import App
-from .._display import Gui
-from .._display_util import ordered_field_names
+from .._vis_base import Gui, VisModel
 from ...field import StaggeredGrid
 
 
@@ -17,9 +15,8 @@ class MatplotlibGui(Gui):
         self.axes = None
         self.fig = None
 
-    def setup(self, app: App):
+    def setup(self, app: VisModel):
         Gui.setup(self, app)
-        self.shown_fields = ordered_field_names(self.app, self.config.get('display'), min_count=4, fill_with='None')
         self.fig_count = min(self.config.get('figs', 2), len(self.app.fieldnames))
 
         fig, axes = plt.subplots(1, self.fig_count, figsize=(10, 7))

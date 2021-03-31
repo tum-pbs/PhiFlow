@@ -1880,7 +1880,7 @@ The values will be written to the app's directory and shown in the user interfac
         self.on_loop_exit = []
         for name in fields.keys():
             self.add_field(name, lambda n=name: self.namespace.get_variable(n))
-        self.add_action(&#34;Reset&#34;, lambda: self.restore_initial_field_values())
+        self.add_action(&#34;Reset&#34;, lambda: self.reset())
         self.rec = None
 
     def range(self, *args, warmup=0, **rec_dim):
@@ -1953,7 +1953,7 @@ The values will be written to the app's directory and shown in the user interfac
         &#34;&#34;&#34; Has no effect. The real step is a loop iteration. See `Viewer.range()`. &#34;&#34;&#34;
         pass
 
-    def restore_initial_field_values(self, reset_steps=True):
+    def reset(self, reset_steps=True):
         for name, value in self.initial_field_values.items():
             self.namespace.set_variable(name, value)
         if reset_steps:
@@ -2068,7 +2068,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 </details>
 </dd>
 <dt id="phi.app.Viewer.restore_initial_field_values"><code class="name flex">
-<span>def <span class="ident">restore_initial_field_values</span></span>(<span>self, reset_steps=True)</span>
+<span>def <span class="ident">reset</span></span>(<span>self, reset_steps=True)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2076,7 +2076,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def restore_initial_field_values(self, reset_steps=True):
+<pre><code class="python">def reset(self, reset_steps=True):
     for name, value in self.initial_field_values.items():
         self.namespace.set_variable(name, value)
     if reset_steps:
@@ -2197,7 +2197,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <h4><code><a title="phi.app.Viewer" href="#phi.app.Viewer">Viewer</a></code></h4>
 <ul class="">
 <li><code><a title="phi.app.Viewer.range" href="#phi.app.Viewer.range">range</a></code></li>
-<li><code><a title="phi.app.Viewer.restore_initial_field_values" href="#phi.app.Viewer.restore_initial_field_values">restore_initial_field_values</a></code></li>
+<li><code><a title="phi.app.Viewer.reset" href="#phi.app.Viewer.restore_initial_field_values">reset</a></code></li>
 <li><code><a title="phi.app.Viewer.step" href="#phi.app.Viewer.step">step</a></code></li>
 </ul>
 </li>

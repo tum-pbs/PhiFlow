@@ -1,18 +1,20 @@
 import itertools
+import time
 import warnings
 from threading import Event
 
-from . import EditableValue
-from ._app import App
+from ._value import EditableValue
+from ._log import SceneLog
 from ._user_namespace import UserNamespace
+from ._vis_base import VisModel
 from .. import field
-from ..field import Scene
+from ..field import Scene, SampledField
 
 
 def create_viewer(namespace: UserNamespace,
                   fields: dict,
                   name: str = None,
-                  subtitle: str = "",
+                  description: str = "",
                   scene: Scene = None,
                   asynchronous: bool = False,
                   controls: tuple or list = None,
@@ -20,7 +22,7 @@ def create_viewer(namespace: UserNamespace,
     # controls: `dict` mapping valid Python names to initial values or `EditableValue` instances.
     # The display names for the controls will be generated based on the python names.
     cls = AsyncViewer if asynchronous else Viewer
-    viewer = cls(namespace, fields, name, subtitle, scene, log_performance)
+    viewer = cls(namespace, fields, name, description, scene, log_performance)
     if controls:
         for name, value in controls.items():
             if isinstance(value, EditableValue):
@@ -30,15 +32,12 @@ def create_viewer(namespace: UserNamespace,
     return viewer
 
 
-class Viewer(App):
+class Viewer(VisModel):
     """
-    Launches the user interface to display the contents of the calling Python script or notebook.
+    Shows variables from the user namespace.
+    To create a `Viewer`, call `phi.vis.view()` from the top-level Python script or from a notebook.
 
-    Name and subtitle of the App may be specified in the module docstring (string before imports).
-    The first line is interpreted as the name, the rest as the subtitle.
-    If not specified, a generic name and description is chosen.
-
-    Use ModuleViewer.range() as a for-loop iteratable to control the loop execution from within the GUI.
+    Use `Viewer.range()` to control the loop execution from the user interface.
 
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     """
@@ -47,26 +46,58 @@ class Viewer(App):
                  namespace: UserNamespace,
                  fields: dict,
                  name: str,
-                 subtitle: str,
+                 description: str,
                  scene: Scene,
                  log_performance: bool,
                  ):
-        App.__init__(self, name, subtitle, scene=scene, log_performance=log_performance)
+        VisModel.__init__(self, name, description, scene=scene)
         self.initial_field_values = fields
         self.namespace = namespace
-        self.on_loop_start = []
-        self.on_loop_exit = []
-        for name in fields.keys():
+        self.log_performance = log_performance
+        self._rec = None
+        self._in_loop = False
+        self._log = SceneLog(self.scene)
+        self.log_file = self._log.log_file
+        self._elapsed = None
 
-            def get_field(n=name):
-                if self.rec:
-                    return self.rec[n]
-                else:
-                    return self.namespace.get_variable(n)
+    @property
+    def field_names(self) -> tuple:
+        return tuple(self.initial_field_values.keys())
 
-            self.add_field(name, get_field)
-        self.add_action("Reset", lambda: self.restore_initial_field_values())
-        self.rec = None
+    def get_field(self, field_name) -> SampledField:
+        if field_name not in self.initial_field_values:
+            raise KeyError(field_name)
+        if self._rec:
+            return self._rec[field_name]
+        else:
+            return self.namespace.get_variable(field_name)
+
+    @property
+    def curve_names(self) -> tuple:
+        return self._log.scalar_curve_names
+
+    def get_curve(self, name: str) -> tuple:
+        return self._log.get_scalar_curve(name)
+
+    @property
+    def control_names(self) -> tuple:
+        return ()
+
+    def get_control(self, name) -> EditableValue:
+        raise NotImplementedError(self)
+
+    def set_control_value(self, name, value):
+        raise NotImplementedError(self)
+
+    @property
+    def action_names(self) -> tuple:
+        return "reset",
+
+    def run_action(self, name):
+        if name == 'reset':
+            self.reset()
+        else:
+            raise KeyError(name)
 
     def range(self, *args, warmup=0, **rec_dim):
         """
@@ -86,22 +117,20 @@ class Viewer(App):
         However, do not call this method while one `range` is still active.
 
         Args:
-            *args: No arguments for infinite loop,
-                `(stop: int)` to set number of iterations,
-                `(start: int, stop: int)` to additionally set initial value of `step`.
-            warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
-            **rec_dim: Can be used instead of `*args` to record values along this batch dimension.
+            *args: Either no arguments for infinite loop or single `int` argument `stop`.
+                Must be empty if `rec_dim` is used.
+            **rec_dim: Can be used instead of `*args` to record values along a new batch dimension of this name.
                 The recorded values can be accessed as `Viewer.rec.<name>` or `Viewer.rec['<name>']`.
+            warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
 
-        Returns:
-            generator yielding `ModuleViewer.step`
+        Yields:
+            Step count of `Viewer`.
         """
         for _ in range(warmup):
             yield self.steps
-            self.invalidate()
 
-        for obs in self.on_loop_start:
-            obs(self)
+        self._in_loop = True
+        self._call(self.progress_available)
 
         if rec_dim:
             assert len(rec_dim) == 1, f"Only one rec_dim allowed but got {rec_dim}"
@@ -109,43 +138,62 @@ class Viewer(App):
             rec_dim_name = next(iter(rec_dim.keys()))
             size = rec_dim[rec_dim_name]
             assert isinstance(size, int)
-            self.rec = Record(rec_dim_name)
-            self.rec.append(self.initial_field_values, warn_missing=False)
+            self._rec = Record(rec_dim_name)
+            self._rec.append(self.initial_field_values, warn_missing=False)
             args = [size]
             self.growing_dims = [rec_dim_name]
 
         if len(args) == 0:
             step_source = itertools.count(start=1)
-        elif len(args) == 1:
-            step_source = range(args[0])
-        elif len(args) == 2:
-            step_source = range(args[0], args[1])
         else:
-            raise ValueError(args)
+            step_source = range(*args)
 
         try:
             for step in step_source:
                 self.steps = step
-                self._pre_step()
-                yield step
-                self._post_step(notify_observers=False)
-                if rec_dim:
-                    self.rec.append({name: self.namespace.get_variable(name) for name in self.fieldnames})
-                for obs in self.post_step:
-                    obs(self)
+                try:
+                    self._pre_step()
+                    t = time.perf_counter()
+                    yield step
+                    self._elapsed = time.perf_counter() - t
+                    if rec_dim:
+                        self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
+                    if self.log_performance:
+                        self._log.log_scalars(self.steps, step_time=self._elapsed)
+                finally:
+                    self._post_step()
+                self._call(self.post_step)
         finally:
-            for obs in self.on_loop_exit:
-                obs(self)
+            self._in_loop = False
+            self._call(self.progress_unavailable)
 
-    def step(self):
-        """ Has no effect. The real step is a loop iteration. See `Viewer.range()`. """
-        pass
+    def _pre_step(self):
+        self._call(self.pre_step)
 
-    def restore_initial_field_values(self, reset_steps=True):
+    def _post_step(self):
+        self._call(self.post_step)
+
+    @property
+    def rec(self) -> 'Record':
+        """
+        Read recorded fields as `viewer.rec.<name>`.
+        Accessing `rec` without having started a recording using `Viewer.range()` raises an `AssertionError`.
+        """
+        assert self._rec, "Enable recording by calling range() with a dimension name, e.g. 'range(frames=10)'."
+        return self._rec
+
+    @property
+    def can_progress(self) -> bool:
+        return self._in_loop
+
+    def reset(self):
+        """
+        Restores all viewed fields to the states they were in when the viewer was created.
+        Changes variable values in the user namespace.
+        """
         for name, value in self.initial_field_values.items():
             self.namespace.set_variable(name, value)
-        if reset_steps:
-            self.steps = 0
+        self.steps = 0
 
 
 class AsyncViewer(Viewer):
@@ -154,22 +202,17 @@ class AsyncViewer(Viewer):
         Viewer.__init__(self, *args)
         self.step_exec_event = Event()
         self.step_finished_event = Event()
-        self._interrupt = False
 
     def _pre_step(self):
         self.step_exec_event.wait()
-        if self._interrupt:
-            raise InterruptedError()
-        App._pre_step(self)
+        self._call(self.pre_step)
 
-    def _post_step(self, notify_observers=True):
-        App._post_step(self)
-        if self._interrupt:
-            raise InterruptedError()
+    def _post_step(self):
+        self._call(self.post_step)
         self.step_exec_event.clear()
         self.step_finished_event.set()
 
-    def _progress(self):  # called by the GUI
+    def progress(self):  # called by the GUI
         """
         Allows the generator returned by `ModuleViewer.range()` to advance one element.
         In typical scenarios, this will run one loop iteration in the top-level script.
@@ -177,9 +220,6 @@ class AsyncViewer(Viewer):
         self.step_finished_event.clear()
         self.step_exec_event.set()
         self.step_finished_event.wait()
-
-    def interrupt(self):
-        self._interrupt = True
 
 
 class Record:

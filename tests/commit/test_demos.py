@@ -3,8 +3,7 @@ from os.path import join, dirname, abspath
 from unittest import TestCase
 
 import phi
-import phi.vis._display as display
-from phi.vis._viewer import AsyncViewer
+import phi.vis._vis_base as display
 from phi.field import Field
 from phi.math import backend
 
@@ -14,7 +13,7 @@ BACKENDS = tuple([b for b in BACKENDS if b.name != 'Jax'])
 
 
 def validate_fields(app):
-    for name in app.fieldnames:
+    for name in app.field_names:
         value = app.get_field(name)
         assert isinstance(value, Field) or value is None or backend.choose_backend(value, raise_error=False) is not None, \
             f"Field '{name}' has an invalid value: {value}"
@@ -29,8 +28,8 @@ class PerformModelTests(display.Gui):
         display.Gui.setup(self, app)
         app.prepare()
         validate_fields(app)
-        app._progress()
-        app._progress()
+        app.progress()
+        app.progress()
         validate_fields(app)
         print("Tests successful.")
         raise InterruptedError

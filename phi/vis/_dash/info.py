@@ -33,7 +33,7 @@ Data path: {app.scene}
 def build_description(dashapp):
     assert isinstance(dashapp, DashApp)
     app = dashapp.app
-    md_src = _description_markdown_src(app.name, app.subtitle)
+    md_src = _description_markdown_src(app.name, app.description)
     return dcc.Markdown(children=md_src, id='info_markdown')
 
 

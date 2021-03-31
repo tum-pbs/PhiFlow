@@ -11,6 +11,7 @@ from .physics._fluid_legacy import Fluid, IncompressibleFlow, GeometryMovement
 from .physics.diffuse import explicit as diffuse
 from .field._scene import write_sim_frame
 from .vis._app import App
+from .vis._value import EditableInt, EditableBool, EditableFloat, EditableString
 
 physics_config = math.GLOBAL_AXIS_ORDER
 physics_config.x_last()
