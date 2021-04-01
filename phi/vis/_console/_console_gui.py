@@ -1,8 +1,9 @@
+import os
 import shutil
 import time
 
 from phi.field import StaggeredGrid
-from .._vis_base import Gui, play_async, gui_interrupt
+from .._vis_base import Gui, play_async, gui_interrupt, select_channel, get_control_by_name, status_message
 from ._console_plot import heatmap, quiver
 
 
@@ -39,38 +40,69 @@ class ConsoleGui(Gui):
         while True:
             print("PhiFlow>", end="")
             command = input()
-            if command == 'step':
-                self.app.progress()
-            elif command.startswith('play'):
-                if self.play_status:
-                    print("Wait for current step to finish." if self.play_status.paused else "Already playing, command ignored.")
-                else:
-                    if command.strip() == 'play':
-                        frames = None
-                    else:
-                        frames = int(command[len('play '):].strip())
-                    self.play_status = play_async(self.app, frames)
-            elif command == 'pause':
-                if self.play_status:
-                    self.play_status.pause()
-            elif command == 'exit':
-                if self.play_status:
-                    self.play_status.pause()
-                if self.app.can_progress:
-                    self.app.pre_step.append(gui_interrupt)
-                    self.app.progress()
-                return  # exit this thread
-            elif command == 'show':
-                self.draw()
-            elif command.startswith('show '):
-                fields = command[len('show '):].split(',')
-                fields = [f.strip() for f in fields]
-                self.draw(fields)
-            elif command == 'help':
-                print("Commands: help, step, play, pause, show, show <comma-separated fieldnames>")
-            else:
-                print(f"Command {command} not recognized.")
+            if command.strip() == "":
                 time.sleep(.1)
+            else:
+                commands = [s.strip() for s in command.split(';')]
+                for command in commands:
+                    try:
+                        self.process_command(command)
+                    except Exception as exc:
+                        print(exc)
+
+    def process_command(self, command: str):
+        if command == 'step':
+            self.app.progress()
+        elif command.startswith('play'):
+            if self.play_status:
+                print("Wait for current step to finish." if self.play_status.paused else "Already playing, command ignored.")
+            else:
+                if command.strip() == 'play':
+                    frames = None
+                else:
+                    frames = int(command[len('play '):].strip())
+                self.play_status = play_async(self.app, frames)
+        elif command == 'pause':
+            if self.play_status:
+                self.play_status.pause()
+        elif command == 'status':
+            print(status_message(self.app, self.play_status))
+        elif command == 'exit':
+            if self.play_status:
+                self.play_status.pause()
+            if self.app.can_progress:
+                self.app.pre_step.append(gui_interrupt)
+                self.app.progress()
+            return  # exit this thread
+        elif command == 'kill':
+            os._exit(0)
+        elif command == 'show':
+            self.draw()
+        elif command.startswith('show '):
+            fields = command[len('show '):].split(',')
+            fields = [f.strip() for f in fields]
+            self.draw(fields)
+        elif command == 'controls':
+            if self.app.controls:
+                print("Available controls:\n-------------------------------------------")
+                for control in self.app.controls:
+                    value = self.app.get_control_value(control.name)
+                    print(f"{control.name}: {control.control_type.__name__} = {value}  \t(initial value: {control.initial}, \trange {control.value_range})")
+                print("-------------------------------------------")
+                print("You can change a control value by typing '<control_name> = <value>'")
+            else:
+                print("No controls available. Create controls in your Python script using '<control_name> = control(value)'.")
+        elif '=' in command:
+            parts = command.split('=')
+            assert len(parts) == 2, "Invalid command syntax. Use '<control_name> = <value>'. Type 'controls' for a list of available controls."
+            name, value = parts
+            control = get_control_by_name(self.app, name)
+            value = control.control_type(value)  # raises ValueError
+            self.app.set_control_value(name, value)
+        elif command == 'help':
+            print("Commands: help, step, play, pause, show, show <comma-separated fieldnames>")
+        else:
+            print(f"Command {command} not recognized.")
 
     def draw(self, field_names: list = None):
         if field_names is None:
@@ -78,6 +110,10 @@ class ConsoleGui(Gui):
                 print("Nothing to show.")
                 return
             field_names = self.app.field_names[:2] if len(self.app.field_names) > 2 else self.app.field_names
+            channel_sel = [None] * len(field_names)
+        else:
+            channel_sel = [n[n.index('.')+1:] if '.' in n else None for n in field_names]
+            field_names = [n[:n.index('.')] if '.' in n else n for n in field_names]
         values = []
         for n in field_names:
             try:
@@ -89,9 +125,8 @@ class ConsoleGui(Gui):
         plt_width = cols // len(values)
         plt_height = rows - 1
         lines = [""] * plt_height
-        for name, v in zip(field_names, values):
-            if isinstance(v, StaggeredGrid):
-                v = v.at_centers()
+        for name, v, ch_sel in zip(field_names, values, channel_sel):
+            v = select_channel(v, ch_sel)
             if v.vector.exists:
                 plt_lines = quiver(v, plt_width, plt_height, name, threshold=0.1, basic_chars=True)
             else:

@@ -62,7 +62,8 @@ def view(*fields: str or SampledField,
     name = name or user_namespace.get_title()
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=tuple(CONTROL_VARS), log_performance=True)
+    controls = tuple(c for c in CONTROL_VARS if user_namespace.get_variable(c.name) is not None)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, log_performance=True)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer
 

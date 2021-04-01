@@ -1,27 +1,43 @@
 # Console Interface
+The console interface enables interaction with Python scripts through the command line.
+
 Launch via `gui='console'` in [`view()`](phi/vis/index.html#phi.vis.view) or [`show()`](phi/vis/index.html#phi.vis.show).
 
+The console interface runs on a different thread than the main Python script.
 
 ## Commands
+
+Multiple commands can be chained using `;` to separate them.
+
+### General Commands
+
+`help` Prints available commands.
+
+`status` Prints the current status.
+
+`controls` Prints a list of available controls and their values.
+
+### Plotting
 
 `show` Plots the first two fields.
 
 `show <fields>`
 
-`play`
+`show <field>.<component>` where `<component>` must be one of `x`, `y`, `z`, `abs`
 
-`play <frames>`
+### Control Execution
 
-`pause`
+`play` Runs all loop iterations until paused.
 
-`step`
+`play <frames>` Runs a certain number of iterations. Has no effect if already playing.
 
-`help` prints available commands.
+`pause` Pauses loop execution after the current iteration finishes.
 
-`exit`
+`step` Progresses the loop by one iteration.
 
-## Configuration
+`<control_name> = <value>` Sets a control value.
 
-| Parameter       | Description |            Default |
-|-----------------|-------------|-------------------:|
-| display         | Deprecated. |               `None` |
+`exit` Finishes the current loop iteration and exits the program.
+
+`kill` Immediately stops the Python process.
+

@@ -77,6 +77,9 @@ class Viewer(VisModel):
     def controls(self) -> Tuple[Control]:
         return self._controls
 
+    def get_control_value(self, name):
+        return self.namespace.get_variable(name)
+
     def set_control_value(self, name, value):
         self.namespace.set_variable(name, value)
 

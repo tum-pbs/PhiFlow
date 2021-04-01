@@ -122,6 +122,9 @@ class VisModel:
     def controls(self) -> Tuple[Control]:
         raise NotImplementedError(self)
 
+    def get_control_value(self, name):
+        raise NotImplementedError(self)
+
     def set_control_value(self, name, value):
         raise NotImplementedError(self)
 
@@ -137,6 +140,14 @@ class VisModel:
     def _call(self, observers):
         for obs in observers:
             obs(self)
+
+
+def get_control_by_name(model: VisModel, control_name: str):
+    assert isinstance(control_name, str)
+    for control in model.controls:
+        if control.name == control_name:
+            return control
+    raise KeyError(f"No control with name '{control_name}'. Available controls: {model.controls}")
 
 
 def _step_and_wait(model: VisModel, framerate=None):
