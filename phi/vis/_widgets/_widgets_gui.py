@@ -169,7 +169,7 @@ class WidgetsGui(Gui):
                         value = value[dim_selection]
                         try:
                             value = select_channel(value, {'🡡': None, '⬤': 'abs'}.get(self.vector_select.value, self.vector_select.value))
-                            plot(value, figsize=(12, 5))
+                            plot(value, **self.config.get('plt_args', {}))
                             show_inline_matplotlib_plots()
                         except ValueError as err:
                             self.figure_display.append_stdout(f"{err}")

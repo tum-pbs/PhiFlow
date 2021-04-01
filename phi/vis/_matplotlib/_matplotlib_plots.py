@@ -15,7 +15,7 @@ from phi.field._field_math import batch_stack
 from phi.field._scene import _str
 
 
-def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+def plot(field: SampledField or tuple or list, title=False, colorbar=True, figsize=(12, 5), same_scale=True, **plt_args):
     """
     Creates a Matplotlib figure to display a single field or batch of fields.
 
