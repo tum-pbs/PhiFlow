@@ -42,7 +42,7 @@ See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visual
 from ._vis_base import show
 from ._viewer import Viewer
 from ._matplotlib import plot, animate, plot_scalars
-from ._vis import view
+from ._vis import view, control
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
@@ -57,6 +57,9 @@ __pdoc__ = {
     &#39;Viewer.get_field&#39;: False,
     &#39;Viewer.run_action&#39;: False,
     &#39;Viewer.set_control_value&#39;: False,
+    &#39;Viewer.log_scalars&#39;: False,
+    &#39;Viewer.controls&#39;: False,
+    &#39;Viewer.get_control_value&#39;: False,
 }</code></pre>
 </details>
 </section>
@@ -135,6 +138,62 @@ __pdoc__ = {
     return ani</code></pre>
 </details>
 </dd>
+<dt id="phi.vis.control"><code class="name flex">
+<span>def <span class="ident">control</span></span>(<span>value, range: tuple = None, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Mark a variable as controllable by any GUI created via <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
+<p>Example:</p>
+<pre><code class="language-python">dt = control(1.0, (0.1, 10), name=&quot;Time increment&quot;)
+</code></pre>
+<p>The value o</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>Initial value. Must be either <code>int</code>, <code>float´,</code>bool<code> or </code>str`.</dd>
+<dt><strong><code>range</code></strong></dt>
+<dd>(Optional) Specify range of possible values as <code>(min, max)</code>. Only for <code>int</code> and <code>float</code> values.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional arguments to determine the appearance of the GUI component,
+e.g. <code>rows</code> for text fields or <code>log=False</code> for float sliders.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>value</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def control(value, range: tuple = None, **kwargs):
+    &#34;&#34;&#34;
+    Mark a variable as controllable by any GUI created via `view()`.
+
+    Example:
+    ```python
+    dt = control(1.0, (0.1, 10), name=&#34;Time increment&#34;)
+    ```
+
+    The value o
+
+    Args:
+        value: Initial value. Must be either `int`, `float´, `bool` or `str`.
+        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int` and `float` values.
+        **kwargs: Additional arguments to determine the appearance of the GUI component,
+            e.g. `rows` for text fields or `log=False` for float sliders.
+
+    Returns:
+        `value`
+    &#34;&#34;&#34;
+    assert type(value) in (int, float, bool, str), f&#34;Value must be one of (int, float, bool, str) but {type(value)}&#34;
+    calling_code = inspect.stack()[1].code_context[0]
+    assert &#39;control&#39; in calling_code and &#39;=&#39; in calling_code, f&#34;control() must be used in a variable assignment statement but context is: {calling_code}&#34;
+    calling_code = calling_code[:calling_code.index(&#39;control&#39;)]
+    var_names = [var.strip() for var in calling_code.split(&#39;=&#39;)[:-1]]
+    var_names = [n for n in var_names if n]
+    for var_name in var_names:
+        CONTROL_VARS.append(Control(var_name, type(value), value, range, kwargs))
+    return value</code></pre>
+</details>
+</dd>
 <dt id="phi.vis.plot"><code class="name flex">
 <span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args)</span>
 </code></dt>
@@ -169,7 +228,6 @@ __pdoc__ = {
 
     Use [`matplotlib.pyplot.show()`](https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.show.html) or
     [`matplotlib.pyplot.savefig()`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html) to view the figure.
-
 
     Args:
         field: `SampledField`, may contain batch dimensions which will create subfigures.
@@ -339,7 +397,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
-<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, controls=(), keep_alive=True, select: str = 'frames,', framerate=None, **config) ‑> phi.vis._viewer.Viewer</span>
+<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, keep_alive=True, select: str = '', framerate=None, **config) ‑> phi.vis._viewer.Viewer</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
@@ -374,6 +432,7 @@ Will be generated from the top-level script if not provided.</dd>
 <dd>Target frame rate in Hz. Play will not step faster than the framerate. <code>None</code> for unlimited frame rate.</dd>
 <dt><strong><code>select</code></strong></dt>
 <dd>Dimension names along which one item to show is selected.
+Dimensions may be passed as <code>tuple</code> of <code>str</code> or as comma-separated names in a single <code>str</code>.
 For each <code>select</code> dimension, an associated selection slider will be created.</dd>
 <dt><strong><code>**config</code></strong></dt>
 <dd>Additional GUI configuration arguments.</dd>
@@ -390,9 +449,8 @@ For each <code>select</code> dimension, an associated selection slider will be c
          name: str = None,
          description: str = None,
          scene: bool or Scene = False,
-         controls=(),
          keep_alive=True,
-         select: str or tuple or list = &#39;frames,&#39;,
+         select: str or tuple or list = &#39;&#39;,
          framerate=None,
          **config) -&gt; Viewer:
     &#34;&#34;&#34;
@@ -421,6 +479,7 @@ For each <code>select</code> dimension, an associated selection slider will be c
         keep_alive: Whether the GUI should keep running even after the main thread finishes.
         framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
         select: Dimension names along which one item to show is selected.
+            Dimensions may be passed as `tuple` of `str` or as comma-separated names in a single `str`.
             For each `select` dimension, an associated selection slider will be created.
         **config: Additional GUI configuration arguments.
 
@@ -438,7 +497,8 @@ For each <code>select</code> dimension, an associated selection slider will be c
     name = name or user_namespace.get_title()
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls)
+    controls = tuple(c for c in CONTROL_VARS if user_namespace.get_variable(c.name) is not None)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, log_performance=True)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer</code></pre>
 </details>
@@ -450,7 +510,7 @@ For each <code>select</code> dimension, an associated selection slider will be c
 <dl>
 <dt id="phi.vis.Viewer"><code class="flex name class">
 <span>class <span class="ident">Viewer</span></span>
-<span>(</span><span>namespace: phi.vis._user_namespace.UserNamespace, fields: dict, name: str, description: str, scene: phi.field._scene.Scene, log_performance: bool)</span>
+<span>(</span><span>namespace: phi.vis._user_namespace.UserNamespace, fields: dict, name: str, description: str, scene: phi.field._scene.Scene, controls: tuple, log_performance: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shows variables from the user namespace.
@@ -477,10 +537,12 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
                  name: str,
                  description: str,
                  scene: Scene,
+                 controls: tuple,
                  log_performance: bool,
                  ):
         VisModel.__init__(self, name, description, scene=scene)
         self.initial_field_values = fields
+        self._controls = controls
         self.namespace = namespace
         self.log_performance = log_performance
         self._rec = None
@@ -488,6 +550,9 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         self._log = SceneLog(self.scene)
         self.log_file = self._log.log_file
         self._elapsed = None
+
+    def log_scalars(self, **values):
+        self._log.log_scalars(self.steps, **values)
 
     @property
     def field_names(self) -&gt; tuple:
@@ -509,14 +574,14 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         return self._log.get_scalar_curve(name)
 
     @property
-    def control_names(self) -&gt; tuple:
-        return ()
+    def controls(self) -&gt; Tuple[Control]:
+        return self._controls
 
-    def get_control(self, name) -&gt; EditableValue:
-        raise NotImplementedError(self)
+    def get_control_value(self, name):
+        return self.namespace.get_variable(name)
 
     def set_control_value(self, name, value):
-        raise NotImplementedError(self)
+        self.namespace.set_variable(name, value)
 
     @property
     def action_names(self) -&gt; tuple:
@@ -791,8 +856,9 @@ Changes variable values in the user namespace.</p></div>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="phi.vis.animate" href="#phi.vis.animate">animate</a></code></li>
+<li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>
 <li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>
 <li><code><a title="phi.vis.show" href="#phi.vis.show">show</a></code></li>

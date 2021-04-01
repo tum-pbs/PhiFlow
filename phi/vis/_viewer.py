@@ -54,6 +54,9 @@ class Viewer(VisModel):
         self.log_file = self._log.log_file
         self._elapsed = None
 
+    def log_scalars(self, **values):
+        self._log.log_scalars(self.steps, **values)
+
     @property
     def field_names(self) -> tuple:
         return tuple(self.initial_field_values.keys())

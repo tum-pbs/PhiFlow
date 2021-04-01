@@ -1075,6 +1075,8 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 </summary>
 <pre><code class="python">def vec_abs(field: SampledField):
     &#34;&#34;&#34; See `phi.math.vec_abs()` &#34;&#34;&#34;
+    if isinstance(field, StaggeredGrid):
+        field = field.at_centers()
     return field.with_(values=math.vec_abs(field.values))</code></pre>
 </details>
 </dd>
@@ -1089,6 +1091,8 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 </summary>
 <pre><code class="python">def vec_squared(field: SampledField):
     &#34;&#34;&#34; See `phi.math.vec_squared()` &#34;&#34;&#34;
+    if isinstance(field, StaggeredGrid):
+        field = field.at_centers()
     return field.with_(values=math.vec_squared(field.values))</code></pre>
 </details>
 </dd>
@@ -3804,7 +3808,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             full_trace: Whether to include scripts that indirectly called this method.
             include_context_information: If True, writes the phiflow version and `sys.argv` into `context.json`.
         &#34;&#34;&#34;
-        script_paths = [frame[1] for frame in inspect.stack()]
+        script_paths = [frame.filename for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
         self.subpath(&#39;src&#39;, create=True)
@@ -4183,7 +4187,7 @@ def shape(self):
         full_trace: Whether to include scripts that indirectly called this method.
         include_context_information: If True, writes the phiflow version and `sys.argv` into `context.json`.
     &#34;&#34;&#34;
-    script_paths = [frame[1] for frame in inspect.stack()]
+    script_paths = [frame.filename for frame in inspect.stack()]
     script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
     script_paths = set(script_paths) if full_trace else [script_paths[0]]
     self.subpath(&#39;src&#39;, create=True)

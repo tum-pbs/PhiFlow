@@ -25,4 +25,7 @@ __pdoc__ = {
     'Viewer.get_field': False,
     'Viewer.run_action': False,
     'Viewer.set_control_value': False,
+    'Viewer.log_scalars': False,
+    'Viewer.controls': False,
+    'Viewer.get_control_value': False,
 }
