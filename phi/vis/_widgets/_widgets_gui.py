@@ -15,7 +15,8 @@ from matplotlib import pyplot as plt
 from phi.math._shape import parse_dim_order
 from phi.field import SampledField
 from .._matplotlib._matplotlib_plots import plot
-from .._vis_base import Gui, VisModel, display_name, GuiInterrupt
+from .._vis_base import Gui, VisModel, display_name, GuiInterrupt, select_channel
+from ... import field
 
 
 class WidgetsGui(Gui):
@@ -37,6 +38,7 @@ class WidgetsGui(Gui):
         self.status = None
         self.buttons = None
         self.field_select = None
+        self.vector_select = None
         self.dim_sliders = {}
         self._graphs_enabled = False
 
@@ -82,15 +84,20 @@ class WidgetsGui(Gui):
             self.dim_sliders[sel_dim] = slider
             dim_sliders.append(slider)
             slider.observe(lambda e: None if IGNORE_EVENTS else self.update_widgets(), 'value')
+        self.vector_select = widgets.ToggleButtons(
+            options=['🡡', 'x', 'y', 'z', '⬤'],
+            value='🡡',
+            disabled=False,
+            button_style='',  # 'success', 'info', 'warning', 'danger' or ''
+            tooltips=['Vectors as arrows', 'x component as heatmap', 'y component as heatmap', 'z component as heatmap', 'vector length as heatmap'],
+            #  icons=['check'] * 3
+        )
+        self.vector_select.style.button_width = '30px'
+        self.vector_select.observe(lambda e: None if IGNORE_EVENTS else self.update_widgets(), 'value')
         layout = VBox([
             self.buttons,
             self.status,
-            HBox([self.field_select, *dim_sliders]),  # sliders in line with select
-            self.figure_display
-        ] if len(dim_sliders) <= 1 else [
-            self.buttons,
-            self.status,
-            self.field_select,
+            HBox([self.field_select, self.vector_select]),
             HBox(dim_sliders),  # sliders below field select
             self.figure_display
         ])
@@ -120,17 +127,20 @@ class WidgetsGui(Gui):
         if not self._graphs_enabled and self.app.curve_names:
             self._graphs_enabled = True
             self.field_select.layout.visibility = 'visible'
-        for sel_dim, slider in self.dim_sliders.items():
-            if self.field == 'Scalars':
+        if self.field == 'Scalars':
+            self.vector_select.layout.visibility = 'hidden'
+            for sel_dim, slider in self.dim_sliders.items():
                 slider.layout.visibility = 'hidden'
-            else:
-                field = self.app.get_field(self.field)
-                if isinstance(field, SampledField) and sel_dim in field.shape:
+        else:
+            value = self.app.get_field(self.field)
+            self.vector_select.layout.visibility = 'visible' if isinstance(value, SampledField) and value.vector.exists else 'hidden'
+            for sel_dim, slider in self.dim_sliders.items():
+                if isinstance(value, SampledField) and sel_dim in value.shape:
                     slider.layout.visibility = 'visible'
-                    slider.max = field.shape.get_size(sel_dim) - 1
+                    slider.max = value.shape.get_size(sel_dim) - 1
                     if scroll_to_last and sel_dim in self.app.growing_dims:
                         with ignore_events():
-                            slider.value = field.shape.get_size(sel_dim) - 1
+                            slider.value = value.shape.get_size(sel_dim) - 1
                 else:
                     slider.layout.visibility = 'hidden'
         # Figure
@@ -154,14 +164,17 @@ class WidgetsGui(Gui):
                     plt.tight_layout()
                     show_inline_matplotlib_plots()
                 else:
-                    field = self.app.get_field(field_name)
-                    # self.figure_display.append_stdout(f"Accessing {dim_selection} in {field}")
-                    field = field[dim_selection]
-                    if isinstance(field, SampledField):
-                        plot(field, figsize=(12, 5))
-                        show_inline_matplotlib_plots()
+                    value = self.app.get_field(field_name)
+                    if isinstance(value, SampledField):
+                        value = value[dim_selection]
+                        try:
+                            value = select_channel(value, {'🡡': None, '⬤': 'abs'}.get(self.vector_select.value, self.vector_select.value))
+                            plot(value, figsize=(12, 5))
+                            show_inline_matplotlib_plots()
+                        except ValueError as err:
+                            self.figure_display.append_stdout(f"{err}")
                     else:
-                        self.figure_display.append_stdout(f"{field_name} = {field}")
+                        self.figure_display.append_stdout(f"{field_name} = {value}")
             except Exception:
                 self.figure_display.append_stdout(traceback.format_exc())
         self._last_plot_update_time = time.time()

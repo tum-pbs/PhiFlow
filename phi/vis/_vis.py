@@ -15,7 +15,7 @@ def view(*fields: str or SampledField,
          description: str = None,
          scene: bool or Scene = False,
          keep_alive=True,
-         select: str or tuple or list = 'frames,',
+         select: str or tuple or list = '',
          framerate=None,
          **config) -> Viewer:
     """
@@ -44,6 +44,7 @@ def view(*fields: str or SampledField,
         keep_alive: Whether the GUI should keep running even after the main thread finishes.
         framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
         select: Dimension names along which one item to show is selected.
+            Dimensions may be passed as `tuple` of `str` or as comma-separated names in a single `str`.
             For each `select` dimension, an associated selection slider will be created.
         **config: Additional GUI configuration arguments.
 

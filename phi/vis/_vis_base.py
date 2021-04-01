@@ -8,6 +8,7 @@ from math import log10
 from threading import Thread, Lock
 from typing import Tuple
 
+from phi import field
 from phi.field import SampledField, Scene
 
 
@@ -221,7 +222,7 @@ class Gui:
         Creates a display for the given vis and initializes the configuration.
         This method does not set up the display. It only sets up the Gui object and returns as quickly as possible.
         """
-        self.app = None
+        self.app: VisModel = None
         self.asynchronous = asynchronous
         self.config = {}
 
@@ -380,3 +381,21 @@ def display_name(python_name):
             if len(n) > i + 1:
                 n[i + 1] = n[i + 1].upper()
     return "".join(n)
+
+
+def select_channel(value: SampledField, channel: str or None):
+    if channel is None:
+        return value
+    elif channel == 'abs':
+        if value.vector.exists:
+            return field.vec_abs(value)
+        else:
+            return value
+    else:  # x, y, z
+        if channel in value.shape.spatial and 'vector' in value.shape:
+            comp_index = value.shape.spatial.index(channel)
+            return value.unstack('vector')[comp_index]
+        elif 'vector' in value.shape:
+            raise ValueError(f"Dimension {value} unavailable.")
+        else:
+            return value

@@ -560,11 +560,15 @@ def stop_gradient(field: SampledField):
 
 def vec_abs(field: SampledField):
     """ See `phi.math.vec_abs()` """
+    if isinstance(field, StaggeredGrid):
+        field = field.at_centers()
     return field.with_(values=math.vec_abs(field.values))
 
 
 def vec_squared(field: SampledField):
     """ See `phi.math.vec_squared()` """
+    if isinstance(field, StaggeredGrid):
+        field = field.at_centers()
     return field.with_(values=math.vec_squared(field.values))
 
 
