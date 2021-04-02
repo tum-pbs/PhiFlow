@@ -6,14 +6,13 @@ Simple plasma flow model.
 from phi.flow import *
 import time
 
-
 math.set_global_precision(64)
 
 # Simulation parameters
 k0 = 0.15  # smallest wavenumber in the box
 x = 64  # x size
 y = 64  # y size
-dt = 0.1  # timestep
+dt = control(0.1)  # timestep
 DEBUG = False
 # Physical Parameters
 c1 = 0.1  # adiabatic coefficient
@@ -91,16 +90,6 @@ class Namespace(dict):
         return Namespace({key: val for key, val in self.items()})
 
 
-domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
-state = Namespace(
-    density=domain.grid(math.random_normal(x=x, y=y)),
-    omega=domain.grid(math.random_normal(x=x, y=y)),
-    phi=domain.grid(math.random_normal(x=x, y=y)),
-    age=0,
-    dx=dx,
-)
-
-
 def get_phi(plasma, guess=None):
     """Fourier Poisson Solve for Phi"""
     centered_omega = plasma.omega  # (plasma.omega - np.mean(plasma.omega))
@@ -110,6 +99,7 @@ def get_phi(plasma, guess=None):
 
 def step_gradient_2d(plasma, phi, dt=0):
     """time spatial_gradient of model"""
+
     # Diffusion function
     def diffuse(arr, N, dx):
         for i in range(N):
@@ -163,11 +153,11 @@ def euler_step(dt, gradient_func=step_gradient_2d, **kwargs):
     )
 
 
-def rk4_step(dt, gradient_func=step_gradient_2d, **kwargs):
+def rk4_step(dt, density, omega, phi, age, gradient_func=step_gradient_2d):
     # RK4
-    yn = Namespace(**kwargs)  # given dict to Namespace
+    yn = Namespace(density=density, omega=omega, phi=phi, age=age, dt=dt, dx=dx)  # given dict to Namespace
     t0 = time.time()
-    if yn.age == 0:
+    if age == 0:
         pn = get_phi(yn, guess=yn.phi)
     else:
         pn = yn.phi
@@ -191,7 +181,7 @@ def rk4_step(dt, gradient_func=step_gradient_2d, **kwargs):
                     f"{np.max(np.abs(k2.density.data)):>7.02g}",
                     f"{np.max(np.abs(k3.density.data)):>7.02g}",
                     f"{np.max(np.abs(k4.density.data)):>7.02g}",
-                    f"{t1-t0:>6.02f}s",
+                    f"{t1 - t0:>6.02f}s",
                 ]
             )
         )
@@ -204,8 +194,12 @@ def rk4_step(dt, gradient_func=step_gradient_2d, **kwargs):
     )
 
 
-app = App("Hasegawa Wakatani", framerate=10, dt=EditableFloat("dt", dt))
-app.set_state(state, step_function=rk4_step, show=["density", "omega", "phi"])
-app.prepare()
-show(app, display=("density", "omega", "phi"))
+domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
+density = domain.grid(math.random_normal(x=x, y=y))
+omega = domain.grid(math.random_normal(x=x, y=y))
+phi = domain.grid(math.random_normal(x=x, y=y))
+age = 0
 
+for _ in view('density', 'omega', 'phi', play=False, framerate=10).range():
+    density, omega, phi = rk4_step(dt, density, omega, phi, age)
+    age += dt

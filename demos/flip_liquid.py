@@ -18,7 +18,7 @@ velocity = particles >> DOMAIN.staggered_grid()
 pressure = DOMAIN.scalar_grid()
 scene = particles & _OBSTACLE_POINTS * (0, 0)  # only for plotting
 
-for _ in ModuleViewer(display='scene').range():
+for _ in view(display='scene', play=False).range():
     div_free_velocity, pressure, _, _, occupied = flip.make_incompressible(velocity + DT * GRAVITY, DOMAIN, particles, ACCESSIBLE_MASK)
     particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity)
     particles = advect.runge_kutta_4(particles, div_free_velocity, DT, accessible=ACCESSIBLE_MASK, occupied=occupied)

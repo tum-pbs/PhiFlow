@@ -20,7 +20,7 @@ dense_marker = CenteredGrid(checkerboard(), DOMAIN.bounds)
 points = math.join_dimensions(DOMAIN.cells.center.x[::4].y[::4], ('x', 'y'), 'points').points.as_batch()
 sparse_marker = PointCloud(Sphere(points, 1), math.random_normal(points.shape.without('vector')))
 
-for _ in ModuleViewer(framerate=10).range():
+for _ in view(framerate=10, play=False).range():
     velocity = advect.semi_lagrangian(velocity, velocity, DT)
     velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN)
     dense_marker = advect.advect(dense_marker, velocity, DT)

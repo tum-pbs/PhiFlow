@@ -430,8 +430,8 @@ def concat(*fields: SampledField, dim: str):
 
 
 def batch_stack(*fields, dim: str):
-    assert all(isinstance(f, SampledField) for f in fields)
-    assert all(isinstance(f, type(fields[0])) for f in fields)
+    assert all(isinstance(f, SampledField) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
+    assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
         raise NotImplementedError("Concatenating extrapolations not supported")
     if isinstance(fields[0], Grid):
@@ -560,11 +560,15 @@ def stop_gradient(field: SampledField):
 
 def vec_abs(field: SampledField):
     """ See `phi.math.vec_abs()` """
+    if isinstance(field, StaggeredGrid):
+        field = field.at_centers()
     return field.with_(values=math.vec_abs(field.values))
 
 
 def vec_squared(field: SampledField):
     """ See `phi.math.vec_squared()` """
+    if isinstance(field, StaggeredGrid):
+        field = field.at_centers()
     return field.with_(values=math.vec_squared(field.values))
 
 

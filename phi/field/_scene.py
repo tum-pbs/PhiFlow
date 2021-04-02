@@ -270,12 +270,22 @@ class Scene(object):
     def _init_properties(self):
         if self._properties is not None:
             return
-        dfile = join(next(iter(math.flatten(self._paths))), "description.json")
-        if isfile(dfile):
-            with open(dfile) as stream:
+        json_file = join(next(iter(math.flatten(self._paths))), "description.json")
+        if isfile(json_file):
+            with open(json_file) as stream:
                 self._properties = json.load(stream)
         else:
             self._properties = {}
+
+    def exist_properties(self):
+        """
+        Checks whether the file `description.json` exists or has existed.
+        """
+        if self._properties is not None:
+            return True  # must have been written or read
+        else:
+            json_file = join(next(iter(math.flatten(self._paths))), "description.json")
+            return isfile(json_file)
 
     def exists_config(self):
         """ Tests if the configuration file *description.json* exists. In batch mode, tests if any configuration exists. """
@@ -401,12 +411,19 @@ class Scene(object):
             full_trace: Whether to include scripts that indirectly called this method.
             include_context_information: If True, writes the phiflow version and `sys.argv` into `context.json`.
         """
-        script_paths = [frame[1] for frame in inspect.stack()]
+        script_paths = [frame.filename for frame in inspect.stack()]
         script_paths = list(filter(lambda path: not _is_phi_file(path), script_paths))
         script_paths = set(script_paths) if full_trace else [script_paths[0]]
         self.subpath('src', create=True)
         for script_path in script_paths:
-            self.copy_src(script_path, only_external=False)
+            if script_path.endswith('.py'):
+                self.copy_src(script_path, only_external=False)
+            elif 'ipython' in script_path:
+                from IPython import get_ipython
+                cells = get_ipython().user_ns['In']
+                blocks = [f"#%% In[{i}]\n{cell}" for i, cell in enumerate(cells)]
+                text = "\n\n".join(blocks)
+                self.copy_src_text('ipython.py', text)
         if include_context_information:
             for path in math.flatten(self._paths):
                 with open(join(path, 'src', 'context.json'), 'w') as context_file:
@@ -419,6 +436,12 @@ class Scene(object):
         for path in math.flatten(self._paths):
             if not only_external or not _is_phi_file(script_path):
                 shutil.copy(script_path, join(path, 'src', basename(script_path)))
+
+    def copy_src_text(self, filename, text):
+        for path in math.flatten(self._paths):
+            target = join(path, 'src', filename)
+            with open(target, "w") as file:
+                file.writelines(text)
 
     def mkdir(self):
         for path in math.flatten(self._paths):

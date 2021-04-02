@@ -277,7 +277,7 @@ class TestMathNDNumpy(TestCase):
                 # try:
                 math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
                 # except BaseException as e:  # Enable the try/catch to get more info about the deviation
-                #     abs_error = math.abs(val - ref)
+                #     abs_error = math.abs(control - ref)
                 #     max_abs_error = math.max(abs_error)
                 #     max_rel_error = math.max(math.abs(abs_error / ref))
                 #     variation_str = "\n".join([
@@ -285,5 +285,5 @@ class TestMathNDNumpy(TestCase):
                 #         f"max_relative_error: {max_rel_error}",
                 #     ])
                 #     print(ref)
-                #     print(val)
+                #     print(control)
                 #     raise AssertionError(e, params, variation_str)

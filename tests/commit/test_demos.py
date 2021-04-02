@@ -1,41 +1,40 @@
-from unittest import TestCase
-
 import sys
 from os.path import join, dirname, abspath
-import numpy as np
+from unittest import TestCase
 
 import phi
-import phi.app._display as display
-from phi.app import ModuleViewer
+import phi.vis._vis_base as display
 from phi.field import Field
 from phi.math import backend
-from phi.math.backend import Backend
 
 DEMOS_DIR = join(dirname(dirname(dirname(abspath(__file__)))), 'demos')
 BACKENDS = list(phi.detect_backends())
-BACKENDS = [b for b in BACKENDS if b.name != 'Jax']
+BACKENDS = tuple([b for b in BACKENDS if b.name != 'Jax'])
 
 
 def validate_fields(app):
-    for name in app.fieldnames:
+    for name in app.field_names:
         value = app.get_field(name)
-        assert isinstance(value, Field) \
-               or value is None \
-               or backend.choose_backend(value, raise_error=False) is not None, \
+        assert isinstance(value, Field) or value is None or backend.choose_backend(value, raise_error=False) is not None, \
             f"Field '{name}' has an invalid value: {value}"
 
 
-class PerformModelTests(display.AppDisplay):
+class PerformModelTests(display.Gui):
 
-    def setup(self):
-        self.app.prepare()
-        validate_fields(self.app)
-        self.app.play(2)
-        validate_fields(self.app)
-        if isinstance(self.app, ModuleViewer):
-            self.app.interrupt()
+    def __init__(self):
+        display.Gui.__init__(self, asynchronous=False)
 
-    def play(self):
+    def setup(self, app):
+        display.Gui.setup(self, app)
+        app.prepare()
+        validate_fields(app)
+        app.progress()
+        app.progress()
+        validate_fields(app)
+        print("Tests successful.")
+        raise InterruptedError
+
+    def auto_play(self):
         pass
 
 
@@ -43,15 +42,14 @@ def demo_run(name, backends=BACKENDS):
     if DEMOS_DIR not in sys.path:
         print(f"Registering Python source directory {DEMOS_DIR}")
         sys.path.append(DEMOS_DIR)
-    display.DEFAULT_DISPLAY_CLASS = PerformModelTests
-    display.KEEP_ALIVE = False
-    for backend_ in backends:
-        with backend_:
-            print(f"Testing demo {name}.py with {backend_}")
-            try:
-                __import__(name)
-            except InterruptedError:
-                print(f'Test {name} successfully interrupted.')  # the demos are interrupted after a few steps
+    with display.force_use_gui(PerformModelTests()):
+        for backend_ in backends:
+            with backend_:
+                print(f"Testing demo {name}.py with {backend_}")
+                try:
+                    __import__(name)
+                except InterruptedError:
+                    print(f'Test {name} successfully interrupted.')  # the demos are interrupted after a few steps
 
 
 class TestDemos(TestCase):

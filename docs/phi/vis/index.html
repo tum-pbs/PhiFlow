@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>phi.vis API documentation</title>
+<meta name="description" content="Visualization: plotting, interactive user interfaces …" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>phi.vis</code></h1>
+</header>
+<section id="section-intro">
+<p>Visualization: plotting, interactive user interfaces.</p>
+<p>Use <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code> to show fields or field variables in an interactive user interface.</p>
+<p>Use <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code> to plot fields using Matplotlib.</p>
+<p>See the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;
+Visualization: plotting, interactive user interfaces.
+
+Use `view()` to show fields or field variables in an interactive user interface.
+
+Use `plot()` to plot fields using Matplotlib.
+
+See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
+&#34;&#34;&#34;
+from ._vis_base import show
+from ._viewer import Viewer
+from ._matplotlib import plot, animate, plot_scalars
+from ._vis import view, control
+
+__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
+
+__pdoc__ = {
+    &#39;Viewer.action_names&#39;: False,
+    &#39;Viewer.can_progress&#39;: False,
+    &#39;Viewer.control_names&#39;: False,
+    &#39;Viewer.curve_names&#39;: False,
+    &#39;Viewer.field_names&#39;: False,
+    &#39;Viewer.get_control&#39;: False,
+    &#39;Viewer.get_curve&#39;: False,
+    &#39;Viewer.get_field&#39;: False,
+    &#39;Viewer.run_action&#39;: False,
+    &#39;Viewer.set_control_value&#39;: False,
+    &#39;Viewer.log_scalars&#39;: False,
+    &#39;Viewer.controls&#39;: False,
+    &#39;Viewer.get_control_value&#39;: False,
+}</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="phi.vis.animate"><code class="name flex">
+<span>def <span class="ident">animate</span></span>(<span>fields: phi.field._field.SampledField, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) ‑> matplotlib.animation.Animation</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a Matplotlib animation from <code>fields</code>.
+<code>fields</code> may be a sequence of frames or a single <code>SampledField</code> instances with a <code>frames</code> dimension.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>fields</code></strong></dt>
+<dd><code>SampledField</code> with <code>frames</code> dimension or <code>tuple</code> or <code>list</code> of <code>SampledField</code>.</dd>
+<dt><strong><code>colorbar</code></strong></dt>
+<dd>Whether to show a color bar</dd>
+<dt><strong><code>figsize</code></strong></dt>
+<dd>Figure size</dd>
+<dt><strong><code>same_scale</code></strong></dt>
+<dd>Whether to use the same scale, both temporally and for all sub-figures.</dd>
+<dt><strong><code>repeat</code></strong></dt>
+<dd>Whether the video should loop.</dd>
+<dt><strong><code>interval</code></strong></dt>
+<dd>Frame time in milliseconds.</dd>
+<dt><strong><code>**plt_args</code></strong></dt>
+<dd>Further plotting arguments, see <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Matplotlib <code>Animation</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def animate(fields: SampledField or tuple or list,
+            colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -&gt; animation.Animation:
+    &#34;&#34;&#34;
+    Creates a Matplotlib animation from `fields`.
+    `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
+
+    Args:
+        fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
+        colorbar: Whether to show a color bar
+        figsize: Figure size
+        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
+        repeat: Whether the video should loop.
+        interval: Frame time in milliseconds.
+        **plt_args: Further plotting arguments, see `plot()`.
+
+    Returns:
+        Matplotlib `Animation`
+    &#34;&#34;&#34;
+    if isinstance(fields, SampledField):
+        assert &#39;frames&#39; in fields.shape, &#34;When passing a single Field, it must have a dimension with name &#39;frames&#39;.&#34;
+        fields = fields.unstack(&#39;frames&#39;)
+    fields = list(fields)
+    field = fields[0]
+    batch_size, b_values = _batch(field)
+    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    axes = axes if isinstance(axes, np.ndarray) else [axes]
+
+    def func(frame: int):
+        field = fields[frame]
+        batch_size, b_values = _batch(field)
+        for axis in axes:
+            axis.clear()
+        _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+
+    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
+    plt.close(fig)
+    return ani</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.control"><code class="name flex">
+<span>def <span class="ident">control</span></span>(<span>value, range: tuple = None, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Mark a variable as controllable by any GUI created via <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
+<p>Example:</p>
+<pre><code class="language-python">dt = control(1.0, (0.1, 10), name=&quot;Time increment&quot;)
+</code></pre>
+<p>The value o</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd>Initial value. Must be either <code>int</code>, <code>float´,</code>bool<code> or </code>str`.</dd>
+<dt><strong><code>range</code></strong></dt>
+<dd>(Optional) Specify range of possible values as <code>(min, max)</code>. Only for <code>int</code> and <code>float</code> values.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional arguments to determine the appearance of the GUI component,
+e.g. <code>rows</code> for text fields or <code>log=False</code> for float sliders.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>value</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def control(value, range: tuple = None, **kwargs):
+    &#34;&#34;&#34;
+    Mark a variable as controllable by any GUI created via `view()`.
+
+    Example:
+    ```python
+    dt = control(1.0, (0.1, 10), name=&#34;Time increment&#34;)
+    ```
+
+    The value o
+
+    Args:
+        value: Initial value. Must be either `int`, `float´, `bool` or `str`.
+        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int` and `float` values.
+        **kwargs: Additional arguments to determine the appearance of the GUI component,
+            e.g. `rows` for text fields or `log=False` for float sliders.
+
+    Returns:
+        `value`
+    &#34;&#34;&#34;
+    assert type(value) in (int, float, bool, str), f&#34;Value must be one of (int, float, bool, str) but {type(value)}&#34;
+    calling_code = inspect.stack()[1].code_context[0]
+    assert &#39;control&#39; in calling_code and &#39;=&#39; in calling_code, f&#34;control() must be used in a variable assignment statement but context is: {calling_code}&#34;
+    calling_code = calling_code[:calling_code.index(&#39;control&#39;)]
+    var_names = [var.strip() for var in calling_code.split(&#39;=&#39;)[:-1]]
+    var_names = [n for n in var_names if n]
+    for var_name in var_names:
+        CONTROL_VARS.append(Control(var_name, type(value), value, range, kwargs))
+    return value</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a Matplotlib figure to display a single field or batch of fields.</p>
+<p>Use <a href="https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.show.html"><code>matplotlib.pyplot.show()</code></a> or
+<a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html"><code>matplotlib.pyplot.savefig()</code></a> to view the figure.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd><code>SampledField</code>, may contain batch dimensions which will create subfigures.</dd>
+<dt><strong><code>title</code></strong></dt>
+<dd>Figure title.</dd>
+<dt><strong><code>colorbar</code></strong></dt>
+<dd>Whether to show a colorbar for heatmap plots.</dd>
+<dt><strong><code>figsize</code></strong></dt>
+<dd>Figure (width, height) in inches.</dd>
+<dt><strong><code>same_scale</code></strong></dt>
+<dd>Whether to use the same value scale for all subplots.</dd>
+<dt><strong><code>**plt_args</code></strong></dt>
+<dd>Additional plotting arguments passed to Matplotlib.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><a href="https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure">Matplotlib figure</a>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+    &#34;&#34;&#34;
+    Creates a Matplotlib figure to display a single field or batch of fields.
+
+    Use [`matplotlib.pyplot.show()`](https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.show.html) or
+    [`matplotlib.pyplot.savefig()`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html) to view the figure.
+
+    Args:
+        field: `SampledField`, may contain batch dimensions which will create subfigures.
+        title: Figure title.
+        colorbar: Whether to show a colorbar for heatmap plots.
+        figsize: Figure (width, height) in inches.
+        same_scale: Whether to use the same value scale for all subplots.
+        **plt_args: Additional plotting arguments passed to Matplotlib.
+
+    Returns:
+        [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
+    &#34;&#34;&#34;
+    if isinstance(field, (tuple, list)):
+        field = batch_stack(*field, dim=&#39;fields&#39;)
+    batch_size, b_values = _batch(field)
+    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    axes = axes if isinstance(axes, np.ndarray) else [axes]
+    if title:
+        for b in range(batch_size):
+            if isinstance(title, str):
+                sub_title = title
+            elif title is True:
+                sub_title = f&#34;{b} of {field.shape.batch}&#34;
+            elif isinstance(title, (tuple, list)):
+                sub_title = title[b]
+            else:
+                sub_title = None
+            if sub_title is not None:
+                axes[b].set_title(sub_title)
+    _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+    plt.tight_layout()
+    return fig, axes</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.plot_scalars"><code class="name flex">
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', smooth=1, smooth_alpha=0.4, figsize=(8, 6), transform: Callable = None, tight_layout=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
+                 names: str or tuple or list or math.Tensor = None,
+                 reduce: str or tuple or list or math.Shape = &#39;names&#39;,
+                 smooth=1,
+                 smooth_alpha=0.4,
+                 figsize=(8, 6),
+                 transform: Callable = None,
+                 tight_layout=True):
+    scene = Scene.at(scene)
+    additional_reduce = ()
+    if names is None:
+        first_path = next(iter(math.flatten(scene.paths)))
+        names = [_str(n) for n in os.listdir(first_path)]
+        names = [n[4:-4] for n in names if n.endswith(&#39;.txt&#39;) and n.startswith(&#39;log_&#39;)]
+        names = math.wrap(names, &#39;names&#39;)
+        additional_reduce = [&#39;names&#39;]
+    elif isinstance(names, str):
+        names = math.wrap(names)
+    elif isinstance(names, (tuple, list)):
+        names = math.wrap(names, &#39;names&#39;)
+    else:
+        assert isinstance(names, math.Tensor), f&#34;Invalid argument &#39;names&#39;: {type(names)}&#34;
+
+    shape = (scene.shape &amp; names.shape)
+    batch = shape.without(reduce).without(additional_reduce)
+
+    cycle = list(plt.rcParams[&#39;axes.prop_cycle&#39;].by_key()[&#39;color&#39;])
+    fig, axes = plt.subplots(1, batch.volume, figsize=figsize)
+    axes = axes if isinstance(axes, numpy.ndarray) else [axes]
+
+    for b, axis in zip(batch.meshgrid(), axes):
+        assert isinstance(axis, plt.Axes)
+        names_equal = names[b].rank == 0
+        paths_equal = scene.paths[b].rank == 0
+        if names_equal:
+            axis.set_title(display_name(str(names[b])))
+        elif paths_equal:
+            axis.set_title(os.path.basename(str(scene.paths[b])))
+
+        def single_plot(name, path, i):
+            curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
+            name = display_name(name)
+            if transform:
+                curve = transform(curve)
+            if names_equal:
+                label = os.path.basename(path)
+            elif paths_equal:
+                label = name
+            else:
+                label = f&#34;{os.path.basename(path)} - {name}&#34;
+            axis.plot(curve, color=cycle[i], alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(curve, n=smooth), color=cycle[i], linewidth=2, label=label)
+            return name
+
+        math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))
+        axis.legend()
+    # Final touches
+    if tight_layout:
+        plt.tight_layout()
+    return fig</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.show"><code class="name flex">
+<span>def <span class="ident">show</span></span>(<span>app: phi.vis._vis_base.VisModel = None, play=True, gui: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Launch the registered user interface (web interface by default).</p>
+<p>This method may block until the GUI is closed.</p>
+<p>This method prepares the vis before showing it. No more fields should be added to the vis after this method is invoked.</p>
+<p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>app</code></strong></dt>
+<dd>App or None:
+(Default value = None)</dd>
+<dt><strong><code>play</code></strong></dt>
+<dd>If true, invokes <code>App.play()</code>. The default value is False unless "autorun" is passed as a command line argument.</dd>
+<dt><strong><code>app</code></strong></dt>
+<dd>optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.</dd>
+<dt><strong><code>gui</code></strong></dt>
+<dd>(optional) class of GUI to use</dd>
+<dt><strong><code>keep_alive</code></strong></dt>
+<dd>Whether the GUI keeps the vis alive. If <code>False</code>, the program will exit when the main script is finished.</dd>
+<dt><strong><code>**config</code></strong></dt>
+<dd>additional GUI configuration parameters.
+For a full list of parameters, see the respective GUI documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def show(app: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
+    &#34;&#34;&#34;
+    Launch the registered user interface (web interface by default).
+    
+    This method may block until the GUI is closed.
+    
+    This method prepares the vis before showing it. No more fields should be added to the vis after this method is invoked.
+    
+    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
+
+    Args:
+      app: App or None:  (Default value = None)
+      play: If true, invokes `App.play()`. The default value is False unless &#34;autorun&#34; is passed as a command line argument.
+      app: optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
+      gui: (optional) class of GUI to use
+      keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
+      **config: additional GUI configuration parameters.
+        For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
+    &#34;&#34;&#34;
+    assert isinstance(app, VisModel), f&#34;show() first argument must be an App instance but got {app}&#34;
+    app.prepare()
+    # --- Setup Gui ---
+    gui = default_gui() if gui is None else get_gui(gui)
+    gui.configure(config)
+    gui.setup(app)
+    if play:
+        gui.auto_play()
+    if gui.asynchronous:
+        display_thread = Thread(target=lambda: gui.show(True), name=&#34;AsyncGui&#34;, daemon=not keep_alive)
+        display_thread.start()
+    else:
+        gui.show(True)  # may be blocking call</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.view"><code class="name flex">
+<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, keep_alive=True, select: str = '', framerate=None, **config) ‑> phi.vis._viewer.Viewer</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
+<p><code>fields</code> may contain instances of <code>Field</code> or variable names of top-level variables (main module or Jupyter notebook).
+During loops, e.g. <code><a title="phi.vis.view" href="#phi.vis.view">view()</a>.range()</code>, the variable status is tracked and the GUI is updated.</p>
+<p>When called from a Python script, name and description may be specified in the module docstring (string before imports).
+The first line is interpreted as the name, the rest as the subtitle.
+If not specified, a generic name and description is chosen.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*fields</code></strong></dt>
+<dd>(Optional) Contents to be displayed. Either variable names or values.
+For field instances, all variables referencing the value will be shown.
+If not provided, the user namespace is searched for Field variables.</dd>
+<dt><strong><code>play</code></strong></dt>
+<dd>Whether to immediately start executing loops.</dd>
+<dt><strong><code>gui</code></strong></dt>
+<dd>(Optional) Name of GUI as <code>str</code> or GUI class.
+Built-in GUIs can be selected via <code>'dash'</code>, <code>'console'</code> and <code>'widgets'</code>.
+See <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>(Optional) Name to display in GUI and use for the output directory if <code>scene=True</code>.
+Will be generated from the top-level script if not provided.</dd>
+<dt><strong><code>description</code></strong></dt>
+<dd>(Optional) Description to be displayed in the GUI.
+Will be generated from the top-level script if not provided.</dd>
+<dt><strong><code>scene</code></strong></dt>
+<dd>Existing <code>Scene</code> to write into or <code>bool</code>. If <code>True</code>, creates a new Scene in <code>~/phi/&lt;name&gt;</code></dd>
+<dt><strong><code>keep_alive</code></strong></dt>
+<dd>Whether the GUI should keep running even after the main thread finishes.</dd>
+<dt><strong><code>framerate</code></strong></dt>
+<dd>Target frame rate in Hz. Play will not step faster than the framerate. <code>None</code> for unlimited frame rate.</dd>
+<dt><strong><code>select</code></strong></dt>
+<dd>Dimension names along which one item to show is selected.
+Dimensions may be passed as <code>tuple</code> of <code>str</code> or as comma-separated names in a single <code>str</code>.
+For each <code>select</code> dimension, an associated selection slider will be created.</dd>
+<dt><strong><code>**config</code></strong></dt>
+<dd>Additional GUI configuration arguments.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def view(*fields: str or SampledField,
+         play: bool = True,
+         gui=None,
+         name: str = None,
+         description: str = None,
+         scene: bool or Scene = False,
+         keep_alive=True,
+         select: str or tuple or list = &#39;&#39;,
+         framerate=None,
+         **config) -&gt; Viewer:
+    &#34;&#34;&#34;
+    Show `fields` in a graphical user interface.
+
+    `fields` may contain instances of `Field` or variable names of top-level variables (main module or Jupyter notebook).
+    During loops, e.g. `view().range()`, the variable status is tracked and the GUI is updated.
+
+    When called from a Python script, name and description may be specified in the module docstring (string before imports).
+    The first line is interpreted as the name, the rest as the subtitle.
+    If not specified, a generic name and description is chosen.
+
+    Args:
+        *fields: (Optional) Contents to be displayed. Either variable names or values.
+            For field instances, all variables referencing the value will be shown.
+            If not provided, the user namespace is searched for Field variables.
+        play: Whether to immediately start executing loops.
+        gui: (Optional) Name of GUI as `str` or GUI class.
+            Built-in GUIs can be selected via `&#39;dash&#39;`, `&#39;console&#39;` and `&#39;widgets&#39;`.
+            See https://tum-pbs.github.io/PhiFlow/Visualization.html
+        name: (Optional) Name to display in GUI and use for the output directory if `scene=True`.
+            Will be generated from the top-level script if not provided.
+        description: (Optional) Description to be displayed in the GUI.
+            Will be generated from the top-level script if not provided.
+        scene: Existing `Scene` to write into or `bool`. If `True`, creates a new Scene in `~/phi/&lt;name&gt;`
+        keep_alive: Whether the GUI should keep running even after the main thread finishes.
+        framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
+        select: Dimension names along which one item to show is selected.
+            Dimensions may be passed as `tuple` of `str` or as comma-separated names in a single `str`.
+            For each `select` dimension, an associated selection slider will be created.
+        **config: Additional GUI configuration arguments.
+
+    Returns:
+        `Viewer`
+    &#34;&#34;&#34;
+    user_namespace = default_user_namespace()
+    variables = _default_field_variables(user_namespace, fields)
+    if scene is False:
+        scene = None
+    elif scene is True:
+        scene = Scene.create(os.path.join(&#34;~&#34;, &#34;phi&#34;, _slugify_filename(name or user_namespace.get_reference())))
+    else:
+        assert isinstance(scene, Scene)
+    name = name or user_namespace.get_title()
+    description = description or user_namespace.get_description()
+    gui = default_gui() if gui is None else get_gui(gui)
+    controls = tuple(c for c in CONTROL_VARS if user_namespace.get_variable(c.name) is not None)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, log_performance=True)
+    show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
+    return viewer</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="phi.vis.Viewer"><code class="flex name class">
+<span>class <span class="ident">Viewer</span></span>
+<span>(</span><span>namespace: phi.vis._user_namespace.UserNamespace, fields: dict, name: str, description: str, scene: phi.field._scene.Scene, controls: tuple, log_performance: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Shows variables from the user namespace.
+To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code>, call <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code> from the top-level Python script or from a notebook.</p>
+<p>Use <code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">Viewer.range()</a></code> to control the loop execution from the user interface.</p>
+<p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Viewer(VisModel):
+    &#34;&#34;&#34;
+    Shows variables from the user namespace.
+    To create a `Viewer`, call `phi.vis.view()` from the top-level Python script or from a notebook.
+
+    Use `Viewer.range()` to control the loop execution from the user interface.
+
+    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
+    &#34;&#34;&#34;
+
+    def __init__(self,
+                 namespace: UserNamespace,
+                 fields: dict,
+                 name: str,
+                 description: str,
+                 scene: Scene,
+                 controls: tuple,
+                 log_performance: bool,
+                 ):
+        VisModel.__init__(self, name, description, scene=scene)
+        self.initial_field_values = fields
+        self._controls = controls
+        self.namespace = namespace
+        self.log_performance = log_performance
+        self._rec = None
+        self._in_loop = False
+        self._log = SceneLog(self.scene)
+        self.log_file = self._log.log_file
+        self._elapsed = None
+
+    def log_scalars(self, **values):
+        self._log.log_scalars(self.steps, **values)
+
+    @property
+    def field_names(self) -&gt; tuple:
+        return tuple(self.initial_field_values.keys())
+
+    def get_field(self, field_name) -&gt; SampledField:
+        if field_name not in self.initial_field_values:
+            raise KeyError(field_name)
+        if self._rec:
+            return self._rec[field_name]
+        else:
+            return self.namespace.get_variable(field_name)
+
+    @property
+    def curve_names(self) -&gt; tuple:
+        return self._log.scalar_curve_names
+
+    def get_curve(self, name: str) -&gt; tuple:
+        return self._log.get_scalar_curve(name)
+
+    @property
+    def controls(self) -&gt; Tuple[Control]:
+        return self._controls
+
+    def get_control_value(self, name):
+        return self.namespace.get_variable(name)
+
+    def set_control_value(self, name, value):
+        self.namespace.set_variable(name, value)
+
+    @property
+    def action_names(self) -&gt; tuple:
+        return &#34;reset&#34;,
+
+    def run_action(self, name):
+        if name == &#39;reset&#39;:
+            self.reset()
+        else:
+            raise KeyError(name)
+
+    def range(self, *args, warmup=0, **rec_dim):
+        &#34;&#34;&#34;
+        Similarly to `range()`, returns a generator that can be used in a `for` loop.
+
+        ```python
+        for step in ModuleViewer().range(100):
+            print(f&#39;Running step {step}&#39;)
+        ```
+
+        However, `Viewer.range()` enables controlling the flow via the user interface.
+        Each element returned by the generator waits for `progress` to be invoked once.
+
+        Note that `step` is always equal to `Viewer.steps`.
+
+        This method can be invoked multiple times.
+        However, do not call this method while one `range` is still active.
+
+        Args:
+            *args: Either no arguments for infinite loop or single `int` argument `stop`.
+                Must be empty if `rec_dim` is used.
+            **rec_dim: Can be used instead of `*args` to record values along a new batch dimension of this name.
+                The recorded values can be accessed as `Viewer.rec.&lt;name&gt;` or `Viewer.rec[&#39;&lt;name&gt;&#39;]`.
+            warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
+
+        Yields:
+            Step count of `Viewer`.
+        &#34;&#34;&#34;
+        for _ in range(warmup):
+            yield self.steps
+
+        self._in_loop = True
+        self._call(self.progress_available)
+
+        if rec_dim:
+            assert len(rec_dim) == 1, f&#34;Only one rec_dim allowed but got {rec_dim}&#34;
+            assert not args, f&#34;No positional arguments are allowed when a rec_dim is specified. {rec_dim}&#34;
+            rec_dim_name = next(iter(rec_dim.keys()))
+            size = rec_dim[rec_dim_name]
+            assert isinstance(size, int)
+            self._rec = Record(rec_dim_name)
+            self._rec.append(self.initial_field_values, warn_missing=False)
+            args = [size]
+            self.growing_dims = [rec_dim_name]
+
+        if len(args) == 0:
+            step_source = itertools.count(start=1)
+        else:
+            step_source = range(*args)
+
+        try:
+            for step in step_source:
+                self.steps = step
+                try:
+                    self._pre_step()
+                    t = time.perf_counter()
+                    yield step
+                    self._elapsed = time.perf_counter() - t
+                    if rec_dim:
+                        self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
+                    if self.log_performance:
+                        self._log.log_scalars(self.steps, step_time=self._elapsed)
+                finally:
+                    self._post_step()
+                self._call(self.post_step)
+        finally:
+            self._in_loop = False
+            self._call(self.progress_unavailable)
+
+    def _pre_step(self):
+        self._call(self.pre_step)
+
+    def _post_step(self):
+        self._call(self.post_step)
+
+    @property
+    def rec(self) -&gt; &#39;Record&#39;:
+        &#34;&#34;&#34;
+        Read recorded fields as `viewer.rec.&lt;name&gt;`.
+        Accessing `rec` without having started a recording using `Viewer.range()` raises an `AssertionError`.
+        &#34;&#34;&#34;
+        assert self._rec, &#34;Enable recording by calling range() with a dimension name, e.g. &#39;range(frames=10)&#39;.&#34;
+        return self._rec
+
+    @property
+    def can_progress(self) -&gt; bool:
+        return self._in_loop
+
+    def reset(self):
+        &#34;&#34;&#34;
+        Restores all viewed fields to the states they were in when the viewer was created.
+        Changes variable values in the user namespace.
+        &#34;&#34;&#34;
+        for name, value in self.initial_field_values.items():
+            self.namespace.set_variable(name, value)
+        self.steps = 0</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.vis._vis_base.VisModel</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li>phi.vis._viewer.AsyncViewer</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.vis.Viewer.rec"><code class="name">var <span class="ident">rec</span> : phi.vis._viewer.Record</code></dt>
+<dd>
+<div class="desc"><p>Read recorded fields as <code>viewer.rec.&lt;name&gt;</code>.
+Accessing <code>rec</code> without having started a recording using <code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">Viewer.range()</a></code> raises an <code>AssertionError</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def rec(self) -&gt; &#39;Record&#39;:
+    &#34;&#34;&#34;
+    Read recorded fields as `viewer.rec.&lt;name&gt;`.
+    Accessing `rec` without having started a recording using `Viewer.range()` raises an `AssertionError`.
+    &#34;&#34;&#34;
+    assert self._rec, &#34;Enable recording by calling range() with a dimension name, e.g. &#39;range(frames=10)&#39;.&#34;
+    return self._rec</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.vis.Viewer.range"><code class="name flex">
+<span>def <span class="ident">range</span></span>(<span>self, *args, warmup=0, **rec_dim)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Similarly to <code>range()</code>, returns a generator that can be used in a <code>for</code> loop.</p>
+<pre><code class="language-python">for step in ModuleViewer().range(100):
+    print(f'Running step {step}')
+</code></pre>
+<p>However, <code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">Viewer.range()</a></code> enables controlling the flow via the user interface.
+Each element returned by the generator waits for <code>progress</code> to be invoked once.</p>
+<p>Note that <code>step</code> is always equal to <code>Viewer.steps</code>.</p>
+<p>This method can be invoked multiple times.
+However, do not call this method while one <code>range</code> is still active.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*args</code></strong></dt>
+<dd>Either no arguments for infinite loop or single <code>int</code> argument <code>stop</code>.
+Must be empty if <code>rec_dim</code> is used.</dd>
+<dt><strong><code>**rec_dim</code></strong></dt>
+<dd>Can be used instead of <code>*args</code> to record values along a new batch dimension of this name.
+The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <code>Viewer.rec['&lt;name&gt;']</code>.</dd>
+<dt><strong><code>warmup</code></strong></dt>
+<dd>Number of uncounted loop iterations to perform before <code>step()</code> is invoked for the first time.</dd>
+</dl>
+<h2 id="yields">Yields</h2>
+<p>Step count of <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def range(self, *args, warmup=0, **rec_dim):
+    &#34;&#34;&#34;
+    Similarly to `range()`, returns a generator that can be used in a `for` loop.
+
+    ```python
+    for step in ModuleViewer().range(100):
+        print(f&#39;Running step {step}&#39;)
+    ```
+
+    However, `Viewer.range()` enables controlling the flow via the user interface.
+    Each element returned by the generator waits for `progress` to be invoked once.
+
+    Note that `step` is always equal to `Viewer.steps`.
+
+    This method can be invoked multiple times.
+    However, do not call this method while one `range` is still active.
+
+    Args:
+        *args: Either no arguments for infinite loop or single `int` argument `stop`.
+            Must be empty if `rec_dim` is used.
+        **rec_dim: Can be used instead of `*args` to record values along a new batch dimension of this name.
+            The recorded values can be accessed as `Viewer.rec.&lt;name&gt;` or `Viewer.rec[&#39;&lt;name&gt;&#39;]`.
+        warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
+
+    Yields:
+        Step count of `Viewer`.
+    &#34;&#34;&#34;
+    for _ in range(warmup):
+        yield self.steps
+
+    self._in_loop = True
+    self._call(self.progress_available)
+
+    if rec_dim:
+        assert len(rec_dim) == 1, f&#34;Only one rec_dim allowed but got {rec_dim}&#34;
+        assert not args, f&#34;No positional arguments are allowed when a rec_dim is specified. {rec_dim}&#34;
+        rec_dim_name = next(iter(rec_dim.keys()))
+        size = rec_dim[rec_dim_name]
+        assert isinstance(size, int)
+        self._rec = Record(rec_dim_name)
+        self._rec.append(self.initial_field_values, warn_missing=False)
+        args = [size]
+        self.growing_dims = [rec_dim_name]
+
+    if len(args) == 0:
+        step_source = itertools.count(start=1)
+    else:
+        step_source = range(*args)
+
+    try:
+        for step in step_source:
+            self.steps = step
+            try:
+                self._pre_step()
+                t = time.perf_counter()
+                yield step
+                self._elapsed = time.perf_counter() - t
+                if rec_dim:
+                    self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
+                if self.log_performance:
+                    self._log.log_scalars(self.steps, step_time=self._elapsed)
+            finally:
+                self._post_step()
+            self._call(self.post_step)
+    finally:
+        self._in_loop = False
+        self._call(self.progress_unavailable)</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.Viewer.reset"><code class="name flex">
+<span>def <span class="ident">reset</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Restores all viewed fields to the states they were in when the viewer was created.
+Changes variable values in the user namespace.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reset(self):
+    &#34;&#34;&#34;
+    Restores all viewed fields to the states they were in when the viewer was created.
+    Changes variable values in the user namespace.
+    &#34;&#34;&#34;
+    for name, value in self.initial_field_values.items():
+        self.namespace.set_variable(name, value)
+    self.steps = 0</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="phi" href="../index.html">phi</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="phi.vis.animate" href="#phi.vis.animate">animate</a></code></li>
+<li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
+<li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>
+<li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>
+<li><code><a title="phi.vis.show" href="#phi.vis.show">show</a></code></li>
+<li><code><a title="phi.vis.view" href="#phi.vis.view">view</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code></h4>
+<ul class="">
+<li><code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">range</a></code></li>
+<li><code><a title="phi.vis.Viewer.rec" href="#phi.vis.Viewer.rec">rec</a></code></li>
+<li><code><a title="phi.vis.Viewer.reset" href="#phi.vis.Viewer.reset">reset</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>

@@ -11,7 +11,7 @@ BOUNDARY_MASK = HardGeometryMask(Box[:0.5, :]) >> DOMAIN.staggered_grid()
 velocity = DOMAIN.staggered_grid(0)
 pressure = DOMAIN.scalar_grid(0)
 
-for _ in ModuleViewer(display='velocity').range():
+for _ in view(display='velocity', play=False).range():
     velocity = advect.semi_lagrangian(velocity, velocity, DT)
     velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (1, 0)
     velocity, pressure, _iterations, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)

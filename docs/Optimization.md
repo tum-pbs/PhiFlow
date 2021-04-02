@@ -41,11 +41,11 @@ def A(x: Grid) -> Grid:
 x = field.solve(A, y, x0, math.Solve('CG', 1e-3, 0))
 ```
 Solve can also be used to find solutions to nonlinear equations.
-This is equivalent to using minimizing the squared error.
+This is equivalent to minimizing the squared error with `minimize()`.
 
 ### Handling Failed Optimizations
-Both `solve` and `minimize` returns the solution directly.
-Further information about the optimization is stored in `solve.result` of the passed `Solve` object.
+Both `solve` and `minimize` return only the solution.
+Further information about the optimization is stored in `solve.result` of the passed [`Solve`](phi/math/#phi.math.Solve) object.
 When a solve does not find a solution, a subclass of
 [`ConvergenceException`](phi/math/#phi.math.ConvergenceException) is thrown.
 ```python

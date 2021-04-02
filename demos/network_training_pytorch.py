@@ -12,9 +12,9 @@ optimizer = optim.Adam(net.parameters(), lr=1e-3)
 DOMAIN = Domain(x=64, y=64)
 prediction = DOMAIN.vector_grid(0)
 prediction_div = DOMAIN.scalar_grid(0)
-app = ModuleViewer()
+app = view(play=False)
 
-for step in app.range(100, warmup=1):
+for step in app.range(100):
     # Load or generate training data
     data = DOMAIN.vector_grid(Noise(batch=8, vector=2))
     # Initialize optimizer

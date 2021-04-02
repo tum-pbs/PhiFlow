@@ -2,6 +2,7 @@ import distutils.cmd
 import distutils.log
 import subprocess
 import os
+import sys
 from os.path import join, isfile, abspath, isdir, dirname
 from setuptools import setup
 
@@ -125,14 +126,13 @@ except FileNotFoundError:
 with open(join(dirname(__file__), 'phi', 'VERSION'), 'r') as version_file:
     version = version_file.read()
 
-
 setup(
     name='phiflow',
     version=version,
     download_url='https://github.com/tum-pbs/PhiFlow/archive/%s.tar.gz' % version,
     packages=['phi',
-              'phi.app',
-              'phi.app._dash',
+              'phi.vis',
+              'phi.vis._dash',
               'phi.field',
               'phi.geom',
               'phi.math',
@@ -154,7 +154,17 @@ setup(
     author_email='philipp.holl@tum.de',
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
-    install_requires=['scipy', 'dash', 'plotly', 'imageio', 'matplotlib'],
+    install_requires=[
+        'scipy',
+        'matplotlib'  # also required by dash for color maps
+    ],
+    # Optional packages:
+    # - dash + plotly + imageio (for webgl-viewer)
+    # - torch
+    # - tensorflow
+    # - jax
+    #
+    # phi.verify() should detect missing packages.
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

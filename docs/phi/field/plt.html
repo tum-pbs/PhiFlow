@@ -35,9 +35,12 @@ import numpy as np
 from phi import math
 from . import Grid, StaggeredGrid, PointCloud
 from ._field import SampledField
+from ._field_math import batch_stack
 
 
-def plot(field: SampledField, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+    if isinstance(field, (tuple, list)):
+        field = batch_stack(*field, dim=&#39;fields&#39;)
     batch_size, b_values = _batch(field)
     fig, axes = plt.subplots(1, batch_size, figsize=figsize)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
@@ -58,7 +61,27 @@ def plot(field: SampledField, title=False, colorbar=False, figsize=(12, 5), same
     return fig, axes
 
 
-def animate(fields, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, **plt_args) -&gt; animation.Animation:
+def animate(fields: SampledField or tuple or list,
+            colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -&gt; animation.Animation:
+    &#34;&#34;&#34;
+    Creates a Matplotlib animation from `fields`.
+    `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
+
+    Args:
+        fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
+        colorbar: Whether to show a color bar
+        figsize: Figure size
+        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
+        repeat: Whether the video should loop.
+        interval: Frame time in milliseconds.
+        **plt_args: Further plotting arguments, see `plot()`.
+
+    Returns:
+        Matplotlib `Animation`
+    &#34;&#34;&#34;
+    if isinstance(fields, SampledField):
+        assert &#39;frames&#39; in fields.shape, &#34;When passing a single Field, it must have a dimension with name &#39;frames&#39;.&#34;
+        fields = fields.unstack(&#39;frames&#39;)
     fields = list(fields)
     field = fields[0]
     batch_size, b_values = _batch(field)
@@ -66,14 +89,14 @@ def animate(fields, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True
     axes = axes if isinstance(axes, np.ndarray) else [axes]
 
     def func(frame: int):
-        print(f&#34;Getting frame {frame}&#34;)
         field = fields[frame]
         batch_size, b_values = _batch(field)
         for axis in axes:
             axis.clear()
         _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
 
-    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields))
+    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
+    plt.close(fig)
     return ani
 
 
@@ -93,7 +116,8 @@ def _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args):
             x, y = field.points.vector.unstack_spatial(&#39;x,y&#39;, to_numpy=True)
             data = math.join_dimensions(field.values, field.shape.batch, &#39;batch&#39;).batch[b]
             u, v = data.vector.unstack_spatial(&#39;x,y&#39;, to_numpy=True)
-            axes[b].quiver(x-u/2, y-v/2, u, v)
+            color = axes[b].xaxis.label.get_color()
+            axes[b].quiver(x-u/2, y-v/2, u, v, color=color)
     elif isinstance(field, PointCloud):
         for b in range(batch_size):
             points = math.join_dimensions(field.points, field.points.shape.batch.without(&#39;points&#39;), &#39;batch&#39;).batch[b]
@@ -130,15 +154,55 @@ def _batch(field: SampledField):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.field.plt.animate"><code class="name flex">
-<span>def <span class="ident">animate</span></span>(<span>fields, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, **plt_args) ‑> matplotlib.animation.Animation</span>
+<span>def <span class="ident">animate</span></span>(<span>fields: phi.field._field.SampledField, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) ‑> matplotlib.animation.Animation</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Creates a Matplotlib animation from <code>fields</code>.
+<code>fields</code> may be a sequence of frames or a single <code>SampledField</code> instances with a <code>frames</code> dimension.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>fields</code></strong></dt>
+<dd><code>SampledField</code> with <code>frames</code> dimension or <code>tuple</code> or <code>list</code> of <code>SampledField</code>.</dd>
+<dt><strong><code>colorbar</code></strong></dt>
+<dd>Whether to show a color bar</dd>
+<dt><strong><code>figsize</code></strong></dt>
+<dd>Figure size</dd>
+<dt><strong><code>same_scale</code></strong></dt>
+<dd>Whether to use the same scale, both temporally and for all sub-figures.</dd>
+<dt><strong><code>repeat</code></strong></dt>
+<dd>Whether the video should loop.</dd>
+<dt><strong><code>interval</code></strong></dt>
+<dd>Frame time in milliseconds.</dd>
+<dt><strong><code>**plt_args</code></strong></dt>
+<dd>Further plotting arguments, see <code><a title="phi.field.plt.plot" href="#phi.field.plt.plot">plot()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Matplotlib <code>Animation</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def animate(fields, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, **plt_args) -&gt; animation.Animation:
+<pre><code class="python">def animate(fields: SampledField or tuple or list,
+            colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -&gt; animation.Animation:
+    &#34;&#34;&#34;
+    Creates a Matplotlib animation from `fields`.
+    `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
+
+    Args:
+        fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
+        colorbar: Whether to show a color bar
+        figsize: Figure size
+        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
+        repeat: Whether the video should loop.
+        interval: Frame time in milliseconds.
+        **plt_args: Further plotting arguments, see `plot()`.
+
+    Returns:
+        Matplotlib `Animation`
+    &#34;&#34;&#34;
+    if isinstance(fields, SampledField):
+        assert &#39;frames&#39; in fields.shape, &#34;When passing a single Field, it must have a dimension with name &#39;frames&#39;.&#34;
+        fields = fields.unstack(&#39;frames&#39;)
     fields = list(fields)
     field = fields[0]
     batch_size, b_values = _batch(field)
@@ -146,14 +210,14 @@ def _batch(field: SampledField):
     axes = axes if isinstance(axes, np.ndarray) else [axes]
 
     def func(frame: int):
-        print(f&#34;Getting frame {frame}&#34;)
         field = fields[frame]
         batch_size, b_values = _batch(field)
         for axis in axes:
             axis.clear()
         _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
 
-    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields))
+    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
+    plt.close(fig)
     return ani</code></pre>
 </details>
 </dd>
@@ -166,7 +230,9 @@ def _batch(field: SampledField):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(field: SampledField, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+<pre><code class="python">def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+    if isinstance(field, (tuple, list)):
+        field = batch_stack(*field, dim=&#39;fields&#39;)
     batch_size, b_values = _batch(field)
     fig, axes = plt.subplots(1, batch_size, figsize=figsize)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
