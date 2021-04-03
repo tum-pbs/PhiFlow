@@ -1,7 +1,7 @@
 import inspect
 import os
 
-from ._user_namespace import default_user_namespace, UserNamespace
+from ._user_namespace import get_user_namespace, UserNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import get_gui, default_gui, show, Control, display_name
 from ..field import SampledField, Scene
@@ -51,7 +51,7 @@ def view(*fields: str or SampledField,
     Returns:
         `Viewer`
     """
-    user_namespace = default_user_namespace()
+    user_namespace = get_user_namespace(1)
     variables = _default_field_variables(user_namespace, fields)
     if scene is False:
         scene = None

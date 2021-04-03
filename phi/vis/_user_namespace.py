@@ -1,6 +1,9 @@
 import inspect
 import os
 import sys
+from typing import List
+
+from phi.vis._vis_base import display_name
 
 
 class UserNamespace:
@@ -8,31 +11,47 @@ class UserNamespace:
     def list_variables(self, only_public=False, only_current_scope=False) -> dict:
         raise NotImplementedError(self)
 
-    def get_variable(self, name: str, default=None):
+    def get_variable(self, name: str, default=None):  # __getitem__
         raise NotImplementedError(self)
 
-    def set_variable(self, name: str, value):
+    def set_variable(self, name: str, value):  # __setitem__
         raise NotImplementedError(self)
 
-    def get_title(self):
+    def get_title(self):  # __repr__()
         raise NotImplementedError(self)
 
-    def get_description(self):
+    def get_description(self):  # __doc__?
         raise NotImplementedError(self)
 
-    def get_reference(self):
+    def get_reference(self):  # __str__() / __repr__()
+        """ Used to determine the default directory name to which data is written. """
         raise NotImplementedError(self)
 
 
-def default_user_namespace(call_stack_depth=1) -> UserNamespace:
-    jupyter = 'ipykernel' in sys.modules
-    return JupyterNamespace() if jupyter else ModuleNamespace(call_stack_depth + 1)
+def global_user_namespace(frames: List[inspect.FrameInfo]) -> UserNamespace:
+    if 'ipykernel' in sys.modules:
+        return JupyterNamespace()
+    else:
+        for frame in frames:
+            if frame.function == '<module>':
+                module = inspect.getmodule(frame)
+                return ModuleNamespace(module)
+        raise AssertionError('No module found in call stack.')
+
+
+def get_user_namespace(ignore_stack_frames=0) -> UserNamespace:
+    frames = inspect.stack()
+    stack_item = frames[ignore_stack_frames + 1]  # 1 for this function
+    if stack_item.function == '<module>':
+        return global_user_namespace(frames)
+    else:
+        return LocalNamespace(stack_item, frames)
 
 
 class ModuleNamespace(UserNamespace):
 
-    def __init__(self, call_stack_depth: int):
-        self.module = inspect.getmodule(inspect.stack()[call_stack_depth + 1].frame)
+    def __init__(self, module):
+        self.module = module
 
     def get_title(self):
         doc = self.module.__doc__
@@ -107,3 +126,34 @@ class JupyterNamespace(UserNamespace):
         shell = get_ipython()
         shell.user_ns[name] = value
 
+
+class LocalNamespace(UserNamespace):
+
+    def __init__(self, frame_info: inspect.FrameInfo, frames: List[inspect.FrameInfo]):
+        self.frame = frame_info.frame
+        self.function_name: str = frame_info.function
+        self.module = inspect.getmodule(self.frame)
+        self.function = getattr(self.module, self.function_name)
+
+    def list_variables(self, only_public=False, only_current_scope=False) -> dict:
+        return self.frame.f_locals
+
+    def get_variable(self, name: str, default=None):
+        return self.frame.f_locals.get(name, default)
+
+    def set_variable(self, name: str, value):
+        import ctypes
+        self.frame.f_locals[name] = value
+        ctypes.pythonapi.PyFrame_LocalsToFast(ctypes.py_object(self.frame), ctypes.c_int(0))
+
+    def get_title(self):
+        return display_name(self.function_name)
+
+    def get_description(self):
+        if self.function.__doc__:
+            return self.function.__doc__
+        else:
+            return f"Function `{self.function_name}()` in \"{self.module.__file__}\""
+
+    def get_reference(self):
+        return f"{os.path.basename(self.module.__file__)[:-3]}_{self.function_name}"
