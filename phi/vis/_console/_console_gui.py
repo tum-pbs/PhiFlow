@@ -47,6 +47,8 @@ class ConsoleGui(Gui):
                 for command in commands:
                     try:
                         self.process_command(command)
+                    except InterruptedError:
+                        return
                     except Exception as exc:
                         print(exc)
 
@@ -71,9 +73,10 @@ class ConsoleGui(Gui):
             if self.play_status:
                 self.play_status.pause()
             if self.app.can_progress:
-                self.app.pre_step.append(gui_interrupt)
-                self.app.progress()
-            return  # exit this thread
+                if self.app.can_progress:
+                    self.app.pre_step.append(gui_interrupt)
+                    self.app.progress()
+            raise InterruptedError()
         elif command == 'kill':
             os._exit(0)
         elif command == 'show':
@@ -100,7 +103,21 @@ class ConsoleGui(Gui):
             value = control.control_type(value)  # raises ValueError
             self.app.set_control_value(name, value)
         elif command == 'help':
-            print("Commands: help, step, play, pause, show, show <comma-separated fieldnames>")
+            print("Commands:\n"
+                  "\thelp\n"
+                  "\tstatus\n"
+                  "\tcontrols\n"
+                  "\tshow\n"
+                  "\tshow <comma-separated fields>\n"
+                  "\tshow <field>.<component>\n"
+                  "\tplay\n"
+                  "\tplay <frames>\n"
+                  "\tpause\n"
+                  "\tstep\n"
+                  "\t<control> = <value>\n"
+                  "\texit\n"
+                  "\tkill\n"
+                  "See https://tum-pbs.github.io/PhiFlow/ConsoleUI.html for a detailed description of available commands.")
         else:
             print(f"Command {command} not recognized.")
 

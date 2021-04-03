@@ -208,6 +208,7 @@ def play_async(model: VisModel, max_steps=None, framerate=None):
         max_steps: (optional) stop when this many steps have been completed (independent of the `steps` variable) or `pause()` is called.
         framerate: Target frame rate in Hz.
     """
+    assert model.can_progress
     play = AsyncPlay(model, max_steps, framerate)
     play.start()
     return play
@@ -349,7 +350,7 @@ def gui_interrupt(*args, **kwargs):
     raise GuiInterrupt()
 
 
-def show(app: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
+def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
     """
     Launch the registered user interface (web interface by default).
     
@@ -360,21 +361,20 @@ def show(app: VisModel or None = None, play=True, gui: Gui or str = None, keep_a
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 
     Args:
-      app: App or None:  (Default value = None)
+      model: (Optional) `VisModel`, the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
       play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-      app: optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
       gui: (optional) class of GUI to use
       keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     """
-    assert isinstance(app, VisModel), f"show() first argument must be an App instance but got {app}"
-    app.prepare()
+    assert isinstance(model, VisModel), f"show() first argument must be an App instance but got {model}"
+    model.prepare()
     # --- Setup Gui ---
     gui = default_gui() if gui is None else get_gui(gui)
     gui.configure(config)
-    gui.setup(app)
-    if play:
+    gui.setup(model)
+    if play and model.can_progress:
         gui.auto_play()
     if gui.asynchronous:
         display_thread = Thread(target=lambda: gui.show(True), name="AsyncGui", daemon=not keep_alive)
