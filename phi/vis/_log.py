@@ -63,7 +63,7 @@ class SceneLog:
                     self._scalar_streams[name] = open(path, "w")
             self._scalars[name].append((frame, value))
             if self.scene is not None:
-                self._scalar_streams[name].write(f"{value}\n")
+                self._scalar_streams[name].write(f"{frame} {value}\n")
                 self._scalar_streams[name].flush()
 
     def get_scalar_curve(self, name) -> tuple:

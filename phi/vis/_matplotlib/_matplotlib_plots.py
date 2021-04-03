@@ -140,15 +140,15 @@ def _batch(field: SampledField):
     return batch_size, b_values
 
 
-def smooth_uniform_curve(array, n=16):
+def smooth_uniform_curve(x, values, n=16):
     if n == 1:
-        return numpy.arange(len(array)), array
-    if len(array) <= n:
-        mean = numpy.tile(numpy.mean(array, -1, keepdims=True), 2)
-        return numpy.arange(2), mean
-    arrays = [array[i:i-n+1 or None] for i in range(n)]
+        return x, values
+    if len(x) <= n:
+        mean = numpy.tile(numpy.mean(values, -1, keepdims=True), 2)
+        return np.array([np.min(x), np.max(x)]), mean
+    arrays = [values[i:i-n+1 or None] for i in range(n)]
     result = numpy.mean(arrays, axis=0)
-    return numpy.arange(n//2-1, len(array)-n//2), result
+    return x[n//2-1:-n//2 or None], result
 
 
 def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
@@ -192,17 +192,22 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
 
         def single_plot(name, path, i):
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
+            if curve.ndim == 2:
+                x, values, *_ = curve.T
+            else:
+                values = curve
+                x = np.arange(values)
             name = display_name(name)
             if transform:
-                curve = transform(curve)
+                x, values = transform(x, values)
             if names_equal:
                 label = os.path.basename(path)
             elif paths_equal:
                 label = name
             else:
                 label = f"{os.path.basename(path)} - {name}"
-            axis.plot(curve, color=cycle[i], alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(curve, n=smooth), color=cycle[i], linewidth=2, label=label)
+            axis.plot(x, values, color=cycle[i], alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=2, label=label)
             return name
 
         math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))
