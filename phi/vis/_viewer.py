@@ -1,4 +1,5 @@
 import itertools
+import sys
 import time
 import warnings
 from threading import Event
@@ -141,7 +142,11 @@ class Viewer(VisModel):
             self.growing_dims = [rec_dim_name]
 
         if len(args) == 0:
-            step_source = itertools.count(start=1)
+            def count():
+                while True:
+                    yield self.steps
+
+            step_source = count()
         else:
             step_source = range(*args)
 
@@ -153,6 +158,7 @@ class Viewer(VisModel):
                     t = time.perf_counter()
                     yield step
                     self._elapsed = time.perf_counter() - t
+                    self.steps += 1
                     if rec_dim:
                         self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                     if self.log_performance:

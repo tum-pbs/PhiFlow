@@ -27,7 +27,7 @@ class WidgetsGui(Gui):
         self.kernel = self.shell.kernel
         self.loop_parent = None  # set when loop is created
         # Status
-        self.max_step = -1  # play up until this step if set, determines if playing
+        self.waiting_steps = 0
         self._interrupted = False
         self.fields = None
         self.field = None
@@ -36,7 +36,6 @@ class WidgetsGui(Gui):
         # Components will be created during show()
         self.figure_display = None
         self.status = None
-        self.buttons = None
         self.field_select = None
         self.vector_select = None
         self.dim_sliders = {}
@@ -64,16 +63,17 @@ class WidgetsGui(Gui):
     def show(self, caller_is_main: bool) -> bool:
         self.figure_display = widgets.Output()
         # Icons: https://en.wikipedia.org/wiki/Media_control_symbols️  ⏮ ⏭ ⏺ ⏏
-        play_button = widgets.Button(description="️▶ Play")
-        play_button.on_click(self.play)
-        pause_button = widgets.Button(description="Pause")
-        pause_button.on_click(self.pause)
-        step_button = widgets.Button(description="Step")
-        step_button.on_click(self.step)
-        interrupt_button = widgets.Button(description="Break")
-        interrupt_button.on_click(self.interrupt)
-        self.buttons = HBox([play_button, pause_button, step_button, interrupt_button])
-        self.buttons.layout.visibility = 'hidden'
+        self.play_button = widgets.Button(description="▶ Play")
+        self.play_button.on_click(self.play)
+        self.pause_button = widgets.Button(description="▌▌ Pause")
+        self.pause_button.on_click(self.pause)
+        self.step_button = widgets.Button(description="Step")
+        self.step_button.on_click(self.step)
+        self.interrupt_button = widgets.Button(description="⏏ Break")
+        self.interrupt_button.on_click(self.interrupt)
+        self.progression_buttons = [self.play_button, self.pause_button, self.step_button, self.interrupt_button]
+        for button in self.progression_buttons:
+            button.layout.visibility = 'hidden'
         self.status = widgets.Label(value=self._get_status())
         self.field_select = widgets.Dropdown(options=[*self.fields, 'Scalars'], value=self.fields[0], description='Display:')
         self.field_select.layout.visibility = 'visible' if len(self.app.field_names) > 1 else 'hidden'
@@ -113,12 +113,17 @@ class WidgetsGui(Gui):
                 raise ValueError(f'Illegal control type: {control.control_type}')
             control_component.observe(lambda e, c=control: None if IGNORE_EVENTS else self.app.set_control_value(c.name, e['new']), 'value')
             control_components.append(control_component)
+        action_buttons = []
+        for action in self.app.action_names:
+            button = widgets.Button(description=display_name(action))
+            button.on_click(lambda e, act=action: self.run_action(act))
+            action_buttons.append(button)
         layout = VBox([
-            self.buttons,
+            HBox(self.progression_buttons + action_buttons),
             self.status,
-            HBox([self.field_select, self.vector_select]),
-            HBox(dim_sliders),  # sliders below field select
+            HBox(dim_sliders),
             VBox(control_components),
+            HBox([self.field_select, self.vector_select], layout=widgets.Layout(height='35px')),
             self.figure_display
         ])
         # Show initial value and display UI
@@ -133,8 +138,8 @@ class WidgetsGui(Gui):
         else:
             return f"Finished {self.app.steps} steps.  {self.app.message or ''}"
 
-    def _is_playing(self):
-        return self.max_step is None or self.max_step > self.app.steps
+    def _should_progress(self):
+        return self.waiting_steps is None or self.waiting_steps > 0
 
     def show_field(self, field: str):
         self.field = field
@@ -198,19 +203,24 @@ class WidgetsGui(Gui):
         self._last_plot_update_time = time.time()
 
     def play(self, _):
-        self.max_step = None
+        self.waiting_steps = None
 
     def auto_play(self):
-        self.max_step = None
+        self.waiting_steps = None
 
     def pause(self, _):
-        self.max_step = self.app.steps
+        self.waiting_steps = 0
+        self.update_widgets()
 
     def step(self, _):
-        if self.max_step is None:
+        if self.waiting_steps is None:
             return
         else:
-            self.max_step += 1
+            self.waiting_steps += 1
+
+    def run_action(self, name):
+        self.app.run_action(name)
+        self.update_widgets()
 
     def interrupt(self, _):
         self._interrupted = True
@@ -218,7 +228,8 @@ class WidgetsGui(Gui):
     def on_loop_start(self, _):
         self._in_loop = True
         self._interrupted = False
-        self.buttons.layout.visibility = 'visible'
+        for button in self.progression_buttons:
+            button.layout.visibility = 'visible'
         self.loop_parent = (self.kernel._parent_ident, self.kernel._parent_header)
         self.kernel.shell_handlers["execute_request"] = lambda *e: self.events.append(e)
         self.events = []
@@ -226,13 +237,15 @@ class WidgetsGui(Gui):
 
     def pre_step(self, app):
         self._process_kernel_events()
-        while not self._is_playing():
+        while not self._should_progress():
             time.sleep(.1)
             self._process_kernel_events()
             if self._interrupted:
                 raise GuiInterrupt()
         if self._interrupted:
             raise GuiInterrupt()
+        if self.waiting_steps is not None:
+            self.waiting_steps -= 1
         return  # runs loop iteration, then calls post_step
 
     def _process_kernel_events(self, n=10):
@@ -242,7 +255,7 @@ class WidgetsGui(Gui):
             self.kernel.set_parent(*self.loop_parent)
 
     def post_step(self, _):
-        if self._is_playing():  # maybe skip update
+        if self._should_progress():  # maybe skip update
             update_interval = self.config.get('update_interval')
             if update_interval is None:
                 update_interval = 2.5 if 'google.colab' in sys.modules else 1.2
@@ -253,7 +266,8 @@ class WidgetsGui(Gui):
 
     def on_loop_exit(self, _):
         self._in_loop = False
-        self.buttons.layout.visibility = 'hidden'
+        for button in self.progression_buttons:
+            button.layout.visibility = 'hidden'
         self.update_widgets()
         self._process_kernel_events()
         self.kernel.shell_handlers["execute_request"] = self.kernel.execute_request

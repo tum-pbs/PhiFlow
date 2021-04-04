@@ -397,7 +397,11 @@ def display_name(python_name):
             n[i] = " "
             if len(n) > i + 1:
                 n[i + 1] = n[i + 1].upper()
-    return "".join(n)
+    text = "".join(n)
+    if "Reset" in text:
+        return f"⏮ {text}"
+    else:
+        return text
 
 
 def select_channel(value: SampledField, channel: str or None):

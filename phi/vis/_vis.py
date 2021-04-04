@@ -3,7 +3,7 @@ import os
 
 from ._user_namespace import get_user_namespace, UserNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import get_gui, default_gui, show, Control, display_name
+from ._vis_base import get_gui, default_gui, show, Control, display_name, value_range
 from ..field import SampledField, Scene
 from ..field._scene import _slugify_filename
 
@@ -62,7 +62,7 @@ def view(*fields: str or SampledField,
     name = name or user_namespace.get_title()
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
-    controls = tuple(c for c in CONTROL_VARS if user_namespace.get_variable(c.name) is not None)
+    controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if user_namespace.get_variable(c.name) is not None)
     viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, log_performance=True)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer
@@ -120,8 +120,10 @@ def control(value, range: tuple = None, **kwargs):
     var_names = [var.strip() for var in calling_code.split('=')[:-1]]
     var_names = [n for n in var_names if n]
     for var_name in var_names:
-        CONTROL_VARS.append(Control(var_name, type(value), value, range, kwargs))
+        ctrl = Control(var_name, type(value), value, range, kwargs)
+        value_range(ctrl)  # checks if valid
+        CONTROL_VARS[var_name] = ctrl
     return value
 
 
-CONTROL_VARS = []
+CONTROL_VARS = {}
