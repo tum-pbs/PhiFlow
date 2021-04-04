@@ -4,6 +4,7 @@ import time
 import traceback
 import warnings
 from contextlib import contextmanager
+from math import log10
 
 import ipywidgets as widgets
 from IPython import get_ipython
@@ -15,8 +16,7 @@ from matplotlib import pyplot as plt
 from phi.math._shape import parse_dim_order
 from phi.field import SampledField
 from .._matplotlib._matplotlib_plots import plot
-from .._vis_base import Gui, VisModel, display_name, GuiInterrupt, select_channel
-from ... import field
+from .._vis_base import Gui, VisModel, display_name, GuiInterrupt, select_channel, value_range, is_log_control
 
 
 class WidgetsGui(Gui):
@@ -66,11 +66,11 @@ class WidgetsGui(Gui):
         # Icons: https://en.wikipedia.org/wiki/Media_control_symbols️  ⏮ ⏭ ⏺ ⏏
         play_button = widgets.Button(description="️▶ Play")
         play_button.on_click(self.play)
-        pause_button = widgets.Button(description="⏸ Pause")
+        pause_button = widgets.Button(description="Pause")
         pause_button.on_click(self.pause)
-        step_button = widgets.Button(description="⏯ Step")
+        step_button = widgets.Button(description="Step")
         step_button.on_click(self.step)
-        interrupt_button = widgets.Button(description="⏹ Break")
+        interrupt_button = widgets.Button(description="Break")
         interrupt_button.on_click(self.interrupt)
         self.buttons = HBox([play_button, pause_button, step_button, interrupt_button])
         self.buttons.layout.visibility = 'hidden'
@@ -94,11 +94,31 @@ class WidgetsGui(Gui):
         )
         self.vector_select.style.button_width = '30px'
         self.vector_select.observe(lambda e: None if IGNORE_EVENTS else self.update_widgets(), 'value')
+        control_components = []
+        for control in self.app.controls:
+            val_min, val_max = value_range(control)
+            if control.control_type == int:
+                control_component = widgets.IntSlider(control.initial, min=val_min, max=val_max, step=1, description=display_name(control.name))
+            elif control.control_type == float:
+                if is_log_control(control):
+                    val_min, val_max = log10(val_min), log10(val_max)
+                    control_component = widgets.FloatLogSlider(control.initial, base=10, min=val_min, max=val_max, description=display_name(control.name))
+                else:
+                    control_component = widgets.FloatSlider(control.initial, min=val_min, max=val_max, description=display_name(control.name))
+            elif control.control_type == bool:
+                control_component = widgets.Checkbox(control.initial, description=display_name(control.name))
+            elif control.control_type == str:
+                control_component = widgets.Text(value=control.initial, placeholder=control.initial, description=display_name(control.name))
+            else:
+                raise ValueError(f'Illegal control type: {control.control_type}')
+            control_component.observe(lambda e, c=control: None if IGNORE_EVENTS else self.app.set_control_value(c.name, e['new']), 'value')
+            control_components.append(control_component)
         layout = VBox([
             self.buttons,
             self.status,
             HBox([self.field_select, self.vector_select]),
             HBox(dim_sliders),  # sliders below field select
+            VBox(control_components),
             self.figure_display
         ])
         # Show initial value and display UI
@@ -106,17 +126,15 @@ class WidgetsGui(Gui):
         display(layout)
 
     def _get_status(self):
-        message = f" - {self.app.message}" if self.app.message else ""
         if self._in_loop is None:  # no loop yet
             return self.app.message or ""
         elif self._in_loop is True:
-            action = "Playing" if self._is_playing() else "Idle"
-            return f"{action} ({self.app.steps} steps){message}"
+            return f"Frame {self.app.steps}.  {self.app.message or ''}"
         else:
-            return f"Finished {self.app.steps} steps."
+            return f"Finished {self.app.steps} steps.  {self.app.message or ''}"
 
     def _is_playing(self):
-        return self.max_step is None or self.max_step >= self.app.steps
+        return self.max_step is None or self.max_step > self.app.steps
 
     def show_field(self, field: str):
         self.field = field
@@ -204,6 +222,7 @@ class WidgetsGui(Gui):
         self.loop_parent = (self.kernel._parent_ident, self.kernel._parent_header)
         self.kernel.shell_handlers["execute_request"] = lambda *e: self.events.append(e)
         self.events = []
+        self.update_widgets()
 
     def pre_step(self, app):
         self._process_kernel_events()

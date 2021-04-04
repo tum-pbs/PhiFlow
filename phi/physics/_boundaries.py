@@ -88,6 +88,7 @@ class Domain:
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
         self.resolution: math.Shape = spatial_shape(resolution) & spatial_shape(resolution_)
+        assert self.resolution.rank > 0, "Cannot create Domain because no dimensions were specified."
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
         self.boundaries: dict = _create_boundary_conditions(boundaries, self.resolution.names)
         """ Outer boundary conditions. """

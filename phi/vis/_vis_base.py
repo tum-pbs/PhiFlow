@@ -38,6 +38,10 @@ def value_range(control: Control):
             val_range = (0, 4 * control.initial)
         else:
             val_range = (2 * control.initial, -2 * control.initial)
+    elif control.control_type == bool:
+        return False, True
+    elif control.control_type == str:
+        return "", ""
     else:
         raise AssertionError(f"Not a numeric control: {control}")
     return val_range
@@ -53,6 +57,8 @@ def is_log_control(control: Control):
         if control.value_range is None:
             return True
         else:
+            if 0 in control.value_range:
+                return False
             return control.value_range[1] / float(control.value_range[0]) > 10
 
 
