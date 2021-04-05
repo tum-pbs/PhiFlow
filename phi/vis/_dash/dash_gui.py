@@ -159,3 +159,6 @@ class DashGui(Gui):
                                           port=port,
                                           use_reloader=False)
             return self
+
+    def auto_play(self):
+        self.dash_app.play()

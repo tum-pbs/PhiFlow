@@ -105,20 +105,9 @@ class ConsoleGui(Gui):
             value = control.control_type(value)  # raises ValueError
             self.app.set_control_value(name, value)
         elif command == 'help':
-            print("Commands:\n"
-                  "\thelp\n"
-                  "\tstatus\n"
-                  "\tcontrols\n"
-                  "\tshow\n"
-                  "\tshow <comma-separated fields>\n"
-                  "\tshow <field>.<component>\n"
-                  "\tplay\n"
-                  "\tplay <frames>\n"
-                  "\tpause\n"
-                  "\tstep\n"
-                  "\t<control> = <value>\n"
-                  "\texit\n"
-                  "\tkill\n"
+            print("General Commands:  \t\tstatus, controls, actions, help\n"
+                  "Plotting:  \t\t\t\tshow, show <comma-separated fields>, show <field>.<component>\n"
+                  "Control Execution:  \tplay, play <frames>, pause, step, <control> = <value>, exit, kill\n"
                   "See https://tum-pbs.github.io/PhiFlow/ConsoleUI.html for a detailed description of available commands.")
         elif command == 'actions':
             print("Available actions:\n")
@@ -162,3 +151,7 @@ class ConsoleGui(Gui):
                 plt_lines = heatmap(v, plt_width, plt_height, name)
             lines = [l+p for l, p in zip(lines, plt_lines)]
         print("\n".join(lines))
+
+    def auto_play(self):
+        framerate = self.config.get('framerate', None)
+        self.play_status = play_async(self.app, framerate=framerate)

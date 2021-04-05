@@ -295,8 +295,7 @@ class Gui:
         Called if `autorun=True`.
         If no Gui is specified, `App.run()` is called instead.
         """
-        framerate = self.config.get('framerate', None)
-        play_async(self.app, framerate=framerate)
+        raise NotImplementedError(self)
 
 
 def default_gui() -> Gui:
@@ -382,7 +381,7 @@ def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep
     gui = default_gui() if gui is None else get_gui(gui)
     gui.configure(config)
     gui.setup(model)
-    if play and model.can_progress:
+    if play:  # this needs to be done even if model cannot progress right now
         gui.auto_play()
     if gui.asynchronous:
         display_thread = Thread(target=lambda: gui.show(True), name="AsyncGui", daemon=not keep_alive)

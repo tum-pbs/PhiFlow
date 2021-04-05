@@ -247,6 +247,9 @@ class AsyncViewer(Viewer):
         self.step_exec_event.set()
         self.step_finished_event.wait()
 
+    def can_progress(self) -> bool:
+        return True
+
 
 class Record:
 

@@ -206,6 +206,8 @@ class WidgetsGui(Gui):
         self.waiting_steps = None
 
     def auto_play(self):
+        sys.stdout.write('auto_play')
+        sys.stdout.flush()
         self.waiting_steps = None
 
     def pause(self, _):

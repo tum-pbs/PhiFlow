@@ -77,7 +77,7 @@ class DashApp:
         else:
             return 0, 0
 
-    def play(self, max_steps=None, framerate=None):
+    def play(self, max_steps=None):
         if not self.play_status:
             framerate = self.config.get('framerate', None)
             self.play_status = play_async(self.app, max_steps=max_steps, framerate=framerate)
