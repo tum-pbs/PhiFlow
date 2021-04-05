@@ -47,7 +47,7 @@ from ._vis import view, control
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
 __pdoc__ = {
-    &#39;Viewer.action_names&#39;: False,
+    &#39;Viewer.actions&#39;: False,
     &#39;Viewer.can_progress&#39;: False,
     &#39;Viewer.control_names&#39;: False,
     &#39;Viewer.curve_names&#39;: False,
@@ -60,6 +60,8 @@ __pdoc__ = {
     &#39;Viewer.log_scalars&#39;: False,
     &#39;Viewer.controls&#39;: False,
     &#39;Viewer.get_control_value&#39;: False,
+    &#39;Viewer.info&#39;: False,
+    &#39;Viewer.reset&#39;: False,
 }</code></pre>
 </details>
 </section>
@@ -139,7 +141,7 @@ __pdoc__ = {
 </details>
 </dd>
 <dt id="phi.vis.control"><code class="name flex">
-<span>def <span class="ident">control</span></span>(<span>value, range: tuple = None, **kwargs)</span>
+<span>def <span class="ident">control</span></span>(<span>value, range: tuple = None, description='', **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Mark a variable as controllable by any GUI created via <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
@@ -153,6 +155,8 @@ __pdoc__ = {
 <dd>Initial value. Must be either <code>int</code>, <code>float´,</code>bool<code> or </code>str`.</dd>
 <dt><strong><code>range</code></strong></dt>
 <dd>(Optional) Specify range of possible values as <code>(min, max)</code>. Only for <code>int</code> and <code>float</code> values.</dd>
+<dt><strong><code>description</code></strong></dt>
+<dd>Description of what the control does.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional arguments to determine the appearance of the GUI component,
 e.g. <code>rows</code> for text fields or <code>log=False</code> for float sliders.</dd>
@@ -163,7 +167,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def control(value, range: tuple = None, **kwargs):
+<pre><code class="python">def control(value, range: tuple = None, description=&#34;&#34;, **kwargs):
     &#34;&#34;&#34;
     Mark a variable as controllable by any GUI created via `view()`.
 
@@ -177,6 +181,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     Args:
         value: Initial value. Must be either `int`, `float´, `bool` or `str`.
         range: (Optional) Specify range of possible values as `(min, max)`. Only for `int` and `float` values.
+        description: Description of what the control does.
         **kwargs: Additional arguments to determine the appearance of the GUI component,
             e.g. `rows` for text fields or `log=False` for float sliders.
 
@@ -190,12 +195,14 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     var_names = [var.strip() for var in calling_code.split(&#39;=&#39;)[:-1]]
     var_names = [n for n in var_names if n]
     for var_name in var_names:
-        CONTROL_VARS.append(Control(var_name, type(value), value, range, kwargs))
+        ctrl = Control(var_name, type(value), value, range, description, kwargs)
+        value_range(ctrl)  # checks if valid
+        CONTROL_VARS[var_name] = ctrl
     return value</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args)</span>
+<span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, colorbar=True, figsize=(12, 5), same_scale=True, **plt_args)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a Matplotlib figure to display a single field or batch of fields.</p>
@@ -222,7 +229,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+<pre><code class="python">def plot(field: SampledField or tuple or list, title=False, colorbar=True, figsize=(12, 5), same_scale=True, **plt_args):
     &#34;&#34;&#34;
     Creates a Matplotlib figure to display a single field or batch of fields.
 
@@ -312,17 +319,22 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 
         def single_plot(name, path, i):
             curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
+            if curve.ndim == 2:
+                x, values, *_ = curve.T
+            else:
+                values = curve
+                x = np.arange(values)
             name = display_name(name)
             if transform:
-                curve = transform(curve)
+                x, values = transform(x, values)
             if names_equal:
                 label = os.path.basename(path)
             elif paths_equal:
                 label = name
             else:
                 label = f&#34;{os.path.basename(path)} - {name}&#34;
-            axis.plot(curve, color=cycle[i], alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(curve, n=smooth), color=cycle[i], linewidth=2, label=label)
+            axis.plot(x, values, color=cycle[i], alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=2, label=label)
             return name
 
         math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))
@@ -334,7 +346,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>app: phi.vis._vis_base.VisModel = None, play=True, gui: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>model: phi.vis._vis_base.VisModel = None, play=True, gui: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Launch the registered user interface (web interface by default).</p>
@@ -343,13 +355,10 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>app</code></strong></dt>
-<dd>App or None:
-(Default value = None)</dd>
+<dt><strong><code>model</code></strong></dt>
+<dd>(Optional) <code>VisModel</code>, the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.</dd>
 <dt><strong><code>play</code></strong></dt>
 <dd>If true, invokes <code>App.play()</code>. The default value is False unless "autorun" is passed as a command line argument.</dd>
-<dt><strong><code>app</code></strong></dt>
-<dd>optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.</dd>
 <dt><strong><code>gui</code></strong></dt>
 <dd>(optional) class of GUI to use</dd>
 <dt><strong><code>keep_alive</code></strong></dt>
@@ -362,7 +371,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show(app: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
+<pre><code class="python">def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
     &#34;&#34;&#34;
     Launch the registered user interface (web interface by default).
     
@@ -373,21 +382,20 @@ For a full list of parameters, see the respective GUI documentation at <a href="
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 
     Args:
-      app: App or None:  (Default value = None)
+      model: (Optional) `VisModel`, the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
       play: If true, invokes `App.play()`. The default value is False unless &#34;autorun&#34; is passed as a command line argument.
-      app: optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
       gui: (optional) class of GUI to use
       keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     &#34;&#34;&#34;
-    assert isinstance(app, VisModel), f&#34;show() first argument must be an App instance but got {app}&#34;
-    app.prepare()
+    assert isinstance(model, VisModel), f&#34;show() first argument must be an App instance but got {model}&#34;
+    model.prepare()
     # --- Setup Gui ---
     gui = default_gui() if gui is None else get_gui(gui)
     gui.configure(config)
-    gui.setup(app)
-    if play:
+    gui.setup(model)
+    if play and model.can_progress:
         gui.auto_play()
     if gui.asynchronous:
         display_thread = Thread(target=lambda: gui.show(True), name=&#34;AsyncGui&#34;, daemon=not keep_alive)
@@ -486,8 +494,9 @@ For each <code>select</code> dimension, an associated selection slider will be c
     Returns:
         `Viewer`
     &#34;&#34;&#34;
-    user_namespace = default_user_namespace()
+    user_namespace = get_user_namespace(1)
     variables = _default_field_variables(user_namespace, fields)
+    actions = _default_actions(user_namespace)
     if scene is False:
         scene = None
     elif scene is True:
@@ -497,8 +506,8 @@ For each <code>select</code> dimension, an associated selection slider will be c
     name = name or user_namespace.get_title()
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
-    controls = tuple(c for c in CONTROL_VARS if user_namespace.get_variable(c.name) is not None)
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, log_performance=True)
+    controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if user_namespace.get_variable(c.name) is not None)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=True)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer</code></pre>
 </details>
@@ -510,7 +519,7 @@ For each <code>select</code> dimension, an associated selection slider will be c
 <dl>
 <dt id="phi.vis.Viewer"><code class="flex name class">
 <span>class <span class="ident">Viewer</span></span>
-<span>(</span><span>namespace: phi.vis._user_namespace.UserNamespace, fields: dict, name: str, description: str, scene: phi.field._scene.Scene, controls: tuple, log_performance: bool)</span>
+<span>(</span><span>namespace: phi.vis._user_namespace.UserNamespace, fields: dict, name: str, description: str, scene: phi.field._scene.Scene, controls: tuple, actions: dict, log_performance: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shows variables from the user namespace.
@@ -538,6 +547,7 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
                  description: str,
                  scene: Scene,
                  controls: tuple,
+                 actions: dict,
                  log_performance: bool,
                  ):
         VisModel.__init__(self, name, description, scene=scene)
@@ -550,9 +560,26 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         self._log = SceneLog(self.scene)
         self.log_file = self._log.log_file
         self._elapsed = None
+        self._actions = dict(actions)
+        self._actions[Action(&#39;reset&#39;, Viewer.reset.__doc__)] = self.reset
 
     def log_scalars(self, **values):
         self._log.log_scalars(self.steps, **values)
+
+    def info(self, message: str):
+        &#34;&#34;&#34;
+        Update the status message.
+        The status message is written to the console and the log file.
+        Additionally, it may be displayed by the user interface.
+
+        See `debug()`.
+
+        Args:
+            message: Message to display
+        &#34;&#34;&#34;
+        message = str(message)
+        self.message = message
+        self._log.log(message)
 
     @property
     def field_names(self) -&gt; tuple:
@@ -584,14 +611,15 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         self.namespace.set_variable(name, value)
 
     @property
-    def action_names(self) -&gt; tuple:
-        return &#34;reset&#34;,
+    def actions(self) -&gt; tuple:
+        return tuple(self._actions.keys())
 
     def run_action(self, name):
-        if name == &#39;reset&#39;:
-            self.reset()
-        else:
-            raise KeyError(name)
+        for action, fun in self._actions.items():
+            if action.name == name:
+                fun()
+                return
+        raise KeyError(name)
 
     def range(self, *args, warmup=0, **rec_dim):
         &#34;&#34;&#34;
@@ -638,7 +666,11 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
             self.growing_dims = [rec_dim_name]
 
         if len(args) == 0:
-            step_source = itertools.count(start=1)
+            def count():
+                while True:
+                    yield self.steps
+
+            step_source = count()
         else:
             step_source = range(*args)
 
@@ -650,6 +682,7 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
                     t = time.perf_counter()
                     yield step
                     self._elapsed = time.perf_counter() - t
+                    self.steps += 1
                     if rec_dim:
                         self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                     if self.log_performance:
@@ -795,7 +828,11 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
         self.growing_dims = [rec_dim_name]
 
     if len(args) == 0:
-        step_source = itertools.count(start=1)
+        def count():
+            while True:
+                yield self.steps
+
+        step_source = count()
     else:
         step_source = range(*args)
 
@@ -807,6 +844,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
                 t = time.perf_counter()
                 yield step
                 self._elapsed = time.perf_counter() - t
+                self.steps += 1
                 if rec_dim:
                     self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                 if self.log_performance:
@@ -817,26 +855,6 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
     finally:
         self._in_loop = False
         self._call(self.progress_unavailable)</code></pre>
-</details>
-</dd>
-<dt id="phi.vis.Viewer.reset"><code class="name flex">
-<span>def <span class="ident">reset</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Restores all viewed fields to the states they were in when the viewer was created.
-Changes variable values in the user namespace.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def reset(self):
-    &#34;&#34;&#34;
-    Restores all viewed fields to the states they were in when the viewer was created.
-    Changes variable values in the user namespace.
-    &#34;&#34;&#34;
-    for name, value in self.initial_field_values.items():
-        self.namespace.set_variable(name, value)
-    self.steps = 0</code></pre>
 </details>
 </dd>
 </dl>
@@ -872,7 +890,6 @@ Changes variable values in the user namespace.</p></div>
 <ul class="">
 <li><code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">range</a></code></li>
 <li><code><a title="phi.vis.Viewer.rec" href="#phi.vis.Viewer.rec">rec</a></code></li>
-<li><code><a title="phi.vis.Viewer.reset" href="#phi.vis.Viewer.reset">reset</a></code></li>
 </ul>
 </li>
 </ul>

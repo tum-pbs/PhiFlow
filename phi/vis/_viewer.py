@@ -62,6 +62,21 @@ class Viewer(VisModel):
     def log_scalars(self, **values):
         self._log.log_scalars(self.steps, **values)
 
+    def info(self, message: str):  # may be replaced by a different solution later on
+        """
+        Update the status message.
+        The status message is written to the console and the log file.
+        Additionally, it may be displayed by the user interface.
+
+        See `debug()`.
+
+        Args:
+            message: Message to display
+        """
+        message = str(message)
+        self.message = message
+        self._log.log(message)
+
     @property
     def field_names(self) -> tuple:
         return tuple(self.initial_field_values.keys())
@@ -189,6 +204,9 @@ class Viewer(VisModel):
         """
         assert self._rec, "Enable recording by calling range() with a dimension name, e.g. 'range(frames=10)'."
         return self._rec
+
+    def progress(self):
+        raise AssertionError("progress() not supported by synchronous Viewer.")
 
     @property
     def can_progress(self) -> bool:

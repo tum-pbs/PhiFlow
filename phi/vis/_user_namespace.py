@@ -79,7 +79,7 @@ class ModuleNamespace(UserNamespace):
         if only_public:
             variables = {n: v for n, v in variables.items() if not n.startswith('_')}
         if only_current_scope:
-            variables = {n: v for n, v in variables.items() if inspect.getmodule(v) == self.module}
+            variables = {n: v for n, v in variables.items() if is_value(v) or inspect.getmodule(v) == self.module}
         return variables
 
     def get_variable(self, name: str, default=None):
@@ -87,6 +87,16 @@ class ModuleNamespace(UserNamespace):
 
     def set_variable(self, name: str, value):
         setattr(self.module, name, value)
+
+
+def is_value(obj):
+    if isinstance(obj, type):
+        return False
+    # return type(open).__name__ not in ('function', 'builtin_function_or_method', 'module')
+    # if isinstance(obj, (type, function, builtin_function_or_method))
+    if inspect.isfunction(obj):
+        return False
+    return True
 
 
 class JupyterNamespace(UserNamespace):

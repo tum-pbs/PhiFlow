@@ -15,7 +15,7 @@ from ._vis import view, control
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
 
 __pdoc__ = {
-    'Viewer.action_names': False,
+    'Viewer.actions': False,
     'Viewer.can_progress': False,
     'Viewer.control_names': False,
     'Viewer.curve_names': False,
@@ -28,4 +28,7 @@ __pdoc__ = {
     'Viewer.log_scalars': False,
     'Viewer.controls': False,
     'Viewer.get_control_value': False,
+    'Viewer.info': False,
+    'Viewer.reset': False,
+    'Viewer.progress': False,
 }

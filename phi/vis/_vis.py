@@ -97,7 +97,7 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
 def _default_actions(ns: UserNamespace):
     actions = {}
     for name, fun in ns.list_variables(only_public=True, only_current_scope=True).items():
-        if callable(fun):
+        if inspect.isfunction(fun):
             signature = inspect.signature(fun)
             if not signature.parameters:
                 doc = inspect.getdoc(fun)

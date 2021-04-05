@@ -140,6 +140,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         &#34;&#34;&#34;
         self.resolution: math.Shape = spatial_shape(resolution) &amp; spatial_shape(resolution_)
+        assert self.resolution.rank &gt; 0, &#34;Cannot create Domain because no dimensions were specified.&#34;
         &#34;&#34;&#34; Grid dimensions as `Shape` object containing spatial dimensions only. &#34;&#34;&#34;
         self.boundaries: dict = _create_boundary_conditions(boundaries, self.resolution.names)
         &#34;&#34;&#34; Outer boundary conditions. &#34;&#34;&#34;
@@ -446,13 +447,9 @@ def rank(self) -&gt; int:
     return self.resolution.rank</code></pre>
 </details>
 </dd>
-<dt id="phi.physics.Domain.resolution"><code class="name">var <span class="ident">resolution</span></code></dt>
-<dd>
-<div class="desc"><p>Grid dimensions as <code>Shape</code> object containing spatial dimensions only.</p></div>
-</dd>
 <dt id="phi.physics.Domain.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Alias for <code><a title="phi.physics.Domain.resolution" href="#phi.physics.Domain.resolution">Domain.resolution</a></code></p></div>
+<div class="desc"><p>Alias for <code>Domain.resolution</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1058,7 +1055,6 @@ It can also have a linear and angular velocity.</p></div>
 <li><code><a title="phi.physics.Domain.grid" href="#phi.physics.Domain.grid">grid</a></code></li>
 <li><code><a title="phi.physics.Domain.points" href="#phi.physics.Domain.points">points</a></code></li>
 <li><code><a title="phi.physics.Domain.rank" href="#phi.physics.Domain.rank">rank</a></code></li>
-<li><code><a title="phi.physics.Domain.resolution" href="#phi.physics.Domain.resolution">resolution</a></code></li>
 <li><code><a title="phi.physics.Domain.scalar_grid" href="#phi.physics.Domain.scalar_grid">scalar_grid</a></code></li>
 <li><code><a title="phi.physics.Domain.shape" href="#phi.physics.Domain.shape">shape</a></code></li>
 <li><code><a title="phi.physics.Domain.staggered_grid" href="#phi.physics.Domain.staggered_grid">staggered_grid</a></code></li>

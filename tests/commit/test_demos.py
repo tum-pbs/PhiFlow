@@ -24,18 +24,19 @@ class PerformModelTests(display.Gui):
     def __init__(self):
         display.Gui.__init__(self, asynchronous=False)
 
-    def setup(self, app):
-        display.Gui.setup(self, app)
-        app.prepare()
+    def show(self, caller_is_main: bool):
+        validate_fields(self.app)
+        self.app.post_step.append(self.post_step)
+
+    @staticmethod
+    def post_step(app):
         validate_fields(app)
-        app.progress()
-        app.progress()
-        validate_fields(app)
-        print("Tests successful.")
-        raise InterruptedError
+        if app.steps >= 2:
+            print("Tests successful.")
+            raise InterruptedError
 
     def auto_play(self):
-        pass
+        pass  # we test independently of whether auto-play is set
 
 
 def demo_run(name, backends=BACKENDS):

@@ -40,6 +40,9 @@ class SceneLog:
         else:
             self.log_file = None
 
+    def log(self, message):
+        self.logger.info(message)
+
     def log_scalars(self, frame: int, **values: float or math.Tensor):
         """
         Adds `values` to the curves by name.

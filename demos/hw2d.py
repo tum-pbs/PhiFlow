@@ -155,7 +155,7 @@ def euler_step(dt, gradient_func=step_gradient_2d, **kwargs):
 
 def rk4_step(dt, density, omega, phi, age, gradient_func=step_gradient_2d):
     # RK4
-    yn = Namespace(density=density, omega=omega, phi=phi, age=age, dt=dt, dx=dx)  # given dict to Namespace
+    yn = Namespace(density=density, omega=omega, phi=phi, age=age, dx=dx)  # given dict to Namespace
     t0 = time.time()
     if age == 0:
         pn = get_phi(yn, guess=yn.phi)
@@ -185,13 +185,8 @@ def rk4_step(dt, density, omega, phi, age, gradient_func=step_gradient_2d):
                 ]
             )
         )
-    return Namespace(
-        density=y1.density,
-        omega=y1.omega,
-        phi=get_phi(y1),  # TODO: Somehow this does not work properly
-        age=yn.age + dt,  # y1 contains 2 time steps from compute
-        dx=yn.dx,
-    )
+    return y1.density, y1.omega,\
+           get_phi(y1)  # TODO: Somehow this does not work properly
 
 
 domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
@@ -200,6 +195,6 @@ omega = domain.grid(math.random_normal(x=x, y=y))
 phi = domain.grid(math.random_normal(x=x, y=y))
 age = 0
 
-for _ in view('density', 'omega', 'phi', play=False, framerate=10).range():
+for _ in view(density, omega, phi, play=False, framerate=10).range():
     density, omega, phi = rk4_step(dt, density, omega, phi, age)
     age += dt

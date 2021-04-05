@@ -10,8 +10,7 @@ from .dash_app import DashApp
 from .info import build_app_details, build_description, build_phiflow_info, build_app_time
 from .viewer import build_viewer
 from .player_controls import build_status_bar, build_player_controls
-from .._app import App
-from .._vis_base import Gui
+from .._vis_base import Gui, VisModel
 
 
 class DashGui(Gui):
@@ -20,7 +19,7 @@ class DashGui(Gui):
         Gui.__init__(self, asynchronous=True)
         self.dash_app = None
 
-    def setup(self, app: App):
+    def setup(self, app: VisModel):
         Gui.setup(self, app)
         header_layout = html.Div([
                 dcc.Link('Home', href='/'),
