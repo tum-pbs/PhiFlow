@@ -3,7 +3,8 @@ import shutil
 import time
 
 from phi.field import StaggeredGrid
-from .._vis_base import Gui, play_async, gui_interrupt, select_channel, get_control_by_name, status_message
+from .._vis_base import Gui, play_async, gui_interrupt, select_channel, get_control_by_name, status_message, \
+    display_name
 from ._console_plot import heatmap, quiver
 
 
@@ -98,6 +99,7 @@ class ConsoleGui(Gui):
         elif '=' in command:
             parts = command.split('=')
             assert len(parts) == 2, "Invalid command syntax. Use '<control_name> = <value>'. Type 'controls' for a list of available controls."
+            parts = [p.strip() for p in parts]
             name, value = parts
             control = get_control_by_name(self.app, name)
             value = control.control_type(value)  # raises ValueError
@@ -118,6 +120,16 @@ class ConsoleGui(Gui):
                   "\texit\n"
                   "\tkill\n"
                   "See https://tum-pbs.github.io/PhiFlow/ConsoleUI.html for a detailed description of available commands.")
+        elif command == 'actions':
+            print("Available actions:\n")
+            for action in self.app.actions:
+                print(f"{display_name(action.name)}  \t(type '{action.name}' to run)")
+                if action.description:
+                    print(f"{action.description}")
+                print()
+        elif command in [a.name for a in self.app.actions]:
+            self.app.run_action(command)
+            print(f"Completed '{display_name(command)}'")
         else:
             print(f"Command {command} not recognized.")
 

@@ -12,7 +12,9 @@ from phi import field
 from phi.field import SampledField, Scene
 
 
-Control = namedtuple('Control', ['name', 'control_type', 'initial', 'value_range', 'kwargs'])
+Control = namedtuple('Control', ['name', 'control_type', 'initial', 'value_range', 'description', 'kwargs'])
+
+Action = namedtuple('Action', ['name', 'description'])
 
 
 def value_range(control: Control):
@@ -135,7 +137,7 @@ class VisModel:
         raise NotImplementedError(self)
 
     @property
-    def action_names(self) -> tuple:
+    def actions(self) -> Tuple[Action]:
         raise NotImplementedError(self)
 
     def run_action(self, name):

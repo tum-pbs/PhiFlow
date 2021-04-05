@@ -34,7 +34,7 @@ def global_user_namespace(frames: List[inspect.FrameInfo]) -> UserNamespace:
     else:
         for frame in frames:
             if frame.function == '<module>':
-                module = inspect.getmodule(frame)
+                module = inspect.getmodule(frame.frame)
                 return ModuleNamespace(module)
         raise AssertionError('No module found in call stack.')
 
@@ -43,7 +43,7 @@ def get_user_namespace(ignore_stack_frames=0) -> UserNamespace:
     frames = inspect.stack()
     stack_item = frames[ignore_stack_frames + 1]  # 1 for this function
     if stack_item.function == '<module>':
-        return global_user_namespace(frames)
+        return global_user_namespace(frames[ignore_stack_frames + 1:])
     else:
         return LocalNamespace(stack_item, frames)
 
@@ -75,10 +75,12 @@ class ModuleNamespace(UserNamespace):
 
     def list_variables(self, only_public=False, only_current_scope=False) -> dict:
         # all variables are in the current scope
+        variables = {name: getattr(self.module, name) for name in dir(self.module)}
         if only_public:
-            return {name: getattr(self.module, name) for name in dir(self.module) if not name.startswith('_')}
-        else:
-            return {name: getattr(self.module, name) for name in dir(self.module)}
+            variables = {n: v for n, v in variables.items() if not n.startswith('_')}
+        if only_current_scope:
+            variables = {n: v for n, v in variables.items() if inspect.getmodule(v) == self.module}
+        return variables
 
     def get_variable(self, name: str, default=None):
         return getattr(self.module, name, default)

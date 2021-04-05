@@ -9,6 +9,9 @@ The console interface runs on a different thread than the main Python script.
 
 Multiple commands can be chained using `;` to separate them.
 
+Actions are registered as new commands.
+E.g. if an action  `my_function()` is
+
 ### General Commands
 
 `help` Prints available commands.
@@ -16,6 +19,8 @@ Multiple commands can be chained using `;` to separate them.
 `status` Prints the current status.
 
 `controls` Prints a list of available controls and their values.
+
+`actions` Prints a list of available actions.
 
 ### Plotting
 

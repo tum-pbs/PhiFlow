@@ -3,7 +3,7 @@ import os
 
 from ._user_namespace import get_user_namespace, UserNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import get_gui, default_gui, show, Control, display_name, value_range
+from ._vis_base import get_gui, default_gui, show, Control, display_name, value_range, Action
 from ..field import SampledField, Scene
 from ..field._scene import _slugify_filename
 
@@ -53,6 +53,7 @@ def view(*fields: str or SampledField,
     """
     user_namespace = get_user_namespace(1)
     variables = _default_field_variables(user_namespace, fields)
+    actions = _default_actions(user_namespace)
     if scene is False:
         scene = None
     elif scene is True:
@@ -63,7 +64,7 @@ def view(*fields: str or SampledField,
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
     controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if user_namespace.get_variable(c.name) is not None)
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, log_performance=True)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=True)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer
 
@@ -93,7 +94,19 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
     return {n: v for n, v in zip(names, values)}
 
 
-def control(value, range: tuple = None, **kwargs):
+def _default_actions(ns: UserNamespace):
+    actions = {}
+    for name, fun in ns.list_variables(only_public=True, only_current_scope=True).items():
+        if callable(fun):
+            signature = inspect.signature(fun)
+            if not signature.parameters:
+                doc = inspect.getdoc(fun)
+                action = Action(name, doc)
+                actions[action] = fun
+    return actions
+
+
+def control(value, range: tuple = None, description="", **kwargs):
     """
     Mark a variable as controllable by any GUI created via `view()`.
 
@@ -107,6 +120,7 @@ def control(value, range: tuple = None, **kwargs):
     Args:
         value: Initial value. Must be either `int`, `float´, `bool` or `str`.
         range: (Optional) Specify range of possible values as `(min, max)`. Only for `int` and `float` values.
+        description: Description of what the control does.
         **kwargs: Additional arguments to determine the appearance of the GUI component,
             e.g. `rows` for text fields or `log=False` for float sliders.
 
@@ -120,7 +134,7 @@ def control(value, range: tuple = None, **kwargs):
     var_names = [var.strip() for var in calling_code.split('=')[:-1]]
     var_names = [n for n in var_names if n]
     for var_name in var_names:
-        ctrl = Control(var_name, type(value), value, range, kwargs)
+        ctrl = Control(var_name, type(value), value, range, description, kwargs)
         value_range(ctrl)  # checks if valid
         CONTROL_VARS[var_name] = ctrl
     return value

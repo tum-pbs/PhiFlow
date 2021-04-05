@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from phi.math._shape import parse_dim_order
 from phi.field import SampledField
 from .._matplotlib._matplotlib_plots import plot
-from .._vis_base import Gui, VisModel, display_name, GuiInterrupt, select_channel, value_range, is_log_control
+from .._vis_base import Gui, VisModel, display_name, GuiInterrupt, select_channel, value_range, is_log_control, Action
 
 
 class WidgetsGui(Gui):
@@ -114,8 +114,8 @@ class WidgetsGui(Gui):
             control_component.observe(lambda e, c=control: None if IGNORE_EVENTS else self.app.set_control_value(c.name, e['new']), 'value')
             control_components.append(control_component)
         action_buttons = []
-        for action in self.app.action_names:
-            button = widgets.Button(description=display_name(action))
+        for action in self.app.actions:
+            button = widgets.Button(description=display_name(action.name))
             button.on_click(lambda e, act=action: self.run_action(act))
             action_buttons.append(button)
         layout = VBox([
@@ -218,8 +218,8 @@ class WidgetsGui(Gui):
         else:
             self.waiting_steps += 1
 
-    def run_action(self, name):
-        self.app.run_action(name)
+    def run_action(self, action: Action):
+        self.app.run_action(action.name)
         self.update_widgets()
 
     def interrupt(self, _):

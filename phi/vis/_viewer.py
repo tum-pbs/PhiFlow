@@ -7,7 +7,7 @@ from typing import Tuple
 
 from ._log import SceneLog
 from ._user_namespace import UserNamespace
-from ._vis_base import VisModel, Control
+from ._vis_base import VisModel, Control, Action
 from .. import field
 from ..field import Scene, SampledField
 
@@ -19,9 +19,10 @@ def create_viewer(namespace: UserNamespace,
                   scene: Scene,
                   asynchronous: bool,
                   controls: tuple,
+                  actions: dict,
                   log_performance: bool) -> 'Viewer':
     cls = AsyncViewer if asynchronous else Viewer
-    viewer = cls(namespace, fields, name, description, scene, controls, log_performance)
+    viewer = cls(namespace, fields, name, description, scene, controls, actions, log_performance)
     return viewer
 
 
@@ -42,6 +43,7 @@ class Viewer(VisModel):
                  description: str,
                  scene: Scene,
                  controls: tuple,
+                 actions: dict,
                  log_performance: bool,
                  ):
         VisModel.__init__(self, name, description, scene=scene)
@@ -54,6 +56,8 @@ class Viewer(VisModel):
         self._log = SceneLog(self.scene)
         self.log_file = self._log.log_file
         self._elapsed = None
+        self._actions = dict(actions)
+        self._actions[Action('reset', Viewer.reset.__doc__)] = self.reset
 
     def log_scalars(self, **values):
         self._log.log_scalars(self.steps, **values)
@@ -88,14 +92,15 @@ class Viewer(VisModel):
         self.namespace.set_variable(name, value)
 
     @property
-    def action_names(self) -> tuple:
-        return "reset",
+    def actions(self) -> tuple:
+        return tuple(self._actions.keys())
 
     def run_action(self, name):
-        if name == 'reset':
-            self.reset()
-        else:
-            raise KeyError(name)
+        for action, fun in self._actions.items():
+            if action.name == name:
+                fun()
+                return
+        raise KeyError(name)
 
     def range(self, *args, warmup=0, **rec_dim):
         """
