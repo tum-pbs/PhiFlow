@@ -62,6 +62,7 @@ __pdoc__ = {
     &#39;Viewer.get_control_value&#39;: False,
     &#39;Viewer.info&#39;: False,
     &#39;Viewer.reset&#39;: False,
+    &#39;Viewer.progress&#39;: False,
 }</code></pre>
 </details>
 </section>
@@ -566,7 +567,7 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
     def log_scalars(self, **values):
         self._log.log_scalars(self.steps, **values)
 
-    def info(self, message: str):
+    def info(self, message: str):  # may be replaced by a different solution later on
         &#34;&#34;&#34;
         Update the status message.
         The status message is written to the console and the log file.
@@ -708,6 +709,9 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         &#34;&#34;&#34;
         assert self._rec, &#34;Enable recording by calling range() with a dimension name, e.g. &#39;range(frames=10)&#39;.&#34;
         return self._rec
+
+    def progress(self):
+        raise AssertionError(&#34;progress() not supported by synchronous Viewer.&#34;)
 
     @property
     def can_progress(self) -&gt; bool:

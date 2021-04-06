@@ -286,3 +286,6 @@ class Record:
     def __getitem__(self, item):
         assert isinstance(item, str)
         return self.__getattr__(item)
+
+    def __repr__(self):
+        return ", ".join([f"{name} ({len(values)})" for name, values in self.history.items()])
