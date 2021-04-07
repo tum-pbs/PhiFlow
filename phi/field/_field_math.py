@@ -553,8 +553,10 @@ def frequency_loss(field: SampledField,
     return math.frequency_loss(field.values, frequency_falloff=frequency_falloff, batch_norm=batch_norm, ignore_mean=ignore_mean)
 
 
-def stop_gradient(field: SampledField):
+def stop_gradient(field: GridType):
     """ See `phi.math.stop_gradient()` """
+    assert isinstance(field, Grid), type(field)
+    # if isinstance(field, PointCloud):
     return field._op1(math.stop_gradient)
 
 

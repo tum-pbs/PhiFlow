@@ -64,7 +64,7 @@ from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
 from ._functions import (
     choose_backend_t as choose_backend, all_available, convert, seed,
     native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
-    print_ as print,
+    print_ as print, print_gradient,
     map_ as map,
     jit_compile, functional_gradient, custom_gradient, linear_function,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
@@ -1433,7 +1433,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>values: phi.math._tensors.Tensor, frequency_falloff: float = 100, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>values: phi.math._tensors.Tensor, n=2, frequency_falloff: float = 100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
@@ -1442,9 +1442,14 @@ Lower frequencies are weighted more strongly then higher frequencies, depending 
 <dl>
 <dt><strong><code>values</code></strong></dt>
 <dd>Values to penalize, typically <code>actual - target</code></dd>
+<dt><strong><code>n</code></strong></dt>
+<dd>Loss type, see <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code>.</dd>
 <dt><strong><code>frequency_falloff</code></strong></dt>
 <dd>Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
 <em>Note</em>: The total loss is not normalized. Varying the value will result in losses of different magnitudes.</dd>
+<dt><strong><code>threshold</code></strong></dt>
+<dd>Frequency amplitudes below this value are ignored.
+Setting this to zero may cause infinities or NaN values during backpropagation.</dd>
 <dt><strong><code>batch_norm</code></strong></dt>
 <dd>Either <code>bool</code> specifying whether to divide by the product of all batch sizes or specific dimensions.</dd>
 <dt><strong><code>ignore_mean</code></strong></dt>
@@ -1457,7 +1462,9 @@ Lower frequencies are weighted more strongly then higher frequencies, depending 
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def frequency_loss(values: Tensor,
+                   n=2,
                    frequency_falloff: float = 100,
+                   threshold=1e-5,
                    batch_norm: bool or str or tuple or list or Shape = True,
                    ignore_mean=False) -&gt; Tensor:
     &#34;&#34;&#34;
@@ -1466,8 +1473,11 @@ Lower frequencies are weighted more strongly then higher frequencies, depending 
 
     Args:
         values: Values to penalize, typically `actual - target`
+        n: Loss type, see `l_n_loss()`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
+        threshold: Frequency amplitudes below this value are ignored.
+            Setting this to zero may cause infinities or NaN values during backpropagation.
         batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
         ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
 
@@ -1476,10 +1486,11 @@ Lower frequencies are weighted more strongly then higher frequencies, depending 
     &#34;&#34;&#34;
     if ignore_mean:
         values -= math.mean(values, values.shape.non_batch)
-    diff_fft = abs_square(math.fft(values))
     k_squared = vec_squared(math.fftfreq(values.shape.spatial))
     weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    return l1_loss(diff_fft * weights, batch_norm=batch_norm)</code></pre>
+    diff_fft = abs_square(math.fft(values) * weights)
+    diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
+    return l_n_loss(diff_fft, n=n, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.functional_gradient"><code class="name flex">
@@ -2729,7 +2740,7 @@ def precision(floating_point_bits: int):
 </details>
 </dd>
 <dt id="phi.math.print"><code class="name flex">
-<span>def <span class="ident">print</span></span>(<span>value: phi.math._tensors.Tensor = None, name: str = None)</span>
+<span>def <span class="ident">print</span></span>(<span>value: phi.math._tensors.Tensor = None, name: str = '')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.</p>
@@ -2752,7 +2763,7 @@ def precision(floating_point_bits: int):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def print_(value: Tensor = None, name: str = None):
+<pre><code class="python">def print_(value: Tensor = None, name: str = &#34;&#34;):
     &#34;&#34;&#34;
     Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.
     
@@ -2770,7 +2781,7 @@ def precision(floating_point_bits: int):
     if value is None:
         print()
         return
-    if name is not None:
+    if name:
         print(&#34; &#34; * 16 + name)
     value = wrap(value)
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
@@ -2790,6 +2801,70 @@ def precision(floating_point_bits: int):
             print(&#39; &#39; + re.sub(&#39;[\[\]]&#39;, &#39;&#39;, re.sub(&#39;\],&#39;, &#39;&#39;, text)))
     else:
         raise NotImplementedError(&#39;Can only print tensors with up to 2 spatial dimensions.&#39;)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.print_gradient"><code class="name flex">
+<span>def <span class="ident">print_gradient</span></span>(<span>value: phi.math._tensors.Tensor, name='', detailed=False) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Prints the gradient vector of <code>value</code> when computed.
+The gradient at <code>value</code> is the vector-Jacobian product of all operations between the output of this function and the loss value.</p>
+<p>The gradient is not printed in jit mode, see <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>.</p>
+<h2 id="example">Example</h2>
+<pre><code class="language-python">def f(x):
+    x = math.print_gradient(x, 'dx')
+    return math.l1_loss(x)
+
+math.functional_gradient(f)(math.ones(x=6))
+</code></pre>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> for which the gradient may be computed later.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>(Optional) Name to print along with the gradient values</dd>
+<dt><strong><code>detailed</code></strong></dt>
+<dd>If <code>False</code>, prints a short summary of the gradient tensor.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>identity(value)</code> which when differentiated, prints the gradient vector.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def print_gradient(value: Tensor, name=&#34;&#34;, detailed=False) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Prints the gradient vector of `value` when computed.
+    The gradient at `value` is the vector-Jacobian product of all operations between the output of this function and the loss value.
+
+    The gradient is not printed in jit mode, see `jit_compile()`.
+
+    Example:
+        ```python
+        def f(x):
+            x = math.print_gradient(x, &#39;dx&#39;)
+            return math.l1_loss(x)
+
+        math.functional_gradient(f)(math.ones(x=6))
+        ```
+
+    Args:
+        value: `Tensor` for which the gradient may be computed later.
+        name: (Optional) Name to print along with the gradient values
+        detailed: If `False`, prints a short summary of the gradient tensor.
+
+    Returns:
+        `identity(value)` which when differentiated, prints the gradient vector.
+    &#34;&#34;&#34;
+    def print_grad(_x, _y, dx):
+        if all_available(_x, dx):
+            if detailed:
+                print_(dx, name=name)
+            else:
+                print(f&#34;{name}:  \t{dx}&#34;)
+        return dx,
+    identity = custom_gradient(lambda x: x, print_grad)
+    return identity(value)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.prod"><code class="name flex">
@@ -8220,6 +8295,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.pad" href="#phi.math.pad">pad</a></code></li>
 <li><code><a title="phi.math.precision" href="#phi.math.precision">precision</a></code></li>
 <li><code><a title="phi.math.print" href="#phi.math.print">print</a></code></li>
+<li><code><a title="phi.math.print_gradient" href="#phi.math.print_gradient">print_gradient</a></code></li>
 <li><code><a title="phi.math.prod" href="#phi.math.prod">prod</a></code></li>
 <li><code><a title="phi.math.random_normal" href="#phi.math.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.random_uniform" href="#phi.math.random_uniform">random_uniform</a></code></li>

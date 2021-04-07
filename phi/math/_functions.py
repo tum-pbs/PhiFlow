@@ -260,7 +260,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
         return reshaped_tensor(output, groups)
 
 
-def print_(value: Tensor = None, name: str = None):
+def print_(value: Tensor = None, name: str = ""):
     """
     Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.
     
@@ -278,7 +278,7 @@ def print_(value: Tensor = None, name: str = None):
     if value is None:
         print()
         return
-    if name is not None:
+    if name:
         print(" " * 16 + name)
     value = wrap(value)
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
@@ -298,6 +298,41 @@ def print_(value: Tensor = None, name: str = None):
             print(' ' + re.sub('[\[\]]', '', re.sub('\],', '', text)))
     else:
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
+
+
+def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
+    """
+    Prints the gradient vector of `value` when computed.
+    The gradient at `value` is the vector-Jacobian product of all operations between the output of this function and the loss value.
+
+    The gradient is not printed in jit mode, see `jit_compile()`.
+
+    Example:
+        ```python
+        def f(x):
+            x = math.print_gradient(x, 'dx')
+            return math.l1_loss(x)
+
+        math.functional_gradient(f)(math.ones(x=6))
+        ```
+
+    Args:
+        value: `Tensor` for which the gradient may be computed later.
+        name: (Optional) Name to print along with the gradient values
+        detailed: If `False`, prints a short summary of the gradient tensor.
+
+    Returns:
+        `identity(value)` which when differentiated, prints the gradient vector.
+    """
+    def print_grad(_x, _y, dx):
+        if all_available(_x, dx):
+            if detailed:
+                print_(dx, name=name)
+            else:
+                print(f"{name}:  \t{dx}")
+        return dx,
+    identity = custom_gradient(lambda x: x, print_grad)
+    return identity(value)
 
 
 def map_(function, *values: Tensor) -> Tensor:

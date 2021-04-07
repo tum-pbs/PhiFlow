@@ -414,7 +414,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>field: phi.field._field.SampledField, frequency_falloff=100, batch_norm: bool = True, ignore_mean=False)</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>field: phi.field._field.SampledField, n=2, frequency_falloff=100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Frequency loss for the unweighted values of the field. See <code><a title="phi.math.frequency_loss" href="../math/index.html#phi.math.frequency_loss">frequency_loss()</a></code>.</p></div>
@@ -423,11 +423,13 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def frequency_loss(field: SampledField,
+                   n=2,
                    frequency_falloff=100,
+                   threshold=1e-5,
                    batch_norm: bool or str or tuple or list or math.Shape = True,
                    ignore_mean=False):
     &#34;&#34;&#34; Frequency loss for the unweighted values of the field. See `phi.math.frequency_loss()`. &#34;&#34;&#34;
-    return math.frequency_loss(field.values, frequency_falloff=frequency_falloff, batch_norm=batch_norm, ignore_mean=ignore_mean)</code></pre>
+    return math.frequency_loss(field.values, n=n, frequency_falloff=frequency_falloff, threshold=threshold, batch_norm=batch_norm, ignore_mean=ignore_mean)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.functional_gradient"><code class="name flex">
@@ -1016,7 +1018,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 </details>
 </dd>
 <dt id="phi.field.stop_gradient"><code class="name flex">
-<span>def <span class="ident">stop_gradient</span></span>(<span>field: phi.field._field.SampledField)</span>
+<span>def <span class="ident">stop_gradient</span></span>(<span>field: ~GridType)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See <code><a title="phi.math.stop_gradient" href="../math/index.html#phi.math.stop_gradient">stop_gradient()</a></code></p></div>
@@ -1024,8 +1026,11 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stop_gradient(field: SampledField):
+<pre><code class="python">def stop_gradient(field: GridType):
     &#34;&#34;&#34; See `phi.math.stop_gradient()` &#34;&#34;&#34;
+    assert isinstance(field, Grid)
+    # if isinstance(field, PointCloud):
+    #     raise NotImplementedError(&#34;&#34;)
     return field._op1(math.stop_gradient)</code></pre>
 </details>
 </dd>
