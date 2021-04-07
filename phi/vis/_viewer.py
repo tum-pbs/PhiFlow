@@ -185,7 +185,6 @@ class Viewer(VisModel):
                         self._log.log_scalars(self.steps, step_time=self._elapsed)
                 finally:
                     self._post_step()
-                self._call(self.post_step)
         finally:
             self._in_loop = False
             self._call(self.progress_unavailable)

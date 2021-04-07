@@ -39,13 +39,13 @@ def global_user_namespace(frames: List[inspect.FrameInfo]) -> UserNamespace:
         raise AssertionError('No module found in call stack.')
 
 
-def get_user_namespace(ignore_stack_frames=0) -> UserNamespace:
-    frames = inspect.stack()
-    stack_item = frames[ignore_stack_frames + 1]  # 1 for this function
-    if stack_item.function == '<module>':
-        return global_user_namespace(frames[ignore_stack_frames + 1:])
+def get_user_namespace(ignore_stack_frames=0, frames: List[inspect.FrameInfo] = None) -> UserNamespace:
+    if not frames:
+        frames = inspect.stack()[ignore_stack_frames + 1:]  # 1 for this function
+    if frames[0].function == '<module>':
+        return global_user_namespace(frames)
     else:
-        return LocalNamespace(stack_item, frames)
+        return LocalNamespace(frames)
 
 
 class ModuleNamespace(UserNamespace):
@@ -141,11 +141,15 @@ class JupyterNamespace(UserNamespace):
 
 class LocalNamespace(UserNamespace):
 
-    def __init__(self, frame_info: inspect.FrameInfo, frames: List[inspect.FrameInfo]):
-        self.frame = frame_info.frame
-        self.function_name: str = frame_info.function
+    def __init__(self, frames: List[inspect.FrameInfo]):
+        self.frame = frames[0].frame
+        self.function_name: str = frames[0].function
         self.module = inspect.getmodule(self.frame)
-        self.function = getattr(self.module, self.function_name)
+        if self.module:
+            self.function = getattr(self.module, self.function_name)
+        else:
+            assert 'ipykernel' in sys.modules, f"Unable to locate file in which {self.function_name} is declared."
+            self.function = JupyterNamespace().get_variable(self.function_name)
 
     def list_variables(self, only_public=False, only_current_scope=False) -> dict:
         return self.frame.f_locals

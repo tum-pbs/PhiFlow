@@ -50,12 +50,12 @@ class WidgetsGui(Gui):
         app.progress_available.append(self.on_loop_start)
         app.progress_unavailable.append(self.on_loop_exit)
 
-        def custom_traceback(exc_tuple=None, filename=None, tb_offset=None, exception_only=False, running_compiled_code=False):
+        def custom_traceback(exc_tuple=None, filename=None, tb_offset=None, exception_only=False, **kwargs):
             etype, value, tb = sys.exc_info()
             if etype == GuiInterrupt:
                 return
             else:
-                normal_traceback(exc_tuple, filename, tb_offset, exception_only, running_compiled_code)
+                normal_traceback(exc_tuple, filename, tb_offset, exception_only, **kwargs)
 
         normal_traceback = self.shell.showtraceback
         self.shell.showtraceback = custom_traceback
@@ -206,8 +206,6 @@ class WidgetsGui(Gui):
         self.waiting_steps = None
 
     def auto_play(self):
-        sys.stdout.write('auto_play')
-        sys.stdout.flush()
         self.waiting_steps = None
 
     def pause(self, _):
