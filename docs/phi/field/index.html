@@ -58,9 +58,9 @@ from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
     assert_close, convert,
-    laplace, spatial_gradient, divergence, stagger,  # spatial operators
+    laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
-    mean, pad, shift, normalize,
+    mean, pad, shift, normalize, center_of_mass,
     concat, batch_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
     solve, minimize,
@@ -75,7 +75,12 @@ from ._field_math import (
 from ._field_io import write, read
 from ._scene import Scene
 
-__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
+__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
+
+__pdoc__ = {
+    &#39;Grid.__init__&#39;: False,
+    &#39;Scene.__init__&#39;: False,
+}</code></pre>
 </details>
 </section>
 <section>
@@ -86,7 +91,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.field.abs"><code class="name flex">
-<span>def <span class="ident">abs</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">abs</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -94,7 +99,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def abs(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.abs)</code></pre>
 </details>
 </dd>
@@ -142,7 +147,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.field.cast"><code class="name flex">
-<span>def <span class="ident">cast</span></span>(<span>x: phi.field._field.SampledField, dtype: phi.math.backend._dtype.DType) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">cast</span></span>(<span>x: ~SampledFieldType, dtype: phi.math.backend._dtype.DType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -150,12 +155,12 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cast(x: SampledField, dtype: DType) -&gt; SampledField:
+<pre><code class="python">def cast(x: SampledFieldType, dtype: DType) -&gt; SampledFieldType:
     return x._op1(partial(math.cast, dtype=dtype))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.ceil"><code class="name flex">
-<span>def <span class="ident">ceil</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">ceil</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -163,8 +168,22 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ceil(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def ceil(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.ceil)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.center_of_mass"><code class="name flex">
+<span>def <span class="ident">center_of_mass</span></span>(<span>density: phi.field._field.SampledField)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def center_of_mass(density: SampledField):
+    assert &#39;vector&#39; not in density.shape
+    return mean(density.points * density) / mean(density)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.concat"><code class="name flex">
@@ -213,7 +232,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.field.cos"><code class="name flex">
-<span>def <span class="ident">cos</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">cos</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -221,8 +240,28 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cos(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def cos(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.cos)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.curl"><code class="name flex">
+<span>def <span class="ident">curl</span></span>(<span>field: phi.field._grid.Grid, type: type = phi.field._grid.CenteredGrid)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def curl(field: Grid, type: type = CenteredGrid):
+    assert field.spatial_rank in (2, 3), &#34;curl is only defined in 2 and 3 spatial dimensions.&#34;
+    if field.spatial_rank == 2 and type == StaggeredGrid:
+        assert isinstance(field, CenteredGrid) and &#39;vector&#39; not in field.shape, f&#34;2D curl requires scalar field but got {field}&#34;
+        grad = math.spatial_gradient(field.values, dx=field.dx, difference=&#39;forward&#39;, padding=None, stack_dim=&#39;vector&#39;)
+        result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
+        bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
+        return StaggeredGrid(result, bounds, field.extrapolation.spatial_gradient())
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
@@ -303,7 +342,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.field.exp"><code class="name flex">
-<span>def <span class="ident">exp</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">exp</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -311,7 +350,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def exp(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def exp(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.exp)</code></pre>
 </details>
 </dd>
@@ -372,7 +411,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.floor"><code class="name flex">
-<span>def <span class="ident">floor</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">floor</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -380,7 +419,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def floor(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def floor(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.floor)</code></pre>
 </details>
 </dd>
@@ -481,7 +520,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>field: phi.field._field.SampledField)</span>
+<span>def <span class="ident">imag</span></span>(<span>field: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -489,12 +528,12 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(field: SampledField):
+<pre><code class="python">def imag(field: SampledFieldType) -&gt; SampledFieldType:
     return field._op1(math.imag)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.isfinite"><code class="name flex">
-<span>def <span class="ident">isfinite</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">isfinite</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -502,7 +541,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def isfinite(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def isfinite(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.isfinite)</code></pre>
 </details>
 </dd>
@@ -596,7 +635,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.field._grid.Grid, solve_params: phi.math.backend._optim.Solve, callback: Callable = None)</span>
+<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.field._grid.Grid, solve_params: phi.math.backend._optim.Solve, callback: Callable = None) ‑> phi.field._grid.Grid</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -604,7 +643,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None):
+<pre><code class="python">def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None) -&gt; Grid:
     data_function = _operate_on_values(function, x0)
     try:
         return x0.with_(values=math.minimize(data_function, x0.values, solve_params=solve_params, callback=callback))
@@ -745,7 +784,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>field: phi.field._field.SampledField)</span>
+<span>def <span class="ident">real</span></span>(<span>field: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -753,12 +792,12 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(field: SampledField):
+<pre><code class="python">def real(field: SampledFieldType) -&gt; SampledFieldType:
     return field._op1(math.real)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.round"><code class="name flex">
-<span>def <span class="ident">round</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">round</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -766,7 +805,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round_(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def round_(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.round)</code></pre>
 </details>
 </dd>
@@ -806,7 +845,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">sign</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -814,12 +853,12 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def sign(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.sign)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.sin"><code class="name flex">
-<span>def <span class="ident">sin</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">sin</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -827,7 +866,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sin(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def sin(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.sin)</code></pre>
 </details>
 </dd>
@@ -913,7 +952,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 </details>
 </dd>
 <dt id="phi.field.sqrt"><code class="name flex">
-<span>def <span class="ident">sqrt</span></span>(<span>x: phi.field._field.SampledField) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">sqrt</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -921,7 +960,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sqrt(x: SampledField) -&gt; SampledField:
+<pre><code class="python">def sqrt(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.sqrt)</code></pre>
 </details>
 </dd>
@@ -976,7 +1015,10 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stagger(field: CenteredGrid, face_function: Callable, extrapolation: math.extrapolation.Extrapolation, type: type = StaggeredGrid):
+<pre><code class="python">def stagger(field: CenteredGrid,
+            face_function: Callable,
+            extrapolation: math.extrapolation.Extrapolation,
+            type: type = StaggeredGrid):
     &#34;&#34;&#34;
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
     One layer of missing cells is inferred from the extrapolation.
@@ -1028,9 +1070,8 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 </summary>
 <pre><code class="python">def stop_gradient(field: GridType):
     &#34;&#34;&#34; See `phi.math.stop_gradient()` &#34;&#34;&#34;
-    assert isinstance(field, Grid)
+    assert isinstance(field, Grid), type(field)
     # if isinstance(field, PointCloud):
-    #     raise NotImplementedError(&#34;&#34;)
     return field._op1(math.stop_gradient)</code></pre>
 </details>
 </dd>
@@ -2234,7 +2275,6 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.Grid"><code class="flex name class">
 <span>class <span class="ident">Grid</span></span>
-<span>(</span><span>values: phi.math._tensors.Tensor, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for CenteredGrid, StaggeredGrid.</p>
@@ -3486,7 +3526,6 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.Scene"><code class="flex name class">
 <span>class <span class="ident">Scene</span></span>
-<span>(</span><span>paths: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Provides methods for reading and writing simulation data.</p>
@@ -4782,7 +4821,7 @@ The dimension can be batch, spatial or channel.</p>
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: phi.math._tensors.TensorStack, bounds=None, extrapolation=0)</span>
+<span>(</span><span>values: phi.math._tensors.TensorStack, bounds, extrapolation=0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -4813,7 +4852,7 @@ A staggered grid is defined through its values tensor, its bounds describing the
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     &#34;&#34;&#34;
 
-    def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
+    def __init__(self, values: TensorStack, bounds, extrapolation=math.extrapolation.ZERO):
         values = _validate_staggered_values(values)
         any_dim = values.shape.spatial.names[0]
         x = values.vector[any_dim]
@@ -5353,9 +5392,11 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.batch_stack" href="#phi.field.batch_stack">batch_stack</a></code></li>
 <li><code><a title="phi.field.cast" href="#phi.field.cast">cast</a></code></li>
 <li><code><a title="phi.field.ceil" href="#phi.field.ceil">ceil</a></code></li>
+<li><code><a title="phi.field.center_of_mass" href="#phi.field.center_of_mass">center_of_mass</a></code></li>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
 <li><code><a title="phi.field.convert" href="#phi.field.convert">convert</a></code></li>
 <li><code><a title="phi.field.cos" href="#phi.field.cos">cos</a></code></li>
+<li><code><a title="phi.field.curl" href="#phi.field.curl">curl</a></code></li>
 <li><code><a title="phi.field.divergence" href="#phi.field.divergence">divergence</a></code></li>
 <li><code><a title="phi.field.downsample2x" href="#phi.field.downsample2x">downsample2x</a></code></li>
 <li><code><a title="phi.field.exp" href="#phi.field.exp">exp</a></code></li>

@@ -23,3 +23,9 @@ NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
+
+__pdoc__ = {
+    'ComputeDevice.__init__': False,
+    'NoBackendFound.__init__': False,
+    'Profile.__init__': False,
+}

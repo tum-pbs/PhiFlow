@@ -31,4 +31,5 @@ __pdoc__ = {
     'Viewer.info': False,
     'Viewer.reset': False,
     'Viewer.progress': False,
+    'Viewer.__init__': False,
 }

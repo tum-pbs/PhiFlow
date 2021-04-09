@@ -63,6 +63,7 @@ __pdoc__ = {
     &#39;Viewer.info&#39;: False,
     &#39;Viewer.reset&#39;: False,
     &#39;Viewer.progress&#39;: False,
+    &#39;Viewer.__init__&#39;: False,
 }</code></pre>
 </details>
 </section>
@@ -502,6 +503,7 @@ For each <code>select</code> dimension, an associated selection slider will be c
         scene = None
     elif scene is True:
         scene = Scene.create(os.path.join(&#34;~&#34;, &#34;phi&#34;, _slugify_filename(name or user_namespace.get_reference())))
+        print(f&#34;Created scene at {scene}&#34;)
     else:
         assert isinstance(scene, Scene)
     name = name or user_namespace.get_title()
@@ -520,7 +522,6 @@ For each <code>select</code> dimension, an associated selection slider will be c
 <dl>
 <dt id="phi.vis.Viewer"><code class="flex name class">
 <span>class <span class="ident">Viewer</span></span>
-<span>(</span><span>namespace: phi.vis._user_namespace.UserNamespace, fields: dict, name: str, description: str, scene: phi.field._scene.Scene, controls: tuple, actions: dict, log_performance: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shows variables from the user namespace.
@@ -690,7 +691,6 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
                         self._log.log_scalars(self.steps, step_time=self._elapsed)
                 finally:
                     self._post_step()
-                self._call(self.post_step)
         finally:
             self._in_loop = False
             self._call(self.progress_unavailable)
@@ -855,7 +855,6 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
                     self._log.log_scalars(self.steps, step_time=self._elapsed)
             finally:
                 self._post_step()
-            self._call(self.post_step)
     finally:
         self._in_loop = False
         self._call(self.progress_unavailable)</code></pre>

@@ -108,7 +108,17 @@ pi = PI
 NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
 
-__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
+__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
+
+__pdoc__ = {
+    &#39;Extrapolation.__init__&#39;: False,
+    &#39;Shape.__init__&#39;: False,
+    &#39;SolveResult.__init__&#39;: False,
+    &#39;TensorDim.__init__&#39;: False,
+    &#39;ConvergenceException.__init__&#39;: False,
+    &#39;Diverged.__init__&#39;: False,
+    &#39;NotConverged.__init__&#39;: False,
+}</code></pre>
 </details>
 </section>
 <section>
@@ -157,11 +167,11 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>def <span class="ident">abs_square</span></span>(<span>complex_values: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>get the square magnitude</p>
+<div class="desc"><p>Squared magnitude of complex values.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>complex_values</code></strong></dt>
-<dd>complex input data</dd>
+<dd>complex <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -174,13 +184,13 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </summary>
 <pre><code class="python">def abs_square(complex_values: Tensor) -&gt; Tensor:
     &#34;&#34;&#34;
-    get the square magnitude
+    Squared magnitude of complex values.
 
     Args:
-      complex_values: complex input data
+      complex_values: complex `Tensor`
 
     Returns:
-      Tensor: real valued magnitude squared
+        Tensor: real valued magnitude squared
 
     &#34;&#34;&#34;
     return math.imag(complex_values) ** 2 + math.real(complex_values) ** 2</code></pre>
@@ -1947,7 +1957,7 @@ This is defined as <em>sum x</em><em>n / n</em>.</p>
         Scalar float `Tensor`
     &#34;&#34;&#34;
     assert isinstance(tensor, Tensor), f&#34;Must be a Tensor but got {type(tensor).__name__}&#34;
-    total_loss = math.sum_(tensor ** n) / n
+    total_loss = math.sum_(abs(tensor) ** n) / n
     if batch_norm:
         if isinstance(batch_norm, bool):
             batch_size = tensor.shape.batch.volume
@@ -2318,7 +2328,7 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
     try:
         x_native = backend.minimize(native_function, x0_flat, solve_params)
         if x_native is NotImplemented:
-            x_native = _default_minimize(native_function, x0_flat, backend, solve_params, callback)
+            x_native = _default_minimize(native_function, x0_flat, x0.dtype, backend, solve_params, callback)
         x = unflatten_assemble(x_native)
         return x
     except ConvergenceException as exc:
@@ -2743,8 +2753,10 @@ def precision(floating_point_bits: int):
 <span>def <span class="ident">print</span></span>(<span>value: phi.math._tensors.Tensor = None, name: str = '')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.</p>
-<p>Unlike regular printing, the primary dimension, typically x, is oriented to the right.</p>
+<div class="desc"><p>Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.</p>
+<p>Unlike NumPy's array printing, the dimensions are sorted.
+Elements along the alphabetically first dimension is printed to the right, the second dimension upward.
+Typically, this means x right, y up.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong></dt>
@@ -2765,15 +2777,17 @@ def precision(floating_point_bits: int):
 </summary>
 <pre><code class="python">def print_(value: Tensor = None, name: str = &#34;&#34;):
     &#34;&#34;&#34;
-    Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.
+    Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.
     
-    Unlike regular printing, the primary dimension, typically x, is oriented to the right.
+    Unlike NumPy&#39;s array printing, the dimensions are sorted.
+    Elements along the alphabetically first dimension is printed to the right, the second dimension upward.
+    Typically, this means x right, y up.
 
     Args:
-      name: name of the tensor
-      value: tensor-like
-      value: Tensor:  (Default value = None)
-      name: str:  (Default value = None)
+        name: name of the tensor
+        value: tensor-like
+        value: Tensor:  (Default value = None)
+        name: str:  (Default value = None)
 
     Returns:
 
@@ -2797,7 +2811,7 @@ def precision(floating_point_bits: int):
         for index_dict in value.shape.non_spatial.meshgrid():
             if value.shape.non_spatial.volume &gt; 1:
                 print(f&#34;--- {&#39;, &#39;.join(&#39;%s=%d&#39; % (name, idx) for name, idx in index_dict.items())} ---&#34;)
-            text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=&#39;, &#39;, max_line_width=np.inf)
+            text = np.array2string(value[index_dict].numpy(dim_order)[::-1], precision=2, separator=&#39;, &#39;, max_line_width=np.inf)
             print(&#39; &#39; + re.sub(&#39;[\[\]]&#39;, &#39;&#39;, re.sub(&#39;\],&#39;, &#39;&#39;, text)))
     else:
         raise NotImplementedError(&#39;Can only print tensors with up to 2 spatial dimensions.&#39;)</code></pre>
@@ -3465,19 +3479,6 @@ The output of math operations has the same precision as its inputs.</p>
 <dd>padding to be performed at the boundary, defaults to extrapolation.BOUNDARY</dd>
 <dt><strong><code>stack_dim</code></strong></dt>
 <dd>dimensions to be stacked, defaults to 'shift'</dd>
-<dt><strong><code>x</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>offsets</code></strong></dt>
-<dd>tuple: </dd>
-<dt><strong><code>dims</code></strong></dt>
-<dd>tuple or None:
-(Default value = None)</dd>
-<dt><strong><code>padding</code></strong></dt>
-<dd>Extrapolation or None:
-(Default value = extrapolation.BOUNDARY)</dd>
-<dt><strong><code>stack_dim</code></strong></dt>
-<dd>str or None:
-(Default value = 'shift')</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -3497,19 +3498,14 @@ The output of math operations has the same precision as its inputs.</p>
     shift Tensor by a fixed offset and abiding by extrapolation
 
     Args:
-      x: Input data
-      offsets: Shift size
-      dims: Dimensions along which to shift, defaults to None
-      padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
-      stack_dim: dimensions to be stacked, defaults to &#39;shift&#39;
-      x: Tensor: 
-      offsets: tuple: 
-      dims: tuple or None:  (Default value = None)
-      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
-      stack_dim: str or None:  (Default value = &#39;shift&#39;)
+        x: Input data
+        offsets: Shift size
+        dims: Dimensions along which to shift, defaults to None
+        padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
+        stack_dim: dimensions to be stacked, defaults to &#39;shift&#39;
 
     Returns:
-      list: offset_tensor
+        list: offset_tensor
 
     &#34;&#34;&#34;
     if stack_dim is None:
@@ -3518,17 +3514,16 @@ The output of math operations has the same precision as its inputs.</p>
     dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
-    if padding is not None:
+    if padding:
         x = math.pad(x, {axis: (pad_lower, pad_upper) for axis in dims}, mode=padding)
     offset_tensors = []
     for offset in offsets:
         components = []
         for dimension in dims:
-            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower,
-                                                                                                         -pad_upper) for
-                      dim in dims}
-            slices = {dim: slice(sl.start, sl.stop if sl.stop &lt; 0 else None) for dim, sl in
-                      slices.items()}  # replace stop=0 by stop=None
+            if padding:
+                slices = {dim: slice(pad_lower + offset, (-pad_upper + offset) or None) if dim == dimension else slice(pad_lower, -pad_upper or None) for dim in dims}
+            else:
+                slices = {dim: slice(pad_lower + offset, (-pad_upper + offset) or None) if dim == dimension else slice(None, None) for dim in dims}
             components.append(x[slices])
         offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors</code></pre>
@@ -3700,23 +3695,6 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 <dd>tensor padding mode</dd>
 <dt><strong><code>stack_dim</code></strong></dt>
 <dd>name of the new vector dimension listing the spatial_gradient w.r.t. the various axes</dd>
-<dt><strong><code>grid</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>dx</code></strong></dt>
-<dd>float or int:
-(Default value = 1)</dd>
-<dt><strong><code>difference</code></strong></dt>
-<dd>str:
-(Default value = 'central')</dd>
-<dt><strong><code>padding</code></strong></dt>
-<dd>Extrapolation or None:
-(Default value = extrapolation.BOUNDARY)</dd>
-<dt><strong><code>dims</code></strong></dt>
-<dd>tuple or None:
-(Default value = None)</dd>
-<dt><strong><code>stack_dim</code></strong></dt>
-<dd>str:
-(Default value = 'spatial_gradient')</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>tensor of shape (batch_size, spatial_dimensions&hellip;, spatial rank)</p></div>
@@ -3741,12 +3719,6 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
       difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
       padding: tensor padding mode
       stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
-      grid: Tensor: 
-      dx: float or int:  (Default value = 1)
-      difference: str:  (Default value = &#39;central&#39;)
-      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
-      dims: tuple or None:  (Default value = None)
-      stack_dim: str:  (Default value = &#39;spatial_gradient&#39;)
 
     Returns:
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)
@@ -4452,7 +4424,6 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <dl>
 <dt id="phi.math.ConvergenceException"><code class="flex name class">
 <span>class <span class="ident">ConvergenceException</span></span>
-<span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for exceptions raised when a solve did not converge.</p>
@@ -4643,7 +4614,6 @@ def precision(self):
 </dd>
 <dt id="phi.math.Diverged"><code class="flex name class">
 <span>class <span class="ident">Diverged</span></span>
-<span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Raised if the optimization was stopped prematurely and cannot continue.
@@ -4684,7 +4654,6 @@ This may indicate that no solution exists.</p>
 </dd>
 <dt id="phi.math.Extrapolation"><code class="flex name class">
 <span>class <span class="ident">Extrapolation</span></span>
-<span>(</span><span>pad_rank)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.</p>
@@ -5019,7 +4988,6 @@ This is the default implementation.</p>
 </dd>
 <dt id="phi.math.NotConverged"><code class="flex name class">
 <span>class <span class="ident">NotConverged</span></span>
-<span>(</span><span>solve: phi.math.backend._optim.Solve, x0, x, msg: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Raised during optimization if the desired accuracy was not reached within the maximum number of iterations.</p>
@@ -5055,7 +5023,6 @@ This is the default implementation.</p>
 </dd>
 <dt id="phi.math.Shape"><code class="flex name class">
 <span>class <span class="ident">Shape</span></span>
-<span>(</span><span>sizes: tuple, names: tuple, types: tuple)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shapes enumerate dimensions, each consisting of a name, size and type.</p>
@@ -6971,7 +6938,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </dd>
 <dt id="phi.math.SolveResult"><code class="flex name class">
 <span>class <span class="ident">SolveResult</span></span>
-<span>(</span><span>iterations: int, **solve_info)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stores information about the found solution and the performed solving process.</p></div>
@@ -7140,7 +7106,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def _summary_str(self) -&gt; str:
         try:
-            from ._functions import all_available, min_, max_
+            from ._functions import all_available, min_, max_, sum_
             if all_available(self):
                 if self.rank == 0:
                     return str(self.numpy())
@@ -7151,8 +7117,16 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                         return f&#34;({content}) along {self.shape.name}&#34;
                     return f&#34;{self.shape} {self.dtype}  {content}&#34;
                 else:
-                    min_val, max_val = min_(self), max_(self)
-                    return f&#34;{self.shape} {self.dtype}  {min_val} &lt; ... &lt; {max_val}&#34;
+                    if self.dtype.kind in (float, int):
+                        min_val, max_val = min_(self), max_(self)
+                        return f&#34;{self.shape} {self.dtype}  {min_val} &lt; ... &lt; {max_val}&#34;
+                    elif self.dtype.kind == complex:
+                        max_val = max_(abs(self))
+                        return f&#34;{self.shape} {self.dtype} |...| &lt; {max_val}&#34;
+                    elif self.dtype.kind == bool:
+                        return f&#34;{self.shape} {sum_(self)} / {self.shape.volume} True&#34;
+                    else:
+                        return f&#34;{self.shape} {self.dtype}&#34;
             else:
                 if self.rank == 0:
                     return f&#34;scalar {self.dtype}&#34;
@@ -7685,7 +7659,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 </dd>
 <dt id="phi.math.TensorDim"><code class="flex name class">
 <span>class <span class="ident">TensorDim</span></span>
-<span>(</span><span>tensor: phi.math._tensors.Tensor, name: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Reference to a specific dimension of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>

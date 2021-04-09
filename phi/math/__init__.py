@@ -73,3 +73,13 @@ NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
+
+__pdoc__ = {
+    'Extrapolation.__init__': False,
+    'Shape.__init__': False,
+    'SolveResult.__init__': False,
+    'TensorDim.__init__': False,
+    'ConvergenceException.__init__': False,
+    'Diverged.__init__': False,
+    'NotConverged.__init__': False,
+}

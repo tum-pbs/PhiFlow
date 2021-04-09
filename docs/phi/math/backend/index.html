@@ -51,7 +51,13 @@ NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
 
 
-__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
+__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
+
+__pdoc__ = {
+    &#39;ComputeDevice.__init__&#39;: False,
+    &#39;NoBackendFound.__init__&#39;: False,
+    &#39;Profile.__init__&#39;: False,
+}</code></pre>
 </details>
 </section>
 <section>
@@ -3263,7 +3269,6 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </dd>
 <dt id="phi.math.backend.ComputeDevice"><code class="flex name class">
 <span>class <span class="ident">ComputeDevice</span></span>
-<span>(</span><span>backend: <a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a>, name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A physical device that can be selected to perform backend computations.</p></div>
@@ -3334,7 +3339,6 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </dd>
 <dt id="phi.math.backend.NoBackendFound"><code class="flex name class">
 <span>class <span class="ident">NoBackendFound</span></span>
-<span>(</span><span>msg)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Thrown by <code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend()</a></code> if no backend can handle the given values.</p></div>
@@ -3358,7 +3362,6 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </dd>
 <dt id="phi.math.backend.Profile"><code class="flex name class">
 <span>class <span class="ident">Profile</span></span>
-<span>(</span><span>trace: bool, backends: tuple, subtract_trace_time: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stores information about calls to backends and their timing.</p>

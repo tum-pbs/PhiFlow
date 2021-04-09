@@ -65,6 +65,10 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dd>
 <div class="desc"><p>Functions to simulate diffusion processes on <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code> objects.</p></div>
 </dd>
+<dt><code class="name"><a title="phi.physics.experimental" href="experimental.html">phi.physics.experimental</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="phi.physics.flip" href="flip.html">phi.physics.flip</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -257,7 +261,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
     def vector_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
                     type: type = CenteredGrid,
-                    extrapolation: math.Extrapolation = &#39;vector&#39;) -&gt; CenteredGrid or StaggeredGrid:
+                    extrapolation: math.Extrapolation or str = &#39;vector&#39;) -&gt; CenteredGrid or StaggeredGrid:
         &#34;&#34;&#34;
         Creates a vector grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -294,7 +298,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
 
     def staggered_grid(self,
                        value: Field or Tensor or Number or Geometry or callable = 0.,
-                       extrapolation: math.Extrapolation = &#39;vector&#39;) -&gt; StaggeredGrid:
+                       extrapolation: math.Extrapolation or str = &#39;vector&#39;) -&gt; StaggeredGrid:
         &#34;&#34;&#34;
         Creates a staggered grid matching the resolution and bounds of the domain.
         This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
@@ -317,6 +321,16 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
           Grid of specified type
         &#34;&#34;&#34;
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
+
+    def vector_potential(self,
+                         value: Field or Tensor or Number or Geometry or callable = 0.,
+                         extrapolation: str or math.Extrapolation = &#39;scalar&#39;,
+                         curl_type=CenteredGrid):
+        if self.rank == 2 and curl_type == StaggeredGrid:
+            pot_bounds = Box(self.bounds.lower - 0.5 * self.dx, self.bounds.upper + 0.5 * self.dx)
+            alt_domain = Domain(self.boundaries, self.resolution + 1, bounds=pot_bounds)
+            return alt_domain.scalar_grid(value, extrapolation=extrapolation)
+        raise NotImplementedError()
 
     def accessible_mask(self, not_accessible: tuple or list, type: type = CenteredGrid, extrapolation=&#39;accessible&#39;) -&gt; CenteredGrid or StaggeredGrid:
         &#34;&#34;&#34;
@@ -789,7 +803,7 @@ This is equal to calling <code>vector_grid()</code> with <code>type=StaggeredGri
 </summary>
 <pre><code class="python">def staggered_grid(self,
                    value: Field or Tensor or Number or Geometry or callable = 0.,
-                   extrapolation: math.Extrapolation = &#39;vector&#39;) -&gt; StaggeredGrid:
+                   extrapolation: math.Extrapolation or str = &#39;vector&#39;) -&gt; StaggeredGrid:
     &#34;&#34;&#34;
     Creates a staggered grid matching the resolution and bounds of the domain.
     This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
@@ -846,7 +860,7 @@ The grid is created from the given <code>value</code> which must be one of the f
 <pre><code class="python">def vector_grid(self,
                 value: Field or Tensor or Number or Geometry or callable = 0.,
                 type: type = CenteredGrid,
-                extrapolation: math.Extrapolation = &#39;vector&#39;) -&gt; CenteredGrid or StaggeredGrid:
+                extrapolation: math.Extrapolation or str = &#39;vector&#39;) -&gt; CenteredGrid or StaggeredGrid:
     &#34;&#34;&#34;
     Creates a vector grid matching the resolution and bounds of the domain.
     The grid is created from the given `value` which must be one of the following:
@@ -880,6 +894,26 @@ The grid is created from the given <code>value</code> which must be one of the f
         return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
     else:
         raise ValueError(&#39;Unknown grid type: %s&#39; % type)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.Domain.vector_potential"><code class="name flex">
+<span>def <span class="ident">vector_potential</span></span>(<span>self, value: phi.field._field.Field = 0.0, extrapolation: str = 'scalar', curl_type=phi.field._grid.CenteredGrid)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vector_potential(self,
+                     value: Field or Tensor or Number or Geometry or callable = 0.,
+                     extrapolation: str or math.Extrapolation = &#39;scalar&#39;,
+                     curl_type=CenteredGrid):
+    if self.rank == 2 and curl_type == StaggeredGrid:
+        pot_bounds = Box(self.bounds.lower - 0.5 * self.dx, self.bounds.upper + 0.5 * self.dx)
+        alt_domain = Domain(self.boundaries, self.resolution + 1, bounds=pot_bounds)
+        return alt_domain.scalar_grid(value, extrapolation=extrapolation)
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 </dl>
@@ -929,7 +963,7 @@ It can also have a linear and angular velocity.</p></div>
     @struct.derived()
     def is_stationary(self):
         &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
-        return self.velocity is 0 and self.angular_velocity is 0</code></pre>
+        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1029,6 +1063,7 @@ It can also have a linear and angular velocity.</p></div>
 <ul>
 <li><code><a title="phi.physics.advect" href="advect.html">phi.physics.advect</a></code></li>
 <li><code><a title="phi.physics.diffuse" href="diffuse.html">phi.physics.diffuse</a></code></li>
+<li><code><a title="phi.physics.experimental" href="experimental.html">phi.physics.experimental</a></code></li>
 <li><code><a title="phi.physics.flip" href="flip.html">phi.physics.flip</a></code></li>
 <li><code><a title="phi.physics.fluid" href="fluid.html">phi.physics.fluid</a></code></li>
 </ul>
@@ -1059,6 +1094,7 @@ It can also have a linear and angular velocity.</p></div>
 <li><code><a title="phi.physics.Domain.shape" href="#phi.physics.Domain.shape">shape</a></code></li>
 <li><code><a title="phi.physics.Domain.staggered_grid" href="#phi.physics.Domain.staggered_grid">staggered_grid</a></code></li>
 <li><code><a title="phi.physics.Domain.vector_grid" href="#phi.physics.Domain.vector_grid">vector_grid</a></code></li>
+<li><code><a title="phi.physics.Domain.vector_potential" href="#phi.physics.Domain.vector_potential">vector_potential</a></code></li>
 </ul>
 </li>
 <li>

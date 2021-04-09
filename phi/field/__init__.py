@@ -21,9 +21,9 @@ from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from ._field_math import (
     assert_close, convert,
-    laplace, spatial_gradient, divergence, stagger,  # spatial operators
+    laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
-    mean, pad, shift, normalize,
+    mean, pad, shift, normalize, center_of_mass,
     concat, batch_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
     solve, minimize,
@@ -39,3 +39,8 @@ from ._field_io import write, read
 from ._scene import Scene
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
+
+__pdoc__ = {
+    'Grid.__init__': False,
+    'Scene.__init__': False,
+}
