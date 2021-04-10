@@ -187,7 +187,7 @@ class StaggeredGrid(Grid):
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
 
-    def __init__(self, values: TensorStack, bounds=None, extrapolation=math.extrapolation.ZERO):
+    def __init__(self, values: TensorStack, bounds, extrapolation=math.extrapolation.ZERO):
         values = _validate_staggered_values(values)
         any_dim = values.shape.spatial.names[0]
         x = values.vector[any_dim]

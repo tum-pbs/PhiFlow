@@ -133,6 +133,7 @@ class TorchBackend(Backend):
         return tensor.permute(axes)
 
     def equal(self, x, y):
+        x, y = self.auto_cast(x, y)
         return x == y
 
     def random_uniform(self, shape):

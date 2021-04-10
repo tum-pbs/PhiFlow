@@ -89,7 +89,7 @@ def l_n_loss(tensor: Tensor,
         Scalar float `Tensor`
     """
     assert isinstance(tensor, Tensor), f"Must be a Tensor but got {type(tensor).__name__}"
-    total_loss = math.sum_(tensor ** n) / n
+    total_loss = math.sum_(abs(tensor) ** n) / n
     if batch_norm:
         if isinstance(batch_norm, bool):
             batch_size = tensor.shape.batch.volume
@@ -128,13 +128,13 @@ def frequency_loss(values: Tensor,
 
 def abs_square(complex_values: Tensor) -> Tensor:
     """
-    get the square magnitude
+    Squared magnitude of complex values.
 
     Args:
-      complex_values: complex input data
+      complex_values: complex `Tensor`
 
     Returns:
-      Tensor: real valued magnitude squared
+        Tensor: real valued magnitude squared
 
     """
     return math.imag(complex_values) ** 2 + math.real(complex_values) ** 2
@@ -183,19 +183,14 @@ def shift(x: Tensor,
     shift Tensor by a fixed offset and abiding by extrapolation
 
     Args:
-      x: Input data
-      offsets: Shift size
-      dims: Dimensions along which to shift, defaults to None
-      padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
-      stack_dim: dimensions to be stacked, defaults to 'shift'
-      x: Tensor: 
-      offsets: tuple: 
-      dims: tuple or None:  (Default value = None)
-      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
-      stack_dim: str or None:  (Default value = 'shift')
+        x: Input data
+        offsets: Shift size
+        dims: Dimensions along which to shift, defaults to None
+        padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
+        stack_dim: dimensions to be stacked, defaults to 'shift'
 
     Returns:
-      list: offset_tensor
+        list: offset_tensor
 
     """
     if stack_dim is None:
@@ -204,17 +199,16 @@ def shift(x: Tensor,
     dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
-    if padding is not None:
+    if padding:
         x = math.pad(x, {axis: (pad_lower, pad_upper) for axis in dims}, mode=padding)
     offset_tensors = []
     for offset in offsets:
         components = []
         for dimension in dims:
-            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower,
-                                                                                                         -pad_upper) for
-                      dim in dims}
-            slices = {dim: slice(sl.start, sl.stop if sl.stop < 0 else None) for dim, sl in
-                      slices.items()}  # replace stop=0 by stop=None
+            if padding:
+                slices = {dim: slice(pad_lower + offset, (-pad_upper + offset) or None) if dim == dimension else slice(pad_lower, -pad_upper or None) for dim in dims}
+            else:
+                slices = {dim: slice(pad_lower + offset, (-pad_upper + offset) or None) if dim == dimension else slice(None, None) for dim in dims}
             components.append(x[slices])
         offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors
@@ -278,12 +272,6 @@ def spatial_gradient(grid: Tensor,
       difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
       padding: tensor padding mode
       stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
-      grid: Tensor: 
-      dx: float or int:  (Default value = 1)
-      difference: str:  (Default value = 'central')
-      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
-      dims: tuple or None:  (Default value = None)
-      stack_dim: str:  (Default value = 'spatial_gradient')
 
     Returns:
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)

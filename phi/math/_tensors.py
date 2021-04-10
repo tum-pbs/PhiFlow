@@ -134,7 +134,7 @@ class Tensor:
 
     def _summary_str(self) -> str:
         try:
-            from ._functions import all_available, min_, max_
+            from ._functions import all_available, min_, max_, sum_
             if all_available(self):
                 if self.rank == 0:
                     return str(self.numpy())
@@ -145,8 +145,16 @@ class Tensor:
                         return f"({content}) along {self.shape.name}"
                     return f"{self.shape} {self.dtype}  {content}"
                 else:
-                    min_val, max_val = min_(self), max_(self)
-                    return f"{self.shape} {self.dtype}  {min_val} < ... < {max_val}"
+                    if self.dtype.kind in (float, int):
+                        min_val, max_val = min_(self), max_(self)
+                        return f"{self.shape} {self.dtype}  {min_val} < ... < {max_val}"
+                    elif self.dtype.kind == complex:
+                        max_val = max_(abs(self))
+                        return f"{self.shape} {self.dtype} |...| < {max_val}"
+                    elif self.dtype.kind == bool:
+                        return f"{self.shape} {sum_(self)} / {self.shape.volume} True"
+                    else:
+                        return f"{self.shape} {self.dtype}"
             else:
                 if self.rank == 0:
                     return f"scalar {self.dtype}"

@@ -4,7 +4,7 @@ import numpy
 
 import phi
 from phi import math
-from phi.field import StaggeredGrid, CenteredGrid
+from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask
 from phi.geom import Box
 from phi import field
 from phi.math.backend import Backend
@@ -133,3 +133,16 @@ class TestFieldMath(TestCase):
             self.assertTrue(backend.is_tensor(converted.values.native(), True))
             self.assertTrue(backend.is_tensor(converted.elements.center.native(), True))
             self.assertTrue(backend.is_tensor(converted.elements.radius.native(), True))
+
+    def test_center_of_mass(self):
+        density = Domain(x=4, y=3).scalar_grid(HardGeometryMask(Box[0:1, 1:2]))
+        math.assert_close(field.center_of_mass(density), (0.5, 1.5))
+        density = Domain(x=4, y=3).scalar_grid(HardGeometryMask(Box[:, 2:3]))
+        math.assert_close(field.center_of_mass(density), (2, 2.5))
+
+    def test_staggered_curl_2d(self):
+        pot = Domain(x=4, y=3).scalar_grid(HardGeometryMask(Box[1:2, 1:2]))
+        curl = field.curl(pot, type=StaggeredGrid)
+        math.assert_close(field.mean(curl), 0)
+        math.assert_close(curl.values.vector[0].x[1], (1, -1))
+        math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))

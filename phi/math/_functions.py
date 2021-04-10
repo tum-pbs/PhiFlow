@@ -262,15 +262,17 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
 
 def print_(value: Tensor = None, name: str = ""):
     """
-    Print a tensor with no more than two spatial dimensions, splitting it along all batch and channel dimensions.
+    Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.
     
-    Unlike regular printing, the primary dimension, typically x, is oriented to the right.
+    Unlike NumPy's array printing, the dimensions are sorted.
+    Elements along the alphabetically first dimension is printed to the right, the second dimension upward.
+    Typically, this means x right, y up.
 
     Args:
-      name: name of the tensor
-      value: tensor-like
-      value: Tensor:  (Default value = None)
-      name: str:  (Default value = None)
+        name: name of the tensor
+        value: tensor-like
+        value: Tensor:  (Default value = None)
+        name: str:  (Default value = None)
 
     Returns:
 
@@ -294,7 +296,7 @@ def print_(value: Tensor = None, name: str = ""):
         for index_dict in value.shape.non_spatial.meshgrid():
             if value.shape.non_spatial.volume > 1:
                 print(f"--- {', '.join('%s=%d' % (name, idx) for name, idx in index_dict.items())} ---")
-            text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=', ', max_line_width=np.inf)
+            text = np.array2string(value[index_dict].numpy(dim_order)[::-1], precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\[\]]', '', re.sub('\],', '', text)))
     else:
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
@@ -1682,7 +1684,7 @@ def minimize(function, x0: Tensor, solve_params: Solve, callback: Callable = Non
     try:
         x_native = backend.minimize(native_function, x0_flat, solve_params)
         if x_native is NotImplemented:
-            x_native = _default_minimize(native_function, x0_flat, backend, solve_params, callback)
+            x_native = _default_minimize(native_function, x0_flat, x0.dtype, backend, solve_params, callback)
         x = unflatten_assemble(x_native)
         return x
     except ConvergenceException as exc:
@@ -1690,22 +1692,33 @@ def minimize(function, x0: Tensor, solve_params: Solve, callback: Callable = Non
         raise type(exc)(exc.solve, x0, x, exc.msg)
 
 
-def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_params: Solve, callback: Callable = None):
+def _default_minimize(native_function, x0_flat, x_dtype, backend: Backend, solve_params: Solve, callback: Callable = None):
     import scipy.optimize as sopt
     x0 = backend.numpy(x0_flat)
+    if x_dtype.kind == complex:
+        x0 = x0.view(np.float32 if x0.dtype == np.complex64 else np.float64)
     method = solve_params.solver or 'L-BFGS-B'
+    loss_curve = []  # by evaluation
 
     if backend.supports(Backend.functional_gradient):
         val_and_grad = backend.functional_gradient(native_function, [0], get_output=True)
 
-        def min_target(x):
+        def min_target(x: np.ndarray):
+            if x_dtype.kind == complex:
+                x = x.view(np.complex64 if x.dtype == np.float32 else np.complex128)
             x = backend.as_tensor(x, convert_external=True)
             eval = val_and_grad(x)
             loss = eval[0]
+            loss_curve.append(loss)
             grad = eval[-1]
             if callback is not None:
                 callback(x, *eval[:-1])
-            return backend.numpy(loss).astype(np.float64), backend.numpy(grad).astype(np.float64)
+            if x_dtype.kind == complex:
+                grad = backend.numpy(grad).astype(np.complex128)
+                grad = grad.view(np.float64)
+            else:
+                grad = backend.numpy(grad).astype(np.float64)
+            return backend.numpy(loss).astype(np.float64), grad
 
         res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=solve_params.absolute_tolerance,
                             options={'maxiter': solve_params.max_iterations})
@@ -1713,8 +1726,11 @@ def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_
         warnings.warn(f"{backend} does not support gradients. minimize() will use finite difference gradients which may be slow.")
 
         def min_target(x):
+            if x_dtype.kind == complex:
+                x = x.view(np.complex64 if x.dtype == np.float32 else np.complex128)
             x = backend.as_tensor(x, convert_external=True)
             loss = native_function(x)
+            loss_curve.append(loss)
             if isinstance(loss, (tuple, list)):
                 loss = loss[0]
             return backend.numpy(loss).astype(np.float64)
@@ -1722,7 +1738,7 @@ def _default_minimize(native_function, x0_flat: Tensor, backend: Backend, solve_
         finite_diff_epsilon = {64: 1e-9, 32: 1e-4, 16: 1e-1}[get_precision()]
         res = sopt.minimize(fun=min_target, x0=x0, method=method, tol=solve_params.absolute_tolerance,
                             options={'maxiter': solve_params.max_iterations, 'eps': finite_diff_epsilon})
-    solve_params.result = SolveResult(res.nit)
+    solve_params.result = SolveResult(res.nit, loss_curve=loss_curve)
     if not res.success:
         raise NotConverged(solve_params, x0, res.x, msg=res.message)
     return res.x
