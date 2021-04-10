@@ -42,8 +42,10 @@ class NumPyBackend(Backend):
             array = np.array(x)
         # --- Enforce Precision ---
         if not isinstance(array, numbers.Number):
-            if array.dtype in (np.float16, np.float32, np.float64, np.longdouble):
+            if self.dtype(array).kind == float:
                 array = self.to_float(array)
+            elif self.dtype(array).kind == complex:
+                array = self.to_complex(array)
         return array
 
     def is_tensor(self, x, only_native=False):
@@ -336,7 +338,6 @@ class NumPyBackend(Backend):
             return np.fft.fftn(x, axes=list(range(1, rank + 1)))
 
     def ifft(self, k):
-        assert self.dtype(k).kind == complex
         rank = len(k.shape) - 2
         assert rank >= 1
         if rank == 1:

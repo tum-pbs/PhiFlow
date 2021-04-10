@@ -76,8 +76,11 @@ class TorchBackend(Backend):
             tensor = torch.tensor(x, device=self.get_default_device().ref)
         # --- Enforce Precision ---
         if self.is_tensor(tensor, only_native=True):
-            if tensor.dtype.is_floating_point:
+            dtype = self.dtype(tensor)
+            if dtype.kind == float:
                 tensor = self.to_float(tensor)
+            elif dtype.kind == complex:
+                tensor = self.to_complex(tensor)
         return tensor
 
     def is_available(self, tensor) -> bool:

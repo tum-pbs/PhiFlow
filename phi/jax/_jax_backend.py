@@ -67,6 +67,8 @@ class JaxBackend(Backend):
         if not isinstance(array, numbers.Number):
             if self.dtype(array).kind == float:
                 array = self.to_float(array)
+            elif self.dtype(array).kind == complex:
+                array = self.to_complex(array)
         return array
 
     def is_tensor(self, x, only_native=False):

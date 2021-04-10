@@ -36,10 +36,11 @@ class TFBackend(Backend):
         tf.random.set_seed(seed)
 
     def is_tensor(self, x, only_native=False):
+        is_tf_tensor = tf.is_tensor(x) is True  # tf.is_tensor() can return non-bool values which indicates not a Tensor
         if only_native:
-            return tf.is_tensor(x)
+            return is_tf_tensor
         else:
-            return tf.is_tensor(x) or NUMPY_BACKEND.is_tensor(x, only_native=False)
+            return is_tf_tensor or NUMPY_BACKEND.is_tensor(x, only_native=False)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
