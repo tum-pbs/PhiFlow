@@ -158,7 +158,9 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  smooth_alpha=0.4,
                  figsize=(8, 6),
                  transform: Callable = None,
-                 tight_layout=True):
+                 tight_layout=True,
+                 grid='y',
+                 log_scale=''):
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -199,7 +201,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 x = np.arange(values)
             name = display_name(name)
             if transform:
-                x, values = transform(x, values)
+                x, values = transform(np.stack([x, values]))
             if names_equal:
                 label = os.path.basename(path)
             elif paths_equal:
@@ -208,6 +210,13 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 label = f"{os.path.basename(path)} - {name}"
             axis.plot(x, values, color=cycle[i], alpha=smooth_alpha, linewidth=1)
             axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=2, label=label)
+            if grid:
+                grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
+                axis.grid(which='both', axis=grid_axis, linestyle='--')
+            if 'x' in log_scale:
+                axis.set_xscale('log')
+            if 'y' in log_scale:
+                axis.set_yscale('log')
             return name
 
         math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))
