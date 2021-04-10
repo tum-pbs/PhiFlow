@@ -1,20 +1,33 @@
+import traceback
+import warnings
+
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
-from . import viewsettings, model_controls
+from .dash_app import DashApp
 from .dash_plotting import dash_graph_plot, EMPTY_FIGURE
-from .player_controls import STEP_COMPLETE, REFRESH_INTERVAL
+from .model_controls import all_controls
+from .player_controls import STEP_COMPLETE, all_actions, PLAYING, REFRESH_INTERVAL
 import webglviewer
-from .viewsettings import parse_view_settings
+from .viewsettings import parse_view_settings, all_view_settings, refresh_rate_ms, REFRESH_RATE
 from .webgl_util import default_sky, EMPTY_GRID, webgl_prepare_data
+from .._vis_base import select_channel
+from ...field import SampledField
 
 
-def build_viewer(dashapp, height, initial_field_name=None, id='viewer', config=None):
+def build_viewers(app: DashApp, count: int, height: int, viewer_group: str):
+    field_names = app.model.field_names + ('None',) * max(0, 4 - len(app.model.field_names))
+    result = []
+    ids = [f'{viewer_group}_{i}' for i in range(count)]
+    field_selections = tuple(Input(f'{id}-field-select', 'value') for id in ids)
+    for id, field_name in zip(ids, field_names):
+        result.append(build_viewer(app, height, field_name, id, viewer_group))
+    return result, field_selections
 
-    field_options = [{'label': item, 'value': item} for item in dashapp.app.field_names] + [{'label': '<None>', 'value': 'None'}]
-    if initial_field_name is None:
-        initial_field_name = dashapp.app.field_names[0] if len(dashapp.app.field_names) > 0 else 'None'
+
+def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, viewer_group: str):
+    field_options = [{'label': item, 'value': item} for item in app.model.field_names] + [{'label': '<None>', 'value': 'None'}]
 
     layout = html.Div(style={'height': '100%'}, children=[
         html.Div(style={'width': '100%', 'height': '5%', 'display': 'inline-block', 'vertical-align': 'middle'}, children=[
@@ -28,7 +41,7 @@ def build_viewer(dashapp, height, initial_field_name=None, id='viewer', config=N
         html.Div(id=id+'-figure-container', children=[], style={'height': '95%', 'width': '100%', 'display': 'inline-block'}),
     ])
 
-    @dashapp.dash.callback(Output(id+'-figure-container', 'children'), [Input(id+'-3d', 'value')])
+    @app.dash.callback(Output(id+'-figure-container', 'children'), [Input(id+'-3d', 'value')])
     def choose_viewer(list3d):
         if list3d:
             return [
@@ -38,26 +51,31 @@ def build_viewer(dashapp, height, initial_field_name=None, id='viewer', config=N
         else:
             return dcc.Graph(figure=EMPTY_FIGURE, id=id + '-graph', style={'height': '100%'})
 
-    @dashapp.dash.callback(Output(id+'-graph', 'figure'), (Input(id+'-field-select', 'value'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS + tuple(model_controls.MODEL_CONTROLS + model_controls.MODEL_ACTIONS))
+    @app.dash.callback(Output(id+'-graph', 'figure'), (Input(f'{id}-field-select', 'value'), STEP_COMPLETE, REFRESH_INTERVAL, *all_view_settings(app, viewer_group), *all_controls(app), *all_actions(app)))
     def update_figure(field, _0, _1, *settings):
         if field is None or field == 'None':
             return EMPTY_FIGURE
-        data = dashapp.get_field(field)
-        if data is None:
+        value = app.get_field(field)
+        if not isinstance(value, SampledField):
             return EMPTY_FIGURE
-        settings_dict = parse_view_settings(config, *settings)
-        settings_dict['minmax'] = dashapp.get_minmax(field)
-        settings_dict['figsize'] = height
-        return dash_graph_plot(data, settings_dict)
+        selection = parse_view_settings(app, *settings)
+        value = value[selection['select']]
+        value = select_channel(value, selection.get('component', None))
+        try:
+            return dash_graph_plot(value, app.config, height)
+        except BaseException as err:
+            warnings.warn(f"Error during plotting: {err}")
+            traceback.print_exc()
+            return EMPTY_FIGURE
 
-    @dashapp.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL) + viewsettings.VIEW_SETTINGS + tuple(model_controls.MODEL_CONTROLS + model_controls.MODEL_ACTIONS))
-    def update_data(field, _0, _1, _2, *settings):
+    @app.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL, *all_view_settings(app, viewer_group), *all_controls(app), *all_actions(app)))
+    def update_webgl_data(field, _0, _1, _2, *settings):
         if field is None or field == 'None':
             return EMPTY_GRID
-        data = dashapp.get_field(field)
+        data = app.get_field(field)
         if data is None:
             return EMPTY_GRID
-        settings_dict = parse_view_settings(config, *settings)
-        return webgl_prepare_data(data, settings_dict)
+        settings_dict = parse_view_settings(app, *settings)
+        return webgl_prepare_data(data, app.config, settings_dict)
 
     return layout

@@ -103,7 +103,7 @@ def _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args):
             im = axes[b].imshow(b_values.batch[b].numpy('y,x'), origin='lower', **plt_args)
             if colorbar:
                 plt.colorbar(im, ax=axes[b])
-    elif isinstance(field, Grid):
+    elif isinstance(field, Grid):  # vector field
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
         for b in range(batch_size):

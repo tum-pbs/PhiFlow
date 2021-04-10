@@ -1,15 +1,16 @@
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Output
 
 from .board import build_benchmark, build_system_controls, \
     build_graph_view
 from .log import build_log
 from .model_controls import build_model_controls
-from .viewsettings import build_view_selection
+from .viewsettings import build_view_selection, refresh_rate_ms, REFRESH_RATE
 from .dash_app import DashApp
 from .info import build_app_details, build_description, build_phiflow_info, build_app_time
-from .viewer import build_viewer
-from .player_controls import build_status_bar, build_player_controls
+from .viewer import build_viewers, REFRESH_INTERVAL
+from .player_controls import build_status_bar, build_player_controls, PLAYING, STEP_COMPLETE
 from .._vis_base import Gui, VisModel
 
 
@@ -40,59 +41,60 @@ class DashGui(Gui):
             ])
         dash_app = self.dash_app = DashApp(self.app, self.config, header_layout)
 
-        disp_fields = app.field_names + ('None',) * max(0, 4 - len(app.field_names))
-
         # --- Shared components ---
         player_controls = build_player_controls(dash_app)
         status_bar = build_status_bar(dash_app)
         model_controls = build_model_controls(dash_app)
+        refresh_interval = dcc.Interval(id=REFRESH_INTERVAL.component_id, interval=refresh_rate_ms(None))
+
+        @dash_app.dash.callback(Output(REFRESH_INTERVAL.component_id, 'interval'), [REFRESH_RATE, PLAYING, STEP_COMPLETE, REFRESH_INTERVAL])
+        def set_refresh_interval(refresh_rate_value, *args):
+            if refresh_rate_value is None:
+                result = 1000
+            elif dash_app.play_status:
+                result = refresh_rate_ms(refresh_rate_value)
+            else:
+                result = refresh_rate_ms(None)
+            return result
 
         # --- Home ---
+        viewers_home, field_selections = build_viewers(dash_app, 1, 800, 'home')
         layout = html.Div([
             build_description(dash_app),
-            build_view_selection(dash_app),
-            html.Div(style={'width': 1000, 'height': 800, 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
-                build_viewer(dash_app, 800, id='home', initial_field_name=disp_fields[0], config=self.config),
-            ]),
+            build_view_selection(dash_app, field_selections, 'home'),
+            html.Div(style={'width': 1000, 'height': 800, 'margin-left': 'auto', 'margin-right': 'auto'}, children=[viewers_home[0]]),
             status_bar,
             player_controls,
             model_controls,
+            refresh_interval,
         ])
         dash_app.add_page('/', layout)
 
         # --- Side by Side ---
+        viewers_side_by_side, field_selections = build_viewers(dash_app, 2, 700, 'sbs')
         layout = html.Div([
-            build_view_selection(dash_app),
-            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, 700, id='left', initial_field_name=disp_fields[0], config=self.config),
-            ]),
-            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, 700, id='right', initial_field_name=disp_fields[1], config=self.config),
-            ]),
+            build_view_selection(dash_app, field_selections, 'sbs'),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[viewers_side_by_side[0]]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[viewers_side_by_side[1]]),
             status_bar,
             player_controls,
             model_controls,
+            refresh_interval,
         ])
         dash_app.add_page('/side-by-side', layout)
 
         # --- Quad ---
+        viewers_quad, field_selections = build_viewers(dash_app, 4, 700, 'quad')
         layout = html.Div([
-            build_view_selection(dash_app),
-            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, 700, id='top-left', initial_field_name=disp_fields[0], config=self.config),
-            ]),
-            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, 700, id='top-right', initial_field_name=disp_fields[1], config=self.config),
-            ]),
-            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, 700, id='bottom-left', initial_field_name=disp_fields[2], config=self.config),
-            ]),
-            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[
-                build_viewer(dash_app, 700, id='bottom-right', initial_field_name=disp_fields[3], config=self.config),
-            ]),
+            build_view_selection(dash_app, field_selections, 'quad'),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[viewers_quad[0]]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[viewers_quad[1]]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[viewers_quad[2]]),
+            html.Div(style={'width': '50%', 'height': 700, 'display': 'inline-block'}, children=[viewers_quad[3]]),
             status_bar,
             player_controls,
             model_controls,
+            refresh_interval,
         ])
         dash_app.add_page('/quad', layout)
 

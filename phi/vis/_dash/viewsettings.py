@@ -1,41 +1,39 @@
-import numpy
+from typing import Any, Dict
 
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input
+from dash.dependencies import Input, Output
+from dash.exceptions import PreventUpdate
 
-from phi.field import Field, CenteredGrid, StaggeredGrid
-from phi.vis._vis_base import VisModel
+from phi.field import SampledField
+from phi.math._shape import parse_dim_order
+from phi.vis._dash.dash_app import DashApp
+from phi.vis._dash.player_controls import STEP_BUTTON, PAUSE_BUTTON
+from phi.vis._dash.player_controls import REFRESH_INTERVAL
+from phi.vis._vis_base import display_name
 
 FRONT = 'front'
 RIGHT = 'right'
 TOP = 'top'
 
-VIEWED_BATCH = Input('batch-slider', 'value')
-VIEWED_DEPTH = Input('depth-slider', 'value')
-PROJECTION_AXIS = Input('projection-select', 'value')
-VIEWED_COMPONENT = Input('component-slider', 'value')
-REFRESH_BUTTON = Input('refresh-button', 'n_clicks')
-
-VIEW_SETTINGS = (VIEWED_BATCH, VIEWED_DEPTH, PROJECTION_AXIS, VIEWED_COMPONENT, REFRESH_BUTTON)
-
-REFRESH_RATE = Input('refresh-rate-slider', 'value')
+REFRESH_RATE = Input(f'refresh-rate', 'value')
 
 
-def parse_view_settings(config, *args):
-    batch = args[0]
-    depth = args[1]
-    projection = args[2]  # type: str
-    component = _COMPONENTS[args[3]]  # type: str
-    user_settings = {
-        'batch': batch,
-        'depth': depth,
+def all_view_settings(app: DashApp, viewer_group: str):
+    dims = [Input(f'{viewer_group}_select_{dim}', 'value') for dim in parse_dim_order(app.config.get('select', []))]
+    return (Input(f'{viewer_group}_projection-select', 'value'),
+            Input(f'{viewer_group}_component-slider', 'value'),
+            Input(f'{viewer_group}_refresh-button', 'n_clicks'),
+            *dims)
+
+
+def parse_view_settings(app: DashApp, *args) -> Dict[str, Any]:
+    projection, component, _, *selections = args
+    return {
+        'select': {dim: sel for dim, sel in zip(parse_dim_order(app.config.get('select', [])), selections)},
         'projection': projection,
-        'component': component,
+        'component': [None, 'x', 'y', 'z', 'abs'][component],
     }
-    all_settings = {} if config is None else dict(config)
-    all_settings.update(user_settings)
-    return all_settings
 
 
 def refresh_rate_ms(refresh_value):
@@ -45,18 +43,52 @@ def refresh_rate_ms(refresh_value):
         return (2000, 900, 400, 200)[refresh_value]
 
 
-def build_view_selection(dashapp, viewed_batch=0, viewed_depth=0, viewed_component='length'):
-    batch_size, resolution3d = detect_slices(dashapp.app)
+def build_view_selection(app: DashApp, field_selections: tuple, viewer_group: str):
+    dim_sliders = []
+    for sel_dim in parse_dim_order(app.config.get('select', [])):
+        sel_pane = html.Div(style={'height': '50px', 'width': '100%', 'display': 'flex', 'align-items': 'center', 'justify-content': 'center'}, children=[
+            html.Label(display_name(sel_dim), style={'display': 'inline-block'}),
+            html.Div(style={'width': '80%', 'display': 'inline-block'}, children=[
+                dcc.Slider(min=0, max=0, step=1, value=0,
+                           # marks={} if resolution3d is None else _marks(resolution3d[1]),
+                           id=f'{viewer_group}_select_{sel_dim}', updatemode='drag', disabled=False),
+                ]),
+            ])
+        dim_sliders.append(sel_pane)
+
+        @app.dash.callback(Output(f'{viewer_group}_select_{sel_dim}', 'max'), [STEP_BUTTON, REFRESH_INTERVAL, PAUSE_BUTTON, *field_selections])
+        def update_dim_max(_s, _r, _p, *field_names, dim=sel_dim):
+            values = [app.model.get_field(name) for name in field_names if name != 'None']
+            sizes = [v.shape.get_size(dim) for v in values if isinstance(v, SampledField) and dim in v.shape]
+            if sizes:
+                return max(sizes) - 1
+            else:
+                raise PreventUpdate()
+
+        @app.dash.callback(Output(f'{viewer_group}_select_{sel_dim}', 'disabled'), [STEP_BUTTON, REFRESH_INTERVAL, PAUSE_BUTTON, *field_selections])
+        def update_dim_disabled(_s, _r, _p, *field_names, dim=sel_dim):
+            values = [app.model.get_field(name) for name in field_names if name != 'None']
+            sizes = [v.shape.get_size(dim) for v in values if isinstance(v, SampledField) and dim in v.shape]
+            return max(sizes) <= 1 if sizes else True
+
+        @app.dash.callback(Output(f'{viewer_group}_select_{sel_dim}', 'marks'), [STEP_BUTTON, REFRESH_INTERVAL, PAUSE_BUTTON, *field_selections])
+        def update_dim_disabled(_s, _r, _p, *field_names, dim=sel_dim):
+            values = [app.model.get_field(name) for name in field_names if name != 'None']
+            sizes = [v.shape.get_size(dim) for v in values if isinstance(v, SampledField) and dim in v.shape]
+            if sizes:
+                return _marks(max(sizes))
+            else:
+                return {}
 
     layout = html.Div(style={'width': '100%', 'display': 'inline-block', 'backgroundColor': '#E0E0FF', 'vertical-align': 'middle'}, children=[
         # --- Settings ---
         html.Div(style={'width': '30%', 'display': 'inline-block', 'vertical-align': 'top'}, children=[
             html.Div(style={'width': '50%', 'display': 'inline-block'}, children=[
-                dcc.Dropdown(options=[{'value': FRONT, 'label': 'Front'}, {'value': RIGHT, 'label': 'Side'}, {'value': TOP, 'label': 'Top'}], value='front', id=PROJECTION_AXIS.component_id, disabled=resolution3d is None),
+                dcc.Dropdown(options=[{'value': FRONT, 'label': 'Front'}, {'value': RIGHT, 'label': 'Side'}, {'value': TOP, 'label': 'Top'}],
+                             value='front', id=f'{viewer_group}_projection-select', disabled=False),
                 html.Div(style={'margin-top': 6}, children=[
-                    html.Div('Component', style={'text-align': 'center'}),
                     html.Div(style={'width': '90%', 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
-                        dcc.Slider(min=0, max=4, step=1, value=_COMPONENTS.index(viewed_component), marks={0: 'v', 4: '|.|', 1: 'x', 2: 'y', 3: 'z'}, id='component-slider', updatemode='drag'),
+                        dcc.Slider(min=0, max=4, step=1, value=4, marks={0: '🡡', 4: '⬤', 1: 'x', 2: 'y', 3: 'z'}, id=f'{viewer_group}_component-slider', updatemode='drag'),
                     ])
                 ]),
             ]),
@@ -66,76 +98,17 @@ def build_view_selection(dashapp, viewed_batch=0, viewed_depth=0, viewed_compone
                     dcc.Slider(min=0, max=3, step=1, value=1, marks={0: 'low', 3: 'high'}, id=REFRESH_RATE.component_id, updatemode='drag'),
                 ]),
                 html.Div(style={'text-align': 'center'}, children=[
-                    html.Button('Refresh now', id=REFRESH_BUTTON.component_id),
+                    html.Button('Refresh now', id=f'{viewer_group}_refresh-button'),
                 ])
             ])
         ]),
         # --- Batch & Depth ---
-        html.Div(style={'width': '70%', 'display': 'inline-block'}, children=[
-            html.Div(style={'height': '50px', 'width': '100%', 'display': 'inline-block'}, children=[
-                'Batch',
-                dcc.Slider(min=0,
-                           max=0 if batch_size is None else batch_size - 1,
-                           step=1, value=viewed_batch,
-                           marks={} if batch_size is None else _marks(batch_size),
-                           id=VIEWED_BATCH.component_id,
-                           updatemode='drag',
-                           disabled=batch_size is None),
-            ]),
-            html.Div(style={'height': '50px', 'width': '100%', 'display': 'inline-block'}, children=[
-                'Depth',
-                dcc.Slider(min=0,
-                           max=0 if resolution3d is None else resolution3d[1] - 1,
-                           step=1,
-                           value=viewed_depth,
-                           marks={} if resolution3d is None else _marks(resolution3d[1]),
-                           id=VIEWED_DEPTH.component_id,
-                           updatemode='drag',
-                           disabled=resolution3d is None),
-            ]),
-        ]),
+        html.Div(style={'width': '70%', 'display': 'inline-block'}, children=dim_sliders),
     ])
-
     return layout
 
 
-_COMPONENTS = ['vec2', 'x', 'y', 'z', 'length']
-_COMPONENT_LABELS = ['v', 'x', 'y', 'z', '|.|']
-_COMPONENT_DICT = {name: label for name, label in zip(_COMPONENTS, _COMPONENT_LABELS)}
-
-
-def detect_slices(app):
-    assert isinstance(app, VisModel)
-    batch_size = resolution3d = None
-    for fieldname in app.field_names:
-        if batch_size is None or resolution3d is None:
-            field = app.get_field(fieldname)
-            if batch_size is None:
-                batch_size = _batch_size_of_field(field)
-            if resolution3d is None:
-                resolution3d = _resolution3d_of_field(field)
-    return batch_size, resolution3d
-
-
-def _batch_size_of_field(field):
-    if isinstance(field, Field):
-        return field.shape.batch.sizes[0] if len(field.shape.batch) > 0 else None
-    if isinstance(field, numpy.ndarray):
-        if field.ndim > 1 and field.shape[0] != 1:
-            return field.shape[0]
-    return None
-
-
-def _resolution3d_of_field(field):
-    if isinstance(field, Field) and field.spatial_rank >= 3:
-        if isinstance(field, (CenteredGrid, StaggeredGrid)):
-            return field.resolution[-3:]
-    if isinstance(field, numpy.ndarray) and field.ndim >= 5:
-        return field.shape[-4:-1]
-    return None
-
-
-def _marks(stop, limit=35, step=1):
+def _marks(stop, limit=35, step=1) -> dict:
     if stop <= limit * step:
         return {i: str(i) for i in range(0, stop, step)}
     if stop <= 2 * limit * step:

@@ -9,9 +9,8 @@ from phi.vis._vis_base import VisModel, play_async, status_message, gui_interrup
 
 class DashApp:
 
-    def __init__(self, app, config, header_layout):
-        assert isinstance(app, VisModel)
-        self.app = app
+    def __init__(self, model: VisModel, config: dict, header_layout):
+        self.model = model
         self.config = config
         self.dash = dash.Dash(u'PhiFlow')
         self.dash.config.suppress_callback_exceptions = True
@@ -66,7 +65,7 @@ class DashApp:
         self.page_urls[path] = page_layout
 
     def get_field(self, name):
-        return self.app.get_field(name)
+        return self.model.get_field(name)
 
     def reset_field_summary(self):
         self.field_minmax = {}
@@ -80,7 +79,7 @@ class DashApp:
     def play(self, max_steps=None):
         if not self.play_status:
             framerate = self.config.get('framerate', None)
-            self.play_status = play_async(self.app, max_steps=max_steps, framerate=framerate)
+            self.play_status = play_async(self.model, max_steps=max_steps, framerate=framerate)
 
     def pause(self):
         if self.play_status:
@@ -88,10 +87,10 @@ class DashApp:
 
     @property
     def status_message(self):
-        return status_message(self.app, self.play_status)
+        return status_message(self.model, self.play_status)
 
     def exit_interrupt(self):
         self.pause()
-        if self.app.can_progress:
-            self.app.pre_step.append(gui_interrupt)
-            self.app.progress()
+        if self.model.can_progress:
+            self.model.pre_step.append(gui_interrupt)
+            self.model.progress()

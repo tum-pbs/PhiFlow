@@ -7,30 +7,21 @@ from dash.dependencies import Input, Output
 from .dash_app import DashApp
 from .._vis_base import display_name, value_range, is_log_control
 
-MODEL_CONTROLS = []
-MODEL_ACTIONS = []
+
+def all_controls(app: DashApp):
+    return tuple(Input(control.name, 'value') for control in app.model.controls)
 
 
-def build_model_controls(dashapp):
-    assert isinstance(dashapp, DashApp)
-    controls = dashapp.app.controls
-    actions = dashapp.app.actions
-
-    if len(controls) == len(actions) == 0:
+def build_model_controls(app: DashApp):
+    controls = app.model.controls
+    if not controls:
         return html.Div()
-
     model_floats = [control for control in controls if control.control_type == float]
     model_bools = [control for control in controls if control.control_type == bool]
     model_ints = [control for control in controls if control.control_type == int]
     model_texts = [control for control in controls if control.control_type == str]
 
-    MODEL_CONTROLS.clear()
-    MODEL_CONTROLS.extend([Input(action.name, 'n_clicks') for action in actions])
-    MODEL_CONTROLS.extend([Input(control.name, 'value') for control in model_floats])
-    MODEL_CONTROLS.extend([Input(control.name, 'value') for control in model_ints])
-    MODEL_CONTROLS.extend([Input(control.name, 'value') for control in model_bools])
-    MODEL_ACTIONS.clear()
-    MODEL_ACTIONS.extend([Input(action.name, 'n_clicks') for action in actions])
+    # MODEL_ACTIONS.extend([Input(action.name, 'n_clicks') for action in actions])
 
     layout = html.Div(style={'width': '75%', 'margin-left': 'auto', 'margin-right': 'auto', 'background-color': '#F0F0F0'}, children=[
         html.Div(id='control-div', style={'width': '95%', 'height': '90%', 'margin-left': 'auto', 'margin-right': 'auto', 'margin-top': 15, 'margin-bottom': 'auto'}, children=[
@@ -38,32 +29,26 @@ def build_model_controls(dashapp):
         ]),
     ])
 
-    @dashapp.dash.callback(Output('control-div', 'children'), [Input('initialize-controls', 'n_intervals')])
+    @app.dash.callback(Output('control-div', 'children'), [Input('initialize-controls', 'n_intervals')])
     def build_controls(_):
-        model_buttons = [html.Button(display_name(action.name), id=action.name) for action in actions]
         model_sliders_float = create_sliders(model_floats)
         model_sliders_int = create_sliders(model_ints)
-
-        model_checkboxes = [dcc.Checklist(options=[{'label': display_name(control.name), 'value': control.name}],
-                                          value=[control.name] if control.initial else [], id=control.name)
+        model_checkboxes = [dcc.Checklist(options=[{'label': display_name(control.name), 'value': control.name}], value=[control.name] if control.initial else [], id=control.name)
                             for control in model_bools]
-
         model_textfields = []
         for control in model_texts:
-            text_area = dcc.Textarea(placeholder=control.initial, id=control.name, value=control.initial, rows=1,
-                                    style={'width': '600px', 'display': 'inline-block'})
+            text_area = dcc.Textarea(placeholder=control.initial, id=control.name, value=control.initial, rows=1, style={'width': '600px', 'display': 'inline-block'})
             model_textfields.append(html.Div([display_name(control.name) + '  ', text_area]))
-        return [dcc.Markdown('### Model')] + model_sliders_float + model_sliders_int + model_buttons + model_textfields + model_checkboxes
-
-    for action in actions:
-        @dashapp.dash.callback(Output(action.name, 'disabled'), [Input(action.name, 'n_clicks')])
-        def perform_action(n_clicks, action=action):
-            if n_clicks is not None:
-                dashapp.app.run_action(action.name)
-            return False
+        return [
+            dcc.Markdown('### Model'),
+            *model_sliders_float,
+            *model_sliders_int,
+            *model_textfields,
+            *model_checkboxes
+        ]
 
     for control in model_floats:
-        @dashapp.dash.callback(Output(control.name, 'disabled'), [Input(control.name, 'value')])
+        @app.dash.callback(Output(control.name, 'disabled'), [Input(control.name, 'value')])
         def set_model_value(slider_value, control=control):
             if is_log_control(control):
                 value = 10.0 ** slider_value
@@ -71,26 +56,26 @@ def build_model_controls(dashapp):
                     value = 0.0
             else:
                 value = slider_value
-            dashapp.app.set_control_value(control.name, value)
+            app.model.set_control_value(control.name, value)
             return False
 
     for control in model_ints:
-        @dashapp.dash.callback(Output(control.name, 'step'), [Input(control.name, 'value')])
+        @app.dash.callback(Output(control.name, 'step'), [Input(control.name, 'value')])
         def set_model_value(value, control=control):
-            dashapp.app.set_control_value(control.name, value)
+            app.model.set_control_value(control.name, value)
             return 1
 
     for control in model_bools:
-        @dashapp.dash.callback(Output(control.name, 'style'), [Input(control.name, 'value')])
+        @app.dash.callback(Output(control.name, 'style'), [Input(control.name, 'value')])
         def set_model_bool(values, control=control):
-            dashapp.app.set_control_value(control.name, True if values else False)
+            app.model.set_control_value(control.name, True if values else False)
             return {}
 
     for control in model_texts:
-        @dashapp.dash.callback(Output(control.name, 'disabled'), [Input(control.name, 'value')])
+        @app.dash.callback(Output(control.name, 'disabled'), [Input(control.name, 'value')])
         def set_model_text(value, control=control):
             if value is not None:
-                dashapp.app.set_control_value(control.name, value)
+                app.model.set_control_value(control.name, value)
             return False
 
     return layout

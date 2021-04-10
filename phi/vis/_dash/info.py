@@ -16,7 +16,7 @@ from .dash_app import DashApp
 
 def build_app_details(dashapp):
     assert isinstance(dashapp, DashApp)
-    app = dashapp.app
+    app = dashapp.model
     try:
         app_file = inspect.getfile(app.__class__)
     except TypeError:
@@ -32,7 +32,7 @@ Data path: {app.scene}
 
 def build_description(dashapp):
     assert isinstance(dashapp, DashApp)
-    app = dashapp.app
+    app = dashapp.model
     md_src = _description_markdown_src(app.name, app.description)
     return dcc.Markdown(children=md_src, id='info_markdown')
 
@@ -63,7 +63,7 @@ This application is based on the open-source simulation framework [Φ-Flow](http
 
 
 def build_app_time(dashapp):
-    start_time = datetime.datetime.fromtimestamp(dashapp.app.start_time)
+    start_time = datetime.datetime.fromtimestamp(dashapp.model.start_time)
 
     def build_text():
         now = datetime.datetime.now()

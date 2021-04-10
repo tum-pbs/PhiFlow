@@ -40,7 +40,7 @@ def build_benchmark(dashapp):
         if dashapp.play_status:
             return '*Pause the vis before starting a benchmark.*'
         # --- Run benchmark ---
-        step_count, time_elapsed = benchmark(dashapp.app, step_count)
+        step_count, time_elapsed = benchmark(dashapp.model, step_count)
         output = '### Benchmark Results\n'
         if step_count != step_count:
             output += 'The benchmark was stopped prematurely.  \n'
@@ -71,9 +71,9 @@ def build_tf_profiler(dashapp):
         if dashapp.play_status:
             return '*Pause the vis before starting a profiled run.*'
         # --- Profile ---
-        with dashapp.app.session.profiler() as profiler:
+        with dashapp.model.session.profiler() as profiler:
             timeline_file = profiler.timeline_file
-            step_count, time_elapsed = dashapp.app.benchmark(step_count)
+            step_count, time_elapsed = dashapp.model.benchmark(step_count)
         output = '### Profiling Results\n'
         if step_count != step_count:
             output += 'The profiling run was stopped prematurely.  \n'
@@ -107,7 +107,7 @@ def build_tensorboard_launcher(dashapp):
     def launch_tensorboard(clicks):
         if clicks:
             logging.info('Launching TensorBoard...')
-            logdir = dashapp.app.session.summary_directory
+            logdir = dashapp.model.session.summary_directory
             import phi.tf._profiling as profiling
             url = profiling.launch_tensorboard(logdir, port=dashapp.config.get('tensorboard_port', None))
             dashapp.config['tensorboard_url'] = url
@@ -157,8 +157,8 @@ def build_graph_view(dashapp):
 
     @dashapp.dash.callback(Output('board-graph', 'figure'), [REFRESH_GRAPHS_BUTTON, Input('graph-update', 'n_intervals')])
     def update_figure(_n1, _n2):
-        curves = [dashapp.app.get_curve(n) for n in dashapp.app.curve_names]
-        labels = [display_name(n) for n in dashapp.app.curve_names]
+        curves = [dashapp.model.get_curve(n) for n in dashapp.model.curve_names]
+        labels = [display_name(n) for n in dashapp.model.curve_names]
         try:
             figure = dash_plot_graphs(curves, labels)
             return figure

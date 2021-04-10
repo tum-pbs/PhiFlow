@@ -110,12 +110,11 @@ def default_sky():
 EMPTY_GRID = np.zeros([2, 2, 2], np.float32)
 
 
-def webgl_prepare_data(field, settings):
-    # type: (object, dict) -> np.ndarray
+def webgl_prepare_data(field, config: dict, selection: dict) -> np.ndarray:
     if field is None:
         return EMPTY_GRID
 
-    component = settings.get('component', 'length')
+    component = settings.get('component', 'abs')
     batch = settings.get('batch', 0)
 
     data = None
@@ -129,9 +128,9 @@ def webgl_prepare_data(field, settings):
     elif isinstance(field, StaggeredGrid):
         if field.spatial_rank == 1:
             return EMPTY_GRID
-        if component == 'vec2' or component == 'length':
+        if component == 'vec2' or component == 'abs':
             data = field.at_centers().values
-            component = 'length'
+            component = 'abs'
         else:
             data = field.unstack()[{'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component]].data
 

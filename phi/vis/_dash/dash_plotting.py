@@ -1,48 +1,30 @@
-import traceback
-import warnings
-
 import numpy as np
 import plotly.figure_factory as plotly_figures
 
 from phi.math import GLOBAL_AXIS_ORDER as physics_config
-from phi.field import CenteredGrid, StaggeredGrid, PointCloud
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud, SampledField, Grid
 from .colormaps import COLORMAPS
 from ... import math
-from ...geom import Box
 from .viewsettings import FRONT, RIGHT, TOP
+
 
 EMPTY_FIGURE = {'data': [{'z': None, 'type': 'heatmap'}]}
 
 
-def dash_graph_plot(data, settings: dict) -> dict:
-    if data is None:
-        return EMPTY_FIGURE
-    try:
-        if isinstance(data, np.ndarray):
-            data = math.wrap(data)
-        if isinstance(data, math.Tensor):
-            data = CenteredGrid(data, Box(0, math.wrap(data.shape, 'vector')))
-        if isinstance(data, (CenteredGrid, StaggeredGrid)):
-            component = settings.get('component', 'x')
-            if data.spatial_rank == 1:
-                return plot(data, settings)
-            if data.spatial_rank == 2:
-                if component == 'vec2' and data.shape.channel.volume >= 2:
-                    return vector_field(data, settings)
-                else:
-                    return heatmap(data, settings)
-            if data.spatial_rank == 3:
-                if component == 'vec2' and data.shape.channel.volum >= 2:
-                    return vector_field(slice_2d(data, settings), settings)
-                else:
-                    return heatmap(slice_2d(data, settings), settings)
-        if isinstance(data, PointCloud):
-            return cloud_plot(data, settings)
-        warnings.warn(f"No figure recipe for {data}")
-    except BaseException as err:
-        warnings.warn(f"Error during plotting: {err}")
-        traceback.print_exc()
-    return EMPTY_FIGURE
+def dash_graph_plot(value: SampledField, config: dict, display_height: int) -> dict:
+    if isinstance(value, Grid) and value.shape.channel.volume == 1:
+        if value.spatial_rank == 1:
+            return plot(value, config)
+        elif value.spatial_rank == 2:
+            return heatmap(value, config)
+    elif isinstance(value, Grid):  # vector field
+        if isinstance(value, StaggeredGrid):
+            value = value.at_centers()
+        return vector_field(value, config)
+    elif isinstance(value, PointCloud):
+        return cloud_plot(value, display_height)
+    else:
+        raise NotImplementedError(f"No figure recipe for {value}")
 
 
 def get_color_interpolation(val, cm_arr):
@@ -142,27 +124,11 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap=None):
     return cm_str
 
 
-def heatmap(field, settings):
-    assert isinstance(field, (StaggeredGrid, CenteredGrid))
+def heatmap(field: CenteredGrid, config: dict):
     assert field.spatial_rank == 2
-    batch = settings.get('batch', 0)
-    component = settings.get('component', 'x')
-
-    if isinstance(field, StaggeredGrid):
-        if component == 'x':
-            field = field.unstack()[physics_config.x]
-        elif component == 'y':
-            field = field.unstack()[physics_config.y]
-        elif component == 'z':
-            return EMPTY_FIGURE
-        elif component == 'length':
-            field = field.at_centers()
-        else:
-            raise ValueError(component)
     z = field.values
-    if len(z.shape.batch) > 0:
-        z = z.dimension(z.shape.batch.names[0])[batch]
-    z = reduce_component(z, component)
+    if z.dtype.kind == complex:
+        z = abs(z)
     z = z.numpy()
     points = field.points
     if physics_config.is_x_first:
@@ -172,15 +138,12 @@ def heatmap(field, settings):
     else:
         x = points.vector[1].y[0].numpy()
         y = points.vector[0].x[0].numpy()
-    if settings.get('slow_colorbar', False):
-        z_min, z_max = settings['minmax']
-    else:
-        z_min, z_max = np.nanmin(z), np.nanmax(z)
+    z_min, z_max = np.nanmin(z), np.nanmax(z)
     if not np.isfinite(z_min):
         z_min = 0
     if not np.isfinite(z_max):
         z_max = 0
-    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=settings.get('colormap', None))
+    color_scale = get_div_map(z_min, z_max, equal_scale=True, colormap=config.get('colormap', None))
     return {
         'data': [{
             'x': x,
@@ -200,7 +163,7 @@ def slice_2d(field3d, settings):
     if isinstance(field3d, np.ndarray):
         field3d = CenteredGrid(field3d)
     if isinstance(field3d, StaggeredGrid):
-        component = settings.get('component', 'length')
+        component = settings.get('component', 'abs')
         if component in ('z', 'y', 'x'):
             field3d = field3d.unstack()[
                 {'z': physics_config.z, 'y': physics_config.y, 'x': physics_config.x}[component] % 3]
@@ -236,20 +199,18 @@ def plot(field1d, settings):
     return {'data': [{'mode': 'markers+lines', 'type': 'scatter', 'x': x, 'y': data}]}
 
 
-def cloud_plot(cloud: PointCloud, settings: dict) -> dict:
+def cloud_plot(cloud: PointCloud, display_height: int) -> dict:
     """
     Generates Plotly figure dict for the given PointCloud object.
 
     Args:
-        settings: plot settings
+        display_height: figure height in pixels, used to set marker size
         cloud: Single 2D PointCloud which should get plotted.
 
     Returns:
         Plotly figure dict with the data from the PointCloud.
     """
-    points = cloud.points
-    points = math.join_dimensions(points, points.shape.batch.without('points'), 'batch').batch[settings.get('batch', 0)]
-    x, y = points.vector.unstack_spatial('x,y', to_numpy=True)
+    x, y = cloud.points.vector.unstack_spatial('x,y', to_numpy=True)
     color = cloud.color.points.unstack(len(x), to_python=True)
     if cloud.bounds:
         lower = cloud.bounds.lower.vector.unstack_spatial('x,y', to_python=True)
@@ -257,7 +218,7 @@ def cloud_plot(cloud: PointCloud, settings: dict) -> dict:
     else:
         lower = [np.min(x), np.min(y)]
         upper = [np.max(x), np.max(y)]
-    radius = cloud.elements.bounding_radius() * settings['figsize'] / (upper[1] - lower[1])
+    radius = cloud.elements.bounding_radius() * display_height / (upper[1] - lower[1])
     radius = math.maximum(radius, 2)
     plot_dict = {
         'data':
@@ -298,7 +259,7 @@ def reduce_component(tensor, component):
             return tensor[..., physics_config.z]
         else:
             return math.zeros_like(tensor[..., 0])
-    if component == 'length':
+    if component == 'abs':
         return math.vec_abs(tensor)
     if component == 'vec2':
         return tensor[..., (physics_config.y, physics_config.x)]
