@@ -64,7 +64,10 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim='shift'):
     return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]
 
 
-def stagger(field: CenteredGrid, face_function: Callable, extrapolation: math.extrapolation.Extrapolation, type: type = StaggeredGrid):
+def stagger(field: CenteredGrid,
+            face_function: Callable,
+            extrapolation: math.extrapolation.Extrapolation,
+            type: type = StaggeredGrid):
     """
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
     One layer of missing cells is inferred from the extrapolation.
@@ -137,6 +140,17 @@ def divergence(field: Grid) -> CenteredGrid:
         raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")
 
 
+def curl(field: Grid, type: type = CenteredGrid):
+    assert field.spatial_rank in (2, 3), "curl is only defined in 2 and 3 spatial dimensions."
+    if field.spatial_rank == 2 and type == StaggeredGrid:
+        assert isinstance(field, CenteredGrid) and 'vector' not in field.shape, f"2D curl requires scalar field but got {field}"
+        grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim='vector')
+        result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
+        bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
+        return StaggeredGrid(result, bounds, field.extrapolation.spatial_gradient())
+    raise NotImplementedError()
+
+
 def fourier_laplace(grid: GridType, times=1) -> GridType:
     """ See `phi.math.fourier_laplace()` """
     extrapolation = grid.extrapolation.spatial_gradient().spatial_gradient()
@@ -169,7 +183,7 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     return result
 
 
-def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None):
+def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None) -> Grid:
     data_function = _operate_on_values(function, x0)
     try:
         return x0.with_(values=math.minimize(data_function, x0.values, solve_params=solve_params, callback=callback))
@@ -371,6 +385,11 @@ def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
     return field.with_(values=data)
 
 
+def center_of_mass(density: SampledField):
+    assert 'vector' not in density.shape
+    return mean(density.points * density) / mean(density)
+
+
 def pad(grid: Grid, widths: int or tuple or list or dict):
     if isinstance(widths, int):
         widths = {axis: (widths, widths) for axis in grid.shape.spatial.names}
@@ -445,55 +464,55 @@ def batch_stack(*fields, dim: str):
     raise NotImplementedError(type(fields[0]))
 
 
-def abs(x: SampledField) -> SampledField:
+def abs(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.abs)
 
 
-def sign(x: SampledField) -> SampledField:
+def sign(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.sign)
 
 
-def round_(x: SampledField) -> SampledField:
+def round_(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.round)
 
 
-def ceil(x: SampledField) -> SampledField:
+def ceil(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.ceil)
 
 
-def floor(x: SampledField) -> SampledField:
+def floor(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.floor)
 
 
-def sqrt(x: SampledField) -> SampledField:
+def sqrt(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.sqrt)
 
 
-def exp(x: SampledField) -> SampledField:
+def exp(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.exp)
 
 
-def isfinite(x: SampledField) -> SampledField:
+def isfinite(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.isfinite)
 
 
-def real(field: SampledField):
+def real(field: SampledFieldType) -> SampledFieldType:
     return field._op1(math.real)
 
 
-def imag(field: SampledField):
+def imag(field: SampledFieldType) -> SampledFieldType:
     return field._op1(math.imag)
 
 
-def sin(x: SampledField) -> SampledField:
+def sin(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.sin)
 
 
-def cos(x: SampledField) -> SampledField:
+def cos(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.cos)
 
 
-def cast(x: SampledField, dtype: DType) -> SampledField:
+def cast(x: SampledFieldType, dtype: DType) -> SampledFieldType:
     return x._op1(partial(math.cast, dtype=dtype))
 
 
@@ -504,16 +523,6 @@ def assert_close(*fields: SampledField or math.Tensor or Number,
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
     values = [(f >> f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)
-
-
-# def staggered_curl_2d(grid, pad_width=(1, 2)):
-#     assert isinstance(grid, CenteredGrid)
-#     kernel = math.zeros((3, 3, 1, 2))
-#     kernel[1, :, 0, 0] = [0, 1, -1]  # y-component: - dz/dx
-#     kernel[:, 1, 0, 1] = [0, -1, 1]  # x-component: dz/dy
-#     scalar_potential = grid.padded([pad_width, pad_width]).values
-#     vector_field = math.convolve(scalar_potential, kernel, padding='valid')
-#     return StaggeredGrid(vector_field, bounds=grid.box)
 
 
 def where(mask: Field or Geometry, field_true: Field, field_false: Field):

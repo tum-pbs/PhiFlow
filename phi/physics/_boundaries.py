@@ -205,7 +205,7 @@ class Domain:
     def vector_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
                     type: type = CenteredGrid,
-                    extrapolation: math.Extrapolation = 'vector') -> CenteredGrid or StaggeredGrid:
+                    extrapolation: math.Extrapolation or str = 'vector') -> CenteredGrid or StaggeredGrid:
         """
         Creates a vector grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
@@ -242,7 +242,7 @@ class Domain:
 
     def staggered_grid(self,
                        value: Field or Tensor or Number or Geometry or callable = 0.,
-                       extrapolation: math.Extrapolation = 'vector') -> StaggeredGrid:
+                       extrapolation: math.Extrapolation or str = 'vector') -> StaggeredGrid:
         """
         Creates a staggered grid matching the resolution and bounds of the domain.
         This is equal to calling `vector_grid()` with `type=StaggeredGrid`.
@@ -265,6 +265,16 @@ class Domain:
           Grid of specified type
         """
         return self.vector_grid(value, type=StaggeredGrid, extrapolation=extrapolation)
+
+    def vector_potential(self,
+                         value: Field or Tensor or Number or Geometry or callable = 0.,
+                         extrapolation: str or math.Extrapolation = 'scalar',
+                         curl_type=CenteredGrid):
+        if self.rank == 2 and curl_type == StaggeredGrid:
+            pot_bounds = Box(self.bounds.lower - 0.5 * self.dx, self.bounds.upper + 0.5 * self.dx)
+            alt_domain = Domain(self.boundaries, self.resolution + 1, bounds=pot_bounds)
+            return alt_domain.scalar_grid(value, extrapolation=extrapolation)
+        raise NotImplementedError()
 
     def accessible_mask(self, not_accessible: tuple or list, type: type = CenteredGrid, extrapolation='accessible') -> CenteredGrid or StaggeredGrid:
         """
@@ -378,7 +388,7 @@ class Obstacle(State):
     @struct.derived()
     def is_stationary(self):
         """ Test whether the obstacle is completely still. """
-        return self.velocity is 0 and self.angular_velocity is 0
+        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
 
 
 def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
