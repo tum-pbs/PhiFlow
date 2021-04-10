@@ -555,11 +555,13 @@ def l2_loss(field: SampledField, batch_norm: bool or str or tuple or list or mat
 
 
 def frequency_loss(field: SampledField,
+                   n=2,
                    frequency_falloff=100,
+                   threshold=1e-5,
                    batch_norm: bool or str or tuple or list or math.Shape = True,
                    ignore_mean=False):
     """ Frequency loss for the unweighted values of the field. See `phi.math.frequency_loss()`. """
-    return math.frequency_loss(field.values, frequency_falloff=frequency_falloff, batch_norm=batch_norm, ignore_mean=ignore_mean)
+    return math.frequency_loss(field.values, n=n, frequency_falloff=frequency_falloff, threshold=threshold, batch_norm=batch_norm, ignore_mean=ignore_mean)
 
 
 def stop_gradient(field: GridType):

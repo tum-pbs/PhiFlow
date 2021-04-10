@@ -101,7 +101,9 @@ def l_n_loss(tensor: Tensor,
 
 
 def frequency_loss(values: Tensor,
+                   n=2,
                    frequency_falloff: float = 100,
+                   threshold=1e-5,
                    batch_norm: bool or str or tuple or list or Shape = True,
                    ignore_mean=False) -> Tensor:
     """
@@ -110,8 +112,11 @@ def frequency_loss(values: Tensor,
 
     Args:
         values: Values to penalize, typically `actual - target`
+        n: Loss type, see `l_n_loss()`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
+        threshold: Frequency amplitudes below this value are ignored.
+            Setting this to zero may cause infinities or NaN values during backpropagation.
         batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
         ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
 
@@ -120,10 +125,11 @@ def frequency_loss(values: Tensor,
     """
     if ignore_mean:
         values -= math.mean(values, values.shape.non_batch)
-    diff_fft = abs_square(math.fft(values))
     k_squared = vec_squared(math.fftfreq(values.shape.spatial))
     weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    return l1_loss(diff_fft * weights, batch_norm=batch_norm)
+    diff_fft = abs_square(math.fft(values) * weights)
+    diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
+    return l_n_loss(diff_fft, n=n, batch_norm=batch_norm)
 
 
 def abs_square(complex_values: Tensor) -> Tensor:
