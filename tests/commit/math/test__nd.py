@@ -15,7 +15,7 @@ class TestMathNDNumpy(TestCase):
     def test_gradient_scalar(self):
         ones = tensor(np.ones([2, 4, 3]), 'batch,x,y')
         cases = dict(difference=('central', 'forward', 'backward'),
-                     padding=(None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
+                     padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             scalar_grad = math.spatial_gradient(ones, dx=0.1, **case_dict)
             math.assert_close(scalar_grad, 0)
@@ -26,7 +26,7 @@ class TestMathNDNumpy(TestCase):
     def test_gradient_vector(self):
         meshgrid = math.meshgrid(x=4, y=3)
         cases = dict(difference=('central', 'forward', 'backward'),
-                     padding=(None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
+                     padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
                      dims=(None, ('x', 'y'), ))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
