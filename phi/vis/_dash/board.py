@@ -6,9 +6,10 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Output, Input
 from dash.exceptions import PreventUpdate
+from plotly import graph_objects
 
 from .dash_app import DashApp
-from .dash_plotting import EMPTY_FIGURE, dash_plot_graphs
+from ._plotly_plots import plot_scalars
 from .player_controls import STEP_COUNT, parse_step_count
 from .._vis_base import display_name, gui_interrupt, benchmark
 
@@ -147,24 +148,27 @@ def build_graph_view(dashapp):
         html.H2("Graphs"),
         html.Div([
             html.Button('Refresh now', id=REFRESH_GRAPHS_BUTTON.component_id),
-            dcc.Checklist(id='auto-refresh-checkbox', options=[{'label': 'Auto-refresh', 'value': 'refresh'}], value=['refresh'], style={'display': 'inline-block'})
+            dcc.Checklist(id='auto-refresh-checkbox', options=[{'label': 'Auto-refresh', 'value': 'refresh'}], value=['refresh'], style={'display': 'inline-block'}),
+            dcc.Checklist(id='subplots-checkbox', options=[{'label': 'Subplots', 'value': 'subplots'}], value=[], style={'display': 'inline-block'}),
         ]),
         dcc.Interval(id='graph-update', interval=2000, disabled=False),
         html.Div(id='graph-figure-container', style={'height': 600, 'width': '100%'}, children=[
-            dcc.Graph(figure=EMPTY_FIGURE, id='board-graph', style={'height': '100%'})
+            dcc.Graph(figure={}, id='board-graph', style={'height': '100%'})
         ])
     ])
 
-    @dashapp.dash.callback(Output('board-graph', 'figure'), [REFRESH_GRAPHS_BUTTON, Input('graph-update', 'n_intervals')])
-    def update_figure(_n1, _n2):
+    @dashapp.dash.callback(Output('board-graph', 'figure'), [Input('subplots-checkbox', 'value'), REFRESH_GRAPHS_BUTTON, Input('graph-update', 'n_intervals')])
+    def update_figure(subplots, _n1, _n2):
         curves = [dashapp.model.get_curve(n) for n in dashapp.model.curve_names]
         labels = [display_name(n) for n in dashapp.model.curve_names]
         try:
-            figure = dash_plot_graphs(curves, labels)
+            figure = plot_scalars(curves, labels, subplots=bool(subplots))
             return figure
-        except BaseException:
+        except BaseException as err:
             traceback.print_exc()
-            return EMPTY_FIGURE
+            fig = graph_objects.Figure()
+            fig.update_layout(title_text=repr(err))
+            return fig
 
     @dashapp.dash.callback(Output('graph-update', 'disabled'), [Input('auto-refresh-checkbox', 'value')])
     def enable_auto_refresh(selected):

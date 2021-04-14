@@ -11,11 +11,10 @@ from phi.vis._vis_base import display_name
 from phi.field import Grid, StaggeredGrid, PointCloud
 from phi.field import Scene
 from phi.field._field import SampledField
-from phi.field._field_math import batch_stack
 from phi.field._scene import _str
 
 
-def plot(field: SampledField or tuple or list, title=False, colorbar=True, figsize=(12, 5), same_scale=True, **plt_args):
+def plot(field: SampledField, title=False, show_color_bar=True, size=(12, 5), same_scale=True, **plt_args):
     """
     Creates a Matplotlib figure to display a single field or batch of fields.
 
@@ -25,18 +24,16 @@ def plot(field: SampledField or tuple or list, title=False, colorbar=True, figsi
     Args:
         field: `SampledField`, may contain batch dimensions which will create subfigures.
         title: Figure title.
-        colorbar: Whether to show a colorbar for heatmap plots.
-        figsize: Figure (width, height) in inches.
+        show_color_bar: Whether to show a colorbar for heatmap plots.
+        size: Figure (width, height) in inches.
         same_scale: Whether to use the same value scale for all subplots.
         **plt_args: Additional plotting arguments passed to Matplotlib.
 
     Returns:
         [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
     """
-    if isinstance(field, (tuple, list)):
-        field = batch_stack(*field, dim='fields')
     batch_size, b_values = _batch(field)
-    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    fig, axes = plt.subplots(1, batch_size, figsize=size)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
     if title:
         for b in range(batch_size):
@@ -50,21 +47,21 @@ def plot(field: SampledField or tuple or list, title=False, colorbar=True, figsi
                 sub_title = None
             if sub_title is not None:
                 axes[b].set_title(sub_title)
-    _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+    _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args)
     plt.tight_layout()
     return fig, axes
 
 
-def animate(fields: SampledField or tuple or list,
-            colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -> animation.Animation:
+def animate(fields: SampledField, dim='frames',
+            show_color_bar=False, size=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -> animation.Animation:
     """
     Creates a Matplotlib animation from `fields`.
     `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
 
     Args:
         fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
-        colorbar: Whether to show a color bar
-        figsize: Figure size
+        show_color_bar: Whether to show a color bar
+        size: Figure size
         same_scale: Whether to use the same scale, both temporally and for all sub-figures.
         repeat: Whether the video should loop.
         interval: Frame time in milliseconds.
@@ -73,13 +70,11 @@ def animate(fields: SampledField or tuple or list,
     Returns:
         Matplotlib `Animation`
     """
-    if isinstance(fields, SampledField):
-        assert 'frames' in fields.shape, "When passing a single Field, it must have a dimension with name 'frames'."
-        fields = fields.unstack('frames')
-    fields = list(fields)
-    field = fields[0]
-    batch_size, b_values = _batch(field)
-    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    assert isinstance(fields, SampledField)
+    assert dim in fields.shape, f"Animation dimension {dim} not present in data."
+    fields = list(fields.unstack(dim))
+    batch_size, b_values = _batch(fields[0])
+    fig, axes = plt.subplots(1, batch_size, figsize=size)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
 
     def func(frame: int):
@@ -87,21 +82,21 @@ def animate(fields: SampledField or tuple or list,
         batch_size, b_values = _batch(field)
         for axis in axes:
             axis.clear()
-        _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+        _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args)
 
     ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
     plt.close(fig)
     return ani
 
 
-def _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args):
+def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args):
     if isinstance(field, Grid) and field.shape.channel.volume == 1:
         if same_scale:
             plt_args['vmin'] = math.min(b_values).native()
             plt_args['vmax'] = math.max(b_values).native()
         for b in range(batch_size):
             im = axes[b].imshow(b_values.batch[b].numpy('y,x'), origin='lower', **plt_args)
-            if colorbar:
+            if show_color_bar:
                 plt.colorbar(im, ax=axes[b])
     elif isinstance(field, Grid):  # vector field
         if isinstance(field, StaggeredGrid):
@@ -156,7 +151,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  reduce: str or tuple or list or math.Shape = 'names',
                  smooth=1,
                  smooth_alpha=0.4,
-                 figsize=(8, 6),
+                 size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
                  grid='y',
@@ -180,7 +175,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
     batch = shape.without(reduce).without(additional_reduce)
 
     cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-    fig, axes = plt.subplots(1, batch.volume, figsize=figsize)
+    fig, axes = plt.subplots(1, batch.volume, figsize=size)
     axes = axes if isinstance(axes, numpy.ndarray) else [axes]
 
     for b, axis in zip(batch.meshgrid(), axes):
@@ -198,7 +193,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 x, values, *_ = curve.T
             else:
                 values = curve
-                x = np.arange(values)
+                x = np.arange(len(values))
             name = display_name(name)
             if transform:
                 x, values = transform(np.stack([x, values]))

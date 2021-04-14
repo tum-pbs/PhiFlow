@@ -254,6 +254,11 @@ class Geometry:
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
 
+    def __getitem__(self, item: dict):
+        assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
+        characteristics = {n: c[item] for n, c in self.__characteristics__().items()}
+        return self.__with__(**characteristics)
+
 
 class _InvertedGeometry(Geometry):
 

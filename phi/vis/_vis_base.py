@@ -418,6 +418,6 @@ def select_channel(value: SampledField, channel: str or None):
             comp_index = value.shape.spatial.index(channel)
             return value.unstack('vector')[comp_index]
         elif 'vector' in value.shape:
-            raise ValueError(f"Dimension {value} unavailable.")
+            raise ValueError(f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
         else:
             return value

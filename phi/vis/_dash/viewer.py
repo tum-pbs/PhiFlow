@@ -4,13 +4,14 @@ import warnings
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
+from plotly import graph_objects
 
+from ._plotly_plots import plot
 from .dash_app import DashApp
-from .dash_plotting import dash_graph_plot, EMPTY_FIGURE
 from .model_controls import all_controls
-from .player_controls import STEP_COMPLETE, all_actions, PLAYING, REFRESH_INTERVAL
+from .player_controls import STEP_COMPLETE, all_actions, REFRESH_INTERVAL
 import webglviewer
-from .viewsettings import parse_view_settings, all_view_settings, refresh_rate_ms, REFRESH_RATE
+from .viewsettings import parse_view_settings, all_view_settings
 from .webgl_util import default_sky, EMPTY_GRID, webgl_prepare_data
 from .._vis_base import select_channel
 from ...field import SampledField
@@ -49,24 +50,34 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
                 webglviewer.Webglviewer(id=id+'-webgl', sky=default_sky(), material_type='LIGHT_SMOKE', representation_type='DENSITY')
             ]
         else:
-            return dcc.Graph(figure=EMPTY_FIGURE, id=id + '-graph', style={'height': '100%'})
+            return dcc.Graph(figure={}, id=id + '-graph', style={'height': '100%'})
 
     @app.dash.callback(Output(id+'-graph', 'figure'), (Input(f'{id}-field-select', 'value'), STEP_COMPLETE, REFRESH_INTERVAL, *all_view_settings(app, viewer_group), *all_controls(app), *all_actions(app)))
     def update_figure(field, _0, _1, *settings):
         if field is None or field == 'None':
-            return EMPTY_FIGURE
+            fig = graph_objects.Figure()
+            fig.update_layout(title_text="None")
+            return fig
         value = app.get_field(field)
         if not isinstance(value, SampledField):
-            return EMPTY_FIGURE
+            fig = graph_objects.Figure()
+            fig.update_layout(title_text=f"{field} = {value}")
+            return fig
         selection = parse_view_settings(app, *settings)
         value = value[selection['select']]
-        value = select_channel(value, selection.get('component', None))
         try:
-            return dash_graph_plot(value, app.config, height)
+            value = select_channel(value, selection.get('component', None))
+        except ValueError as err:
+            fig = graph_objects.Figure()
+            fig.update_layout(title_text=str(err.args[0]))
+            return fig
+        try:
+            return plot(value, size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
         except BaseException as err:
-            warnings.warn(f"Error during plotting: {err}")
             traceback.print_exc()
-            return EMPTY_FIGURE
+            fig = graph_objects.Figure()
+            fig.update_layout(title_text=repr(err))
+            return fig
 
     @app.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL, *all_view_settings(app, viewer_group), *all_controls(app), *all_actions(app)))
     def update_webgl_data(field, _0, _1, _2, *settings):

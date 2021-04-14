@@ -45,6 +45,12 @@ class PointCloud(SampledField):
             color = '#0060ff'
         self._color = math.wrap(color, names='points') if isinstance(color, (tuple, list)) else math.wrap(color)
 
+    def __getitem__(self, item: dict):
+        elements = self.elements[item]
+        values = self._values[item]
+        color = self._color[item]
+        return self.with_(elements=elements, values=values, color=color)
+
     def with_(self,
               elements: Geometry or None = None,
               values: Tensor = None,

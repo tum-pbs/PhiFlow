@@ -135,7 +135,8 @@ def numpy(value: Tensor or Number or tuple or list or Any):
 
 def reshaped_native(value: Tensor,
                     groups: tuple or list,
-                    force_expand: Any = False):
+                    force_expand: Any = False,
+                    to_numpy=False):
     """
     Returns a native representation of `value` where dimensions are laid out according to `groups`.
 
@@ -149,6 +150,7 @@ def reshaped_native(value: Tensor,
             If `True`, repeats the tensor along missing dimensions.
             If `False`, puts singleton dimensions where possible.
             If a sequence of dimensions is provided, only forces the expansion for groups containing those dimensions.
+        to_numpy: If True, converts the native tensor to a `numpy.ndarray`.
 
     Returns:
         Native tensor with dimensions matching `groups`.
@@ -165,7 +167,7 @@ def reshaped_native(value: Tensor,
         else:
             assert isinstance(group, str), f"Groups must be either str or Shape but got {group}"
             order.append(group)
-    return value.native(order=order)
+    return value.numpy(order) if to_numpy else value.native(order)
 
 
 def reshaped_tensor(value: Any,

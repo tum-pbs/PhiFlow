@@ -282,6 +282,9 @@ class Shape:
     def __ne__(self, other):
         return not self == other
 
+    def __bool__(self):
+        return self.rank > 0
+
     def normal_order(self):
         sizes = self.batch.sizes + self.spatial.sizes + self.channel.sizes
         names = self.batch.names + self.spatial.names + self.channel.names
