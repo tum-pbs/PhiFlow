@@ -28,7 +28,7 @@ velocity_fit = DOMAIN.staggered_grid(lambda x: math.random_normal(x.shape.withou
 _pressure_guess = DOMAIN.scalar_grid(0)
 incompressible_velocity = DOMAIN.staggered_grid(0)
 gradient = DOMAIN.staggered_grid(0)
-app = view(incompressible_velocity, gradient, velocity_fit, play=False)
+app = view(incompressible_velocity, gradient, velocity_fit, TARGET, play=False)
 
 for iteration in app.range(warmup=1):
     loss, incompressible_velocity, pressure_guess, gradient = gradient_function(velocity_fit, _pressure_guess)

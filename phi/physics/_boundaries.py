@@ -300,6 +300,7 @@ class Domain:
 
     def points(self,
                points: Tensor or Number or tuple or list,
+               values: Tensor or Number = None,
                radius: Tensor or float or int or None = None,
                extrapolation: math.Extrapolation = math.extrapolation.ZERO,
                color: str or Tensor or tuple or list or None = None) -> PointCloud:
@@ -309,6 +310,7 @@ class Domain:
 
         Args:
             points: point locations in physical units
+            values: (optional) values of the particles, defaults to 1.
             radius: (optional) size of the particles
             extrapolation: (optional) extrapolation to use, defaults to extrapolation.ZERO
             color: (optional) color used when plotting the points
@@ -324,11 +326,12 @@ class Domain:
             if len(points) == 0:  # no points
                 points = math.zeros(points=0, vector=1)
             elif isinstance(points[0], Number):  # single point
-                points = math.wrap([points], 'points, vector')
+                points = math.tensor([points], 'points, vector')
             else:
-                points = math.wrap(points, 'points, vector')
+                points = math.tensor(points, 'points, vector')
         elements = Sphere(points, radius)
-        values = math.tensor(1., convert=True)
+        if values is None:
+            values = math.tensor(1.)
         return PointCloud(elements, values, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
     def distribute_points(self,

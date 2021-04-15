@@ -41,7 +41,7 @@ def make_incompressible(velocity: StaggeredGrid,
     # --- Extrapolation is needed to exclude border divergence from the `occupied_centered` mask and thus
     # from the pressure solve. If particles are randomly distributed, the `occupied_centered` mask
     # could sometimes include the divergence at the borders (due to single particles right at the edge
-    # which temporarily deform the `occupied_centered` mask when moving into a new cell) which would then
+    # which temporarily deform the `occupied_centered` mask when moving into a new cell). This would then
     # get compensated by the pressure. This is unwanted for falling liquids and therefore prevented by this
     # extrapolation. ---
     velocity_field, _ = extrapolate_valid(velocity * occupied_staggered, occupied_staggered, 1)
@@ -53,6 +53,13 @@ def make_incompressible(velocity: StaggeredGrid,
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
     pressure = field.solve(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
+
+    def pressure_backward(_p, _p_, dp):
+        return dp * occupied_centered.values,
+
+    add_mask_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
+    pressure = pressure.with_(values=add_mask_in_gradient(pressure.values))
+
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
     return velocity_field - gradp, pressure, solve_params.result.iterations, div, occupied_staggered
 

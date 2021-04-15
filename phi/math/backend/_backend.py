@@ -649,7 +649,7 @@ class Backend:
         Args:
           grid: Tensor
           spatial_dims: Dimension indices that correspond to coordinate vectors
-          coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+          coordinates: Tensor of floating grid indices. The last dimension must match `spatial_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
           extrapolation: Values to use for coordinates outside the grid. One of `('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')`.
 
         Returns:

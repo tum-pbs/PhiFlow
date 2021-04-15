@@ -53,7 +53,8 @@ class PointCloud(SampledField):
               bounds: Box = None,
               color: str or Tensor or tuple or list or None = None,
               **other_attributes) -> 'SampledField':
-        assert not other_attributes, other_attributes
+        if other_attributes:
+            raise ValueError(f"PointCloud does not have attributes {other_attributes}")
         return PointCloud(elements if elements is not None else self.elements,
                           values if values is not None else self.values,
                           extrapolation if extrapolation is not None else self.extrapolation,
@@ -103,7 +104,7 @@ class PointCloud(SampledField):
           CenteredGrid
 
         """
-        closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution - 0.5))
+        closest_index = box.global_to_local(self.points) * resolution - 0.5
         mode = 'add' if self._add_overlapping else 'mean'
         base = math.zeros(resolution)
         if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
