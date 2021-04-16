@@ -1082,6 +1082,23 @@ def cos(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.cos)
 
 
+def tan(x: Tensor) -> Tensor:
+    return _backend_op1(x, Backend.tan)
+
+
+def log(x: Tensor) -> Tensor:
+    """ Natural logarithm. """
+    return _backend_op1(x, Backend.log)
+
+
+def log2(x: Tensor) -> Tensor:
+    return _backend_op1(x, Backend.log2)
+
+
+def log10(x: Tensor) -> Tensor:
+    return _backend_op1(x, Backend.log10)
+
+
 def cast(x: Tensor, dtype: DType) -> Tensor:
     return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
 

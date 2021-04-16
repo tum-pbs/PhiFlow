@@ -394,6 +394,18 @@ class TFBackend(Backend):
     def cos(self, x):
         return tf.math.cos(x)
 
+    def tan(self, x):
+        return tf.math.tan(x)
+
+    def log(self, x):
+        return tf.math.log(x)
+
+    def log2(self, x):
+        return tf.math.log(x) / 0.6931471805599453094  # log(x) / log(2)
+
+    def log10(self, x):
+        return tf.math.log(x) / 2.3025850929940456840  # log(x) / log(10)
+
     def dtype(self, array) -> DType:
         if tf.is_tensor(array):
             dt = array.dtype.as_numpy_dtype

@@ -517,6 +517,18 @@ class TorchBackend(Backend):
     def cos(self, x):
         return torch.cos(x)
 
+    def tan(self, x):
+        return torch.tan(x)
+
+    def log(self, x):
+        return torch.log(x)
+
+    def log2(self, x):
+        return torch.log2(x)
+
+    def log10(self, x):
+        return torch.log10(x)
+
     def dtype(self, array) -> DType:
         if self.is_tensor(array, only_native=True):
             return from_torch_dtype(array.dtype)

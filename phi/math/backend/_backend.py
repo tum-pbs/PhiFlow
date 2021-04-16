@@ -559,6 +559,19 @@ class Backend:
     def cos(self, x):
         raise NotImplementedError(self)
 
+    def tan(self, x):
+        raise NotImplementedError(self)
+
+    def log(self, x):
+        """ Natural logarithm """
+        raise NotImplementedError(self)
+
+    def log2(self, x):
+        raise NotImplementedError(self)
+
+    def log10(self, x):
+        raise NotImplementedError(self)
+
     def dtype(self, array) -> DType:
         raise NotImplementedError(self)
 

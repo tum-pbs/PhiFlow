@@ -359,6 +359,18 @@ class NumPyBackend(Backend):
     def cos(self, x):
         return np.cos(x)
 
+    def tan(self, x):
+        return np.tan(x)
+
+    def log(self, x):
+        return np.log(x)
+
+    def log2(self, x):
+        return np.log2(x)
+
+    def log10(self, x):
+        return np.log10(x)
+
     def dtype(self, array) -> DType:
         if isinstance(array, int):
             return DType(int, 32)

@@ -422,6 +422,18 @@ class JaxBackend(Backend):
     def cos(self, x):
         return jnp.cos(x)
 
+    def tan(self, x):
+        return jnp.tan(x)
+
+    def log(self, x):
+        return jnp.log(x)
+
+    def log2(self, x):
+        return jnp.log2(x)
+
+    def log10(self, x):
+        return jnp.log10(x)
+
     def dtype(self, array) -> DType:
         if isinstance(array, int):
             return DType(int, 32)

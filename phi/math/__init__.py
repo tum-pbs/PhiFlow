@@ -43,7 +43,7 @@ from ._functions import (
     abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
-    sqrt, exp, sin, cos,
+    sqrt, exp, sin, cos, tan, log, log2, log10,
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
