@@ -56,12 +56,12 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
     def update_figure(field, _0, _1, *settings):
         if field is None or field == 'None':
             fig = graph_objects.Figure()
-            fig.update_layout(title_text="None")
+            fig.update_layout(title_text="None", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
         value = app.get_field(field)
         if not isinstance(value, SampledField):
             fig = graph_objects.Figure()
-            fig.update_layout(title_text=f"{field} = {value}")
+            fig.update_layout(title_text=f"{field} = {value}", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
         selection = parse_view_settings(app, *settings)
         value = value[selection['select']]
@@ -69,14 +69,14 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
             value = select_channel(value, selection.get('component', None))
         except ValueError as err:
             fig = graph_objects.Figure()
-            fig.update_layout(title_text=str(err.args[0]))
+            fig.update_layout(title_text=str(err.args[0]), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
         try:
             return plot(value, size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
         except BaseException as err:
             traceback.print_exc()
             fig = graph_objects.Figure()
-            fig.update_layout(title_text=repr(err))
+            fig.update_layout(title_text=repr(err), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
 
     @app.dash.callback(Output(id+'-webgl', 'data'), (Input(id+'-field-select', 'value'), Input(id+'-webgl-initializer', 'n_intervals'), STEP_COMPLETE, REFRESH_INTERVAL, *all_view_settings(app, viewer_group), *all_controls(app), *all_actions(app)))

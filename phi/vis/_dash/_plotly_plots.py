@@ -20,6 +20,7 @@ def plot(field: SampledField, title=False, show_color_bar=True, size=(800, 600),
         fig = graph_objects.Figure()
         _plot(field, fig,
               size=size, colormap=colormap, show_color_bar=show_color_bar)
+    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
 
@@ -217,7 +218,7 @@ def split_curve(x, y):
     return x, y
 
 
-def plot_scalars(curves: tuple or list, labels, subplots=True):
+def plot_scalars(curves: tuple or list, labels, subplots=True, log_scale=''):
     if not curves:
         return graph_objects.Figure()
     curves = [split_curve(*c) for c in curves]
@@ -225,19 +226,27 @@ def plot_scalars(curves: tuple or list, labels, subplots=True):
         fig = make_subplots(rows=1, cols=len(curves), subplot_titles=labels)
         for col, (label, (x, y)) in enumerate(zip(labels, curves)):
             fig.add_trace(graph_objects.Scatter(x=x, y=y, name=label), row=1, col=1 + col)
-        fig.update_layout(showlegend=False)
-        return fig
     else:
-        # fig = graph_objects.Figure(data=[])
-        return {
-            'data': [{
-                'mode': 'lines',
-                'type': 'scatter',
-                'x': x,
-                'y': y,
-                'name': label,
-            } for label, (x, y) in zip(labels, curves)],
-            'layout': {
-                'showlegend': True,
-                'margin': dict(t=20, l=40, b=20, r=20),
-            }}
+        fig = graph_objects.Figure()
+        for col, (label, (x, y)) in enumerate(zip(labels, curves)):
+            fig.add_trace(graph_objects.Scatter(x=x, y=y, name=label))
+    fig.update_layout(showlegend=not subplots, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    if 'x' in log_scale:
+        fig.update_xaxes(type='log')
+    if 'y' in log_scale:
+        fig.update_yaxes(type='log')
+    return fig
+    # else:
+    #     # fig = graph_objects.Figure(data=[])
+    #     return {
+    #         'data': [{
+    #             'mode': 'lines',
+    #             'type': 'scatter',
+    #             'x': x,
+    #             'y': y,
+    #             'name': label,
+    #         } for label, (x, y) in zip(labels, curves)],
+    #         'layout': {
+    #             'showlegend': True,
+    #             'margin': dict(t=20, l=40, b=20, r=20),
+    #         }}

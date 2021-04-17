@@ -88,7 +88,7 @@ def build_view_selection(app: DashApp, field_selections: tuple, viewer_group: st
                              value='front', id=f'{viewer_group}_projection-select', disabled=False),
                 html.Div(style={'margin-top': 6}, children=[
                     html.Div(style={'width': '90%', 'margin-left': 'auto', 'margin-right': 'auto'}, children=[
-                        dcc.Slider(min=0, max=4, step=1, value=4, marks={0: '🡡', 4: '⬤', 1: 'x', 2: 'y', 3: 'z'}, id=f'{viewer_group}_component-slider', updatemode='drag'),
+                        dcc.Slider(min=0, max=4, step=1, value=0, marks={0: '🡡', 4: '⬤', 1: 'x', 2: 'y', 3: 'z'}, id=f'{viewer_group}_component-slider', updatemode='drag'),
                     ])
                 ]),
             ]),
