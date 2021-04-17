@@ -297,6 +297,7 @@ class Shape:
         return self[order]
 
     def order_group(self, names: tuple or list or 'Shape'):
+        """ Reorders the dimensions of this `Shape` so that dimensions in `names`   """
         if isinstance(names, Shape):
             names = names.names
         order = []

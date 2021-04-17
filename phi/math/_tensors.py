@@ -343,6 +343,8 @@ class Tensor:
         return self._op2(other, lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y))
 
     def __abs__(self):
+        if self.dtype.kind in (bool, str):
+            return self
         return self._op1(lambda t: choose_backend(t).abs(t))
 
     def __round__(self, n=None):

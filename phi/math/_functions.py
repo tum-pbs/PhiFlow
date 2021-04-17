@@ -783,11 +783,11 @@ def join_dimensions(value: Tensor,
     Returns:
         `Tensor` with compressed shape.
     """
-    if len(dims) == 0:
+    dims = dims.names if isinstance(dims, Shape) else dims
+    if len(dims) == 0 or all(dim not in value.shape for dim in dims):
         return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
     if len(dims) == 1:
-        old_dim = dims.name if isinstance(dims, Shape) else dims[0]
-        new_shape = value.shape.with_names([joined_dim_name if name == old_dim else name for name in value.shape.names])
+        new_shape = value.shape.with_names([joined_dim_name if name == dims[0] else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
@@ -1007,10 +1007,8 @@ def _backend_op1(x: Tensor, unbound_method) -> Tensor:
     return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
 
 
-def abs(x: Tensor) -> Tensor:
-    if x.dtype.kind == bool:
-        return x
-    return _backend_op1(x, Backend.abs)
+def abs_(x: Tensor) -> Tensor:
+    return abs(x)
 
 
 def sign(x: Tensor) -> Tensor:
@@ -1280,7 +1278,7 @@ def scatter(base_grid: Tensor or Shape,
     channels = (grid_shape.channel & values.shape.channel).without(scatter_dims)
     # --- Reshape base_grid to (batch, *base_grid.shape, vector) ---
     shaped_base_grid = join_dimensions(base_grid, batches, 'batch_', pos=0)
-    shaped_base_grid = expand_channel(shaped_base_grid, vector_=channels.volume)
+    shaped_base_grid = join_dimensions(shaped_base_grid, channels, 'vector_', pos=-1)
     # --- Reshape indices to (batch, list, vector) ---
     shaped_indices = join_dimensions(indices, batches, 'batch_', pos=0)
     shaped_indices = join_dimensions(shaped_indices, lists, 'list_', pos=1)

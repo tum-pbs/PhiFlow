@@ -40,7 +40,7 @@ from ._functions import (
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
     dot,
-    abs, sign,
+    abs_ as abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
     sqrt, exp, sin, cos, tan, log, log2, log10,
