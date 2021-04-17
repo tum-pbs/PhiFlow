@@ -256,8 +256,7 @@ class TorchBackend(Backend):
 
     def where(self, condition, x=None, y=None):
         condition = self.as_tensor(condition).bool()
-        x = self.as_tensor(x)
-        y = self.as_tensor(y)
+        x, y = self.auto_cast(x, y)
         return torch.where(condition, x, y)
 
     def nonzero(self, values):
