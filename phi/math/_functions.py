@@ -848,7 +848,7 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
 
     """
     if value.shape.channel_rank > 0:
-        value = sum_(abs(value), value.shape.channel.names)
+        value = sum_(abs(value), value.shape.channel)
 
     def unbatched_nonzero(value):
         native = value.native()
@@ -1008,6 +1008,8 @@ def _backend_op1(x: Tensor, unbound_method) -> Tensor:
 
 
 def abs(x: Tensor) -> Tensor:
+    if x.dtype.kind == bool:
+        return x
     return _backend_op1(x, Backend.abs)
 
 

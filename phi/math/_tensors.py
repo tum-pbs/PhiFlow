@@ -121,16 +121,16 @@ class Tensor:
             return bool(all_(self))
 
     def __int__(self):
-        return int(self.native()) if self.rank == 0 else NotImplemented
+        return int(self.native()) if self.shape.volume == 1 else NotImplemented
 
     def __float__(self):
-        return float(self.native()) if self.rank == 0 else NotImplemented
+        return float(self.native()) if self.shape.volume == 1 else NotImplemented
 
     def __complex__(self):
-        return complex(self.native()) if self.rank == 0 else NotImplemented
+        return complex(self.native()) if self.shape.volume == 1 else NotImplemented
 
     def __index__(self):
-        return int(self.native()) if self.rank == 0 and np.issubdtype(self.dtype, int) else NotImplemented
+        return int(self.native()) if self.shape.volume == 1 and np.issubdtype(self.dtype, int) else NotImplemented
 
     def _summary_str(self) -> str:
         try:
