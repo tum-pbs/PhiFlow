@@ -297,17 +297,28 @@ class Shape:
         return self[order]
 
     def order_group(self, names: tuple or list or 'Shape'):
-        """ Reorders the dimensions of this `Shape` so that dimensions in `names`   """
+        """ Reorders the dimensions of this `Shape` so that `names` are clustered together and occur in the specified order. """
         if isinstance(names, Shape):
             names = names.names
-        order = []
-        for name in self.names:
-            if name not in order:
-                if name in names:
-                    order.extend(names)
+        result = []
+        for dim in self.names:
+            if dim not in result:
+                if dim in names:
+                    result.extend(names)
                 else:
-                    order.append(name)
-        return order
+                    result.append(dim)
+        return result
+
+    def sorted(self, names: tuple or list or 'Shape') -> Tuple[str]:
+        """ Sorts `names` in the order in which they appear in this Shape. Names not part of this shape keep their position after the previous dimension. """
+        names: Tuple[str] = names.names if isinstance(names, Shape) else names
+        positions = {}
+        pos = 0
+        for name in names:
+            if name in self.names:
+                pos = self.index(name)
+            positions[name] = pos
+        return tuple(sorted(names, key=lambda n: positions[n]))
 
     def alphabetically(self):
         return self.reorder(sorted(self.names))

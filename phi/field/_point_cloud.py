@@ -9,7 +9,8 @@ from ..math import Tensor
 
 class PointCloud(SampledField):
 
-    def __init__(self, elements: Geometry,
+    def __init__(self,
+                 elements: Geometry,
                  values: Any = 1,
                  extrapolation=math.extrapolation.ZERO,
                  add_overlapping=False,
@@ -49,7 +50,8 @@ class PointCloud(SampledField):
         elements = self.elements[item]
         values = self._values[item]
         color = self._color[item]
-        return self.with_(elements=elements, values=values, color=color)
+        extrapolation = self._extrapolation[item]
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, color)
 
     def with_(self,
               elements: Geometry or None = None,
@@ -59,8 +61,7 @@ class PointCloud(SampledField):
               bounds: Box = None,
               color: str or Tensor or tuple or list or None = None,
               **other_attributes) -> 'SampledField':
-        if other_attributes:
-            raise ValueError(f"PointCloud does not have attributes {other_attributes}")
+        assert not other_attributes, f"Invalid attributes for type {type(self)}: {other_attributes}"
         return PointCloud(elements if elements is not None else self.elements,
                           values if values is not None else self.values,
                           extrapolation if extrapolation is not None else self.extrapolation,

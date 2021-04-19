@@ -25,9 +25,8 @@ class HardGeometryMask(Field):
             inside = inside.dimension(reduce_channels[0]).as_channel('vector')
         return inside
 
-    def unstack(self, dimension: str) -> tuple:
-        geometries = self.geometry.unstack(dimension)
-        return tuple(HardGeometryMask(g) for g in geometries)
+    def __getitem__(self, item: dict):
+        return HardGeometryMask(self.geometry[item])
 
 
 class SoftGeometryMask(HardGeometryMask):
@@ -45,6 +44,5 @@ class SoftGeometryMask(HardGeometryMask):
             inside = inside.dimension(reduce_channels[0]).as_channel('vector')
         return inside
 
-    def unstack(self, dimension: str) -> tuple:
-        geometries = self.geometry.unstack(dimension)
-        return tuple(SoftGeometryMask(g) for g in geometries)
+    def __getitem__(self, item: dict):
+        return SoftGeometryMask(self.geometry[item])

@@ -34,5 +34,5 @@ class AngularVelocity(Field):
     def shape(self) -> Shape:
         return self._shape
 
-    def unstack(self, dimension: str) -> tuple:
+    def __getitem__(self, item: dict):
         raise NotImplementedError()

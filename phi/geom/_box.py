@@ -349,16 +349,39 @@ class GridCell(AbstractBox):
     def half_size(self):
         return self.bounds.size / self.resolution.sizes / 2
 
+    def __getitem__(self, item: dict):
+        bounds = self._bounds
+        dx = self.size
+        for dim, selection in item.items():
+            if dim in self._resolution:
+                if isinstance(selection, int):
+                    start = selection
+                    stop = selection + 1
+                elif isinstance(selection, slice):
+                    start = selection.start or 0
+                    stop = selection.stop or self.resolution.get_size(dim)
+                    if stop < 0:
+                        stop += self.resolution.get_size(dim)
+                    assert selection.step is None or selection.step == 1
+                else:
+                    raise ValueError(f"Illegal selection: {item}")
+                dim_mask = math.wrap(self.resolution.mask(dim))
+                lower = bounds.lower + start * dim_mask * dx
+                upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * dx
+                bounds = Box(lower, upper)
+        resolution = self._resolution.after_gather(item)
+        return GridCell(resolution, bounds)
+
     def list_cells(self, dim_name):
         center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
 
     def extend_symmetric(self, dims: str or list or tuple, cells: int):
-        axis_mask = np.array(self.resolution.mask(dims)) * cells
-        unit = self.bounds.size / self.resolution * axis_mask
+        dim_mask = np.array(self.resolution.mask(dims)) * cells
+        unit = self.bounds.size / self.resolution * dim_mask
         delta_size = unit / 2
         bounds = Box(self.bounds.lower - delta_size, self.bounds.upper + delta_size)
-        ext_res = self.resolution.sizes + axis_mask
+        ext_res = self.resolution.sizes + dim_mask
         return GridCell(self.resolution.with_sizes(ext_res), bounds)
 
     def face_centers(self, staggered_name='staggered'):

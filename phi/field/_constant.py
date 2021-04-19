@@ -25,7 +25,11 @@ class ConstantField(Field):
     def sample_at(self, points, reduce_channels=()) -> math.Tensor:
         return self.value
 
+    def __getitem__(self, item):
+        return ConstantField(self.value[item])
+
     def unstack(self, dimension: str):
+        warnings.warn("ConstantField.unstack() is deprecated. Use field.unstack(ConstantField) instead.", DeprecationWarning)
         return tuple(ConstantField(v) for v in self.value.unstack(dimension))
 
     def __repr__(self):

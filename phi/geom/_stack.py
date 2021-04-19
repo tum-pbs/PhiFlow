@@ -5,10 +5,10 @@ from ..math._shape import shape_stack, Shape, BATCH_DIM
 
 class GeometryStack(Geometry):
 
-    def __init__(self, geometries, dim_name):
+    def __init__(self, geometries: tuple or list, dim_name: str, dim_type: str):
         self.geometries = tuple(geometries)
         self.stack_dim_name = dim_name
-        self._shape = shape_stack(dim_name, BATCH_DIM, *[g.shape for g in geometries])
+        self._shape = shape_stack(dim_name, dim_type, *[g.shape for g in geometries])
 
     def unstack(self, dimension):
         if dimension == self.stack_dim_name:

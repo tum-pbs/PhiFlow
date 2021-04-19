@@ -130,7 +130,9 @@ class Tensor:
         return complex(self.native()) if self.shape.volume == 1 else NotImplemented
 
     def __index__(self):
-        return int(self.native()) if self.shape.volume == 1 and np.issubdtype(self.dtype, int) else NotImplemented
+        assert self.shape.volume == 1, f"Only scalar tensors can be converted to index but has shape {self.shape}"
+        assert self.dtype.kind == int, f"Only int tensors can be converted to index but dtype is {self.dtype}"
+        return int(self.native())
 
     def _summary_str(self) -> str:
         try:
@@ -142,6 +144,8 @@ class Tensor:
                     content = list(np.reshape(self.numpy(), [-1]))
                     content = ', '.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
+                        if self.shape.name == 'vector':
+                            return f"({content})"
                         return f"({content}) along {self.shape.name}"
                     return f"{self.shape} {self.dtype}  {content}"
                 else:
@@ -615,7 +619,7 @@ class TensorDim:
     def __getitem__(self, item):
         if isinstance(item, str):
             item = self.tensor.shape.spatial.index(item)
-        if isinstance(item, Tensor) and item.dtype == DType(bool):
+        elif isinstance(item, Tensor) and item.dtype == DType(bool):
             from ._functions import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
         return self.tensor[{self.name: item}]

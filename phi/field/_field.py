@@ -39,7 +39,7 @@ class Field:
         """
         return self.shape.spatial.rank
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
+    def sample_in(self, geometry: Geometry) -> Tensor:
         """
         Approximates the mean field value inside the volume of the geometry (batch).
         
@@ -52,19 +52,16 @@ class Field:
         See `Field.sample_at()`, `Field.at()`.
 
         Args:
-          geometry: single or batched Geometry object
-          reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
-            Causes the components of this field to be sampled at different locations.
-            The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
-            assuming this field as a single channel dimension called `vector`.
-
-            Example:
-            While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
-            `StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')` samples each component at the corresponding face only.
+            geometry: single or batched `phi.geom.Geometry`.
 
         Returns:
-          Sampled values as a `Tensor`
+            Sampled values as a `Tensor`
         """
+        if 'vector' in geometry.shape:
+            raise NotImplementedError()  # TODO rename vector -> staggered
+            reduce_channels = ['staggered']
+        else:
+            reduce_channels = ()
         return self.sample_at(geometry.center, reduce_channels)
 
     def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
@@ -109,7 +106,7 @@ class Field:
 
         """
         elements = representation.elements
-        resampled = self.sample_in(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
+        resampled = self.sample_in(elements)
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -125,20 +122,18 @@ class Field:
         """
         return self.at(other)
 
-    def unstack(self, dimension: str) -> tuple:
+    def __getitem__(self, item: dict) -> 'Field':
         """
-        Unstack the field along one of its dimensions.
-        The dimension can be batch, spatial or channel.
+        Access a slice of the Field.
+        The returned `Field` may be of a different type than `self`.
 
         Args:
-          dimension: name of the dimension to unstack, must be part of `self.shape`
-          dimension: str: 
+            item: `dict` mapping dimensions (`str`) to selections (`int` or `slice`)
 
         Returns:
-          tuple of Fields
-
+            Sliced `Field`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def dimension(self, name: str):
         """
@@ -180,6 +175,7 @@ class SampledField(Field):
         """
         assert isinstance(extrapolation, (Extrapolation, tuple, list)), extrapolation
         assert isinstance(elements, Geometry), elements
+        assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         self._elements = elements
         self._values = math.wrap(values)
         self._extrapolation = extrapolation
@@ -191,6 +187,9 @@ class SampledField(Field):
               extrapolation: math.Extrapolation = None,
               **other_attributes) -> 'SampledFieldType':
         """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
+        raise NotImplementedError(self)
+
+    def __getitem__(self, item: dict) -> 'Field':
         raise NotImplementedError(self)
 
     @property
@@ -225,14 +224,6 @@ class SampledField(Field):
 
     def sample_at(self, points, reduce_channels=()) -> Tensor:
         raise NotImplementedError(self)
-
-    def unstack(self, dimension: str) -> tuple:
-        values = self._values.unstack(dimension)
-        return tuple(self.with_(values=v) for i, v in enumerate(values))
-
-    def __getitem__(self, item):
-        values = self._values[item]
-        return self.with_(values=values)
 
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
@@ -303,6 +294,24 @@ class SampledField(Field):
             return self.with_(values=values)
 
 
+def unstack(field: Field, dim: str) -> tuple:
+    """
+    Unstack `field` along one of its dimensions.
+    The dimension can be batch, spatial or channel.
+
+    Args:
+        field: `Field` to unstack.
+        dim: name of the dimension to unstack, must be part of `self.shape`
+
+    Returns:
+        `tuple` of `Fields`. The returned fields may be of different types than `field`.
+    """
+    size = field.shape.get_size(dim)
+    if isinstance(size, Tensor):
+        size = math.min(size)  # unstack StaggeredGrid along x or y
+    return tuple(field[{dim: i}] for i in range(size))
+
+
 class _FieldDim:
 
     def __init__(self, field: Field, name: str):
@@ -318,10 +327,10 @@ class _FieldDim:
 
     def unstack(self, size: int or None = None):
         if size is None:
-            return self.field.unstack(self.name)
+            return unstack(self.field, self.name)
         else:
             if self.exists:
-                unstacked = self.field.unstack(self.name)
+                unstacked = unstack(self.field, self.name)
                 assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
                 return unstacked
             else:
@@ -348,6 +357,8 @@ class _FieldDim:
         return self.dim_type == CHANNEL_DIM
 
     def __getitem__(self, item):
+        if isinstance(item, str):
+            item = self.field.shape.spatial.index(item)
         return self.field[{self.name: item}]
 
 

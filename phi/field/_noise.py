@@ -28,8 +28,8 @@ class Noise(Field):
     def shape(self):
         return self._shape
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
-        if reduce_channels:
+    def sample_in(self, geometry: Geometry) -> Tensor:
+        if 'vector' in geometry.shape:
             shape = self._shape.non_channel.without(reduce_channels)
             assert len(reduce_channels) == 1
             geoms = geometry.unstack(reduce_channels[0])
@@ -63,10 +63,9 @@ class Noise(Field):
         array = math.to_float(array)
         return array
 
-    def unstack(self, dimension: str) -> tuple:
-        count = self.shape.get_size(dimension)
-        reduced_shape = self.shape.without(dimension)
-        return (Noise(reduced_shape, self.scale, self.smoothness),) * count
+    def __getitem__(self, item: dict):
+        new_shape = self.shape.after_gather(item)
+        return Noise(new_shape, self.scale, self.smoothness)
 
     def __repr__(self):
         return "%s, scale=%f, smoothness=%f" % (self._shape, self.scale, self.smoothness)
