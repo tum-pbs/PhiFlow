@@ -8,6 +8,18 @@ from ..field import SampledField, Scene
 from ..field._scene import _slugify_filename
 
 
+RECORDINGS = {}
+
+
+def record(*fields: str or SampledField) -> Viewer:
+    user_namespace = get_user_namespace(1)
+    variables = _default_field_variables(user_namespace, fields)
+    viewer = create_viewer(user_namespace, variables, "record", "", scene=None, asynchronous=False, controls=(), actions={}, log_performance=False)
+    viewer.post_step.append(lambda viewer: print(viewer.steps, end=" "))
+    viewer.progress_unavailable.append(lambda viewer: print())
+    return viewer
+
+
 def view(*fields: str or SampledField,
          play: bool = True,
          gui=None,
@@ -58,6 +70,7 @@ def view(*fields: str or SampledField,
         scene = None
     elif scene is True:
         scene = Scene.create(os.path.join("~", "phi", _slugify_filename(name or user_namespace.get_reference())))
+        print(f"Created scene at {scene}")
     else:
         assert isinstance(scene, Scene)
     name = name or user_namespace.get_title()
@@ -90,7 +103,6 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
                     if val is field:
                         names.append(name)
                         values.append(field)
-    assert names, "Nothing to view. Store SampledField instances in top-level variables to have them auto-detected."
     return {n: v for n, v in zip(names, values)}
 
 
