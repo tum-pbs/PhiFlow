@@ -75,7 +75,7 @@ __pdoc__ = {
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.vis.animate"><code class="name flex">
-<span>def <span class="ident">animate</span></span>(<span>fields: phi.field._field.SampledField, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) ‑> matplotlib.animation.Animation</span>
+<span>def <span class="ident">animate</span></span>(<span>fields: phi.field._field.SampledField, dim='frames', show_color_bar=False, size=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) ‑> matplotlib.animation.Animation</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a Matplotlib animation from <code>fields</code>.
@@ -84,9 +84,9 @@ __pdoc__ = {
 <dl>
 <dt><strong><code>fields</code></strong></dt>
 <dd><code>SampledField</code> with <code>frames</code> dimension or <code>tuple</code> or <code>list</code> of <code>SampledField</code>.</dd>
-<dt><strong><code>colorbar</code></strong></dt>
+<dt><strong><code>show_color_bar</code></strong></dt>
 <dd>Whether to show a color bar</dd>
-<dt><strong><code>figsize</code></strong></dt>
+<dt><strong><code>size</code></strong></dt>
 <dd>Figure size</dd>
 <dt><strong><code>same_scale</code></strong></dt>
 <dd>Whether to use the same scale, both temporally and for all sub-figures.</dd>
@@ -103,16 +103,16 @@ __pdoc__ = {
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def animate(fields: SampledField or tuple or list,
-            colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -&gt; animation.Animation:
+<pre><code class="python">def animate(fields: SampledField, dim=&#39;frames&#39;,
+            show_color_bar=False, size=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -&gt; animation.Animation:
     &#34;&#34;&#34;
     Creates a Matplotlib animation from `fields`.
     `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
 
     Args:
         fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
-        colorbar: Whether to show a color bar
-        figsize: Figure size
+        show_color_bar: Whether to show a color bar
+        size: Figure size
         same_scale: Whether to use the same scale, both temporally and for all sub-figures.
         repeat: Whether the video should loop.
         interval: Frame time in milliseconds.
@@ -121,13 +121,11 @@ __pdoc__ = {
     Returns:
         Matplotlib `Animation`
     &#34;&#34;&#34;
-    if isinstance(fields, SampledField):
-        assert &#39;frames&#39; in fields.shape, &#34;When passing a single Field, it must have a dimension with name &#39;frames&#39;.&#34;
-        fields = fields.unstack(&#39;frames&#39;)
-    fields = list(fields)
-    field = fields[0]
-    batch_size, b_values = _batch(field)
-    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    assert isinstance(fields, SampledField)
+    assert dim in fields.shape, f&#34;Animation dimension {dim} not present in data.&#34;
+    fields = list(fields.unstack(dim))
+    batch_size, b_values = _batch(fields[0])
+    fig, axes = plt.subplots(1, batch_size, figsize=size)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
 
     def func(frame: int):
@@ -135,7 +133,7 @@ __pdoc__ = {
         batch_size, b_values = _batch(field)
         for axis in axes:
             axis.clear()
-        _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+        _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args)
 
     ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
     plt.close(fig)
@@ -204,7 +202,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, colorbar=True, figsize=(12, 5), same_scale=True, **plt_args)</span>
+<span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, show_color_bar=True, size=(12, 5), same_scale=True, **plt_args)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a Matplotlib figure to display a single field or batch of fields.</p>
@@ -216,9 +214,9 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <dd><code>SampledField</code>, may contain batch dimensions which will create subfigures.</dd>
 <dt><strong><code>title</code></strong></dt>
 <dd>Figure title.</dd>
-<dt><strong><code>colorbar</code></strong></dt>
+<dt><strong><code>show_color_bar</code></strong></dt>
 <dd>Whether to show a colorbar for heatmap plots.</dd>
-<dt><strong><code>figsize</code></strong></dt>
+<dt><strong><code>size</code></strong></dt>
 <dd>Figure (width, height) in inches.</dd>
 <dt><strong><code>same_scale</code></strong></dt>
 <dd>Whether to use the same value scale for all subplots.</dd>
@@ -231,7 +229,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(field: SampledField or tuple or list, title=False, colorbar=True, figsize=(12, 5), same_scale=True, **plt_args):
+<pre><code class="python">def plot(field: SampledField, title=False, show_color_bar=True, size=(12, 5), same_scale=True, **plt_args):
     &#34;&#34;&#34;
     Creates a Matplotlib figure to display a single field or batch of fields.
 
@@ -241,18 +239,16 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     Args:
         field: `SampledField`, may contain batch dimensions which will create subfigures.
         title: Figure title.
-        colorbar: Whether to show a colorbar for heatmap plots.
-        figsize: Figure (width, height) in inches.
+        show_color_bar: Whether to show a colorbar for heatmap plots.
+        size: Figure (width, height) in inches.
         same_scale: Whether to use the same value scale for all subplots.
         **plt_args: Additional plotting arguments passed to Matplotlib.
 
     Returns:
         [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
     &#34;&#34;&#34;
-    if isinstance(field, (tuple, list)):
-        field = batch_stack(*field, dim=&#39;fields&#39;)
     batch_size, b_values = _batch(field)
-    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    fig, axes = plt.subplots(1, batch_size, figsize=size)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
     if title:
         for b in range(batch_size):
@@ -266,13 +262,13 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                 sub_title = None
             if sub_title is not None:
                 axes[b].set_title(sub_title)
-    _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+    _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args)
     plt.tight_layout()
     return fig, axes</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', smooth=1, smooth_alpha=0.4, figsize=(8, 6), transform: Callable = None, tight_layout=True)</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', smooth=1, smooth_alpha=0.4, size=(8, 6), transform: Callable = None, tight_layout=True, grid='y', log_scale='')</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -285,9 +281,11 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                  reduce: str or tuple or list or math.Shape = &#39;names&#39;,
                  smooth=1,
                  smooth_alpha=0.4,
-                 figsize=(8, 6),
+                 size=(8, 6),
                  transform: Callable = None,
-                 tight_layout=True):
+                 tight_layout=True,
+                 grid=&#39;y&#39;,
+                 log_scale=&#39;&#39;):
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -307,7 +305,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     batch = shape.without(reduce).without(additional_reduce)
 
     cycle = list(plt.rcParams[&#39;axes.prop_cycle&#39;].by_key()[&#39;color&#39;])
-    fig, axes = plt.subplots(1, batch.volume, figsize=figsize)
+    fig, axes = plt.subplots(1, batch.volume, figsize=size)
     axes = axes if isinstance(axes, numpy.ndarray) else [axes]
 
     for b, axis in zip(batch.meshgrid(), axes):
@@ -325,10 +323,10 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                 x, values, *_ = curve.T
             else:
                 values = curve
-                x = np.arange(values)
+                x = np.arange(len(values))
             name = display_name(name)
             if transform:
-                x, values = transform(x, values)
+                x, values = transform(np.stack([x, values]))
             if names_equal:
                 label = os.path.basename(path)
             elif paths_equal:
@@ -337,6 +335,13 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                 label = f&#34;{os.path.basename(path)} - {name}&#34;
             axis.plot(x, values, color=cycle[i], alpha=smooth_alpha, linewidth=1)
             axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=2, label=label)
+            if grid:
+                grid_axis = &#39;both&#39; if &#39;x&#39; in grid and &#39;y&#39; in grid else grid
+                axis.grid(which=&#39;both&#39;, axis=grid_axis, linestyle=&#39;--&#39;)
+            if &#39;x&#39; in log_scale:
+                axis.set_xscale(&#39;log&#39;)
+            if &#39;y&#39; in log_scale:
+                axis.set_yscale(&#39;log&#39;)
             return name
 
         math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))

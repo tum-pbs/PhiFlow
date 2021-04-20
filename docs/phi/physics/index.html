@@ -191,8 +191,6 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
              type: type = CenteredGrid,
              extrapolation: math.Extrapolation = &#39;scalar&#39;) -&gt; CenteredGrid or StaggeredGrid:
         &#34;&#34;&#34;
-        *Deprecated* due to inconsistent extrapolation selection. Use `scalar_grid()` or `vector_grid()` instead.
-
         Creates a grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
         
@@ -208,15 +206,10 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
           extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries[&#39;scalar&#39;]
 
         Returns:
-          Grid of specified type
+            Grid of specified type
         &#34;&#34;&#34;
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        if type is CenteredGrid:
-            return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-        elif type is StaggeredGrid:
-            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-        else:
-            raise ValueError(&#39;Unknown grid type: %s&#39; % type)
+        return grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
 
     def scalar_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
@@ -254,7 +247,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             except AssertionError:
                 pass
             value = math.wrap(value)
-        result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         assert result.shape.channel_rank == 0
         return result
 
@@ -281,20 +274,14 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
 
         Returns:
           Grid of specified type
-
         &#34;&#34;&#34;
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        if type is CenteredGrid:
-            grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-            if grid.shape.channel.rank == 0:
-                grid = grid.with_(values=math.expand_channel(grid.values, vector=self.rank))
-            else:
-                assert grid.shape.channel.sizes[0] == self.rank
-            return grid
-        elif type is StaggeredGrid:
-            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+        if result.shape.channel_rank == 0:
+            result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
         else:
-            raise ValueError(&#39;Unknown grid type: %s&#39; % type)
+            assert result.shape.vector == self.rank
+        return result
 
     def staggered_grid(self,
                        value: Field or Tensor or Number or Geometry or callable = 0.,
@@ -356,6 +343,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
 
     def points(self,
                points: Tensor or Number or tuple or list,
+               values: Tensor or Number = None,
                radius: Tensor or float or int or None = None,
                extrapolation: math.Extrapolation = math.extrapolation.ZERO,
                color: str or Tensor or tuple or list or None = None) -&gt; PointCloud:
@@ -365,6 +353,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
 
         Args:
             points: point locations in physical units
+            values: (optional) values of the particles, defaults to 1.
             radius: (optional) size of the particles
             extrapolation: (optional) extrapolation to use, defaults to extrapolation.ZERO
             color: (optional) color used when plotting the points
@@ -380,11 +369,12 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             if len(points) == 0:  # no points
                 points = math.zeros(points=0, vector=1)
             elif isinstance(points[0], Number):  # single point
-                points = math.wrap([points], &#39;points, vector&#39;)
+                points = math.tensor([points], &#39;points, vector&#39;)
             else:
-                points = math.wrap(points, &#39;points, vector&#39;)
+                points = math.tensor(points, &#39;points, vector&#39;)
         elements = Sphere(points, radius)
-        values = math.tensor(1., convert=True)
+        if values is None:
+            values = math.tensor(1.)
         return PointCloud(elements, values, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)
 
     def distribute_points(self,
@@ -590,8 +580,7 @@ This is equivalent to calling <code>domain.cells.center</code>.</p>
 <span>def <span class="ident">grid</span></span>(<span>self, value: phi.field._field.Field = 0.0, type: type = phi.field._grid.CenteredGrid, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = 'scalar') ‑> phi.field._grid.CenteredGrid</span>
 </code></dt>
 <dd>
-<div class="desc"><p><em>Deprecated</em> due to inconsistent extrapolation selection. Use <code>scalar_grid()</code> or <code>vector_grid()</code> instead.</p>
-<p>Creates a grid matching the resolution and bounds of the domain.
+<div class="desc"><p>Creates a grid matching the resolution and bounds of the domain.
 The grid is created from the given <code>value</code> which must be one of the following:</p>
 <ul>
 <li>Number (int, float, complex or zero-dimensional tensor): all grid values will be equal to <code>value</code>. This has a near-zero memory footprint.</li>
@@ -620,8 +609,6 @@ The grid is created from the given <code>value</code> which must be one of the f
          type: type = CenteredGrid,
          extrapolation: math.Extrapolation = &#39;scalar&#39;) -&gt; CenteredGrid or StaggeredGrid:
     &#34;&#34;&#34;
-    *Deprecated* due to inconsistent extrapolation selection. Use `scalar_grid()` or `vector_grid()` instead.
-
     Creates a grid matching the resolution and bounds of the domain.
     The grid is created from the given `value` which must be one of the following:
     
@@ -637,19 +624,14 @@ The grid is created from the given <code>value</code> which must be one of the f
       extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries[&#39;scalar&#39;]
 
     Returns:
-      Grid of specified type
+        Grid of specified type
     &#34;&#34;&#34;
     extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-    if type is CenteredGrid:
-        return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-    elif type is StaggeredGrid:
-        return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-    else:
-        raise ValueError(&#39;Unknown grid type: %s&#39; % type)</code></pre>
+    return grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.Domain.points"><code class="name flex">
-<span>def <span class="ident">points</span></span>(<span>self, points: phi.math._tensors.Tensor, radius: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = 0, color: str = None) ‑> phi.field._point_cloud.PointCloud</span>
+<span>def <span class="ident">points</span></span>(<span>self, points: phi.math._tensors.Tensor, values: phi.math._tensors.Tensor = None, radius: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = 0, color: str = None) ‑> phi.field._point_cloud.PointCloud</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="phi.field.PointCloud" href="../field/index.html#phi.field.PointCloud">PointCloud</a></code> from the given <code>points</code>.
@@ -658,6 +640,8 @@ The created field has no channel dimensions and all points carry the value <code
 <dl>
 <dt><strong><code>points</code></strong></dt>
 <dd>point locations in physical units</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>(optional) values of the particles, defaults to 1.</dd>
 <dt><strong><code>radius</code></strong></dt>
 <dd>(optional) size of the particles</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
@@ -673,6 +657,7 @@ The created field has no channel dimensions and all points carry the value <code
 </summary>
 <pre><code class="python">def points(self,
            points: Tensor or Number or tuple or list,
+           values: Tensor or Number = None,
            radius: Tensor or float or int or None = None,
            extrapolation: math.Extrapolation = math.extrapolation.ZERO,
            color: str or Tensor or tuple or list or None = None) -&gt; PointCloud:
@@ -682,6 +667,7 @@ The created field has no channel dimensions and all points carry the value <code
 
     Args:
         points: point locations in physical units
+        values: (optional) values of the particles, defaults to 1.
         radius: (optional) size of the particles
         extrapolation: (optional) extrapolation to use, defaults to extrapolation.ZERO
         color: (optional) color used when plotting the points
@@ -697,11 +683,12 @@ The created field has no channel dimensions and all points carry the value <code
         if len(points) == 0:  # no points
             points = math.zeros(points=0, vector=1)
         elif isinstance(points[0], Number):  # single point
-            points = math.wrap([points], &#39;points, vector&#39;)
+            points = math.tensor([points], &#39;points, vector&#39;)
         else:
-            points = math.wrap(points, &#39;points, vector&#39;)
+            points = math.tensor(points, &#39;points, vector&#39;)
     elements = Sphere(points, radius)
-    values = math.tensor(1., convert=True)
+    if values is None:
+        values = math.tensor(1.)
     return PointCloud(elements, values, extrapolation, add_overlapping=False, bounds=self.bounds, color=color)</code></pre>
 </details>
 </dd>
@@ -768,7 +755,7 @@ The grid is created from the given <code>value</code> which must be one of the f
         except AssertionError:
             pass
         value = math.wrap(value)
-    result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+    result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
     assert result.shape.channel_rank == 0
     return result</code></pre>
 </details>
@@ -880,20 +867,14 @@ The grid is created from the given <code>value</code> which must be one of the f
 
     Returns:
       Grid of specified type
-
     &#34;&#34;&#34;
     extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-    if type is CenteredGrid:
-        grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-        if grid.shape.channel.rank == 0:
-            grid = grid.with_(values=math.expand_channel(grid.values, vector=self.rank))
-        else:
-            assert grid.shape.channel.sizes[0] == self.rank
-        return grid
-    elif type is StaggeredGrid:
-        return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+    result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+    if result.shape.channel_rank == 0:
+        result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
     else:
-        raise ValueError(&#39;Unknown grid type: %s&#39; % type)</code></pre>
+        assert result.shape.vector == self.rank
+    return result</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.Domain.vector_potential"><code class="name flex">

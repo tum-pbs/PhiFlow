@@ -1043,6 +1043,19 @@ The output of math operations has the same precision as its inputs.</p>
     def cos(self, x):
         raise NotImplementedError(self)
 
+    def tan(self, x):
+        raise NotImplementedError(self)
+
+    def log(self, x):
+        &#34;&#34;&#34; Natural logarithm &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def log2(self, x):
+        raise NotImplementedError(self)
+
+    def log10(self, x):
+        raise NotImplementedError(self)
+
     def dtype(self, array) -&gt; DType:
         raise NotImplementedError(self)
 
@@ -1133,7 +1146,7 @@ The output of math operations has the same precision as its inputs.</p>
         Args:
           grid: Tensor
           spatial_dims: Dimension indices that correspond to coordinate vectors
-          coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+          coordinates: Tensor of floating grid indices. The last dimension must match `spatial_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
           extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
 
         Returns:
@@ -2077,7 +2090,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <dt><strong><code>spatial_dims</code></strong></dt>
 <dd>Dimension indices that correspond to coordinate vectors</dd>
 <dt><strong><code>coordinates</code></strong></dt>
-<dd>Tensor of floating grid indices. The last dimension must match <code>spaital_dims</code>. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
+<dd>Tensor of floating grid indices. The last dimension must match <code>spatial_dims</code>. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>Values to use for coordinates outside the grid. One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')</code>.</dd>
 </dl>
@@ -2094,7 +2107,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     Args:
       grid: Tensor
       spatial_dims: Dimension indices that correspond to coordinate vectors
-      coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+      coordinates: Tensor of floating grid indices. The last dimension must match `spatial_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
       extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
 
     Returns:
@@ -2283,6 +2296,46 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
         Tuple of all currently available devices.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.log"><code class="name flex">
+<span>def <span class="ident">log</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Natural logarithm</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log(self, x):
+    &#34;&#34;&#34; Natural logarithm &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.log10"><code class="name flex">
+<span>def <span class="ident">log10</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log10(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.log2"><code class="name flex">
+<span>def <span class="ident">log2</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log2(self, x):
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.matmul"><code class="name flex">
@@ -3018,6 +3071,19 @@ Features correspond to a method of this backend that must be implemented if the 
     backend_fun = getattr(Backend, feature)
     impl_fun = getattr(self.__class__, feature)
     return impl_fun is not backend_fun</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.tan"><code class="name flex">
+<span>def <span class="ident">tan</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tan(self, x):
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.tensordot"><code class="name flex">
@@ -3810,6 +3876,9 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.jit_compile" href="#phi.math.backend.Backend.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.backend.Backend.list_devices" href="#phi.math.backend.Backend.list_devices">list_devices</a></code></li>
+<li><code><a title="phi.math.backend.Backend.log" href="#phi.math.backend.Backend.log">log</a></code></li>
+<li><code><a title="phi.math.backend.Backend.log10" href="#phi.math.backend.Backend.log10">log10</a></code></li>
+<li><code><a title="phi.math.backend.Backend.log2" href="#phi.math.backend.Backend.log2">log2</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
 <li><code><a title="phi.math.backend.Backend.maximum" href="#phi.math.backend.Backend.maximum">maximum</a></code></li>
@@ -3856,6 +3925,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.sub" href="#phi.math.backend.Backend.sub">sub</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sum" href="#phi.math.backend.Backend.sum">sum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.supports" href="#phi.math.backend.Backend.supports">supports</a></code></li>
+<li><code><a title="phi.math.backend.Backend.tan" href="#phi.math.backend.Backend.tan">tan</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tensordot" href="#phi.math.backend.Backend.tensordot">tensordot</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>

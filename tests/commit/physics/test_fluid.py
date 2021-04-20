@@ -38,12 +38,12 @@ class FluidTest(TestCase):
 
     # Backend-specific testing
 
-    def test_make_incompressible_staggered_scipy(self):
+    def test_make_incompressible_staggered_numpy(self):
         with math.NUMPY_BACKEND:
             self._test_make_incompressible(StaggeredGrid)
             self._test_make_incompressible_batched(StaggeredGrid)
 
-    def test_make_incompressible_centered_scipy(self):
+    def test_make_incompressible_centered_numpy(self):
         with math.NUMPY_BACKEND:
             self._test_make_incompressible(CenteredGrid)
             self._test_make_incompressible_batched(CenteredGrid)

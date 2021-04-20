@@ -1,3 +1,4 @@
+import warnings
 from typing import TypeVar
 
 from phi import math
@@ -39,53 +40,8 @@ class Field:
         """
         return self.shape.spatial.rank
 
-    def sample_in(self, geometry: Geometry) -> Tensor:
-        """
-        Approximates the mean field value inside the volume of the geometry (batch).
-        
-        For small volumes, the value at the volume's center may be sampled.
-        The batch dimensions of the geometry are matched with this Field.
-        Spatial dimensions can be used to sample a grid of geometries.
-        
-        The default implementation of this method samples this Field at the center point of the geometry.
-
-        See `Field.sample_at()`, `Field.at()`.
-
-        Args:
-            geometry: single or batched `phi.geom.Geometry`.
-
-        Returns:
-            Sampled values as a `Tensor`
-        """
-        if 'vector' in geometry.shape:
-            raise NotImplementedError()  # TODO rename vector -> staggered
-            reduce_channels = ['staggered']
-        else:
-            reduce_channels = ()
-        return self.sample_at(geometry.center, reduce_channels)
-
-    def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
-        """
-        Sample this field at the world-space locations (in physical units) given by `points`.
-        Points must have a single channel dimension named `vector`.
-        It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
-
-        See `Field.sample_in()`, `Field.at()`.
-
-        Args:
-          points: world-space locations
-          reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
-            Causes the components of this field to be sampled at different locations.
-            The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])`
-            assuming this field as a single channel dimension called `vector`.
-
-            Example:
-            While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
-            `StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')` samples each component at the corresponding face only.
-
-        Returns:
-          Sampled values as a `Tensor`
-        """
+    def _sample(self, geometry: Geometry) -> math.Tensor:
+        """ For internal use only. Use `sample()` instead. """
         raise NotImplementedError(self)
 
     def at(self, representation: 'SampledField') -> 'SampledField':
@@ -93,7 +49,7 @@ class Field:
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
         
-        Unlike `Field.sample_at()` or `Field.sample_in()`, this method returns a `Field` object, not a `Tensor`.
+        Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
         Equal to `self >> representation`.
 
@@ -105,8 +61,7 @@ class Field:
           Field object of same type as `representation`
 
         """
-        elements = representation.elements
-        resampled = self.sample_in(elements)
+        resampled = reduce_sample(self, representation.elements)
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -161,6 +116,9 @@ class Field:
             raise RuntimeError(f"Failed to get attribute '{name}' of {self}")
         return _FieldDim(self, name)
 
+    def __repr__(self):
+        return f"{self.__class__.__name__} {self.shape}"
+
 
 class SampledField(Field):
 
@@ -175,11 +133,9 @@ class SampledField(Field):
         """
         assert isinstance(extrapolation, (Extrapolation, tuple, list)), extrapolation
         assert isinstance(elements, Geometry), elements
-        assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         self._elements = elements
         self._values = math.wrap(values)
         self._extrapolation = extrapolation
-        self._shape = self._elements.shape.non_channel & self._values.shape.non_spatial
 
     def with_(self,
               elements: Geometry or None = None,
@@ -188,6 +144,10 @@ class SampledField(Field):
               **other_attributes) -> 'SampledFieldType':
         """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
         raise NotImplementedError(self)
+
+    @property
+    def shape(self):
+        raise NotImplementedError()
 
     def __getitem__(self, item: dict) -> 'Field':
         raise NotImplementedError(self)
@@ -221,9 +181,6 @@ class SampledField(Field):
     @property
     def shape(self) -> Shape:
         return self._shape
-
-    def sample_at(self, points, reduce_channels=()) -> Tensor:
-        raise NotImplementedError(self)
 
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
@@ -284,7 +241,7 @@ class SampledField(Field):
 
     def _op2(self, other, operator) -> 'SampledField':
         if isinstance(other, Field):
-            other_values = other.sample_in(self._elements)
+            other_values = sample(other, self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_(values=values, extrapolation=extrapolation_)
@@ -310,6 +267,62 @@ def unstack(field: Field, dim: str) -> tuple:
     if isinstance(size, Tensor):
         size = math.min(size)  # unstack StaggeredGrid along x or y
     return tuple(field[{dim: i}] for i in range(size))
+
+
+def sample(field: Field, geometry: Geometry) -> math.Tensor:
+    """
+    Computes the field value inside the volume of the (batched) `geometry`.
+
+    The field value may be determined by integrating over the volume, sampling the central value or any other way.
+
+    The batch dimensions of `geometry` are matched with this field.
+    The `geometry` must not share any channel dimensions with this field.
+    Spatial dimensions of `geometry` can be used to sample a grid of geometries.
+
+    See Also:
+        `reduce_sample()`, `Field.at()`.
+
+    Args:
+        field: Source `Field` to sample.
+        geometry: Single or batched `phi.geom.Geometry`.
+
+    Returns:
+        Sampled values as a `phi.math.Tensor`
+    """
+    assert all(dim not in field.shape for dim in geometry.shape.channel)
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and 'vector_' not in geometry.shape:
+        return field.values
+    assert 'vector' not in geometry.shape
+    if 'vector_' in geometry.shape:
+        sampled = [field._sample(p) for p in geometry.unstack('vector_')]
+        return math.channel_stack(sampled, 'vector_')
+    else:
+        return field._sample(geometry)
+
+
+def reduce_sample(field: Field, geometry: Geometry) -> math.Tensor:
+    """
+    Similar to `sample()`, but matches an optional `vector_` dimension of `geometry` with the `vector` dimension of this field.
+
+    See Also:
+        `sample()`, `Field.at()`.
+
+    Args:
+        field: Source `Field` to sample.
+        geometry: Single or batched `phi.geom.Geometry`.
+
+    Returns:
+        Sampled values as a `phi.math.Tensor`
+    """
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
+        return field.values
+    assert 'vector' not in geometry.shape
+    if 'vector_' in geometry.shape:
+        components = unstack(field, 'vector') if 'vector' in field.shape else (field,) * geometry.shape.get_size('vector_')
+        sampled = [c._sample(p) for c, p in zip(components, geometry.unstack('vector_'))]
+        return math.channel_stack(sampled, 'vector')
+    else:
+        return field._sample(geometry)
 
 
 class _FieldDim:
@@ -360,6 +373,9 @@ class _FieldDim:
         if isinstance(item, str):
             item = self.field.shape.spatial.index(item)
         return self.field[{self.name: item}]
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError(f"Method {type(self.field).__name__}.{self.name}() does not exist.")
 
 
 FieldType = TypeVar('FieldType', bound=Field)

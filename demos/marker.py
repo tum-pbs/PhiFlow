@@ -16,7 +16,7 @@ DOMAIN = Domain(x=126, y=160, boundaries=CLOSED)
 DT = 0.2
 
 velocity = DOMAIN.staggered_grid(Noise(vector=2, scale=100)) * 4
-dense_marker = CenteredGrid(checkerboard(), DOMAIN.bounds)
+dense_marker = CenteredGrid(checkerboard(), DOMAIN.bounds, DOMAIN.boundaries['scalar'])
 points = math.join_dimensions(DOMAIN.cells.center.x[::4].y[::4], ('x', 'y'), 'points').points.as_batch()
 sparse_marker = PointCloud(Sphere(points, 1), math.random_normal(points.shape.without('vector')))
 

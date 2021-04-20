@@ -440,6 +440,7 @@ class TFBackend(Backend):
             wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 for arg in wrt_args:
+                    assert arg.dtype in (tf.float16, tf.float32, tf.float64, tf.complex64, tf.complex128), f"Gradients can only be computed for float or complex tensors but got {arg.dtype} for argument with shape {arg.shape}"
                     tape.watch(arg)
                 output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)

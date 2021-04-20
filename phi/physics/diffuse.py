@@ -1,11 +1,10 @@
 """
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
-import warnings
-
 from phi import math
 from phi.field import ConstantField, Grid, Field, laplace, solve, linear_function
-from phi.field._field_math import FieldType, GridType
+from phi.field._field import FieldType
+from phi.field._grid import GridType
 
 
 def explicit(field: FieldType,

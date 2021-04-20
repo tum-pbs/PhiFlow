@@ -64,12 +64,16 @@ def make_incompressible(velocity: StaggeredGrid,
     return velocity_field - gradp, pressure, solve_params.result.iterations, div, occupied_staggered
 
 
-def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
-                              previous_velocity_grid: Grid = None, viscosity: float = 0.) -> PointCloud:
+def map_velocity_to_particles(previous_particle_velocity: PointCloud,
+                              velocity_grid: Grid,
+                              occupation_mask: Grid,
+                              previous_velocity_grid: Grid = None,
+                              viscosity: float = 0.) -> PointCloud:
     """
-    Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
-    updated by the change between projected and initial grid velocities) and PIC (particle velocities are replaced by the the 
-    projected velocities) method depending on the value of the `initial_v_field`.
+    Maps result of velocity projection on grid back to particles.
+    Provides option to choose between FLIP (particle velocities are updated by the change between projected and initial grid velocities)
+    and PIC (particle velocities are replaced by the the projected velocities)
+    method depending on the value of the `initial_v_field`.
     
     Args:
         previous_particle_velocity: PointCloud with particle positions as elements and their corresponding velocities as values
@@ -89,12 +93,12 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_g
     if viscosity > 0.:
         # --- PIC ---
         velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
-        velocities += viscosity * velocity_grid.sample_at(previous_particle_velocity.elements.center)
+        velocities += viscosity * (velocity_grid >> previous_particle_velocity).values
     if viscosity < 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
         v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
-        v_change = v_change_field.sample_at(previous_particle_velocity.elements.center)
+        v_change = (v_change_field >> previous_particle_velocity).values
         velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
     return previous_particle_velocity.with_(values=velocities)
 

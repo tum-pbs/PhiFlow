@@ -1,16 +1,15 @@
-import copy
 from functools import wraps, partial
 from numbers import Number
-from typing import TypeVar, Tuple, Callable
+from typing import Callable
 
-from phi import math
 from phi import geom
+from phi import math
 from phi.geom import Box, Geometry
 from phi.math import extrapolate_valid_values, DType
-from ._field import Field, SampledField, FieldType, SampledFieldType
+from ._field import Field, SampledField, SampledFieldType, unstack
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
-from ._point_cloud import PointCloud
 from ._mask import HardGeometryMask
+from ._point_cloud import PointCloud
 from ..math.backend import Backend
 
 
@@ -362,8 +361,8 @@ def convert(field: SampledField, backend: Backend = None, use_dlpack=True):
     if isinstance(field, Grid):
         return field.with_(values=math.convert(field.values, backend, use_dlpack=use_dlpack))
     elif isinstance(field, PointCloud):
-        e_char = field.elements.__characteristics__()
-        elements = field.elements.__with__(**{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in e_char.items()})
+        e_char = field.elements._characteristics_()
+        elements = field.elements._with_(**{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in e_char.items()})
         return field.with_(elements=elements, values=math.convert(field.values, backend, use_dlpack=use_dlpack))
     else:
         raise ValueError(field)
@@ -413,7 +412,7 @@ def downsample2x(grid: Grid) -> GridType:
         return CenteredGrid(values, grid.bounds, grid.extrapolation)
     elif isinstance(grid, StaggeredGrid):
         values = []
-        for dim, centered_grid in zip(grid.shape.spatial.names, grid.unstack()):
+        for dim, centered_grid in zip(grid.shape.spatial.names, unstack(grid, 'vector')):
             odd_discarded = centered_grid.values[{dim: slice(None, None, 2)}]
             others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
             values.append(others_interpolated)
@@ -606,7 +605,7 @@ def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tupl
     elif isinstance(grid, StaggeredGrid):
         new_values = []
         new_valid = []
-        for cgrid, cvalid in zip(grid.unstack('vector'), valid.unstack('vector')):
+        for cgrid, cvalid in zip(unstack(grid, 'vector'), unstack(valid, 'vector')):
             new_tensor, new_mask = extrapolate_valid(cgrid, valid=cvalid, distance_cells=distance_cells)
             new_values.append(new_tensor.values)
             new_valid.append(new_mask.values)

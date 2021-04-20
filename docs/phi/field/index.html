@@ -23,13 +23,16 @@
 </header>
 <section id="section-intro">
 <p>The fields module provides a number of data structures and functions to represent continuous, spatially varying data.</p>
-<p>All fields are subclasses of Field which provides abstract functions for sampling field values at physical locations.</p>
-<p>The most commonly used field types are</p>
+<p>All fields are subclasses of <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> which provides abstract functions for sampling field values at physical locations.</p>
+<p>The most important field types are:</p>
 <ul>
-<li>CenteredGrid embeds a tensor in the physical space. Uses linear interpolation between grid points.</li>
-<li>StaggeredGrid samples the vector components at face centers instead of at cell centers.</li>
-<li>Noise is a function that produces a procedurally generated noise field</li>
+<li><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> embeds a tensor in the physical space. Uses linear interpolation between grid points.</li>
+<li><code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code> samples the vector components at face centers instead of at cell centers.</li>
+<li><code><a title="phi.field.Noise" href="#phi.field.Noise">Noise</a></code> is a function that produces a procedurally generated noise field</li>
 </ul>
+<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> to create a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> from data or by sampling another <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>.
+Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
+<p>All fields can be sampled at physical locations or volumes using <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code> or <code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>.</p>
 <p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
 <details class="source">
 <summary>
@@ -38,21 +41,26 @@
 <pre><code class="python">&#34;&#34;&#34;
 The fields module provides a number of data structures and functions to represent continuous, spatially varying data.
 
-All fields are subclasses of Field which provides abstract functions for sampling field values at physical locations.
+All fields are subclasses of `Field` which provides abstract functions for sampling field values at physical locations.
 
-The most commonly used field types are
+The most important field types are:
 
-* CenteredGrid embeds a tensor in the physical space. Uses linear interpolation between grid points.
-* StaggeredGrid samples the vector components at face centers instead of at cell centers.
-* Noise is a function that produces a procedurally generated noise field
+* `CenteredGrid` embeds a tensor in the physical space. Uses linear interpolation between grid points.
+* `StaggeredGrid` samples the vector components at face centers instead of at cell centers.
+* `Noise` is a function that produces a procedurally generated noise field
+
+Use `grid()` to create a `Grid` from data or by sampling another `Field` or `phi.geom.Geometry`.
+Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
+
+All fields can be sampled at physical locations or volumes using `sample()` or `reduce_sample()`.
 
 See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 &#34;&#34;&#34;
 
-from ._field import Field, SampledField
+from ._field import Field, SampledField, unstack, sample, reduce_sample
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
-from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
+from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components, grid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
@@ -224,8 +232,8 @@ __pdoc__ = {
     if isinstance(field, Grid):
         return field.with_(values=math.convert(field.values, backend, use_dlpack=use_dlpack))
     elif isinstance(field, PointCloud):
-        e_char = field.elements.__characteristics__()
-        elements = field.elements.__with__(**{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in e_char.items()})
+        e_char = field.elements._characteristics_()
+        elements = field.elements._with_(**{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in e_char.items()})
         return field.with_(elements=elements, values=math.convert(field.values, backend, use_dlpack=use_dlpack))
     else:
         raise ValueError(field)</code></pre>
@@ -332,7 +340,7 @@ __pdoc__ = {
         return CenteredGrid(values, grid.bounds, grid.extrapolation)
     elif isinstance(grid, StaggeredGrid):
         values = []
-        for dim, centered_grid in zip(grid.shape.spatial.names, grid.unstack()):
+        for dim, centered_grid in zip(grid.shape.spatial.names, unstack(grid, &#39;vector&#39;)):
             odd_discarded = centered_grid.values[{dim: slice(None, None, 2)}]
             others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
             values.append(others_interpolated)
@@ -358,7 +366,7 @@ __pdoc__ = {
 <span>def <span class="ident">extrapolate_valid</span></span>(<span>grid: ~GridType, valid: ~GridType, distance_cells=1) ‑> tuple</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Extrapolates values of <code>grid</code> which are marked by nonzero values in <code>valid</code> using `phi.math.extrapolate_valid_values().
+<div class="desc"><p>Extrapolates values of <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> which are marked by nonzero values in <code>valid</code> using `phi.math.extrapolate_valid_values().
 If <code>values</code> is a StaggeredGrid, its components get extrapolated independently.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -371,7 +379,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>grid</code></dt>
+<dt><code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code></dt>
 <dd>Grid with extrapolated values.</dd>
 <dt><code>valid</code></dt>
 <dd>binary Grid marking all valid values after extrapolation.</dd>
@@ -517,6 +525,98 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
         return result
 
     return wrapper</code></pre>
+</details>
+</dd>
+<dt id="phi.field.grid"><code class="name flex">
+<span>def <span class="ident">grid</span></span>(<span>values: phi.geom._geom.Geometry, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = 0, type: type = phi.field._grid.CenteredGrid) ‑> ~GridType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code> from <code>values</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>
+<p>Values to use for the grid.
+Has to be one of the following:</p>
+<ul>
+<li><code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>: sets inside values to 1, outside to 0</li>
+<li><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>: resamples the Field to the staggered sample points</li>
+<li><code>Number</code>: uses the value for all sample points</li>
+<li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
+<li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> compatible with grid dims: uses tensor values as grid values</li>
+<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.</li>
+</ul>
+</dd>
+<dt><strong><code>resolution</code></strong></dt>
+<dd>Grid resolution as purely spatial <code><a title="phi.math.Shape" href="../math/index.html#phi.math.Shape">Shape</a></code>.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Physical grid bounds as <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code>.</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>Grid extrapolation as <code><a title="phi.math.Extrapolation" href="../math/index.html#phi.math.Extrapolation">Extrapolation</a></code>.</dd>
+<dt><strong><code>type</code></strong></dt>
+<dd>Grid type, either <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>, depending on <code>type</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def grid(values: Geometry or Field or Number or math.Tensor or Callable or tuple or list,
+         resolution: Shape,
+         bounds: Box = None,
+         extrapolation: math.Extrapolation = math.extrapolation.ZERO,
+         type: type = CenteredGrid) -&gt; GridType:
+    &#34;&#34;&#34;
+    Creates a `CenteredGrid` or `StaggeredGrid` from `values`.
+
+    Args:
+        values: Values to use for the grid.
+            Has to be one of the following:
+
+            * `phi.geom.Geometry`: sets inside values to 1, outside to 0
+            * `Field`: resamples the Field to the staggered sample points
+            * `Number`: uses the value for all sample points
+            * `tuple` or `list`: interprets the sequence as vector, used for all sample points
+            * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
+            * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+
+        resolution: Grid resolution as purely spatial `phi.math.Shape`.
+        bounds: Physical grid bounds as `phi.geom.Box`.
+        extrapolation: Grid extrapolation as `phi.math.Extrapolation`.
+        type: Grid type, either `CenteredGrid` or `StaggeredGrid`
+
+    Returns:
+        `CenteredGrid` or `StaggeredGrid`, depending on `type`.
+    &#34;&#34;&#34;
+    if bounds is None:
+        bounds = Box(0, math.wrap(resolution, &#39;vector&#39;))
+    assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
+    if isinstance(values, Geometry):
+        values = SoftGeometryMask(values)
+    if isinstance(values, Field):
+        ref_grid = grid(0, resolution=resolution, bounds=bounds, extrapolation=extrapolation, type=type)
+        sampled_values = reduce_sample(values, ref_grid.elements)
+        return ref_grid.with_(values=sampled_values)
+    else:
+        if callable(values):
+            cells = GridCell(resolution, bounds)
+            x = cells.center if type == CenteredGrid else cells.face_centers()
+            values = values(x)
+        values = math.wrap(values)
+        if values.dtype.kind not in (float, complex):
+            values = math.to_float(values)
+        if type == CenteredGrid:
+            values = math.expand(values, resolution)
+            return CenteredGrid(values, bounds, extrapolation)
+        else:
+            assert type == StaggeredGrid, &#34;type must be CenteredGrid or StaggeredGrid&#34;
+            components = values.vector.unstack(resolution.spatial_rank)
+            tensors = []
+            for dim, component in zip(resolution.spatial.names, components):
+                comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
+                tensors.append(math.expand(component, comp_cells.resolution))
+            return StaggeredGrid(math.channel_stack(tensors, &#39;vector&#39;), bounds, extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
@@ -796,6 +896,51 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
     return field._op1(math.real)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.reduce_sample"><code class="name flex">
+<span>def <span class="ident">reduce_sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Similar to <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, but matches an optional <code>vector_</code> dimension of <code>geometry</code> with the <code>vector</code> dimension of this field.</p>
+<p>See Also:
+<code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd>Source <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> to sample.</dd>
+<dt><strong><code>geometry</code></strong></dt>
+<dd>Single or batched <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Sampled values as a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reduce_sample(field: Field, geometry: Geometry) -&gt; math.Tensor:
+    &#34;&#34;&#34;
+    Similar to `sample()`, but matches an optional `vector_` dimension of `geometry` with the `vector` dimension of this field.
+
+    See Also:
+        `sample()`, `Field.at()`.
+
+    Args:
+        field: Source `Field` to sample.
+        geometry: Single or batched `phi.geom.Geometry`.
+
+    Returns:
+        Sampled values as a `phi.math.Tensor`
+    &#34;&#34;&#34;
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
+        return field.values
+    assert &#39;vector&#39; not in geometry.shape
+    if &#39;vector_&#39; in geometry.shape:
+        components = unstack(field, &#39;vector&#39;) if &#39;vector&#39; in field.shape else (field,) * geometry.shape.get_size(&#39;vector_&#39;)
+        sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(&#39;vector_&#39;))]
+        return math.channel_stack(sampled, &#39;vector&#39;)
+    else:
+        return field._sample(geometry)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.round"><code class="name flex">
 <span>def <span class="ident">round</span></span>(<span>x: ~SampledFieldType) ‑> ~SampledFieldType</span>
 </code></dt>
@@ -807,6 +952,61 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </summary>
 <pre><code class="python">def round_(x: SampledFieldType) -&gt; SampledFieldType:
     return x._op1(math.round)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.sample"><code class="name flex">
+<span>def <span class="ident">sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the field value inside the volume of the (batched) <code>geometry</code>.</p>
+<p>The field value may be determined by integrating over the volume, sampling the central value or any other way.</p>
+<p>The batch dimensions of <code>geometry</code> are matched with this field.
+The <code>geometry</code> must not share any channel dimensions with this field.
+Spatial dimensions of <code>geometry</code> can be used to sample a grid of geometries.</p>
+<p>See Also:
+<code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd>Source <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> to sample.</dd>
+<dt><strong><code>geometry</code></strong></dt>
+<dd>Single or batched <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Sampled values as a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sample(field: Field, geometry: Geometry) -&gt; math.Tensor:
+    &#34;&#34;&#34;
+    Computes the field value inside the volume of the (batched) `geometry`.
+
+    The field value may be determined by integrating over the volume, sampling the central value or any other way.
+
+    The batch dimensions of `geometry` are matched with this field.
+    The `geometry` must not share any channel dimensions with this field.
+    Spatial dimensions of `geometry` can be used to sample a grid of geometries.
+
+    See Also:
+        `reduce_sample()`, `Field.at()`.
+
+    Args:
+        field: Source `Field` to sample.
+        geometry: Single or batched `phi.geom.Geometry`.
+
+    Returns:
+        Sampled values as a `phi.math.Tensor`
+    &#34;&#34;&#34;
+    assert all(dim not in field.shape for dim in geometry.shape.channel)
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and &#39;vector_&#39; not in geometry.shape:
+        return field.values
+    assert &#39;vector&#39; not in geometry.shape
+    if &#39;vector_&#39; in geometry.shape:
+        sampled = [field._sample(p) for p in geometry.unstack(&#39;vector_&#39;)]
+        return math.channel_stack(sampled, &#39;vector_&#39;)
+    else:
+        return field._sample(geometry)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.shift"><code class="name flex">
@@ -1075,6 +1275,43 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     return field._op1(math.stop_gradient)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>field: phi.field._field.Field, dim: str) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstack <code>field</code> along one of its dimensions.
+The dimension can be batch, spatial or channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> to unstack.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of <code>Fields</code>. The returned fields may be of different types than <code>field</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(field: Field, dim: str) -&gt; tuple:
+    &#34;&#34;&#34;
+    Unstack `field` along one of its dimensions.
+    The dimension can be batch, spatial or channel.
+
+    Args:
+        field: `Field` to unstack.
+        dim: name of the dimension to unstack, must be part of `self.shape`
+
+    Returns:
+        `tuple` of `Fields`. The returned fields may be of different types than `field`.
+    &#34;&#34;&#34;
+    size = field.shape.get_size(dim)
+    if isinstance(size, Tensor):
+        size = math.min(size)  # unstack StaggeredGrid along x or y
+    return tuple(field[{dim: i}] for i in range(size))</code></pre>
+</details>
+</dd>
 <dt id="phi.field.unstack_staggered_tensor"><code class="name flex">
 <span>def <span class="ident">unstack_staggered_tensor</span></span>(<span>data: phi.math._tensors.Tensor) ‑> phi.math._tensors.TensorStack</span>
 </code></dt>
@@ -1232,7 +1469,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <dl>
 <dt id="phi.field.AngularVelocity"><code class="flex name class">
 <span>class <span class="ident">AngularVelocity</span></span>
-<span>(</span><span>location, strength=1.0, falloff: collections.abc.Callable = None)</span>
+<span>(</span><span>location, strength=1.0, falloff: collections.abc.Callable = None, component: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -1250,34 +1487,39 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 </summary>
 <pre><code class="python">class AngularVelocity(Field):
 
-    def __init__(self, location, strength=1.0, falloff: Callable = None):
+    def __init__(self, location, strength=1.0, falloff: Callable = None, component: str = None):
         location = math.wrap(location)
         assert location.shape.channel.names == (&#39;vector&#39;,), &#34;location must have a single channel dimension called &#39;vector&#39;&#34;
         assert location.shape.spatial.is_empty, &#34;location tensor cannot have any spatial dimensions&#34;
         self.location = location
         self.strength = strength
         self.falloff = falloff
+        self.component = component
         spatial_names = [GLOBAL_AXIS_ORDER.axis_name(i, location.vector.size) for i in range(location.vector.size)]
         self._shape = location.shape.combined(math.spatial_shape([1] * location.vector.size, spatial_names))
 
-    def sample_at(self, points, reduce_channels=()) -&gt; math.Tensor:
+    def _sample(self, geometry: Geometry) -&gt; math.Tensor:
+        points = geometry.center
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            velocities = [math.cross_product(strength, dist).vector[i] for i, dist in enumerate(distances.unstack(reduce_channels[0]))]  # TODO this is inefficient, computes components that are discarded
-            velocity = math.channel_stack(velocities, &#39;vector&#39;)
-        else:
-            velocity = math.cross_product(strength, distances)
+        velocity = math.cross_product(strength, distances)
         velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
+        if self.component:
+            velocity = velocity.vector[self.component]
         return velocity
 
     @property
     def shape(self) -&gt; Shape:
         return self._shape
 
-    def unstack(self, dimension: str) -&gt; tuple:
-        raise NotImplementedError()</code></pre>
+    def __getitem__(self, item: dict):
+        assert all(dim == &#39;vector&#39; for dim in item), f&#34;Cannot slice AngularVelocity with {item}&#34;
+        if &#39;vector&#39; in item:
+            assert item[&#39;vector&#39;] == 0 or self.component is None
+            component = self.shape.spatial.names[item[&#39;vector&#39;]]
+            return AngularVelocity(location=self.location, strength=self.strength, falloff=self.falloff, component=component)
+        else:
+            return self</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1303,95 +1545,26 @@ def shape(self) -&gt; Shape:
 </details>
 </dd>
 </dl>
-<h3>Methods</h3>
-<dl>
-<dt id="phi.field.AngularVelocity.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points, reduce_channels=()) -&gt; math.Tensor:
-    distances = points - self.location
-    strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)
-    if reduce_channels:
-        assert len(reduce_channels) == 1
-        velocities = [math.cross_product(strength, dist).vector[i] for i, dist in enumerate(distances.unstack(reduce_channels[0]))]  # TODO this is inefficient, computes components that are discarded
-        velocity = math.channel_stack(velocities, &#39;vector&#39;)
-    else:
-        velocity = math.cross_product(strength, distances)
-    velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
-    return velocity</code></pre>
-</details>
-</dd>
-<dt id="phi.field.AngularVelocity.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values, bounds: phi.geom._box.Box, extrapolation=0)</span>
+<span>(</span><span>values: phi.math._tensors.Tensor, bounds: phi.geom._box.Box, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
-A centered grid is defined through its data tensor, its bounds describing the physical size and extrapolation.</p>
+A centered grid is defined through its data tensor, its bounds describing the physical size, and its extrapolation.</p>
 <p>Centered grids support arbitrary batch, spatial and channel dimensions.</p>
+<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> with <code>type=CenteredGrid</code> (default) to create a centered grid.
+Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
 <p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
-<p>Args:</p>
-<p>Returns:</p>
-<p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>elements</code></strong></dt>
-<dd>Geometry object specifying the sample points and sizes</dd>
 <dt><strong><code>values</code></strong></dt>
-<dd>values corresponding to elements</dd>
+<dd><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> containing all dimensions of this grid.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Physical size and location of the grid.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>values outside elements</dd>
+<dd>The grid extrapolation determines the value outside the <code>values</code> tensor.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -1400,38 +1573,24 @@ A centered grid is defined through its data tensor, its bounds describing the ph
 <pre><code class="python">class CenteredGrid(Grid):
     &#34;&#34;&#34;
     N-dimensional grid with values sampled at the cell centers.
-    A centered grid is defined through its data tensor, its bounds describing the physical size and extrapolation.
+    A centered grid is defined through its data tensor, its bounds describing the physical size, and its extrapolation.
     
     Centered grids support arbitrary batch, spatial and channel dimensions.
+
+    Use `grid()` with `type=CenteredGrid` (default) to create a centered grid.
+    Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
     
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
 
-    def __init__(self, values, bounds: Box, extrapolation=math.extrapolation.ZERO):
-        Grid.__init__(self, values, values.shape.spatial, bounds, extrapolation)
-
-    @staticmethod
-    def sample(value: Geometry or Field or int or float or callable,
-               resolution: Shape,
-               box: Box,
-               extrapolation=math.extrapolation.ZERO):
-        if isinstance(value, Geometry):
-            value = SoftGeometryMask(value)
-        if isinstance(value, Field):
-            elements = GridCell(resolution, box)
-            data = value.sample_in(elements)
-        else:
-            if callable(value):
-                x = GridCell(resolution, box).center
-                value = value(x)
-            value = wrap(value)
-            data = math.zeros(resolution) + value
-        return CenteredGrid(data, box, extrapolation)
+    def __init__(self, values: math.Tensor, bounds: Box, extrapolation: math.Extrapolation):
+        &#34;&#34;&#34;
+        Args:
+            values: `phi.math.Tensor` containing all dimensions of this grid.
+            bounds: Physical size and location of the grid.
+            extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+        &#34;&#34;&#34;
+        Grid.__init__(self, GridCell(values.shape.spatial, bounds), values, extrapolation, values.shape.spatial, bounds)
 
     def with_(self,
               elements: Geometry or None = None,
@@ -1439,20 +1598,20 @@ A centered grid is defined through its data tensor, its bounds describing the ph
               extrapolation: math.Extrapolation = None,
               **other_attributes) -&gt; &#39;CenteredGrid&#39;:
         assert elements is None
-        assert not other_attributes, other_attributes
-        return CenteredGrid(values if values is not None else self.values,
-                            self.bounds,
-                            extrapolation if extrapolation is not None else self._extrapolation)
+        assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
+        values = values if values is not None else self.values
+        extrapolation = extrapolation if extrapolation is not None else self._extrapolation
+        return CenteredGrid(values, self.bounds, extrapolation)
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            geometries = geometry.unstack(reduce_channels[0])
-            components = self.vector.unstack(len(geometries))
-            sampled = [c.sample_in(g) for c, g in zip(components, geometries)]
-            return math.channel_stack(sampled, &#39;vector&#39;)
+    def __getitem__(self, item: dict):
+        values = self._values[{dim: slice(sel, sel + 1) if isinstance(sel, int) and dim in self.shape.spatial else sel for dim, sel in item.items()}]
+        extrapolation = self._extrapolation[item]
+        bounds = self.elements[item].bounds
+        return CenteredGrid(values, bounds, extrapolation)
+
+    def _sample(self, geometry: Geometry) -&gt; Tensor:
         if isinstance(geometry, GeometryStack):
-            sampled = [self.sample_in(g) for g in geometry.geometries]
+            sampled = [self.sample(g) for g in geometry.geometries]
             return math.batch_stack(sampled, geometry.stack_dim_name)
         if isinstance(geometry, GridCell):
             if self.elements == geometry:
@@ -1461,20 +1620,9 @@ A centered grid is defined through its data tensor, its bounds describing the ph
                 fast_resampled = self._shift_resample(geometry.resolution, geometry.bounds)
                 if fast_resampled is not NotImplemented:
                     return fast_resampled
-        return self.sample_at(geometry.center, reduce_channels)
-
-    def sample_at(self, points, reduce_channels=()) -&gt; Tensor:
+        points = geometry.center
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
-        if len(reduce_channels) == 0:
-            return math.grid_sample(self.values, local_points, self.extrapolation)
-        else:
-            assert self.shape.channel.sizes == points.shape.get_size(reduce_channels)
-            if len(reduce_channels) &gt; 1:
-                raise NotImplementedError(f&#34;{len(reduce_channels)} &gt; 1. Only 1 reduced channel allowed.&#34;)
-            channels = []
-            for i, channel in enumerate(self.values.vector.unstack()):
-                channels.append(math.grid_sample(channel, local_points[{reduce_channels[0]: i}], self.extrapolation))
-            return math.channel_stack(channels, &#39;vector&#39;)
+        return math.grid_sample(self.values, local_points, self.extrapolation)
 
     def _shift_resample(self, resolution, box, threshold=1e-5, max_padding=20):
         lower = math.to_int(math.ceil(math.maximum(0, self.box.lower - box.lower) / self.dx - threshold))
@@ -1492,8 +1640,9 @@ A centered grid is defined through its data tensor, its bounds describing the ph
         data = math.sample_subgrid(grid_values, origin_in_local, resolution)
         return data
 
-    def closest_values(self, points: Tensor, reduce_channels=()):
-        local_points = self.box.global_to_local(points) * self.resolution - 0.5
+    def closest_values(self, points: Geometry):
+        assert &#39;vector&#39; not in points.shape
+        local_points = self.box.global_to_local(points.center) * self.resolution - 0.5
         return math.closest_grid_values(self.values, local_points, self.extrapolation)</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1502,41 +1651,10 @@ A centered grid is defined through its data tensor, its bounds describing the ph
 <li>phi.field._field.SampledField</li>
 <li>phi.field._field.Field</li>
 </ul>
-<h3>Static methods</h3>
-<dl>
-<dt id="phi.field.CenteredGrid.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>value: phi.geom._geom.Geometry, resolution: phi.math._shape.Shape, box: phi.geom._box.Box, extrapolation=0)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@staticmethod
-def sample(value: Geometry or Field or int or float or callable,
-           resolution: Shape,
-           box: Box,
-           extrapolation=math.extrapolation.ZERO):
-    if isinstance(value, Geometry):
-        value = SoftGeometryMask(value)
-    if isinstance(value, Field):
-        elements = GridCell(resolution, box)
-        data = value.sample_in(elements)
-    else:
-        if callable(value):
-            x = GridCell(resolution, box).center
-            value = value(x)
-        value = wrap(value)
-        data = math.zeros(resolution) + value
-    return CenteredGrid(data, box, extrapolation)</code></pre>
-</details>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.CenteredGrid.closest_values"><code class="name flex">
-<span>def <span class="ident">closest_values</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=())</span>
+<span>def <span class="ident">closest_values</span></span>(<span>self, points: phi.geom._geom.Geometry)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sample the closest grid point values of this field at the world-space locations (in physical units) given by <code>points</code>.
@@ -1546,8 +1664,6 @@ It may additionally contain any number of batch and spatial dimensions, all trea
 <dl>
 <dt><strong><code>points</code></strong></dt>
 <dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>(optional) See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code> for a description.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Closest grid point values as a <code>Tensor</code>.
@@ -1558,103 +1674,10 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def closest_values(self, points: Tensor, reduce_channels=()):
-    local_points = self.box.global_to_local(points) * self.resolution - 0.5
+<pre><code class="python">def closest_values(self, points: Geometry):
+    assert &#39;vector&#39; not in points.shape
+    local_points = self.box.global_to_local(points.center) * self.resolution - 0.5
     return math.closest_grid_values(self.values, local_points, self.extrapolation)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.CenteredGrid.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points, reduce_channels=()) -&gt; Tensor:
-    local_points = self.box.global_to_local(points) * self.resolution - 0.5
-    if len(reduce_channels) == 0:
-        return math.grid_sample(self.values, local_points, self.extrapolation)
-    else:
-        assert self.shape.channel.sizes == points.shape.get_size(reduce_channels)
-        if len(reduce_channels) &gt; 1:
-            raise NotImplementedError(f&#34;{len(reduce_channels)} &gt; 1. Only 1 reduced channel allowed.&#34;)
-        channels = []
-        for i, channel in enumerate(self.values.vector.unstack()):
-            channels.append(math.grid_sample(channel, local_points[{reduce_channels[0]: i}], self.extrapolation))
-        return math.channel_stack(channels, &#39;vector&#39;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.CenteredGrid.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
-<p>For small volumes, the value at the volume's center may be sampled.
-The batch dimensions of the geometry are matched with this Field.
-Spatial dimensions can be used to sample a grid of geometries.</p>
-<p>The default implementation of this method samples this Field at the center point of the geometry.</p>
-<p>See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>geometry</code></strong></dt>
-<dd>single or batched Geometry object</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    if reduce_channels:
-        assert len(reduce_channels) == 1
-        geometries = geometry.unstack(reduce_channels[0])
-        components = self.vector.unstack(len(geometries))
-        sampled = [c.sample_in(g) for c, g in zip(components, geometries)]
-        return math.channel_stack(sampled, &#39;vector&#39;)
-    if isinstance(geometry, GeometryStack):
-        sampled = [self.sample_in(g) for g in geometry.geometries]
-        return math.batch_stack(sampled, geometry.stack_dim_name)
-    if isinstance(geometry, GridCell):
-        if self.elements == geometry:
-            return self.values
-        elif math.close(self.dx, geometry.size):
-            fast_resampled = self._shift_resample(geometry.resolution, geometry.bounds)
-            if fast_resampled is not NotImplemented:
-                return fast_resampled
-    return self.sample_at(geometry.center, reduce_channels)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.CenteredGrid.with_"><code class="name flex">
@@ -1672,10 +1695,10 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
           extrapolation: math.Extrapolation = None,
           **other_attributes) -&gt; &#39;CenteredGrid&#39;:
     assert elements is None
-    assert not other_attributes, other_attributes
-    return CenteredGrid(values if values is not None else self.values,
-                        self.bounds,
-                        extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
+    assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
+    values = values if values is not None else self.values
+    extrapolation = extrapolation if extrapolation is not None else self._extrapolation
+    return CenteredGrid(values, self.bounds, extrapolation)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1714,10 +1737,14 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
     def _op2(self, other, operator) -&gt; Field:
         return ConstantField(operator(self.value, other))
 
-    def sample_at(self, points, reduce_channels=()) -&gt; math.Tensor:
+    def _sample(self, geometry: Geometry) -&gt; math.Tensor:
         return self.value
 
+    def __getitem__(self, item):
+        return ConstantField(self.value[item])
+
     def unstack(self, dimension: str):
+        warnings.warn(&#34;ConstantField.unstack() is deprecated. Use field.unstack(ConstantField) instead.&#34;, DeprecationWarning)
         return tuple(ConstantField(v) for v in self.value.unstack(dimension))
 
     def __repr__(self):
@@ -1749,59 +1776,17 @@ def shape(self) -&gt; Shape:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.field.ConstantField.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points, reduce_channels=()) -&gt; math.Tensor:
-    return self.value</code></pre>
-</details>
-</dd>
 <dt id="phi.field.ConstantField.unstack"><code class="name flex">
 <span>def <span class="ident">unstack</span></span>(<span>self, dimension: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def unstack(self, dimension: str):
+    warnings.warn(&#34;ConstantField.unstack() is deprecated. Use field.unstack(ConstantField) instead.&#34;, DeprecationWarning)
     return tuple(ConstantField(v) for v in self.value.unstack(dimension))</code></pre>
 </details>
 </dd>
@@ -1857,56 +1842,8 @@ The dimension can be batch, spatial or channel.</p>
         &#34;&#34;&#34;
         return self.shape.spatial.rank
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        &#34;&#34;&#34;
-        Approximates the mean field value inside the volume of the geometry (batch).
-        
-        For small volumes, the value at the volume&#39;s center may be sampled.
-        The batch dimensions of the geometry are matched with this Field.
-        Spatial dimensions can be used to sample a grid of geometries.
-        
-        The default implementation of this method samples this Field at the center point of the geometry.
-
-        See `Field.sample_at()`, `Field.at()`.
-
-        Args:
-          geometry: single or batched Geometry object
-          reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
-            Causes the components of this field to be sampled at different locations.
-            The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack(&#39;vector&#39;), points.unstack(reduce)])`
-            assuming this field as a single channel dimension called `vector`.
-
-            Example:
-            While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
-            `StaggeredGrid.sample_at(staggered_points, reduce_channels=&#39;staggered&#39;)` samples each component at the corresponding face only.
-
-        Returns:
-          Sampled values as a `Tensor`
-        &#34;&#34;&#34;
-        return self.sample_at(geometry.center, reduce_channels)
-
-    def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-        &#34;&#34;&#34;
-        Sample this field at the world-space locations (in physical units) given by `points`.
-        Points must have a single channel dimension named `vector`.
-        It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
-
-        See `Field.sample_in()`, `Field.at()`.
-
-        Args:
-          points: world-space locations
-          reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
-            Causes the components of this field to be sampled at different locations.
-            The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack(&#39;vector&#39;), points.unstack(reduce)])`
-            assuming this field as a single channel dimension called `vector`.
-
-            Example:
-            While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
-            `StaggeredGrid.sample_at(staggered_points, reduce_channels=&#39;staggered&#39;)` samples each component at the corresponding face only.
-
-        Returns:
-          Sampled values as a `Tensor`
-        &#34;&#34;&#34;
+    def _sample(self, geometry: Geometry) -&gt; math.Tensor:
+        &#34;&#34;&#34; For internal use only. Use `sample()` instead. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def at(self, representation: &#39;SampledField&#39;) -&gt; &#39;SampledField&#39;:
@@ -1914,7 +1851,7 @@ The dimension can be batch, spatial or channel.</p>
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
         
-        Unlike `Field.sample_at()` or `Field.sample_in()`, this method returns a `Field` object, not a `Tensor`.
+        Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
         Equal to `self &gt;&gt; representation`.
 
@@ -1926,8 +1863,7 @@ The dimension can be batch, spatial or channel.</p>
           Field object of same type as `representation`
 
         &#34;&#34;&#34;
-        elements = representation.elements
-        resampled = self.sample_in(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
+        resampled = reduce_sample(self, representation.elements)
         extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -1943,20 +1879,18 @@ The dimension can be batch, spatial or channel.</p>
         &#34;&#34;&#34;
         return self.at(other)
 
-    def unstack(self, dimension: str) -&gt; tuple:
+    def __getitem__(self, item: dict) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
-        Unstack the field along one of its dimensions.
-        The dimension can be batch, spatial or channel.
+        Access a slice of the Field.
+        The returned `Field` may be of a different type than `self`.
 
         Args:
-          dimension: name of the dimension to unstack, must be part of `self.shape`
-          dimension: str: 
+            item: `dict` mapping dimensions (`str`) to selections (`int` or `slice`)
 
         Returns:
-          tuple of Fields
-
+            Sliced `Field`.
         &#34;&#34;&#34;
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     def dimension(self, name: str):
         &#34;&#34;&#34;
@@ -1982,7 +1916,10 @@ The dimension can be batch, spatial or channel.</p>
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         if hasattr(self.__class__, name):
             raise RuntimeError(f&#34;Failed to get attribute &#39;{name}&#39; of {self}&#34;)
-        return _FieldDim(self, name)</code></pre>
+        return _FieldDim(self, name)
+
+    def __repr__(self):
+        return f&#34;{self.__class__.__name__} {self.shape}&#34;</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -2044,7 +1981,7 @@ def spatial_rank(self) -&gt; int:
 <dd>
 <div class="desc"><p>Samples this field at the sample points of <code>representation</code>.
 The result will approximate the values of this field on the data structure of <code>representation</code>.</p>
-<p>Unlike <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code> or <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, this method returns a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> object, not a <code>Tensor</code>.</p>
+<p>Unlike <code>Field.sample()</code>, this method returns a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> object, not a <code>Tensor</code>.</p>
 <p>Equal to <code>self &gt;&gt; representation</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -2064,7 +2001,7 @@ The result will approximate the values of this field on the data structure of <c
     Samples this field at the sample points of `representation`.
     The result will approximate the values of this field on the data structure of `representation`.
     
-    Unlike `Field.sample_at()` or `Field.sample_in()`, this method returns a `Field` object, not a `Tensor`.
+    Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
     Equal to `self &gt;&gt; representation`.
 
@@ -2076,8 +2013,7 @@ The result will approximate the values of this field on the data structure of <c
       Field object of same type as `representation`
 
     &#34;&#34;&#34;
-    elements = representation.elements
-    resampled = self.sample_in(elements, reduce_channels=elements.shape.non_channel.without(representation.shape).names)
+    resampled = reduce_sample(self, representation.elements)
     extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
     return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)</code></pre>
 </details>
@@ -2089,7 +2025,7 @@ The result will approximate the values of this field on the data structure of <c
 <div class="desc"><p>Returns a reference to one of the dimensions of this field.</p>
 <p>The dimension reference can be used the same way as a <code>Tensor</code> dimension reference.
 Notable properties and methods of a dimension reference are:
-indexing using <code>[index]</code>, <code>unstack()</code>, <code>size</code>, <code>exists</code>, <code>is_batch</code>, <code>is_spatial</code>, <code>is_channel</code>.</p>
+indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#phi.field.unstack">unstack()</a></code>, <code>size</code>, <code>exists</code>, <code>is_batch</code>, <code>is_spatial</code>, <code>is_channel</code>.</p>
 <p>A shortcut to calling this function is the syntax <code>field.&lt;dim_name&gt;</code> which calls <code>field.dimension(&lt;dim_name&gt;)</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -2122,170 +2058,15 @@ indexing using <code>[index]</code>, <code>unstack()</code>, <code>size</code>, 
     return _FieldDim(self, name)</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Field.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-    &#34;&#34;&#34;
-    Sample this field at the world-space locations (in physical units) given by `points`.
-    Points must have a single channel dimension named `vector`.
-    It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
-
-    See `Field.sample_in()`, `Field.at()`.
-
-    Args:
-      points: world-space locations
-      reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
-        Causes the components of this field to be sampled at different locations.
-        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack(&#39;vector&#39;), points.unstack(reduce)])`
-        assuming this field as a single channel dimension called `vector`.
-
-        Example:
-        While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
-        `StaggeredGrid.sample_at(staggered_points, reduce_channels=&#39;staggered&#39;)` samples each component at the corresponding face only.
-
-    Returns:
-      Sampled values as a `Tensor`
-    &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.Field.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
-<p>For small volumes, the value at the volume's center may be sampled.
-The batch dimensions of the geometry are matched with this Field.
-Spatial dimensions can be used to sample a grid of geometries.</p>
-<p>The default implementation of this method samples this Field at the center point of the geometry.</p>
-<p>See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>geometry</code></strong></dt>
-<dd>single or batched Geometry object</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    &#34;&#34;&#34;
-    Approximates the mean field value inside the volume of the geometry (batch).
-    
-    For small volumes, the value at the volume&#39;s center may be sampled.
-    The batch dimensions of the geometry are matched with this Field.
-    Spatial dimensions can be used to sample a grid of geometries.
-    
-    The default implementation of this method samples this Field at the center point of the geometry.
-
-    See `Field.sample_at()`, `Field.at()`.
-
-    Args:
-      geometry: single or batched Geometry object
-      reduce_channels: (optional) Dimensions of `points` to be reduced against the channel dimensions of this `Field`.
-        Causes the components of this field to be sampled at different locations.
-        The result is the same as `math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack(&#39;vector&#39;), points.unstack(reduce)])`
-        assuming this field as a single channel dimension called `vector`.
-
-        Example:
-        While `StaggeredGrid.sample_at(staggered_points)` samples all components at all faces,
-        `StaggeredGrid.sample_at(staggered_points, reduce_channels=&#39;staggered&#39;)` samples each component at the corresponding face only.
-
-    Returns:
-      Sampled values as a `Tensor`
-    &#34;&#34;&#34;
-    return self.sample_at(geometry.center, reduce_channels)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.Field.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    &#34;&#34;&#34;
-    Unstack the field along one of its dimensions.
-    The dimension can be batch, spatial or channel.
-
-    Args:
-      dimension: name of the dimension to unstack, must be part of `self.shape`
-      dimension: str: 
-
-    Returns:
-      tuple of Fields
-
-    &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 </dl>
 </dd>
 <dt id="phi.field.Grid"><code class="flex name class">
 <span>class <span class="ident">Grid</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for CenteredGrid, StaggeredGrid.</p>
-<p>Grids are defined by</p>
-<ul>
-<li>data: Tensor, defines resolution</li>
-<li>bounds: physical size of the grid, defines dx</li>
-<li>extrapolation: values of virtual grid points lying outside the data bounds</li>
-</ul>
-<p>Args:</p>
-<p>Returns:</p>
+<div class="desc"><p>Base class for <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> and <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</p>
+<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> to create a grid.
+Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
 <p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -2302,45 +2083,48 @@ The dimension can be batch, spatial or channel.</p>
 </summary>
 <pre><code class="python">class Grid(SampledField):
     &#34;&#34;&#34;
-    Base class for CenteredGrid, StaggeredGrid.
-    
-    Grids are defined by
-    
-    * data: Tensor, defines resolution
-    * bounds: physical size of the grid, defines dx
-    * extrapolation: values of virtual grid points lying outside the data bounds
+    Base class for `CenteredGrid` and `StaggeredGrid`.
 
-    Args:
-
-    Returns:
-
+    Use `grid()` to create a grid.
+    Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
     &#34;&#34;&#34;
 
-    def __init__(self, values: Tensor, resolution: Shape, bounds: Box, extrapolation=math.extrapolation.ZERO):
-        SampledField.__init__(self, GridCell(resolution, bounds), values, extrapolation)
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation, resolution: Shape, bounds: Box):
+        SampledField.__init__(self, elements, values, extrapolation)
+        assert values.shape.spatial_rank == elements.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
+        assert values.shape.spatial_rank == bounds.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
         self._bounds = bounds
-        assert_same_rank(self.values.shape, bounds, &#39;data dimensions %s do not match box %s&#39; % (self.values.shape, bounds))
+        self._resolution = resolution
 
-    def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-        raise NotImplementedError(self)
-
-    def closest_values(self, points: Tensor, reduce_channels=()):
+    def closest_values(self, points: Geometry):
         &#34;&#34;&#34;
         Sample the closest grid point values of this field at the world-space locations (in physical units) given by `points`.
         Points must have a single channel dimension named `vector`.
         It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
 
         Args:
-          points: world-space locations
-          reduce_channels: (optional) See `Field.sample_at()` for a description.
+            points: world-space locations
 
         Returns:
-          Closest grid point values as a `Tensor`.
-          For each dimension, the grid points immediately left and right of the sample points are evaluated.
-          For each point in `points`, a *2^d* cube of points is determined where *d* is the number of spatial dimensions of this field.
-          These values are stacked along the new dimensions `&#39;closest_&lt;dim&gt;&#39;` where `&lt;dim&gt;` refers to the name of a spatial dimension.
+            Closest grid point values as a `Tensor`.
+            For each dimension, the grid points immediately left and right of the sample points are evaluated.
+            For each point in `points`, a *2^d* cube of points is determined where *d* is the number of spatial dimensions of this field.
+            These values are stacked along the new dimensions `&#39;closest_&lt;dim&gt;&#39;` where `&lt;dim&gt;` refers to the name of a spatial dimension.
         &#34;&#34;&#34;
         raise NotImplementedError(self)
+
+    def _sample(self, geometry: Geometry) -&gt; math.Tensor:
+        raise NotImplementedError(self)
+
+    def with_(self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None, **other_attributes) -&gt; &#39;Grid&#39;:
+        raise NotImplementedError(self)
+
+    def __getitem__(self, item: dict) -&gt; &#39;Grid&#39;:
+        raise NotImplementedError(self)
+
+    @property
+    def shape(self):
+        return self._resolution &amp; self._values.shape.non_spatial
 
     @property
     def bounds(self) -&gt; Box:
@@ -2352,14 +2136,14 @@ The dimension can be batch, spatial or channel.</p>
 
     @property
     def resolution(self) -&gt; Shape:
-        return self.shape.spatial
+        return self._resolution
 
     @property
     def dx(self) -&gt; Tensor:
         return self.box.size / self.resolution
 
     def __repr__(self):
-        return f&#34;{self.__class__.__name__}[{self.shape}, size={self.box.size}, extrapolation={self._extrapolation}]&#34;</code></pre>
+        return f&#34;{self.__class__.__name__}[{self.shape.non_spatial &amp; self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2418,14 +2202,31 @@ def dx(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@property
 def resolution(self) -&gt; Shape:
-    return self.shape.spatial</code></pre>
+    return self._resolution</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Grid.shape"><code class="name">var <span class="ident">shape</span></code></dt>
+<dd>
+<div class="desc"><p>Returns a shape with the following properties</p>
+<ul>
+<li>The spatial dimension names match the dimensions of this Field</li>
+<li>The batch dimensions match the batch dimensions of this Field</li>
+<li>The channel dimensions match the channels of this Field</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self):
+    return self._resolution &amp; self._values.shape.non_spatial</code></pre>
 </details>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.Grid.closest_values"><code class="name flex">
-<span>def <span class="ident">closest_values</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=())</span>
+<span>def <span class="ident">closest_values</span></span>(<span>self, points: phi.geom._geom.Geometry)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sample the closest grid point values of this field at the world-space locations (in physical units) given by <code>points</code>.
@@ -2435,8 +2236,6 @@ It may additionally contain any number of batch and spatial dimensions, all trea
 <dl>
 <dt><strong><code>points</code></strong></dt>
 <dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>(optional) See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code> for a description.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Closest grid point values as a <code>Tensor</code>.
@@ -2447,55 +2246,34 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def closest_values(self, points: Tensor, reduce_channels=()):
+<pre><code class="python">def closest_values(self, points: Geometry):
     &#34;&#34;&#34;
     Sample the closest grid point values of this field at the world-space locations (in physical units) given by `points`.
     Points must have a single channel dimension named `vector`.
     It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.
 
     Args:
-      points: world-space locations
-      reduce_channels: (optional) See `Field.sample_at()` for a description.
+        points: world-space locations
 
     Returns:
-      Closest grid point values as a `Tensor`.
-      For each dimension, the grid points immediately left and right of the sample points are evaluated.
-      For each point in `points`, a *2^d* cube of points is determined where *d* is the number of spatial dimensions of this field.
-      These values are stacked along the new dimensions `&#39;closest_&lt;dim&gt;&#39;` where `&lt;dim&gt;` refers to the name of a spatial dimension.
+        Closest grid point values as a `Tensor`.
+        For each dimension, the grid points immediately left and right of the sample points are evaluated.
+        For each point in `points`, a *2^d* cube of points is determined where *d* is the number of spatial dimensions of this field.
+        These values are stacked along the new dimensions `&#39;closest_&lt;dim&gt;&#39;` where `&lt;dim&gt;` refers to the name of a spatial dimension.
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Grid.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
+<dt id="phi.field.Grid.with_"><code class="name flex">
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._grid.Grid</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
+<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
+<pre><code class="python">def with_(self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None, **other_attributes) -&gt; &#39;Grid&#39;:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2526,16 +2304,11 @@ For volume sampling, performs sampling at the center points.</p></div>
     def shape(self):
         return self.geometry.shape.non_channel
 
-    def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-        inside = math.to_float(self.geometry.lies_inside(points))
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-        return inside
+    def _sample(self, geometry: Geometry) -&gt; Tensor:
+        return math.to_float(self.geometry.lies_inside(geometry.center))
 
-    def unstack(self, dimension: str) -&gt; tuple:
-        geometries = self.geometry.unstack(dimension)
-        return tuple(HardGeometryMask(g) for g in geometries)</code></pre>
+    def __getitem__(self, item: dict):
+        return HardGeometryMask(self.geometry[item])</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2565,115 +2338,45 @@ def shape(self):
 </details>
 </dd>
 </dl>
-<h3>Methods</h3>
-<dl>
-<dt id="phi.field.HardGeometryMask.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-    inside = math.to_float(self.geometry.lies_inside(points))
-    if reduce_channels:
-        assert len(reduce_channels) == 1
-        inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-    return inside</code></pre>
-</details>
-</dd>
-<dt id="phi.field.HardGeometryMask.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    geometries = self.geometry.unstack(dimension)
-    return tuple(HardGeometryMask(g) for g in geometries)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="phi.field.Noise"><code class="flex name class">
 <span>class <span class="ident">Noise</span></span>
 <span>(</span><span>shape=(), scale=10, smoothness=1.0, **dims)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all fields.</p>
-<p>Important implementations:</p>
-<ul>
-<li>CenteredGrid</li>
-<li>StaggeredGrid</li>
-<li>PointCloud</li>
-<li>Noise</li>
-</ul>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
-<p>Generates random noise fluctuations which can be configured in physical size and smoothness.
+<div class="desc"><p>Generates random noise fluctuations which can be configured in physical size and smoothness.
 Each time values are sampled from a Noise field, a new noise field is generated.</p>
-<pre><code>Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
-</code></pre>
+<p>Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>channels</code></strong></dt>
-<dd>Number of independent random scalar fields this Field consists of</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.</dd>
 <dt><strong><code>scale</code></strong></dt>
-<dd>Size of noise fluctuations in physical units</dd>
+<dd>Size of noise fluctuations in physical units.</dd>
 <dt><strong><code>smoothness</code></strong></dt>
-<dd>Determines how quickly high frequencies die out</dd>
+<dd>Determines how quickly high frequencies die out.</dd>
+<dt><strong><code>**dims</code></strong></dt>
+<dd>Additional dimensions, added to <code>shape</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Noise(Field):
+    &#34;&#34;&#34;
+    Generates random noise fluctuations which can be configured in physical size and smoothness.
+    Each time values are sampled from a Noise field, a new noise field is generated.
+
+    Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
+    &#34;&#34;&#34;
 
     def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **dims):
         &#34;&#34;&#34;
-        Generates random noise fluctuations which can be configured in physical size and smoothness.
-            Each time values are sampled from a Noise field, a new noise field is generated.
-
-            Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
-
         Args:
-          channels: Number of independent random scalar fields this Field consists of
-          scale: Size of noise fluctuations in physical units
-          smoothness: Determines how quickly high frequencies die out
+          shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
+          scale: Size of noise fluctuations in physical units.
+          smoothness: Determines how quickly high frequencies die out.
+          **dims: Additional dimensions, added to `shape`.
         &#34;&#34;&#34;
         self.scale = scale
         self.smoothness = smoothness
@@ -2683,20 +2386,10 @@ Each time values are sampled from a Noise field, a new noise field is generated.
     def shape(self):
         return self._shape
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        if reduce_channels:
-            shape = self._shape.non_channel.without(reduce_channels)
-            assert len(reduce_channels) == 1
-            geoms = geometry.unstack(reduce_channels[0])
-            assert all(isinstance(g, GridCell) for g in geoms)
-            components = [self.grid_sample(g.resolution, g.grid_size, shape) for g in geoms]
-            return math.channel_stack(components, &#39;vector&#39;)
+    def _sample(self, geometry: Geometry) -&gt; Tensor:
         if isinstance(geometry, GridCell):
             return self.grid_sample(geometry.resolution, geometry.grid_size)
         raise NotImplementedError(f&#34;{type(geometry)} not supported. Only GridCell allowed.&#34;)
-
-    def sample_at(self, points, reduce_channels=()) -&gt; math.Tensor:
-        raise NotImplementedError()
 
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
         shape = (self._shape if shape is None else shape).combined(resolution)
@@ -2718,10 +2411,9 @@ Each time values are sampled from a Noise field, a new noise field is generated.
         array = math.to_float(array)
         return array
 
-    def unstack(self, dimension: str) -&gt; tuple:
-        count = self.shape.get_size(dimension)
-        reduced_shape = self.shape.without(dimension)
-        return (Noise(reduced_shape, self.scale, self.smoothness),) * count
+    def __getitem__(self, item: dict):
+        new_shape = self.shape.after_gather(item)
+        return Noise(new_shape, self.scale, self.smoothness)
 
     def __repr__(self):
         return &#34;%s, scale=%f, smoothness=%f&#34; % (self._shape, self.scale, self.smoothness)</code></pre>
@@ -2782,108 +2474,6 @@ def shape(self):
     return array</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Noise.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points, reduce_channels=()) -&gt; math.Tensor:
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
-<dt id="phi.field.Noise.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
-<p>For small volumes, the value at the volume's center may be sampled.
-The batch dimensions of the geometry are matched with this Field.
-Spatial dimensions can be used to sample a grid of geometries.</p>
-<p>The default implementation of this method samples this Field at the center point of the geometry.</p>
-<p>See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>geometry</code></strong></dt>
-<dd>single or batched Geometry object</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    if reduce_channels:
-        shape = self._shape.non_channel.without(reduce_channels)
-        assert len(reduce_channels) == 1
-        geoms = geometry.unstack(reduce_channels[0])
-        assert all(isinstance(g, GridCell) for g in geoms)
-        components = [self.grid_sample(g.resolution, g.grid_size, shape) for g in geoms]
-        return math.channel_stack(components, &#39;vector&#39;)
-    if isinstance(geometry, GridCell):
-        return self.grid_sample(geometry.resolution, geometry.grid_size)
-    raise NotImplementedError(f&#34;{type(geometry)} not supported. Only GridCell allowed.&#34;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.Noise.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    count = self.shape.get_size(dimension)
-    reduced_shape = self.shape.without(dimension)
-    return (Noise(reduced_shape, self.scale, self.smoothness),) * count</code></pre>
-</details>
-</dd>
 </dl>
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
@@ -2928,7 +2518,8 @@ When sampling this field on a grid, scatter functions may be used.</p>
 </summary>
 <pre><code class="python">class PointCloud(SampledField):
 
-    def __init__(self, elements: Geometry,
+    def __init__(self,
+                 elements: Geometry,
                  values: Any = 1,
                  extrapolation=math.extrapolation.ZERO,
                  add_overlapping=False,
@@ -2964,6 +2555,17 @@ When sampling this field on a grid, scatter functions may be used.</p>
             color = &#39;#0060ff&#39;
         self._color = math.wrap(color, names=&#39;points&#39;) if isinstance(color, (tuple, list)) else math.wrap(color)
 
+    @property
+    def shape(self):
+        return self._elements.shape &amp; self._values.shape.non_spatial
+
+    def __getitem__(self, item: dict):
+        elements = self.elements[item]
+        values = self._values[item]
+        color = self._color[item]
+        extrapolation = self._extrapolation[item]
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, color)
+
     def with_(self,
               elements: Geometry or None = None,
               values: Tensor = None,
@@ -2971,8 +2573,8 @@ When sampling this field on a grid, scatter functions may be used.</p>
               add_overlapping: bool or None = None,
               bounds: Box = None,
               color: str or Tensor or tuple or list or None = None,
-              **other_attributes) -&gt; &#39;SampledField&#39;:
-        assert not other_attributes, other_attributes
+              **other_attributes) -&gt; &#39;PointCloud&#39;:
+        assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
         return PointCloud(elements if elements is not None else self.elements,
                           values if values is not None else self.values,
                           extrapolation if extrapolation is not None else self.extrapolation,
@@ -2988,25 +2590,16 @@ When sampling this field on a grid, scatter functions may be used.</p>
     def color(self) -&gt; Tensor:
         return self._color
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        if not reduce_channels:
-            if geometry == self.elements:
-                return self.values
-            elif isinstance(geometry, GridCell):
-                return self._grid_scatter(geometry.bounds, geometry.resolution)
-            elif isinstance(geometry, GeometryStack):
-                sampled = [self.sample_at(g) for g in geometry.geometries]
-                return math.batch_stack(sampled, geometry.stack_dim_name)
-            else:
-                raise NotImplementedError()
+    def _sample(self, geometry: Geometry) -&gt; Tensor:
+        if geometry == self.elements:
+            return self.values
+        elif isinstance(geometry, GridCell):
+            return self._grid_scatter(geometry.bounds, geometry.resolution)
+        elif isinstance(geometry, GeometryStack):
+            sampled = [self._sample(g) for g in geometry.geometries]
+            return math.batch_stack(sampled, geometry.stack_dim_name)
         else:
-            assert len(reduce_channels) == 1
-            components = self.unstack(&#39;vector&#39;) if &#39;vector&#39; in self.shape else (self,) * geometry.shape.get_size(reduce_channels[0])
-            sampled = [c.sample_in(p) for c, p in zip(components, geometry.unstack(reduce_channels[0]))]
-            return math.channel_stack(sampled, &#39;vector&#39;)
-
-    def sample_at(self, points, reduce_channels=()) -&gt; Tensor:
-        raise NotImplementedError()
+            raise NotImplementedError()
 
     def _grid_scatter(self, box: Box, resolution: math.Shape):
         &#34;&#34;&#34;
@@ -3022,7 +2615,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
           CenteredGrid
 
         &#34;&#34;&#34;
-        closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution - 0.5))
+        closest_index = box.global_to_local(self.points) * resolution - 0.5
         mode = &#39;add&#39; if self._add_overlapping else &#39;mean&#39;
         base = math.zeros(resolution)
         if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
@@ -3069,93 +2662,28 @@ def color(self) -&gt; Tensor:
     return self._color</code></pre>
 </details>
 </dd>
+<dt id="phi.field.PointCloud.shape"><code class="name">var <span class="ident">shape</span></code></dt>
+<dd>
+<div class="desc"><p>Returns a shape with the following properties</p>
+<ul>
+<li>The spatial dimension names match the dimensions of this Field</li>
+<li>The batch dimensions match the batch dimensions of this Field</li>
+<li>The channel dimensions match the channels of this Field</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self):
+    return self._elements.shape &amp; self._values.shape.non_spatial</code></pre>
+</details>
+</dd>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.field.PointCloud.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points, reduce_channels=()) -&gt; Tensor:
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
-<dt id="phi.field.PointCloud.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
-<p>For small volumes, the value at the volume's center may be sampled.
-The batch dimensions of the geometry are matched with this Field.
-Spatial dimensions can be used to sample a grid of geometries.</p>
-<p>The default implementation of this method samples this Field at the center point of the geometry.</p>
-<p>See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>geometry</code></strong></dt>
-<dd>single or batched Geometry object</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    if not reduce_channels:
-        if geometry == self.elements:
-            return self.values
-        elif isinstance(geometry, GridCell):
-            return self._grid_scatter(geometry.bounds, geometry.resolution)
-        elif isinstance(geometry, GeometryStack):
-            sampled = [self.sample_at(g) for g in geometry.geometries]
-            return math.batch_stack(sampled, geometry.stack_dim_name)
-        else:
-            raise NotImplementedError()
-    else:
-        assert len(reduce_channels) == 1
-        components = self.unstack(&#39;vector&#39;) if &#39;vector&#39; in self.shape else (self,) * geometry.shape.get_size(reduce_channels[0])
-        sampled = [c.sample_in(p) for c, p in zip(components, geometry.unstack(reduce_channels[0]))]
-        return math.channel_stack(sampled, &#39;vector&#39;)</code></pre>
-</details>
-</dd>
 <dt id="phi.field.PointCloud.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, add_overlapping: bool = None, bounds: phi.geom._box.Box = None, color: str = None, **other_attributes) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, add_overlapping: bool = None, bounds: phi.geom._box.Box = None, color: str = None, **other_attributes) ‑> phi.field._point_cloud.PointCloud</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
@@ -3170,8 +2698,8 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
           add_overlapping: bool or None = None,
           bounds: Box = None,
           color: str or Tensor or tuple or list or None = None,
-          **other_attributes) -&gt; &#39;SampledField&#39;:
-    assert not other_attributes, other_attributes
+          **other_attributes) -&gt; &#39;PointCloud&#39;:
+    assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
     return PointCloud(elements if elements is not None else self.elements,
                       values if values is not None else self.values,
                       extrapolation if extrapolation is not None else self.extrapolation,
@@ -3226,7 +2754,6 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
         self._elements = elements
         self._values = math.wrap(values)
         self._extrapolation = extrapolation
-        self._shape = self._elements.shape.non_channel &amp; self._values.shape.non_spatial
 
     def with_(self,
               elements: Geometry or None = None,
@@ -3234,6 +2761,13 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
               extrapolation: math.Extrapolation = None,
               **other_attributes) -&gt; &#39;SampledFieldType&#39;:
         &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    @property
+    def shape(self):
+        raise NotImplementedError()
+
+    def __getitem__(self, item: dict) -&gt; &#39;Field&#39;:
         raise NotImplementedError(self)
 
     @property
@@ -3265,17 +2799,6 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
     @property
     def shape(self) -&gt; Shape:
         return self._shape
-
-    def sample_at(self, points, reduce_channels=()) -&gt; Tensor:
-        raise NotImplementedError(self)
-
-    def unstack(self, dimension: str) -&gt; tuple:
-        values = self._values.unstack(dimension)
-        return tuple(self.with_(values=v) for i, v in enumerate(values))
-
-    def __getitem__(self, item):
-        values = self._values[item]
-        return self.with_(values=values)
 
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
@@ -3336,7 +2859,7 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 
     def _op2(self, other, operator) -&gt; &#39;SampledField&#39;:
         if isinstance(other, Field):
-            other_values = other.sample_in(self._elements)
+            other_values = sample(other, self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_(values=values, extrapolation=extrapolation_)
@@ -3447,63 +2970,6 @@ def values(self) -&gt; Tensor:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.field.SampledField.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points, reduce_channels=()) -&gt; Tensor:
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.SampledField.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    values = self._values.unstack(dimension)
-    return tuple(self.with_(values=v) for i, v in enumerate(values))</code></pre>
-</details>
-</dd>
 <dt id="phi.field.SampledField.with_"><code class="name flex">
 <span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> ~SampledFieldType</span>
 </code></dt>
@@ -4566,124 +4032,17 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
     When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.
     &#34;&#34;&#34;
 
-    def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-        raise NotImplementedError(&#34;Use HardGeometryMask to sample at points&#34;)
+    def _sample(self, geometry: Geometry) -&gt; Tensor:
+        return self.geometry.approximate_fraction_inside(geometry)
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        inside = self.geometry.approximate_fraction_inside(geometry)
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-        return inside
-
-    def unstack(self, dimension: str) -&gt; tuple:
-        geometries = self.geometry.unstack(dimension)
-        return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
+    def __getitem__(self, item: dict):
+        return SoftGeometryMask(self.geometry[item])</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
 <li>phi.field._field.Field</li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="phi.field.SoftGeometryMask.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-    raise NotImplementedError(&#34;Use HardGeometryMask to sample at points&#34;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.SoftGeometryMask.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
-<p>For small volumes, the value at the volume's center may be sampled.
-The batch dimensions of the geometry are matched with this Field.
-Spatial dimensions can be used to sample a grid of geometries.</p>
-<p>The default implementation of this method samples this Field at the center point of the geometry.</p>
-<p>See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>geometry</code></strong></dt>
-<dd>single or batched Geometry object</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    inside = self.geometry.approximate_fraction_inside(geometry)
-    if reduce_channels:
-        assert len(reduce_channels) == 1
-        inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-    return inside</code></pre>
-</details>
-</dd>
-<dt id="phi.field.SoftGeometryMask.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    geometries = self.geometry.unstack(dimension)
-    return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">SoftGeometryMask</span></span>
@@ -4700,143 +4059,39 @@ The dimension can be batch, spatial or channel.</p>
     When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.
     &#34;&#34;&#34;
 
-    def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-        raise NotImplementedError(&#34;Use HardGeometryMask to sample at points&#34;)
+    def _sample(self, geometry: Geometry) -&gt; Tensor:
+        return self.geometry.approximate_fraction_inside(geometry)
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        inside = self.geometry.approximate_fraction_inside(geometry)
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-        return inside
-
-    def unstack(self, dimension: str) -&gt; tuple:
-        geometries = self.geometry.unstack(dimension)
-        return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
+    def __getitem__(self, item: dict):
+        return SoftGeometryMask(self.geometry[item])</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
 <li>phi.field._field.Field</li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="phi.field.SoftGeometryMask.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-    raise NotImplementedError(&#34;Use HardGeometryMask to sample at points&#34;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.SoftGeometryMask.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
-<p>For small volumes, the value at the volume's center may be sampled.
-The batch dimensions of the geometry are matched with this Field.
-Spatial dimensions can be used to sample a grid of geometries.</p>
-<p>The default implementation of this method samples this Field at the center point of the geometry.</p>
-<p>See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>geometry</code></strong></dt>
-<dd>single or batched Geometry object</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    inside = self.geometry.approximate_fraction_inside(geometry)
-    if reduce_channels:
-        assert len(reduce_channels) == 1
-        inside = inside.dimension(reduce_channels[0]).as_channel(&#39;vector&#39;)
-    return inside</code></pre>
-</details>
-</dd>
-<dt id="phi.field.SoftGeometryMask.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    geometries = self.geometry.unstack(dimension)
-    return tuple(SoftGeometryMask(g) for g in geometries)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: phi.math._tensors.TensorStack, bounds, extrapolation=0)</span>
+<span>(</span><span>values: phi.math._tensors.TensorStack, bounds: phi.geom._box.Box, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
-A staggered grid is defined through its values tensor, its bounds describing the physical size and extrapolation.</p>
+A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.</p>
 <p>Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.</p>
+<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> with <code>type=StaggeredGrid</code> to create a staggered grid.
+Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
 <p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
-<p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>elements</code></strong></dt>
-<dd>Geometry object specifying the sample points and sizes</dd>
 <dt><strong><code>values</code></strong></dt>
-<dd>values corresponding to elements</dd>
+<dd><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> containing all dimensions of this grid.
+Must contain a <code>vector</code> dimension with each slice consisting of one more element along the dimension they describe.
+Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.channel_stack">channel_stack()</a></code> to manually create this non-uniform tensor.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Physical size and location of the grid.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>values outside elements</dd>
+<dd>The grid extrapolation determines the value outside the <code>values</code> tensor.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -4845,73 +4100,32 @@ A staggered grid is defined through its values tensor, its bounds describing the
 <pre><code class="python">class StaggeredGrid(Grid):
     &#34;&#34;&#34;
     N-dimensional grid whose vector components are sampled at the respective face centers.
-    A staggered grid is defined through its values tensor, its bounds describing the physical size and extrapolation.
+    A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
     
     Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
+
+    Use `grid()` with `type=StaggeredGrid` to create a staggered grid.
+    Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
     
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     &#34;&#34;&#34;
 
-    def __init__(self, values: TensorStack, bounds, extrapolation=math.extrapolation.ZERO):
+    def __init__(self, values: TensorStack, bounds: Box, extrapolation: math.Extrapolation):
+        &#34;&#34;&#34;
+        Args:
+            values: `phi.math.Tensor` containing all dimensions of this grid.
+                Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
+                Use `phi.math.channel_stack()` to manually create this non-uniform tensor.
+            bounds: Physical size and location of the grid.
+            extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+        &#34;&#34;&#34;
         values = _validate_staggered_values(values)
         any_dim = values.shape.spatial.names[0]
         x = values.vector[any_dim]
         resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - 1)
-        Grid.__init__(self, values, resolution, bounds, extrapolation)
-
-    @staticmethod
-    def sample(value: Field or Geometry or callable or Tensor or float or int,
-               resolution: Shape,
-               bounds: Box,
-               extrapolation=math.extrapolation.ZERO) -&gt; &#39;StaggeredGrid&#39;:
-        &#34;&#34;&#34;
-        Creates a StaggeredGrid from `value`.
-        `value` has to be one of the following:
-        
-        * Geometry: sets inside values to 1, outside to 0
-        * Field: resamples the Field to the staggered sample points
-        * float, int: uses the value for all sample points
-        * tuple, list: interprets the sequence as vector, used for all sample points
-        * Tensor compatible with grid dims: uses tensor values as grid values
-
-        Args:
-          value: values to use for the grid
-          resolution: grid resolution
-          bounds: physical grid bounds
-          extrapolation: return: Sampled values in staggered grid form matching domain resolution (Default value = math.extrapolation.ZERO)
-          value: Field or Geometry or callable or Tensor or float or int: 
-          resolution: Shape: 
-          bounds: Box: 
-
-        Returns:
-          Sampled values in staggered grid form matching domain resolution
-
-        &#34;&#34;&#34;
-        if isinstance(value, Geometry):
-            value = HardGeometryMask(value)
-        if isinstance(value, Field):
-            assert_same_rank(value.spatial_rank, bounds.spatial_rank, &#39;rank of value (%s) does not match domain (%s)&#39; % (value.spatial_rank, bounds.spatial_rank))
-            if isinstance(value, StaggeredGrid) and value.bounds == bounds and np.all(value.resolution == resolution):
-                return value
-            else:
-                components = value.vector.unstack(bounds.spatial_rank)
-                tensors = []
-                for dim, comp in zip(resolution.spatial.names, components):
-                    comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
-                    comp_grid = CenteredGrid.sample(comp, comp_cells.resolution, comp_cells.bounds, extrapolation)
-                    tensors.append(comp_grid.values)
-                return StaggeredGrid(math.channel_stack(tensors, &#39;vector&#39;), bounds, extrapolation)
-        else:  # value is function or constant
-            if callable(value):
-                points = GridCell(resolution, bounds).face_centers()
-                value = value(points)
-            value = wrap(value)
-            components = (value.staggered if &#39;staggered&#39; in value.shape else value.vector).unstack(resolution.spatial_rank)
-            tensors = []
-            for dim, component in zip(resolution.spatial.names, components):
-                comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
-                tensors.append(math.zeros(comp_cells.resolution) + component)
-            return StaggeredGrid(math.channel_stack(tensors, &#39;vector&#39;), bounds, extrapolation)
+        grids = [GridCell(resolution, bounds).extend_symmetric(dim, 1) for dim in values.shape.spatial.names]
+        elements = GeometryStack(grids, &#39;vector_&#39;, CHANNEL_DIM)
+        Grid.__init__(self, elements, values, extrapolation, resolution, bounds)
 
     def with_(self,
               elements: Geometry or None = None,
@@ -4919,78 +4133,52 @@ A staggered grid is defined through its values tensor, its bounds describing the
               extrapolation: math.Extrapolation = None,
               **other_attributes) -&gt; &#39;StaggeredGrid&#39;:
         assert elements is None
-        assert not other_attributes, other_attributes
+        assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
         values = _validate_staggered_values(values) if values is not None else self.values
-        return StaggeredGrid(values,
-                             self.bounds,
-                             extrapolation if extrapolation is not None else self._extrapolation)
+        return StaggeredGrid(values, self.bounds, extrapolation if extrapolation is not None else self._extrapolation)
 
     @property
     def cells(self):
         return GridCell(self.resolution, self.bounds)
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-        if self.elements.shallow_equals(geometry) and reduce_channels:
-            return self.values
-        if not reduce_channels:
-            channels = [component.sample_in(geometry) for component in self.unstack()]
-        else:
-            assert len(reduce_channels) == 1
-            geometries = geometry.unstack(reduce_channels[0])
-            channels = [component.sample_in(g) for g, component in zip(geometries, self.unstack())]
+    def _sample(self, geometry: Geometry) -&gt; Tensor:
+        channels = [sample(component, geometry) for component in self.vector.unstack()]
         return math.channel_stack(channels, &#39;vector&#39;)
 
-    def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-        if not reduce_channels:
-            channels = [component.sample_at(points) for component in self.unstack()]
+    def closest_values(self, points: Geometry):
+        assert &#39;vector&#39; not in points.shape
+        if &#39;vector_&#39; in points.shape:
+            points = points.unstack(&#39;vector_&#39;)
+            channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
         else:
-            assert len(reduce_channels) == 1
-            points = points.unstack(reduce_channels[0])
-            channels = [component.sample_at(p) for p, component in zip(points, self.unstack())]
-        return math.channel_stack(channels, &#39;vector&#39;)
-
-    def closest_values(self, points: Tensor, reduce_channels=()):
-        if not reduce_channels:
-            channels = [component.sample_at(points) for component in self.unstack()]
-        else:
-            assert len(reduce_channels) == 1
-            points = points.unstack(reduce_channels[0])
-            channels = [component.closest_values(p) for p, component in zip(points, self.unstack())]
+            channels = [component.closest_values(points) for component in self.vector.unstack()]
         return math.channel_stack(channels, &#39;vector&#39;)
 
     def at_centers(self) -&gt; CenteredGrid:
-        return CenteredGrid(self.sample_in(self.cells), self.bounds, self.extrapolation)
+        return grid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
-    def unstack(self, dimension=&#39;vector&#39;):
-        if dimension == &#39;vector&#39;:
-            result = []
-            for dim, data in zip(self.resolution.spatial.names, self.values.vector.unstack()):
-                comp_cells = GridCell(self.resolution, self._bounds).extend_symmetric(dim, 1)
-                result.append(CenteredGrid(data, comp_cells.bounds, self.extrapolation))
-            return tuple(result)
-        else:
-            values = self.values.unstack(dimension)
-            return tuple(self.with_(values=v) for v in values)
-
-    @property
-    def x(self) -&gt; CenteredGrid:
-        &#34;&#34;&#34; x component &#34;&#34;&#34;
-        return self.unstack()[self.resolution.index(&#39;x&#39;)]
-
-    @property
-    def y(self) -&gt; CenteredGrid:
-        &#34;&#34;&#34; y component &#34;&#34;&#34;
-        return self.unstack()[self.resolution.index(&#39;y&#39;)]
-
-    @property
-    def z(self) -&gt; CenteredGrid:
-        &#34;&#34;&#34; z component &#34;&#34;&#34;
-        return self.unstack()[self.resolution.index(&#39;z&#39;)]
-
-    @property
-    def elements(self):
-        grids = [grid.elements for grid in self.unstack()]
-        return GeometryStack(grids, &#39;staggered&#39;)
+    def __getitem__(self, item: dict):
+        values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
+        for dim, sel in item.items():
+            if dim in self.shape.spatial:
+                sel = slice(sel, sel + 1) if isinstance(sel, int) else sel
+                values = []
+                for vdim, val in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+                    if vdim == dim:
+                        values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
+                    else:
+                        values.append(val[{dim: sel}])
+                values = math.channel_stack(values, &#39;vector&#39;)
+        extrapolation = self._extrapolation[item]
+        bounds = GridCell(self._resolution, self._bounds)[item].bounds
+        if &#39;vector&#39; in item:
+            if isinstance(item[&#39;vector&#39;], int):
+                dim = self.shape.spatial.names[item[&#39;vector&#39;]]
+                comp_cells = GridCell(self.resolution, bounds).extend_symmetric(dim, 1)
+                return CenteredGrid(values, comp_cells.bounds, extrapolation)
+            else:
+                assert isinstance(item[&#39;vector&#39;], slice) and not item[&#39;vector&#39;].start and not item[&#39;vector&#39;].stop
+        return StaggeredGrid(values, bounds, extrapolation)
 
     def staggered_tensor(self):
         return stack_staggered_components(self.values)
@@ -5009,100 +4197,6 @@ A staggered grid is defined through its values tensor, its bounds describing the
 <li>phi.field._field.SampledField</li>
 <li>phi.field._field.Field</li>
 </ul>
-<h3>Static methods</h3>
-<dl>
-<dt id="phi.field.StaggeredGrid.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>value: phi.field._field.Field, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box, extrapolation=0) ‑> phi.field._grid.StaggeredGrid</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates a StaggeredGrid from <code>value</code>.
-<code>value</code> has to be one of the following:</p>
-<ul>
-<li>Geometry: sets inside values to 1, outside to 0</li>
-<li>Field: resamples the Field to the staggered sample points</li>
-<li>float, int: uses the value for all sample points</li>
-<li>tuple, list: interprets the sequence as vector, used for all sample points</li>
-<li>Tensor compatible with grid dims: uses tensor values as grid values</li>
-</ul>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>value</code></strong></dt>
-<dd>values to use for the grid</dd>
-<dt><strong><code>resolution</code></strong></dt>
-<dd>grid resolution</dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>physical grid bounds</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>return: Sampled values in staggered grid form matching domain resolution (Default value = math.extrapolation.ZERO)</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Field or Geometry or callable or Tensor or float or int: </dd>
-<dt><strong><code>resolution</code></strong></dt>
-<dd>Shape: </dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>Box: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values in staggered grid form matching domain resolution</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@staticmethod
-def sample(value: Field or Geometry or callable or Tensor or float or int,
-           resolution: Shape,
-           bounds: Box,
-           extrapolation=math.extrapolation.ZERO) -&gt; &#39;StaggeredGrid&#39;:
-    &#34;&#34;&#34;
-    Creates a StaggeredGrid from `value`.
-    `value` has to be one of the following:
-    
-    * Geometry: sets inside values to 1, outside to 0
-    * Field: resamples the Field to the staggered sample points
-    * float, int: uses the value for all sample points
-    * tuple, list: interprets the sequence as vector, used for all sample points
-    * Tensor compatible with grid dims: uses tensor values as grid values
-
-    Args:
-      value: values to use for the grid
-      resolution: grid resolution
-      bounds: physical grid bounds
-      extrapolation: return: Sampled values in staggered grid form matching domain resolution (Default value = math.extrapolation.ZERO)
-      value: Field or Geometry or callable or Tensor or float or int: 
-      resolution: Shape: 
-      bounds: Box: 
-
-    Returns:
-      Sampled values in staggered grid form matching domain resolution
-
-    &#34;&#34;&#34;
-    if isinstance(value, Geometry):
-        value = HardGeometryMask(value)
-    if isinstance(value, Field):
-        assert_same_rank(value.spatial_rank, bounds.spatial_rank, &#39;rank of value (%s) does not match domain (%s)&#39; % (value.spatial_rank, bounds.spatial_rank))
-        if isinstance(value, StaggeredGrid) and value.bounds == bounds and np.all(value.resolution == resolution):
-            return value
-        else:
-            components = value.vector.unstack(bounds.spatial_rank)
-            tensors = []
-            for dim, comp in zip(resolution.spatial.names, components):
-                comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
-                comp_grid = CenteredGrid.sample(comp, comp_cells.resolution, comp_cells.bounds, extrapolation)
-                tensors.append(comp_grid.values)
-            return StaggeredGrid(math.channel_stack(tensors, &#39;vector&#39;), bounds, extrapolation)
-    else:  # value is function or constant
-        if callable(value):
-            points = GridCell(resolution, bounds).face_centers()
-            value = value(points)
-        value = wrap(value)
-        components = (value.staggered if &#39;staggered&#39; in value.shape else value.vector).unstack(resolution.spatial_rank)
-        tensors = []
-        for dim, component in zip(resolution.spatial.names, components):
-            comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
-            tensors.append(math.zeros(comp_cells.resolution) + component)
-        return StaggeredGrid(math.channel_stack(tensors, &#39;vector&#39;), bounds, extrapolation)</code></pre>
-</details>
-</dd>
-</dl>
 <h3>Instance variables</h3>
 <dl>
 <dt id="phi.field.StaggeredGrid.cells"><code class="name">var <span class="ident">cells</span></code></dt>
@@ -5115,61 +4209,6 @@ def sample(value: Field or Geometry or callable or Tensor or float or int,
 <pre><code class="python">@property
 def cells(self):
     return GridCell(self.resolution, self.bounds)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.elements"><code class="name">var <span class="ident">elements</span></code></dt>
-<dd>
-<div class="desc"><p>Returns a geometrical representation of the discretized volume elements.
-The result is a tuple of Geometry objects, each of which can have additional spatial (but not batch) dimensions.</p>
-<p>For grids, the geometries are boxes while particle fields may be represented as spheres.</p>
-<p>If this Field has no discrete points, this method returns an empty geometry.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def elements(self):
-    grids = [grid.elements for grid in self.unstack()]
-    return GeometryStack(grids, &#39;staggered&#39;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.x"><code class="name">var <span class="ident">x</span> : phi.field._grid.CenteredGrid</code></dt>
-<dd>
-<div class="desc"><p>x component</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def x(self) -&gt; CenteredGrid:
-    &#34;&#34;&#34; x component &#34;&#34;&#34;
-    return self.unstack()[self.resolution.index(&#39;x&#39;)]</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.y"><code class="name">var <span class="ident">y</span> : phi.field._grid.CenteredGrid</code></dt>
-<dd>
-<div class="desc"><p>y component</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def y(self) -&gt; CenteredGrid:
-    &#34;&#34;&#34; y component &#34;&#34;&#34;
-    return self.unstack()[self.resolution.index(&#39;y&#39;)]</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.z"><code class="name">var <span class="ident">z</span> : phi.field._grid.CenteredGrid</code></dt>
-<dd>
-<div class="desc"><p>z component</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def z(self) -&gt; CenteredGrid:
-    &#34;&#34;&#34; z component &#34;&#34;&#34;
-    return self.unstack()[self.resolution.index(&#39;z&#39;)]</code></pre>
 </details>
 </dd>
 </dl>
@@ -5185,11 +4224,11 @@ def z(self) -&gt; CenteredGrid:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def at_centers(self) -&gt; CenteredGrid:
-    return CenteredGrid(self.sample_in(self.cells), self.bounds, self.extrapolation)</code></pre>
+    return grid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.closest_values"><code class="name flex">
-<span>def <span class="ident">closest_values</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=())</span>
+<span>def <span class="ident">closest_values</span></span>(<span>self, points: phi.geom._geom.Geometry)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sample the closest grid point values of this field at the world-space locations (in physical units) given by <code>points</code>.
@@ -5199,8 +4238,6 @@ It may additionally contain any number of batch and spatial dimensions, all trea
 <dl>
 <dt><strong><code>points</code></strong></dt>
 <dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>(optional) See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code> for a description.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Closest grid point values as a <code>Tensor</code>.
@@ -5211,95 +4248,13 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def closest_values(self, points: Tensor, reduce_channels=()):
-    if not reduce_channels:
-        channels = [component.sample_at(points) for component in self.unstack()]
+<pre><code class="python">def closest_values(self, points: Geometry):
+    assert &#39;vector&#39; not in points.shape
+    if &#39;vector_&#39; in points.shape:
+        points = points.unstack(&#39;vector_&#39;)
+        channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
     else:
-        assert len(reduce_channels) == 1
-        points = points.unstack(reduce_channels[0])
-        channels = [component.closest_values(p) for p, component in zip(points, self.unstack())]
-    return math.channel_stack(channels, &#39;vector&#39;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.sample_at"><code class="name flex">
-<span>def <span class="ident">sample_at</span></span>(<span>self, points: phi.math._tensors.Tensor, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample this field at the world-space locations (in physical units) given by <code>points</code>.
-Points must have a single channel dimension named <code>vector</code>.
-It may additionally contain any number of batch and spatial dimensions, all treated as batch dimensions.</p>
-<p>See <code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">Field.sample_in()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>points</code></strong></dt>
-<dd>world-space locations</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_at(self, points: Tensor, reduce_channels=()) -&gt; Tensor:
-    if not reduce_channels:
-        channels = [component.sample_at(points) for component in self.unstack()]
-    else:
-        assert len(reduce_channels) == 1
-        points = points.unstack(reduce_channels[0])
-        channels = [component.sample_at(p) for p, component in zip(points, self.unstack())]
-    return math.channel_stack(channels, &#39;vector&#39;)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.sample_in"><code class="name flex">
-<span>def <span class="ident">sample_in</span></span>(<span>self, geometry: phi.geom._geom.Geometry, reduce_channels=()) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Approximates the mean field value inside the volume of the geometry (batch).</p>
-<p>For small volumes, the value at the volume's center may be sampled.
-The batch dimensions of the geometry are matched with this Field.
-Spatial dimensions can be used to sample a grid of geometries.</p>
-<p>The default implementation of this method samples this Field at the center point of the geometry.</p>
-<p>See <code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">Field.sample_at()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>geometry</code></strong></dt>
-<dd>single or batched Geometry object</dd>
-<dt><strong><code>reduce_channels</code></strong></dt>
-<dd>
-<p>(optional) Dimensions of <code>points</code> to be reduced against the channel dimensions of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
-Causes the components of this field to be sampled at different locations.
-The result is the same as <code>math.channel_stack([component.sample_at(p) for component, p in zip(field.unstack('vector'), points.unstack(reduce)])</code>
-assuming this field as a single channel dimension called <code>vector</code>.</p>
-<p>Example:
-While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">StaggeredGrid.sample_at()</a>(staggered_points)</code> samples all components at all faces,
-<code>StaggeredGrid.sample_at(staggered_points, reduce_channels='staggered')</code> samples each component at the corresponding face only.</p>
-</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Sampled values as a <code>Tensor</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sample_in(self, geometry: Geometry, reduce_channels=()) -&gt; Tensor:
-    if self.elements.shallow_equals(geometry) and reduce_channels:
-        return self.values
-    if not reduce_channels:
-        channels = [component.sample_in(geometry) for component in self.unstack()]
-    else:
-        assert len(reduce_channels) == 1
-        geometries = geometry.unstack(reduce_channels[0])
-        channels = [component.sample_in(g) for g, component in zip(geometries, self.unstack())]
+        channels = [component.closest_values(points) for component in self.vector.unstack()]
     return math.channel_stack(channels, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
@@ -5314,37 +4269,6 @@ While <code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.Stagge
 </summary>
 <pre><code class="python">def staggered_tensor(self):
     return stack_staggered_components(self.values)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension='vector')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstack the field along one of its dimensions.
-The dimension can be batch, spatial or channel.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>name of the dimension to unstack, must be part of <code>self.shape</code></dd>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>tuple of Fields</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension=&#39;vector&#39;):
-    if dimension == &#39;vector&#39;:
-        result = []
-        for dim, data in zip(self.resolution.spatial.names, self.values.vector.unstack()):
-            comp_cells = GridCell(self.resolution, self._bounds).extend_symmetric(dim, 1)
-            result.append(CenteredGrid(data, comp_cells.bounds, self.extrapolation))
-        return tuple(result)
-    else:
-        values = self.values.unstack(dimension)
-        return tuple(self.with_(values=v) for v in values)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.with_"><code class="name flex">
@@ -5362,11 +4286,9 @@ The dimension can be batch, spatial or channel.</p>
           extrapolation: math.Extrapolation = None,
           **other_attributes) -&gt; &#39;StaggeredGrid&#39;:
     assert elements is None
-    assert not other_attributes, other_attributes
+    assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
     values = _validate_staggered_values(values) if values is not None else self.values
-    return StaggeredGrid(values,
-                         self.bounds,
-                         extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
+    return StaggeredGrid(values, self.bounds, extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
 </details>
 </dd>
 </dl>
@@ -5406,6 +4328,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.fourier_poisson" href="#phi.field.fourier_poisson">fourier_poisson</a></code></li>
 <li><code><a title="phi.field.frequency_loss" href="#phi.field.frequency_loss">frequency_loss</a></code></li>
 <li><code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient</a></code></li>
+<li><code><a title="phi.field.grid" href="#phi.field.grid">grid</a></code></li>
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
 <li><code><a title="phi.field.isfinite" href="#phi.field.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile</a></code></li>
@@ -5420,7 +4343,9 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.pad" href="#phi.field.pad">pad</a></code></li>
 <li><code><a title="phi.field.read" href="#phi.field.read">read</a></code></li>
 <li><code><a title="phi.field.real" href="#phi.field.real">real</a></code></li>
+<li><code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample</a></code></li>
 <li><code><a title="phi.field.round" href="#phi.field.round">round</a></code></li>
+<li><code><a title="phi.field.sample" href="#phi.field.sample">sample</a></code></li>
 <li><code><a title="phi.field.shift" href="#phi.field.shift">shift</a></code></li>
 <li><code><a title="phi.field.sign" href="#phi.field.sign">sign</a></code></li>
 <li><code><a title="phi.field.sin" href="#phi.field.sin">sin</a></code></li>
@@ -5430,6 +4355,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
+<li><code><a title="phi.field.unstack" href="#phi.field.unstack">unstack</a></code></li>
 <li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
 <li><code><a title="phi.field.upsample2x" href="#phi.field.upsample2x">upsample2x</a></code></li>
 <li><code><a title="phi.field.vec_abs" href="#phi.field.vec_abs">vec_abs</a></code></li>
@@ -5443,39 +4369,30 @@ The dimension can be batch, spatial or channel.</p>
 <li>
 <h4><code><a title="phi.field.AngularVelocity" href="#phi.field.AngularVelocity">AngularVelocity</a></code></h4>
 <ul class="">
-<li><code><a title="phi.field.AngularVelocity.sample_at" href="#phi.field.AngularVelocity.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.AngularVelocity.shape" href="#phi.field.AngularVelocity.shape">shape</a></code></li>
-<li><code><a title="phi.field.AngularVelocity.unstack" href="#phi.field.AngularVelocity.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code></h4>
 <ul class="">
 <li><code><a title="phi.field.CenteredGrid.closest_values" href="#phi.field.CenteredGrid.closest_values">closest_values</a></code></li>
-<li><code><a title="phi.field.CenteredGrid.sample" href="#phi.field.CenteredGrid.sample">sample</a></code></li>
-<li><code><a title="phi.field.CenteredGrid.sample_at" href="#phi.field.CenteredGrid.sample_at">sample_at</a></code></li>
-<li><code><a title="phi.field.CenteredGrid.sample_in" href="#phi.field.CenteredGrid.sample_in">sample_in</a></code></li>
 <li><code><a title="phi.field.CenteredGrid.with_" href="#phi.field.CenteredGrid.with_">with_</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="phi.field.ConstantField" href="#phi.field.ConstantField">ConstantField</a></code></h4>
 <ul class="">
-<li><code><a title="phi.field.ConstantField.sample_at" href="#phi.field.ConstantField.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.ConstantField.shape" href="#phi.field.ConstantField.shape">shape</a></code></li>
 <li><code><a title="phi.field.ConstantField.unstack" href="#phi.field.ConstantField.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="phi.field.Field.at" href="#phi.field.Field.at">at</a></code></li>
 <li><code><a title="phi.field.Field.dimension" href="#phi.field.Field.dimension">dimension</a></code></li>
-<li><code><a title="phi.field.Field.sample_at" href="#phi.field.Field.sample_at">sample_at</a></code></li>
-<li><code><a title="phi.field.Field.sample_in" href="#phi.field.Field.sample_in">sample_in</a></code></li>
 <li><code><a title="phi.field.Field.shape" href="#phi.field.Field.shape">shape</a></code></li>
 <li><code><a title="phi.field.Field.spatial_rank" href="#phi.field.Field.spatial_rank">spatial_rank</a></code></li>
-<li><code><a title="phi.field.Field.unstack" href="#phi.field.Field.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
@@ -5486,25 +4403,21 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.Grid.closest_values" href="#phi.field.Grid.closest_values">closest_values</a></code></li>
 <li><code><a title="phi.field.Grid.dx" href="#phi.field.Grid.dx">dx</a></code></li>
 <li><code><a title="phi.field.Grid.resolution" href="#phi.field.Grid.resolution">resolution</a></code></li>
-<li><code><a title="phi.field.Grid.sample_at" href="#phi.field.Grid.sample_at">sample_at</a></code></li>
+<li><code><a title="phi.field.Grid.shape" href="#phi.field.Grid.shape">shape</a></code></li>
+<li><code><a title="phi.field.Grid.with_" href="#phi.field.Grid.with_">with_</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="phi.field.HardGeometryMask" href="#phi.field.HardGeometryMask">HardGeometryMask</a></code></h4>
 <ul class="">
-<li><code><a title="phi.field.HardGeometryMask.sample_at" href="#phi.field.HardGeometryMask.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.HardGeometryMask.shape" href="#phi.field.HardGeometryMask.shape">shape</a></code></li>
-<li><code><a title="phi.field.HardGeometryMask.unstack" href="#phi.field.HardGeometryMask.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="phi.field.Noise" href="#phi.field.Noise">Noise</a></code></h4>
 <ul class="">
 <li><code><a title="phi.field.Noise.grid_sample" href="#phi.field.Noise.grid_sample">grid_sample</a></code></li>
-<li><code><a title="phi.field.Noise.sample_at" href="#phi.field.Noise.sample_at">sample_at</a></code></li>
-<li><code><a title="phi.field.Noise.sample_in" href="#phi.field.Noise.sample_in">sample_in</a></code></li>
 <li><code><a title="phi.field.Noise.shape" href="#phi.field.Noise.shape">shape</a></code></li>
-<li><code><a title="phi.field.Noise.unstack" href="#phi.field.Noise.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>
@@ -5512,8 +4425,7 @@ The dimension can be batch, spatial or channel.</p>
 <ul class="">
 <li><code><a title="phi.field.PointCloud.bounds" href="#phi.field.PointCloud.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.PointCloud.color" href="#phi.field.PointCloud.color">color</a></code></li>
-<li><code><a title="phi.field.PointCloud.sample_at" href="#phi.field.PointCloud.sample_at">sample_at</a></code></li>
-<li><code><a title="phi.field.PointCloud.sample_in" href="#phi.field.PointCloud.sample_in">sample_in</a></code></li>
+<li><code><a title="phi.field.PointCloud.shape" href="#phi.field.PointCloud.shape">shape</a></code></li>
 <li><code><a title="phi.field.PointCloud.with_" href="#phi.field.PointCloud.with_">with_</a></code></li>
 </ul>
 </li>
@@ -5524,9 +4436,7 @@ The dimension can be batch, spatial or channel.</p>
 <li><code><a title="phi.field.SampledField.elements" href="#phi.field.SampledField.elements">elements</a></code></li>
 <li><code><a title="phi.field.SampledField.extrapolation" href="#phi.field.SampledField.extrapolation">extrapolation</a></code></li>
 <li><code><a title="phi.field.SampledField.points" href="#phi.field.SampledField.points">points</a></code></li>
-<li><code><a title="phi.field.SampledField.sample_at" href="#phi.field.SampledField.sample_at">sample_at</a></code></li>
 <li><code><a title="phi.field.SampledField.shape" href="#phi.field.SampledField.shape">shape</a></code></li>
-<li><code><a title="phi.field.SampledField.unstack" href="#phi.field.SampledField.unstack">unstack</a></code></li>
 <li><code><a title="phi.field.SampledField.values" href="#phi.field.SampledField.values">values</a></code></li>
 <li><code><a title="phi.field.SampledField.with_" href="#phi.field.SampledField.with_">with_</a></code></li>
 </ul>
@@ -5564,36 +4474,18 @@ The dimension can be batch, spatial or channel.</p>
 </li>
 <li>
 <h4><code><a title="phi.field.SoftGeometryMask" href="#phi.field.SoftGeometryMask">SoftGeometryMask</a></code></h4>
-<ul class="">
-<li><code><a title="phi.field.SoftGeometryMask.sample_at" href="#phi.field.SoftGeometryMask.sample_at">sample_at</a></code></li>
-<li><code><a title="phi.field.SoftGeometryMask.sample_in" href="#phi.field.SoftGeometryMask.sample_in">sample_in</a></code></li>
-<li><code><a title="phi.field.SoftGeometryMask.unstack" href="#phi.field.SoftGeometryMask.unstack">unstack</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="phi.field.SoftGeometryMask" href="#phi.field.SoftGeometryMask">SoftGeometryMask</a></code></h4>
-<ul class="">
-<li><code><a title="phi.field.SoftGeometryMask.sample_at" href="#phi.field.SoftGeometryMask.sample_at">sample_at</a></code></li>
-<li><code><a title="phi.field.SoftGeometryMask.sample_in" href="#phi.field.SoftGeometryMask.sample_in">sample_in</a></code></li>
-<li><code><a title="phi.field.SoftGeometryMask.unstack" href="#phi.field.SoftGeometryMask.unstack">unstack</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="phi.field.StaggeredGrid.at_centers" href="#phi.field.StaggeredGrid.at_centers">at_centers</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.cells" href="#phi.field.StaggeredGrid.cells">cells</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.closest_values" href="#phi.field.StaggeredGrid.closest_values">closest_values</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.elements" href="#phi.field.StaggeredGrid.elements">elements</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.sample" href="#phi.field.StaggeredGrid.sample">sample</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.sample_at" href="#phi.field.StaggeredGrid.sample_at">sample_at</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.sample_in" href="#phi.field.StaggeredGrid.sample_in">sample_in</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.staggered_tensor" href="#phi.field.StaggeredGrid.staggered_tensor">staggered_tensor</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.unstack" href="#phi.field.StaggeredGrid.unstack">unstack</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.with_" href="#phi.field.StaggeredGrid.with_">with_</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.x" href="#phi.field.StaggeredGrid.x">x</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.y" href="#phi.field.StaggeredGrid.y">y</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.z" href="#phi.field.StaggeredGrid.z">z</a></code></li>
 </ul>
 </li>
 </ul>

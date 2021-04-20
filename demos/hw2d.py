@@ -107,7 +107,7 @@ def step_gradient_2d(plasma, phi, dt=0):
         return arr
 
     # Calculate Gradients
-    dx_p, dy_p = field.spatial_gradient(phi).unstack("vector")
+    dx_p, dy_p = field.unstack(field.spatial_gradient(phi), 'vector')
     # Get difference
     diff = phi - plasma.density
     # Step 2.1: New Omega.

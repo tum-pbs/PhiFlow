@@ -1,6 +1,6 @@
 from phi import math
 from ._geom import Geometry
-from ..math._shape import shape_stack, Shape, BATCH_DIM
+from ..math._shape import shape_stack, Shape, BATCH_DIM, _infer_dim_type_from_name
 
 
 class GeometryStack(Geometry):
@@ -8,13 +8,14 @@ class GeometryStack(Geometry):
     def __init__(self, geometries: tuple or list, dim_name: str, dim_type: str):
         self.geometries = tuple(geometries)
         self.stack_dim_name = dim_name
+        self.stack_dim_type = dim_type
         self._shape = shape_stack(dim_name, dim_type, *[g.shape for g in geometries])
 
     def unstack(self, dimension):
         if dimension == self.stack_dim_name:
             return self.geometries
         else:
-            return GeometryStack([g.unstack(dimension) for g in self.geometries], self.stack_dim_name)
+            return GeometryStack([g.unstack(dimension) for g in self.geometries], self.stack_dim_name, self.stack_dim_type)
 
     @property
     def center(self):
@@ -47,11 +48,11 @@ class GeometryStack(Geometry):
     def shifted(self, delta: math.Tensor):
         deltas = delta.dimension(self.stack_dim_name).unstack(len(self.geometries))
         geometries = [g.shifted(d) for g, d in zip(self.geometries, deltas)]
-        return GeometryStack(geometries, self.stack_dim_name)
+        return GeometryStack(geometries, self.stack_dim_name, self.stack_dim_type)
 
     def rotated(self, angle):
         geometries = [g.rotated(angle) for g in self.geometries]
-        return GeometryStack(geometries, self.stack_dim_name)
+        return GeometryStack(geometries, self.stack_dim_name, self.stack_dim_type)
 
     def __eq__(self, other):
         return isinstance(other, GeometryStack) \
@@ -73,4 +74,4 @@ class GeometryStack(Geometry):
 
 
 def stack(*geometries: Geometry, dim: str):
-    return GeometryStack(geometries, dim)
+    return GeometryStack(geometries, dim, _infer_dim_type_from_name(dim))

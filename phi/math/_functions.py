@@ -1387,7 +1387,7 @@ def expand(value: Tensor, add_shape: Shape = EMPTY_SHAPE, **dims):
 def _expand_dims(value: Tensor, new_dims: Shape):
     value = wrap(value)
     shape = value.shape
-    for size, dim, dim_type in new_dims.dimensions:
+    for size, dim, dim_type in new_dims.reversed.dimensions:
         if dim in value.shape:
             assert shape.get_size(dim) == size
             assert shape.get_type(dim) == dim_type
@@ -1641,6 +1641,7 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False
             assert not len(kwargs)
             shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
             if self.gradf is None:
+                assert backend.supports(Backend.functional_gradient), f"{backend} does not support gradients. Use a different backend instead. For more information, see https://tum-pbs.github.io/PhiFlow/Optimization.html"
                 self.gradf = backend.functional_gradient(native_function, shifted_wrt, get_output=get_output)
             return self.gradf(*args)
 

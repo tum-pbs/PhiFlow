@@ -22,7 +22,7 @@ class ConstantField(Field):
     def _op2(self, other, operator) -> Field:
         return ConstantField(operator(self.value, other))
 
-    def sample_at(self, points, reduce_channels=()) -> math.Tensor:
+    def _sample(self, geometry: Geometry) -> math.Tensor:
         return self.value
 
     def __getitem__(self, item):

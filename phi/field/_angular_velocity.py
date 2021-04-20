@@ -3,31 +3,31 @@ from collections import Callable
 from phi import math
 
 from ._field import Field
+from ..geom import Geometry
 from ..math import Shape, GLOBAL_AXIS_ORDER
 
 
 class AngularVelocity(Field):
 
-    def __init__(self, location, strength=1.0, falloff: Callable = None):
+    def __init__(self, location, strength=1.0, falloff: Callable = None, component: str = None):
         location = math.wrap(location)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
         assert location.shape.spatial.is_empty, "location tensor cannot have any spatial dimensions"
         self.location = location
         self.strength = strength
         self.falloff = falloff
+        self.component = component
         spatial_names = [GLOBAL_AXIS_ORDER.axis_name(i, location.vector.size) for i in range(location.vector.size)]
         self._shape = location.shape.combined(math.spatial_shape([1] * location.vector.size, spatial_names))
 
-    def sample_at(self, points, reduce_channels=()) -> math.Tensor:
+    def _sample(self, geometry: Geometry) -> math.Tensor:
+        points = geometry.center
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            velocities = [math.cross_product(strength, dist).vector[i] for i, dist in enumerate(distances.unstack(reduce_channels[0]))]  # TODO this is inefficient, computes components that are discarded
-            velocity = math.channel_stack(velocities, 'vector')
-        else:
-            velocity = math.cross_product(strength, distances)
+        velocity = math.cross_product(strength, distances)
         velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
+        if self.component:
+            velocity = velocity.vector[self.component]
         return velocity
 
     @property
@@ -35,4 +35,10 @@ class AngularVelocity(Field):
         return self._shape
 
     def __getitem__(self, item: dict):
-        raise NotImplementedError()
+        assert all(dim == 'vector' for dim in item), f"Cannot slice AngularVelocity with {item}"
+        if 'vector' in item:
+            assert item['vector'] == 0 or self.component is None
+            component = self.shape.spatial.names[item['vector']]
+            return AngularVelocity(location=self.location, strength=self.strength, falloff=self.falloff, component=component)
+        else:
+            return self

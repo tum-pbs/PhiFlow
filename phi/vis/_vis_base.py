@@ -415,8 +415,7 @@ def select_channel(value: SampledField, channel: str or None):
             return value
     else:  # x, y, z
         if channel in value.shape.spatial and 'vector' in value.shape:
-            comp_index = value.shape.spatial.index(channel)
-            return value.unstack('vector')[comp_index]
+            return value.vector[channel]
         elif 'vector' in value.shape:
             raise ValueError(f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
         else:

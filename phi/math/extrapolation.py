@@ -566,7 +566,7 @@ class _MixedExtrapolation(Extrapolation):
           extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
         Extrapolation.__init__(self, None)
-        self.ext = {ax: (e, e) if isinstance(e, Extrapolation) else tuple(e) for ax, e in extrapolations.items()}
+        self.ext = {dim: (e, e) if isinstance(e, Extrapolation) else tuple(e) for dim, e in extrapolations.items()}
 
     def to_dict(self) -> dict:
         return {
@@ -641,8 +641,11 @@ class _MixedExtrapolation(Extrapolation):
             return math.channel_stack(result, 'vector')
 
     def __getitem__(self, item):
-        dim, face = item
-        return self.ext[dim][face]
+        if isinstance(item, dict):
+            return combine_sides({dim: (e1[item], e2[item]) for dim, (e1, e2) in self.ext.items()})
+        else:
+            dim, face = item
+            return self.ext[dim][face]
 
     def __add__(self, other):
         return self._op2(other, lambda e1, e2: e1 + e2)

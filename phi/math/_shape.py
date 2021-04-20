@@ -323,6 +323,10 @@ class Shape:
     def alphabetically(self):
         return self.reorder(sorted(self.names))
 
+    @property
+    def reversed(self) -> 'Shape':
+        return Shape(tuple(reversed(self.sizes)), tuple(reversed(self.names)), tuple(reversed(self.types)))
+
     def combined(self, other: 'Shape', combine_spatial=False) -> 'Shape':
         """
         Returns a Shape object that both `self` and `other` can be broadcast to.

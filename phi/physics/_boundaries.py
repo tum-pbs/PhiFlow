@@ -9,6 +9,7 @@ from phi.math import Tensor
 from phi.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
 from phi.math import spatial_shape
 from ._physics import State
+from ..field._grid import grid
 from ..math.extrapolation import combine_sides
 
 
@@ -135,8 +136,6 @@ class Domain:
              type: type = CenteredGrid,
              extrapolation: math.Extrapolation = 'scalar') -> CenteredGrid or StaggeredGrid:
         """
-        *Deprecated* due to inconsistent extrapolation selection. Use `scalar_grid()` or `vector_grid()` instead.
-
         Creates a grid matching the resolution and bounds of the domain.
         The grid is created from the given `value` which must be one of the following:
         
@@ -152,15 +151,10 @@ class Domain:
           extrapolation: (optional) grid extrapolation, defaults to Domain.boundaries['scalar']
 
         Returns:
-          Grid of specified type
+            Grid of specified type
         """
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        if type is CenteredGrid:
-            return CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-        elif type is StaggeredGrid:
-            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-        else:
-            raise ValueError('Unknown grid type: %s' % type)
+        return grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
 
     def scalar_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
@@ -198,7 +192,7 @@ class Domain:
             except AssertionError:
                 pass
             value = math.wrap(value)
-        result = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         assert result.shape.channel_rank == 0
         return result
 
@@ -225,20 +219,14 @@ class Domain:
 
         Returns:
           Grid of specified type
-
         """
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        if type is CenteredGrid:
-            grid = CenteredGrid.sample(value, self.resolution, self.bounds, extrapolation)
-            if grid.shape.channel.rank == 0:
-                grid = grid.with_(values=math.expand_channel(grid.values, vector=self.rank))
-            else:
-                assert grid.shape.channel.sizes[0] == self.rank
-            return grid
-        elif type is StaggeredGrid:
-            return StaggeredGrid.sample(value, self.resolution, self.bounds, extrapolation)
+        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+        if result.shape.channel_rank == 0:
+            result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
         else:
-            raise ValueError('Unknown grid type: %s' % type)
+            assert result.shape.vector == self.rank
+        return result
 
     def staggered_grid(self,
                        value: Field or Tensor or Number or Geometry or callable = 0.,

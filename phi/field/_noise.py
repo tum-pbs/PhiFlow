@@ -7,18 +7,20 @@ from ._field import Field
 
 
 class Noise(Field):
+    """
+    Generates random noise fluctuations which can be configured in physical size and smoothness.
+    Each time values are sampled from a Noise field, a new noise field is generated.
+
+    Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
+    """
 
     def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **dims):
         """
-        Generates random noise fluctuations which can be configured in physical size and smoothness.
-            Each time values are sampled from a Noise field, a new noise field is generated.
-
-            Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
-
         Args:
-          channels: Number of independent random scalar fields this Field consists of
-          scale: Size of noise fluctuations in physical units
-          smoothness: Determines how quickly high frequencies die out
+          shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
+          scale: Size of noise fluctuations in physical units.
+          smoothness: Determines how quickly high frequencies die out.
+          **dims: Additional dimensions, added to `shape`.
         """
         self.scale = scale
         self.smoothness = smoothness
@@ -28,20 +30,10 @@ class Noise(Field):
     def shape(self):
         return self._shape
 
-    def sample_in(self, geometry: Geometry) -> Tensor:
-        if 'vector' in geometry.shape:
-            shape = self._shape.non_channel.without(reduce_channels)
-            assert len(reduce_channels) == 1
-            geoms = geometry.unstack(reduce_channels[0])
-            assert all(isinstance(g, GridCell) for g in geoms)
-            components = [self.grid_sample(g.resolution, g.grid_size, shape) for g in geoms]
-            return math.channel_stack(components, 'vector')
+    def _sample(self, geometry: Geometry) -> Tensor:
         if isinstance(geometry, GridCell):
             return self.grid_sample(geometry.resolution, geometry.grid_size)
         raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")
-
-    def sample_at(self, points, reduce_channels=()) -> math.Tensor:
-        raise NotImplementedError()
 
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
         shape = (self._shape if shape is None else shape).combined(resolution)

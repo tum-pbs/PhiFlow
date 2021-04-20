@@ -1,21 +1,26 @@
 """
 The fields module provides a number of data structures and functions to represent continuous, spatially varying data.
 
-All fields are subclasses of Field which provides abstract functions for sampling field values at physical locations.
+All fields are subclasses of `Field` which provides abstract functions for sampling field values at physical locations.
 
-The most commonly used field types are
+The most important field types are:
 
-* CenteredGrid embeds a tensor in the physical space. Uses linear interpolation between grid points.
-* StaggeredGrid samples the vector components at face centers instead of at cell centers.
-* Noise is a function that produces a procedurally generated noise field
+* `CenteredGrid` embeds a tensor in the physical space. Uses linear interpolation between grid points.
+* `StaggeredGrid` samples the vector components at face centers instead of at cell centers.
+* `Noise` is a function that produces a procedurally generated noise field
+
+Use `grid()` to create a `Grid` from data or by sampling another `Field` or `phi.geom.Geometry`.
+Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
+
+All fields can be sampled at physical locations or volumes using `sample()` or `reduce_sample()`.
 
 See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 """
 
-from ._field import Field, SampledField, unstack
+from ._field import Field, SampledField, unstack, sample, reduce_sample
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
-from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
+from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components, grid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity

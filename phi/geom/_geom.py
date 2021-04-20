@@ -26,7 +26,7 @@ class Geometry:
         """
         Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     @property
     def shape(self) -> Shape:
@@ -208,8 +208,8 @@ class Geometry:
             return False
         if self.shape != other.shape:
             return False
-        c1 = self.__characteristics__()
-        c2 = other.__characteristics__()
+        c1 = self._characteristics_()
+        c2 = other._characteristics_()
         for c in c1.keys():
             if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
                 return False
@@ -229,8 +229,8 @@ class Geometry:
             return False
         if self.shape != other.shape:
             return False
-        c1 = self.__characteristics__()
-        c2 = other.__characteristics__()
+        c1 = self._characteristics_()
+        c2 = other._characteristics_()
         for c in c1.keys():
             if c1[c] is not c2[c]:
                 return False
@@ -242,10 +242,10 @@ class Geometry:
     def __hash__(self):
         raise NotImplementedError(self.__class__)
 
-    def __characteristics__(self) -> Dict[str, math.Tensor]:
+    def _characteristics_(self) -> Dict[str, math.Tensor]:
         raise NotImplementedError(self.__class__)
 
-    def __with__(self, **attributes):
+    def _with_(self, **attributes):
         copied = copy.copy(self)
         for name, val in attributes.items():
             setattr(copied, name, val)
@@ -256,8 +256,9 @@ class Geometry:
 
     def __getitem__(self, item: dict):
         assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
-        characteristics = {n: c[item] for n, c in self.__characteristics__().items()}
-        return self.__with__(**characteristics)
+        item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
+        characteristics = {n: c[item] for n, c in self._characteristics_().items()}
+        return self._with_(**characteristics)
 
 
 class _InvertedGeometry(Geometry):
@@ -349,6 +350,50 @@ class _NoGeometry(Geometry):
 
 
 NO_GEOMETRY = _NoGeometry()
+
+
+class Point(Geometry):
+
+    def __init__(self, location: math.Tensor):
+        self._location = location
+
+    @property
+    def center(self) -> Tensor:
+        return self._location
+
+    @property
+    def shape(self) -> Shape:
+        return self._location.shape.without('vector')
+
+    def unstack(self, dimension: str) -> tuple:
+        return tuple(Point(loc) for loc in self._location.unstack(dimension))
+
+    def lies_inside(self, location: Tensor) -> Tensor:
+        return math.wrap(False)
+
+    def approximate_signed_distance(self, location: Tensor) -> Tensor:
+        return math.vec_abs(location - self._location)
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        return positions
+
+    def bounding_radius(self) -> Tensor:
+        return math.zeros()
+
+    def bounding_half_extent(self) -> Tensor:
+        return math.zeros()
+
+    def shifted(self, delta: Tensor) -> 'Geometry':
+        return Point(self._location + delta)
+
+    def rotated(self, angle) -> 'Geometry':
+        return self
+
+    def __hash__(self):
+        return hash(self._location)
+
+    def _characteristics_(self) -> Dict[str, math.Tensor]:
+        return {'location': self._location}
 
 
 def assert_same_rank(rank1, rank2, error_message):

@@ -10,7 +10,7 @@ Examples:
 import warnings
 
 from phi import math
-from phi.field import SampledField, ConstantField, StaggeredGrid, CenteredGrid, Field, PointCloud, extrapolate_valid, Grid
+from phi.field import SampledField, ConstantField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
 from phi.field._field_math import GridType
 from phi.geom import Geometry
 
@@ -18,17 +18,17 @@ from phi.geom import Geometry
 def euler(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
     """ Euler integrator. """
     if v0 is None:
-        v0 = velocity.sample_in(elements)
+        v0 = sample(velocity, elements)
     return elements.shifted(v0 * dt)
 
 
 def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
     """ Runge-Kutta-4 integrator. """
     if v0 is None:
-        v0 = velocity.sample_in(elements)
-    vel_half = velocity.sample_in(elements.shifted(0.5 * dt * v0))
-    vel_half2 = velocity.sample_in(elements.shifted(0.5 * dt * vel_half))
-    vel_full = velocity.sample_in(elements.shifted(dt * vel_half2))
+        v0 = sample(velocity, elements)
+    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
+    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
+    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
     vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
     return elements.shifted(dt * vel_rk4)
 
@@ -103,7 +103,7 @@ def semi_lagrangian(field: GridType,
 
     """
     lookup = integrator(field.elements, velocity, -dt)
-    interpolated = field.sample_in(lookup, reduce_channels=lookup.shape.without(field.shape).names)
+    interpolated = reduce_sample(field, lookup)
     return field.with_(values=interpolated)
 
 
@@ -129,18 +129,17 @@ def mac_cormack(field: GridType,
         Advected field of type `type(field)`
 
     """
-    v0 = velocity.sample_in(field.elements)
+    v0 = sample(velocity, field.elements)
     points_bwd = integrator(field.elements, velocity, -dt, v0=v0)
     points_fwd = integrator(field.elements, velocity, dt, v0=v0)
-    reduce = points_bwd.shape.without(field.shape).names
     # Semi-Lagrangian advection
-    field_semi_la = field.with_(values=field.sample_in(points_bwd, reduce_channels=reduce))
+    field_semi_la = field.with_(values=reduce_sample(field, points_bwd))
     # Inverse semi-Lagrangian advection
-    field_inv_semi_la = field.with_(values=field_semi_la.sample_in(points_fwd, reduce_channels=reduce))
+    field_inv_semi_la = field.with_(values=reduce_sample(field_semi_la, points_fwd))
     # correction
     new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
     # Address overshoots
-    limits = field.closest_values(points_bwd.center, reduce_channels=reduce)
+    limits = field.closest_values(points_bwd)
     lower_limit = math.min(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     values_clamped = math.clip(new_field.values, lower_limit, upper_limit)
@@ -182,22 +181,22 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
         assert isinstance(occupied, type(velocity)), 'occupation mask must have same type as velocity.'
         velocity, occupied = extrapolate_valid(velocity, occupied, 2)
         velocity *= accessible
-    vel_k1 = velocity.sample_in(points)
+    vel_k1 = sample(velocity, points)
 
     shifted_points = points.shifted(0.5 * dt * vel_k1)
     if extrapolate:
         velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k2 = velocity.sample_in(shifted_points)
+    vel_k2 = sample(velocity, shifted_points)
 
     shifted_points = points.shifted(0.5 * dt * vel_k2)
     if extrapolate:
         velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k3 = velocity.sample_in(shifted_points)
+    vel_k3 = sample(velocity, shifted_points)
 
     shifted_points = points.shifted(dt * vel_k3)
     if extrapolate:
         velocity, _, _ = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k4 = velocity.sample_in(shifted_points)
+    vel_k4 = sample(velocity, shifted_points)
 
     # --- Combine points with RK4 scheme ---
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)

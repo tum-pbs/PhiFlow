@@ -202,7 +202,7 @@ class Box(AbstractBox, metaclass=BoxType):
     def __hash__(self):
         return hash(self._upper)
 
-    def __characteristics__(self) -> Dict[str, math.Tensor]:
+    def _characteristics_(self) -> Dict[str, math.Tensor]:
         return {'lower': self._lower, 'upper': self._upper}
 
     @property
@@ -258,7 +258,7 @@ class Cuboid(AbstractBox):
     def __hash__(self):
         return hash(self._center)
 
-    def __characteristics__(self) -> Dict[str, math.Tensor]:
+    def _characteristics_(self) -> Dict[str, math.Tensor]:
         return {'center': self._center, 'half_size': self._half_size}
 
     @property

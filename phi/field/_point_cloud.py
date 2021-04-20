@@ -46,6 +46,10 @@ class PointCloud(SampledField):
             color = '#0060ff'
         self._color = math.wrap(color, names='points') if isinstance(color, (tuple, list)) else math.wrap(color)
 
+    @property
+    def shape(self):
+        return self._elements.shape & self._values.shape.non_spatial
+
     def __getitem__(self, item: dict):
         elements = self.elements[item]
         values = self._values[item]
@@ -60,7 +64,7 @@ class PointCloud(SampledField):
               add_overlapping: bool or None = None,
               bounds: Box = None,
               color: str or Tensor or tuple or list or None = None,
-              **other_attributes) -> 'SampledField':
+              **other_attributes) -> 'PointCloud':
         assert not other_attributes, f"Invalid attributes for type {type(self)}: {other_attributes}"
         return PointCloud(elements if elements is not None else self.elements,
                           values if values is not None else self.values,
@@ -77,25 +81,16 @@ class PointCloud(SampledField):
     def color(self) -> Tensor:
         return self._color
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
-        if not reduce_channels:
-            if geometry == self.elements:
-                return self.values
-            elif isinstance(geometry, GridCell):
-                return self._grid_scatter(geometry.bounds, geometry.resolution)
-            elif isinstance(geometry, GeometryStack):
-                sampled = [self.sample_at(g) for g in geometry.geometries]
-                return math.batch_stack(sampled, geometry.stack_dim_name)
-            else:
-                raise NotImplementedError()
+    def _sample(self, geometry: Geometry) -> Tensor:
+        if geometry == self.elements:
+            return self.values
+        elif isinstance(geometry, GridCell):
+            return self._grid_scatter(geometry.bounds, geometry.resolution)
+        elif isinstance(geometry, GeometryStack):
+            sampled = [self._sample(g) for g in geometry.geometries]
+            return math.batch_stack(sampled, geometry.stack_dim_name)
         else:
-            assert len(reduce_channels) == 1
-            components = self.unstack('vector') if 'vector' in self.shape else (self,) * geometry.shape.get_size(reduce_channels[0])
-            sampled = [c.sample_in(p) for c, p in zip(components, geometry.unstack(reduce_channels[0]))]
-            return math.channel_stack(sampled, 'vector')
-
-    def sample_at(self, points, reduce_channels=()) -> Tensor:
-        raise NotImplementedError()
+            raise NotImplementedError()
 
     def _grid_scatter(self, box: Box, resolution: math.Shape):
         """

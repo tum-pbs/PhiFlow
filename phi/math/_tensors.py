@@ -640,6 +640,9 @@ class TensorDim:
         else:
             return NotImplemented
 
+    def __call__(self, *args, **kwargs):
+        raise TypeError(f"Method Tensor.{self.name}() does not exist.")
+
 
 class NativeTensor(Tensor):
 
@@ -869,7 +872,10 @@ class CollapsedTensor(Tensor):  # package-private
             return CollapsedTensor(self._inner._op1(native_function), self._shape)
 
     def _op2(self, other, operator, native_function):
-        other_t = self._tensor(other)
+        try:
+            other_t = self._tensor(other)
+        except NoBackendFound:
+            return NotImplemented
         if isinstance(other_t, CollapsedTensor) and other_t.is_cached:
             other_t = other_t._cached
         if isinstance(other_t, NativeTensor):

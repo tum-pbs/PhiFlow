@@ -34,8 +34,8 @@ Differentiable geometry.
 See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geometry.html
 &#34;&#34;&#34;
 
-from ._geom import Geometry, assert_same_rank
-from ._union import union  # Union is private
+from ._geom import Geometry, Point, assert_same_rank
+from ._union import union
 from ._box import Box, GridCell, AbstractBox
 from ._sphere import Sphere
 from ._stack import stack
@@ -101,7 +101,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         New `phi.geom.Geometry` object
     &#34;&#34;&#34;
     if all(isinstance(g, type(geometries[0])) for g in geometries):
-        characteristics = [g.__characteristics__() for g in geometries]
+        characteristics = [g._characteristics_() for g in geometries]
         if sizes is not None:
             characteristics = [{key: math.expand(val, **{dim: size}) for key, val in c.items()}
                                for c, size in zip(characteristics, sizes)]
@@ -109,7 +109,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         for key in characteristics[0].keys():
             concatenated = math.concat([c[key] for c in characteristics], dim)
             new_attributes[key] = concatenated
-        return geometries[0].__with__(**new_attributes)
+        return geometries[0]._with_(**new_attributes)
     else:
         raise NotImplementedError()</code></pre>
 </details>
@@ -153,7 +153,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stack(*geometries: Geometry, dim: str):
-    return GeometryStack(geometries, dim)</code></pre>
+    return GeometryStack(geometries, dim, _infer_dim_type_from_name(dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">
@@ -799,7 +799,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     def __hash__(self):
         return hash(self._upper)
 
-    def __characteristics__(self) -&gt; Dict[str, math.Tensor]:
+    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
         return {&#39;lower&#39;: self._lower, &#39;upper&#39;: self._upper}
 
     @property
@@ -1013,7 +1013,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
         &#34;&#34;&#34;
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     @property
     def shape(self) -&gt; Shape:
@@ -1195,8 +1195,8 @@ All batch dimensions are listed in Geometry.shape.</p></div>
             return False
         if self.shape != other.shape:
             return False
-        c1 = self.__characteristics__()
-        c2 = other.__characteristics__()
+        c1 = self._characteristics_()
+        c2 = other._characteristics_()
         for c in c1.keys():
             if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
                 return False
@@ -1216,8 +1216,8 @@ All batch dimensions are listed in Geometry.shape.</p></div>
             return False
         if self.shape != other.shape:
             return False
-        c1 = self.__characteristics__()
-        c2 = other.__characteristics__()
+        c1 = self._characteristics_()
+        c2 = other._characteristics_()
         for c in c1.keys():
             if c1[c] is not c2[c]:
                 return False
@@ -1229,21 +1229,28 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def __hash__(self):
         raise NotImplementedError(self.__class__)
 
-    def __characteristics__(self) -&gt; Dict[str, math.Tensor]:
+    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
         raise NotImplementedError(self.__class__)
 
-    def __with__(self, **attributes):
+    def _with_(self, **attributes):
         copied = copy.copy(self)
         for name, val in attributes.items():
             setattr(copied, name, val)
         return copied
 
     def __repr__(self):
-        return f&#34;{self.__class__.__name__}{self.shape}&#34;</code></pre>
+        return f&#34;{self.__class__.__name__}{self.shape}&#34;
+
+    def __getitem__(self, item: dict):
+        assert isinstance(item, dict), &#34;Index must be dict of type {dim: slice/int}.&#34;
+        item = {dim: sel for dim, sel in item.items() if dim != &#39;vector&#39;}
+        characteristics = {n: c[item] for n, c in self._characteristics_().items()}
+        return self._with_(**characteristics)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li>phi.geom._box.AbstractBox</li>
+<li>phi.geom._geom.Point</li>
 <li>phi.geom._geom._InvertedGeometry</li>
 <li>phi.geom._geom._NoGeometry</li>
 <li>phi.geom._sphere.Sphere</li>
@@ -1265,7 +1272,7 @@ def center(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
     &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
@@ -1587,8 +1594,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
         return False
     if self.shape != other.shape:
         return False
-    c1 = self.__characteristics__()
-    c2 = other.__characteristics__()
+    c1 = self._characteristics_()
+    c2 = other._characteristics_()
     for c in c1.keys():
         if c1[c] is not c2[c]:
             return False
@@ -1740,16 +1747,39 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def half_size(self):
         return self.bounds.size / self.resolution.sizes / 2
 
+    def __getitem__(self, item: dict):
+        bounds = self._bounds
+        dx = self.size
+        for dim, selection in item.items():
+            if dim in self._resolution:
+                if isinstance(selection, int):
+                    start = selection
+                    stop = selection + 1
+                elif isinstance(selection, slice):
+                    start = selection.start or 0
+                    stop = selection.stop or self.resolution.get_size(dim)
+                    if stop &lt; 0:
+                        stop += self.resolution.get_size(dim)
+                    assert selection.step is None or selection.step == 1
+                else:
+                    raise ValueError(f&#34;Illegal selection: {item}&#34;)
+                dim_mask = math.wrap(self.resolution.mask(dim))
+                lower = bounds.lower + start * dim_mask * dx
+                upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * dx
+                bounds = Box(lower, upper)
+        resolution = self._resolution.after_gather(item)
+        return GridCell(resolution, bounds)
+
     def list_cells(self, dim_name):
         center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
 
     def extend_symmetric(self, dims: str or list or tuple, cells: int):
-        axis_mask = np.array(self.resolution.mask(dims)) * cells
-        unit = self.bounds.size / self.resolution * axis_mask
+        dim_mask = np.array(self.resolution.mask(dims)) * cells
+        unit = self.bounds.size / self.resolution * dim_mask
         delta_size = unit / 2
         bounds = Box(self.bounds.lower - delta_size, self.bounds.upper + delta_size)
-        ext_res = self.resolution.sizes + axis_mask
+        ext_res = self.resolution.sizes + dim_mask
         return GridCell(self.resolution.with_sizes(ext_res), bounds)
 
     def face_centers(self, staggered_name=&#39;staggered&#39;):
@@ -1931,11 +1961,11 @@ def upper(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def extend_symmetric(self, dims: str or list or tuple, cells: int):
-    axis_mask = np.array(self.resolution.mask(dims)) * cells
-    unit = self.bounds.size / self.resolution * axis_mask
+    dim_mask = np.array(self.resolution.mask(dims)) * cells
+    unit = self.bounds.size / self.resolution * dim_mask
     delta_size = unit / 2
     bounds = Box(self.bounds.lower - delta_size, self.bounds.upper + delta_size)
-    ext_res = self.resolution.sizes + axis_mask
+    ext_res = self.resolution.sizes + dim_mask
     return GridCell(self.resolution.with_sizes(ext_res), bounds)</code></pre>
 </details>
 </dd>
@@ -2062,6 +2092,283 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 </dl>
 </dd>
+<dt id="phi.geom.Point"><code class="flex name class">
+<span>class <span class="ident">Point</span></span>
+<span>(</span><span>location: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Abstract base class for N-dimensional shapes.</p>
+<p>Main implementing classes:</p>
+<ul>
+<li>Sphere</li>
+<li>box family: box (generator), Box, Cuboid, AbstractBox</li>
+</ul>
+<p>All geometry objects support batching.
+Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
+All batch dimensions are listed in Geometry.shape.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Point(Geometry):
+
+    def __init__(self, location: math.Tensor):
+        self._location = location
+
+    @property
+    def center(self) -&gt; Tensor:
+        return self._location
+
+    @property
+    def shape(self) -&gt; Shape:
+        return self._location.shape.without(&#39;vector&#39;)
+
+    def unstack(self, dimension: str) -&gt; tuple:
+        return tuple(Point(loc) for loc in self._location.unstack(dimension))
+
+    def lies_inside(self, location: Tensor) -&gt; Tensor:
+        return math.wrap(False)
+
+    def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
+        return math.vec_abs(location - self._location)
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+        return positions
+
+    def bounding_radius(self) -&gt; Tensor:
+        return math.zeros()
+
+    def bounding_half_extent(self) -&gt; Tensor:
+        return math.zeros()
+
+    def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
+        return Point(self._location + delta)
+
+    def rotated(self, angle) -&gt; &#39;Geometry&#39;:
+        return self
+
+    def __hash__(self):
+        return hash(self._location)
+
+    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
+        return {&#39;location&#39;: self._location}</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.geom._geom.Geometry</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.geom.Point.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def center(self) -&gt; Tensor:
+    return self._location</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self) -&gt; Shape:
+    return self._location.shape.without(&#39;vector&#39;)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.geom.Point.approximate_signed_distance"><code class="name flex">
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
+Locations outside return positive values, inside negative values and zero exactly at the boundary.</p>
+<p>The exact distance metric used depends on the geometry.
+The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
+The distance metric is differentiable and its gradients are bounded at every point in space.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dt><strong><code>location</code></strong></dt>
+<dd>Tensor: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>float tensor of shape (*location.shape[:-1], 1).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
+    return math.vec_abs(location - self._location)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.bounding_half_extent"><code class="name flex">
+<span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
+Each component is non-negative.</p>
+<p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
+Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
+<p>:return: float vector</p>
+<p>Args:</p>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def bounding_half_extent(self) -&gt; Tensor:
+    return math.zeros()</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.bounding_radius"><code class="name flex">
+<span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
+The sphere is centered at the center of this geometry.</p>
+<p>:return: radius of type float</p>
+<p>Args:</p>
+<p>Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def bounding_radius(self) -&gt; Tensor:
+    return math.zeros()</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.lies_inside"><code class="name flex">
+<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dt><strong><code>location</code></strong></dt>
+<dd>Tensor: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def lies_inside(self, location: Tensor) -&gt; Tensor:
+    return math.wrap(False)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.push"><code class="name flex">
+<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Shifts positions either into or out of geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>positions</code></strong></dt>
+<dd>Tensor holding positions to shift</dd>
+<dt><strong><code>outward</code></strong></dt>
+<dd>Flag for indicating inward (False) or outward (True) shift</dd>
+<dt><strong><code>shift_amount</code></strong></dt>
+<dd>Minimum distance between positions and box boundaries after shifting</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor holding shifted positions</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+    return positions</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.rotated"><code class="name flex">
+<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a rotated version of this geometry.
+The geometry is rotated about its center point.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>angle</code></strong></dt>
+<dd>scalar (2d) or vector (3D+) representing delta angle</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dd>rotated geometry</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rotated(self, angle) -&gt; &#39;Geometry&#39;:
+    return self</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.shifted"><code class="name flex">
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a translated version of this geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>delta</code></strong></dt>
+<dd>direction vector</dd>
+<dt><strong><code>delta</code></strong></dt>
+<dd>Tensor: </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dd>shifted geometry</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
+    return Point(self._location + delta)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstacks this Geometry along the given dimension.
+The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>dimension along which to unstack</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>geometries</code></dt>
+<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
+    return tuple(Point(loc) for loc in self._location.unstack(dimension))</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="phi.geom.Sphere"><code class="flex name class">
 <span>class <span class="ident">Sphere</span></span>
 <span>(</span><span>center, radius)</span>
@@ -2090,7 +2397,7 @@ Defined through center position and radius.</p>
         self._center = wrap(center)
         assert &#39;vector&#39; in self._center.shape, &#34;center must have a &#39;vector&#39; dimension&#34;
         self._radius = wrap(radius)
-        self._shape = _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape)
+        self._shape = _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)
 
     @property
     def shape(self):
@@ -2137,13 +2444,13 @@ Defined through center position and radius.</p>
     def rotated(self, angle):
         return self
 
-    def __characteristics__(self) -&gt; Dict[str, math.Tensor]:
+    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
         return {
             &#39;radius&#39;: self._radius,
             &#39;center&#39;: self._center,
         }
 
-    def __with__(self, center=None, radius=None):
+    def _with_(self, center=None, radius=None):
         return Sphere(center if center is not None else self._center,
                       radius if radius is not None else self._radius)</code></pre>
 </details>
@@ -2437,6 +2744,21 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.GridCell.size" href="#phi.geom.GridCell.size">size</a></code></li>
 <li><code><a title="phi.geom.GridCell.unstack" href="#phi.geom.GridCell.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.GridCell.upper" href="#phi.geom.GridCell.upper">upper</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a></code></h4>
+<ul class="">
+<li><code><a title="phi.geom.Point.approximate_signed_distance" href="#phi.geom.Point.approximate_signed_distance">approximate_signed_distance</a></code></li>
+<li><code><a title="phi.geom.Point.bounding_half_extent" href="#phi.geom.Point.bounding_half_extent">bounding_half_extent</a></code></li>
+<li><code><a title="phi.geom.Point.bounding_radius" href="#phi.geom.Point.bounding_radius">bounding_radius</a></code></li>
+<li><code><a title="phi.geom.Point.center" href="#phi.geom.Point.center">center</a></code></li>
+<li><code><a title="phi.geom.Point.lies_inside" href="#phi.geom.Point.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.Point.push" href="#phi.geom.Point.push">push</a></code></li>
+<li><code><a title="phi.geom.Point.rotated" href="#phi.geom.Point.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.Point.shape" href="#phi.geom.Point.shape">shape</a></code></li>
+<li><code><a title="phi.geom.Point.shifted" href="#phi.geom.Point.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.Point.unstack" href="#phi.geom.Point.unstack">unstack</a></code></li>
 </ul>
 </li>
 <li>

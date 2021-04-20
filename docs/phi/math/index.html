@@ -76,10 +76,10 @@ from ._functions import (
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
     dot,
-    abs, sign,
+    abs_ as abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
-    sqrt, exp, sin, cos,
+    sqrt, exp, sin, cos, tan, log, log2, log10,
     to_float, to_int, to_complex, imag, real,
     boolean_mask,
     isfinite,
@@ -159,8 +159,8 @@ __pdoc__ = {
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs(x: Tensor) -&gt; Tensor:
-    return _backend_op1(x, Backend.abs)</code></pre>
+<pre><code class="python">def abs_(x: Tensor) -&gt; Tensor:
+    return abs(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.abs_square"><code class="name flex">
@@ -1594,6 +1594,7 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
             assert not len(kwargs)
             shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
             if self.gradf is None:
+                assert backend.supports(Backend.functional_gradient), f&#34;{backend} does not support gradients. Use a different backend instead. For more information, see https://tum-pbs.github.io/PhiFlow/Optimization.html&#34;
                 self.gradf = backend.functional_gradient(native_function, shifted_wrt, get_output=get_output)
             return self.gradf(*args)
 
@@ -1875,11 +1876,11 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
     Returns:
         `Tensor` with compressed shape.
     &#34;&#34;&#34;
-    if len(dims) == 0:
+    dims = dims.names if isinstance(dims, Shape) else dims
+    if len(dims) == 0 or all(dim not in value.shape for dim in dims):
         return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
     if len(dims) == 1:
-        old_dim = dims.name if isinstance(dims, Shape) else dims[0]
-        new_shape = value.shape.with_names([joined_dim_name if name == old_dim else name for name in value.shape.names])
+        new_shape = value.shape.with_names([joined_dim_name if name == dims[0] else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
@@ -2100,6 +2101,46 @@ def my_linear_function(x):
 <pre><code class="python">def linspace(start, stop, number: int, dim=&#39;linspace&#39;):
     native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
     return NativeTensor(native, shape_(**{dim: number}))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.log"><code class="name flex">
+<span>def <span class="ident">log</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Natural logarithm.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log(x: Tensor) -&gt; Tensor:
+    &#34;&#34;&#34; Natural logarithm. &#34;&#34;&#34;
+    return _backend_op1(x, Backend.log)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.log10"><code class="name flex">
+<span>def <span class="ident">log10</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log10(x: Tensor) -&gt; Tensor:
+    return _backend_op1(x, Backend.log10)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.log2"><code class="name flex">
+<span>def <span class="ident">log2</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log2(x: Tensor) -&gt; Tensor:
+    return _backend_op1(x, Backend.log2)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.map"><code class="name flex">
@@ -2509,7 +2550,7 @@ If channel dimensions are present, this method returns the indices where any ent
 
     &#34;&#34;&#34;
     if value.shape.channel_rank &gt; 0:
-        value = sum_(abs(value), value.shape.channel.names)
+        value = sum_(abs(value), value.shape.channel)
 
     def unbatched_nonzero(value):
         native = value.native()
@@ -3025,7 +3066,7 @@ def record_gradients(*x: Tensor, persistent=False):
 </details>
 </dd>
 <dt id="phi.math.reshaped_native"><code class="name flex">
-<span>def <span class="ident">reshaped_native</span></span>(<span>value: phi.math._tensors.Tensor, groups: tuple, force_expand: Any = False)</span>
+<span>def <span class="ident">reshaped_native</span></span>(<span>value: phi.math._tensors.Tensor, groups: tuple, force_expand: Any = False, to_numpy=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a native representation of <code>value</code> where dimensions are laid out according to <code>groups</code>.</p>
@@ -3042,6 +3083,8 @@ def record_gradients(*x: Tensor, persistent=False):
 If <code>True</code>, repeats the tensor along missing dimensions.
 If <code>False</code>, puts singleton dimensions where possible.
 If a sequence of dimensions is provided, only forces the expansion for groups containing those dimensions.</dd>
+<dt><strong><code>to_numpy</code></strong></dt>
+<dd>If True, converts the native tensor to a <code>numpy.ndarray</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Native tensor with dimensions matching <code>groups</code>.</p></div>
@@ -3051,7 +3094,8 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 </summary>
 <pre><code class="python">def reshaped_native(value: Tensor,
                     groups: tuple or list,
-                    force_expand: Any = False):
+                    force_expand: Any = False,
+                    to_numpy=False):
     &#34;&#34;&#34;
     Returns a native representation of `value` where dimensions are laid out according to `groups`.
 
@@ -3065,6 +3109,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
             If `True`, repeats the tensor along missing dimensions.
             If `False`, puts singleton dimensions where possible.
             If a sequence of dimensions is provided, only forces the expansion for groups containing those dimensions.
+        to_numpy: If True, converts the native tensor to a `numpy.ndarray`.
 
     Returns:
         Native tensor with dimensions matching `groups`.
@@ -3081,7 +3126,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
         else:
             assert isinstance(group, str), f&#34;Groups must be either str or Shape but got {group}&#34;
             order.append(group)
-    return value.native(order=order)</code></pre>
+    return value.numpy(order) if to_numpy else value.native(order)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.reshaped_tensor"><code class="name flex">
@@ -3302,50 +3347,69 @@ These dimensions are not treated as batch dimensions.</dd>
     assert mode in (&#39;update&#39;, &#39;add&#39;, &#39;mean&#39;)
     assert outside_handling in (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;)
     assert isinstance(indices_gradient, bool)
-    if indices_gradient:
-        raise NotImplementedError(&#34;indices_gradient not yet supported.&#34;)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == (&#39;vector&#39;,) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
+
     batches = (values.shape.non_channel &amp; indices.shape.non_channel).without(scatter_dims)
     lists = indices.shape.only(scatter_dims)
     channels = (grid_shape.channel &amp; values.shape.channel).without(scatter_dims)
-    # Reshape indices to (batch, list, vector)
+    # --- Reshape base_grid to (batch, *base_grid.shape, vector) ---
+    shaped_base_grid = join_dimensions(base_grid, batches, &#39;batch_&#39;, pos=0)
+    shaped_base_grid = join_dimensions(shaped_base_grid, channels, &#39;vector_&#39;, pos=-1)
+    # --- Reshape indices to (batch, list, vector) ---
     shaped_indices = join_dimensions(indices, batches, &#39;batch_&#39;, pos=0)
     shaped_indices = join_dimensions(shaped_indices, lists, &#39;list_&#39;, pos=1)
-    # Reshape values to (batch, list, vector)
+    # --- Reshape values to (batch, list, vector) ---
     values = _expand_dims(values, channels)
     shaped_values = join_dimensions(values, batches, &#39;batch_&#39;, pos=0)
     shaped_values = join_dimensions(shaped_values, lists, &#39;list_&#39;, pos=1)
-    shaped_values = join_dimensions(shaped_values, channels, &#39;channels_&#39;, pos=-1)
-    # Set up grid
+    shaped_values = join_dimensions(shaped_values, channels, &#39;vector_&#39;, pos=-1)
+
+    # --- Set up grid ---
     if isinstance(base_grid, Shape):
         with choose_backend_t(indices, values):
             base_grid = zeros(base_grid &amp; batches &amp; values.shape.channel)
         if mode != &#39;add&#39;:
             base_grid += math.nan
-    # Handle outside indices
+    # --- Handle outside indices ---
     if outside_handling == &#39;clamp&#39;:
         shaped_indices = clip(shaped_indices, 0, tensor(grid_shape.spatial, &#39;vector&#39;) - 1)
     elif outside_handling == &#39;discard&#39;:
-        indices_inside = min_((shaped_indices &gt;= 0) &amp; (shaped_indices &lt; tensor(grid_shape.spatial, &#39;vector&#39;)), &#39;vector&#39;)
+        indices_inside = min_((_math.round(shaped_indices) &gt;= tensor(0.)) &amp;
+                              (_math.round(shaped_indices) &lt; tensor(grid_shape.spatial, &#39;vector&#39;)), &#39;vector&#39;)
         shaped_indices = shaped_indices.list_[indices_inside]
         shaped_values = shaped_values.list_[indices_inside]
         if shaped_indices.shape.is_non_uniform:
             raise NotImplementedError()
 
-    native_grid = reshaped_native(base_grid, (batches, *base_grid.shape.spatial.names, channels), force_expand=True)
-    native_values = shaped_values.native(&#39;batch_, list_, channels_&#39;)
-    native_indices = shaped_indices.native(&#39;batch_, list_, vector&#39;)
-    backend = choose_backend(native_indices, native_values, native_grid)
-    if mode in (&#39;add&#39;, &#39;update&#39;):
-        native_result = backend.scatter(native_grid, native_indices, native_values, mode=mode)
-    else:  # mean
-        zero_grid = backend.zeros_like(native_grid)
-        sum = backend.scatter(zero_grid, native_indices, native_values, mode=&#39;add&#39;)
-        count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode=&#39;add&#39;)
-        native_result = sum / backend.maximum(count, 1)
-        native_result = backend.where(count == 0, native_grid, native_result)
-    return reshaped_tensor(native_result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)</code></pre>
+    def scatter_forward(shaped_base_grid_, shaped_indices_, shaped_values_):
+        shaped_indices_ = _math.to_int(_math.round(shaped_indices_))
+        native_grid = reshaped_native(base_grid, (batches, *base_grid.shape.spatial.names, channels), force_expand=True)
+        native_values = shaped_values_.native(&#39;batch_, list_, vector_&#39;)
+        native_indices = shaped_indices_.native(&#39;batch_, list_, vector&#39;)
+        backend = choose_backend(native_indices, native_values, native_grid)
+        if mode in (&#39;add&#39;, &#39;update&#39;):
+            native_result = backend.scatter(native_grid, native_indices, native_values, mode=mode)
+        else:  # mean
+            zero_grid = backend.zeros_like(native_grid)
+            summed = backend.scatter(zero_grid, native_indices, native_values, mode=&#39;add&#39;)
+            count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode=&#39;add&#39;)
+            native_result = summed / backend.maximum(count, 1)
+            native_result = backend.where(count == 0, native_grid, native_result)
+        return tensor(native_result, shaped_base_grid_.shape)
+
+    def scatter_backward(shaped_base_grid_, shaped_indices_, shaped_values_, output, d_output):
+        values_grad = gather(d_output, shaped_indices_)
+        spatial_gradient_indices = gather(_math.spatial_gradient(d_output), shaped_indices_)
+        indices_grad = mean(spatial_gradient_indices * shaped_values_, &#39;vector_&#39;)
+        return None, indices_grad, values_grad
+
+    scatter_function = scatter_forward
+    if indices_gradient:
+        scatter_function = custom_gradient(scatter_forward, scatter_backward)
+
+    result = scatter_function(shaped_base_grid, shaped_indices, shaped_values)
+    return reshaped_tensor(result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.seed"><code class="name flex">
@@ -3953,6 +4017,19 @@ This may switch off the gradients for <code>value</code> itself or create a copy
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.sum(native, dim),
                    collapsed_function=lambda inner, red_shape: inner * red_shape.volume)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.tan"><code class="name flex">
+<span>def <span class="ident">tan</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tan(x: Tensor) -&gt; Tensor:
+    return _backend_op1(x, Backend.tan)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.tensor"><code class="name flex">
@@ -5317,6 +5394,9 @@ All arguments must have same length.</p>
     def __ne__(self, other):
         return not self == other
 
+    def __bool__(self):
+        return self.rank &gt; 0
+
     def normal_order(self):
         sizes = self.batch.sizes + self.spatial.sizes + self.channel.sizes
         names = self.batch.names + self.spatial.names + self.channel.names
@@ -5329,19 +5409,35 @@ All arguments must have same length.</p>
         return self[order]
 
     def order_group(self, names: tuple or list or &#39;Shape&#39;):
+        &#34;&#34;&#34; Reorders the dimensions of this `Shape` so that `names` are clustered together and occur in the specified order. &#34;&#34;&#34;
         if isinstance(names, Shape):
             names = names.names
-        order = []
-        for name in self.names:
-            if name not in order:
-                if name in names:
-                    order.extend(names)
+        result = []
+        for dim in self.names:
+            if dim not in result:
+                if dim in names:
+                    result.extend(names)
                 else:
-                    order.append(name)
-        return order
+                    result.append(dim)
+        return result
+
+    def sorted(self, names: tuple or list or &#39;Shape&#39;) -&gt; Tuple[str]:
+        &#34;&#34;&#34; Sorts `names` in the order in which they appear in this Shape. Names not part of this shape keep their position after the previous dimension. &#34;&#34;&#34;
+        names: Tuple[str] = names.names if isinstance(names, Shape) else names
+        positions = {}
+        pos = 0
+        for name in names:
+            if name in self.names:
+                pos = self.index(name)
+            positions[name] = pos
+        return tuple(sorted(names, key=lambda n: positions[n]))
 
     def alphabetically(self):
         return self.reorder(sorted(self.names))
+
+    @property
+    def reversed(self) -&gt; &#39;Shape&#39;:
+        return Shape(tuple(reversed(self.sizes)), tuple(reversed(self.names)), tuple(reversed(self.types)))
 
     def combined(self, other: &#39;Shape&#39;, combine_spatial=False) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
@@ -5960,6 +6056,18 @@ def rank(self) -&gt; int:
     return len(self.sizes)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.Shape.reversed"><code class="name">var <span class="ident">reversed</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def reversed(self) -&gt; &#39;Shape&#39;:
+    return Shape(tuple(reversed(self.sizes)), tuple(reversed(self.names)), tuple(reversed(self.types)))</code></pre>
+</details>
+</dd>
 <dt id="phi.math.Shape.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Returns the shape of this <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.
@@ -6511,22 +6619,23 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <span>def <span class="ident">order_group</span></span>(<span>self, names: tuple)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Reorders the dimensions of this <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> so that <code>names</code> are clustered together and occur in the specified order.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def order_group(self, names: tuple or list or &#39;Shape&#39;):
+    &#34;&#34;&#34; Reorders the dimensions of this `Shape` so that `names` are clustered together and occur in the specified order. &#34;&#34;&#34;
     if isinstance(names, Shape):
         names = names.names
-    order = []
-    for name in self.names:
-        if name not in order:
-            if name in names:
-                order.extend(names)
+    result = []
+    for dim in self.names:
+        if dim not in result:
+            if dim in names:
+                result.extend(names)
             else:
-                order.append(name)
-    return order</code></pre>
+                result.append(dim)
+    return result</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.perm"><code class="name flex">
@@ -6627,6 +6736,27 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     assert len(names) == self.rank
     order = [self.index(n) for n in names]
     return self[order]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Shape.sorted"><code class="name flex">
+<span>def <span class="ident">sorted</span></span>(<span>self, names: tuple) ‑> Tuple[str]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sorts <code>names</code> in the order in which they appear in this Shape. Names not part of this shape keep their position after the previous dimension.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sorted(self, names: tuple or list or &#39;Shape&#39;) -&gt; Tuple[str]:
+    &#34;&#34;&#34; Sorts `names` in the order in which they appear in this Shape. Names not part of this shape keep their position after the previous dimension. &#34;&#34;&#34;
+    names: Tuple[str] = names.names if isinstance(names, Shape) else names
+    positions = {}
+    pos = 0
+    for name in names:
+        if name in self.names:
+            pos = self.index(name)
+        positions[name] = pos
+    return tuple(sorted(names, key=lambda n: positions[n]))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.to_batch"><code class="name flex">
@@ -7093,16 +7223,18 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
             return bool(all_(self))
 
     def __int__(self):
-        return int(self.native()) if self.rank == 0 else NotImplemented
+        return int(self.native()) if self.shape.volume == 1 else NotImplemented
 
     def __float__(self):
-        return float(self.native()) if self.rank == 0 else NotImplemented
+        return float(self.native()) if self.shape.volume == 1 else NotImplemented
 
     def __complex__(self):
-        return complex(self.native()) if self.rank == 0 else NotImplemented
+        return complex(self.native()) if self.shape.volume == 1 else NotImplemented
 
     def __index__(self):
-        return int(self.native()) if self.rank == 0 and np.issubdtype(self.dtype, int) else NotImplemented
+        assert self.shape.volume == 1, f&#34;Only scalar tensors can be converted to index but has shape {self.shape}&#34;
+        assert self.dtype.kind == int, f&#34;Only int tensors can be converted to index but dtype is {self.dtype}&#34;
+        return int(self.native())
 
     def _summary_str(self) -&gt; str:
         try:
@@ -7114,6 +7246,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                     content = list(np.reshape(self.numpy(), [-1]))
                     content = &#39;, &#39;.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
+                        if self.shape.name == &#39;vector&#39;:
+                            return f&#34;({content})&#34;
                         return f&#34;({content}) along {self.shape.name}&#34;
                     return f&#34;{self.shape} {self.dtype}  {content}&#34;
                 else:
@@ -7315,6 +7449,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self._op2(other, lambda x, y: x &gt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y))
 
     def __abs__(self):
+        if self.dtype.kind in (bool, str):
+            return self
         return self._op1(lambda t: choose_backend(t).abs(t))
 
     def __round__(self, n=None):
@@ -7841,7 +7977,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
     def __getitem__(self, item):
         if isinstance(item, str):
             item = self.tensor.shape.spatial.index(item)
-        if isinstance(item, Tensor) and item.dtype == DType(bool):
+        elif isinstance(item, Tensor) and item.dtype == DType(bool):
             from ._functions import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
         return self.tensor[{self.name: item}]
@@ -7860,7 +7996,10 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
             from ._functions import dot
             return dot(self.tensor, (self.name,), other.tensor, (other.name,))
         else:
-            return NotImplemented</code></pre>
+            return NotImplemented
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError(f&#34;Method Tensor.{self.name}() does not exist.&#34;)</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -8250,6 +8389,9 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.laplace" href="#phi.math.laplace">laplace</a></code></li>
 <li><code><a title="phi.math.linear_function" href="#phi.math.linear_function">linear_function</a></code></li>
 <li><code><a title="phi.math.linspace" href="#phi.math.linspace">linspace</a></code></li>
+<li><code><a title="phi.math.log" href="#phi.math.log">log</a></code></li>
+<li><code><a title="phi.math.log10" href="#phi.math.log10">log10</a></code></li>
+<li><code><a title="phi.math.log2" href="#phi.math.log2">log2</a></code></li>
 <li><code><a title="phi.math.map" href="#phi.math.map">map</a></code></li>
 <li><code><a title="phi.math.max" href="#phi.math.max">max</a></code></li>
 <li><code><a title="phi.math.maximum" href="#phi.math.maximum">maximum</a></code></li>
@@ -8297,6 +8439,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.std" href="#phi.math.std">std</a></code></li>
 <li><code><a title="phi.math.stop_gradient" href="#phi.math.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.math.sum" href="#phi.math.sum">sum</a></code></li>
+<li><code><a title="phi.math.tan" href="#phi.math.tan">tan</a></code></li>
 <li><code><a title="phi.math.tensor" href="#phi.math.tensor">tensor</a></code></li>
 <li><code><a title="phi.math.tensors" href="#phi.math.tensors">tensors</a></code></li>
 <li><code><a title="phi.math.to_complex" href="#phi.math.to_complex">to_complex</a></code></li>
@@ -8389,7 +8532,9 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.rank" href="#phi.math.Shape.rank">rank</a></code></li>
 <li><code><a title="phi.math.Shape.reduce" href="#phi.math.Shape.reduce">reduce</a></code></li>
 <li><code><a title="phi.math.Shape.reorder" href="#phi.math.Shape.reorder">reorder</a></code></li>
+<li><code><a title="phi.math.Shape.reversed" href="#phi.math.Shape.reversed">reversed</a></code></li>
 <li><code><a title="phi.math.Shape.shape" href="#phi.math.Shape.shape">shape</a></code></li>
+<li><code><a title="phi.math.Shape.sorted" href="#phi.math.Shape.sorted">sorted</a></code></li>
 <li><code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">spatial</a></code></li>
 <li><code><a title="phi.math.Shape.spatial_rank" href="#phi.math.Shape.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.math.Shape.to_batch" href="#phi.math.Shape.to_batch">to_batch</a></code></li>
