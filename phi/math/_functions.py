@@ -1282,8 +1282,9 @@ def scatter(base_grid: Tensor or Shape,
     # --- Reshape indices to (batch, list, vector) ---
     shaped_indices = join_dimensions(indices, batches, 'batch_', pos=0)
     shaped_indices = join_dimensions(shaped_indices, lists, 'list_', pos=1)
-    # --- Reshape values to (batch, list, vector) ---
+    # --- Reshape values to (batch, list, vector) and expand it to all elements / indices ---
     values = _expand_dims(values, channels)
+    values = _math.ones(indices.shape.batch) * values
     shaped_values = join_dimensions(values, batches, 'batch_', pos=0)
     shaped_values = join_dimensions(shaped_values, lists, 'list_', pos=1)
     shaped_values = join_dimensions(shaped_values, channels, 'vector_', pos=-1)
