@@ -7,6 +7,7 @@ import numpy as np
 from matplotlib import animation
 
 from phi import math
+from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name
 from phi.field import Grid, StaggeredGrid, PointCloud
 from phi.field import Scene
@@ -133,17 +134,6 @@ def _batch(field: SampledField):
     values = math.join_dimensions(field.values, field.shape.channel, 'channel').channel[0]
     b_values = math.join_dimensions(values, field.shape.batch, 'batch')
     return batch_size, b_values
-
-
-def smooth_uniform_curve(x, values, n=16):
-    if n == 1:
-        return x, values
-    if len(x) <= n:
-        mean = numpy.tile(numpy.mean(values, -1, keepdims=True), 2)
-        return np.array([np.min(x), np.max(x)]), mean
-    arrays = [values[i:i-n+1 or None] for i in range(n)]
-    result = numpy.mean(arrays, axis=0)
-    return x[n//2-1:-n//2 or None], result
 
 
 def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,

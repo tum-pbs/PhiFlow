@@ -150,20 +150,24 @@ def build_graph_view(dashapp):
             html.Button('Refresh now', id=REFRESH_GRAPHS_BUTTON.component_id),
             dcc.Checklist(id='auto-refresh-checkbox', options=[{'label': 'Auto-refresh', 'value': 'refresh'}], value=['refresh'], style={'display': 'inline-block'}),
             dcc.Checklist(id='subplots-checkbox', options=[{'label': 'Subplots', 'value': 'subplots'}], value=[], style={'display': 'inline-block'}),
+            "  Smooth:",
+            html.Div(style={'display': 'inline-block', 'width': '200px'}, children=[
+                dcc.Slider(id='smooth-slider', min=1, max=10, marks={1: 'Off', 5: '25 steps', 10: '100 steps'}),
+            ]),
             dcc.Checklist(id='log-graph-checkbox', options=[{'label': 'Log(x)', 'value': 'x'}, {'label': 'Log(y)', 'value': 'y'}], value=[], style={'display': 'inline-block'}),
         ]),
-        dcc.Interval(id='graph-update', interval=2000, disabled=False),
+        dcc.Interval(id='graph-update', interval=5000, disabled=False),
         html.Div(id='graph-figure-container', style={'height': 600, 'width': '100%'}, children=[
             dcc.Graph(figure={}, id='board-graph', style={'height': '100%'})
         ])
     ])
 
-    @dashapp.dash.callback(Output('board-graph', 'figure'), [Input('subplots-checkbox', 'value'), Input('log-graph-checkbox', 'value'), REFRESH_GRAPHS_BUTTON, Input('graph-update', 'n_intervals')])
-    def update_figure(subplots, log_scale, _n1, _n2):
+    @dashapp.dash.callback(Output('board-graph', 'figure'), [Input('subplots-checkbox', 'value'), Input('smooth-slider', 'value'), Input('log-graph-checkbox', 'value'), REFRESH_GRAPHS_BUTTON, Input('graph-update', 'n_intervals')])
+    def update_figure(subplots, smooth, log_scale, _n1, _n2):
         curves = [dashapp.model.get_curve(n) for n in dashapp.model.curve_names]
         labels = [display_name(n) for n in dashapp.model.curve_names]
         try:
-            figure = plot_scalars(curves, labels, subplots=bool(subplots), log_scale=log_scale)
+            figure = plot_scalars(curves, labels, subplots=bool(subplots), log_scale=log_scale, smooth=(smooth or 1) ** 2)
             return figure
         except BaseException as err:
             traceback.print_exc()

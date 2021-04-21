@@ -1,10 +1,12 @@
 import numpy
 from plotly import graph_objects
 from plotly.subplots import make_subplots
+from plotly.tools import DEFAULT_PLOTLY_COLORS
 
 from phi import math
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
 from phi.vis._dash.colormaps import COLORMAPS
+from phi.vis._plot_util import smooth_uniform_curve
 
 
 def plot(field: SampledField, title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
@@ -218,35 +220,37 @@ def split_curve(x, y):
     return x, y
 
 
-def plot_scalars(curves: tuple or list, labels, subplots=True, log_scale=''):
+def plot_scalars(curves: tuple or list, labels, subplots=True, log_scale='', smooth: int = 1):
     if not curves:
         return graph_objects.Figure()
-    curves = [split_curve(*c) for c in curves]
     if subplots:
         fig = make_subplots(rows=1, cols=len(curves), subplot_titles=labels)
         for col, (label, (x, y)) in enumerate(zip(labels, curves)):
-            fig.add_trace(graph_objects.Scatter(x=x, y=y, name=label), row=1, col=1 + col)
+            for trace in _graph(label, x, y, smooth, col):
+                fig.add_trace(trace, row=1, col=1 + col)
     else:
         fig = graph_objects.Figure()
         for col, (label, (x, y)) in enumerate(zip(labels, curves)):
-            fig.add_trace(graph_objects.Scatter(x=x, y=y, name=label))
+            for trace in _graph(label, x, y, smooth, col):
+                fig.add_trace(trace)
     fig.update_layout(showlegend=not subplots, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     if 'x' in log_scale:
         fig.update_xaxes(type='log')
     if 'y' in log_scale:
         fig.update_yaxes(type='log')
     return fig
-    # else:
-    #     # fig = graph_objects.Figure(data=[])
-    #     return {
-    #         'data': [{
-    #             'mode': 'lines',
-    #             'type': 'scatter',
-    #             'x': x,
-    #             'y': y,
-    #             'name': label,
-    #         } for label, (x, y) in zip(labels, curves)],
-    #         'layout': {
-    #             'showlegend': True,
-    #             'margin': dict(t=20, l=40, b=20, r=20),
-    #         }}
+
+
+def _graph(label: str, x, y, smooth: int, index: int):
+    color = DEFAULT_PLOTLY_COLORS[index % len(DEFAULT_PLOTLY_COLORS)]
+    x, y = split_curve(x, y)
+    if smooth > 1:
+        smooth_x, smooth_y = smooth_uniform_curve(x, y, n=smooth)
+        transparent_color = f"rgba{color[3:-1]}, 0.4)"
+        return [
+            graph_objects.Scatter(x=x, y=y, line=graph_objects.scatter.Line(color=transparent_color, width=1), showlegend=False),
+            graph_objects.Scatter(x=smooth_x, y=smooth_y, name=label, line=graph_objects.scatter.Line(color=color, width=3), mode='lines')
+        ]
+    else:
+        return [graph_objects.Scatter(x=x, y=y, name=label, line=graph_objects.scatter.Line(color=color))]
+
