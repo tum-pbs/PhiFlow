@@ -29,7 +29,7 @@ from ._field_math import (
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
-    concat, batch_stack,
+    concat, batch_stack, channel_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
     solve, minimize,
     where,

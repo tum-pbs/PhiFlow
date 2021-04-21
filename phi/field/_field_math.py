@@ -463,6 +463,22 @@ def batch_stack(*fields, dim: str):
     raise NotImplementedError(type(fields[0]))
 
 
+def channel_stack(*fields, dim: str):
+    assert all(isinstance(f, SampledField) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
+    assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
+    if any(f.extrapolation != fields[0].extrapolation for f in fields):
+        raise NotImplementedError("Concatenating extrapolations not supported")
+    if isinstance(fields[0], Grid):
+        values = math.channel_stack([f.values for f in fields], dim)
+        return fields[0].with_(values=values)
+    elif isinstance(fields[0], PointCloud):
+        elements = geom.stack(*[f.elements for f in fields], dim=dim)
+        values = math.channel_stack([f.values for f in fields], dim=dim)
+        colors = math.channel_stack([f.color for f in fields], dim=dim)
+        return fields[0].with_(elements=elements, values=values, color=colors)
+    raise NotImplementedError(type(fields[0]))
+
+
 def abs(x: SampledFieldType) -> SampledFieldType:
     return x._op1(math.abs)
 

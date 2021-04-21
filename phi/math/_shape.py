@@ -605,6 +605,8 @@ class Shape:
     def after_gather(self, selection: dict):
         result = self
         for name, selection in selection.items():
+            if name not in self.names:
+                continue
             if isinstance(selection, int):
                 result = result.without(name)
             elif isinstance(selection, slice):

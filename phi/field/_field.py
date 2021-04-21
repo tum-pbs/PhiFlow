@@ -241,7 +241,7 @@ class SampledField(Field):
 
     def _op2(self, other, operator) -> 'SampledField':
         if isinstance(other, Field):
-            other_values = sample(other, self._elements)
+            other_values = reduce_sample(other, self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_(values=values, extrapolation=extrapolation_)
