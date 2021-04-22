@@ -133,6 +133,7 @@ setup(
     packages=['phi',
               'phi.vis',
               'phi.vis._dash',
+              'phi.vis._matplotlib',
               'phi.field',
               'phi.geom',
               'phi.math',
