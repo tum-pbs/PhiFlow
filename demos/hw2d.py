@@ -1,32 +1,6 @@
-""" Hasegawa-Wakatani
-Simple plasma flow model.
-"""
-# from phi.torch.flow import *
-# from phi.tf.flow import *
-from phi.flow import *
+from phi.tf.flow import *
 import time
-
-math.set_global_precision(64)
-
-# Simulation parameters
-k0 = 0.15  # smallest wavenumber in the box
-x = 64  # x size
-y = 64  # y size
-dt = control(0.1)  # timestep
-DEBUG = False
-# Physical Parameters
-c1 = 0.1  # adiabatic coefficient
-# Numerical Parameters
-arakawa_coeff = 1  # Poisson bracket coefficient
-kappa_coeff = 1  # background flow dy coefficient
-nu = 0.001  # coefficient of hyperdiffusion
-N = 3  # laplace**(2*N) diffusion
-# Derived
-L = 2 * np.pi / k0  # Box Size
-dx = L / x  # Grid Spaceing
-nu = (-1) ** (N + 1) * nu  # Smoothing coefficient & sign
-# Packing
-PARAMS = dict(c1=c1, nu=nu, N=N, arakawa_coeff=arakawa_coeff, kappa_coeff=kappa_coeff)
+from functools import partial
 
 
 class Namespace(dict):
@@ -92,42 +66,49 @@ class Namespace(dict):
 
 def get_phi(plasma, guess=None):
     """Fourier Poisson Solve for Phi"""
-    centered_omega = plasma.omega  # (plasma.omega - np.mean(plasma.omega))
-    phi = math.fourier_poisson(centered_omega.values, plasma.dx)
-    return domain.scalar_grid(phi)
+    phi = math.fourier_poisson(plasma.omega.values, plasma.dx)
+    # phi = math.solve(
+    #     math.laplace, plasma.omega.values, guess, math.LinearSolve, callback=None
+    # )
+    return CenteredGrid(
+        phi, bounds=plasma.omega.bounds, extrapolation=plasma.omega.extrapolation,
+    )  # plasma.omega.domain.grid(phi)
 
 
-def step_gradient_2d(plasma, phi, dt=0):
-    """time spatial_gradient of model"""
+# Diffusion function
+def diffuse(arr, N, dx):
+    if not isinstance(N, int):
+        print(f"{N} {type(N)}")
+    for i in range(int(N)):
+        arr = field.laplace(arr)  # math.fourier_laplace(arr, dx)
+    return arr
 
-    # Diffusion function
-    def diffuse(arr, N, dx):
-        for i in range(N):
-            arr = field.laplace(arr)  # math.fourier_laplace(arr, dx)
-        return arr
 
+def step_gradient_2d(plasma, phi, dx, N=0, nu=0, c1=0, arak=0, kappa=0, dt=0):
+    """time gradient of model"""
     # Calculate Gradients
-    dx_p, dy_p = field.unstack(field.spatial_gradient(phi), 'vector')
+    grad_phi = field.spatial_gradient(phi, stack_dim="gradient")
+    dx_p, dy_p = grad_phi.values.gradient.unstack_spatial("x,y")
     # Get difference
     diff = phi - plasma.density
     # Step 2.1: New Omega.
-    o = PARAMS["c1"] * diff
-    if PARAMS["arakawa_coeff"]:
-        o += -PARAMS["arakawa_coeff"] * math._nd._periodic_2d_arakawa_poisson_bracket(
-            phi.values, plasma.omega.values, plasma.dx
+    o = c1 * diff
+    if arak:
+        o += -arak * math._nd._periodic_2d_arakawa_poisson_bracket(
+            phi.values, plasma.omega.values, plasma.dx  # TODO: Fix dx
         )
-    if PARAMS["nu"] and PARAMS["N"]:
-        o += PARAMS["nu"] * diffuse(plasma.omega, PARAMS["N"], plasma.dx)
+    if nu and N:
+        o += nu * diffuse(plasma.omega, N=N, dx=plasma.dx)
     # Step 2.2: New Density.
-    n = PARAMS["c1"] * diff
-    if PARAMS["arakawa_coeff"]:
-        n += -PARAMS["arakawa_coeff"] * math._nd._periodic_2d_arakawa_poisson_bracket(
+    n = c1 * diff
+    if arak:
+        n += -arak * math._nd._periodic_2d_arakawa_poisson_bracket(
             phi.values, plasma.density.values, plasma.dx
         )
-    if PARAMS["kappa_coeff"]:
-        n += -PARAMS["kappa_coeff"] * dy_p
-    if PARAMS["nu"]:
-        n += PARAMS["nu"] * diffuse(plasma.density, PARAMS["N"], plasma.dx)
+    if kappa:
+        n += -kappa * dy_p
+    if nu:
+        n += nu * diffuse(plasma.density, N=N, dx=plasma.dx)
     return Namespace(
         density=n,
         omega=o,
@@ -137,27 +118,13 @@ def step_gradient_2d(plasma, phi, dt=0):
     )
 
 
-def euler_step(dt, gradient_func=step_gradient_2d, **kwargs):
-    """Euler Step"""
+def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
+    gradient_func = partial(gradient_func, **physics_params)
     yn = Namespace(**kwargs)  # given dict to Namespace
-    pn = get_phi(yn, guess=yn.phi)
-    k1 = gradient_func(yn, pn, dt=dt)
-    y1 = yn + dt * k1
-    p1 = get_phi(y1, guess=yn.phi)
-    return Namespace(
-        density=y1.density,
-        omega=y1.omega,
-        phi=p1,
-        age=yn.age + dt,  # y1 contains 2 time steps from compute
-        dx=yn.dx,
-    )
-
-
-def rk4_step(dt, density, omega, phi, age, gradient_func=step_gradient_2d):
-    # RK4
-    yn = Namespace(density=density, omega=omega, phi=phi, age=age, dx=dx)  # given dict to Namespace
-    t0 = time.time()
-    if age == 0:
+    # TODO: Fix multiplication of stored *nu* and *N*
+    in_age = yn.age
+    # Only in the first iteration recalculate phi
+    if yn.age == 0:
         pn = get_phi(yn, guess=yn.phi)
     else:
         pn = yn.phi
@@ -169,32 +136,27 @@ def rk4_step(dt, density, omega, phi, age, gradient_func=step_gradient_2d):
     p3 = get_phi(yn + k3)  # , guess=pn+p2*0.5)
     k4 = dt * gradient_func(yn + k3, p3, dt=dt)
     y1 = yn + (k1 + 2 * k2 + 2 * k3 + k4) / 6
-    # phi = #, guess=pn+p3*0.5)
-    t1 = time.time()
-    if DEBUG:
-        print(
-            " | ".join(
-                [
-                    f"{yn.age + dt:<7.04g}",
-                    f"{np.max(np.abs(yn.density.data)):>7.02g}",
-                    f"{np.max(np.abs(k1.density.data)):>7.02g}",
-                    f"{np.max(np.abs(k2.density.data)):>7.02g}",
-                    f"{np.max(np.abs(k3.density.data)):>7.02g}",
-                    f"{np.max(np.abs(k4.density.data)):>7.02g}",
-                    f"{t1 - t0:>6.02f}s",
-                ]
-            )
-        )
-    return y1.density, y1.omega,\
-           get_phi(y1)  # TODO: Somehow this does not work properly
+    phi = get_phi(y1)  # , guess=pn+p3*0.5)
+    return Namespace(
+        density=y1.density,
+        omega=y1.omega,
+        phi=phi,  # TODO: Somehow this does not work properly
+        age=in_age + dt,  # y1 contains 2 time steps from compute
+        dx=yn.dx,
+        # c1=y1.c1,
+        # nu=y1.nu,
+        # N=y1.N,
+        # arakawa_coeff=y1.arakawa_coeff,
+        # kappa_coeff=y1.kappa_coeff,
+    )
 
 
-domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
-density = domain.grid(math.random_normal(x=x, y=y))
-omega = domain.grid(math.random_normal(x=x, y=y))
-phi = domain.grid(math.random_normal(x=x, y=y))
-age = 0
+# domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
+# density = domain.grid(math.random_normal(x=x, y=y))
+# omega = domain.grid(math.random_normal(x=x, y=y))
+# phi = domain.grid(math.random_normal(x=x, y=y))
+# age = 0
 
-for _ in view(density, omega, phi, play=False, framerate=10).range():
-    density, omega, phi = rk4_step(dt, density, omega, phi, age)
-    age += dt
+# for _ in view(density, omega, phi, play=False, framerate=10).range():
+#     density, omega, phi = rk4_step(dt, density, omega, phi, age)
+#     age += dt
