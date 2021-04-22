@@ -390,7 +390,7 @@ def downsample2x(grid: Tensor,
                  dims: tuple or None = None) -> Tensor:
     """
     Resamples a regular grid to half the number of spatial sample points per dimension.
-    The grid values at the new points are determined via linear interpolation.
+    The grid values at the new points are determined via mean (linear interpolation).
 
     Args:
       grid: full size grid
