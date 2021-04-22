@@ -378,7 +378,7 @@ class NumPyBackend(Backend):
             return DType(float, 64)
         if isinstance(array, complex):
             return DType(complex, 128)
-        if not isinstance(array, np.ndarray):
+        if not hasattr(array, 'dtype'):
             array = np.array(array)
         return from_numpy_dtype(array.dtype)
 
@@ -397,38 +397,38 @@ class NumPyBackend(Backend):
         else:
             raise NotImplementedError("Only sparse tensors supported.")
 
-    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
-        bs_y = self.staticshape(y)[0]
-        bs_x0 = self.staticshape(x0)[0]
-        batch_size = combined_dim(bs_y, bs_x0)
-
-        if callable(A):
-            raise NotImplementedError()
-            # A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
-        elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
-            batch_size = combined_dim(batch_size, self.staticshape(A)[0])
-
-        iterations = [0] * batch_size
-        results = []
-
-        def count_callback(*args):
-            iterations[batch] += 1
-            if callback is not None:
-                callback(*args)
-
-        for batch in range(batch_size):
-            y_ = y[min(batch, bs_y - 1)]
-            x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations, callback=count_callback)
-            if ret_val != 0:
-                solve_params.result = SolveResult(max(iterations))
-                if ret_val < 0:
-                    raise Diverged(solve_params, x0, x)
-                else:
-                    raise NotConverged(solve_params, x0, x)
-            results.append(x)
-        solve_params.result = SolveResult(max(iterations))
-        return self.stack(results)
+    # def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
+    #     bs_y = self.staticshape(y)[0]
+    #     bs_x0 = self.staticshape(x0)[0]
+    #     batch_size = combined_dim(bs_y, bs_x0)
+    #
+    #     if callable(A):
+    #         raise NotImplementedError()
+    #         # A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
+    #     elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
+    #         batch_size = combined_dim(batch_size, self.staticshape(A)[0])
+    #
+    #     iterations = [0] * batch_size
+    #     results = []
+    #
+    #     def count_callback(*args):
+    #         iterations[batch] += 1
+    #         if callback is not None:
+    #             callback(*args)
+    #
+    #     for batch in range(batch_size):
+    #         y_ = y[min(batch, bs_y - 1)]
+    #         x0_ = x0[min(batch, bs_x0 - 1)]
+    #         x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations, callback=count_callback)
+    #         if ret_val != 0:
+    #             solve_params.result = SolveResult(max(iterations))
+    #             if ret_val < 0:
+    #                 raise Diverged(solve_params, x0, x)
+    #             else:
+    #                 raise NotConverged(solve_params, x0, x)
+    #         results.append(x)
+    #     solve_params.result = SolveResult(max(iterations))
+    #     return self.stack(results)
 
 
 NUMPY_BACKEND = NumPyBackend()

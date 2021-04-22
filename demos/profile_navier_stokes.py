@@ -2,17 +2,10 @@
 Profiles the common fluid operations advection and pressure solve.
 The profile is stored in the working directory and can be viewed with e.g. with Google chrome.
 """
-
-# Use one of the imports below to choose which backend should be used.
-
-# NumPy / SciPy
 from phi.flow import *
-
-# PyTorch
 # from phi.torch.flow import *
-
-# TensorFlow
 # from phi.tf.flow import *
+# from phi.jax.flow import *
 
 
 DOMAIN = Domain(x=128, y=128, boundaries=CLOSED, bounds=Box[0:100, 0:100])
@@ -20,6 +13,5 @@ velocity = DOMAIN.staggered_grid(Noise(vector=2))
 pressure = DOMAIN.scalar_grid(0)
 
 with backend.profile(save=f'navier_stokes_{math.backend.default_backend()}.json'):
-    for _ in range(2):
-        velocity = advect.semi_lagrangian(velocity, velocity, dt=1)
-        velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)
+    velocity = advect.semi_lagrangian(velocity, velocity, dt=1)
+    # velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)
