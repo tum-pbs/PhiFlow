@@ -62,7 +62,7 @@ class DashGui(Gui):
         layout = html.Div([
             build_description(dash_app),
             build_view_selection(dash_app, field_selections, 'home'),
-            html.Div(style={'width': 1000, 'height': 800, 'margin-left': 'auto', 'margin-right': 'auto'}, children=[viewers_home[0]]),
+            html.Div(style={'width': '100%', 'height': 800, 'margin-left': 'auto', 'margin-right': 'auto'}, children=[viewers_home[0]]),
             status_bar,
             player_controls,
             model_controls,

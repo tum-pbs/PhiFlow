@@ -50,6 +50,8 @@ def _plot(field: SampledField,
         color_scale = get_div_map(zmin, zmax, equal_scale=True, colormap=colormap)
         # color_bar = graph_objects.heatmap.ColorBar(x=1.15)   , colorbar=color_bar
         fig.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=zmin, zmax=zmax, colorscale=color_scale, showscale=show_color_bar)
+        fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
+        fig.update_yaxes(constrain='domain')
     elif field.spatial_rank == 2 and isinstance(field, Grid):  # vector field
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
@@ -183,7 +185,7 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap: str = None):
         # Cut to (0, 1)
         cm_arr = cm_arr[cm_arr[:, 0] >= 0]
         cm_arr = cm_arr[cm_arr[:, 0] <= 1]
-    return [(val, "rgb({:.0f},{:.0f},{:.0f})".format(*colors)) for val, colors in zip(cm_arr[:, 0], cm_arr[:, 1:])]
+    return [[val, "rgb({:.0f},{:.0f},{:.0f})".format(*colors)] for val, colors in zip(cm_arr[:, 0], cm_arr[:, 1:])]
 
 
 def get_color_interpolation(val, cm_arr):
