@@ -16,7 +16,7 @@ from .backend._backend_helper import combined_dim
 from .backend._dtype import DType, combine_types
 from ._shape import BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE, spatial_shape, shape as shape_, \
     _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape
-from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors, TensorDim
+from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors
 from . import extrapolation as extrapolation_
 from .backend._optim import SolveResult, Solve, ConvergenceException, NotConverged, Diverged
 from .backend._profile import get_current_profile

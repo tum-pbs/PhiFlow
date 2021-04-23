@@ -5,7 +5,7 @@ Extrapolations are used for padding tensors and sampling coordinates lying outsi
 """
 from typing import Union
 
-from . import _functions as math
+from . import _ops as math
 from .backend import choose_backend
 from ._trace import ShiftLinOp
 from ._shape import Shape

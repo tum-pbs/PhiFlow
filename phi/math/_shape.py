@@ -940,7 +940,7 @@ def shape_stack(stack_dim: str, stack_type: str, *shapes: Shape):
         if min(dim_sizes) == max(dim_sizes):
             dim_sizes = dim_sizes[0]
         else:
-            from ._functions import _stack
+            from ._ops import _stack
             from ._tensors import wrap
             dim_sizes = [wrap(d) for d in dim_sizes]
             dim_sizes = _stack(dim_sizes, stack_dim, stack_type)

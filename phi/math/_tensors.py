@@ -117,7 +117,7 @@ class Tensor:
         if self.rank == 0:
             return bool(self.native())
         else:
-            from phi.math._functions import all_
+            from phi.math._ops import all_
             return bool(all_(self))
 
     def __int__(self):
@@ -136,7 +136,7 @@ class Tensor:
 
     def _summary_str(self) -> str:
         try:
-            from ._functions import all_available, min_, max_, sum_
+            from ._ops import all_available, min_, max_, sum_
             if all_available(self):
                 if self.rank == 0:
                     return str(self.numpy())
@@ -178,7 +178,7 @@ class Tensor:
 
     def __getitem__(self, item):
         if isinstance(item, Tensor):
-            from ._functions import gather
+            from ._ops import gather
             return gather(self, item)
         if isinstance(item, (int, slice)):
             assert self.rank == 1
@@ -620,7 +620,7 @@ class TensorDim:
         if isinstance(item, str):
             item = self.tensor.shape.spatial.index(item)
         elif isinstance(item, Tensor) and item.dtype == DType(bool):
-            from ._functions import boolean_mask
+            from ._ops import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
         return self.tensor[{self.name: item}]
 
@@ -630,12 +630,12 @@ class TensorDim:
 
     def split(self, split_dimensions: Shape):
         """ See `phi.math.split_dimension()` """
-        from ._functions import split_dimension
+        from ._ops import split_dimension
         return split_dimension(self.tensor, self.name, split_dimensions)
 
     def __mul__(self, other):
         if isinstance(other, TensorDim):
-            from ._functions import dot
+            from ._ops import dot
             return dot(self.tensor, (self.name,), other.tensor, (other.name,))
         else:
             return NotImplemented
@@ -1196,7 +1196,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             stack_dim = 'vector' if names is None else _shape.parse_dim_names(names, rank)[0]
             assert all(stack_dim not in t.shape for t in elements), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in elements]
-            from ._functions import cast_same
+            from ._ops import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
     backend = choose_backend(data, raise_error=False)

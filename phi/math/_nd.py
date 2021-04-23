@@ -5,10 +5,10 @@ import numpy as np
 from typing import Tuple
 from phi import struct
 from . import extrapolation as extrapolation
-from . import _functions as math
+from . import _ops as math
 from ._config import GLOBAL_AXIS_ORDER
 from .extrapolation import Extrapolation
-from ._functions import channel_stack
+from ._ops import channel_stack
 from ._shape import Shape
 from ._tensors import Tensor
 from ._tensors import wrap

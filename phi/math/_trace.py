@@ -6,7 +6,7 @@ import numpy as np
 from .backend import choose_backend
 from ._shape import EMPTY_SHAPE, Shape, shape, parse_dim_order, SPATIAL_DIM
 from ._tensors import Tensor, NativeTensor, TensorStack, CollapsedTensor
-from . import _functions as math
+from . import _ops as math
 
 
 def simplify_add(val: dict):
