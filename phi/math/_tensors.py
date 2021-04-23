@@ -269,6 +269,8 @@ class Tensor:
     def __getattr__(self, name):
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
+        if name == 'is_tensor_like':  # TensorFlow replaces abs() while tracing and checks for this attribute
+            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
         assert name not in ('shape', '_shape', 'tensor'), name
         return TensorDim(self, name)
 
@@ -566,6 +568,7 @@ class TensorDim:
         return self.index
 
     def __len__(self):
+        assert self.name in self.tensor.shape, f"Dimension {self.name} does not exist for tensor {self.tensor.shape}"
         return self.tensor.shape.get_size(self.name)
 
     @property
