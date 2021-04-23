@@ -28,15 +28,15 @@ class Solve:
         self.solver_arguments: dict = solver_arguments
         """ Additional solver-dependent arguments. """
         self.result: SolveResult = SolveResult(0)
-        """ `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. """
+        """ `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve_linear. """
 
     @property
     def gradient_solve(self) -> 'Solve':
         """
         Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
-        Gradient solve information will be stored in `gradient_solve.result`.
+        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve_linear.
+        Gradient solve_linear information will be stored in `gradient_solve.result`.
         """
         if self._gradient_solve is None:
             self._gradient_solve = copy(self)
@@ -62,22 +62,22 @@ class SolveResult:
 
 class ConvergenceException(RuntimeError):
     """
-    Base class for exceptions raised when a solve did not converge.
+    Base class for exceptions raised when a solve_linear did not converge.
 
     See Also:
         `Diverged`, `NotConverged`.
 
     """
 
-    def __init__(self, solve: Solve, x0, x, msg: str):
+    def __init__(self, solve_linear: Solve, x0, x, msg: str):
         # subclasses must have the same signature to be instantiated as type(snc)(...)
         RuntimeError.__init__(self, msg)
         self.solve: Solve = solve
-        """ The specified solve parameters as `Solve`. """
+        """ The specified solve_linear parameters as `Solve`. """
         self.partial_result: SolveResult = solve.result
-        """ `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. """
+        """ `SolveResult` containing information about the failed solve_linear. Equivalent to `Solve.result` at the time this exception was created. """
         self.x = x
-        """ Estimate of result at the end of the failed solve. """
+        """ Estimate of result at the end of the failed solve_linear. """
         self.x0 = x0
         """ Initial guess provided to the solver. """
 
@@ -97,7 +97,7 @@ class NotConverged(ConvergenceException):
         `Diverged`.
     """
 
-    def __init__(self, solve: Solve, x0, x, msg: str = None):
+    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
         if msg is None:
             msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations."
         ConvergenceException.__init__(self, solve, x0, x, msg=msg)
@@ -116,7 +116,7 @@ class Diverged(ConvergenceException):
         `NotConverged`.
     """
 
-    def __init__(self, solve: Solve, x0, x, msg: str = None):
+    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
         if msg is None:
             msg = f"Solve diverged within {solve.result.iterations} iterations."
         ConvergenceException.__init__(self, solve, x0, x, msg=msg)

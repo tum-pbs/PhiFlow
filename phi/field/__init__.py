@@ -31,13 +31,13 @@ from ._field_math import (
     mean, pad, shift, normalize, center_of_mass,
     concat, batch_stack, channel_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
-    solve, minimize,
+    solve_linear, minimize,
     where,
     vec_squared, vec_abs,
     l2_loss, l1_loss, frequency_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
-    jit_compile, functional_gradient, linear_function,
+    jit_compile, functional_gradient, jit_compile_linear,
     native_call,
 )
 from ._field_io import write, read

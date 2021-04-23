@@ -67,7 +67,7 @@ class Namespace(dict):
 def get_phi(plasma, guess=None):
     """Fourier Poisson Solve for Phi"""
     phi = math.fourier_poisson(plasma.omega.values, plasma.dx)
-    # phi = math.solve(
+    # phi = math.solve_linear(
     #     math.laplace, plasma.omega.values, guess, math.LinearSolve, callback=None
     # )
     return CenteredGrid(

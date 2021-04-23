@@ -727,6 +727,9 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         Restores all viewed fields to the states they were in when the viewer was created.
         Changes variable values in the user namespace.
         &#34;&#34;&#34;
+        reset_function = self.namespace.get_variable(&#39;reset&#39;)
+        if callable(reset_function):
+            reset_function()
         for name, value in self.initial_field_values.items():
             self.namespace.set_variable(name, value)
         self.steps = 0</code></pre>

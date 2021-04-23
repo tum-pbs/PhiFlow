@@ -53,20 +53,16 @@ from .backend._optim import Solve, SolveResult, ConvergenceException, NotConverg
 from .backend._dtype import DType
 from .backend import NUMPY_BACKEND, precision, set_global_precision, get_precision
 
-from .extrapolation import Extrapolation
-
 from ._config import GLOBAL_AXIS_ORDER
-
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
-
 from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
-
-from ._functions import (
+from .extrapolation import Extrapolation
+from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
     native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
     print_ as print, print_gradient,
     map_ as map,
-    jit_compile, functional_gradient, custom_gradient, linear_function,
+    jit_compile, jit_compile_linear, functional_gradient, custom_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
@@ -87,7 +83,7 @@ from ._functions import (
     fft, ifft, convolve,
     dtype, cast,
     close, assert_close,
-    solve, minimize,
+    solve_linear, solve_nonlinear, minimize,
     record_gradients, gradients, stop_gradient
 )
 from ._nd import (
@@ -100,6 +96,8 @@ from ._nd import (
     downsample2x, upsample2x, sample_subgrid,
     extrapolate_valid_values,
 )
+from ._trace import LinearFunction
+
 
 PI = 3.14159265358979323846
 &#34;&#34;&#34;Value of π to double precision &#34;&#34;&#34;
@@ -118,6 +116,7 @@ __pdoc__ = {
     &#39;ConvergenceException.__init__&#39;: False,
     &#39;Diverged.__init__&#39;: False,
     &#39;NotConverged.__init__&#39;: False,
+    &#39;LinearFunction.__init__&#39;: False,
 }</code></pre>
 </details>
 </section>
@@ -794,13 +793,13 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
     in_channels = value.shape.channel
     out_channels = kernel.shape.channel.without(in_channels)
     batch = value.shape.batch &amp; kernel.shape.batch
-    if extrapolation is not None and extrapolation != extrapolation_.ZERO:
+    if extrapolation is not None and extrapolation != e_.ZERO:
         value = pad(value, {dim: (kernel.shape.get_size(dim) // 2, (kernel.shape.get_size(dim) - 1) // 2)
                             for dim in conv_shape.name}, extrapolation)
     native_kernel = reshaped_native(kernel, (batch, out_channels, in_channels, *conv_shape.names), force_expand=in_channels)
     native_value = reshaped_native(value, (batch, in_channels, *conv_shape.names), force_expand=batch)
     backend = choose_backend(native_value, native_kernel)
-    native_result = backend.conv(native_value, native_kernel, zero_padding=extrapolation == extrapolation_.ZERO)
+    native_result = backend.conv(native_value, native_kernel, zero_padding=extrapolation == e_.ZERO)
     result = reshaped_tensor(native_result, (batch, out_channels, *conv_shape.names))
     return result</code></pre>
 </details>
@@ -1020,7 +1019,7 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
 </code></dt>
 <dd>
 <div class="desc"><p>Resamples a regular grid to half the number of spatial sample points per dimension.
-The grid values at the new points are determined via linear interpolation.</p>
+The grid values at the new points are determined via mean (linear interpolation).</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>grid</code></strong></dt>
@@ -1049,7 +1048,7 @@ The grid values at the new points are determined via linear interpolation.</p>
                  dims: tuple or None = None) -&gt; Tensor:
     &#34;&#34;&#34;
     Resamples a regular grid to half the number of spatial sample points per dimension.
-    The grid values at the new points are determined via linear interpolation.
+    The grid values at the new points are determined via mean (linear interpolation).
 
     Args:
       grid: full size grid
@@ -1793,6 +1792,12 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.</p>
 <p>The traced function will compute the same result as <code>f</code> but may run much faster.
 Some checks may be disabled in the compiled function.</p>
+<p>Can be used as a decorator:</p>
+<pre><code class="language-python">@math.jit_compile
+def my_function(x: math.Tensor) -&gt; math.Tensor:
+</code></pre>
+<p>See Also:
+<code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
@@ -1813,6 +1818,15 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
     The traced function will compute the same result as `f` but may run much faster.
     Some checks may be disabled in the compiled function.
 
+    Can be used as a decorator:
+    ```python
+    @math.jit_compile
+    def my_function(x: math.Tensor) -&gt; math.Tensor:
+    ```
+
+    See Also:
+        `jit_compile_linear()`
+
     Args:
         f: Function to be traced.
             All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
@@ -1822,6 +1836,55 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
     &#34;&#34;&#34;
     wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf), persistent_refs=True)
     return wrapper</code></pre>
+</details>
+</dd>
+<dt id="phi.math.jit_compile_linear"><code class="name flex">
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable) ‑> phi.math._trace.LinearFunction</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.</p>
+<p>Can be used as a decorator:</p>
+<pre><code class="language-python">@math.jit_compile_linear
+def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
+</code></pre>
+<p>See Also:
+<code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional arguments and return value(s).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jit_compile_linear(f: Callable) -&gt; &#39;_trace.LinearFunction&#39;:
+    &#34;&#34;&#34;
+    Compile an optimized representation of the linear function `f`.
+
+    Can be used as a decorator:
+
+    ```python
+    @math.jit_compile_linear
+    def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
+    ```
+
+    See Also:
+        `jit_compile()`
+
+    Args:
+        f: Linear function with `Tensor` positional arguments and return value(s).
+
+    Returns:
+        `LinearFunction` with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+    &#34;&#34;&#34;
+    backend = default_backend()
+    if not backend.supports(Backend.sparse_tensor):
+        warnings.warn(f&#34;Cannot compile linear function with {backend} because sparse matrices are not supported.&#34;)
+        return _trace.LinearFunction(f)
+    return _trace.JitLinearFunction(f, backend)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.join_dimensions"><code class="name flex">
@@ -2035,60 +2098,6 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     return result</code></pre>
 </details>
 </dd>
-<dt id="phi.math.linear_function"><code class="name flex">
-<span>def <span class="ident">linear_function</span></span>(<span>f: Callable, jit_compile=True) ‑> Callable</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Mark <code>f</code> as a linear function.
-This is required for performing a linear solve using <code><a title="phi.math.solve" href="#phi.math.solve">solve()</a></code>.</p>
-<p>Can be used as a decorator:</p>
-<pre><code class="language-python">@math.linear_function
-def my_linear_function(x):
-</code></pre>
-<p>If <code>jit_compile=True</code>, a sparse matrix representation of <code>f</code> will be created when the returned function is called.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong></dt>
-<dd>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> arguments and return value(s).</dd>
-<dt><strong><code>jit_compile</code></strong></dt>
-<dd>Whether to compile a matrix representation for <code>f</code>.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def linear_function(f: Callable, jit_compile=True) -&gt; Callable:
-    &#34;&#34;&#34;
-    Mark `f` as a linear function.
-    This is required for performing a linear solve using `solve()`.
-
-    Can be used as a decorator:
-
-    ```python
-    @math.linear_function
-    def my_linear_function(x):
-    ```
-
-    If `jit_compile=True`, a sparse matrix representation of `f` will be created when the returned function is called.
-
-    Args:
-        f: Linear function with `Tensor` arguments and return value(s).
-        jit_compile: Whether to compile a matrix representation for `f`.
-
-    Returns:
-        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
-    &#34;&#34;&#34;
-    if not jit_compile:
-        return LinearFunction(f)
-    backend = default_backend()
-    if not backend.supports(Backend.sparse_tensor):
-        warnings.warn(f&#34;Cannot compile linear function with {backend} because sparse matrices are not supported.&#34;)
-        return LinearFunction(f)
-    return JitLinearFunction(f, backend)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.linspace"><code class="name flex">
 <span>def <span class="ident">linspace</span></span>(<span>start, stop, number: int, dim='linspace')</span>
 </code></dt>
@@ -2284,23 +2293,27 @@ def my_linear_function(x):
 </details>
 </dd>
 <dt id="phi.math.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>function, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, callback: Callable = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">minimize</span></span>(<span>f, x0: phi.math._tensors.Tensor, solve: phi.math.backend._optim.Solve, jit_f=True) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds a minimum of the scalar function <code>function(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> like <code>x0</code>.
-The <code>solver</code> argument of <code>solve_params</code> determines which method is used.
+The <code>solver</code> argument of <code>solve</code> determines which method is used.
 All methods supported by <code>scipy.optimize.minimize</code> can be used, see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .</p>
 <p>For backends that support gradients (PyTorch, TensorFlow, Jax), <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code> is used to determine the optimization direction.
 Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.</p>
-<p>Information about the performed solve will be added to <code>solve_params.result</code>.</p>
+<p>Information about the performed solve_linear will be added to <code>solve.result</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>function</code></strong></dt>
-<dd>Function to be minimized</dd>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function whose output is subject to minimization. Function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional argument and return value.</dd>
 <dt><strong><code>x0</code></strong></dt>
-<dd>Initial guess for <code>x</code></dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>Specifies solver type and parameters. Additional solve information will be stored in <code>solve_params.result</code>.</dd>
+<dd>Initial guess for <code>x</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dt><strong><code>jit_f</code></strong></dt>
+<dd>Whether to compile an optimized representation of <code>f</code> prior to solving the equations.
+If <code>f</code> is already compiled or partially compiled, e.g. using <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>, the existing representations are used.</dd>
+<dt><strong><code>solve</code></strong></dt>
+<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify solver type and parameters.
+Additional solve information will be stored in <code>solve.result</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2318,21 +2331,27 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(function, x0: Tensor, solve_params: Solve, callback: Callable = None) -&gt; Tensor:
+<pre><code class="python">def minimize(f,
+             x0: Tensor,
+             solve: Solve,
+             jit_f=True) -&gt; Tensor:
     &#34;&#34;&#34;
     Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
-    The `solver` argument of `solve_params` determines which method is used.
+    The `solver` argument of `solve` determines which method is used.
     All methods supported by `scipy.optimize.minimize` can be used, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
 
     For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
     Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
 
-    Information about the performed solve will be added to `solve_params.result`.
+    Information about the performed solve_linear will be added to `solve.result`.
 
     Args:
-        function: Function to be minimized
-        x0: Initial guess for `x`
-        solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
+        f: Function whose output is subject to minimization. Function with single `Tensor` positional argument and return value.
+        x0: Initial guess for `x` as `Tensor`.
+        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
+            If `f` is already compiled or partially compiled, e.g. using `jit_compile()`, the existing representations are used.
+        solve: `Solve` object to specify solver type and parameters.
+            Additional solve information will be stored in `solve.result`.
 
     Returns:
         x: solution, the minimum point `x`.
@@ -2341,12 +2360,14 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
-    assert solve_params.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve_params.relative_tolerance}&#34;
+    assert solve.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
     backend = choose_backend_t(x0, prefer_default=True)
     x0._expand()
     natives = x0._natives()
     natives_flat = [backend.flatten(n) for n in natives]
     x0_flat = backend.concat(natives_flat, 0)
+    if jit_f:
+        f = jit_compile(f)
 
     def unflatten_assemble(x_native):
         i = 0
@@ -2360,16 +2381,16 @@ Otherwise (NumPy), the gradient is determined using finite differences and a war
 
     def native_function(native_x):
         x = unflatten_assemble(native_x)
-        y = function(x)
+        y = f(x)
         if isinstance(y, (tuple, list)):
             return [y_.native() for y_ in y]
         else:
             return y.native()
 
     try:
-        x_native = backend.minimize(native_function, x0_flat, solve_params)
+        x_native = backend.minimize(native_function, x0_flat, solve)
         if x_native is NotImplemented:
-            x_native = _default_minimize(native_function, x0_flat, x0.dtype, backend, solve_params, callback)
+            x_native = _default_minimize(native_function, x0_flat, x0.dtype, backend, solve)
         x = unflatten_assemble(x_native)
         return x
     except ConvergenceException as exc:
@@ -2847,13 +2868,13 @@ Typically, this means x right, y up.</p>
             if value.shape.non_spatial.volume &gt; 1:
                 print(f&#34;--- {&#39;, &#39;.join(&#39;%s=%d&#39; % (name, idx) for name, idx in index_dict.items())} ---&#34;)
             text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=&#39;, &#39;, max_line_width=np.inf)
-            print(&#39; &#39; + re.sub(&#39;[\[\]]&#39;, &#39;&#39;, text))
+            print(&#39; &#39; + re.sub(&#39;[\\[\\]]&#39;, &#39;&#39;, text))
     elif value.shape.spatial_rank == 2:
         for index_dict in value.shape.non_spatial.meshgrid():
             if value.shape.non_spatial.volume &gt; 1:
                 print(f&#34;--- {&#39;, &#39;.join(&#39;%s=%d&#39; % (name, idx) for name, idx in index_dict.items())} ---&#34;)
             text = np.array2string(value[index_dict].numpy(dim_order)[::-1], precision=2, separator=&#39;, &#39;, max_line_width=np.inf)
-            print(&#39; &#39; + re.sub(&#39;[\[\]]&#39;, &#39;&#39;, re.sub(&#39;\],&#39;, &#39;&#39;, text)))
+            print(&#39; &#39; + re.sub(&#39;[\\[\\]]&#39;, &#39;&#39;, re.sub(&#39;\\],&#39;, &#39;&#39;, text)))
     else:
         raise NotImplementedError(&#39;Can only print tensors with up to 2 spatial dimensions.&#39;)</code></pre>
 </details>
@@ -3359,8 +3380,9 @@ These dimensions are not treated as batch dimensions.</dd>
     # --- Reshape indices to (batch, list, vector) ---
     shaped_indices = join_dimensions(indices, batches, &#39;batch_&#39;, pos=0)
     shaped_indices = join_dimensions(shaped_indices, lists, &#39;list_&#39;, pos=1)
-    # --- Reshape values to (batch, list, vector) ---
+    # --- Reshape values to (batch, list, vector) and expand it to all elements / indices ---
     values = _expand_dims(values, channels)
+    values = ones(indices.shape.batch) * values
     shaped_values = join_dimensions(values, batches, &#39;batch_&#39;, pos=0)
     shaped_values = join_dimensions(shaped_values, lists, &#39;list_&#39;, pos=1)
     shaped_values = join_dimensions(shaped_values, channels, &#39;vector_&#39;, pos=-1)
@@ -3375,15 +3397,15 @@ These dimensions are not treated as batch dimensions.</dd>
     if outside_handling == &#39;clamp&#39;:
         shaped_indices = clip(shaped_indices, 0, tensor(grid_shape.spatial, &#39;vector&#39;) - 1)
     elif outside_handling == &#39;discard&#39;:
-        indices_inside = min_((_math.round(shaped_indices) &gt;= tensor(0.)) &amp;
-                              (_math.round(shaped_indices) &lt; tensor(grid_shape.spatial, &#39;vector&#39;)), &#39;vector&#39;)
+        indices_inside = min_((round_(shaped_indices) &gt;= tensor(0.)) &amp;
+                              (round_(shaped_indices) &lt; tensor(grid_shape.spatial, &#39;vector&#39;)), &#39;vector&#39;)
         shaped_indices = shaped_indices.list_[indices_inside]
         shaped_values = shaped_values.list_[indices_inside]
         if shaped_indices.shape.is_non_uniform:
             raise NotImplementedError()
 
     def scatter_forward(shaped_base_grid_, shaped_indices_, shaped_values_):
-        shaped_indices_ = _math.to_int(_math.round(shaped_indices_))
+        shaped_indices_ = to_int(round_(shaped_indices_))
         native_grid = reshaped_native(base_grid, (batches, *base_grid.shape.spatial.names, channels), force_expand=True)
         native_values = shaped_values_.native(&#39;batch_, list_, vector_&#39;)
         native_indices = shaped_indices_.native(&#39;batch_, list_, vector&#39;)
@@ -3399,8 +3421,9 @@ These dimensions are not treated as batch dimensions.</dd>
         return tensor(native_result, shaped_base_grid_.shape)
 
     def scatter_backward(shaped_base_grid_, shaped_indices_, shaped_values_, output, d_output):
+        from ._nd import spatial_gradient
         values_grad = gather(d_output, shaped_indices_)
-        spatial_gradient_indices = gather(_math.spatial_gradient(d_output), shaped_indices_)
+        spatial_gradient_indices = gather(spatial_gradient(d_output), shaped_indices_)
         indices_grad = mean(spatial_gradient_indices * shaped_values_, &#39;vector_&#39;)
         return None, indices_grad, values_grad
 
@@ -3619,34 +3642,34 @@ The output of math operations has the same precision as its inputs.</p>
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.solve"><code class="name flex">
-<span>def <span class="ident">solve</span></span>(<span>f: Callable, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve_params: phi.math.backend._optim.Solve, constants: tuple = (), callback=None) ‑> phi.math._tensors.Tensor</span>
+<dt id="phi.math.solve_linear"><code class="name flex">
+<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve: phi.math.backend._optim.Solve, jit_f=True, constants: tuple = ()) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Solves the system of linear or nonlinear equations <em>f(x) = y</em>.
-To solve a linear system, decorate <code>f</code> with <code>@math.linear_function</code>.
-Otherwise, a nonlinear solver will be used which may be slower.</p>
-<p>Information about the performed solve will be stored in <code>solve_params.result</code>.
-In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to <code>solve_params.gradient_solve.result</code>.</p>
+<div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em>.</p>
+<p>Information about the performed solve will be stored in <code>solve.result</code>.
+In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to <code>solve.gradient_solve.result</code>.</p>
 <p>See Also:
-<code><a title="phi.math.minimize" href="#phi.math.minimize">minimize()</a></code>, <code><a title="phi.math.linear_function" href="#phi.math.linear_function">linear_function()</a></code>.</p>
+<code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear()</a></code>, <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Function <code>operator(x)</code> or matrix</dd>
+<dd>Linear function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional argument and return value.</dd>
 <dt><strong><code>y</code></strong></dt>
-<dd>Desired output of <code>operator · x</code></dd>
+<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
 <dt><strong><code>x0</code></strong></dt>
-<dd>Initial guess for <code>x</code></dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>Specifies solver type and parameters. Additional solve information will be stored in <code>solve_params.result</code>.</dd>
-<dt><strong><code>callback</code></strong></dt>
-<dd>Function to be called after each iteration as <code>callback(x_n)</code>. <em>This argument may be ignored by some backends.</em></dd>
+<dd>Initial guess for <code>x</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dt><strong><code>jit_f</code></strong></dt>
+<dd>Whether to compile an optimized representation of <code>f</code> prior to solving the equations.
+If <code>f</code> is already compiled or partially compiled, e.g. using <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code>, the existing representations are used.</dd>
+<dt><strong><code>solve</code></strong></dt>
+<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify solver type and parameters.
+Additional solve information will be stored in <code>solve.result</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>x</code></dt>
-<dd>solution of the linear system of equations <code>operator · x = y</code>.</dd>
+<dd>solution of the linear system of equations <code>f(x) = y</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -3659,50 +3682,38 @@ In case the gradient of this operation is computed during backpropagation, infor
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve(f: Callable,
-          y: Tensor,
-          x0: Tensor,
-          solve_params: Solve,
-          constants: tuple or list = (),
-          callback=None) -&gt; Tensor:
+<pre><code class="python">def solve_linear(f: Callable,
+                 y: Tensor,
+                 x0: Tensor,
+                 solve: Solve,
+                 jit_f=True,
+                 constants: tuple or list = ()) -&gt; Tensor:
     &#34;&#34;&#34;
-    Solves the system of linear or nonlinear equations *f(x) = y*.
-    To solve a linear system, decorate `f` with `@math.linear_function`.
-    Otherwise, a nonlinear solver will be used which may be slower.
+    Solves the system of linear equations *f(x) = y*.
 
-    Information about the performed solve will be stored in `solve_params.result`.
-    In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve_params.gradient_solve.result`.
+    Information about the performed solve will be stored in `solve.result`.
+    In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve.gradient_solve.result`.
 
     See Also:
-        `minimize()`, `linear_function()`.
+        `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Function `operator(x)` or matrix
-        y: Desired output of `operator · x`
-        x0: Initial guess for `x`
-        solve_params: Specifies solver type and parameters. Additional solve information will be stored in `solve_params.result`.
-        callback: Function to be called after each iteration as `callback(x_n)`. *This argument may be ignored by some backends.*
+        f: Linear function with single `Tensor` positional argument and return value.
+        y: Desired output of `f(x)` as `Tensor`.
+        x0: Initial guess for `x` as `Tensor`.
+        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
+            If `f` is already compiled or partially compiled, e.g. using `jit_compile_linear()`, the existing representations are used.
+        solve: `Solve` object to specify solver type and parameters.
+            Additional solve information will be stored in `solve.result`.
 
     Returns:
-        x: solution of the linear system of equations `operator · x = y`.
+        x: solution of the linear system of equations `f(x) = y` as `Tensor`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     &#34;&#34;&#34;
-    if not isinstance(f, LinearFunction):
-        from ._nd import l2_loss
-
-        def min_func(x):
-            diff = f(x) - y
-            l2 = l2_loss(diff)
-            return l2
-
-        rel_tol_to_abs = solve_params.relative_tolerance * l2_loss(y, batch_norm=True)
-        solve_params.absolute_tolerance = rel_tol_to_abs
-        solve_params.relative_tolerance = 0
-        return minimize(min_func, x0, solve_params=solve_params)
-    if solve_params.solver != &#39;CG&#39;:
+    if solve.solver != &#39;CG&#39;:
         raise NotImplementedError(&#34;Only &#39;CG&#39; solver currently supported&#34;)
 
     for c in constants:
@@ -3711,7 +3722,9 @@ In case the gradient of this operation is computed during backpropagation, infor
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
 
-    if isinstance(f, JitLinearFunction):
+    if jit_f:
+        pass  # TODO
+    if isinstance(f, _trace.JitLinearFunction):  # TODO don&#39;t check instance, create a new LinearFunction, implement LinearFunction concatenation
         operator_or_matrix = f.sparse_coordinate_matrix(x0)
     else:
         def operator_or_matrix(native_x):
@@ -3725,18 +3738,96 @@ In case the gradient of this operation is computed during backpropagation, infor
     if backend.supports(Backend.conjugate_gradient):
         x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
         y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
-        x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve_params, callback)
+        x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve)
         batch = (y.shape &amp; x0.shape).batch
         x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
         x = NativeTensor(x, batch.combined(x0.shape.non_batch))
     else:
-        x = _default_cg(operator_or_matrix, y, x0, solve_params, callback)
+        x = _default_cg(operator_or_matrix, y, x0, solve)
     if get_current_profile():
-        iterations = solve_params.result.iterations
+        iterations = solve.result.iterations
         loop_time = time.perf_counter() - loop_time
         info = &#34;  \tProfile with trace=False to get more accurate results.&#34; if get_current_profile()._trace else &#34;&#34;
         get_current_profile().add_external_message(f&#34;CG \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}&#34;)
     return x</code></pre>
+</details>
+</dd>
+<dt id="phi.math.solve_nonlinear"><code class="name flex">
+<span>def <span class="ident">solve_nonlinear</span></span>(<span>f: Callable, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve: phi.math.backend._optim.Solve, jit_f=True) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Solves the non-linear equation <em>f(x) = y</em> by minimizing the norm of the residual.</p>
+<p>See Also:
+<code><a title="phi.math.minimize" href="#phi.math.minimize">minimize()</a></code>, <code><a title="phi.math.solve_linear" href="#phi.math.solve_linear">solve_linear()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional argument and return value.</dd>
+<dt><strong><code>y</code></strong></dt>
+<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dt><strong><code>x0</code></strong></dt>
+<dd>Initial guess for <code>x</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dt><strong><code>jit_f</code></strong></dt>
+<dd>Whether to compile an optimized representation of <code>f</code> prior to solving the equations.
+If <code>f</code> is already compiled or partially compiled, e.g. using <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>, the existing representations are used.</dd>
+<dt><strong><code>solve</code></strong></dt>
+<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify solver type and parameters.
+Additional solve information will be stored in <code>solve.result</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>x</code></dt>
+<dd>solution fulfilling <code>f(x) = y</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code></dt>
+<dd>If the desired accuracy was not be reached within the maximum number of iterations.</dd>
+<dt><code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code></dt>
+<dd>If the solve failed prematurely.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def solve_nonlinear(f: Callable,
+                    y: Tensor,
+                    x0: Tensor,
+                    solve: Solve,
+                    jit_f=True) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Solves the non-linear equation *f(x) = y* by minimizing the norm of the residual.
+
+    See Also:
+        `minimize()`, `solve_linear()`.
+
+    Args:
+        f: Function with single `Tensor` positional argument and return value.
+        y: Desired output of `f(x)` as `Tensor`.
+        x0: Initial guess for `x` as `Tensor`.
+        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
+            If `f` is already compiled or partially compiled, e.g. using `jit_compile()`, the existing representations are used.
+        solve: `Solve` object to specify solver type and parameters.
+            Additional solve information will be stored in `solve.result`.
+
+    Returns:
+        x: solution fulfilling `f(x) = y` as `Tensor`.
+
+    Raises:
+        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
+        Diverged: If the solve failed prematurely.
+    &#34;&#34;&#34;
+    from ._nd import l2_loss
+
+    def min_func(x):
+        diff = f(x) - y
+        l2 = l2_loss(diff)
+        return l2
+
+    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y, batch_norm=True)
+    solve.absolute_tolerance = rel_tol_to_abs
+    solve.relative_tolerance = 0
+    return minimize(min_func, x0, solve=solve, jit_f=jit_f)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
@@ -4118,9 +4209,9 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         if names is None:
             return data
         else:
-            names = _shape.parse_dim_names(names, data.rank)
+            names = parse_dim_names(names, data.rank)
             names = [n if n is not None else o for n, o in zip(names, data.shape.names)]
-            types = [_shape._infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
+            types = [_infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
     elif isinstance(data, Shape):
@@ -4137,14 +4228,14 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             data = array
         else:
             elements = tensors(*data, names=None if names is None else names[1:], convert=convert)
-            common_shape = _shape.combine_safe(*[e.shape for e in elements])
+            common_shape = combine_safe(*[e.shape for e in elements])
             rank = 1 + common_shape.rank
-            stack_dim = &#39;vector&#39; if names is None else _shape.parse_dim_names(names, rank)[0]
+            stack_dim = &#39;vector&#39; if names is None else parse_dim_names(names, rank)[0]
             assert all(stack_dim not in t.shape for t in elements), f&#34;Cannot stack tensors with dimension &#39;{stack_dim}&#39; because a tensor already has that dimension.&#34;
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank &lt; common_shape.rank else e for e in elements]
-            from ._functions import cast_same
+            from ._ops import cast_same
             elements = cast_same(*elements)
-            return TensorStack(elements, dim_name=stack_dim, dim_type=_shape._infer_dim_type_from_name(stack_dim))
+            return TensorStack(elements, dim_name=stack_dim, dim_type=_infer_dim_type_from_name(stack_dim))
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
@@ -4152,9 +4243,9 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             names = [&#39;vector&#39;] * backend.ndims(data)  # [] or [&#39;vector&#39;]
             types = [CHANNEL_DIM] * backend.ndims(data)
         else:
-            names = _shape.parse_dim_names(names, len(data.shape))
+            names = parse_dim_names(names, len(data.shape))
             assert None not in names, f&#34;All names must be specified but got {names}&#34;
-            types = [_shape._infer_dim_type_from_name(n) for n in names]
+            types = [_infer_dim_type_from_name(n) for n in names]
         shape = Shape(data.shape, names, types)
         if convert:
             data = convert_(data, use_dlpack=False)
@@ -4503,7 +4594,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <span>class <span class="ident">ConvergenceException</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for exceptions raised when a solve did not converge.</p>
+<div class="desc"><p>Base class for exceptions raised when a solve_linear did not converge.</p>
 <p>See Also:
 <code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code>, <code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code>.</p></div>
 <details class="source">
@@ -4512,22 +4603,22 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </summary>
 <pre><code class="python">class ConvergenceException(RuntimeError):
     &#34;&#34;&#34;
-    Base class for exceptions raised when a solve did not converge.
+    Base class for exceptions raised when a solve_linear did not converge.
 
     See Also:
         `Diverged`, `NotConverged`.
 
     &#34;&#34;&#34;
 
-    def __init__(self, solve: Solve, x0, x, msg: str):
+    def __init__(self, solve_linear: Solve, x0, x, msg: str):
         # subclasses must have the same signature to be instantiated as type(snc)(...)
         RuntimeError.__init__(self, msg)
         self.solve: Solve = solve
-        &#34;&#34;&#34; The specified solve parameters as `Solve`. &#34;&#34;&#34;
+        &#34;&#34;&#34; The specified solve_linear parameters as `Solve`. &#34;&#34;&#34;
         self.partial_result: SolveResult = solve.result
-        &#34;&#34;&#34; `SolveResult` containing information about the failed solve. Equivalent to `Solve.result` at the time this exception was created. &#34;&#34;&#34;
+        &#34;&#34;&#34; `SolveResult` containing information about the failed solve_linear. Equivalent to `Solve.result` at the time this exception was created. &#34;&#34;&#34;
         self.x = x
-        &#34;&#34;&#34; Estimate of result at the end of the failed solve. &#34;&#34;&#34;
+        &#34;&#34;&#34; Estimate of result at the end of the failed solve_linear. &#34;&#34;&#34;
         self.x0 = x0
         &#34;&#34;&#34; Initial guess provided to the solver. &#34;&#34;&#34;
 
@@ -4564,15 +4655,15 @@ def msg(self) -&gt; str:
 </dd>
 <dt id="phi.math.ConvergenceException.partial_result"><code class="name">var <span class="ident">partial_result</span></code></dt>
 <dd>
-<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> containing information about the failed solve. Equivalent to <code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">Solve.result</a></code> at the time this exception was created.</p></div>
+<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> containing information about the failed solve_linear. Equivalent to <code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">Solve.result</a></code> at the time this exception was created.</p></div>
 </dd>
 <dt id="phi.math.ConvergenceException.solve"><code class="name">var <span class="ident">solve</span></code></dt>
 <dd>
-<div class="desc"><p>The specified solve parameters as <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code>.</p></div>
+<div class="desc"><p>The specified solve_linear parameters as <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code>.</p></div>
 </dd>
 <dt id="phi.math.ConvergenceException.x"><code class="name">var <span class="ident">x</span></code></dt>
 <dd>
-<div class="desc"><p>Estimate of result at the end of the failed solve.</p></div>
+<div class="desc"><p>Estimate of result at the end of the failed solve_linear.</p></div>
 </dd>
 <dt id="phi.math.ConvergenceException.x0"><code class="name">var <span class="ident">x0</span></code></dt>
 <dd>
@@ -4716,7 +4807,7 @@ This may indicate that no solution exists.</p>
         `NotConverged`.
     &#34;&#34;&#34;
 
-    def __init__(self, solve: Solve, x0, x, msg: str = None):
+    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
         if msg is None:
             msg = f&#34;Solve diverged within {solve.result.iterations} iterations.&#34;
         ConvergenceException.__init__(self, solve, x0, x, msg=msg)</code></pre>
@@ -5063,6 +5154,35 @@ This is the default implementation.</p>
 </dd>
 </dl>
 </dd>
+<dt id="phi.math.LinearFunction"><code class="flex name class">
+<span>class <span class="ident">LinearFunction</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Just-in-time compiled linear function of <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> arguments and return values.</p>
+<p>Use <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> to create a linear function representation.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class LinearFunction:
+    &#34;&#34;&#34;
+    Just-in-time compiled linear function of `Tensor` arguments and return values.
+
+    Use `jit_compile_linear()` to create a linear function representation.
+    &#34;&#34;&#34;
+
+    def __init__(self, f):
+        self.f = f
+
+    def __call__(self, *args, **kwargs):
+        assert not kwargs, &#34;kwargs not supported, pass all values as positional arguments.&#34;
+        return self.f(*args)</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li>phi.math._trace.JitLinearFunction</li>
+</ul>
+</dd>
 <dt id="phi.math.NotConverged"><code class="flex name class">
 <span>class <span class="ident">NotConverged</span></span>
 </code></dt>
@@ -5085,7 +5205,7 @@ This is the default implementation.</p>
         `Diverged`.
     &#34;&#34;&#34;
 
-    def __init__(self, solve: Solve, x0, x, msg: str = None):
+    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
         if msg is None:
             msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations.&#34;
         ConvergenceException.__init__(self, solve, x0, x, msg=msg)</code></pre>
@@ -5717,6 +5837,8 @@ All arguments must have same length.</p>
     def after_gather(self, selection: dict):
         result = self
         for name, selection in selection.items():
+            if name not in self.names:
+                continue
             if isinstance(selection, int):
                 result = result.without(name)
             elif isinstance(selection, slice):
@@ -6209,6 +6331,8 @@ def well_defined(self):
 <pre><code class="python">def after_gather(self, selection: dict):
     result = self
     for name, selection in selection.items():
+        if name not in self.names:
+            continue
         if isinstance(selection, int):
             result = result.without(name)
         elif isinstance(selection, slice):
@@ -6999,15 +7123,15 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         self.solver_arguments: dict = solver_arguments
         &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
         self.result: SolveResult = SolveResult(0)
-        &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
+        &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve_linear. &#34;&#34;&#34;
 
     @property
     def gradient_solve(self) -&gt; &#39;Solve&#39;:
         &#34;&#34;&#34;
         Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
-        Gradient solve information will be stored in `gradient_solve.result`.
+        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve_linear.
+        Gradient solve_linear information will be stored in `gradient_solve.result`.
         &#34;&#34;&#34;
         if self._gradient_solve is None:
             self._gradient_solve = copy(self)
@@ -7025,8 +7149,8 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <dt id="phi.math.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math.backend._optim.Solve</code></dt>
 <dd>
 <div class="desc"><p>Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.</p>
-<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object for the spatial_gradient solve.
-Gradient solve information will be stored in <code>gradient_solve.result</code>.</p></div>
+<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object for the spatial_gradient solve_linear.
+Gradient solve_linear information will be stored in <code>gradient_solve.result</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7036,8 +7160,8 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
     &#34;&#34;&#34;
     Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
 
-    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
-    Gradient solve information will be stored in `gradient_solve.result`.
+    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve_linear.
+    Gradient solve_linear information will be stored in `gradient_solve.result`.
     &#34;&#34;&#34;
     if self._gradient_solve is None:
         self._gradient_solve = copy(self)
@@ -7054,7 +7178,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </dd>
 <dt id="phi.math.Solve.result"><code class="name">var <span class="ident">result</span></code></dt>
 <dd>
-<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> storing information about the found solution and the performed solving process. This variable is assigned during the solve.</p></div>
+<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> storing information about the found solution and the performed solving process. This variable is assigned during the solve_linear.</p></div>
 </dd>
 <dt id="phi.math.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
 <dd>
@@ -7219,7 +7343,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         if self.rank == 0:
             return bool(self.native())
         else:
-            from phi.math._functions import all_
+            from phi.math._ops import all_
             return bool(all_(self))
 
     def __int__(self):
@@ -7238,7 +7362,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def _summary_str(self) -&gt; str:
         try:
-            from ._functions import all_available, min_, max_, sum_
+            from ._ops import all_available, min_, max_, sum_
             if all_available(self):
                 if self.rank == 0:
                     return str(self.numpy())
@@ -7280,7 +7404,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def __getitem__(self, item):
         if isinstance(item, Tensor):
-            from ._functions import gather
+            from ._ops import gather
             return gather(self, item)
         if isinstance(item, (int, slice)):
             assert self.rank == 1
@@ -7896,7 +8020,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
             selected components
         &#34;&#34;&#34;
         if isinstance(components, str):
-            components = _shape.parse_dim_order(components)
+            components = parse_dim_order(components)
         if self.exists:
             spatial = self.tensor.shape.spatial
             result = []
@@ -7978,7 +8102,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         if isinstance(item, str):
             item = self.tensor.shape.spatial.index(item)
         elif isinstance(item, Tensor) and item.dtype == DType(bool):
-            from ._functions import boolean_mask
+            from ._ops import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
         return self.tensor[{self.name: item}]
 
@@ -7988,12 +8112,12 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 
     def split(self, split_dimensions: Shape):
         &#34;&#34;&#34; See `phi.math.split_dimension()` &#34;&#34;&#34;
-        from ._functions import split_dimension
+        from ._ops import split_dimension
         return split_dimension(self.tensor, self.name, split_dimensions)
 
     def __mul__(self, other):
         if isinstance(other, TensorDim):
-            from ._functions import dot
+            from ._ops import dot
             return dot(self.tensor, (self.name,), other.tensor, (other.name,))
         else:
             return NotImplemented
@@ -8196,7 +8320,7 @@ Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.
 </summary>
 <pre><code class="python">def split(self, split_dimensions: Shape):
     &#34;&#34;&#34; See `phi.math.split_dimension()` &#34;&#34;&#34;
-    from ._functions import split_dimension
+    from ._ops import split_dimension
     return split_dimension(self.tensor, self.name, split_dimensions)</code></pre>
 </details>
 </dd>
@@ -8284,7 +8408,7 @@ int: repeating unstack if dimension does not exist</dd>
         selected components
     &#34;&#34;&#34;
     if isinstance(components, str):
-        components = _shape.parse_dim_order(components)
+        components = parse_dim_order(components)
     if self.exists:
         spatial = self.tensor.shape.spatial
         result = []
@@ -8382,12 +8506,12 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.imag" href="#phi.math.imag">imag</a></code></li>
 <li><code><a title="phi.math.isfinite" href="#phi.math.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile</a></code></li>
+<li><code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear</a></code></li>
 <li><code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions</a></code></li>
 <li><code><a title="phi.math.l1_loss" href="#phi.math.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.math.l2_loss" href="#phi.math.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss</a></code></li>
 <li><code><a title="phi.math.laplace" href="#phi.math.laplace">laplace</a></code></li>
-<li><code><a title="phi.math.linear_function" href="#phi.math.linear_function">linear_function</a></code></li>
 <li><code><a title="phi.math.linspace" href="#phi.math.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.log" href="#phi.math.log">log</a></code></li>
 <li><code><a title="phi.math.log10" href="#phi.math.log10">log10</a></code></li>
@@ -8429,7 +8553,8 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.shift" href="#phi.math.shift">shift</a></code></li>
 <li><code><a title="phi.math.sign" href="#phi.math.sign">sign</a></code></li>
 <li><code><a title="phi.math.sin" href="#phi.math.sin">sin</a></code></li>
-<li><code><a title="phi.math.solve" href="#phi.math.solve">solve</a></code></li>
+<li><code><a title="phi.math.solve_linear" href="#phi.math.solve_linear">solve_linear</a></code></li>
+<li><code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear</a></code></li>
 <li><code><a title="phi.math.spatial_gradient" href="#phi.math.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.spatial_shape" href="#phi.math.spatial_shape">spatial_shape</a></code></li>
 <li><code><a title="phi.math.spatial_stack" href="#phi.math.spatial_stack">spatial_stack</a></code></li>
@@ -8491,6 +8616,9 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Extrapolation.to_dict" href="#phi.math.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.Extrapolation.transform_coordinates" href="#phi.math.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code></h4>
 </li>
 <li>
 <h4><code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code></h4>

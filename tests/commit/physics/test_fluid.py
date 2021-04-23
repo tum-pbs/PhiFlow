@@ -85,7 +85,7 @@ class FluidTest(TestCase):
         math.assert_close(v_np, v_to, abs_tolerance=1e-5)
 
     def test_make_incompressible_gradients_equal_tf_torch(self):
-        DOMAIN = Domain(x=16, y=16, boundaries=OPEN, bounds=Box[0:100, 0:100])  # TODO CLOSED solve fails because div is not subtracted from dx
+        DOMAIN = Domain(x=16, y=16, boundaries=OPEN, bounds=Box[0:100, 0:100])  # TODO CLOSED solve_linear fails because div is not subtracted from dx
         velocity0 = DOMAIN.staggered_grid(Noise(vector=2))
         grads = []
         for backend in [TF_BACKEND, TORCH_BACKEND]:

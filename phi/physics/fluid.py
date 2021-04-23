@@ -22,13 +22,13 @@ def make_incompressible(velocity: Grid,
       velocity: Vector field sampled on a grid
       domain: Used to specify boundary conditions
       obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
-      pressure_guess: Initial guess for the pressure solve
-      solve_params: Parameters for the pressure solve
+      pressure_guess: Initial guess for the pressure solve_linear
+      solve_params: Parameters for the pressure solve_linear
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
-      iterations: Number of iterations required to solve for the pressure
+      iterations: Number of iterations required to solve_linear for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
     """
     input_velocity = velocity
@@ -43,7 +43,7 @@ def make_incompressible(velocity: Grid,
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
-    @field.linear_function
+    @field.jit_compile_linear
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
@@ -53,7 +53,7 @@ def make_incompressible(velocity: Grid,
         return lap
 
     pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
-    pressure = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
+    pressure = field.solve_linear(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
     if domain.boundaries['accessible'] == math.extrapolation.ZERO or domain.boundaries['vector'] == math.extrapolation.PERIODIC:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)

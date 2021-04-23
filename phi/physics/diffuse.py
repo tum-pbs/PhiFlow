@@ -2,7 +2,7 @@
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
 from phi import math
-from phi.field import ConstantField, Grid, Field, laplace, solve, linear_function
+from phi.field import ConstantField, Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
 
@@ -53,11 +53,11 @@ def implicit(field: FieldType,
     Returns:
         Diffused field of same type as `field`.
     """
-    @linear_function
+    @jit_compile_linear
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    return solve(sharpen, y=field, x0=field, solve_params=solve_params)
+    return solve_linear(sharpen, y=field, x0=field, solve_params=solve_params)
 
 
 def fourier(field: GridType,

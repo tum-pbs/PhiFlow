@@ -117,7 +117,7 @@ class IncompressibleFlow(Physics):
             velocity = effect_applied(effect, velocity, dt)
         velocity += (density * -gravity * fluid.buoyancy_factor * dt).at(velocity)
         divergent_velocity = velocity
-        # --- Pressure solve ---
+        # --- Pressure solve_linear ---
         if self.make_output_divfree:
             velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
         solve_info = {

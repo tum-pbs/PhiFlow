@@ -5,11 +5,11 @@ Extrapolations are used for padding tensors and sampling coordinates lying outsi
 """
 from typing import Union
 
-from . import _ops as math
 from .backend import choose_backend
-from ._trace import ShiftLinOp
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
+from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
+from . import _trace
 
 
 class Extrapolation:
@@ -178,7 +178,7 @@ class ConstantExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, ShiftLinOp):
+        elif isinstance(value, _trace.ShiftLinOp):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
             return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
@@ -313,12 +313,12 @@ class _CopyExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, ShiftLinOp):
+        elif isinstance(value, _trace.ShiftLinOp):
             return self._pad_linear_operation(value, widths)
         else:
             raise NotImplementedError(f'{type(value)} not supported')
 
-    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
+    def _pad_linear_operation(self, value: '_trace.ShiftLinOp', widths: dict) -> '_trace.ShiftLinOp':
         raise NotImplementedError()
 
     @property
@@ -387,7 +387,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             edge = value[{dimension: slice(1)}]
         return math.concat([edge] * width, dimension)
 
-    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
+    def _pad_linear_operation(self, value: '_trace.ShiftLinOp', widths: dict) -> '_trace.ShiftLinOp':
         """
         *Warning*:
         This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
@@ -460,7 +460,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         else:
             return value[{dimension: slice(-width, None)}]
 
-    def _pad_linear_operation(self, value: ShiftLinOp, widths: dict) -> ShiftLinOp:
+    def _pad_linear_operation(self, value: '_trace.ShiftLinOp', widths: dict) -> '_trace.ShiftLinOp':
         if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
             raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
@@ -514,7 +514,7 @@ class _ReflectExtrapolation(_CopyExtrapolation):
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         coordinates = coordinates % (2 * shape - 2)
-        return (shape - 1) - math.abs((shape - 1) - coordinates)
+        return (shape - 1) - math.abs_((shape - 1) - coordinates)
 
 
 ZERO = ConstantExtrapolation(0)

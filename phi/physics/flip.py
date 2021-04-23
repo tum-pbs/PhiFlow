@@ -19,13 +19,13 @@ def make_incompressible(velocity: StaggeredGrid,
         domain: Domain object
         particles: Pointcloud holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        solve_params (Optional): Parameters for the pressure solve
+        solve_params (Optional): Parameters for the pressure solve_linear
         pressure_guess (Optional): Initial pressure guess as CenteredGrid
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
-      iterations: Number of iterations required to solve for the pressure
+      iterations: Number of iterations required to solve_linear for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     """
@@ -39,20 +39,20 @@ def make_incompressible(velocity: StaggeredGrid,
         accessible = domain.accessible_mask(union(*[obstacle.geometry for obstacle in obstacles]), type=StaggeredGrid)
 
     # --- Extrapolation is needed to exclude border divergence from the `occupied_centered` mask and thus
-    # from the pressure solve. If particles are randomly distributed, the `occupied_centered` mask
+    # from the pressure solve_linear. If particles are randomly distributed, the `occupied_centered` mask
     # could sometimes include the divergence at the borders (due to single particles right at the edge
     # which temporarily deform the `occupied_centered` mask when moving into a new cell). This would then
     # get compensated by the pressure. This is unwanted for falling liquids and therefore prevented by this
     # extrapolation. ---
     velocity_field, _ = extrapolate_valid(velocity * occupied_staggered, occupied_staggered, 1)
     velocity_field *= accessible  # Enforces boundary conditions after extrapolation
-    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve
+    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve_linear
 
-    @field.linear_function
+    @field.jit_compile_linear
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
-    pressure = field.solve(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
+    pressure = field.solve_linear(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
 
     def pressure_backward(_p, _p_, dp):
         return dp * occupied_centered.values,

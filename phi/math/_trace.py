@@ -1,12 +1,70 @@
+import time
 from functools import reduce
 from typing import Tuple, Callable
 
 import numpy as np
 
-from .backend import choose_backend
-from ._shape import EMPTY_SHAPE, Shape, shape, parse_dim_order, SPATIAL_DIM
-from ._tensors import Tensor, NativeTensor, TensorStack, CollapsedTensor
 from . import _ops as math
+from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM
+from ._tensors import Tensor, NativeTensor, CollapsedTensor
+from .backend import choose_backend, Backend, get_current_profile
+
+
+class LinearFunction:
+    """
+    Just-in-time compiled linear function of `Tensor` arguments and return values.
+
+    Use `jit_compile_linear()` to create a linear function representation.
+    """
+
+    def __init__(self, f):
+        self.f = f
+
+    def __call__(self, *args, **kwargs):
+        assert not kwargs, "kwargs not supported, pass all values as positional arguments."
+        return self.f(*args)
+
+
+class JitLinearFunction(LinearFunction):
+
+    def __init__(self, f, backend: Backend):
+        LinearFunction.__init__(self, f)
+        self.backend = backend
+        self._cached_coo = None
+        self._trace_result = None
+
+    def sparse_coordinate_matrix(self, x0):
+        if self._cached_coo is None:
+            self.build(x0)
+        return self._cached_coo
+
+    def build(self, x0):
+        with self.backend:
+            trace_time = time.perf_counter()
+            x_track = lin_placeholder(x0)
+            self._trace_result = self.f(x_track)
+            assert isinstance(self._trace_result, ShiftLinOp), 'Baking sparse matrix failed. Make sure only supported linear operations are used.'
+            trace_time = time.perf_counter() - trace_time
+            try:
+                build_time = time.perf_counter()
+                self._cached_coo = self._trace_result.build_sparse_coordinate_matrix()
+                build_time = time.perf_counter() - build_time
+            except NotImplementedError as err:
+                raise AssertionError(f"Failed to build sparse matrix for linear function", err)
+            if get_current_profile():
+                get_current_profile().add_external_message(
+                    f"Sparse Linear track: {round(trace_time * 1000)} ms, \tbuild: {round(build_time * 1000)} ms")
+
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError("Currently only supported in solve_linear()")
+        # assert not kwargs, "kwargs not supported, pass all values as positional arguments."
+        # if len(args) > 1:
+        #     raise NotImplementedError("Only single-argument functions can be compiled")
+        #
+        # x0 = tensor(args[0])
+        #
+        # if self._trace_result is None:
+        #     self.build(x0)
 
 
 def simplify_add(val: dict):

@@ -17,20 +17,16 @@ from .backend._optim import Solve, SolveResult, ConvergenceException, NotConverg
 from .backend._dtype import DType
 from .backend import NUMPY_BACKEND, precision, set_global_precision, get_precision
 
-from .extrapolation import Extrapolation
-
 from ._config import GLOBAL_AXIS_ORDER
-
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
-
 from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
-
+from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
     native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
     print_ as print, print_gradient,
     map_ as map,
-    jit_compile, functional_gradient, custom_gradient, linear_function,
+    jit_compile, jit_compile_linear, functional_gradient, custom_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
@@ -51,7 +47,7 @@ from ._ops import (
     fft, ifft, convolve,
     dtype, cast,
     close, assert_close,
-    solve, minimize,
+    solve_linear, solve_nonlinear, minimize,
     record_gradients, gradients, stop_gradient
 )
 from ._nd import (
@@ -64,6 +60,8 @@ from ._nd import (
     downsample2x, upsample2x, sample_subgrid,
     extrapolate_valid_values,
 )
+from ._trace import LinearFunction
+
 
 PI = 3.14159265358979323846
 """Value of π to double precision """
@@ -82,4 +80,5 @@ __pdoc__ = {
     'ConvergenceException.__init__': False,
     'Diverged.__init__': False,
     'NotConverged.__init__': False,
+    'LinearFunction.__init__': False,
 }

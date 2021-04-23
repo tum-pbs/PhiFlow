@@ -69,15 +69,15 @@ from ._field_math import (
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
-    concat, batch_stack,
+    concat, batch_stack, channel_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
-    solve, minimize,
+    solve_linear, minimize,
     where,
     vec_squared, vec_abs,
     l2_loss, l1_loss, frequency_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
-    jit_compile, functional_gradient, linear_function,
+    jit_compile, functional_gradient, jit_compile_linear,
     native_call,
 )
 from ._field_io import write, read
@@ -192,6 +192,31 @@ __pdoc__ = {
 <pre><code class="python">def center_of_mass(density: SampledField):
     assert &#39;vector&#39; not in density.shape
     return mean(density.points * density) / mean(density)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.channel_stack"><code class="name flex">
+<span>def <span class="ident">channel_stack</span></span>(<span>*fields, dim: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def channel_stack(*fields, dim: str):
+    assert all(isinstance(f, SampledField) for f in fields), f&#34;All fields must be SampledFields of the same type but got {fields}&#34;
+    assert all(isinstance(f, type(fields[0])) for f in fields), f&#34;All fields must be SampledFields of the same type but got {fields}&#34;
+    if any(f.extrapolation != fields[0].extrapolation for f in fields):
+        raise NotImplementedError(&#34;Concatenating extrapolations not supported&#34;)
+    if isinstance(fields[0], Grid):
+        values = math.channel_stack([f.values for f in fields], dim)
+        return fields[0].with_(values=values)
+    elif isinstance(fields[0], PointCloud):
+        elements = geom.stack(*[f.elements for f in fields], dim=dim)
+        values = math.channel_stack([f.values for f in fields], dim=dim)
+        colors = math.channel_stack([f.color for f in fields], dim=dim)
+        return fields[0].with_(elements=elements, values=values, color=colors)
+    raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.concat"><code class="name flex">
@@ -409,7 +434,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
     elif isinstance(grid, StaggeredGrid):
         new_values = []
         new_valid = []
-        for cgrid, cvalid in zip(grid.unstack(&#39;vector&#39;), valid.unstack(&#39;vector&#39;)):
+        for cgrid, cvalid in zip(unstack(grid, &#39;vector&#39;), unstack(valid, &#39;vector&#39;)):
             new_tensor, new_mask = extrapolate_valid(cgrid, valid=cvalid, distance_cells=distance_cells)
             new_values.append(new_tensor.values)
             new_valid.append(new_mask.values)
@@ -593,7 +618,7 @@ Has to be one of the following:</p>
         bounds = Box(0, math.wrap(resolution, &#39;vector&#39;))
     assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
     if isinstance(values, Geometry):
-        values = SoftGeometryMask(values)
+        values = HardGeometryMask(values)
     if isinstance(values, Field):
         ref_grid = grid(0, resolution=resolution, bounds=bounds, extrapolation=extrapolation, type=type)
         sampled_values = reduce_sample(values, ref_grid.elements)
@@ -665,6 +690,20 @@ Has to be one of the following:</p>
     return wrapper</code></pre>
 </details>
 </dd>
+<dt id="phi.field.jit_compile_linear"><code class="name flex">
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Equivalent to <code><a title="phi.math.jit_compile_linear" href="../math/index.html#phi.math.jit_compile_linear">jit_compile_linear()</a></code> for field functions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jit_compile_linear(f):
+    &#34;&#34;&#34; Equivalent to `phi.math.jit_compile_linear()` for field functions. &#34;&#34;&#34;
+    return LinearFieldFunction(f)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.l1_loss"><code class="name flex">
 <span>def <span class="ident">l1_loss</span></span>(<span>field: phi.field._field.SampledField, batch_norm: bool = True)</span>
 </code></dt>
@@ -707,20 +746,6 @@ Has to be one of the following:</p>
     return result</code></pre>
 </details>
 </dd>
-<dt id="phi.field.linear_function"><code class="name flex">
-<span>def <span class="ident">linear_function</span></span>(<span>f, jit_compile=True)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Equivalent to <code><a title="phi.math.linear_function" href="../math/index.html#phi.math.linear_function">linear_function()</a></code> for field functions.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def linear_function(f, jit_compile=True):
-    &#34;&#34;&#34; Equivalent to `phi.math.linear_function()` for field functions. &#34;&#34;&#34;
-    return LinearFieldFunction(f, jit_compile)</code></pre>
-</details>
-</dd>
 <dt id="phi.field.mean"><code class="name flex">
 <span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
@@ -746,7 +771,7 @@ Has to be one of the following:</p>
 <pre><code class="python">def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None) -&gt; Grid:
     data_function = _operate_on_values(function, x0)
     try:
-        return x0.with_(values=math.minimize(data_function, x0.values, solve_params=solve_params, callback=callback))
+        return x0.with_(values=math.minimize(data_function, x0.values, solve=solve_params, callback=callback))
     except math.ConvergenceException as exc:
         raise type(exc)(exc.solve, x0, x0.with_(values=exc.x), exc.msg)</code></pre>
 </details>
@@ -1070,8 +1095,8 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
     return x._op1(math.sin)</code></pre>
 </details>
 </dd>
-<dt id="phi.field.solve"><code class="name flex">
-<span>def <span class="ident">solve</span></span>(<span>function, y: phi.field._grid.Grid, x0: phi.field._grid.Grid, solve_params: phi.math.backend._optim.Solve, constants: tuple = (), callback=None)</span>
+<dt id="phi.field.solve_linear"><code class="name flex">
+<span>def <span class="ident">solve_linear</span></span>(<span>function, y: phi.field._grid.Grid, x0: phi.field._grid.Grid, solve_params: phi.math.backend._optim.Solve, constants: tuple = ())</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1079,20 +1104,14 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = (), callback=None):
-    if callback is not None:
-        def field_callback(x):
-            x = x0.with_(values=x)
-            callback(x)
-    else:
-        field_callback = None
+<pre><code class="python">def solve_linear(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = ()):
     if isinstance(function, LinearFieldFunction):
         value_function = function.value_function(x0)
     else:
         value_function = _operate_on_values(function, x0)
     constants = [c.values if isinstance(c, SampledField) else c for c in constants]
     assert all(isinstance(c, math.Tensor) for c in constants)
-    x = math.solve(value_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
+    x = math.solve_linear(value_function, y.values, x0.values, solve=solve_params, constants=constants)
     return x0.with_(values=x)</code></pre>
 </details>
 </dd>
@@ -1449,7 +1468,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
     &#34;&#34;&#34;
     if isinstance(file, str):
         write_single_field(field, file)
-    if isinstance(file, math.Tensor):
+    elif isinstance(file, math.Tensor):
         if file.rank == 0:
             write_single_field(field, file.native())
         else:
@@ -2859,7 +2878,7 @@ def shape(self):
 
     def _op2(self, other, operator) -&gt; &#39;SampledField&#39;:
         if isinstance(other, Field):
-            other_values = sample(other, self._elements)
+            other_values = reduce_sample(other, self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_(values=values, extrapolation=extrapolation_)
@@ -4315,6 +4334,7 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.cast" href="#phi.field.cast">cast</a></code></li>
 <li><code><a title="phi.field.ceil" href="#phi.field.ceil">ceil</a></code></li>
 <li><code><a title="phi.field.center_of_mass" href="#phi.field.center_of_mass">center_of_mass</a></code></li>
+<li><code><a title="phi.field.channel_stack" href="#phi.field.channel_stack">channel_stack</a></code></li>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
 <li><code><a title="phi.field.convert" href="#phi.field.convert">convert</a></code></li>
 <li><code><a title="phi.field.cos" href="#phi.field.cos">cos</a></code></li>
@@ -4332,10 +4352,10 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
 <li><code><a title="phi.field.isfinite" href="#phi.field.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile</a></code></li>
+<li><code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear</a></code></li>
 <li><code><a title="phi.field.l1_loss" href="#phi.field.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>
-<li><code><a title="phi.field.linear_function" href="#phi.field.linear_function">linear_function</a></code></li>
 <li><code><a title="phi.field.mean" href="#phi.field.mean">mean</a></code></li>
 <li><code><a title="phi.field.minimize" href="#phi.field.minimize">minimize</a></code></li>
 <li><code><a title="phi.field.native_call" href="#phi.field.native_call">native_call</a></code></li>
@@ -4349,7 +4369,7 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.shift" href="#phi.field.shift">shift</a></code></li>
 <li><code><a title="phi.field.sign" href="#phi.field.sign">sign</a></code></li>
 <li><code><a title="phi.field.sin" href="#phi.field.sin">sin</a></code></li>
-<li><code><a title="phi.field.solve" href="#phi.field.solve">solve</a></code></li>
+<li><code><a title="phi.field.solve_linear" href="#phi.field.solve_linear">solve_linear</a></code></li>
 <li><code><a title="phi.field.spatial_gradient" href="#phi.field.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.field.sqrt" href="#phi.field.sqrt">sqrt</a></code></li>
 <li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>

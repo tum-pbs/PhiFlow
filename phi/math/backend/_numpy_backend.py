@@ -397,7 +397,7 @@ class NumPyBackend(Backend):
         else:
             raise NotImplementedError("Only sparse tensors supported.")
 
-    # def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
+    # def conjugate_gradient(self, A, y, x0, solve: Solve, callback=None):
     #     bs_y = self.staticshape(y)[0]
     #     bs_x0 = self.staticshape(x0)[0]
     #     batch_size = combined_dim(bs_y, bs_x0)
@@ -419,15 +419,15 @@ class NumPyBackend(Backend):
     #     for batch in range(batch_size):
     #         y_ = y[min(batch, bs_y - 1)]
     #         x0_ = x0[min(batch, bs_x0 - 1)]
-    #         x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations, callback=count_callback)
+    #         x, ret_val = cg(A, y_, x0_, tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations, callback=count_callback)
     #         if ret_val != 0:
-    #             solve_params.result = SolveResult(max(iterations))
+    #             solve.result = SolveResult(max(iterations))
     #             if ret_val < 0:
-    #                 raise Diverged(solve_params, x0, x)
+    #                 raise Diverged(solve, x0, x)
     #             else:
-    #                 raise NotConverged(solve_params, x0, x)
+    #                 raise NotConverged(solve, x0, x)
     #         results.append(x)
-    #     solve_params.result = SolveResult(max(iterations))
+    #     solve.result = SolveResult(max(iterations))
     #     return self.stack(results)
 
 

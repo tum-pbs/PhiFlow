@@ -56,4 +56,4 @@ class TestDiffusion(TestCase):
             field.assert_close(0 <= implicit <= 1.0001, True)
         except NotConverged as err:
             print(err)
-            pass  # solve did not converge
+            pass  # solve_linear did not converge

@@ -6,7 +6,7 @@ Nevertheless, we recommend using backend-specific optimization for certain tasks
 
 The following overview table shows which Φ<sub>Flow</sub> optimization functions are supported by which backends.
 
-| Backend    | solve | minimize | functional_gradient | record_gradients | NN Training |
+| Backend    | solve_linear | minimize | functional_gradient | record_gradients | NN Training |
 |------------|-------|----------|---------------------|------------------|-------------|
 | PyTorch    | ✓     | ✓        |   ✓                 |    ✓             |   ✓         |
 | TensorFlow | ✓     | ✓        |   ✓                 |    ✓             |   ✓         |
@@ -31,34 +31,37 @@ solution = field.minimize(loss, x0, math.Solve('L-BFGS-B', 0, 1e-3))
 
 ### Linear Equations
 For solving linear systems of equations, Φ<sub>Flow</sub> provides the functions
-[`math.solve()`](phi/math/#phi.math.solve) and [`field.solve()`](phi/field/#phi.field.solve).
-The following example uses the conjugate gradient algorithm to solve `A(x) = y`:
-```python
-@field.linear_function
-def A(x: Grid) -> Grid:
-  return field.where(mask, 2 * field.laplace(x), x)
+[`math.solve_linear()`](phi/math/#phi.math.solve_linear) and [`field.solve_linear()`](phi/field/#phi.field.solve_linear).
+The following example uses the conjugate gradient algorithm to solve_linear `A(x) = y`:
 
-x = field.solve(A, y, x0, math.Solve('CG', 1e-3, 0))
+```python
+@field.jit_compile_linear
+def A(x: Grid) -> Grid:
+    return field.where(mask, 2 * field.laplace(x), x)
+
+
+x = field.solve_linear(A, y, x0, math.Solve('CG', 1e-3, 0))
 ```
 Solve can also be used to find solutions to nonlinear equations.
 This is equivalent to minimizing the squared error with `minimize()`.
 
 ### Handling Failed Optimizations
-Both `solve` and `minimize` return only the solution.
-Further information about the optimization is stored in `solve.result` of the passed [`Solve`](phi/math/#phi.math.Solve) object.
+Both `solve_linear` and `minimize` return only the solution.
+Further information about the optimization is stored in `solve_linear.result` of the passed [`Solve`](phi/math/#phi.math.Solve) object.
 When a solve does not find a solution, a subclass of
 [`ConvergenceException`](phi/math/#phi.math.ConvergenceException) is thrown.
+
 ```python
 solve = math.Solve('CG', 1e-3, 0, max_iterations=300)
 try:
-  solution = field.solve(..., solve_params=solve)
-  solution = field.minimize(..., solve_params=solve)
-  converged = True
+    solution = field.solve_linear(..., solve=solve)
+    solution = field.minimize(..., solve=solve)
+    converged = True
 except NotConverged as not_converged:
-  print(not_converged)
-  last_estimate = not_converged.x
+    print(not_converged)
+    last_estimate = not_converged.x
 except Diverged as diverged:
-  print(diverged)
+    print(diverged)
 iterations_performed = solve.result.iterations  # available in any case
 ```
 

@@ -185,25 +185,19 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
 def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None) -> Grid:
     data_function = _operate_on_values(function, x0)
     try:
-        return x0.with_(values=math.minimize(data_function, x0.values, solve_params=solve_params, callback=callback))
+        return x0.with_(values=math.minimize(data_function, x0.values, solve=solve_params, callback=callback))
     except math.ConvergenceException as exc:
         raise type(exc)(exc.solve, x0, x0.with_(values=exc.x), exc.msg)
 
 
-def solve(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = (), callback=None):
-    if callback is not None:
-        def field_callback(x):
-            x = x0.with_(values=x)
-            callback(x)
-    else:
-        field_callback = None
+def solve_linear(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = ()):
     if isinstance(function, LinearFieldFunction):
         value_function = function.value_function(x0)
     else:
         value_function = _operate_on_values(function, x0)
     constants = [c.values if isinstance(c, SampledField) else c for c in constants]
     assert all(isinstance(c, math.Tensor) for c in constants)
-    x = math.solve(value_function, y.values, x0.values, solve_params=solve_params, constants=constants, callback=field_callback)
+    x = math.solve_linear(value_function, y.values, x0.values, solve=solve_params, constants=constants)
     return x0.with_(values=x)
 
 
@@ -212,7 +206,7 @@ def _operate_on_values(field_function, *proto_fields):
     Constructs a wrapper function operating on field values from a function operating on fields.
     The wrapper function assembles fields and calls `field_function`.
 
-    This is useful when passing functions to a `phi.math` operation, e.g. `phi.math.solve()`.
+    This is useful when passing functions to a `phi.math` operation, e.g. `phi.math.solve_linear()`.
 
     Args:
         field_function: Function whose arguments are fields
@@ -236,16 +230,15 @@ def _operate_on_values(field_function, *proto_fields):
     return wrapper
 
 
-def linear_function(f, jit_compile=True):
-    """ Equivalent to `phi.math.linear_function()` for field functions. """
-    return LinearFieldFunction(f, jit_compile)
+def jit_compile_linear(f):
+    """ Equivalent to `phi.math.jit_compile_linear()` for field functions. """
+    return LinearFieldFunction(f)
 
 
 class LinearFieldFunction:
 
-    def __init__(self, f: Callable, jit_compile):
+    def __init__(self, f: Callable):
         self.f = f
-        self.jit_compile = jit_compile
         self._tensor_function = None
         # self.input_fields = []
         # self.output: tuple or list or SampledField = None
@@ -274,7 +267,7 @@ class LinearFieldFunction:
                     return [field.values if isinstance(field, SampledField) else math.tensor(field) for field in output]
                 else:
                     return output.values if isinstance(output, SampledField) else math.tensor(output)
-            self._tensor_function = math.linear_function(tensor_function, jit_compile=self.jit_compile)
+            self._tensor_function = math.jit_compile_linear(tensor_function)
         return self._tensor_function
 
 
