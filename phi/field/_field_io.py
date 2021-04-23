@@ -26,7 +26,7 @@ def write(field: SampledField, file: str or math.Tensor):
     """
     if isinstance(file, str):
         write_single_field(field, file)
-    if isinstance(file, math.Tensor):
+    elif isinstance(file, math.Tensor):
         if file.rank == 0:
             write_single_field(field, file.native())
         else:
