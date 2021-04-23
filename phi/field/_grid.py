@@ -3,7 +3,7 @@ from typing import TypeVar, Callable
 
 from phi import math
 from phi.geom import Box, Geometry, GridCell
-from . import SoftGeometryMask
+from . import HardGeometryMask
 from ._field import SampledField, Field, sample, reduce_sample
 from ..geom._stack import GeometryStack
 from ..math import Shape
@@ -305,7 +305,7 @@ def grid(values: Geometry or Field or Number or math.Tensor or Callable or tuple
         bounds = Box(0, math.wrap(resolution, 'vector'))
     assert resolution.spatial_rank == bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
     if isinstance(values, Geometry):
-        values = SoftGeometryMask(values)
+        values = HardGeometryMask(values)
     if isinstance(values, Field):
         ref_grid = grid(0, resolution=resolution, bounds=bounds, extrapolation=extrapolation, type=type)
         sampled_values = reduce_sample(values, ref_grid.elements)
