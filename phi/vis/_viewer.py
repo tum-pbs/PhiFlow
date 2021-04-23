@@ -216,6 +216,9 @@ class Viewer(VisModel):
         Restores all viewed fields to the states they were in when the viewer was created.
         Changes variable values in the user namespace.
         """
+        reset_function = self.namespace.get_variable('reset')
+        if callable(reset_function):
+            reset_function()
         for name, value in self.initial_field_values.items():
             self.namespace.set_variable(name, value)
         self.steps = 0
