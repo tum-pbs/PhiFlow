@@ -2,6 +2,26 @@ from phi.tf.flow import *
 import time
 from functools import partial
 
+# Simulation parameters
+k0 = 0.15  # smallest wavenumber in the box
+x = 128  # x size
+y = 128  # y size
+dt = control(0.05)  # timestep
+scale = 1 / 100
+# Physical Parameters
+c1 = 0.1  # adiabatic coefficient [0, None]
+# Numerical Parameters
+arakawa_coeff = 1  # Poisson bracket coefficient
+kappa_coeff = 1  # background flow dy coefficient
+nu = 0.0005  # coefficient of hyperdiffusion
+N = 3  # laplace**(2*N) diffusion
+# Derived
+L = 2 * np.pi / k0  # Box Size
+dx = L / x  # Grid Spacing
+nu = (-1) ** (N + 1) * nu  # Smoothing coefficient & sign
+# Packing
+PARAMS = dict(c1=c1, nu=nu, N=N, arak=arakawa_coeff, kappa=kappa_coeff)
+
 
 class Namespace(dict):
     def __mul__(self, other):
@@ -66,7 +86,8 @@ class Namespace(dict):
 
 def get_phi(plasma, guess=None):
     """Fourier Poisson Solve for Phi"""
-    phi = math.fourier_poisson(plasma.omega.values, plasma.dx)
+    centered_omega = plasma.omega  # - math.mean(plasma.omega)
+    phi = math.fourier_poisson(centered_omega.values, plasma.dx)
     # phi = math.solve_linear(
     #     math.laplace, plasma.omega.values, guess, math.LinearSolve, callback=None
     # )
@@ -84,7 +105,7 @@ def diffuse(arr, N, dx):
     return arr
 
 
-def step_gradient_2d(plasma, phi, dx, N=0, nu=0, c1=0, arak=0, kappa=0, dt=0):
+def step_gradient_2d(plasma, phi, N=0, nu=0, c1=0, arak=0, kappa=0, dt=0):
     """time gradient of model"""
     # Calculate Gradients
     grad_phi = field.spatial_gradient(phi, stack_dim="gradient")
@@ -121,7 +142,6 @@ def step_gradient_2d(plasma, phi, dx, N=0, nu=0, c1=0, arak=0, kappa=0, dt=0):
 def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
     gradient_func = partial(gradient_func, **physics_params)
     yn = Namespace(**kwargs)  # given dict to Namespace
-    # TODO: Fix multiplication of stored *nu* and *N*
     in_age = yn.age
     # Only in the first iteration recalculate phi
     if yn.age == 0:
@@ -143,20 +163,30 @@ def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
         phi=phi,  # TODO: Somehow this does not work properly
         age=in_age + dt,  # y1 contains 2 time steps from compute
         dx=yn.dx,
-        # c1=y1.c1,
-        # nu=y1.nu,
-        # N=y1.N,
-        # arakawa_coeff=y1.arakawa_coeff,
-        # kappa_coeff=y1.kappa_coeff,
     )
 
 
-# domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
-# density = domain.grid(math.random_normal(x=x, y=y))
-# omega = domain.grid(math.random_normal(x=x, y=y))
-# phi = domain.grid(math.random_normal(x=x, y=y))
-# age = 0
+domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
+density = domain.grid(math.random_normal(x=x, y=y)) * scale
+omega = domain.grid(math.random_normal(x=x, y=y)) * scale
+phi = domain.grid(math.random_normal(x=x, y=y)) * scale
+age = 0
+rk4 = partial(rk4_step, physics_params=PARAMS)
+print(
+    "\n".join(
+        [
+            f"x,y:   {x}x{y}",
+            f"L:     {L}",
+            f"c1:    {c1}",
+            f"dt:    {dt}",
+            f"N:     {N}",
+            f"nu:    {nu}",
+            f"scale: {scale}",
+        ]
+    )
+)
 
-# for _ in view(density, omega, phi, play=False, framerate=10).range():
-#     density, omega, phi = rk4_step(dt, density, omega, phi, age)
-#     age += dt
+for _ in view(density, omega, phi, play=False, framerate=10).range():
+    new_state = rk4(dt, density=density, omega=omega, phi=phi, age=age, dx=dx)
+    density, omega, phi = new_state["density"], new_state["omega"], new_state["phi"]
+    age += dt
