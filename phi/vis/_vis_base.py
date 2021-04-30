@@ -375,6 +375,10 @@ def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     """
+    if model is None:
+        import pylab
+        pylab.show()
+        return
     assert isinstance(model, VisModel), f"show() first argument must be an App instance but got {model}"
     model.prepare()
     # --- Setup Gui ---
