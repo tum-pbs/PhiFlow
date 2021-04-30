@@ -30,12 +30,20 @@ def cross_product(vec1: Tensor, vec2: Tensor):
     vec1, vec2 = math.tensors(vec1, vec2)
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
-        dist_0, dist_1 = vec2.vector.unstack()
-        if GLOBAL_AXIS_ORDER.is_x_first:
-            velocity = vec1 * math.channel_stack([-dist_1, dist_0], 'vector')
+        assert vec2.vector.exists
+        if vec1.vector.exists:
+            v1_x, v1_y = vec1.vector.unstack()
+            v2_x, v2_y = vec2.vector.unstack()
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                return v1_x * v2_y - v1_y * v2_x
+            else:
+                return - v1_x * v2_y + v1_y * v2_x
         else:
-            velocity = vec1 * math.channel_stack([dist_1, -dist_0], 'vector')
-        return velocity
+            v2_x, v2_y = vec2.vector.unstack()
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                return vec1 * math.channel_stack([-v2_y, v2_x], 'vector')
+            else:
+                return vec1 * math.channel_stack([v2_y, -v2_x], 'vector')
     elif spatial_rank == 3:  # Curl in 3D
         raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
     else:

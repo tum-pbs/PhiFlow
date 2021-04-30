@@ -891,7 +891,7 @@ def _reduce(value: Tensor or list or tuple,
     else:
         value = wrap(value)
     dims = _resolve_dims(dim, value.shape)
-    return value.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
+    return value._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
 
 
 def _resolve_dims(dim: str or tuple or list or Shape or None,
@@ -1115,6 +1115,7 @@ def cast_same(*values: Tensor) -> Tuple[Tensor]:
     Returns:
         Tuple of Tensors with same data type.
     """
+    assert all(isinstance(v, Tensor) for v in values), f"Only Tensor arguments allowed but got {values}"
     dtypes = [v.dtype for v in values]
     if any(dt != dtypes[0] for dt in dtypes):
         common_type = combine_types(*dtypes, fp_precision=get_precision())
@@ -1909,13 +1910,13 @@ def solve_linear(f: Callable,
     backend = choose_backend(*x0._natives(), *y._natives())
 
     if jit_f:
-        pass  # TODO
+        f = jit_compile_linear(f)
     if isinstance(f, _trace.JitLinearFunction):  # TODO don't check instance, create a new LinearFunction, implement LinearFunction concatenation
         operator_or_matrix = f.sparse_coordinate_matrix(x0)
     else:
         def operator_or_matrix(native_x):
-            native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
-            x = NativeTensor(native_x_shaped, x0.shape.non_batch)
+            native_x_shaped = backend.reshape(native_x, x0.shape.sizes)
+            x = NativeTensor(native_x_shaped, x0.shape)
             Ax = f(x)
             Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
             return Ax_native
@@ -2090,4 +2091,12 @@ def stop_gradient(value: Tensor):
     Returns:
         Copy of `value` or `value`.
     """
-    return value._op1(lambda native: choose_backend(native).stop_gradient(native))
+    if isinstance(value, Tensor):
+        return value._op1(lambda native: choose_backend(native).stop_gradient(native))
+    if isinstance(value, e_.Extrapolation):
+        if isinstance(value, e_.ConstantExtrapolation):
+            return e_.ConstantExtrapolation(stop_gradient(value.value))
+        else:
+            assert isinstance(value, e_._CopyExtrapolation)  # no state
+            return value  # no state
+    raise ValueError(value)

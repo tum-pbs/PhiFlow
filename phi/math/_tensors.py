@@ -440,11 +440,11 @@ class Tensor:
         """ Expands all compressed tensors to their defined size as if they were being used in `Tensor.native()`. """
         raise NotImplementedError(self.__class__)
 
-    def __tensor_reduce__(self,
-                dims: Tuple[str],
-                native_function: Callable,
-                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: Callable = lambda value: value):
+    def _tensor_reduce(self,
+                       dims: Tuple[str],
+                       native_function: Callable,
+                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                       unaffected_function: Callable = lambda value: value):
         raise NotImplementedError(self.__class__)
 
     def __simplify__(self):
@@ -745,11 +745,11 @@ class NativeTensor(Tensor):
     def _expand(self):
         pass
 
-    def __tensor_reduce__(self,
-                dims: Tuple[str],
-                native_function: Callable,
-                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: Callable = lambda value: value):
+    def _tensor_reduce(self,
+                       dims: Tuple[str],
+                       native_function: Callable,
+                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                       unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         backend = choose_backend(self._native)
@@ -914,17 +914,17 @@ class CollapsedTensor(Tensor):  # package-private
     def _expand(self):
         self._cache()
 
-    def __tensor_reduce__(self,
-                dims: Tuple[str],
-                native_function: Callable,
-                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: Callable = lambda value: value):
+    def _tensor_reduce(self,
+                       dims: Tuple[str],
+                       native_function: Callable,
+                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                       unaffected_function: Callable = lambda value: value):
         if self.is_cached:
-            return self._cached.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
+            return self._cached._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         inner_dims = [dim for dim in dims if dim in self._inner.shape]
-        inner_reduce = self._inner.__tensor_reduce__(inner_dims, native_function, collapsed_function, unaffected_function)
+        inner_reduce = self._inner._tensor_reduce(inner_dims, native_function, collapsed_function, unaffected_function)
         collapsed_dims = self._shape.without(self._inner.shape)
         final_shape = self._shape.without(dims)
         total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
@@ -1093,25 +1093,26 @@ class TensorStack(Tensor):
         else:
             return self
 
-    def __tensor_reduce__(self,
-                dims: Tuple[str],
-                native_function: Callable,
-                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: Callable = lambda value: value):
+    def _tensor_reduce(self,
+                       dims: Tuple[str],
+                       native_function: Callable,
+                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                       unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         if self._cached is not None:
-            return self._cached.__tensor_reduce__(dims, native_function, collapsed_function, unaffected_function)
+            return self._cached._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
         # --- inner reduce ---
         inner_axes = [dim for dim in dims if dim != self.stack_dim_name]
-        red_inners = [t.__tensor_reduce__(inner_axes, native_function, collapsed_function, unaffected_function) for t in self.tensors]
+        red_inners = [t._tensor_reduce(inner_axes, native_function, collapsed_function, unaffected_function) for t in self.tensors]
         # --- outer reduce ---
         if self.stack_dim_name in dims:
             if any([t._is_special for t in red_inners]):
                 return sum(red_inners[1:], red_inners[0])
             else:
                 natives = [t.native() for t in red_inners]
-                result = native_function(choose_backend(*natives), natives, dim=0)  # TODO not necessary if tensors are CollapsedTensors
+                backend = choose_backend(*natives)
+                result = native_function(backend, backend.stack(natives), dim=0)  # TODO not necessary if tensors are CollapsedTensors
                 return NativeTensor(result, red_inners[0].shape)
         else:
             return TensorStack(red_inners, self.stack_dim_name, self.stack_dim_type)

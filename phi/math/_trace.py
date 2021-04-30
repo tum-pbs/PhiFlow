@@ -275,11 +275,11 @@ class ShiftLinOp(Tensor):
                 values[dim_shift] = operator(val_, other_)
             return ShiftLinOp(self.source, values, self._shape & other.shape)
 
-    def __tensor_reduce__(self,
-                dims: Tuple[str],
-                native_function: Callable,
-                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: Callable = lambda value: value):
+    def _tensor_reduce(self,
+                       dims: Tuple[str],
+                       native_function: Callable,
+                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                       unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         raise NotImplementedError()
