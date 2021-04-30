@@ -69,7 +69,7 @@ class ConvergenceException(RuntimeError):
 
     """
 
-    def __init__(self, solve_linear: Solve, x0, x, msg: str):
+    def __init__(self, solve: Solve, x0, x, msg: str):
         # subclasses must have the same signature to be instantiated as type(snc)(...)
         RuntimeError.__init__(self, msg)
         self.solve: Solve = solve
@@ -97,7 +97,7 @@ class NotConverged(ConvergenceException):
         `Diverged`.
     """
 
-    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
+    def __init__(self, solve: Solve, x0, x, msg: str = None):
         if msg is None:
             msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations."
         ConvergenceException.__init__(self, solve, x0, x, msg=msg)
@@ -116,7 +116,7 @@ class Diverged(ConvergenceException):
         `NotConverged`.
     """
 
-    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
+    def __init__(self, solve: Solve, x0, x, msg: str = None):
         if msg is None:
             msg = f"Solve diverged within {solve.result.iterations} iterations."
         ConvergenceException.__init__(self, solve, x0, x, msg=msg)

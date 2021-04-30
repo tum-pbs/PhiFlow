@@ -11,7 +11,7 @@ from ._boundaries import Domain
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve_params=math.Solve('CG', 1e-5, 0),
+                        solve=math.Solve('CG', 1e-5, 0),
                         pressure_guess: CenteredGrid = None):
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
@@ -23,7 +23,7 @@ def make_incompressible(velocity: Grid,
       domain: Used to specify boundary conditions
       obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
       pressure_guess: Initial guess for the pressure solve_linear
-      solve_params: Parameters for the pressure solve_linear
+      solve: Parameters for the pressure solve_linear
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
@@ -53,7 +53,7 @@ def make_incompressible(velocity: Grid,
         return lap
 
     pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
-    pressure = field.solve_linear(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
+    pressure = field.solve_linear(laplace, y=div, x0=pressure_guess, solve_params=solve, constants=[active, hard_bcs])
     if domain.boundaries['accessible'] == math.extrapolation.ZERO or domain.boundaries['vector'] == math.extrapolation.PERIODIC:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
@@ -64,7 +64,7 @@ def make_incompressible(velocity: Grid,
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
-    return velocity, pressure, solve_params.result.iterations, div
+    return velocity, pressure, solve.result.iterations, div
 
 
 def _balance_divergence(div, active):

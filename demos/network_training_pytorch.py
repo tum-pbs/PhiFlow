@@ -12,25 +12,25 @@ optimizer = optim.Adam(net.parameters(), lr=1e-3)
 DOMAIN = Domain(x=64, y=64)
 prediction = DOMAIN.vector_grid(0)
 prediction_div = DOMAIN.scalar_grid(0)
-app = view(play=False)
+viewer = view(play=False)
 
-for step in app.range(100):
+for step in viewer.range(100):
     # Load or generate training data
     data = DOMAIN.vector_grid(Noise(batch=8, vector=2))
     # Initialize optimizer
     optimizer.zero_grad()
     # Prediction
-    prediction = field.native_call(net, data)  # calls net with shape (batch_size, channels, spatial...)
+    prediction = field.native_call(net, data)  # calls net with shape (BATCH_SIZE, channels, spatial...)
     # Simulation
     prediction_div = field.divergence(prediction)
     # Define loss
     loss = field.l2_loss(prediction_div) + field.l2_loss(prediction - data)
-    app.log_scalars(loss=loss, div=field.mean(abs(prediction_div)), distance=math.vec_abs(field.mean(abs(prediction - data))))
+    viewer.log_scalars(loss=loss, div=field.mean(abs(prediction_div)), distance=math.vec_abs(field.mean(abs(prediction - data))))
     # Compute gradients and update weights
     loss.native().backward()
     optimizer.step()
 
 torch.save(net.state_dict(), 'torch_net.pth')
-app.info("Network saved.")
+viewer.info("Network saved.")
 
 # To load the network: net.load_state_dict(torch.load('torch_net.pth'))

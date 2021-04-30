@@ -182,10 +182,10 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     return result
 
 
-def minimize(function, x0: Grid, solve_params: math.Solve, callback: Callable = None) -> Grid:
+def minimize(function, x0: Grid, solve: math.Solve, jit_f=True) -> Grid:
     data_function = _operate_on_values(function, x0)
     try:
-        return x0.with_(values=math.minimize(data_function, x0.values, solve=solve_params, callback=callback))
+        return x0.with_(values=math.minimize(data_function, x0.values, solve=solve, jit_f=jit_f))
     except math.ConvergenceException as exc:
         raise type(exc)(exc.solve, x0, x0.with_(values=exc.x), exc.msg)
 

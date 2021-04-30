@@ -315,7 +315,8 @@ def grid(values: Geometry or Field or Number or math.Tensor or Callable or tuple
             cells = GridCell(resolution, bounds)
             x = cells.center if type == CenteredGrid else cells.face_centers()
             values = values(x)
-        values = math.wrap(values)
+        if not isinstance(values, math.Tensor):
+            values = math.tensor(values)
         if values.dtype.kind not in (float, complex):
             values = math.to_float(values)
         if type == CenteredGrid:
