@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Tuple, List, Any, Callable
+from typing import List, Callable
 
 import numpy
 
@@ -621,26 +621,28 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def minimize(self, function, x0, solve_params: Solve):
+    def minimize(self, function, x0, solve: Solve):
         """ Optional. """
         return NotImplemented
 
-    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
+    def conjugate_gradient(self, A, y, x0, solve: Solve):
         """
-        Solve the system of linear equations
-          A * x = y
+        Solve the system of linear equations A · x = y.
+        Updates `solve.result`.
 
         Args:
           A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
           y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
           x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-          solve_params: Determines stop criteria. Stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
+          solve: Determines stop criteria. Stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
 
         Returns:
             x: the solution as a tensor
-
         """
+        raise NotImplementedError(self)
+    
+    def conjugate_gradient_jit(self, f: Callable, y, x0, solve: Solve):
+        """ Similar to conjugate_gradient() but automatically jit-compiles the linear operator. """
         raise NotImplementedError(self)
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):

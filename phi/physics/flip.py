@@ -9,7 +9,7 @@ def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
                         particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        solve_params=math.Solve('CG', 1e-5, 0),
+                        solve=math.Solve('CG', 1e-5, 0),
                         pressure_guess: CenteredGrid = None) -> Tuple[StaggeredGrid, CenteredGrid, int, CenteredGrid, StaggeredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
@@ -19,7 +19,7 @@ def make_incompressible(velocity: StaggeredGrid,
         domain: Domain object
         particles: Pointcloud holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        solve_params (Optional): Parameters for the pressure solve_linear
+        solve (Optional): Parameters for the pressure solve_linear
         pressure_guess (Optional): Initial pressure guess as CenteredGrid
 
     Returns:
@@ -52,7 +52,7 @@ def make_incompressible(velocity: StaggeredGrid,
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
-    pressure = field.solve_linear(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve_params=solve_params)
+    pressure = field.solve_linear(matrix_eq, div, pressure_guess or domain.scalar_grid(), solve=solve)
 
     def pressure_backward(_p, _p_, dp):
         return dp * occupied_centered.values,
@@ -61,7 +61,7 @@ def make_incompressible(velocity: StaggeredGrid,
     pressure = pressure.with_(values=add_mask_in_gradient(pressure.values))
 
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
-    return velocity_field - gradp, pressure, solve_params.result.iterations, div, occupied_staggered
+    return velocity_field - gradp, pressure, solve.result.iterations, div, occupied_staggered
 
 
 def map_velocity_to_particles(previous_particle_velocity: PointCloud,

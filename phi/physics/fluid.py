@@ -43,7 +43,6 @@ def make_incompressible(velocity: Grid,
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
-    @field.jit_compile_linear
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
@@ -53,7 +52,9 @@ def make_incompressible(velocity: Grid,
         return lap
 
     pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
-    pressure = field.solve_linear(laplace, y=div, x0=pressure_guess, solve_params=solve, constants=[active, hard_bcs])
+    active.values._expand()
+    hard_bcs.values._expand()
+    pressure = field.solve_linear(laplace, y=div, x0=pressure_guess, solve=solve)
     if domain.boundaries['accessible'] == math.extrapolation.ZERO or domain.boundaries['vector'] == math.extrapolation.PERIODIC:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)

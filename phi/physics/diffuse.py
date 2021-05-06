@@ -39,7 +39,7 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params=math.Solve('CG', 1e-5, 0)) -> FieldType:
+             solve=math.Solve('CG', 1e-5, 0)) -> FieldType:
     """
     Diffusion by solving a linear system of equations.
 
@@ -48,7 +48,7 @@ def implicit(field: FieldType,
         field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
-        solve_params:
+        solve:
 
     Returns:
         Diffused field of same type as `field`.
@@ -57,7 +57,7 @@ def implicit(field: FieldType,
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    return solve_linear(sharpen, y=field, x0=field, solve_params=solve_params)
+    return solve_linear(sharpen, y=field, x0=field, solve=solve)
 
 
 def fourier(field: GridType,

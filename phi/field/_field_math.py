@@ -190,14 +190,12 @@ def minimize(function, x0: Grid, solve: math.Solve, jit_f=True) -> Grid:
         raise type(exc)(exc.solve, x0, x0.with_(values=exc.x), exc.msg)
 
 
-def solve_linear(function, y: Grid, x0: Grid, solve_params: math.Solve, constants: tuple or list = ()):
+def solve_linear(function, y: Grid, x0: Grid, solve: math.Solve, jit_f=True):
     if isinstance(function, LinearFieldFunction):
         value_function = function.value_function(x0)
     else:
         value_function = _operate_on_values(function, x0)
-    constants = [c.values if isinstance(c, SampledField) else c for c in constants]
-    assert all(isinstance(c, math.Tensor) for c in constants)
-    x = math.solve_linear(value_function, y.values, x0.values, solve=solve_params, constants=constants)
+    x = math.solve_linear(value_function, y.values, x0.values, solve=solve, jit_f=jit_f)
     return x0.with_(values=x)
 
 
@@ -295,7 +293,10 @@ def _tensor_wrapper(f: Callable, create_tensor_function: Callable):
         result = f(*fields)
         results = [result] if not isinstance(result, (tuple, list)) else result
         OUTPUT_FIELDS.clear()
-        OUTPUT_FIELDS.extend(results)
+        for f_ in results:
+            f_proto = f_.with_()
+            f_proto._values = None
+            OUTPUT_FIELDS.append(f_proto)
         result_tensors = [field.values if isinstance(field, SampledField) else math.tensor(field) for field in results]
         return result_tensors
 
@@ -303,7 +304,10 @@ def _tensor_wrapper(f: Callable, create_tensor_function: Callable):
 
     def wrapper(*fields):
         INPUT_FIELDS.clear()
-        INPUT_FIELDS.extend(fields)
+        for f in fields:
+            f_proto = f.with_()
+            f_proto._values = None
+            INPUT_FIELDS.append(f_proto)
         tensors = [field.values for field in fields]
         result_tensors = tensor_trace(*tensors)
         result_tensors = [result_tensors] if not isinstance(result_tensors, (tuple, list)) else result_tensors
