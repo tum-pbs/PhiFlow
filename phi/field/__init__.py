@@ -31,6 +31,7 @@ from ._field_math import (
     mean, pad, shift, normalize, center_of_mass,
     concat, batch_stack, channel_stack,
     abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
+    to_float, to_int,
     solve_linear, minimize,
     where,
     vec_squared, vec_abs,

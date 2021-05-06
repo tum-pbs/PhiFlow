@@ -528,6 +528,14 @@ def cast(x: SampledFieldType, dtype: DType) -> SampledFieldType:
     return x._op1(partial(math.cast, dtype=dtype))
 
 
+def to_float(x: SampledFieldType) -> SampledFieldType:
+    return x._op1(math.to_float)
+
+
+def to_int(x: SampledFieldType) -> SampledFieldType:
+    return x._op1(math.to_int)
+
+
 def assert_close(*fields: SampledField or math.Tensor or Number,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0):
