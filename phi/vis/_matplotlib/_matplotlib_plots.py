@@ -139,13 +139,19 @@ def _batch(field: SampledField):
 def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  names: str or tuple or list or math.Tensor = None,
                  reduce: str or tuple or list or math.Shape = 'names',
+                 down='',
                  smooth=1,
-                 smooth_alpha=0.4,
+                 smooth_alpha=0.2,
+                 smooth_linewidth=1.,
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
                  grid='y',
-                 log_scale=''):
+                 log_scale='',
+                 legend='upper right',
+                 ylim=None,
+                 titles=True,
+                 labels: math.Tensor = None):
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -165,36 +171,38 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
     batch = shape.without(reduce).without(additional_reduce)
 
     cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-    fig, axes = plt.subplots(1, batch.volume, figsize=size)
+    fig, axes = plt.subplots(batch.only(down).volume, batch.without(down).volume, figsize=size)
     axes = axes if isinstance(axes, numpy.ndarray) else [axes]
 
     for b, axis in zip(batch.meshgrid(), axes):
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
-        if names_equal:
-            axis.set_title(display_name(str(names[b])))
+        if titles:
+            if names_equal:
+                axis.set_title(display_name(str(names[b])))
+            elif paths_equal:
+                axis.set_title(os.path.basename(str(scene.paths[b])))
+        if labels is not None:
+            curve_labels = labels
+        elif names_equal:
+            curve_labels = math.map(os.path.basename, scene.paths[b])
         elif paths_equal:
-            axis.set_title(os.path.basename(str(scene.paths[b])))
+            curve_labels = names[b]
+        else:
+            curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
-        def single_plot(name, path, i):
+        def single_plot(name, path, label, i):
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
                 x, values, *_ = curve.T
             else:
                 values = curve
                 x = np.arange(len(values))
-            name = display_name(name)
             if transform:
                 x, values = transform(np.stack([x, values]))
-            if names_equal:
-                label = os.path.basename(path)
-            elif paths_equal:
-                label = name
-            else:
-                label = f"{os.path.basename(path)} - {name}"
             axis.plot(x, values, color=cycle[i], alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=2, label=label)
+            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=smooth_linewidth, label=label)
             if grid:
                 grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
                 axis.grid(which='both', axis=grid_axis, linestyle='--')
@@ -202,11 +210,18 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 axis.set_xscale('log')
             if 'y' in log_scale:
                 axis.set_yscale('log')
+            if ylim:
+                axis.set_ylim(ylim)
             return name
 
-        math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))
-        axis.legend()
+        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)))
+        if legend:
+            axis.legend(loc=legend)
     # Final touches
     if tight_layout:
         plt.tight_layout()
     return fig
+
+
+def savefig(filename: str, transparent=True):
+    plt.savefig(filename, transparent=transparent)

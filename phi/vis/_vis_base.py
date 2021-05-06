@@ -357,43 +357,6 @@ def gui_interrupt(*args, **kwargs):
     raise GuiInterrupt()
 
 
-def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
-    """
-    Launch the registered user interface (web interface by default).
-    
-    This method may block until the GUI is closed.
-    
-    This method prepares the vis before showing it. No more fields should be added to the vis after this method is invoked.
-    
-    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
-
-    Args:
-      model: (Optional) `VisModel`, the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
-      play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-      gui: (optional) class of GUI to use
-      keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
-      **config: additional GUI configuration parameters.
-        For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
-    """
-    if model is None:
-        import pylab
-        pylab.show()
-        return
-    assert isinstance(model, VisModel), f"show() first argument must be an App instance but got {model}"
-    model.prepare()
-    # --- Setup Gui ---
-    gui = default_gui() if gui is None else get_gui(gui)
-    gui.configure(config)
-    gui.setup(model)
-    if play:  # this needs to be done even if model cannot progress right now
-        gui.auto_play()
-    if gui.asynchronous:
-        display_thread = Thread(target=lambda: gui.show(True), name="AsyncGui", daemon=not keep_alive)
-        display_thread.start()
-    else:
-        gui.show(True)  # may be blocking call
-
-
 def display_name(python_name):
     n = list(python_name)
     n[0] = n[0].upper()

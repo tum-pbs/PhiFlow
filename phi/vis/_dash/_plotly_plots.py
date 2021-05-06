@@ -1,3 +1,5 @@
+import warnings
+
 import numpy
 from plotly import graph_objects
 from plotly.subplots import make_subplots
@@ -11,6 +13,8 @@ from phi.vis._plot_util import smooth_uniform_curve
 
 def plot(field: SampledField, title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
     fig_shape = figure_shape(field)
+    if fig_shape.volume > 8:
+        warnings.warn(f"Plotting {fig_shape.volume} sub-figures for remaining shape {fig_shape} which may be slow. Use 'select' to avoid drawing all examples in one figure.")
     title = titles(title, fig_shape, no_title=None)
     if fig_shape:  # subplots
         fig = make_subplots(rows=1, cols=fig_shape.volume, subplot_titles=title)
@@ -185,6 +189,7 @@ def get_div_map(zmin, zmax, equal_scale=False, colormap: str = None):
         # Cut to (0, 1)
         cm_arr = cm_arr[cm_arr[:, 0] >= 0]
         cm_arr = cm_arr[cm_arr[:, 0] <= 1]
+    cm_arr[:, 1:] = numpy.clip(cm_arr[:, 1:], 0, 255)
     return [[val, "rgb({:.0f},{:.0f},{:.0f})".format(*colors)] for val, colors in zip(cm_arr[:, 0], cm_arr[:, 1:])]
 
 

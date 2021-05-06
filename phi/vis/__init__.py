@@ -7,10 +7,9 @@ Use `plot()` to plot fields using Matplotlib.
 
 See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 """
-from ._vis_base import show
 from ._viewer import Viewer
-from ._matplotlib import plot, animate, plot_scalars
-from ._vis import view, control
+from ._matplotlib import plot, animate, plot_scalars, savefig
+from ._vis import view, control, show
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
 
