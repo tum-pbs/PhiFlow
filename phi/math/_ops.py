@@ -17,7 +17,8 @@ from .backend._profile import get_current_profile
 
 from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE,
                      spatial_shape, shape as shape_, _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape)
-from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, custom_op2, tensors
+from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
+    custom_op2, tensors, compatible_tensor
 from . import extrapolation as e_
 from . import _trace
 
@@ -62,6 +63,8 @@ def all_available(*values: Tensor):
 
     """
     for value in values:
+        if _trace.is_tracer(value):
+            return False
         natives = value._natives()
         natives_available = [choose_backend(native).is_available(native) for native in natives]
         if not all(natives_available):
@@ -447,21 +450,22 @@ def transpose(value, axes):
         return choose_backend(value).transpose(value, axes)
 
 
-def fftfreq(resolution: Shape, dtype: DType = None):
+def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
     """
     Returns the discrete Fourier transform sample frequencies.
     These are the frequencies corresponding to the components of the result of `math.fft` on a tensor of shape `resolution`.
 
     Args:
-      resolution: Grid resolution measured in cells
-      dtype: Data type of the returned tensor (Default value = None)
+        resolution: Grid resolution measured in cells
+        dx: Distance between sampling points in real space.
+        dtype: Data type of the returned tensor (Default value = None)
 
     Returns:
-      tensor holding the frequencies of the corresponding values computed by math.fft
-
+        `Tensor` holding the frequencies of the corresponding values computed by math.fft
     """
     resolution = spatial_shape(resolution)
     k = meshgrid(**{dim: np.fft.fftfreq(int(n)) for dim, n in resolution.named_sizes})
+    k /= dx
     return to_float(k) if dtype is None else cast(k, dtype)
 
 
@@ -476,18 +480,26 @@ def meshgrid(**dimensions):
 
     """
     assert 'vector' not in dimensions
-    dim_values = {}
+    dim_values = []
+    dim_sizes = []
     for dim, spec in dimensions.items():
         if isinstance(spec, int):
-            dim_values[dim] = tuple(range(spec))
+            dim_values.append(tuple(range(spec)))
+            dim_sizes.append(spec)
         elif isinstance(spec, Tensor):
-            dim_values[dim] = spec.native()
+            assert spec.rank == 1, f"Only 1D sequences allowed, got {spec} for dimension '{dim}'."
+            dim_values.append(spec.native())
+            dim_sizes.append(spec.shape.volume)
         else:
-            dim_values[dim] = spec
-    backend = choose_backend(*dim_values.values(), prefer_default=True)
-    indices_list = backend.meshgrid(*dim_values.values())
-    single_shape = Shape([len(val) for val in dim_values.values()], dim_values.keys(), [SPATIAL_DIM] * len(dim_values))
-    channels = [NativeTensor(t, single_shape) for t in indices_list]
+            backend = choose_backend(spec)
+            shape = backend.staticshape(spec)
+            assert len(shape) == 1, "Only 1D sequences allowed, got {spec} for dimension '{dim}'."
+            dim_values.append(spec)
+            dim_sizes.append(shape[0])
+    backend = choose_backend(*dim_values, prefer_default=True)
+    indices_list = backend.meshgrid(*dim_values)
+    grid_shape = Shape(dim_sizes, dimensions.keys(), [SPATIAL_DIM] * len(dim_values))
+    channels = [NativeTensor(t, grid_shape) for t in indices_list]
     return TensorStack(channels, 'vector', CHANNEL_DIM)
 
 
@@ -1477,7 +1489,7 @@ def assert_close(*values,
     if any_tensor is None:
         values = [wrap(t) for t in values]
     else:  # use Tensor to infer dimensions
-        values = [any_tensor._tensor(t).__simplify__() for t in values]
+        values = [compatible_tensor(t, any_tensor.shape)._simplify() for t in values]
     for other in values[1:]:
         _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)
 
@@ -1496,34 +1508,6 @@ def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float, 
             np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance, err_msg=error_message, verbose=verbose)
 
     broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
-
-
-def jit_compile(f: Callable) -> Callable:
-    """
-    Compiles a graph based on the function `f`.
-    The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.
-
-    The traced function will compute the same result as `f` but may run much faster.
-    Some checks may be disabled in the compiled function.
-
-    Can be used as a decorator:
-    ```python
-    @math.jit_compile
-    def my_function(x: math.Tensor) -> math.Tensor:
-    ```
-
-    See Also:
-        `jit_compile_linear()`
-
-    Args:
-        f: Function to be traced.
-            All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
-
-    Returns:
-        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
-    """
-    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf), persistent_refs=True)
-    return wrapper
 
 
 def _native_wrapper(tensor_function: Callable, create_native_function: Callable, persistent_refs=False):
@@ -1697,7 +1681,7 @@ def minimize(f,
     For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
     Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
 
-    Information about the performed solve_linear will be added to `solve.result`.
+    Information about the performed solve will be added to `solve.result`.
 
     Args:
         f: Function whose output is subject to minimization. Function with single `Tensor` positional argument and return value.
@@ -1721,7 +1705,7 @@ def minimize(f,
     natives_flat = [backend.flatten(n) for n in natives]
     x0_flat = backend.concat(natives_flat, 0)
     if jit_f:
-        f = jit_compile(f)
+        f = _trace.jit_compile(f)
 
     def unflatten_assemble(x_native):
         i = 0
@@ -1752,12 +1736,12 @@ def minimize(f,
         raise type(exc)(exc.solve, x0, x, exc.msg)
 
 
-def _default_minimize(native_function, x0_flat, x_dtype, backend: Backend, solve_params: Solve):
+def _default_minimize(native_function, x0_flat, x_dtype, backend: Backend, solve: Solve):
     import scipy.optimize as sopt
     x0 = backend.numpy(x0_flat)
     if x_dtype.kind == complex:
         x0 = x0.view(np.float32 if x0.dtype == np.complex64 else np.float64)
-    method = solve_params.solver or 'L-BFGS-B'
+    method = solve.solver or 'L-BFGS-B'
     loss_curve = []  # by evaluation
 
     if backend.supports(Backend.functional_gradient):
@@ -1778,8 +1762,8 @@ def _default_minimize(native_function, x0_flat, x_dtype, backend: Backend, solve
                 grad = backend.numpy(grad).astype(np.float64)
             return backend.numpy(loss).astype(np.float64), grad
 
-        res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=solve_params.absolute_tolerance,
-                            options={'maxiter': solve_params.max_iterations})
+        res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=solve.absolute_tolerance,
+                            options={'maxiter': solve.max_iterations})
     else:
         warnings.warn(f"{backend} does not support gradients. minimize() will use finite difference gradients which may be slow.")
 
@@ -1794,39 +1778,12 @@ def _default_minimize(native_function, x0_flat, x_dtype, backend: Backend, solve
             return backend.numpy(loss).astype(np.float64)
 
         finite_diff_epsilon = {64: 1e-9, 32: 1e-4, 16: 1e-1}[get_precision()]
-        res = sopt.minimize(fun=min_target, x0=x0, method=method, tol=solve_params.absolute_tolerance,
-                            options={'maxiter': solve_params.max_iterations, 'eps': finite_diff_epsilon})
-    solve_params.result = SolveResult(res.nit, loss_curve=loss_curve)
+        res = sopt.minimize(fun=min_target, x0=x0, method=method, tol=solve.absolute_tolerance,
+                            options={'maxiter': solve.max_iterations, 'eps': finite_diff_epsilon})
+    solve.result = SolveResult(res.nit, loss_curve=loss_curve)
     if not res.success:
-        raise NotConverged(solve_params, x0, res.x, msg=res.message)
+        raise NotConverged(solve, x0, res.x, msg=res.message)
     return res.x
-
-
-def jit_compile_linear(f: Callable) -> '_trace.LinearFunction':
-    """
-    Compile an optimized representation of the linear function `f`.
-
-    Can be used as a decorator:
-
-    ```python
-    @math.jit_compile_linear
-    def my_linear_function(x: math.Tensor) -> math.Tensor:
-    ```
-
-    See Also:
-        `jit_compile()`
-
-    Args:
-        f: Linear function with `Tensor` positional arguments and return value(s).
-
-    Returns:
-        `LinearFunction` with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
-    """
-    backend = default_backend()
-    if not backend.supports(Backend.sparse_tensor):
-        warnings.warn(f"Cannot compile linear function with {backend} because sparse matrices are not supported.")
-        return _trace.LinearFunction(f)
-    return _trace.JitLinearFunction(f, backend)
 
 
 def solve_nonlinear(f: Callable,
@@ -1873,8 +1830,7 @@ def solve_linear(f: Callable,
                  y: Tensor,
                  x0: Tensor,
                  solve: Solve,
-                 jit_f=True,
-                 constants: tuple or list = ()) -> Tensor:
+                 jit_f=True) -> Tensor:
     """
     Solves the system of linear equations *f(x) = y*.
 
@@ -1903,15 +1859,27 @@ def solve_linear(f: Callable,
     if solve.solver != 'CG':
         raise NotImplementedError("Only 'CG' solver currently supported")
 
-    for c in constants:
-        c._expand()
-
     x0, y = tensors(x0, y)
     backend = choose_backend(*x0._natives(), *y._natives())
 
     if jit_f:
-        f = jit_compile_linear(f)
-    if isinstance(f, _trace.JitLinearFunction):  # TODO don't check instance, create a new LinearFunction, implement LinearFunction concatenation
+        if isinstance(f, _trace.JitFunction):
+            f = f.f  # cannot trace linear function from jitted version
+        if backend.supports(Backend.conjugate_gradient_jit):
+            backend_cg = backend.conjugate_gradient_jit
+        elif backend.supports(Backend.conjugate_gradient):
+            f = _trace.jit_compile_linear(f)
+            backend_cg = backend.conjugate_gradient
+        else:
+            f = _trace.jit_compile_linear(f)
+            backend_cg = None
+    else:
+        if backend.supports(Backend.conjugate_gradient):
+            backend_cg = backend.conjugate_gradient
+        else:
+            backend_cg = None
+
+    if isinstance(f, _trace.LinearFunction):
         operator_or_matrix = f.sparse_coordinate_matrix(x0)
     else:
         def operator_or_matrix(native_x):
@@ -1922,24 +1890,25 @@ def solve_linear(f: Callable,
             return Ax_native
 
     loop_time = time.perf_counter()
-    if backend.supports(Backend.conjugate_gradient):
+    if backend_cg is not None:
         x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
         y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
-        x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve)
+        x = backend_cg(operator_or_matrix, y_native, x0_native, solve)
         batch = (y.shape & x0.shape).batch
         x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
         x = NativeTensor(x, batch.combined(x0.shape.non_batch))
     else:
         x = _default_cg(operator_or_matrix, y, x0, solve)
+
     if get_current_profile():
-        iterations = solve.result.iterations
         loop_time = time.perf_counter() - loop_time
+        iterations = solve.result.iterations
         info = "  \tProfile with trace=False to get more accurate results." if get_current_profile()._trace else ""
         get_current_profile().add_external_message(f"CG \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}")
     return x
 
 
-def _default_cg(A, y_t: Tensor, x0: Tensor, solve_params: Solve):
+def _default_cg(A, y_t: Tensor, x0: Tensor, solve: Solve):
     """ This conjugate gradient algorithm should work with all backends. The gradient pass performs a second CG. """
     batch = (y_t.shape & x0.shape).batch
     backend = choose_backend_t(y_t, x0)
@@ -1968,8 +1937,8 @@ def _default_cg(A, y_t: Tensor, x0: Tensor, solve_params: Solve):
         iterations = 0
         while backend.all(backend.sum(residual ** 2, -1) > tolerance_sq):
             if iterations == params.max_iterations:
-                solve_params.result = SolveResult(iterations)
-                raise NotConverged(solve_params, x0, x)
+                solve.result = SolveResult(iterations)
+                raise NotConverged(solve, x0, x)
             iterations += 1
             dx_dy = backend.sum(dx * dy, axis=-1, keepdims=True)
             step_size = backend.divide_no_nan(backend.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
@@ -1978,14 +1947,14 @@ def _default_cg(A, y_t: Tensor, x0: Tensor, solve_params: Solve):
             dx = residual - backend.divide_no_nan(backend.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             dy = function(dx)
         if not backend.all(backend.isfinite(x)):
-            solve_params.result = SolveResult(iterations)
-            raise Diverged(solve_params, x0, x)
+            solve.result = SolveResult(iterations)
+            raise Diverged(solve, x0, x)
         x = backend.reshape(x, batch.sizes + x0_t.shape.non_batch.sizes)
         params.result = SolveResult(iterations)
         return NativeTensor(x, batch.combined(x0_t.shape.non_batch))
 
-    return custom_gradient(lambda y: cg(y, x0, solve_params),
-                           lambda y, x, dx: (cg(dx, zeros_like(x0), solve_params.gradient_solve),))(y_t)
+    return custom_gradient(lambda y: cg(y, x0, solve),
+                           lambda y, x, dx: (cg(dx, zeros_like(x0), solve.gradient_solve),))(y_t)
 
 
 # def variable(x: Tensor) -> Tensor:

@@ -103,7 +103,7 @@ class TestMathFunctions(TestCase):
 
     def test_sum_collapsed(self):
         ones = math.ones(x=40000, y=30000)
-        self.assertEqual(40000 * 30000, math.sum(ones))
+        math.assert_close(40000 * 30000, math.sum(ones))
 
     def test_prod_collapsed(self):
         ones = math.ones(x=40000, y=30000)
@@ -112,12 +112,12 @@ class TestMathFunctions(TestCase):
     def test_mean_collapsed(self):
         ones = math.ones(x=40000, y=30000)
         data = math.spatial_stack([ones, ones * 2], 'vector')
-        self.assertEqual(1.5, math.mean(data))
+        math.assert_close(1.5, math.mean(data))
 
     def test_std_collapsed(self):
         ones = math.ones(x=40000, y=30000)
         std = math.std(ones)
-        self.assertEqual(0, std)
+        math.assert_close(0, std)
 
     def test_grid_sample_1d(self):
         grid = math.tensor([0, 1, 2, 3], names='x')

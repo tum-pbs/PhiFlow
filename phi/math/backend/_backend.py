@@ -181,7 +181,7 @@ class Backend:
 
         Args:
           x: tensor-like, e.g. list, tuple, Python number, tensor
-          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)
 
         Returns:
           tensor representation of `x`

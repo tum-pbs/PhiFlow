@@ -54,7 +54,7 @@ class TorchBackend(Backend):
         if isinstance(x, (tuple, list)) and all(isinstance(c, numbers.Number) for c in x):
             return True
         if isinstance(x, np.ndarray) and x.dtype != np.object:
-            return True
+            return True  # this is pretty much required, else we couldn't perform NP+PyTorch operations
         return False
 
     def as_tensor(self, x, convert_external=True):
@@ -83,8 +83,13 @@ class TorchBackend(Backend):
                 tensor = self.to_complex(tensor)
         return tensor
 
+    def auto_cast(self, *tensors) -> list:
+        tensors = [t if isinstance(t, (torch.Tensor, numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
+        return Backend.auto_cast(self, *tensors)
+
     def is_available(self, tensor) -> bool:
-        return True  # ToDo may require different handling for TorchScript
+        state = torch._C._get_tracing_state()
+        return state is None  # TODO can we find out whether this tensor specifically is being traced?
 
     def numpy(self, tensor):
         if tensor.requires_grad:
@@ -121,7 +126,7 @@ class TorchBackend(Backend):
                 return y
 
             @staticmethod
-            def backward(ctx, *grad_args):
+            def backward(ctx, *grad_args):  # debugging this call may not be supported
                 x = ctx.saved_tensors[:INPUT_COUNT[0]]
                 y = ctx.saved_tensors[INPUT_COUNT[0]:]
                 result = gradient(x, y, grad_args)
@@ -406,10 +411,16 @@ class TorchBackend(Backend):
         return a
 
     def shape(self, tensor):
-        return tensor.shape
+        if self.is_tensor(tensor, only_native=True):
+            return tensor.shape
+        else:
+            return NUMPY_BACKEND.shape(tensor)
 
     def staticshape(self, tensor):
-        return tuple(tensor.shape)
+        if self.is_tensor(tensor, only_native=True):
+            return tuple(tensor.shape)
+        else:
+            return NUMPY_BACKEND.staticshape(tensor)
 
     def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
@@ -457,7 +468,7 @@ class TorchBackend(Backend):
             ravel = [1]
             for i in range(1, len(resolution)):
                 ravel.insert(0, ravel[0] * resolution[-i])
-            ravel = self.to_int(ravel, int64=True)
+            ravel = self.to_int(self.as_tensor(ravel, True), int64=True)
             indices = torch.sum(indices * ravel, dim=-1, keepdim=True)
         base_grid_flat = torch.reshape(base_grid, [base_grid.shape[0], -1, base_grid.shape[-1]])
         indices = indices.long().repeat([1, 1, values.shape[-1]])
@@ -503,8 +514,10 @@ class TorchBackend(Backend):
             return x
 
     def cast(self, x, dtype: DType):
+        if isinstance(x, (numbers.Number, bool)):
+            return x  # Creating a Tensor here would raise warnings during tracing.
         if not self.is_tensor(x, only_native=True):
-            x = self.as_tensor(x, convert_external=True)
+            return NUMPY_BACKEND.cast(x, dtype)
         if self.dtype(x) == dtype:
             return x
         else:
@@ -545,43 +558,43 @@ class TorchBackend(Backend):
         result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
 
-    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
-        if not (isinstance(A, torch.Tensor) and A.is_sparse):
-            return NotImplemented
-        A_shape = self.staticshape(A)
-        assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
-        assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
-        y = self.to_float(y)
-        x0 = self.copy(self.to_float(x0))
-        batch_size = combined_dim(x0.shape[0], y.shape[0])
-        if x0.shape[0] < batch_size:
-            x0 = x0.repeat([batch_size, 1])
-
-        def cg_script_wrapper(y, x0, s: Solve):
-            dtype = to_torch_dtype(self.float_type)
-            x, iterations, converged, diverged = torch_cg(A, y, x0,
-                                                          torch.tensor(s.relative_tolerance, dtype=dtype, device=self.get_default_device().ref),
-                                                          torch.tensor(s.absolute_tolerance, dtype=dtype, device=self.get_default_device().ref),
-                                                          torch.tensor(s.max_iterations, dtype=torch.int32, device=self.get_default_device().ref))
-            s.result = SolveResult(iterations)
-            if diverged:
-                raise Diverged(s, x0, x)
-            if not converged:
-                raise NotConverged(s, x0, x)
-            return x
-
-        class CGVariant(torch.autograd.Function):
-
-            @staticmethod
-            def forward(ctx, y):
-                return cg_script_wrapper(y, x0, solve_params)
-
-            @staticmethod
-            def backward(ctx, dX):
-                return cg_script_wrapper(dX, torch.zeros_like(x0), solve_params.gradient_solve)
-
-        result = CGVariant.apply(y)
-        return result
+    # def conjugate_gradient(self, A, y, x0, solve: Solve):
+    #     if not (isinstance(A, torch.Tensor) and A.is_sparse):
+    #         return NotImplemented
+    #     A_shape = self.staticshape(A)
+    #     assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
+    #     assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
+    #     y = self.to_float(y)
+    #     x0 = self.copy(self.to_float(x0))
+    #     batch_size = combined_dim(x0.shape[0], y.shape[0])
+    #     if x0.shape[0] < batch_size:
+    #         x0 = x0.repeat([batch_size, 1])
+    #
+    #     def cg_script_wrapper(y, x0, s: Solve):
+    #         dtype = to_torch_dtype(self.float_type)
+    #         x, iterations, converged, diverged = torch_cg(A, y, x0,
+    #                                                       torch.tensor(s.relative_tolerance, dtype=dtype, device=self.get_default_device().ref),
+    #                                                       torch.tensor(s.absolute_tolerance, dtype=dtype, device=self.get_default_device().ref),
+    #                                                       torch.tensor(s.max_iterations, dtype=torch.int32, device=self.get_default_device().ref))
+    #         s.result = SolveResult(iterations)
+    #         if diverged:
+    #             raise Diverged(s, x0, x)
+    #         if not converged:
+    #             raise NotConverged(s, x0, x)
+    #         return x
+    #
+    #     class CGVariant(torch.autograd.Function):
+    #
+    #         @staticmethod
+    #         def forward(ctx, y):
+    #             return cg_script_wrapper(y, x0, solve)
+    #
+    #         @staticmethod
+    #         def backward(ctx, dX):
+    #             return cg_script_wrapper(dX, torch.zeros_like(x0), solve.gradient_solve)
+    #
+    #     result = CGVariant.apply(y)
+    #     return result
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)

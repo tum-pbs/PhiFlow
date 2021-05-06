@@ -133,10 +133,11 @@ class CenteredGrid(Grid):
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
         return math.grid_sample(self.values, local_points, self.extrapolation)
 
-    def _shift_resample(self, resolution, box, threshold=1e-5, max_padding=20):
-        lower = math.to_int(math.ceil(math.maximum(0, self.box.lower - box.lower) / self.dx - threshold))
-        upper = math.to_int(math.ceil(math.maximum(0, box.upper - self.box.upper) / self.dx - threshold))
-        total_padding = math.sum(lower) + math.sum(upper)
+    def _shift_resample(self, resolution: Shape, bounds: Box, threshold=1e-5, max_padding=20):
+        assert math.all_available(bounds.lower, bounds.upper), "Shift resampling requires 'bounds' to be available."
+        lower = math.to_int(math.ceil(math.maximum(0, self.box.lower - bounds.lower) / self.dx - threshold))
+        upper = math.to_int(math.ceil(math.maximum(0, bounds.upper - self.box.upper) / self.dx - threshold))
+        total_padding = (math.sum(lower) + math.sum(upper)).numpy()
         if total_padding > max_padding:
             return NotImplemented
         elif total_padding > 0:
@@ -145,7 +146,7 @@ class CenteredGrid(Grid):
             grid_box, grid_resolution, grid_values = padded.box, padded.resolution, padded.values
         else:
             grid_box, grid_resolution, grid_values = self.box, self.resolution, self.values
-        origin_in_local = grid_box.global_to_local(box.lower) * grid_resolution
+        origin_in_local = grid_box.global_to_local(bounds.lower) * grid_resolution
         data = math.sample_subgrid(grid_values, origin_in_local, resolution)
         return data
 

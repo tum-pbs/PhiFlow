@@ -26,7 +26,7 @@ from ._ops import (
     native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
     print_ as print, print_gradient,
     map_ as map,
-    jit_compile, jit_compile_linear, functional_gradient, custom_gradient,
+    functional_gradient, custom_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
@@ -60,7 +60,7 @@ from ._nd import (
     downsample2x, upsample2x, sample_subgrid,
     extrapolate_valid_values,
 )
-from ._trace import LinearFunction
+from ._trace import LinearFunction, jit_compile_linear, jit_compile
 
 
 PI = 3.14159265358979323846

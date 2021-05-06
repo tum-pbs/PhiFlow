@@ -149,7 +149,7 @@ class ConstantExtrapolation(Extrapolation):
         Returns:
 
         """
-        value = value.__simplify__()
+        value = value._simplify()
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -158,7 +158,7 @@ class ConstantExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value._inner.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+            if value._inner.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after _simplify
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
@@ -178,7 +178,7 @@ class ConstantExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, _trace.ShiftLinOp):
+        elif isinstance(value, _trace.ShiftLinTracer):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
             return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
@@ -282,7 +282,7 @@ class _CopyExtrapolation(Extrapolation):
         return {'type': repr(self)}
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
-        value = value.__simplify__()
+        value = value._simplify()
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -292,7 +292,7 @@ class _CopyExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(result_tensor.shape)
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            inner = value._inner  # should be fine after __simplify__
+            inner = value._inner  # should be fine after _simplify
             inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
             if len(inner_widths) > 0:
                 inner = self.pad(inner, widths)
@@ -313,12 +313,12 @@ class _CopyExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, _trace.ShiftLinOp):
+        elif isinstance(value, _trace.ShiftLinTracer):
             return self._pad_linear_operation(value, widths)
         else:
             raise NotImplementedError(f'{type(value)} not supported')
 
-    def _pad_linear_operation(self, value: '_trace.ShiftLinOp', widths: dict) -> '_trace.ShiftLinOp':
+    def _pad_linear_operation(self, value: '_trace.ShiftLinTracer', widths: dict) -> '_trace.ShiftLinTracer':
         raise NotImplementedError()
 
     @property
@@ -387,15 +387,15 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             edge = value[{dimension: slice(1)}]
         return math.concat([edge] * width, dimension)
 
-    def _pad_linear_operation(self, value: '_trace.ShiftLinOp', widths: dict) -> '_trace.ShiftLinOp':
+    def _pad_linear_operation(self, value: '_trace.ShiftLinTracer', widths: dict) -> '_trace.ShiftLinTracer':
         """
         *Warning*:
         This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
         These are typically sliced off in differential operators. Corners are instead assigned the value 0.
-        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinOp.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinTracer.
 
         Args:
-          value: ShiftLinOp: 
+          value: ShiftLinTracer:
           widths: dict: 
 
         Returns:
@@ -460,7 +460,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         else:
             return value[{dimension: slice(-width, None)}]
 
-    def _pad_linear_operation(self, value: '_trace.ShiftLinOp', widths: dict) -> '_trace.ShiftLinOp':
+    def _pad_linear_operation(self, value: '_trace.ShiftLinTracer', widths: dict) -> '_trace.ShiftLinTracer':
         if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
             raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}

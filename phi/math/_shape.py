@@ -277,7 +277,16 @@ class Shape:
     def __eq__(self, other):
         if not isinstance(other, Shape):
             return False
-        return self.names == other.names and self.types == other.types and self.sizes == other.sizes
+        if self.names != other.names or self.types != other.types:
+            return False
+        for size1, size2 in zip(self.sizes, other.sizes):
+            equal = size1 == size2
+            assert isinstance(equal, (bool, math.Tensor))
+            if isinstance(equal, math.Tensor):
+                equal = equal.all
+            if not equal:
+                return False
+        return True
 
     def __ne__(self, other):
         return not self == other
@@ -506,11 +515,22 @@ class Shape:
         return shape
 
     @property
+    def is_uniform(self) -> bool:
+        """
+        A shape is uniform if it all sizes have a single integer value.
+
+        See Also:
+            `Shape.is_non_uniform`, `Shape.shape`.
+        """
+        return not self.is_non_uniform
+
+    @property
     def is_non_uniform(self) -> bool:
         """
         A shape is non-uniform if the size of any dimension varies along another dimension.
 
-        See `Shape.shape`.
+        See Also:
+            `Shape.is_uniform`, `Shape.shape`.
         """
         from phi.math import Tensor
         for size in self.sizes:

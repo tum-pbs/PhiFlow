@@ -94,8 +94,8 @@ class FluidTest(TestCase):
                 with math.record_gradients(param.values):
                     velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN)
                     loss = field.l2_loss(velocity)
-                    assert math.isfinite(loss)
+                    assert math.isfinite(loss).all
                     grad = math.gradients(loss, param.values)
-                    assert math.all(math.isfinite(grad))
+                    assert math.isfinite(grad).all
                     grads.append(grad)
         math.assert_close(*grads, abs_tolerance=1e-5)

@@ -103,7 +103,7 @@ def l_n_loss(tensor: Tensor,
             batch_size = tensor.shape.batch.volume
         else:
             batch_size = tensor.shape.only(batch_norm).volume
-        return math.divide_no_nan(total_loss, batch_size)
+        return total_loss / batch_size
     else:
         return total_loss
 
@@ -454,23 +454,20 @@ def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
     The values at the new sample points are determined via linear interpolation.
 
     Args:
-      grid: full size grid to be resampled
-      start: origin point of sub-grid within `grid`, measured in number of cells.
-    Must have a single dimension called `vector`.
-    Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
-    The order of dims must be equal to `size` and `grid.shape.spatial`.
-      size: resolution of the sub-grid. Must not be larger than the resolution of `grid`.
-    The order of dims must be equal to `start` and `grid.shape.spatial`.
-      grid: Tensor: 
-      start: Tensor: 
-      size: Shape: 
+        grid: `Tensor` to be resampled. Values are assumed to be sampled at cell centers.
+        start: Origin point of sub-grid within `grid`, measured in number of cells.
+            Must have a single dimension called `vector`.
+            Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
+            The order of dims must be equal to `size` and `grid.shape.spatial`.
+        size: Resolution of the sub-grid. Must not be larger than the resolution of `grid`.
+            The order of dims must be equal to `start` and `grid.shape.spatial`.
 
     Returns:
-      sampled sub-grid
-
+      Sub-grid as `Tensor`
     """
     assert start.shape.names == ('vector',)
     assert grid.shape.spatial.names == size.names
+    assert math.all_available(start), "Cannot perform sample_subgrid() during tracing, 'start' must be known."
     discard = {}
     for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size):
         discard[dim] = slice(int(d_start), int(d_start) + d_size + (1 if d_start != 0 else 0))
@@ -478,7 +475,7 @@ def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
     upper_weight = start % 1
     lower_weight = 1 - upper_weight
     for i, dim in enumerate(grid.shape.spatial.names):
-        if upper_weight[i] not in (0, 1):
+        if upper_weight[i].native() not in (0, 1):
             lower, upper = shift(grid, (0, 1), [dim], padding=None, stack_dim=None)
             grid = upper * upper_weight[i] + lower * lower_weight[i]
     return grid

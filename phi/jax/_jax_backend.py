@@ -445,23 +445,17 @@ class JaxBackend(Backend):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
+    def conjugate_gradient_jit(self, f, y, x0, solve: Solve):
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
-
-        if isinstance(A, (tuple, list)) or self.ndims(A) == 3:
-            batch_size = combined_dim(batch_size, self.staticshape(A)[0])
-
         results = []
-
         for batch in range(batch_size):
             y_ = y[min(batch, bs_y - 1)]
             x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(A, y_, x0_, tol=solve_params.relative_tolerance, atol=solve_params.absolute_tolerance, maxiter=solve_params.max_iterations)
-
+            x, ret_val = cg(f, y_, x0_, tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations)
             results.append(x)
-        solve_params.result = SolveResult(-1)
+        solve.result = SolveResult(-1)
         return self.stack(results)
 
 

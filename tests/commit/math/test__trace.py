@@ -3,15 +3,14 @@ from unittest import TestCase
 from phi import math
 from phi.math import *
 from phi.math._tensors import NativeTensor
-from phi.math._trace import lin_placeholder, ShiftLinOp
+from phi.math._trace import ShiftLinTracer
 
 
 class TestTensors(TestCase):
 
     def test_linear_operator(self):
         GLOBAL_AXIS_ORDER.x_last()
-        direct = math.random_normal(batch=3, x=4, y=3)  # , vector=2
-        op = lin_placeholder(direct)
+        x = math.random_normal(batch=3, x=4, y=3)  # , vector=2
 
         def linear_function(val):
             val = -val
@@ -28,13 +27,9 @@ class TestTensors(TestCase):
             lambda val: math.spatial_gradient(val, difference='backward', padding=extrapolation.PERIODIC, dims='x').gradient[0],
             lambda val: math.spatial_gradient(val, difference='central', padding=extrapolation.BOUNDARY, dims='x').gradient[0],
         ]
+        jit_functions = [math.jit_compile_linear(f) for f in functions]
 
-        for f in functions:
-            direct_result = f(direct)
-            # print(direct_result.batch[0], 'Direct result')
-            op_result = f(op)
-            # print(op_result.build_sparse_coordinate_matrix().todense())
-            self.assertIsInstance(op_result, ShiftLinOp)
-            op_result = NativeTensor(op_result.native(), op_result.shape)
-            # print(op_result.batch[0], 'Placeholder result')
-            math.assert_close(direct_result, op_result)
+        for f, jit_f in zip(functions, jit_functions):
+            direct_result = f(x)
+            jit_result = jit_f(x)
+            math.assert_close(direct_result, jit_result)

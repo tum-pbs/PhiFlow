@@ -44,11 +44,8 @@ class TFBackend(Backend):
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
-            tensor = x
-        elif isinstance(x, np.ndarray):
-            tensor = tf.convert_to_tensor(NUMPY_BACKEND.as_tensor(x))
-        else:
-            tensor = tf.convert_to_tensor(x)
+            return x
+        tensor = tf.convert_to_tensor(x)
         # --- Enforce Precision ---
         if not isinstance(tensor, numbers.Number):
             if isinstance(tensor, np.ndarray):

@@ -4,12 +4,13 @@ from typing import Tuple, Callable
 
 import numpy as np
 
-from .backend._dtype import DType
-from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_
-from._config import GLOBAL_AXIS_ORDER
+from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, parse_dim_names, _infer_dim_type_from_name, combine_safe)
+from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
+    Backend
+from .backend._dtype import DType
 
 
 class Tensor:
@@ -83,6 +84,11 @@ class Tensor:
         """ The `Shape` lists the dimensions with their sizes, names and types. """
         raise NotImplementedError()
 
+    @property
+    def default_backend(self):
+        from ._ops import choose_backend_t
+        return choose_backend_t(self)
+
     def _with_shape_replaced(self, new_shape):
         raise NotImplementedError()
 
@@ -116,11 +122,28 @@ class Tensor:
         return self.shape.volume if self.rank == 1 else NotImplemented
 
     def __bool__(self):
-        if self.rank == 0:
-            return bool(self.native())
+        from ._ops import all_
+        if not self.default_backend.supports(Backend.jit_compile):  # NumPy
+            return bool(self.native()) if self.rank == 0 else bool(all_(self).native())
         else:
-            from phi.math._ops import all_
-            return bool(all_(self))
+            # __bool__ does not work with TensorFlow tracing.
+            # TensorFlow needs to see a tf.Tensor in loop conditions but won't allow bool() invocations.
+            # However, this function must always return a Python bool.
+            raise AssertionError("To evaluate the boolean value of a Tensor, use 'Tensor.all'.")
+
+    @property
+    def all(self):
+        from ._ops import all_available, all_, cast
+        if all_available(self):
+            if self.rank == 0:
+                return bool(self.native())
+            else:
+                return bool(all_(self).native())
+        else:
+            if self.rank == 0:
+                return cast(self, DType(bool)).native()
+            else:
+                return all_(self).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
@@ -163,9 +186,9 @@ class Tensor:
                         return f"{self.shape} {self.dtype}"
             else:
                 if self.rank == 0:
-                    return f"scalar {self.dtype}"
+                    return f"{self.default_backend} scalar {self.dtype}"
                 else:
-                    return f"{self.shape} {self.dtype}"
+                    return f"{self.default_backend} {self.shape} {self.dtype}"
         except BaseException as err:
             return f"{self.shape}, failed to fetch values with error {err}"
 
@@ -173,6 +196,9 @@ class Tensor:
         return self._summary_str()
 
     def __format__(self, format_spec):
+        from ._ops import all_available
+        if not all_available(self):
+            return self._summary_str()
         if self.shape.volume > 1:
             return self._summary_str()
         val = self.numpy()
@@ -379,30 +405,7 @@ class Tensor:
         return iter(self.native())
 
     def _tensor(self, other):
-        if isinstance(other, Tensor):
-            return other
-        elif isinstance(other, Shape):
-            assert self.shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
-            assert other.rank == self.shape.channel.volume
-            return wrap(other.spatial.sizes, names=self.shape.channel.names)
-        else:
-            backend = choose_backend(other)
-            try:
-                other_tensor = backend.as_tensor(other, convert_external=True)
-                shape = backend.staticshape(other_tensor)
-            except ValueError as e:
-                raise ValueError(e)
-            if len(shape) == 0:
-                return NativeTensor(other_tensor, EMPTY_SHAPE)
-            elif len(shape) == self.rank:
-                return NativeTensor(other_tensor, self.shape.with_sizes(shape))
-            elif len(shape) == self.shape.channel.rank:
-                other_tensor = wrap(other, names=self.shape.channel.names)
-                return other_tensor
-            elif len(shape) == 1 and self.shape.channel.rank == 0:
-                return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
-            else:
-                raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (backend.ndims(other), self.shape))
+        return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
 
     def _op1(self, native_function):
         """
@@ -447,7 +450,7 @@ class Tensor:
                        unaffected_function: Callable = lambda value: value):
         raise NotImplementedError(self.__class__)
 
-    def __simplify__(self):
+    def _simplify(self):
         return self
 
 
@@ -799,7 +802,7 @@ class CollapsedTensor(Tensor):  # package-private
     def is_cached(self):
         return self._cached is not None
 
-    def __simplify__(self):
+    def _simplify(self):
         if self.is_cached:
             return self._cached
         else:
@@ -1087,7 +1090,7 @@ class TensorStack(Tensor):
                 t._expand()
         self._cache()
 
-    def __simplify__(self):
+    def _simplify(self):
         if self._cached is not None:
             return self._cached
         else:
@@ -1208,7 +1211,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
-            assert data.ndim <= 1, "Specify dimension names for tensors with more than 1 dimension"
+            assert backend.ndims(data) <= 1, "Specify dimension names for tensors with more than 1 dimension"
             names = ['vector'] * backend.ndims(data)  # [] or ['vector']
             types = [CHANNEL_DIM] * backend.ndims(data)
         else:
@@ -1228,6 +1231,33 @@ def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
     return tensor(data, names=names, convert=False)
 
 
+def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), convert=False):
+    if isinstance(data, Tensor):
+        return data
+    elif isinstance(data, Shape):
+        assert compat_shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
+        assert data.rank == compat_shape.channel.volume
+        return wrap(data.spatial.sizes, names=compat_shape.channel.names)
+    else:
+        backend = choose_backend(*compat_natives, data)
+        try:
+            other_tensor = backend.as_tensor(data, convert_external=convert)
+            shape = backend.staticshape(other_tensor)
+        except ValueError as e:
+            raise ValueError(e)
+        if len(shape) == 0:
+            return NativeTensor(other_tensor, EMPTY_SHAPE)
+        elif len(shape) == compat_shape.rank:
+            return NativeTensor(other_tensor, compat_shape.with_sizes(shape))
+        elif len(shape) == compat_shape.channel.rank:
+            other_tensor = wrap(data, names=compat_shape.channel.names)
+            return other_tensor
+        elif len(shape) == 1 and compat_shape.channel.rank == 0:
+            return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
+        else:
+            raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (backend.ndims(data), compat_shape))
+
+
 def broadcastable_native_tensors(*tensors):
     """
     Expands and transposes the dimensions of the given tensors so that they all have the same dimension order.
@@ -1241,7 +1271,7 @@ def broadcastable_native_tensors(*tensors):
 
     """
     broadcast_shape = combine_safe(*[t.shape for t in tensors])
-    natives = [t.native(order=broadcast_shape.names) for t in tensors]
+    natives = [t.native(order=broadcast_shape.names) if t.rank > 0 else t.native() for t in tensors]
     return broadcast_shape, natives
 
 

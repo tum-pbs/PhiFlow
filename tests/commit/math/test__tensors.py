@@ -31,10 +31,10 @@ class TestTensors(TestCase):
             for backend in BACKENDS:
                 with backend:
                     tens = math.tensor(native, convert=False)
-                    self.assertEqual(creation_backend, math.choose_backend(tens))
+                    self.assertEqual(creation_backend, tens.default_backend)
                     math.assert_close(tens, native)
                     tens = math.tensor(native)
-                    self.assertEqual(backend, math.choose_backend(tens), f'Conversion failed from {creation_backend} to {backend}')
+                    self.assertEqual(backend, tens.default_backend, f'Conversion failed from {creation_backend} to {backend}')
                     math.assert_close(tens, native)
 
     def test_tensor_from_tuple_of_numbers(self):
