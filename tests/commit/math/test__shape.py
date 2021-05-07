@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math
 from phi.math import shape
-from phi.math._shape import shape_stack, BATCH_DIM
+from phi.math._shape import shape_stack, BATCH_DIM, vector_add
 
 
 class TestShape(TestCase):
@@ -46,4 +46,7 @@ class TestShape(TestCase):
 
     def test_after_gather(self):
         self.assertEqual(shape(x=2), shape(x=3).after_gather({'x': slice(None, None, 2)}))
+
+    def test_vector_add(self):
+        self.assertEqual(vector_add(shape(batch=10, x=4, y=3), shape(x=1, y=-1, z=2)), shape(batch=10, x=5, y=2, z=2))
 

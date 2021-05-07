@@ -6,7 +6,7 @@ from typing import Tuple, Callable, Dict
 import numpy as np
 
 from . import _ops as math
-from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM
+from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, shape, vector_add
 from ._tensors import Tensor, NativeTensor, CollapsedTensor
 from .backend import choose_backend, Backend, get_current_profile
 
@@ -202,12 +202,16 @@ class LinearFunction:
         self.tracers[x.shape][math.choose_backend_t(x)] = result
         return result
 
-    def dense_stencil(self, x: Tensor, multi_index: Tensor = None, **indices):
-        if multi_index is None:
-            multi_index = shape(indices).sort(x.shape)
-            multi_index = math.tensor(multi_index, 'vector')
-        tracer = self._tracer(x)
+    def print_stencil(self, ref_input: Tensor, **indices):
+        tracer = self._tracer(ref_input)
+        pos = shape(**indices)
+        print(f"{self.f.__name__}: {pos} = {' + '.join(f'{val[indices]} * {vector_add(pos, offset)}' for offset, val in tracer.val.items() if (val[indices] != 0).all)}")
 
+    # def dense_stencil(self, ref_input: Tensor, multi_index: Tensor = None, **indices):
+    #     if multi_index is None:
+    #         multi_index = shape(indices).sort(ref_input.shape)
+    #         multi_index = math.tensor(multi_index, 'vector')
+    #     tracer = self._tracer(ref_input)
 
 
 def jit_compile_linear(f: Callable) -> 'LinearFunction':

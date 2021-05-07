@@ -659,24 +659,24 @@ class Shape:
     product = meshgrid
 
     def __add__(self, other):
-        return self._op1(other, lambda s, o: s + o)
+        return self._op2(other, lambda s, o: s + o)
 
     def __radd__(self, other):
-        return self._op1(other, lambda s, o: o + s)
+        return self._op2(other, lambda s, o: o + s)
 
     def __sub__(self, other):
-        return self._op1(other, lambda s, o: s - o)
+        return self._op2(other, lambda s, o: s - o)
 
     def __rsub__(self, other):
-        return self._op1(other, lambda s, o: o - s)
+        return self._op2(other, lambda s, o: o - s)
 
     def __mul__(self, other):
-        return self._op1(other, lambda s, o: s * o)
+        return self._op2(other, lambda s, o: s * o)
 
     def __rmul__(self, other):
-        return self._op1(other, lambda s, o: o * s)
+        return self._op2(other, lambda s, o: o * s)
 
-    def _op1(self, other, fun):
+    def _op2(self, other, fun):
         if isinstance(other, int):
             return Shape([fun(s, other) for s in self.sizes], self.names, self.types)
         elif isinstance(other, Shape):
@@ -966,3 +966,18 @@ def shape_stack(stack_dim: str, stack_type: str, *shapes: Shape):
             dim_sizes = _stack(dim_sizes, stack_dim, stack_type)
         sizes.append(dim_sizes)
     return Shape(sizes, names, types).expand(len(shapes), stack_dim, stack_type)
+
+
+def vector_add(*shapes: Shape):
+    if not shapes:
+        return EMPTY_SHAPE
+    names = list(shapes[0].names)
+    types = list(shapes[0].types)
+    for shape in shapes[1:]:
+        for name in shape.names:
+            if name not in names:
+                names.append(name)
+                types.append(shape.get_type(name))
+    sizes = [sum(sh.get_size(dim) if dim in sh else 0 for sh in shapes) for dim in names]
+    return Shape(sizes, names, types)
+
