@@ -21,7 +21,7 @@ points = math.join_dimensions(DOMAIN.cells.center.x[::4].y[::4], ('x', 'y'), 'po
 sparse_marker = DOMAIN.points(points)
 
 for _ in view(framerate=10, play=False).range():
-    velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN)
+    velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
     dense_marker = advect.advect(dense_marker, velocity, DT)
     sparse_marker = advect.advect(sparse_marker, velocity, DT)
     velocity = advect.semi_lagrangian(velocity, velocity, DT)

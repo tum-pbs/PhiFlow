@@ -68,7 +68,7 @@ def FFT_solve(*args, **kwargs):
 def CG_solve(grid, guess, dx, padding, **kwargs):
     # guess = guess if guess is not None else domain.grid(0)
     laplace = math.jit_compile_linear(partial(math.laplace, dx=dx))
-    result = math.solve_linear(laplace, grid, guess, math.Solve("CG", **kwargs))
+    result = math.solve_linear(laplace, grid, math.Solve("CG", x0=guess, **kwargs))
     return result
 
 
@@ -175,7 +175,7 @@ class TestPoissonSolvers(TestCase):
                     relative_tolerance=1,
                     absolute_tolerance=1e-10,
                     max_iterations=20000,
-                ).numpy(order="z,y,x")[0],
+                ).x.numpy(order="z,y,x")[0],
                 # "CG2_solve": lambda x: CG2_solve(
                 #    domain.grid(x.values),
                 #    guess=domain.grid(x.values),

@@ -1,18 +1,20 @@
 """
 Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 """
+from typing import Tuple
 
 from phi import math, field
 from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, spatial_gradient, where, HardGeometryMask
 from phi.geom import union
 from ._boundaries import Domain
+from ..math import SolveResult
+from ..math._tensors import copy_with
 
 
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('CG', 1e-5, 0),
-                        pressure_guess: CenteredGrid = None):
+                        solve=math.Solve('CG-adaptive', 1e-5, 0)) -> Tuple[Grid, SolveResult]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -43,6 +45,7 @@ def make_incompressible(velocity: Grid,
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
+    @math.jit_compile_linear
     def laplace(p):
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
@@ -51,10 +54,12 @@ def make_incompressible(velocity: Grid,
         lap = where(active, div, p)
         return lap
 
-    pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
     active.values._expand()
     hard_bcs.values._expand()
-    pressure = field.solve_linear(laplace, y=div, x0=pressure_guess, solve=solve)
+    if not solve.x0:
+        solve = copy_with(solve, x0=domain.scalar_grid(0))
+    result = field.solve_linear(laplace, y=div, solve=solve)
+    pressure = result.x
     if domain.boundaries['accessible'] == math.extrapolation.ZERO or domain.boundaries['vector'] == math.extrapolation.PERIODIC:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
@@ -65,7 +70,7 @@ def make_incompressible(velocity: Grid,
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
-    return velocity, pressure, solve.result.iterations, div
+    return velocity, result
 
 
 def _balance_divergence(div, active):

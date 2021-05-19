@@ -11,11 +11,10 @@ from jax.core import Tracer
 from jax.scipy.sparse.linalg import cg
 from jax import random
 
-from phi.math.backend._optim import SolveResult
+from phi.math import SolveResult, Solve, DType
 from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 from phi.math.backend import Backend, ComputeDevice
-from phi.math import Solve, DType
-from phi.math.backend._backend_helper import combined_dim
+from phi.math.backend._backend import combined_dim
 
 
 class JaxBackend(Backend):
@@ -445,7 +444,10 @@ class JaxBackend(Backend):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def conjugate_gradient_jit(self, f, y, x0, solve: Solve):
+    def conjugate_gradient(self, A, y, solve: Solve):
+        if self.is_available(y):
+            return Backend.conjugate_gradient(self, A, y, solve)
+
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)

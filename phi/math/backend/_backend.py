@@ -1,10 +1,19 @@
+from collections import namedtuple
 from contextlib import contextmanager
-from typing import List, Callable
+from threading import Barrier
+from typing import List, Callable, Tuple, Any
 
 import numpy
 
 from ._dtype import DType, combine_types
-from ._optim import Solve
+
+
+BasicSolveResult = namedtuple('BasicSolveResult', [
+    'x', 'converged', 'diverged',
+])
+FullSolveResult = namedtuple('FullSolveResult', [
+    'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
+])
 
 
 class ComputeDevice:
@@ -457,8 +466,11 @@ class Backend:
         """
         return self.cast(x, self.float_type)
 
-    def to_int(self, x, int64=False):
-        return self.cast(x, DType(int, 64 if int64 else 32))
+    def to_int32(self, x):
+        return self.cast(x, DType(int, 32))
+
+    def to_int64(self, x):
+        return self.cast(x, DType(int, 64))
 
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
@@ -621,29 +633,156 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def minimize(self, function, x0, solve: Solve):
-        """ Optional. """
-        return NotImplemented
+    def minimize(self, method: str, f, x0, atol, max_iter, ret: str):
+        from scipy.optimize import OptimizeResult, minimize
+        assert self.supports(Backend.functional_gradient)
+        x0 = solve.x0
+        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+        fg = self.functional_gradient(f, [0], get_output=True)
+        batch_size = self.staticshape(x0)[0]
+        iterations = [0] * batch_size
+        function_evaluations = [0] * batch_size
+        losses = []
+        last_result = [None]
+        if trajectory is not None:
+            function_evaluations += 1
+            trajectory.append(SolveResult(solve, x0, ))
 
-    def conjugate_gradient(self, A, y, x0, solve: Solve):
+        call_function_barrier = Barrier(batch_size)
+
+        def min_target(x: numpy.ndarray):
+            call_function_barrier.wait()
+            # TODO
+            function_evaluations[b] += 1
+            x = self.expand_dims(self.as_tensor(x, convert_external=True), 0)
+            output, (grad,) = fg(x)
+            loss = output[0] if isinstance(output, (tuple, list)) else output
+            grad = self.numpy(grad).astype(numpy.float64)
+            losses.append(loss)
+            return self.numpy(loss).astype(numpy.float64), grad
+
+        def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
+            iterations[b] += 1
+            loss = min(losses)
+            losses.clear()
+            last_result[0] = SolveResult(solve, x, loss, iterations[b], function_evaluations[b], converged=False, diverged=False)
+            if trajectory is not None:
+                trajectory.append(last_result[0])
+
+        results = []
+        for b in range(batch_size):
+            from threading import Thread
+            Thread(target=lambda: minimize()).start()
+            res = minimize(fun=min_target, x0=x0[b], jac=True, method=solve.method, tol=solve.absolute_tolerance,
+                           options={'maxiter': solve.max_iterations}, callback=callback)
+            batch_result = SolveResult(solve, res.x, batch_result.final_state.residual,
+                                       iteration=res.nit,
+                                       function_evaluations=res.nfev,
+                                       converged=res.success,
+                                       diverged=res.status in (0, 1),
+                                       termination_message=res.message)
+            results.append(batch_result)
+        return batch_combine_solve_results(results, self)
+
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
         """
         Solve the system of linear equations A · x = y.
-        Updates `solve.result`.
+        This method need not provide a gradient for the operation.
 
         Args:
-          A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
-          y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
-          x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-          solve: Determines stop criteria. Stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
+            method: Which algorithm to use. One of `('auto', 'CG', 'CG-adaptive')`.
+            lin: Linear operation. One of
+                * sparse/dense matrix valid for all instances
+                * tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+                * linear function A(x), must be called on all instances in parallel
+            y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+            x0: Initial guess of size (batch, parameters)
+            rtol: Relative tolerance of size (batch,)
+            atol: Absolute tolerance of size (batch,)
+            max_iter: Maximum number of iterations of size (batch,)
+            ret: Return type, one of ('BasicSolveResult', 'FullSolveResult', 'list')
 
         Returns:
-            x: the solution as a tensor
+            result: Type depends on `ret`.
         """
-        raise NotImplementedError(self)
-    
-    def conjugate_gradient_jit(self, f: Callable, y, x0, solve: Solve):
-        """ Similar to conjugate_gradient() but automatically jit-compiles the linear operator. """
-        raise NotImplementedError(self)
+        if method == 'auto':
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, ret)
+        elif method == 'CG':
+            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, ret)
+        elif method == 'CG-adaptive':
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, ret)
+        else:
+            raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
+
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
+        """ Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
+        # Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
+        # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+        f = as_linear_function(lin, self)
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - f(x)
+        it_counter = 0
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+        trajectory = [] if ret == 'trajectory' else None
+        while True:
+            diverged = ~self.all(self.isfinite(x), axis=(1,))
+            converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged, ""))
+            finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+            if self.all(finished):
+                return BasicSolveResult(x, converged, diverged) if ret == BasicSolveResult else (FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged, "") if ret == FullSolveResult else trajectory)
+            it_counter += 1; iterations += not_finished_1
+            dy = f(dx); function_evaluations += not_finished_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(residual_squared, dx_dy)
+            x += step_size * dx
+            if it_counter % 50 == 0:
+                residual = y - f(x); function_evaluations += 1
+            else:
+                residual -= step_size * dy
+            residual_squared_old = residual_squared
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
+
+    def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
+        """ Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. """
+        # Based on the variant described in "Methods of Conjugate Gradients for Solving Linear Systems" by Magnus R. Hestenes and Eduard Stiefel
+        # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+        A = as_linear_function(lin, self)
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - A(x)
+        dy = A(dx)
+        it_counter = 0
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        trajectory = [] if ret == 'trajectory' else None
+        while True:
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            diverged = ~self.all(self.isfinite(x), axis=(1,))
+            converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged, ""))
+            finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+            if self.all(finished):
+                return BasicSolveResult(x, converged, diverged) if ret == BasicSolveResult else (FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged,"") if ret == FullSolveResult else trajectory)
+            it_counter += 1; iterations += not_finished_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            x += step_size * dx
+            residual -= step_size * dy
+            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+            dy = A(dx); function_evaluations += not_finished_1
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
@@ -932,3 +1071,60 @@ def _is_specific(backend, values):
         if backend.is_tensor(value, only_native=True):
             return True
     return False
+
+
+# Other low-level helper functions
+
+def combined_dim(dim1, dim2, type_str: str = 'batch'):
+    if dim1 is None and dim2 is None:
+        return None
+    if dim1 is None or dim1 == 1:
+        return dim2
+    if dim2 is None or dim2 == 1:
+        return dim1
+    assert dim1 == dim2, f"Incompatible {type_str} dimensions: x0 {dim1}, y {dim2}"
+    return dim1
+
+
+def batch_combine_solve_results(results: List[BasicSolveResult], backend: Backend):
+    def batch_combine_solver_states(states: List[SolverState] or Tuple[SolverState]):
+        x = backend.stack([s.x for s in states])
+        residual = None
+        if states[0].residual is not None:
+            residual = backend.stack([s.residual for s in states])
+        return SolverState(x, residual, max([s.iteration for s in states]),
+                           max([s.function_evaluations for s in states]),
+                           all(s.converged for s in states),
+                           any(s.diverged for s in states))
+
+    result = SolveResult(results[0].parameters)
+    result.final_state = batch_combine_solver_states([r.final_state for r in results])
+    if results[0].trajectory:
+        tlen = max([len(r.trajectory) for r in results])
+        trajectories = [r.trajectory + [r.final_state] * (tlen - len(r.trajectory)) for r in results]
+        result.trajectory = [batch_combine_solver_states(states) for states in zip(*trajectories)]
+    for r in results:
+        if r._termination_message:
+            result._termination_message = r._termination_message
+            break
+    return result
+
+
+def as_linear_function(lin, backend):
+    if callable(lin):
+        f = lin
+    elif isinstance(lin, (tuple, list)):
+        for lin_i in lin:
+            lin_shape = backend.staticshape(lin_i)
+            assert len(lin_shape) == 2
+
+        def f(vector):
+            results = [backend.matmul(m, v) for m, v in zip(lin, backend.unstack(vector))]
+            return backend.stack(results)
+    else:
+        lin_shape = backend.staticshape(lin)
+        assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
+
+        def f(vector):
+            return backend.matmul(lin, vector)
+    return f

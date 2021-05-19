@@ -49,6 +49,12 @@ class Grid(SampledField):
     def with_(self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None, **other_attributes) -> 'Grid':
         raise NotImplementedError(self)
 
+    def __value_attrs__(self):
+        return '_values', '_extrapolation'
+
+    def __variable_attrs__(self):
+        return '_values',
+
     def __getitem__(self, item: dict) -> 'Grid':
         raise NotImplementedError(self)
 
@@ -135,8 +141,8 @@ class CenteredGrid(Grid):
 
     def _shift_resample(self, resolution: Shape, bounds: Box, threshold=1e-5, max_padding=20):
         assert math.all_available(bounds.lower, bounds.upper), "Shift resampling requires 'bounds' to be available."
-        lower = math.to_int(math.ceil(math.maximum(0, self.box.lower - bounds.lower) / self.dx - threshold))
-        upper = math.to_int(math.ceil(math.maximum(0, bounds.upper - self.box.upper) / self.dx - threshold))
+        lower = math.to_int32(math.ceil(math.maximum(0, self.box.lower - bounds.lower) / self.dx - threshold))
+        upper = math.to_int32(math.ceil(math.maximum(0, bounds.upper - self.box.upper) / self.dx - threshold))
         total_padding = (math.sum(lower) + math.sum(upper)).numpy()
         if total_padding > max_padding:
             return NotImplemented

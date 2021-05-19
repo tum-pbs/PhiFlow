@@ -433,6 +433,12 @@ class ProfilingBackend:
     def __exit__(self, exc_type, exc_val, exc_tb):
         _DEFAULT.pop(-1)
 
+    def __eq__(self, other):
+        return other is self or other is self._backend
+
+    def __hash__(self):
+        return hash(self._backend)
+
 
 _PROFILE = []
 

@@ -10,10 +10,9 @@ import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math import Solve, DType
+from phi.math import Solve, DType, SolveResult, Diverged, NotConverged
 from phi.math.backend import Backend, NUMPY_BACKEND, ComputeDevice
-from phi.math.backend._backend_helper import combined_dim
-from phi.math.backend._optim import SolveResult, Diverged, NotConverged
+from phi.math.backend._backend import combined_dim
 
 
 class TorchBackend(Backend):
@@ -148,6 +147,7 @@ class TorchBackend(Backend):
         return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def stack(self, values, axis=0):
+        values = [self.as_tensor(v) for v in values]
         return torch.stack(values, dim=axis)
 
     def concat(self, values, axis):
@@ -468,7 +468,7 @@ class TorchBackend(Backend):
             ravel = [1]
             for i in range(1, len(resolution)):
                 ravel.insert(0, ravel[0] * resolution[-i])
-            ravel = self.to_int(self.as_tensor(ravel, True), int64=True)
+            ravel = self.to_int64(self.as_tensor(ravel, True))
             indices = torch.sum(indices * ravel, dim=-1, keepdim=True)
         base_grid_flat = torch.reshape(base_grid, [base_grid.shape[0], -1, base_grid.shape[-1]])
         indices = indices.long().repeat([1, 1, values.shape[-1]])
@@ -517,7 +517,7 @@ class TorchBackend(Backend):
         if isinstance(x, (numbers.Number, bool)):
             return x  # Creating a Tensor here would raise warnings during tracing.
         if not self.is_tensor(x, only_native=True):
-            return NUMPY_BACKEND.cast(x, dtype)
+            x = self.as_tensor(x)
         if self.dtype(x) == dtype:
             return x
         else:
@@ -553,7 +553,7 @@ class TorchBackend(Backend):
         return self.as_tensor(value).repeat(multiples)
 
     def sparse_tensor(self, indices, values, shape):
-        indices_ = self.to_int(indices, int64=True)
+        indices_ = self.to_int64(indices)
         values_ = self.to_float(values)
         result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result

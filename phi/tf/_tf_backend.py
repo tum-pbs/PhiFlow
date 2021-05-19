@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from ..math.backend._backend_helper import combined_dim
+from ..math.backend._backend import combined_dim
 from ..math.backend._dtype import DType, to_numpy_dtype, from_numpy_dtype
 from phi.math.backend import Backend, ComputeDevice, NUMPY_BACKEND
 from ._tf_cuda_resample import resample_cuda, use_cuda

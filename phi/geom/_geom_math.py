@@ -1,5 +1,6 @@
 from phi import math
 from ._geom import Geometry
+from ..math._tensors import variable_attributes, copy_with
 
 
 def concat(geometries: tuple or list,
@@ -17,7 +18,7 @@ def concat(geometries: tuple or list,
         New `phi.geom.Geometry` object
     """
     if all(isinstance(g, type(geometries[0])) for g in geometries):
-        characteristics = [g._characteristics_() for g in geometries]
+        characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
         if sizes is not None:
             characteristics = [{key: math.expand(val, **{dim: size}) for key, val in c.items()}
                                for c, size in zip(characteristics, sizes)]
@@ -25,7 +26,7 @@ def concat(geometries: tuple or list,
         for key in characteristics[0].keys():
             concatenated = math.concat([c[key] for c in characteristics], dim)
             new_attributes[key] = concatenated
-        return geometries[0]._with_(**new_attributes)
+        return copy_with(geometries[0], **new_attributes)
     else:
         raise NotImplementedError()
 

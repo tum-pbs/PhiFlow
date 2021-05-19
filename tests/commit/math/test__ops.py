@@ -14,7 +14,7 @@ BACKENDS = phi.detect_backends()
 def assert_not_close(*tensors, rel_tolerance, abs_tolerance):
     try:
         math.assert_close(*tensors, rel_tolerance, abs_tolerance)
-        raise BaseException(AssertionError('Values are not close'))
+        raise Exception(AssertionError('Values are not close'))
     except AssertionError:
         pass
 
@@ -203,44 +203,6 @@ class TestMathFunctions(TestCase):
                     x_ = math.ifft(k)
                     math.assert_close(x, x_, abs_tolerance=1e-5, msg=backend.name)
 
-    def test_trace_function(self):
-        def f(x: math.Tensor, y: math.Tensor):
-            return x + y
-
-        for backend in BACKENDS:
-            with backend:
-                ft = math.jit_compile(f)
-                args1 = math.ones(x=2), math.ones(batch=2)
-                args2 = math.ones(x=3), math.ones(batch=3)
-                res1 = ft(*args1)
-                self.assertEqual(math.shape(batch=2, x=2), res1.shape, msg=backend.name)
-                math.assert_close(res1, 2, msg=backend.name)
-                res2 = ft(*args2)
-                self.assertEqual(math.shape(batch=3, x=3), res2.shape, msg=backend.name)
-                math.assert_close(res2, 2, msg=backend.name)
-
-    def test_gradient_function(self):
-        def f(x: math.Tensor, y: math.Tensor):
-            pred = x
-            loss = math.l2_loss(pred - y)
-            return loss, pred
-
-        for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
-                with backend:
-                    x_data = math.tensor(2.)
-                    y_data = math.tensor(1.)
-                    dx, = math.functional_gradient(f)(x_data, y_data)
-                    math.assert_close(dx, 1, msg=backend.name)
-                    dx, dy = math.functional_gradient(f, [0, 1])(x_data, y_data)
-                    math.assert_close(dx, 1, msg=backend.name)
-                    math.assert_close(dy, -1, msg=backend.name)
-                    loss, pred, dx, dy = math.functional_gradient(f, [0, 1], get_output=True)(x_data, y_data)
-                    math.assert_close(loss, 0.5, msg=backend.name)
-                    math.assert_close(pred, x_data, msg=backend.name)
-                    math.assert_close(dx, 1, msg=backend.name)
-                    math.assert_close(dy, -1, msg=backend.name)
-
     def test_dot_vector(self):
         for backend in BACKENDS:
             with backend:
@@ -319,50 +281,6 @@ class TestMathFunctions(TestCase):
                 mask = math.tensor([True, False, True, True], 'selection')
                 selected = math.boolean_mask(x, 'selection', mask)
                 self.assertEqual(math.shape(x=2, selection=3).alphabetically(), selected.shape.alphabetically(), msg=backend.name)
-
-    def test_minimize(self):
-        def loss(x):
-            return math.l1_loss(x - 1)
-
-        x0 = math.zeros(x=4)
-        for backend in BACKENDS:
-            with backend:
-                x = math.minimize(loss, x0, math.Solve('L-BFGS-B', 0, 1e-3))
-                math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
-
-    def test_custom_gradient_scalar(self):
-        def f(x):
-            return x
-
-        def grad(_x, _y, df):
-            return df * 0,
-
-        for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
-                with backend:
-                    normal_gradient, = math.functional_gradient(f)(math.ones())
-                    math.assert_close(normal_gradient, 1)
-                    f_custom_grad = math.custom_gradient(f, grad)
-                    custom_gradient, = math.functional_gradient(f_custom_grad)(math.ones())
-                    math.assert_close(custom_gradient, 0)
-
-    def test_custom_gradient_vector(self):
-        def f(x):
-            return x.x[:2]
-
-        def grad(_x, _y, df):
-            return math.flatten(math.expand(df * 0, tmp=2)),
-
-        def loss(x):
-            fg = math.custom_gradient(f, grad)
-            y = fg(x)
-            return math.l1_loss(y)
-
-        for backend in BACKENDS:
-            if backend.supports(Backend.custom_gradient) and backend.name != 'Jax':
-                with backend:
-                    custom_loss_grad, = math.functional_gradient(loss)(math.ones(x=4))
-                    math.assert_close(custom_loss_grad, 0, msg=backend.name)
 
     def test_scatter_1d(self):
         for backend in BACKENDS:

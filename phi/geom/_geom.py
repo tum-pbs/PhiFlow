@@ -1,10 +1,10 @@
-import copy
 from typing import Dict
 
 import numpy as np
 
 from phi import math
 from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
+from phi.math._tensors import variable_attributes, copy_with
 
 
 class Geometry:
@@ -208,8 +208,8 @@ class Geometry:
             return False
         if self.shape != other.shape:
             return False
-        c1 = self._characteristics_()
-        c2 = other._characteristics_()
+        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
+        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
         for c in c1.keys():
             if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
                 return False
@@ -229,8 +229,8 @@ class Geometry:
             return False
         if self.shape != other.shape:
             return False
-        c1 = self._characteristics_()
-        c2 = other._characteristics_()
+        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
+        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
         for c in c1.keys():
             if c1[c] is not c2[c]:
                 return False
@@ -242,23 +242,14 @@ class Geometry:
     def __hash__(self):
         raise NotImplementedError(self.__class__)
 
-    def _characteristics_(self) -> Dict[str, math.Tensor]:
-        raise NotImplementedError(self.__class__)
-
-    def _with_(self, **attributes):
-        copied = copy.copy(self)
-        for name, val in attributes.items():
-            setattr(copied, name, val)
-        return copied
-
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
 
     def __getitem__(self, item: dict):
         assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
         item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
-        characteristics = {n: c[item] for n, c in self._characteristics_().items()}
-        return self._with_(**characteristics)
+        attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
+        return copy_with(self, **attrs)
 
 
 class _InvertedGeometry(Geometry):

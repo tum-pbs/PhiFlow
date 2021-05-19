@@ -29,7 +29,7 @@ gradient = DOMAIN.staggered_grid(0)
 app = view(display=['marker_fit', 'gradient'], play=False)
 
 for iteration in app.range(warmup=1):
-    loss, marker_fit, smooth_difference, gradient = gradient_function(velocity_fit)
+    (loss, marker_fit, smooth_difference), (gradient,) = gradient_function(velocity_fit)
     app.info(f"Loss = {loss:.2f}")
     app.log_scalars(loss=loss)
     velocity_fit -= gradient

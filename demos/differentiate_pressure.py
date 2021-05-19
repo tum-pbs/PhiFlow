@@ -18,19 +18,19 @@ TARGET = DOMAIN.staggered_grid(DOMAIN.vector_grid(TARGET)) * RIGHT
 
 
 def loss(v0, p0):
-    v1, p0, _, _ = fluid.make_incompressible(v0 * LEFT, DOMAIN, pressure_guess=p0)
-    return field.l2_loss((v1 - TARGET) * RIGHT), v1, p0
+    v1, p_result = fluid.make_incompressible(v0 * LEFT, DOMAIN, solve=Solve('CG-adaptive', 1e-5, 0, x0=p0))
+    return field.l2_loss((v1 - TARGET) * RIGHT), v1, p_result.x
 
 
 gradient_function = field.functional_gradient(loss, [0], get_output=True)
 
-velocity_fit = DOMAIN.staggered_grid(lambda x: math.random_normal(x.shape.without('vector'))) * 0.2 * LEFT
+velocity_fit = DOMAIN.staggered_grid(Noise()) * 0.1 * LEFT
 _pressure_guess = DOMAIN.scalar_grid(0)
 incompressible_velocity = DOMAIN.staggered_grid(0)
 gradient = DOMAIN.staggered_grid(0)
 viewer = view(incompressible_velocity, TARGET, gradient, velocity_fit, play=False)
 
 for iteration in viewer.range(warmup=1):
-    loss, incompressible_velocity, pressure_guess, gradient = gradient_function(velocity_fit, _pressure_guess)
+    (loss, incompressible_velocity, pressure_guess), (gradient,) = gradient_function(velocity_fit, _pressure_guess)
     viewer.log_scalars(loss=loss)
     velocity_fit -= gradient

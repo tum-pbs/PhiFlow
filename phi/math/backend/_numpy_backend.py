@@ -1,17 +1,17 @@
 import numbers
 import os
 import sys
-from typing import List
+from typing import List, Any
 
 import numpy as np
 import scipy.signal
 import scipy.sparse
-from scipy.sparse.linalg import cg
+from scipy.sparse import issparse
+from scipy.sparse.linalg import cg, LinearOperator, spsolve
 
 from . import Backend, ComputeDevice
-from ._backend_helper import combined_dim
+from ._backend import combined_dim, batch_combine_solve_results, BasicSolveResult
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
-from ._optim import Solve, SolveResult, Diverged, NotConverged
 
 
 class NumPyBackend(Backend):
@@ -51,7 +51,7 @@ class NumPyBackend(Backend):
     def is_tensor(self, x, only_native=False):
         if isinstance(x, np.ndarray) and x.dtype != object:
             return True
-        if scipy.sparse.issparse(x):
+        if issparse(x):
             return True
         if isinstance(x, (np.bool_, np.float32, np.float64, np.float16, np.int8, np.int16, np.int32, np.int64, np.complex128, np.complex64)):
             return True
@@ -400,38 +400,76 @@ class NumPyBackend(Backend):
     def stop_gradient(self, value):
         return value
 
-    def conjugate_gradient(self, A, y, x0, solve: Solve, callback=None):
-        bs_y = self.staticshape(y)[0]
-        bs_x0 = self.staticshape(x0)[0]
-        batch_size = combined_dim(bs_y, bs_x0)
+    # def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    #     warnings.warn("NumPy does not support analytic gradients and will use differences instead. This may be slow!")
+    #     eps = {64: 1e-9, 32: 1e-4, 16: 1e-1}[self.precision]
+    #
+    #     def gradient(*args, **kwargs):
+    #         output = f(*args, **kwargs)
+    #         loss = output[0] if isinstance(output, (tuple, list)) else output
+    #         grads = []
+    #         for wrt_ in wrt:
+    #             x = args[wrt_]
+    #             assert isinstance(x, np.ndarray)
+    #             if x.size > 64:
+    #                 raise RuntimeError("NumPy does not support analytic gradients. Use PyTorch, TensorFlow or Jax.")
+    #             grad = np.zeros_like(x).flatten()
+    #             for i in range(x.size):
+    #                 x_flat = x.flatten()  # makes a copy
+    #                 x_flat[i] += eps
+    #                 args_perturbed = list(args)
+    #                 args_perturbed[wrt_] = np.reshape(x_flat, x.shape)
+    #                 output_perturbed = f(*args_perturbed, **kwargs)
+    #                 loss_perturbed = output_perturbed[0] if isinstance(output, (tuple, list)) else output_perturbed
+    #                 grad[i] = (loss_perturbed - loss) / eps
+    #             grads.append(np.reshape(grad, x.shape))
+    #         if get_output:
+    #             return output, grads
+    #         else:
+    #             return grads
+    #     return gradient
 
-        if callable(A):
-            raise NotImplementedError()
-            # A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
-        elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
-            batch_size = combined_dim(batch_size, self.staticshape(A)[0])
+    # def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: str) -> Any:
+    #     if method == 'auto' and ret != 'trajectory' and issparse(lin):
+    #         batch_size = self.staticshape(y)[0]
+    #         results = []
+    #         for batch in range(batch_size):
+    #             x = spsolve(lin, y[batch])
+    #             results.append(BasicSolveResult(x, lin * x - y[batch], -1, -1, True, False, ""))
+    #         return batch_combine_solve_results(results, self)
+    #     else:
+    #         return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, ret)
 
-        iterations = [0] * batch_size
-        results = []
-
-        def count_callback(*args):
-            iterations[batch] += 1
-            if callback is not None:
-                callback(*args)
-
-        for batch in range(batch_size):
-            y_ = y[min(batch, bs_y - 1)]
-            x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(A, y_, x0_, tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations, callback=count_callback)
-            if ret_val != 0:
-                solve.result = SolveResult(max(iterations))
-                if ret_val < 0:
-                    raise Diverged(solve, x0, x)
-                else:
-                    raise NotConverged(solve, x0, x)
-            results.append(x)
-        solve.result = SolveResult(max(iterations))
-        return self.stack(results)
+    # def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: str) -> Any:
+    #     if trajectory is not None:
+    #         return Backend.conjugate_gradient(self, A, y, solve)
+    #     x0 = solve.x0
+    #     bs_y = self.staticshape(y)[0]
+    #     bs_x0 = self.staticshape(x0)[0]
+    #     batch_size = combined_dim(bs_y, bs_x0)
+    #
+    #     if callable(A):
+    #         A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
+    #     elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
+    #         batch_size = combined_dim(batch_size, self.staticshape(A)[0])
+    #
+    #     iterations = [1] * batch_size
+    #
+    #     def count_callback(x_n):  # called after each step, not with x0
+    #         iterations[b] += 1
+    #
+    #     results = []
+    #     for b in range(batch_size):
+    #         x, ret_val = cg(A, y[b], x0[b], tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations, callback=count_callback)
+    #         batch_result = SolverState(solve, x,
+    #                                    residual=A * x - y[b],
+    #                                    iteration=iterations[b],
+    #                                    function_evaluations=iterations[b] + 1,  # final residual evaluation
+    #                                    converged=ret_val == 0,
+    #                                    diverged=ret_val < 0)
+    #         results.append(batch_result)
+    #     return batch_combine_solve_results(results, self)
 
 
 NUMPY_BACKEND = NumPyBackend()
+

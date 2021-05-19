@@ -1,7 +1,6 @@
 import functools
 import math
 import re
-import time
 import warnings
 from contextlib import contextmanager
 from numbers import Number
@@ -9,18 +8,15 @@ from typing import Tuple, Callable, Any
 
 import numpy as np
 
-from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
-from .backend._backend_helper import combined_dim
-from .backend._dtype import DType, combine_types
-from .backend._optim import SolveResult, Solve, ConvergenceException, NotConverged, Diverged
-from .backend._profile import get_current_profile
-
-from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE,
-                     spatial_shape, shape as shape_, _infer_dim_type_from_name, combine_safe, parse_dim_order, batch_shape, channel_shape)
-from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, tensors, compatible_tensor
 from . import extrapolation as e_
-from . import _trace
+from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE,
+                     spatial_shape, shape as shape_, dim_type, combine_safe, parse_dim_order,
+                     batch_shape, channel_shape, COLLECTION_DIM)
+from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
+    custom_op2, tensors, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
+    assemble_tensors, disassemble_nested, assemble_nested
+from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
+from .backend._dtype import DType, combine_types
 
 
 def choose_backend_t(*values, prefer_default=False) -> Backend:
@@ -48,22 +44,21 @@ def convert(value: Tensor, backend: Backend = None, use_dlpack=True):
     return value._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
 
 
-def all_available(*values: Tensor):
+def all_available(*values: Tensor) -> bool:
     """
     Tests if the values of all given tensors are known and can be read at this point.
     
-    Tensors are typically available when the backend operates in eager mode.
+    Tensors are typically available when the backend operates in eager mode and is not currently tracing a function.
 
     Args:
-      values: tensors to check
-      *values: Tensor: 
+      values: Tensors to check.
 
     Returns:
-      bool
-
+        `True` if no value is a placeholder or being traced, `False` otherwise.
     """
+    from phi.math._functional import is_tracer
     for value in values:
-        if _trace.is_tracer(value):
+        if is_tracer(value):
             return False
         natives = value._natives()
         natives_available = [choose_backend(native).is_available(native) for native in natives]
@@ -308,41 +303,6 @@ def print_(value: Tensor = None, name: str = ""):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
-def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
-    """
-    Prints the gradient vector of `value` when computed.
-    The gradient at `value` is the vector-Jacobian product of all operations between the output of this function and the loss value.
-
-    The gradient is not printed in jit mode, see `jit_compile()`.
-
-    Example:
-        ```python
-        def f(x):
-            x = math.print_gradient(x, 'dx')
-            return math.l1_loss(x)
-
-        math.functional_gradient(f)(math.ones(x=6))
-        ```
-
-    Args:
-        value: `Tensor` for which the gradient may be computed later.
-        name: (Optional) Name to print along with the gradient values
-        detailed: If `False`, prints a short summary of the gradient tensor.
-
-    Returns:
-        `identity(value)` which when differentiated, prints the gradient vector.
-    """
-    def print_grad(_x, _y, dx):
-        if all_available(_x, dx):
-            if detailed:
-                print_(dx, name=name)
-            else:
-                print(f"{name}:  \t{dx}")
-        return dx,
-    identity = custom_gradient(lambda x: x, print_grad)
-    return identity(value)
-
-
 def map_(function, *values: Tensor) -> Tensor:
     """
     Calls `function` on all elements of `value`.
@@ -396,8 +356,10 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
 
 
-def zeros_like(tensor: Tensor):
-    return zeros(tensor.shape, dtype=tensor.dtype)
+def zeros_like(obj):
+    nest, values = disassemble_nested(obj)
+    values0 = [zeros(t.shape, dtype=t.dtype) for t in values]
+    return assemble_nested(nest, values0)
 
 
 def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
@@ -624,7 +586,7 @@ def _closest_grid_values(grid: Tensor,
     grid = extrap.pad(grid, non_copy_pad)
     coordinates += wrap([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], 'vector')
     # --- Transform coordiantes ---
-    min_coords = to_int(floor(coordinates))
+    min_coords = to_int32(floor(coordinates))
     max_coords = extrap.transform_coordinates(min_coords + 1, grid.shape)
     min_coords = extrap.transform_coordinates(min_coords, grid.shape)
 
@@ -797,17 +759,17 @@ def join_dimensions(value: Tensor,
     """
     dims = dims.names if isinstance(dims, Shape) else dims
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
-        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
+        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, dim_type(joined_dim_name), pos))
     if len(dims) == 1:
         new_shape = value.shape.with_names([joined_dim_name if name == dims[0] else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
     types = value.shape.get_type(dims)
-    dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
+    dim_type_ = types[0] if len(set(types)) == 1 else BATCH_DIM
     if pos is None:
         pos = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos)
+    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type_, pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
@@ -1015,39 +977,50 @@ def dot(x: Tensor,
     return NativeTensor(result_native, result_shape)
 
 
-def _backend_op1(x: Tensor, unbound_method) -> Tensor:
-    return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
+def _backend_op1(x, unbound_method) -> Tensor:
+    if isinstance(x, Tensor):
+        return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
+    elif isinstance(x, TensorLike):
+        assert hasattr(x, '__value_attrs__'), f"{x} is TensorLike but does not implement __value_attrs__, required for {unbound_method.__name__}."
+        attrs = x.__value_attrs__()
+        values = [getattr(x, a) for a in attrs]
+        new_values = [_backend_op1(v, unbound_method) for v in values]
+        return copy_with(x, **{a: v for a, v in zip(attrs, new_values)})
+    else:
+        backend = choose_backend(x)
+        y = getattr(backend, unbound_method.__name__)(x)
+        return wrap(y)
 
 
-def abs_(x: Tensor) -> Tensor:
-    return abs(x)
+def abs_(x) -> Tensor:
+    return _backend_op1(x, Backend.abs)
 
 
-def sign(x: Tensor) -> Tensor:
+def sign(x) -> Tensor:
     return _backend_op1(x, Backend.sign)
 
 
-def round_(x: Tensor) -> Tensor:
+def round_(x) -> Tensor:
     return _backend_op1(x, Backend.round)
 
 
-def ceil(x: Tensor) -> Tensor:
+def ceil(x) -> Tensor:
     return _backend_op1(x, Backend.ceil)
 
 
-def floor(x: Tensor) -> Tensor:
+def floor(x) -> Tensor:
     return _backend_op1(x, Backend.floor)
 
 
-def sqrt(x: Tensor) -> Tensor:
+def sqrt(x) -> Tensor:
     return _backend_op1(x, Backend.sqrt)
 
 
-def exp(x: Tensor) -> Tensor:
+def exp(x) -> Tensor:
     return _backend_op1(x, Backend.exp)
 
 
-def to_float(x: Tensor) -> Tensor:
+def to_float(x) -> Tensor:
     """
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -1066,48 +1039,52 @@ def to_float(x: Tensor) -> Tensor:
     return _backend_op1(x, Backend.to_float)
 
 
-def to_int(x: Tensor, int64=False) -> Tensor:
-    return x._op1(lambda native: choose_backend(native).to_int(native, int64=int64))
+def to_int32(x) -> Tensor:
+    return _backend_op1(x, Backend.to_int32)
 
 
-def to_complex(x: Tensor) -> Tensor:
+def to_int64(x) -> Tensor:
+    return _backend_op1(x, Backend.to_int64)
+
+
+def to_complex(x) -> Tensor:
     return _backend_op1(x, Backend.to_complex)
 
 
-def isfinite(x: Tensor) -> Tensor:
+def isfinite(x) -> Tensor:
     return _backend_op1(x, Backend.isfinite)
 
 
-def imag(complex: Tensor) -> Tensor:
+def imag(complex) -> Tensor:
     return _backend_op1(complex, Backend.imag)
 
 
-def real(complex: Tensor) -> Tensor:
+def real(complex) -> Tensor:
     return _backend_op1(complex, Backend.real)
 
 
-def sin(x: Tensor) -> Tensor:
+def sin(x) -> Tensor:
     return _backend_op1(x, Backend.sin)
 
 
-def cos(x: Tensor) -> Tensor:
+def cos(x) -> Tensor:
     return _backend_op1(x, Backend.cos)
 
 
-def tan(x: Tensor) -> Tensor:
+def tan(x) -> Tensor:
     return _backend_op1(x, Backend.tan)
 
 
-def log(x: Tensor) -> Tensor:
+def log(x) -> Tensor:
     """ Natural logarithm. """
     return _backend_op1(x, Backend.log)
 
 
-def log2(x: Tensor) -> Tensor:
+def log2(x) -> Tensor:
     return _backend_op1(x, Backend.log2)
 
 
-def log10(x: Tensor) -> Tensor:
+def log10(x) -> Tensor:
     return _backend_op1(x, Backend.log10)
 
 
@@ -1220,7 +1197,7 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
             new_shape = x.shape.with_sizes(backend.staticshape(result_native))
             return NativeTensor(result_native, new_shape)
         else:
-            total = int(sum_(to_int(mask_1d)))
+            total = int(sum_(to_int64(mask_1d)))
             new_shape = mask_1d.shape.with_sizes([total])
             return _expand_dims(x, new_shape)
 
@@ -1320,7 +1297,7 @@ def scatter(base_grid: Tensor or Shape,
             raise NotImplementedError()
 
     def scatter_forward(shaped_base_grid_, shaped_indices_, shaped_values_):
-        shaped_indices_ = to_int(round_(shaped_indices_))
+        shaped_indices_ = to_int32(round_(shaped_indices_))
         native_grid = reshaped_native(base_grid, (batches, *base_grid.shape.spatial.names, channels), force_expand=True)
         native_values = shaped_values_.native('batch_, list_, vector_')
         native_indices = shaped_indices_.native('batch_, list_, vector')
@@ -1344,6 +1321,7 @@ def scatter(base_grid: Tensor or Shape,
 
     scatter_function = scatter_forward
     if indices_gradient:
+        from phi.math import custom_gradient
         scatter_function = custom_gradient(scatter_forward, scatter_backward)
 
     result = scatter_function(shaped_base_grid, shaped_indices, shaped_values)
@@ -1546,417 +1524,6 @@ def _native_wrapper(tensor_function: Callable, create_native_function: Callable,
 
     return wrapper, traced, INPUT_TENSORS, OUTPUT_TENSORS
 
-
-def custom_gradient(f: Callable, gradient: Callable):
-    """
-    Creates a function based on `f` that uses a custom gradient for the backpropagation pass.
-
-    *Warning* This method can lead to memory leaks if the gradient funcion is not called.
-    Make sure to pass tensors without gradients if the gradient is not required, see `stop_gradient()`.
-
-    Args:
-        f: Forward function mapping `Tensor` arguments `x` to a single `Tensor` output or sequence of tensors `y`.
-        gradient: Function to compute the vector-Jacobian product for backpropropagation. Will be called as `gradient(*x, *y, *dy) -> *dx`.
-
-    Returns:
-        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
-    """
-    def native_custom_gradient(fun: Callable, backend: Backend):
-        def native_gradient(x_natives, y_natives, dy_natives):
-            x_natives = list(x_natives)
-            y_natives = list(y_natives)
-            dy_natives = list(dy_natives)
-            x = [t._op1(lambda _: x_natives.pop(0)) for t in input_tensors]
-            y = [t._op1(lambda _: y_natives.pop(0)) for t in output_tensors]
-            dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
-            result = gradient(*x, *y, *dy)
-            assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
-            input_tensors.clear()  # release tensors manually since persistent_refs=True
-            output_tensors.clear()
-            return [r.native() if r is not None else None for r in result]
-        return backend.custom_gradient(fun, native_gradient)
-
-    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient, persistent_refs=True)
-    return wrapper
-
-
-def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -> Callable:
-    """
-    Creates a function which computes the spatial_gradient of `f`.
-
-    Example:
-
-    ```python
-    def loss_function(x, y):
-        prediction = f(x)
-        loss = math.l2_loss(prediction - y)
-        return loss, prediction
-
-    dx, = functional_gradient(loss_function)(x, y)
-
-    loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
-                                                 get_output=True)(x, y)
-    ```
-
-    Args:
-        f: Function to be differentiated.
-            `f` must return a floating point `Tensor` with rank zero.
-            It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if `return_values=True`.
-            All arguments for which the spatial_gradient is computed must be of dtype float or complex.
-        get_output: Whether the spatial_gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the spatial_gradient should be computed.
-            Example: `wrt_indices=[0]` computes the spatial_gradient with respect to the first argument of `f`.
-
-    Returns:
-        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and spatial_gradient of `f` if `get_output=True`, else just the spatial_gradient of `f`.
-    """
-    INPUT_TENSORS = []
-    OUTPUT_TENSORS = []
-    ARG_INDICES = []
-
-    def native_function(*natives):
-        natives = list(natives)
-        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
-        assert len(natives) == 0, "Not all arguments were converted"
-        result = f(*values)
-        results = [result] if not isinstance(result, (tuple, list)) else result
-        assert all(isinstance(t, Tensor) for t in results), f"Function output must be Tensor or sequence of tensors but got {result}."
-        OUTPUT_TENSORS.clear()
-        OUTPUT_TENSORS.extend(results)
-        return sum([v._natives() for v in results], ())
-
-    backend = default_backend()
-
-    class GradientFunction:
-
-        def __init__(self):
-            self.gradf = None
-
-        def __call__(self, *args, **kwargs):
-            assert not len(kwargs)
-            shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
-            if self.gradf is None:
-                assert backend.supports(Backend.functional_gradient), f"{backend} does not support gradients. Use a different backend instead. For more information, see https://tum-pbs.github.io/PhiFlow/Optimization.html"
-                self.gradf = backend.functional_gradient(native_function, shifted_wrt, get_output=get_output)
-            return self.gradf(*args)
-
-    grad_native = GradientFunction()
-
-    def wrapper(*values: Tensor):
-        assert all(isinstance(v, Tensor) for v in values)
-        INPUT_TENSORS.clear()
-        INPUT_TENSORS.extend(values)
-        ARG_INDICES.clear()
-        natives = []
-        for arg_index, v in enumerate(values):
-            v._expand()
-            n = v._natives()
-            natives.extend(n)
-            for _ in range(len(n)):
-                ARG_INDICES.append(arg_index)
-        results_native = list(grad_native(*natives))
-        assert None not in results_native, f"None found in gradient result {results_native}"
-        proto_tensors = []
-        if get_output:
-            proto_tensors.extend(OUTPUT_TENSORS)
-        proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
-        results = [t._with_natives_replaced(results_native) for t in proto_tensors]
-        INPUT_TENSORS.clear()
-        OUTPUT_TENSORS.clear()
-        assert len(results_native) == 0
-        return results
-
-    return wrapper
-
-
-def minimize(f,
-             x0: Tensor,
-             solve: Solve,
-             jit_f=True) -> Tensor:
-    """
-    Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
-    The `solver` argument of `solve` determines which method is used.
-    All methods supported by `scipy.optimize.minimize` can be used, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
-
-    For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
-    Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
-
-    Information about the performed solve will be added to `solve.result`.
-
-    Args:
-        f: Function whose output is subject to minimization. Function with single `Tensor` positional argument and return value.
-        x0: Initial guess for `x` as `Tensor`.
-        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
-            If `f` is already compiled or partially compiled, e.g. using `jit_compile()`, the existing representations are used.
-        solve: `Solve` object to specify solver type and parameters.
-            Additional solve information will be stored in `solve.result`.
-
-    Returns:
-        x: solution, the minimum point `x`.
-
-    Raises:
-        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
-        Diverged: If the optimization failed prematurely.
-    """
-    assert solve.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
-    backend = choose_backend_t(x0, prefer_default=True)
-    x0._expand()
-    natives = x0._natives()
-    natives_flat = [backend.flatten(n) for n in natives]
-    x0_flat = backend.concat(natives_flat, 0)
-    if jit_f:
-        f = _trace.jit_compile(f)
-
-    def unflatten_assemble(x_native):
-        i = 0
-        x_natives = []
-        for native, native_flat in zip(natives, natives_flat):
-            vol = backend.shape(native_flat)[0]
-            x_natives.append(backend.reshape(x_native[i:i + vol], backend.shape(native)))
-            i += vol
-        x = x0._op1(lambda _: x_natives.pop(0))  # assemble x0 structure
-        return x
-
-    def native_function(native_x):
-        x = unflatten_assemble(native_x)
-        y = f(x)
-        if isinstance(y, (tuple, list)):
-            return [y_.native() for y_ in y]
-        else:
-            return y.native()
-
-    try:
-        x_native = backend.minimize(native_function, x0_flat, solve)
-        if x_native is NotImplemented:
-            x_native = _default_minimize(native_function, x0_flat, x0.dtype, backend, solve)
-        x = unflatten_assemble(x_native)
-        return x
-    except ConvergenceException as exc:
-        x = unflatten_assemble(exc.x)
-        raise type(exc)(exc.solve, x0, x, exc.msg)
-
-
-def _default_minimize(native_function, x0_flat, x_dtype, backend: Backend, solve: Solve):
-    import scipy.optimize as sopt
-    x0 = backend.numpy(x0_flat)
-    if x_dtype.kind == complex:
-        x0 = x0.view(np.float32 if x0.dtype == np.complex64 else np.float64)
-    method = solve.solver or 'L-BFGS-B'
-    loss_curve = []  # by evaluation
-
-    if backend.supports(Backend.functional_gradient):
-        val_and_grad = backend.functional_gradient(native_function, [0], get_output=True)
-
-        def min_target(x: np.ndarray):
-            if x_dtype.kind == complex:
-                x = x.view(np.complex64 if x.dtype == np.float32 else np.complex128)
-            x = backend.as_tensor(x, convert_external=True)
-            eval = val_and_grad(x)
-            loss = eval[0]
-            loss_curve.append(loss)
-            grad = eval[-1]
-            if x_dtype.kind == complex:
-                grad = backend.numpy(grad).astype(np.complex128)
-                grad = grad.view(np.float64)
-            else:
-                grad = backend.numpy(grad).astype(np.float64)
-            return backend.numpy(loss).astype(np.float64), grad
-
-        res = sopt.minimize(fun=min_target, x0=x0, jac=True, method=method, tol=solve.absolute_tolerance,
-                            options={'maxiter': solve.max_iterations})
-    else:
-        warnings.warn(f"{backend} does not support gradients. minimize() will use finite difference gradients which may be slow.")
-
-        def min_target(x):
-            if x_dtype.kind == complex:
-                x = x.view(np.complex64 if x.dtype == np.float32 else np.complex128)
-            x = backend.as_tensor(x, convert_external=True)
-            loss = native_function(x)
-            loss_curve.append(loss)
-            if isinstance(loss, (tuple, list)):
-                loss = loss[0]
-            return backend.numpy(loss).astype(np.float64)
-
-        finite_diff_epsilon = {64: 1e-9, 32: 1e-4, 16: 1e-1}[get_precision()]
-        res = sopt.minimize(fun=min_target, x0=x0, method=method, tol=solve.absolute_tolerance,
-                            options={'maxiter': solve.max_iterations, 'eps': finite_diff_epsilon})
-    solve.result = SolveResult(res.nit, loss_curve=loss_curve)
-    if not res.success:
-        raise NotConverged(solve, x0, res.x, msg=res.message)
-    return res.x
-
-
-def solve_nonlinear(f: Callable,
-                    y: Tensor,
-                    x0: Tensor,
-                    solve: Solve,
-                    jit_f=True) -> Tensor:
-    """
-    Solves the non-linear equation *f(x) = y* by minimizing the norm of the residual.
-
-    See Also:
-        `minimize()`, `solve_linear()`.
-
-    Args:
-        f: Function with single `Tensor` positional argument and return value.
-        y: Desired output of `f(x)` as `Tensor`.
-        x0: Initial guess for `x` as `Tensor`.
-        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
-            If `f` is already compiled or partially compiled, e.g. using `jit_compile()`, the existing representations are used.
-        solve: `Solve` object to specify solver type and parameters.
-            Additional solve information will be stored in `solve.result`.
-
-    Returns:
-        x: solution fulfilling `f(x) = y` as `Tensor`.
-
-    Raises:
-        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
-        Diverged: If the solve failed prematurely.
-    """
-    from ._nd import l2_loss
-
-    def min_func(x):
-        diff = f(x) - y
-        l2 = l2_loss(diff)
-        return l2
-
-    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y, batch_norm=True)
-    solve.absolute_tolerance = rel_tol_to_abs
-    solve.relative_tolerance = 0
-    return minimize(min_func, x0, solve=solve, jit_f=jit_f)
-
-
-def solve_linear(f: Callable,
-                 y: Tensor,
-                 x0: Tensor,
-                 solve: Solve,
-                 jit_f=True) -> Tensor:
-    """
-    Solves the system of linear equations *f(x) = y*.
-
-    Information about the performed solve will be stored in `solve.result`.
-    In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve.gradient_solve.result`.
-
-    See Also:
-        `solve_nonlinear()`, `jit_compile_linear()`.
-
-    Args:
-        f: Linear function with single `Tensor` positional argument and return value.
-        y: Desired output of `f(x)` as `Tensor`.
-        x0: Initial guess for `x` as `Tensor`.
-        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
-            If `f` is already compiled or partially compiled, e.g. using `jit_compile_linear()`, the existing representations are used.
-        solve: `Solve` object to specify solver type and parameters.
-            Additional solve information will be stored in `solve.result`.
-
-    Returns:
-        x: solution of the linear system of equations `f(x) = y` as `Tensor`.
-
-    Raises:
-        NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
-        Diverged: If the solve failed prematurely.
-    """
-    if solve.solver != 'CG':
-        raise NotImplementedError("Only 'CG' solver currently supported")
-
-    x0, y = tensors(x0, y)
-    backend = choose_backend(*x0._natives(), *y._natives())
-
-    if jit_f:
-        if isinstance(f, _trace.JitFunction):
-            f = f.f  # cannot trace linear function from jitted version
-        if backend.supports(Backend.conjugate_gradient_jit):
-            backend_cg = backend.conjugate_gradient_jit
-        elif backend.supports(Backend.conjugate_gradient):
-            f = _trace.jit_compile_linear(f)
-            backend_cg = backend.conjugate_gradient
-        else:
-            f = _trace.jit_compile_linear(f)
-            backend_cg = None
-    else:
-        if backend.supports(Backend.conjugate_gradient):
-            backend_cg = backend.conjugate_gradient
-        else:
-            backend_cg = None
-
-    if isinstance(f, _trace.LinearFunction):
-        operator_or_matrix = f.sparse_coordinate_matrix(x0)
-    else:
-        def operator_or_matrix(native_x):
-            native_x_shaped = backend.reshape(native_x, x0.shape.sizes)
-            x = NativeTensor(native_x_shaped, x0.shape)
-            Ax = f(x)
-            Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
-            return Ax_native
-
-    loop_time = time.perf_counter()
-    if backend_cg is not None:
-        x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
-        y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
-        x = backend_cg(operator_or_matrix, y_native, x0_native, solve)
-        batch = (y.shape & x0.shape).batch
-        x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
-        x = NativeTensor(x, batch.combined(x0.shape.non_batch))
-    else:
-        x = _default_cg(operator_or_matrix, y, x0, solve)
-
-    if get_current_profile():
-        loop_time = time.perf_counter() - loop_time
-        iterations = solve.result.iterations
-        info = "  \tProfile with trace=False to get more accurate results." if get_current_profile()._trace else ""
-        get_current_profile().add_external_message(f"CG \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}")
-    return x
-
-
-def _default_cg(A, y_t: Tensor, x0: Tensor, solve: Solve):
-    """ This conjugate gradient algorithm should work with all backends. The gradient pass performs a second CG. """
-    batch = (y_t.shape & x0.shape).batch
-    backend = choose_backend_t(y_t, x0)
-
-    if callable(A):
-        function = A
-    else:
-        A = backend.as_tensor(A)
-        A_shape = backend.staticshape(A)
-        assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
-        assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
-
-        def function(vec):
-            return backend.matmul(A, vec)
-
-    def cg(y: Tensor, x0_t: Tensor, params: Solve):
-        y = backend.to_float(backend.reshape(y.native(), (y.shape.batch.volume, -1)))
-        x0 = backend.copy(backend.to_float(backend.reshape(x0_t.native(), (x0_t.shape.batch.volume, -1))), only_mutable=True)
-        batch_size = combined_dim(x0.shape[0], y.shape[0])
-        if x0.shape[0] < batch_size:
-            x0 = backend.tile(x0, [batch_size, 1])
-        tolerance_sq = backend.maximum(params.relative_tolerance ** 2 * backend.sum(y ** 2, -1), params.absolute_tolerance ** 2)
-        x = x0
-        dx = residual = y - function(x)
-        dy = function(dx)
-        iterations = 0
-        while backend.all(backend.sum(residual ** 2, -1) > tolerance_sq):
-            if iterations == params.max_iterations:
-                solve.result = SolveResult(iterations)
-                raise NotConverged(solve, x0, x)
-            iterations += 1
-            dx_dy = backend.sum(dx * dy, axis=-1, keepdims=True)
-            step_size = backend.divide_no_nan(backend.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
-            x += step_size * dx
-            residual -= step_size * dy
-            dx = residual - backend.divide_no_nan(backend.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-            dy = function(dx)
-        if not backend.all(backend.isfinite(x)):
-            solve.result = SolveResult(iterations)
-            raise Diverged(solve, x0, x)
-        x = backend.reshape(x, batch.sizes + x0_t.shape.non_batch.sizes)
-        params.result = SolveResult(iterations)
-        return NativeTensor(x, batch.combined(x0_t.shape.non_batch))
-
-    return custom_gradient(lambda y: cg(y, x0, solve),
-                           lambda y, x, dx: (cg(dx, zeros_like(x0), solve.gradient_solve),))(y_t)
-
-
 # def variable(x: Tensor) -> Tensor:
 #     """
 #     Returns a copy of `x` for which gradients are recorded automatically.
@@ -1996,6 +1563,8 @@ def _default_cg(A, y_t: Tensor, x0: Tensor, solve: Solve):
 @contextmanager
 def record_gradients(*x: Tensor, persistent=False):
     """
+    *Deprecated. Use `functional_gradient()` instead.*
+
     Context expression to record gradients for operations within that directly or indirectly depend on `x`.
 
     The function `gradients()` may be called within the context to evaluate the gradients of a Tensor derived from `x` w.r.t. `x`.
@@ -2004,6 +1573,7 @@ def record_gradients(*x: Tensor, persistent=False):
         *x: Parameters for which gradients of the form dL/dx may be computed
         persistent: if `False`, `gradients()` may only be called once within the context
     """
+    warnings.warn("math.record_gradients() is deprecated. Use functional_gradient() instead.", DeprecationWarning)
     for x_ in x:
         x_._expand()
     natives = sum([x_._natives() for x_ in x], ())
@@ -2025,6 +1595,8 @@ def gradients(y: Tensor,
               *x: Tensor,
               grad_y: Tensor or None = None):
     """
+    *Deprecated. Use `functional_gradient()` instead.*
+
     Computes the gradients dy/dx for each `x`.
     The parameters `x` must be marked prior to all operations for which gradients should be recorded using `record_gradients()`.
 
@@ -2037,6 +1609,7 @@ def gradients(y: Tensor,
     Returns:
         Single `Tensor` if one `x` was passed, else sequence of tensors.
     """
+    warnings.warn("math.gradients() is deprecated. Use functional_gradient() instead.", DeprecationWarning)
     assert isinstance(y, NativeTensor), f"{type(y)}"
     if len(x) == 0:
         x = _PARAM_STACK[-1]
@@ -2049,23 +1622,22 @@ def gradients(y: Tensor,
     return grads[0] if len(x) == 1 else grads
 
 
-def stop_gradient(value: Tensor):
+def stop_gradient(x):
     """
     Disables gradients for the given tensor.
     This may switch off the gradients for `value` itself or create a copy of `value` with disabled gradients.
 
     Args:
-        value: tensor for which gradients should be disabled.
+        x: `Tensor` or `TensorLike` for which gradients should be disabled.
 
     Returns:
-        Copy of `value` or `value`.
+        Copy of `x`.
     """
-    if isinstance(value, Tensor):
-        return value._op1(lambda native: choose_backend(native).stop_gradient(native))
-    if isinstance(value, e_.Extrapolation):
-        if isinstance(value, e_.ConstantExtrapolation):
-            return e_.ConstantExtrapolation(stop_gradient(value.value))
-        else:
-            assert isinstance(value, e_._CopyExtrapolation)  # no state
-            return value  # no state
-    raise ValueError(value)
+    if isinstance(x, Tensor):
+        return x._op1(lambda native: choose_backend(native).stop_gradient(native))
+    elif isinstance(x, TensorLike):
+        nest, values = disassemble_nested(x)
+        new_values = [stop_gradient(v) for v in values]
+        return assemble_nested(nest, new_values)
+    else:
+        return wrap(choose_backend(x).stop_gradient(x))

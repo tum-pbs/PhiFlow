@@ -7,6 +7,7 @@ from phi import math
 from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask
 from phi.geom import Box
 from phi import field
+from phi.math import Solve
 from phi.math.backend import Backend
 from phi.physics import Domain
 
@@ -47,6 +48,9 @@ class TestFieldMath(TestCase):
             loss = field.l2_loss(pred)
             return loss
 
+        grad = field.functional_gradient(f, get_output=False)
+        fgrad = field.functional_gradient(f, (0, 1), get_output=True)
+
         domain = Domain(x=4, y=3)
         x = domain.staggered_grid(1)
         y = domain.vector_grid(1)
@@ -54,9 +58,9 @@ class TestFieldMath(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.gradients):
                 with backend:
-                    dx, = field.functional_gradient(f)(x, y)
+                    dx, = grad(x, y)
                     self.assertIsInstance(dx, StaggeredGrid)
-                    loss, dx, dy = field.functional_gradient(f, (0, 1), get_output=True)(x, y)
+                    loss, (dx, dy) = fgrad(x, y)
                     self.assertIsInstance(loss, math.Tensor)
                     self.assertIsInstance(dx, StaggeredGrid)
                     self.assertIsInstance(dy, CenteredGrid)
@@ -146,3 +150,45 @@ class TestFieldMath(TestCase):
         math.assert_close(field.mean(curl), 0)
         math.assert_close(curl.values.vector[0].x[1], (1, -1))
         math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
+
+    def test_solve_linear_matrix(self):
+        y = field.grid(1, math.shape(x=3))
+        x0 = field.grid(0, math.shape(x=3))
+        for method in ['CG', 'CG-adaptive', 'auto']:
+            solve = Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
+            with math.SolveTape() as tape:
+                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
+            assert len(tape) == 1
+            assert tape[0] == tape[solve]
+            math.assert_close(tape[solve].residual.values, 0, abs_tolerance=1e-3)
+
+    def test_linear_solve_matrix_batched(self):
+        y = field.grid(1, math.shape(x=3)) * (1, 2)
+        x0 = field.grid(0, math.shape(x=3))
+        for method in ['CG', 'CG-adaptive', 'auto']:
+            solve = Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+            with math.SolveTape() as tape:
+                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+            assert len(tape) == 1
+            assert tape[0] == tape[solve]
+            math.assert_close(tape[solve].residual.values, 0, abs_tolerance=1e-3)
+
+    def test_solve_linear_function_batched(self):
+        y = field.grid(1, math.shape(x=3)) * (1, 2)
+        x0 = field.grid(0, math.shape(x=3))
+        for method in ['CG', 'CG-adaptive', 'auto']:
+            solve = Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], 'vector,x'), abs_tolerance=1e-3)
+            with math.SolveTape() as tape:
+                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], 'vector,x'), abs_tolerance=1e-3)
+            assert len(tape) == 1
+            assert tape[0] == tape[solve]
+            math.assert_close(tape[solve].residual.values, 0, abs_tolerance=1e-3)
