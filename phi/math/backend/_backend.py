@@ -732,7 +732,7 @@ class Backend:
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
         trajectory = [] if ret == list else None
         while True:
-            diverged = ~self.all(self.isfinite(x), axis=(1,))
+            diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
@@ -774,7 +774,7 @@ class Backend:
         trajectory = [] if ret == list else None
         while True:
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-            diverged = ~self.all(self.isfinite(x), axis=(1,))
+            diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))

@@ -824,7 +824,7 @@ class SolveResult(Generic[X, Y]):
         """ `str`, termination message """
 
     def __repr__(self):
-        return f"[it={self.iterations}, state={'diverged' if self.diverged else ('converged' if self.converged else 'not converged')}]"
+        return self.msg
 
     def snapshot(self, index):
         return SolveResult(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
@@ -929,7 +929,7 @@ class SolveTape:
             self.solves.append(result)
         self.solve_ids.append(solve.id)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> SolveResult:
         if isinstance(item, int):
             return self.solves[item]
         else:

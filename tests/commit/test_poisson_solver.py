@@ -175,7 +175,7 @@ class TestPoissonSolvers(TestCase):
                     relative_tolerance=1,
                     absolute_tolerance=1e-10,
                     max_iterations=20000,
-                ).x.numpy(order="z,y,x")[0],
+                ).numpy(order="z,y,x")[0],
                 # "CG2_solve": lambda x: CG2_solve(
                 #    domain.grid(x.values),
                 #    guess=domain.grid(x.values),

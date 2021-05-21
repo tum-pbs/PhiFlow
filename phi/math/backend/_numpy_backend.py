@@ -10,7 +10,7 @@ from scipy.sparse import issparse
 from scipy.sparse.linalg import cg, LinearOperator, spsolve
 
 from . import Backend, ComputeDevice
-from ._backend import combined_dim, batch_combine_solve_results, BasicSolveResult
+from ._backend import combined_dim, batch_combine_solve_results, BasicSolveResult, FullSolveResult
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 
@@ -429,46 +429,64 @@ class NumPyBackend(Backend):
     #             return grads
     #     return gradient
 
-    # def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: str) -> Any:
-    #     if method == 'auto' and ret != 'trajectory' and issparse(lin):
-    #         batch_size = self.staticshape(y)[0]
-    #         results = []
-    #         for batch in range(batch_size):
-    #             x = spsolve(lin, y[batch])
-    #             results.append(BasicSolveResult(x, lin * x - y[batch], -1, -1, True, False, ""))
-    #         return batch_combine_solve_results(results, self)
-    #     else:
-    #         return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, ret)
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
+        if method == 'auto' and ret != list and issparse(lin):
+            batch_size = self.staticshape(y)[0]
+            xs = []
+            converged = []
+            for batch in range(batch_size):
+                # use_umfpack=self.precision == 64
+                x = spsolve(lin, y[batch])  # returns nan when diverges
+                xs.append(x)
+                converged.append(np.all(np.isfinite(x)))
+            x = np.stack(xs)
+            converged = np.stack(converged)
+            diverged = ~converged
+            iterations = [-1] * batch_size  # spsolve does not perform iterations
+            if ret == BasicSolveResult:
+                return BasicSolveResult('scipy.sparse.linalg.spsolve', x, converged, diverged)
+            elif ret == FullSolveResult:
+                residual = (lin * x.T).T - y
+                return FullSolveResult('scipy.sparse.linalg.spsolve', x, residual, iterations, iterations, converged, diverged, "")
+        else:
+            return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, ret)
 
-    # def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: str) -> Any:
-    #     if trajectory is not None:
-    #         return Backend.conjugate_gradient(self, A, y, solve)
-    #     x0 = solve.x0
-    #     bs_y = self.staticshape(y)[0]
-    #     bs_x0 = self.staticshape(x0)[0]
-    #     batch_size = combined_dim(bs_y, bs_x0)
-    #
-    #     if callable(A):
-    #         A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
-    #     elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
-    #         batch_size = combined_dim(batch_size, self.staticshape(A)[0])
-    #
-    #     iterations = [1] * batch_size
-    #
-    #     def count_callback(x_n):  # called after each step, not with x0
-    #         iterations[b] += 1
-    #
-    #     results = []
-    #     for b in range(batch_size):
-    #         x, ret_val = cg(A, y[b], x0[b], tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations, callback=count_callback)
-    #         batch_result = SolverState(solve, x,
-    #                                    residual=A * x - y[b],
-    #                                    iteration=iterations[b],
-    #                                    function_evaluations=iterations[b] + 1,  # final residual evaluation
-    #                                    converged=ret_val == 0,
-    #                                    diverged=ret_val < 0)
-    #         results.append(batch_result)
-    #     return batch_combine_solve_results(results, self)
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
+        if ret == list or callable(lin):
+            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret)  # generic implementation
+        bs_y = self.staticshape(y)[0]
+        bs_x0 = self.staticshape(x0)[0]
+        batch_size = combined_dim(bs_y, bs_x0)
+        # if callable(A):
+        #     A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
+        if isinstance(lin, (tuple, list)):
+            assert len(lin) == batch_size
+        else:
+            lin = [lin] * batch_size
+
+        def count_callback(x_n):  # called after each step, not with x0
+            iterations[b] += 1
+
+        xs = []
+        residuals = []
+        iterations = [0] * batch_size
+        converged = []
+        diverged = []
+        for b in range(batch_size):
+            x, ret_val = cg(lin[b], y[b], x0[b], tol=rtol, atol=atol, maxiter=max_iter, callback=count_callback)
+            # ret_val: 0=success, >0=not converged, <0=error
+            xs.append(x)
+            converged.append(ret_val == 0)
+            diverged.append(ret_val < 0 or np.any(~np.isfinite(x)))
+            if ret == FullSolveResult:
+                residuals.append((lin[b] * x.T).T - y[b])
+        x = np.stack(xs)
+        if ret == BasicSolveResult:
+            return BasicSolveResult('scipy.sparse.linalg.cg', x, converged, diverged)
+        elif ret == FullSolveResult:
+            residual = np.stack(residuals)
+            f_eval = [i + 1 for i in iterations]
+            return FullSolveResult('scipy.sparse.linalg.cg', x, residual, iterations, f_eval, converged, diverged, "")
 
 
 NUMPY_BACKEND = NumPyBackend()
