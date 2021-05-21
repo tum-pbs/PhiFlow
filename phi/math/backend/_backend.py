@@ -9,10 +9,10 @@ from ._dtype import DType, combine_types
 
 
 BasicSolveResult = namedtuple('BasicSolveResult', [
-    'x', 'converged', 'diverged',
+    'method', 'x', 'converged', 'diverged',
 ])
 FullSolveResult = namedtuple('FullSolveResult', [
-    'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
+    'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
 ])
 
 
@@ -718,6 +718,7 @@ class Backend:
         """ Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
         # Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
         # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+        method = f"Φ-Flow CG ({self.name})"
         f = as_linear_function(lin, self)
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0), only_mutable=True)
@@ -729,24 +730,27 @@ class Backend:
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-        trajectory = [] if ret == 'trajectory' else None
+        trajectory = [] if ret == list else None
         while True:
             diverged = ~self.all(self.isfinite(x), axis=(1,))
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
-                trajectory.append(FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged, ""))
+                trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
             finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
             if self.all(finished):
-                return BasicSolveResult(x, converged, diverged) if ret == BasicSolveResult else (FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged, "") if ret == FullSolveResult else trajectory)
+                return trajectory if ret == list else FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
             it_counter += 1; iterations += not_finished_1
             dy = f(dx); function_evaluations += not_finished_1
             dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
             step_size = self.divide_no_nan(residual_squared, dx_dy)
+            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
             x += step_size * dx
             if it_counter % 50 == 0:
                 residual = y - f(x); function_evaluations += 1
             else:
-                residual -= step_size * dy
+                residual = residual - step_size * dy  # in-place subtraction affects convergence
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
@@ -755,6 +759,7 @@ class Backend:
         """ Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. """
         # Based on the variant described in "Methods of Conjugate Gradients for Solving Linear Systems" by Magnus R. Hestenes and Eduard Stiefel
         # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+        method = f"Φ-Flow CG-adaptive ({self.name})"
         A = as_linear_function(lin, self)
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0), only_mutable=True)
@@ -766,21 +771,24 @@ class Backend:
         it_counter = 0
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
-        trajectory = [] if ret == 'trajectory' else None
+        trajectory = [] if ret == list else None
         while True:
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             diverged = ~self.all(self.isfinite(x), axis=(1,))
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
-                trajectory.append(FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged, ""))
+                trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
             finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
             if self.all(finished):
-                return BasicSolveResult(x, converged, diverged) if ret == BasicSolveResult else (FullSolveResult(x, residual, iterations, function_evaluations, converged, diverged,"") if ret == FullSolveResult else trajectory)
+                return trajectory if ret == list else FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
             it_counter += 1; iterations += not_finished_1
             dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
             step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
             x += step_size * dx
-            residual -= step_size * dy
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             dy = A(dx); function_evaluations += not_finished_1
 

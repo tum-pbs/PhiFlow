@@ -24,14 +24,39 @@ math.ones(x=5) + math.ones(batch=10)
 
 ## Shapes
 
-The shape of a `Tensor` is represented by a [`Shape` object](phi/math/#phi.math.Shape) which can be accessed as `tensor.shape`.
-In addition to the integer sizes of the dimensions, the shape also stores the names of the dimensions as strings as well as their types.
+The shape of a `Tensor` is represented by a [`Shape`](phi/math/#phi.math.Shape) object which can be accessed as `tensor.shape`.
+In addition to the dimension sizes, the shape also stores the dimension names which determine their types.
 
-There are three types of dimensions
+There are four types of dimensions
 
-* **Batch** dimensions are ignored by most operations. They are automatically added as needed.
-* **Spatial** dimensions are associated with physical space. If two `Tensors`s live in different physical spaces, operations may raise `IncompatibleShapes` errors.
-* **Channel** dimensions typically list vector elements or feature maps. They are automatically added as needed.
+| Dimension type |              Naming rules |                                                    Description | Example               |
+|----------------|--------------------------:|---------------------------------------------------------------:|-----------------------|
+| Spatial        |             Single letter |                   Spans a grid with equidistant sample points. | `x`, `y`, `z`         |
+| Channel        | `vector` or ends with `_` |    Set of properties sampled at per sample point per instance. | `vector`, `color_`    |
+| Collection     |     Plural, ends with `s` | Collection of (interacting) objects belonging to one instance. | `points`, `particles` |
+| Batch          |         None of the above |                               Lists non-interacting instances. | `batch`, `sequence`, `time`       |
+
+The default dimension order is `(batch, collection, channel, spatial)`.
+When a dimension is not present on a tensor, values are assumed to be constant along that dimension.
+Based on these rules rule, operators and functions may add dimensions to tensors as needed. 
+
+Many math functions handle dimensions differently depending on their type, or only work with certain types of dimensions.
+
+Batch dimensions are ignored by all operations.
+The result is equal to calling the function on each slice.
+
+Spatial operations, such as `spatial_gradient()` or `divergence()` operate on spatial dimensions by default, ignoring all others.
+When operating on multiple spatial tensors, these tensors are typically required to have the same spatial dimensions, else an `IncompatibleShapes` error may be raised.
+The function `join_spaces()` can be used to add the missing spatial dimensions so that these errors are avoided.
+
+| Operation                                               |    Batch    |  Collection |   Spatial   |    Channel    |
+|---------------------------------------------------------|:-----------:|:-----------:|:-----------:|:-------------:|
+| convolve                                                |      -      |      -      |      ★      |       ⟷       |
+| nonzero                                                 |      -      |     ★/⟷     |     ★/⟷     |       ⟷       |
+| scatter (grid)<br>scatter (indices)<br>scatter (values) | -<br>-<br>- | 🗙<br>⟷<br>⟷ | ★<br>🗙<br>🗙 | -<br>⟷/🗙<br>- |
+| gather/sample (grid)<br>gather/sample (indices)         |    -<br>-   |    🗙<br>-   |   ★/⟷<br>-  |    -<br>⟷/🗙   |
+
+In the above table, `-` denotes batch-type dimensions, 🗙 are not allowed, ⟷ are reduced in the operation, ★ are active 
 
 The preferred way to define a `Shape` is via the `shape()` function.
 It takes the dimension sizes as keyword arguments.

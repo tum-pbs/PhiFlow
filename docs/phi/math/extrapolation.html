@@ -39,7 +39,6 @@ from .backend import choose_backend
 from ._shape import Shape
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
-from . import _trace
 
 
 class Extrapolation:
@@ -163,6 +162,9 @@ class ConstantExtrapolation(Extrapolation):
     def to_dict(self) -&gt; dict:
         return {&#39;type&#39;: &#39;constant&#39;, &#39;value&#39;: self.value.numpy()}
 
+    def __value_attrs__(self):
+        return &#39;value&#39;,
+
     def spatial_gradient(self):
         return ZERO
 
@@ -179,7 +181,8 @@ class ConstantExtrapolation(Extrapolation):
         Returns:
 
         &#34;&#34;&#34;
-        value = value.__simplify__()
+        value = value._simplify()
+        from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -188,7 +191,7 @@ class ConstantExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after _simplify
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
@@ -208,7 +211,7 @@ class ConstantExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, _trace.ShiftLinOp):
+        elif is_tracer(value):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
             return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
@@ -311,8 +314,12 @@ class _CopyExtrapolation(Extrapolation):
     def to_dict(self) -&gt; dict:
         return {&#39;type&#39;: repr(self)}
 
+    def __value_attrs__(self):
+        return ()
+
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
-        value = value.__simplify__()
+        value = value._simplify()
+        from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -322,7 +329,7 @@ class _CopyExtrapolation(Extrapolation):
             new_shape = value.shape.with_sizes(result_tensor.shape)
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            inner = value._inner  # should be fine after __simplify__
+            inner = value._inner  # should be fine after _simplify
             inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
             if len(inner_widths) &gt; 0:
                 inner = self.pad(inner, widths)
@@ -343,12 +350,12 @@ class _CopyExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, _trace.ShiftLinOp):
-            return self._pad_linear_operation(value, widths)
+        elif is_tracer(value):
+            return self._pad_linear_tracer(value, widths)
         else:
             raise NotImplementedError(f&#39;{type(value)} not supported&#39;)
 
-    def _pad_linear_operation(self, value: &#39;_trace.ShiftLinOp&#39;, widths: dict) -&gt; &#39;_trace.ShiftLinOp&#39;:
+    def _pad_linear_tracer(self, value, widths: dict):
         raise NotImplementedError()
 
     @property
@@ -417,15 +424,15 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             edge = value[{dimension: slice(1)}]
         return math.concat([edge] * width, dimension)
 
-    def _pad_linear_operation(self, value: &#39;_trace.ShiftLinOp&#39;, widths: dict) -&gt; &#39;_trace.ShiftLinOp&#39;:
+    def _pad_linear_tracer(self, value: &#39;_trace.ShiftLinTracer&#39;, widths: dict) -&gt; &#39;_trace.ShiftLinTracer&#39;:
         &#34;&#34;&#34;
         *Warning*:
         This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
         These are typically sliced off in differential operators. Corners are instead assigned the value 0.
-        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinOp.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinTracer.
 
         Args:
-          value: ShiftLinOp: 
+          value: ShiftLinTracer:
           widths: dict: 
 
         Returns:
@@ -490,7 +497,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         else:
             return value[{dimension: slice(-width, None)}]
 
-    def _pad_linear_operation(self, value: &#39;_trace.ShiftLinOp&#39;, widths: dict) -&gt; &#39;_trace.ShiftLinOp&#39;:
+    def _pad_linear_tracer(self, value: &#39;_trace.ShiftLinTracer&#39;, widths: dict) -&gt; &#39;_trace.ShiftLinTracer&#39;:
         if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
             raise NotImplementedError(&#34;Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor.&#34; % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
@@ -886,6 +893,9 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
     def to_dict(self) -&gt; dict:
         return {&#39;type&#39;: &#39;constant&#39;, &#39;value&#39;: self.value.numpy()}
 
+    def __value_attrs__(self):
+        return &#39;value&#39;,
+
     def spatial_gradient(self):
         return ZERO
 
@@ -902,7 +912,8 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
         Returns:
 
         &#34;&#34;&#34;
-        value = value.__simplify__()
+        value = value._simplify()
+        from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value.native()
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -911,7 +922,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+            if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after _simplify
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
@@ -931,7 +942,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-        elif isinstance(value, _trace.ShiftLinOp):
+        elif is_tracer(value):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
             return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
@@ -1109,7 +1120,8 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
     Returns:
 
     &#34;&#34;&#34;
-    value = value.__simplify__()
+    value = value._simplify()
+    from phi.math._functional import is_tracer
     if isinstance(value, NativeTensor):
         native = value.native()
         ordered_pad_widths = value.shape.order(widths, default=(0, 0))
@@ -1118,7 +1130,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
         new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
         return NativeTensor(result_tensor, new_shape)
     elif isinstance(value, CollapsedTensor):
-        if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after __simplify__
+        if value._inner.shape.volume &gt; 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after _simplify
             return self.pad(value._cache(), widths)
         else:  # Stays constant value, only extend shape
             new_sizes = []
@@ -1138,7 +1150,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
         inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
         tensors = [self.pad(t, inner_widths) for t in value.tensors]
         return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
-    elif isinstance(value, _trace.ShiftLinOp):
+    elif is_tracer(value):
         assert self.is_zero()
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
         return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))

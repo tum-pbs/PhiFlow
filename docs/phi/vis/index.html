@@ -39,10 +39,9 @@ Use `plot()` to plot fields using Matplotlib.
 
 See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 &#34;&#34;&#34;
-from ._vis_base import show
 from ._viewer import Viewer
-from ._matplotlib import plot, animate, plot_scalars
-from ._vis import view, control
+from ._matplotlib import plot, animate, plot_scalars, savefig
+from ._vis import view, control, show
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
@@ -268,7 +267,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', smooth=1, smooth_alpha=0.4, size=(8, 6), transform: Callable = None, tight_layout=True, grid='y', log_scale='')</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=1.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid='y', log_scale='', legend='upper right', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default')</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -279,13 +278,23 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <pre><code class="python">def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  names: str or tuple or list or math.Tensor = None,
                  reduce: str or tuple or list or math.Shape = &#39;names&#39;,
+                 down=&#39;&#39;,
                  smooth=1,
-                 smooth_alpha=0.4,
+                 smooth_alpha=0.2,
+                 smooth_linewidth=1.,
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
                  grid=&#39;y&#39;,
-                 log_scale=&#39;&#39;):
+                 log_scale=&#39;&#39;,
+                 legend=&#39;upper right&#39;,
+                 xlim=None,
+                 ylim=None,
+                 titles=True,
+                 labels: math.Tensor = None,
+                 xlabel: str = None,
+                 ylabel: str = None,
+                 colors: math.Tensor = &#39;default&#39;):
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -300,41 +309,51 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
         names = math.wrap(names, &#39;names&#39;)
     else:
         assert isinstance(names, math.Tensor), f&#34;Invalid argument &#39;names&#39;: {type(names)}&#34;
+    if not isinstance(colors, math.Tensor):
+        colors = math.wrap(colors)
 
     shape = (scene.shape &amp; names.shape)
     batch = shape.without(reduce).without(additional_reduce)
 
     cycle = list(plt.rcParams[&#39;axes.prop_cycle&#39;].by_key()[&#39;color&#39;])
-    fig, axes = plt.subplots(1, batch.volume, figsize=size)
+    fig, axes = plt.subplots(batch.only(down).volume, batch.without(down).volume, figsize=size)
     axes = axes if isinstance(axes, numpy.ndarray) else [axes]
 
     for b, axis in zip(batch.meshgrid(), axes):
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
-        if names_equal:
-            axis.set_title(display_name(str(names[b])))
+        if titles:
+            if isinstance(titles, str):
+                axis.set_title(titles)
+            elif names_equal:
+                axis.set_title(display_name(str(names[b])))
+            elif paths_equal:
+                axis.set_title(os.path.basename(str(scene.paths[b])))
+        if labels is not None:
+            curve_labels = labels
+        elif names_equal:
+            curve_labels = math.map(os.path.basename, scene.paths[b])
         elif paths_equal:
-            axis.set_title(os.path.basename(str(scene.paths[b])))
+            curve_labels = names[b]
+        else:
+            curve_labels = math.map(lambda p, n: f&#34;{os.path.basename(p)} - {n}&#34;, scene.paths[b], names[b])
 
-        def single_plot(name, path, i):
+        def single_plot(name, path, label, i, color):
             curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
             if curve.ndim == 2:
                 x, values, *_ = curve.T
             else:
                 values = curve
                 x = np.arange(len(values))
-            name = display_name(name)
             if transform:
                 x, values = transform(np.stack([x, values]))
-            if names_equal:
-                label = os.path.basename(path)
-            elif paths_equal:
-                label = name
-            else:
-                label = f&#34;{os.path.basename(path)} - {name}&#34;
-            axis.plot(x, values, color=cycle[i], alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=2, label=label)
+            if color == &#39;default&#39;:
+                color = cycle[i]
+            elif isinstance(color, Number):
+                color = cycle[int(color)]
+            axis.plot(x, values, color=color, alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
                 grid_axis = &#39;both&#39; if &#39;x&#39; in grid and &#39;y&#39; in grid else grid
                 axis.grid(which=&#39;both&#39;, axis=grid_axis, linestyle=&#39;--&#39;)
@@ -342,14 +361,36 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                 axis.set_xscale(&#39;log&#39;)
             if &#39;y&#39; in log_scale:
                 axis.set_yscale(&#39;log&#39;)
+            if xlim:
+                axis.set_xlim(xlim)
+            if ylim:
+                axis.set_ylim(ylim)
+            if xlabel:
+                axis.set_xlabel(xlabel)
+            if ylabel:
+                axis.set_ylabel(ylabel)
             return name
 
-        math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))
-        axis.legend()
+        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors)
+        if legend:
+            axis.legend(loc=legend)
     # Final touches
     if tight_layout:
         plt.tight_layout()
     return fig</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.savefig"><code class="name flex">
+<span>def <span class="ident">savefig</span></span>(<span>filename: str, transparent=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def savefig(filename: str, transparent=True):
+    plt.savefig(filename, transparent=transparent)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
@@ -381,11 +422,11 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <pre><code class="python">def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
     &#34;&#34;&#34;
     Launch the registered user interface (web interface by default).
-    
+
     This method may block until the GUI is closed.
-    
+
     This method prepares the vis before showing it. No more fields should be added to the vis after this method is invoked.
-    
+
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 
     Args:
@@ -396,6 +437,10 @@ For a full list of parameters, see the respective GUI documentation at <a href="
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     &#34;&#34;&#34;
+    if model is None:
+        import pylab
+        pylab.show()
+        return
     assert isinstance(model, VisModel), f&#34;show() first argument must be an App instance but got {model}&#34;
     model.prepare()
     # --- Setup Gui ---
@@ -890,6 +935,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>
 <li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>
+<li><code><a title="phi.vis.savefig" href="#phi.vis.savefig">savefig</a></code></li>
 <li><code><a title="phi.vis.show" href="#phi.vis.show">show</a></code></li>
 <li><code><a title="phi.vis.view" href="#phi.vis.view">view</a></code></li>
 </ul>

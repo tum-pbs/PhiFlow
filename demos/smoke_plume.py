@@ -16,5 +16,4 @@ for _ in view(smoke, velocity, pressure, divergence, play=False).range():
     smoke = advect.mac_cormack(smoke, velocity, 1) + INFLOW
     buoyancy_force = smoke * (0, 0.1) >> velocity  # resamples smoke to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
-    velocity, pressure_result = fluid.make_incompressible(velocity, DOMAIN, solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))
-    pressure = pressure_result.x
+    velocity, pressure = fluid.make_incompressible(velocity, DOMAIN, solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))

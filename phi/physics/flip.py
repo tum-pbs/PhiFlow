@@ -54,8 +54,7 @@ def make_incompressible(velocity: StaggeredGrid,
 
     if solve.x0 is None:
         solve = copy_with(solve, x0=domain.scalar_grid())
-    result = field.solve_linear(matrix_eq, div, solve)
-    pressure = result.x
+    pressure = field.solve_linear(matrix_eq, div, solve)
 
     def pressure_backward(_p, _p_, dp):
         return dp * occupied_centered.values,
@@ -64,7 +63,7 @@ def make_incompressible(velocity: StaggeredGrid,
     pressure = pressure.with_(values=add_mask_in_gradient(pressure.values))
 
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
-    return velocity_field - gradp, result, occupied_staggered
+    return velocity_field - gradp, pressure, occupied_staggered
 
 
 def map_velocity_to_particles(previous_particle_velocity: PointCloud,

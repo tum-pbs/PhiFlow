@@ -14,4 +14,4 @@ pressure = DOMAIN.scalar_grid(0)
 
 with backend.profile(save=f'navier_stokes_{math.backend.default_backend()}.json'):
     velocity = advect.semi_lagrangian(velocity, velocity, dt=1)
-    # velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)
+    # velocity, pressure = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)

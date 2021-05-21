@@ -261,7 +261,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
         return reshaped_tensor(output, groups)
 
 
-def print_(value: Tensor = None, name: str = ""):
+def print_(obj: Tensor or TensorLike or Number or tuple or list or None = None, name: str = ""):
     """
     Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.
     
@@ -270,20 +270,37 @@ def print_(value: Tensor = None, name: str = ""):
     Typically, this means x right, y up.
 
     Args:
+        obj: tensor-like
         name: name of the tensor
-        value: tensor-like
-        value: Tensor:  (Default value = None)
-        name: str:  (Default value = None)
 
     Returns:
 
     """
-    if value is None:
+    def variables(obj) -> dict:
+        if hasattr(obj, '__variable_attrs__') or hasattr(obj, '__value_attrs__'):
+            return {f".{a}": getattr(obj, a) for a in variable_attributes(obj)}
+        elif isinstance(obj, (tuple, list)):
+            return {f"[{i}]": item for i, item in enumerate(obj)}
+        elif isinstance(obj, dict):
+            return obj
+        else:
+            raise ValueError(f"Not TensorLike: {type(obj)}")
+
+    if obj is None:
         print()
-        return
+    elif isinstance(obj, Tensor):
+        _print_tensor(obj, name)
+    elif isinstance(obj, TensorLike):
+        for n, val in variables(obj).items():
+            print_(val, name + n)
+    else:
+        value = wrap(obj)
+        _print_tensor(value, name)
+
+
+def _print_tensor(value: Tensor, name: str or None):
     if name:
         print(" " * 16 + name)
-    value = wrap(value)
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
     if value.shape.spatial_rank == 0:
         print(value.numpy())

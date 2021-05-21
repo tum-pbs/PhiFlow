@@ -781,41 +781,62 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
 
 class SolveResult(Generic[X, Y]):
     """
-    Stores information about the solution of an optimization or one point of an optimization trajectory.
+    Stores information about the solution or trajectory of a solve.
+
+    When representing the full optimization trajectory, all tracked quantities will have an additional `trajectory` batch dimension.
     """
 
-    def __init__(self, parameters: Solve, x: X, residual: Y, iterations: int, function_evaluations: int, converged: bool, diverged: bool, termination_message: str = None):
+    def __init__(self,
+                 solve: Solve,
+                 x: X,
+                 residual: Y or None,
+                 iterations: Tensor or None,
+                 function_evaluations: Tensor or None,
+                 converged: Tensor,
+                 diverged: Tensor,
+                 method: str,
+                 msg: str = None):
         # tuple.__new__(SolveResult, (x, residual, iterations, function_evaluations, converged, diverged))
-        self.parameters: Solve[X, Y] = parameters
-        """ Parameters specified for the solve. """
+        self.solve: Solve[X, Y] = solve
+        """ `Solve`, Parameters specified for the solve. """
         self.x: X = x
-        """ Solution value or estimate at this point. """
+        """ `Tensor` or `TensorLike`, solution estimate. """
         self.residual: Y = residual
-        """ Residual vector for systems of equations or function value for minimization problems. """
-        self.iterations: int = iterations
-        """ Number of performed iterations to reach this state. """
-        self.function_evaluations: int = function_evaluations
-        """ How often the function (or its gradient function) was called. """
-        self.converged = converged
-        """ Whether the residual is within the specified tolerance. """
-        self.diverged = diverged
-        """ Whether the solve has diverged at this point. """
-        self.termination_message = termination_message
+        """ `Tensor` or `TensorLike`, residual vector for systems of equations or function value for minimization problems. """
+        self.iterations: Tensor = iterations
+        """ `Tensor`, number of performed iterations to reach this state. """
+        self.function_evaluations: Tensor = function_evaluations
+        """ `Tensor`, how often the function (or its gradient function) was called. """
+        self.converged: Tensor = converged
+        """ `Tensor`, whether the residual is within the specified tolerance. """
+        self.diverged: Tensor = diverged
+        """ `Tensor`, whether the solve has diverged at this point. """
+        self.method = method
+        """ `str`, which method and implementation that was used. """
+        if not msg:
+            if self.diverged.any:
+                self.msg = f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
+            elif not self.converged.trajectory[-1].all:
+                self.msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}."
+            else:
+                self.msg = f"Converged within {iterations if iterations is not None else '?'} iterations."
+        else:
+            self.msg = msg
+        """ `str`, termination message """
 
     def __repr__(self):
         return f"[it={self.iterations}, state={'diverged' if self.diverged else ('converged' if self.converged else 'not converged')}]"
 
-    def __variable_attrs__(self):
-        return 'x', 'residual',
+    def snapshot(self, index):
+        return SolveResult(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
 
-
-def convergence_check(converged: Tensor, diverged: Tensor, iterations: Tensor or None, x, message, solve):
-    if diverged.any:
-        if Diverged not in solve.suppress:
-            raise Diverged(solve, converged, diverged, iterations, x, message)
-    if not converged.all:
-        if NotConverged not in solve.suppress:
-            raise NotConverged(solve, converged, diverged, iterations, x, message)
+    def convergence_check(self):
+        if self.diverged.any:
+            if Diverged not in self.solve.suppress:
+                raise Diverged(self)
+        if not self.converged.trajectory[-1].all:
+            if NotConverged not in self.solve.suppress:
+                raise NotConverged(self)
 
 
 class ConvergenceException(RuntimeError):
@@ -826,16 +847,10 @@ class ConvergenceException(RuntimeError):
         `Diverged`, `NotConverged`.
     """
 
-    def __init__(self, solve: Solve, converged: Tensor, diverged: Tensor, iterations: Tensor or None, x, msg: str):
-        RuntimeError.__init__(self, msg)
-        self.solve: Solve = solve
-        """ The specified solve parameters as `Solve`. """
-        self.converged = converged
-        self.diverged = diverged
-        self.iterations = iterations
-        self.x = x
-        self.msg = msg
-        """ Human-readable message describing the reason why the optimization failed. """
+    def __init__(self, result: SolveResult):
+        RuntimeError.__init__(self, result)
+        self.result: SolveResult = result
+        """ `SolveResult` holding information about the solve. """
 
 
 class NotConverged(ConvergenceException):
@@ -848,10 +863,8 @@ class NotConverged(ConvergenceException):
         `Diverged`.
     """
 
-    def __init__(self, solve: Solve, converged: Tensor, diverged: Tensor, iterations: Tensor or None, x, msg: str):
-        if not msg:
-            msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {iterations or '?'} iterations."
-        ConvergenceException.__init__(self, solve, converged, diverged, iterations, x, msg)
+    def __init__(self, result: SolveResult):
+        ConvergenceException.__init__(self, result)
 
 
 class Diverged(ConvergenceException):
@@ -867,15 +880,28 @@ class Diverged(ConvergenceException):
         `NotConverged`.
     """
 
-    def __init__(self, solve: Solve, converged: Tensor, diverged: Tensor, iterations: Tensor or None, x, msg: str):
-        if not msg:
-            msg = f"Solve diverged within {iterations or '?'} iterations."
-        ConvergenceException.__init__(self, solve, converged, diverged, iterations, x, msg)
+    def __init__(self, result: SolveResult):
+        ConvergenceException.__init__(self, result)
 
 
 class SolveTape:
 
     def __init__(self, record_trajectories=False):
+        """
+        Used to record additional information about solves invoked via `solve_linear()`, `solve_nonlinear()` or `minimize()`.
+
+        To access a `SolveResult` of a recorded solve, use
+        ```python
+        solve = Solve(method, ...)
+        with SolveTape() as solves:
+            x = math.solve_linear(f, y, solve)
+        result: SolveResult = solves[solve]  # get by Solve
+        result: SolveResult = solves[0]  # get by index
+        ```
+
+        Args:
+            record_trajectories: When enabled, the entries of `SolveResult` will contain an additional batch dimension named `trajectory`.
+        """
         self.record_trajectories = record_trajectories
         self.solves: List[SolveResult] = []
         self.solve_ids: List[str] = []
@@ -887,16 +913,15 @@ class SolveTape:
     def __exit__(self, exc_type, exc_val, exc_tb):
         _SOLVE_TAPES.remove(self)
 
-    def add(self, solve: Solve, mode: type, result_or_trajectory):
-        assert all(s.parameters.id != solve.id for s in self.solves)
+    def _add(self, solve: Solve, mode: type, result: SolveResult):
+        assert all(s.solve.id != solve.id for s in self.solves)
         if self.record_trajectories:
             assert mode == list
-            self.solves.append(result_or_trajectory)
-        elif mode == list:
-            result = result_or_trajectory[-1]
             self.solves.append(result)
+        elif mode == list:
+            self.solves.append(result.snapshot(-1))
         else:
-            self.solves.append(result_or_trajectory)
+            self.solves.append(result)
         self.solve_ids.append(solve.id)
 
     def __getitem__(self, item):
@@ -904,7 +929,7 @@ class SolveTape:
             return self.solves[item]
         else:
             assert isinstance(item, Solve)
-            solves = [s for s in self.solves if s.parameters.id == item.id]
+            solves = [s for s in self.solves if s.solve.id == item.id]
             if len(solves) == 0:
                 raise KeyError(f"No solve recorded with key '{item}'.")
             assert len(solves) == 1
@@ -928,19 +953,23 @@ def current_solve_mode():
 
 def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     """
-    Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
+    Finds a minimum of the scalar function *f(x)*.
     The `method` argument of `solve` determines which method is used.
-    All methods supported by `scipy.optimize.minimize` can be used, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
+    All methods supported by `scipy.optimize.minimize` are supported,
+    see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
 
-    For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
-    Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
+    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 
-    Information about the performed solve will be added to `solve.result`.
+    To obtain additional information about the performed solve, use a `SolveTape`.
+
+    See Also:
+        `solve_nonlinear()`.
 
     Args:
-        f: Function whose output is subject to minimization. Function with single `Tensor` positional argument and return value.
-        solve: `Solve` object to specify method type and parameters.
-            Additional solve information will be stored in `solve.result`.
+        f: Function whose output is subject to minimization.
+            All positional arguments of `f` are optimized and must be `Tensor` or `TensorLike`.
+            The first return value of `f` must be a scalar float `Tensor` or `TensorLike`.
+        solve: `Solve` object to specify method type, parameters and initial guess for `x`.
 
     Returns:
         x: solution, the minimum point `x`.
@@ -999,17 +1028,22 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     """
     Solves the non-linear equation *f(x) = y* by minimizing the norm of the residual.
 
+    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
+
+    To obtain additional information about the performed solve, use a `SolveTape`.
+
     See Also:
         `minimize()`, `solve_linear()`.
 
     Args:
-        f: Function with single `Tensor` positional argument and return value.
-        y: Desired output of `f(x)` as `Tensor`.
-        solve: `Solve` object to specify method type and parameters.
-            Additional solve information will be stored in `solve.result`.
+        f: Function whose output is optimized to match `y`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `TensorLike`.
+            The output of `f` must match `y`.
+        y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
+        solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
 
     Returns:
-        x: solution fulfilling `f(x) = y` as `Tensor`.
+        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `TensorLike`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -1030,22 +1064,24 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
 
 def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -> X:
     """
-    Solves the system of linear equations *f(x) = y*.
+    Solves the system of linear equations *f(x) = y* and returns *x*.
+    For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
+    This will use a matrix representation of `f` to solve the linear system.
 
-    Information about the performed solve will be stored in `Solve.result`.
-    In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve.gradient_solve.result`.
+    To obtain additional information about the performed solve, use a `SolveTape`.
+
+    The gradient of this operation will perform another linear solve with the parameters specified by `Solve.gradient_solve`.
 
     See Also:
         `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Linear function with single `Tensor` positional argument and return value.
-        y: Desired output of `f(x)` as `Tensor`.
-        solve: `Solve` object to specify method type and parameters.
-            Additional solve information will be stored in `solve.result`.
+        f: Linear function with single `Tensor` or `TensorLike` positional argument and return value.
+        y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
+        solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
 
     Returns:
-        x: solution of the linear system of equations `f(x) = y` as `Tensor`.
+        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `TensorLike`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -1082,9 +1118,8 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         converged = reshaped_tensor(ret.converged, [batch])
         diverged = reshaped_tensor(ret.diverged, [batch])
         x = assemble_nested(x0_nest, [reshaped_tensor(ret.x, [batch, active_dims])])
-        result = None
-        iterations = None
-        message = "Re-run solve with a SolveTape to get additional information."
+        msg = "Re-run solve with a SolveTape to get additional information."
+        result = SolveResult(solve, x, None, None, None, converged, diverged, ret.method, msg)
     elif isinstance(ret, FullSolveResult):
         converged = reshaped_tensor(ret.converged, [batch])
         diverged = reshaped_tensor(ret.diverged, [batch])
@@ -1092,18 +1127,22 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         iterations = reshaped_tensor(ret.iterations, [batch])
         function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
         residual = assemble_nested(y_nest, [reshaped_tensor(ret.residual, [batch, active_dims])])
-        message = ret.message
-        result = SolveResult(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.message)
-    elif isinstance(ret_type, (tuple, list)):  # trajectory
-        assert all(isinstance(r, BasicSolveResult) for r in ret)
-        x = assemble_nested(x0_nest, [batch_stack([reshaped_tensor(r.x, [batch, active_dims]) for r in ret])])
-        result = SolveResult(solve, x, )
-        raise NotImplementedError()
+        result = SolveResult(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+    elif isinstance(ret, (tuple, list)):  # trajectory
+        assert all(isinstance(r, FullSolveResult) for r in ret)
+        converged = batch_stack([reshaped_tensor(r.converged, [batch]) for r in ret], 'trajectory')
+        diverged = batch_stack([reshaped_tensor(r.diverged, [batch]) for r in ret], 'trajectory')
+        x = assemble_nested(x0_nest, [reshaped_tensor(ret[-1].x, [batch, active_dims])])
+        x_ = assemble_nested(x0_nest, [batch_stack([reshaped_tensor(r.x, [batch, active_dims]) for r in ret], 'trajectory')])
+        residual = assemble_nested(y_nest, [batch_stack([reshaped_tensor(r.residual, [batch, active_dims]) for r in ret], 'trajectory')])
+        iterations = reshaped_tensor(ret[-1].iterations, [batch])
+        function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], 'trajectory')
+        result = SolveResult(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
     else:
         raise AssertionError(f"Backend.linear_solve returned invalid result: {type(ret)}")
     for tape in _SOLVE_TAPES:
-        tape.add(solve, ret_type, result)
-    convergence_check(converged, diverged, iterations, x, message, solve)  # raises ConvergenceException
+        tape._add(solve, ret_type, result)
+    result.convergence_check()  # raises ConvergenceException
     return x
 
 
@@ -1113,8 +1152,7 @@ def attach_gradient_solve(forward_solve: Callable):
         grad_solve = solve.gradient_solve
         x0 = grad_solve.x0 if grad_solve.x0 is not None else zeros_like(solve.x0)
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
-        grad_solve_result = solve_with_grad(dx.x, grad_solve_, *matrix, **kwargs)
-        dy = grad_solve_result.x
+        dy = solve_with_grad(dx, grad_solve_, *matrix, **kwargs)
         return (dy, None, *([None] * len(matrix)))  # this should hopefully result in implicit gradients for higher orders as well
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve)
     return solve_with_grad

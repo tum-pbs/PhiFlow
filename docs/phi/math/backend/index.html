@@ -665,7 +665,7 @@ The output of math operations has the same precision as its inputs.</p>
 
         Args:
           x: tensor-like, e.g. list, tuple, Python number, tensor
-          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)
 
         Returns:
           tensor representation of `x`
@@ -941,8 +941,11 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         return self.cast(x, self.float_type)
 
-    def to_int(self, x, int64=False):
-        return self.cast(x, DType(int, 64 if int64 else 32))
+    def to_int32(self, x):
+        return self.cast(x, DType(int, 32))
+
+    def to_int64(self, x):
+        return self.cast(x, DType(int, 64))
 
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
@@ -1105,27 +1108,164 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def minimize(self, function, x0, solve_params: Solve):
-        &#34;&#34;&#34; Optional. &#34;&#34;&#34;
-        return NotImplemented
+    def minimize(self, method: str, f, x0, atol, max_iter, ret: str):
+        from scipy.optimize import OptimizeResult, minimize
+        assert self.supports(Backend.functional_gradient)
+        x0 = solve.x0
+        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+        fg = self.functional_gradient(f, [0], get_output=True)
+        batch_size = self.staticshape(x0)[0]
+        iterations = [0] * batch_size
+        function_evaluations = [0] * batch_size
+        losses = []
+        last_result = [None]
+        if trajectory is not None:
+            function_evaluations += 1
+            trajectory.append(SolveResult(solve, x0, ))
 
-    def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
+        call_function_barrier = Barrier(batch_size)
+
+        def min_target(x: numpy.ndarray):
+            call_function_barrier.wait()
+            # TODO
+            function_evaluations[b] += 1
+            x = self.expand_dims(self.as_tensor(x, convert_external=True), 0)
+            output, (grad,) = fg(x)
+            loss = output[0] if isinstance(output, (tuple, list)) else output
+            grad = self.numpy(grad).astype(numpy.float64)
+            losses.append(loss)
+            return self.numpy(loss).astype(numpy.float64), grad
+
+        def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
+            iterations[b] += 1
+            loss = min(losses)
+            losses.clear()
+            last_result[0] = SolveResult(solve, x, loss, iterations[b], function_evaluations[b], converged=False, diverged=False)
+            if trajectory is not None:
+                trajectory.append(last_result[0])
+
+        results = []
+        for b in range(batch_size):
+            from threading import Thread
+            Thread(target=lambda: minimize()).start()
+            res = minimize(fun=min_target, x0=x0[b], jac=True, method=solve.method, tol=solve.absolute_tolerance,
+                           options={&#39;maxiter&#39;: solve.max_iterations}, callback=callback)
+            batch_result = SolveResult(solve, res.x, batch_result.final_state.residual,
+                                       iteration=res.nit,
+                                       function_evaluations=res.nfev,
+                                       converged=res.success,
+                                       diverged=res.status in (0, 1),
+                                       termination_message=res.message)
+            results.append(batch_result)
+        return batch_combine_solve_results(results, self)
+
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: type) -&gt; Any:
         &#34;&#34;&#34;
-        Solve the system of linear equations
-          A * x = y
+        Solve the system of linear equations A · x = y.
+        This method need not provide a gradient for the operation.
 
         Args:
-          A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
-          y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
-          x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-          solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
+            method: Which algorithm to use. One of `(&#39;auto&#39;, &#39;CG&#39;, &#39;CG-adaptive&#39;)`.
+            lin: Linear operation. One of
+                * sparse/dense matrix valid for all instances
+                * tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+                * linear function A(x), must be called on all instances in parallel
+            y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+            x0: Initial guess of size (batch, parameters)
+            rtol: Relative tolerance of size (batch,)
+            atol: Absolute tolerance of size (batch,)
+            max_iter: Maximum number of iterations of size (batch,)
+            ret: Return type, one of (&#39;BasicSolveResult&#39;, &#39;FullSolveResult&#39;, &#39;list&#39;)
 
         Returns:
-            x: the solution as a tensor
-
+            result: Type depends on `ret`.
         &#34;&#34;&#34;
-        raise NotImplementedError(self)
+        if method == &#39;auto&#39;:
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, ret)
+        elif method == &#39;CG&#39;:
+            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, ret)
+        elif method == &#39;CG-adaptive&#39;:
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, ret)
+        else:
+            raise NotImplementedError(f&#34;Method &#39;{method}&#39; not supported for linear solve.&#34;)
+
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: type) -&gt; Any:
+        &#34;&#34;&#34; Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+        # Based on &#34;An Introduction to the Conjugate Gradient Method Without the Agonizing Pain&#34; by Jonathan Richard Shewchuk
+        # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+        method = f&#34;Φ-Flow CG ({self.name})&#34;
+        f = as_linear_function(lin, self)
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - f(x)
+        it_counter = 0
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+        trajectory = [] if ret == list else None
+        while True:
+            diverged = ~self.all(self.isfinite(x), axis=(1,))
+            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
+            finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+            if self.all(finished):
+                return trajectory if ret == list else FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+            it_counter += 1; iterations += not_finished_1
+            dy = f(dx); function_evaluations += not_finished_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(residual_squared, dx_dy)
+            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx
+            if it_counter % 50 == 0:
+                residual = y - f(x); function_evaluations += 1
+            else:
+                residual = residual - step_size * dy  # in-place subtraction affects convergence
+            residual_squared_old = residual_squared
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
+
+    def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, ret: type) -&gt; Any:
+        &#34;&#34;&#34; Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+        # Based on the variant described in &#34;Methods of Conjugate Gradients for Solving Linear Systems&#34; by Magnus R. Hestenes and Eduard Stiefel
+        # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+        method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
+        A = as_linear_function(lin, self)
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - A(x)
+        dy = A(dx)
+        it_counter = 0
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        trajectory = [] if ret == list else None
+        while True:
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            diverged = ~self.all(self.isfinite(x), axis=(1,))
+            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
+            finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+            if self.all(finished):
+                return trajectory if ret == list else FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+            it_counter += 1; iterations += not_finished_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
+            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+            dy = A(dx); function_evaluations += not_finished_1
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
@@ -1377,7 +1517,7 @@ If x is a Python number (numbers.Number instance), <code>convert_numbers</code> 
 <dt><strong><code>x</code></strong></dt>
 <dd>tensor-like, e.g. list, tuple, Python number, tensor</dd>
 <dt><strong><code>convert_external</code></strong></dt>
-<dd>if False and <code>x</code> is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)</dd>
+<dd>if False and <code>x</code> is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>tensor representation of <code>x</code></p></div>
@@ -1395,7 +1535,7 @@ If x is a Python number (numbers.Number instance), <code>convert_numbers</code> 
 
     Args:
       x: tensor-like, e.g. list, tuple, Python number, tensor
-      convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+      convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)
 
     Returns:
       tensor representation of `x`
@@ -1611,50 +1751,101 @@ This method may be used to register internal calls with the profiler.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params: phi.math.backend._optim.Solve, callback=None)</span>
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, lin, y, x0, rtol, atol, max_iter, ret: type) ‑> Any</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Solve the system of linear equations
-A * x = y</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>A</code></strong></dt>
-<dd>batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.</dd>
-<dt><strong><code>y</code></strong></dt>
-<dd>target result of A * x. 2nd order tensor (batch, vector) or list of vectors.</dd>
-<dt><strong><code>x0</code></strong></dt>
-<dd>initial guess for x. 2nd order tensor (batch, vector) or list of vectors.</dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.</dd>
-<dt><strong><code>callback</code></strong></dt>
-<dd>Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>x</code></dt>
-<dd>the solution as a tensor</dd>
-</dl></div>
+<div class="desc"><p>Standard conjugate gradient algorithm. Signature matches to <code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">Backend.linear_solve()</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params: Solve, callback=None):
-    &#34;&#34;&#34;
-    Solve the system of linear equations
-      A * x = y
-
-    Args:
-      A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
-      y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
-      x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-      solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-      callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
-
-    Returns:
-        x: the solution as a tensor
-
-    &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
+<pre><code class="python">def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: type) -&gt; Any:
+    &#34;&#34;&#34; Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+    # Based on &#34;An Introduction to the Conjugate Gradient Method Without the Agonizing Pain&#34; by Jonathan Richard Shewchuk
+    # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+    method = f&#34;Φ-Flow CG ({self.name})&#34;
+    f = as_linear_function(lin, self)
+    y = self.to_float(y)
+    x0 = self.copy(self.to_float(x0), only_mutable=True)
+    batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+    tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+    x = x0
+    dx = residual = y - f(x)
+    it_counter = 0
+    iterations = self.zeros([batch_size], DType(int, 32))
+    function_evaluations = self.ones([batch_size], DType(int, 32))
+    residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+    trajectory = [] if ret == list else None
+    while True:
+        diverged = ~self.all(self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        if trajectory is not None:
+            trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+            x = self.copy(x)
+            iterations = self.copy(iterations)
+        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        if self.all(finished):
+            return trajectory if ret == list else FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+        it_counter += 1; iterations += not_finished_1
+        dy = f(dx); function_evaluations += not_finished_1
+        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+        step_size = self.divide_no_nan(residual_squared, dx_dy)
+        step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+        x += step_size * dx
+        if it_counter % 50 == 0:
+            residual = y - f(x); function_evaluations += 1
+        else:
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
+        residual_squared_old = residual_squared
+        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+        dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.conjugate_gradient_adaptive"><code class="name flex">
+<span>def <span class="ident">conjugate_gradient_adaptive</span></span>(<span>self, lin, y, x0, rtol, atol, max_iter, ret: type) ‑> Any</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Conjugate gradient algorithm with adaptive step size. Signature matches to <code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">Backend.linear_solve()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, ret: type) -&gt; Any:
+    &#34;&#34;&#34; Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+    # Based on the variant described in &#34;Methods of Conjugate Gradients for Solving Linear Systems&#34; by Magnus R. Hestenes and Eduard Stiefel
+    # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+    method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
+    A = as_linear_function(lin, self)
+    y = self.to_float(y)
+    x0 = self.copy(self.to_float(x0), only_mutable=True)
+    batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+    tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+    x = x0
+    dx = residual = y - A(x)
+    dy = A(dx)
+    it_counter = 0
+    iterations = self.zeros([batch_size], DType(int, 32))
+    function_evaluations = self.ones([batch_size], DType(int, 32))
+    trajectory = [] if ret == list else None
+    while True:
+        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+        diverged = ~self.all(self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        if trajectory is not None:
+            trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+            x = self.copy(x)
+            iterations = self.copy(iterations)
+        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        if self.all(finished):
+            return trajectory if ret == list else FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+        it_counter += 1; iterations += not_finished_1
+        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+        step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+        step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+        x += step_size * dx
+        residual = residual - step_size * dy  # in-place subtraction affects convergence
+        dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+        dy = A(dx); function_evaluations += not_finished_1</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conv"><code class="name flex">
@@ -2256,6 +2447,74 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
     return NotImplemented</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.linear_solve"><code class="name flex">
+<span>def <span class="ident">linear_solve</span></span>(<span>self, method: str, lin, y, x0, rtol, atol, max_iter, ret: type) ‑> Any</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Solve the system of linear equations A · x = y.
+This method need not provide a gradient for the operation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong></dt>
+<dd>Which algorithm to use. One of <code>('auto', 'CG', 'CG-adaptive')</code>.</dd>
+<dt><strong><code>lin</code></strong></dt>
+<dd>Linear operation. One of
+* sparse/dense matrix valid for all instances
+* tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+* linear function A(x), must be called on all instances in parallel</dd>
+<dt><strong><code>y</code></strong></dt>
+<dd>target result of A * x. 2nd order tensor (batch, vector) or list of vectors.</dd>
+<dt><strong><code>x0</code></strong></dt>
+<dd>Initial guess of size (batch, parameters)</dd>
+<dt><strong><code>rtol</code></strong></dt>
+<dd>Relative tolerance of size (batch,)</dd>
+<dt><strong><code>atol</code></strong></dt>
+<dd>Absolute tolerance of size (batch,)</dd>
+<dt><strong><code>max_iter</code></strong></dt>
+<dd>Maximum number of iterations of size (batch,)</dd>
+<dt><strong><code>ret</code></strong></dt>
+<dd>Return type, one of ('BasicSolveResult', 'FullSolveResult', 'list')</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>result</code></dt>
+<dd>Type depends on <code>ret</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: type) -&gt; Any:
+    &#34;&#34;&#34;
+    Solve the system of linear equations A · x = y.
+    This method need not provide a gradient for the operation.
+
+    Args:
+        method: Which algorithm to use. One of `(&#39;auto&#39;, &#39;CG&#39;, &#39;CG-adaptive&#39;)`.
+        lin: Linear operation. One of
+            * sparse/dense matrix valid for all instances
+            * tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+            * linear function A(x), must be called on all instances in parallel
+        y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+        x0: Initial guess of size (batch, parameters)
+        rtol: Relative tolerance of size (batch,)
+        atol: Absolute tolerance of size (batch,)
+        max_iter: Maximum number of iterations of size (batch,)
+        ret: Return type, one of (&#39;BasicSolveResult&#39;, &#39;FullSolveResult&#39;, &#39;list&#39;)
+
+    Returns:
+        result: Type depends on `ret`.
+    &#34;&#34;&#34;
+    if method == &#39;auto&#39;:
+        return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, ret)
+    elif method == &#39;CG&#39;:
+        return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, ret)
+    elif method == &#39;CG-adaptive&#39;:
+        return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, ret)
+    else:
+        raise NotImplementedError(f&#34;Method &#39;{method}&#39; not supported for linear solve.&#34;)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.linspace"><code class="name flex">
 <span>def <span class="ident">linspace</span></span>(<span>self, start, stop, number)</span>
 </code></dt>
@@ -2417,17 +2676,64 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>self, function, x0, solve_params: phi.math.backend._optim.Solve)</span>
+<span>def <span class="ident">minimize</span></span>(<span>self, method: str, f, x0, atol, max_iter, ret: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Optional.</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(self, function, x0, solve_params: Solve):
-    &#34;&#34;&#34; Optional. &#34;&#34;&#34;
-    return NotImplemented</code></pre>
+<pre><code class="python">def minimize(self, method: str, f, x0, atol, max_iter, ret: str):
+    from scipy.optimize import OptimizeResult, minimize
+    assert self.supports(Backend.functional_gradient)
+    x0 = solve.x0
+    assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+    fg = self.functional_gradient(f, [0], get_output=True)
+    batch_size = self.staticshape(x0)[0]
+    iterations = [0] * batch_size
+    function_evaluations = [0] * batch_size
+    losses = []
+    last_result = [None]
+    if trajectory is not None:
+        function_evaluations += 1
+        trajectory.append(SolveResult(solve, x0, ))
+
+    call_function_barrier = Barrier(batch_size)
+
+    def min_target(x: numpy.ndarray):
+        call_function_barrier.wait()
+        # TODO
+        function_evaluations[b] += 1
+        x = self.expand_dims(self.as_tensor(x, convert_external=True), 0)
+        output, (grad,) = fg(x)
+        loss = output[0] if isinstance(output, (tuple, list)) else output
+        grad = self.numpy(grad).astype(numpy.float64)
+        losses.append(loss)
+        return self.numpy(loss).astype(numpy.float64), grad
+
+    def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
+        iterations[b] += 1
+        loss = min(losses)
+        losses.clear()
+        last_result[0] = SolveResult(solve, x, loss, iterations[b], function_evaluations[b], converged=False, diverged=False)
+        if trajectory is not None:
+            trajectory.append(last_result[0])
+
+    results = []
+    for b in range(batch_size):
+        from threading import Thread
+        Thread(target=lambda: minimize()).start()
+        res = minimize(fun=min_target, x0=x0[b], jac=True, method=solve.method, tol=solve.absolute_tolerance,
+                       options={&#39;maxiter&#39;: solve.max_iterations}, callback=callback)
+        batch_result = SolveResult(solve, res.x, batch_result.final_state.residual,
+                                   iteration=res.nit,
+                                   function_evaluations=res.nfev,
+                                   converged=res.success,
+                                   diverged=res.status in (0, 1),
+                                   termination_message=res.message)
+        results.append(batch_result)
+    return batch_combine_solve_results(results, self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.minimum"><code class="name flex">
@@ -3201,8 +3507,8 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
     return self.cast(x, self.float_type)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.to_int"><code class="name flex">
-<span>def <span class="ident">to_int</span></span>(<span>self, x, int64=False)</span>
+<dt id="phi.math.backend.Backend.to_int32"><code class="name flex">
+<span>def <span class="ident">to_int32</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3210,8 +3516,21 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int(self, x, int64=False):
-    return self.cast(x, DType(int, 64 if int64 else 32))</code></pre>
+<pre><code class="python">def to_int32(self, x):
+    return self.cast(x, DType(int, 32))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.to_int64"><code class="name flex">
+<span>def <span class="ident">to_int64</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_int64(self, x):
+    return self.cast(x, DType(int, 64))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.transpose"><code class="name flex">
@@ -3842,6 +4161,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.complex_type" href="#phi.math.backend.Backend.complex_type">complex_type</a></code></li>
 <li><code><a title="phi.math.backend.Backend.concat" href="#phi.math.backend.Backend.concat">concat</a></code></li>
 <li><code><a title="phi.math.backend.Backend.conjugate_gradient" href="#phi.math.backend.Backend.conjugate_gradient">conjugate_gradient</a></code></li>
+<li><code><a title="phi.math.backend.Backend.conjugate_gradient_adaptive" href="#phi.math.backend.Backend.conjugate_gradient_adaptive">conjugate_gradient_adaptive</a></code></li>
 <li><code><a title="phi.math.backend.Backend.conv" href="#phi.math.backend.Backend.conv">conv</a></code></li>
 <li><code><a title="phi.math.backend.Backend.coordinates" href="#phi.math.backend.Backend.coordinates">coordinates</a></code></li>
 <li><code><a title="phi.math.backend.Backend.copy" href="#phi.math.backend.Backend.copy">copy</a></code></li>
@@ -3874,6 +4194,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.math.backend.Backend.jit_compile" href="#phi.math.backend.Backend.jit_compile">jit_compile</a></code></li>
+<li><code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">linear_solve</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.backend.Backend.list_devices" href="#phi.math.backend.Backend.list_devices">list_devices</a></code></li>
 <li><code><a title="phi.math.backend.Backend.log" href="#phi.math.backend.Backend.log">log</a></code></li>
@@ -3931,7 +4252,8 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_dlpack" href="#phi.math.backend.Backend.to_dlpack">to_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_float" href="#phi.math.backend.Backend.to_float">to_float</a></code></li>
-<li><code><a title="phi.math.backend.Backend.to_int" href="#phi.math.backend.Backend.to_int">to_int</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_int32" href="#phi.math.backend.Backend.to_int32">to_int32</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_int64" href="#phi.math.backend.Backend.to_int64">to_int64</a></code></li>
 <li><code><a title="phi.math.backend.Backend.transpose" href="#phi.math.backend.Backend.transpose">transpose</a></code></li>
 <li><code><a title="phi.math.backend.Backend.unstack" href="#phi.math.backend.Backend.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.variable" href="#phi.math.backend.Backend.variable">variable</a></code></li>

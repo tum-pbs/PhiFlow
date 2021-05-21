@@ -4,7 +4,7 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 from typing import Tuple
 
 from phi import math, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, spatial_gradient, where, HardGeometryMask
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask
 from phi.geom import union
 from ._boundaries import Domain
 from ..math import SolveResult
@@ -58,8 +58,7 @@ def make_incompressible(velocity: Grid,
     hard_bcs.values._expand()
     if not solve.x0:
         solve = copy_with(solve, x0=domain.scalar_grid(0))
-    result = field.solve_linear(laplace, y=div, solve=solve)
-    pressure = result.x
+    pressure = field.solve_linear(laplace, y=div, solve=solve)
     if domain.boundaries['accessible'] == math.extrapolation.ZERO or domain.boundaries['vector'] == math.extrapolation.PERIODIC:
         def pressure_backward(_p, _p_, dp):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
@@ -70,7 +69,7 @@ def make_incompressible(velocity: Grid,
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
-    return velocity, result
+    return velocity, pressure
 
 
 def _balance_divergence(div, active):

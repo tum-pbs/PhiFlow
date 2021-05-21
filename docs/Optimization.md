@@ -29,6 +29,9 @@ def loss(x: Grid) -> math.Tensor:
 solution = field.minimize(loss, x0, math.Solve('L-BFGS-B', 0, 1e-3))
 ```
 
+`math.solve_nonlinear`
+
+
 ### Linear Equations
 For solving linear systems of equations, Φ<sub>Flow</sub> provides the functions
 [`math.solve_linear()`](phi/math/#phi.math.solve_linear) and [`field.solve_linear()`](phi/field/#phi.field.solve_linear).
@@ -42,8 +45,12 @@ def A(x: Grid) -> Grid:
 
 x = field.solve_linear(A, y, x0, math.Solve('CG', 1e-3, 0))
 ```
-Solve can also be used to find solutions to nonlinear equations.
-This is equivalent to minimizing the squared error with `minimize()`.
+
+| Method        | PyTorch | TensorFlow |                               Jax                              |                           NumPy                          |
+|---------------|:-------:|:----------:|:--------------------------------------------------------------:|:--------------------------------------------------------:|
+| 'CG'          |  Φ-Flow |   Φ-Flow   | `jax.scipy.sparse.linalg.cg` (only in jit mode, no trajectory) |         `scipy.sparse.linalg.cg` (no trajectory)         |
+| 'CG-adaptive' |  Φ-Flow |   Φ-Flow   |                  Φ-Flow (only function-based)                  |                          Φ-Flow                          |
+| 'auto'        |  Φ-Flow |   Φ-Flow   | `jax.scipy.sparse.linalg.cg` (only in jit mode, no trajectory) | `scipy.sparse.linalg.spsolve` (only for sparse matrices) |
 
 ### Handling Failed Optimizations
 Both `solve_linear` and `minimize` return only the solution.

@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 import phi
-from phi import math
+from phi import math, field
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
@@ -128,3 +128,55 @@ class TestTrace(TestCase):
                     x, y = result.x
                     math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
                     math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
+
+    def test_solve_linear_matrix(self):
+        for backend in BACKENDS:
+            with backend:
+                y = field.grid(1, math.shape(x=3))
+                x0 = field.grid(0, math.shape(x=3))
+                for method in ['CG', 'CG-adaptive', 'auto']:
+                    solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+                    x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+                    math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3, msg=backend)
+
+    def test_linear_solve_matrix_batched(self):
+        y = field.grid(1, math.shape(x=3)) * (1, 2)
+        x0 = field.grid(0, math.shape(x=3))
+        for method in ['CG', 'CG-adaptive', 'auto']:
+            solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+
+    def test_linear_solve_matrix_tape(self):
+        y = field.grid(1, math.shape(x=3)) * (1, 2)
+        x0 = field.grid(0, math.shape(x=3))
+        for method in ['CG', 'CG-adaptive', 'auto']:
+            solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            with math.SolveTape() as solves:
+                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+            assert len(solves) == 1
+            assert solves[0] == solves[solve]
+            math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
+            math.assert_close(solves[solve].iterations, 2)
+            with math.SolveTape(record_trajectories=True) as solves:
+                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+            assert solves[solve].x.trajectory.size == 3
+            math.assert_close(solves[solve].residual.trajectory[-1].values, 0, abs_tolerance=1e-3)
+            # math.print(solves[solve].x.vector[1])
+
+    def test_solve_linear_function_batched(self):
+        y = field.grid(1, math.shape(x=3)) * (1, 2)
+        x0 = field.grid(0, math.shape(x=3))
+        for method in ['CG', 'CG-adaptive', 'auto']:
+            solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], 'vector,x'), abs_tolerance=1e-3)
+            with math.SolveTape() as solves:
+                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], 'vector,x'), abs_tolerance=1e-3)
+            assert len(solves) == 1
+            assert solves[0] == solves[solve]
+            math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
+
