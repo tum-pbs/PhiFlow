@@ -815,13 +815,12 @@ class SolveResult(Generic[X, Y]):
         """ `str`, which method and implementation that was used. """
         if not msg:
             if self.diverged.any:
-                self.msg = f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
+                msg = f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
             elif not self.converged.trajectory[-1].all:
-                self.msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}."
+                msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}."
             else:
-                self.msg = f"Converged within {iterations if iterations is not None else '?'} iterations."
-        else:
-            self.msg = msg
+                msg = f"Converged within {iterations if iterations is not None else '?'} iterations."
+        self.msg = msg
         """ `str`, termination message """
 
     def __repr__(self):
@@ -830,13 +829,19 @@ class SolveResult(Generic[X, Y]):
     def snapshot(self, index):
         return SolveResult(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
 
-    def convergence_check(self):
+    def convergence_check(self, only_warn):
         if self.diverged.any:
             if Diverged not in self.solve.suppress:
-                raise Diverged(self)
+                if only_warn:
+                    warnings.warn(self.msg)
+                else:
+                    raise Diverged(self)
         if not self.converged.trajectory[-1].all:
             if NotConverged not in self.solve.suppress:
-                raise NotConverged(self)
+                if only_warn:
+                    warnings.warn(self.msg)
+                else:
+                    raise NotConverged(self)
 
 
 class ConvergenceException(RuntimeError):
@@ -1103,7 +1108,7 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -> X:
 
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
-                          active_dims: Shape or None, backend: Backend) -> Any:
+                          active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
     y_nest, (y_tensor,) = disassemble_nested(y)
     x0_nest, (x0_tensor,) = disassemble_nested(solve.x0)
     batch = (y_tensor.shape & x0_tensor.shape).without(active_dims)
@@ -1142,7 +1147,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         raise AssertionError(f"Backend.linear_solve returned invalid result: {type(ret)}")
     for tape in _SOLVE_TAPES:
         tape._add(solve, ret_type, result)
-    result.convergence_check()  # raises ConvergenceException
+    result.convergence_check(is_backprop and backend.name == 'TensorFlow')  # raises ConvergenceException
     return x
 
 
@@ -1152,17 +1157,17 @@ def attach_gradient_solve(forward_solve: Callable):
         grad_solve = solve.gradient_solve
         x0 = grad_solve.x0 if grad_solve.x0 is not None else zeros_like(solve.x0)
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
-        dy = solve_with_grad(dx, grad_solve_, *matrix, **kwargs)
+        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)
         return (dy, None, *([None] * len(matrix)))  # this should hopefully result in implicit gradients for higher orders as well
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve)
     return solve_with_grad
 
 
 def _matrix_solve_forward(y, solve: Solve, matrix: FixedShiftSparseTensor,
-                          backend: Backend = None):  # kwargs
+                          backend: Backend = None, is_backprop=False):  # kwargs
     matrix_native = matrix.native()
     active_dims = matrix.src_shape
-    result = _linear_solve_forward(y, solve, matrix_native, active_dims=active_dims, backend=backend)
+    result = _linear_solve_forward(y, solve, matrix_native, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
     return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
 
@@ -1170,7 +1175,7 @@ _matrix_solve = attach_gradient_solve(_matrix_solve_forward)
 
 
 def _function_solve_forward(y, solve: Solve,
-                            f: Callable = None, backend: Backend = None):  # kwargs
+                            f: Callable = None, backend: Backend = None, is_backprop=False):  # kwargs
     y_nest, (y_tensor,) = disassemble_nested(y)
     x0_nest, (x0_tensor,) = disassemble_nested(solve.x0)
     active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
@@ -1183,7 +1188,7 @@ def _function_solve_forward(y, solve: Solve,
         y_native = reshaped_native(y_tensor, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
         return y_native
 
-    result = _linear_solve_forward(y, solve, native_f, active_dims=active_dims, backend=backend)
+    result = _linear_solve_forward(y, solve, native_f, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
     return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
 

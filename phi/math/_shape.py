@@ -7,6 +7,7 @@ from phi import math
 BATCH_DIM = 'batch'
 SPATIAL_DIM = 'spatial'
 CHANNEL_DIM = 'channel'
+COLLECTION_DIM = 'collection'
 
 
 class Shape:
@@ -141,7 +142,7 @@ class Shape:
         Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -151,10 +152,10 @@ class Shape:
     @property
     def non_batch(self) -> 'Shape':
         """
-        Filters this shape, returning only the spatial and channel dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -167,7 +168,7 @@ class Shape:
         Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -177,10 +178,36 @@ class Shape:
     @property
     def non_spatial(self) -> 'Shape':
         """
-        Filters this shape, returning only the batch and channel dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+
+        Returns:
+            New `Shape` object
+        """
+        return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]
+
+    @property
+    def collection(self) -> 'Shape':
+        """
+        Filters this shape, returning only the collection dimensions as a new `Shape` object.
+
+        See also:
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+
+        Returns:
+            New `Shape` object
+        """
+        return self[[i for i, t in enumerate(self.types) if t == SPATIAL_DIM]]
+
+    @property
+    def non_collection(self) -> 'Shape':
+        """
+        Filters this shape, returning only the non-collection dimensions as a new `Shape` object.
+
+        See also:
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -193,7 +220,7 @@ class Shape:
         Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -203,10 +230,10 @@ class Shape:
     @property
     def non_channel(self) -> 'Shape':
         """
-        Filters this shape, returning only the batch and spatial dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -766,8 +793,10 @@ def shape(**dims: int) -> Shape:  # TODO add (base: Shape or dict, )
 def dim_type(dim: str) -> str:
     if len(dim) == 1:
         return SPATIAL_DIM
-    elif name.startswith('vector'):
+    elif dim.startswith('vector') or dim.endswith('_'):
         return CHANNEL_DIM
+    # elif dim.endswith('s'):
+    #     return COLLECTION_DIM
     else:
         return BATCH_DIM
 
