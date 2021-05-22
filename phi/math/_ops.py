@@ -14,7 +14,7 @@ from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE,
                      batch_shape, channel_shape, COLLECTION_DIM)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, tensors, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
-    assemble_tensors, disassemble_nested, assemble_nested
+    assemble_tensors, disassemble_nested, assemble_nested, value_attributes
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
 from .backend._dtype import DType, combine_types
 
@@ -998,11 +998,7 @@ def _backend_op1(x, unbound_method) -> Tensor:
     if isinstance(x, Tensor):
         return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
     elif isinstance(x, TensorLike):
-        assert hasattr(x, '__value_attrs__'), f"{x} is TensorLike but does not implement __value_attrs__, required for {unbound_method.__name__}."
-        attrs = x.__value_attrs__()
-        values = [getattr(x, a) for a in attrs]
-        new_values = [_backend_op1(v, unbound_method) for v in values]
-        return copy_with(x, **{a: v for a, v in zip(attrs, new_values)})
+        return copy_with(x, **{a: _backend_op1(getattr(x, a), unbound_method) for a in value_attributes(x)})
     else:
         backend = choose_backend(x)
         y = getattr(backend, unbound_method.__name__)(x)

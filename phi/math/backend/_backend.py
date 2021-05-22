@@ -1,7 +1,7 @@
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
-from typing import List, Callable, Tuple, Any
+from typing import List, Callable, Any
 
 import numpy
 
@@ -633,56 +633,107 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def minimize(self, method: str, f, x0, atol, max_iter, ret: str):
+    def minimize(self, method: str, f, x0, atol, max_iter, ret: type):
         from scipy.optimize import OptimizeResult, minimize
+        from threading import Thread
+
         assert self.supports(Backend.functional_gradient)
-        x0 = solve.x0
         assert len(self.staticshape(x0)) == 2  # (batch, parameters)
-        fg = self.functional_gradient(f, [0], get_output=True)
         batch_size = self.staticshape(x0)[0]
+        fg = self.functional_gradient(f, [0], get_output=True)
+        method_description = f"SciPy {method} with {self.name}"
+
         iterations = [0] * batch_size
         function_evaluations = [0] * batch_size
-        losses = []
-        last_result = [None]
-        if trajectory is not None:
-            function_evaluations += 1
-            trajectory.append(SolveResult(solve, x0, ))
+        xs = [None] * batch_size
+        final_losses = [None] * batch_size
+        converged = [False] * batch_size
+        diverged = [False] * batch_size
+        messages = [""] * batch_size
 
-        call_function_barrier = Barrier(batch_size)
+        f_inputs = [None] * batch_size
+        f_b_losses = None
+        f_b_losses_np = None
+        f_grad_np = None
+        f_input_available = Barrier(batch_size + 1)
+        f_output_available = Barrier(batch_size + 1)
+        finished = [False] * batch_size
+        all_finished = False
+        trajectories = [[] for _ in range(batch_size)] if ret == list else None
+        threads = []
 
-        def min_target(x: numpy.ndarray):
-            call_function_barrier.wait()
-            # TODO
-            function_evaluations[b] += 1
-            x = self.expand_dims(self.as_tensor(x, convert_external=True), 0)
-            output, (grad,) = fg(x)
-            loss = output[0] if isinstance(output, (tuple, list)) else output
-            grad = self.numpy(grad).astype(numpy.float64)
-            losses.append(loss)
-            return self.numpy(loss).astype(numpy.float64), grad
-
-        def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
-            iterations[b] += 1
-            loss = min(losses)
-            losses.clear()
-            last_result[0] = SolveResult(solve, x, loss, iterations[b], function_evaluations[b], converged=False, diverged=False)
-            if trajectory is not None:
-                trajectory.append(last_result[0])
-
-        results = []
         for b in range(batch_size):
-            from threading import Thread
-            Thread(target=lambda: minimize()).start()
-            res = minimize(fun=min_target, x0=x0[b], jac=True, method=solve.method, tol=solve.absolute_tolerance,
-                           options={'maxiter': solve.max_iterations}, callback=callback)
-            batch_result = SolveResult(solve, res.x, batch_result.final_state.residual,
-                                       iteration=res.nit,
-                                       function_evaluations=res.nfev,
-                                       converged=res.success,
-                                       diverged=res.status in (0, 1),
-                                       termination_message=res.message)
-            results.append(batch_result)
-        return batch_combine_solve_results(results, self)
+
+            def b_thread(b=b):
+                recent_b_losses = []
+
+                def b_fun(x: numpy.ndarray):
+                    function_evaluations[b] += 1
+                    f_inputs[b] = self.as_tensor(x, convert_external=True)
+                    f_input_available.wait()
+                    f_output_available.wait()
+                    recent_b_losses.append(f_b_losses[b])
+                    if final_losses[b] is None:  # first evaluation
+                        final_losses[b] = f_b_losses[b]
+                        if trajectories is not None:
+                            trajectories[b].append(FullSolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, ""))
+                    return f_b_losses_np[b], f_grad_np[b]
+
+                def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
+                    iterations[b] += 1
+                    loss = min(recent_b_losses)
+                    recent_b_losses.clear()
+                    final_losses[b] = loss
+                    if trajectories is not None:
+                        trajectories[b].append(FullSolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, ""))
+
+                res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={'maxiter': max_iter[b]}, callback=callback)
+                # res.nit, res.nfev
+                xs[b] = res.x
+                converged[b] = res.success
+                diverged[b] = res.status not in (0, 1)  # 0=success
+                messages[b] = res.message
+                finished[b] = True
+                while not all_finished:
+                    f_input_available.wait()
+                    f_output_available.wait()
+
+            b_thread = Thread(target=b_thread)
+            threads.append(b_thread)
+            b_thread.start()
+
+        while True:
+            f_input_available.wait()
+            if all(finished):
+                all_finished = True
+                f_output_available.wait()
+                break
+            _, f_b_losses, f_grad = fg(self.stack(f_inputs))
+            f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
+            f_grad_np = self.numpy(f_grad).astype(numpy.float64)
+            f_output_available.wait()
+
+        for b_thread in threads:
+            b_thread.join()  # make sure threads exit correctly
+
+        if ret == list:
+            max_trajectory_length = max([len(t) for t in trajectories])
+            last_points = [FullSolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], "") for b in range(batch_size)]
+            trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
+            trajectory = []
+            for states in zip(*trajectories):
+                x = self.stack([self.to_float(state.x) for state in states])
+                residual = self.stack([state.residual for state in states])
+                iterations = [state.iterations for state in states]
+                function_evaluations = [state.function_evaluations for state in states]
+                converged = [state.converged for state in states]
+                diverged = [state.diverged for state in states]
+                trajectory.append(FullSolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages))
+            return trajectory
+        else:
+            x = self.stack(xs)
+            residual = self.stack(final_losses)
+            return FullSolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
 
     def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
         """
@@ -729,10 +780,11 @@ class Backend:
         it_counter = 0
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
-        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
         trajectory = [] if ret == list else None
         while True:
-            diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
+            # diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
+            diverged = self.any(residual_squared / rsq0 > 4, axis=(1,))  # factor 2
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
@@ -768,13 +820,17 @@ class Backend:
         x = x0
         dx = residual = y - A(x)
         dy = A(dx)
+        rsq0 = None
         it_counter = 0
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
         trajectory = [] if ret == list else None
         while True:
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-            diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
+            if rsq0 is None:
+                rsq0 = residual_squared
+            # diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
+            diverged = self.any(residual_squared / rsq0 > 4, axis=(1,))  # factor 2
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(FullSolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
@@ -1092,30 +1148,6 @@ def combined_dim(dim1, dim2, type_str: str = 'batch'):
         return dim1
     assert dim1 == dim2, f"Incompatible {type_str} dimensions: x0 {dim1}, y {dim2}"
     return dim1
-
-
-def batch_combine_solve_results(results: List[BasicSolveResult], backend: Backend):
-    def batch_combine_solver_states(states: List[SolverState] or Tuple[SolverState]):
-        x = backend.stack([s.x for s in states])
-        residual = None
-        if states[0].residual is not None:
-            residual = backend.stack([s.residual for s in states])
-        return SolverState(x, residual, max([s.iteration for s in states]),
-                           max([s.function_evaluations for s in states]),
-                           all(s.converged for s in states),
-                           any(s.diverged for s in states))
-
-    result = SolveResult(results[0].parameters)
-    result.final_state = batch_combine_solver_states([r.final_state for r in results])
-    if results[0].trajectory:
-        tlen = max([len(r.trajectory) for r in results])
-        trajectories = [r.trajectory + [r.final_state] * (tlen - len(r.trajectory)) for r in results]
-        result.trajectory = [batch_combine_solver_states(states) for states in zip(*trajectories)]
-    for r in results:
-        if r._termination_message:
-            result._termination_message = r._termination_message
-            break
-    return result
 
 
 def as_linear_function(lin, backend):

@@ -10,7 +10,7 @@ from scipy.sparse import issparse
 from scipy.sparse.linalg import cg, LinearOperator, spsolve
 
 from . import Backend, ComputeDevice
-from ._backend import combined_dim, batch_combine_solve_results, BasicSolveResult, FullSolveResult
+from ._backend import combined_dim, BasicSolveResult, FullSolveResult
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 
@@ -473,7 +473,7 @@ class NumPyBackend(Backend):
         converged = []
         diverged = []
         for b in range(batch_size):
-            x, ret_val = cg(lin[b], y[b], x0[b], tol=rtol, atol=atol, maxiter=max_iter, callback=count_callback)
+            x, ret_val = cg(lin[b], y[b], x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b], callback=count_callback)
             # ret_val: 0=success, >0=not converged, <0=error
             xs.append(x)
             converged.append(ret_val == 0)

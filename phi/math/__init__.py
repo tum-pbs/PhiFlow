@@ -51,7 +51,7 @@ from ._nd import (
     shift,
     spatial_sum, vec_abs, vec_squared, cross_product,
     normalize_to,
-    l1_loss, l2_loss, l_n_loss, frequency_loss,
+    l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,

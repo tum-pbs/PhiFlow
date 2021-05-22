@@ -334,26 +334,6 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field):
     return field_true.with_(values=values)
 
 
-def l1_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
-    """ L1 loss for the unweighted values of the field. See `phi.math.l1_loss()`. """
-    return math.l1_loss(field.values, batch_norm=batch_norm)
-
-
-def l2_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
-    """ L2 loss for the unweighted values of the field. See `phi.math.l2_loss()`. """
-    return math.l2_loss(field.values, batch_norm=batch_norm)
-
-
-def frequency_loss(field: SampledField,
-                   n=2,
-                   frequency_falloff=100,
-                   threshold=1e-5,
-                   batch_norm: bool or str or tuple or list or math.Shape = True,
-                   ignore_mean=False):
-    """ Frequency loss for the unweighted values of the field. See `phi.math.frequency_loss()`. """
-    return math.frequency_loss(field.values, n=n, frequency_falloff=frequency_falloff, threshold=threshold, batch_norm=batch_norm, ignore_mean=ignore_mean)
-
-
 def vec_abs(field: SampledField):
     """ See `phi.math.vec_abs()` """
     if isinstance(field, StaggeredGrid):

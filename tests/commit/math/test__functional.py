@@ -2,12 +2,13 @@ from unittest import TestCase
 
 import phi
 from phi import math, field
+from phi.math import Solve, Diverged, wrap, tensor
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
 
 
-class TestTrace(TestCase):
+class TestFunctional(TestCase):
 
     def test_jit_compile(self):
         @math.jit_compile
@@ -119,15 +120,30 @@ class TestTrace(TestCase):
         def loss(x, y):
             return math.l1_loss(x - 1) + math.l1_loss(y + 1)
 
-        x0 = math.zeros(x=4), math.zeros(y=4)
         for backend in BACKENDS:
             if backend.supports(Backend.functional_gradient):
-                print(backend)
                 with backend:
-                    result = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
-                    x, y = result.x
+                    x0 = tensor([[0, 0, 0], [1, 1, 1]], 'batch,x'), tensor([[0, 0, 0], [-1, -1, -1]], 'batch,y')
+                    x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
                     math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
                     math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
+
+                    with math.SolveTape() as solves:
+                        x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
+                    math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
+                    math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
+                    math.assert_close(solves[0].residual, 0, abs_tolerance=1e-4)
+                    assert (solves[0].iterations <= (4, 0)).all
+                    assert (solves[0].function_evaluations <= (30, 1)).all
+
+                    with math.SolveTape(record_trajectories=True) as trajectories:
+                        x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
+                    math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
+                    math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
+                    math.assert_close(trajectories[0].residual.trajectory[-1], 0, abs_tolerance=1e-4)
+                    assert (trajectories[0].iterations == solves[0].iterations).all
+                    assert trajectories[0].residual.trajectory.size == trajectories[0].x[0].trajectory.size
+                    assert trajectories[0].residual.trajectory.size > 1
 
     def test_solve_linear_matrix(self):
         for backend in BACKENDS:
@@ -158,7 +174,7 @@ class TestTrace(TestCase):
             assert len(solves) == 1
             assert solves[0] == solves[solve]
             math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
-            math.assert_close(solves[solve].iterations, 2)
+            assert math.close(solves[solve].iterations, 2) or math.close(solves[solve].iterations, -1)
             with math.SolveTape(record_trajectories=True) as solves:
                 x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
             math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
@@ -180,3 +196,19 @@ class TestTrace(TestCase):
             assert solves[0] == solves[solve]
             math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
 
+    def test_solve_diverge(self):
+        y = math.ones(x=2) * (1, 2)
+        x0 = math.zeros(x=2)
+        for method in ['CG']:
+            solve = Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            try:
+                field.solve_linear(math.jit_compile_linear(math.laplace), y, solve)
+                assert False
+            except Diverged:
+                pass
+            with math.SolveTape(record_trajectories=True) as solves:
+                try:
+                    field.solve_linear(math.jit_compile_linear(math.laplace), y, solve)  # impossible
+                    assert False
+                except Diverged:
+                    pass

@@ -160,6 +160,16 @@ class Tensor:
             else:
                 return any_(self).native()
 
+    @property
+    def mean(self):
+        from ._ops import mean
+        return mean(self).native()
+
+    @property
+    def sum(self):
+        from ._ops import sum_
+        return sum_(self).native()
+
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
 
@@ -1436,6 +1446,11 @@ def variable_attributes(obj):
         return obj.__value_attrs__()
     else:
         raise ValueError(f"Not TensorLike: {type(obj)}")
+
+
+def value_attributes(obj):
+    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
+    return obj.__value_attrs__()
 
 
 TensorLikeType = TypeVar('TensorLikeType')

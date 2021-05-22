@@ -70,7 +70,7 @@ class TestMathFunctions(TestCase):
                     coords = math.tensor([0.5, 1.5], 'points')
                     with math.record_gradients(grid, coords):
                         sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
-                        loss = math.l2_loss(sampled)
+                        loss = math.mean(math.l2_loss(sampled))
                         grad_grid, grad_coords = math.gradients(loss, grid, coords)
                         grads_grid.append(grad_grid)
                         grads_coords.append(grad_coords)

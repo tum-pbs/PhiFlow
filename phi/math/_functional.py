@@ -8,7 +8,8 @@ from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 import numpy as np
 
 from . import _ops as math
-from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, batch_stack
+from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, batch_stack, \
+    sum_, to_float
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, shape, vector_add, combine_safe
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_nested, TensorLike, assemble_nested, copy_with, \
     disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap
@@ -829,7 +830,7 @@ class SolveResult(Generic[X, Y]):
     def snapshot(self, index):
         return SolveResult(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
 
-    def convergence_check(self, only_warn):
+    def convergence_check(self, only_warn: bool):
         if self.diverged.any:
             if Diverged not in self.solve.suppress:
                 if only_warn:
@@ -985,6 +986,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     """
     assert solve.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
     x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
     batch = combine_safe(*[t.shape for t in x0_tensors]).batch
     x0_natives = []
@@ -994,13 +996,13 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         x0_natives.append(reshaped_native(t, [batch, t.shape.non_batch], force_expand=True))
     x0_flat = backend.concat(x0_natives, -1)
 
-    def unflatten_assemble(x_flat):
+    def unflatten_assemble(x_flat, additional_dims=()):
         i = 0
         x_tensors = []
         for x0_native, x0_tensor in zip(x0_natives, x0_tensors):
             vol = backend.shape(x0_native)[-1]
-            flat_native = x_flat[:, i:i + vol]
-            x_tensors.append(reshaped_tensor(flat_native, [batch, x0_tensor.shape.non_batch]))
+            flat_native = x_flat[..., i:i + vol]
+            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch, x0_tensor.shape.non_batch]))
             i += vol
         x = assemble_nested(x0_nest, x_tensors)
         return x
@@ -1012,21 +1014,38 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         else:
             y = f(x)
         _, y_tensors = disassemble_nested(y)
-        return y_tensors[0].native()
+        return y_tensors[0].sum, y_tensors[0].native()
 
-    def assemble_state(native: SolverState):
-        x = unflatten_assemble(native.x)
-        return SolverState(x, native.residual, native.iteration, native.function_evaluations, native.converged, native.diverged)
-
-    def assemble_result(native: SolveResult):
-        result = SolveResult(solve)
-        result.final_state = assemble_state(native.final_state)
-        return result
-
-    result_native = backend.minimize(native_function, copy_with(solve, x0=x0_flat))
-    result = assemble_result(result_native)
-    result.convergence_check()
-    return result
+    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
+    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
+    ret_type = current_solve_mode()
+    ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, ret_type)
+    if isinstance(ret, BasicSolveResult):
+        raise NotImplementedError()
+    elif isinstance(ret, FullSolveResult):
+        converged = reshaped_tensor(ret.converged, [batch])
+        diverged = reshaped_tensor(ret.diverged, [batch])
+        x = unflatten_assemble(ret.x)
+        iterations = reshaped_tensor(ret.iterations, [batch])
+        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
+        residual = reshaped_tensor(ret.residual, [batch])
+        result = SolveResult(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+    elif isinstance(ret, (tuple, list)):  # trajectory
+        assert all(isinstance(r, FullSolveResult) for r in ret)
+        converged = reshaped_tensor(ret[-1].converged, [batch])
+        diverged = reshaped_tensor(ret[-1].diverged, [batch])
+        x = unflatten_assemble(ret[-1].x)
+        x_ = unflatten_assemble(backend.stack([r.x for r in ret]), additional_dims=('trajectory',))
+        residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], 'trajectory')
+        iterations = reshaped_tensor(ret[-1].iterations, [batch])
+        function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], 'trajectory')
+        result = SolveResult(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+    else:
+        raise AssertionError(f"Backend.linear_solve returned invalid result: {type(ret)}")
+    for tape in _SOLVE_TAPES:
+        tape._add(solve, ret_type, result)
+    result.convergence_check(False)  # raises ConvergenceException
+    return x
 
 
 def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
@@ -1135,8 +1154,8 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         result = SolveResult(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
     elif isinstance(ret, (tuple, list)):  # trajectory
         assert all(isinstance(r, FullSolveResult) for r in ret)
-        converged = batch_stack([reshaped_tensor(r.converged, [batch]) for r in ret], 'trajectory')
-        diverged = batch_stack([reshaped_tensor(r.diverged, [batch]) for r in ret], 'trajectory')
+        converged = reshaped_tensor(ret[-1].converged, [batch])
+        diverged = reshaped_tensor(ret[-1].diverged, [batch])
         x = assemble_nested(x0_nest, [reshaped_tensor(ret[-1].x, [batch, active_dims])])
         x_ = assemble_nested(x0_nest, [batch_stack([reshaped_tensor(r.x, [batch, active_dims]) for r in ret], 'trajectory')])
         residual = assemble_nested(y_nest, [batch_stack([reshaped_tensor(r.residual, [batch, active_dims]) for r in ret], 'trajectory')])
@@ -1147,7 +1166,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         raise AssertionError(f"Backend.linear_solve returned invalid result: {type(ret)}")
     for tape in _SOLVE_TAPES:
         tape._add(solve, ret_type, result)
-    result.convergence_check(is_backprop and backend.name == 'TensorFlow')  # raises ConvergenceException
+    result.convergence_check(is_backprop and 'TensorFlow' in backend.name)  # raises ConvergenceException
     return x
 
 

@@ -29,6 +29,7 @@ from phi.math import (
     stop_gradient,
     jit_compile, jit_compile_linear, functional_gradient,
     solve_linear, solve_nonlinear, minimize,
+    l2_loss, l1_loss, frequency_loss,
 )
 from ._field_math import (
     assert_close, convert,
@@ -38,7 +39,6 @@ from ._field_math import (
     concat, batch_stack, channel_stack,
     where,
     vec_squared, vec_abs,
-    l2_loss, l1_loss, frequency_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
     native_call,
