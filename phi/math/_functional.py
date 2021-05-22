@@ -854,7 +854,7 @@ class ConvergenceException(RuntimeError):
     """
 
     def __init__(self, result: SolveResult):
-        RuntimeError.__init__(self, result)
+        RuntimeError.__init__(self, result.msg)
         self.result: SolveResult = result
         """ `SolveResult` holding information about the solve. """
 

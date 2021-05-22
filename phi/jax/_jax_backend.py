@@ -14,7 +14,7 @@ from jax import random
 from phi.math import SolveResult, Solve, DType
 from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 from phi.math.backend import Backend, ComputeDevice
-from phi.math.backend._backend import combined_dim
+from phi.math.backend._backend import combined_dim, FullSolveResult, BasicSolveResult
 
 
 class JaxBackend(Backend):
@@ -444,21 +444,18 @@ class JaxBackend(Backend):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def conjugate_gradient(self, A, y, solve: Solve):
-        if self.is_available(y):
-            return Backend.conjugate_gradient(self, A, y, solve)
-
-        bs_y = self.staticshape(y)[0]
-        bs_x0 = self.staticshape(x0)[0]
-        batch_size = combined_dim(bs_y, bs_x0)
-        results = []
-        for batch in range(batch_size):
-            y_ = y[min(batch, bs_y - 1)]
-            x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(f, y_, x0_, tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations)
-            results.append(x)
-        solve.result = SolveResult(-1)
-        return self.stack(results)
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: type):
+        if self.is_available(y) or ret != BasicSolveResult:
+            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret)
+        batch_size = combined_dim(self.staticshape(y)[0], self.staticshape(x0)[0])
+        xs = []
+        for b in range(batch_size):
+            x, _ = cg(lin, y[b], x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b])
+            xs.append(x)
+        x = jnp.stack(xs)
+        diverged = jnp.any(~jnp.isfinite(x), axis=(1,))
+        converged = ~diverged
+        return BasicSolveResult('scipy.sparse.linalg.cg', x, converged, diverged)
 
 
 JAX_BACKEND = JaxBackend()

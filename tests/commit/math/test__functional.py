@@ -118,7 +118,7 @@ class TestFunctional(TestCase):
 
     def test_minimize(self):
         def loss(x, y):
-            return math.l1_loss(x - 1) + math.l1_loss(y + 1)
+            return math.l2_loss(x - 1) + math.l2_loss(y + 1)
 
         for backend in BACKENDS:
             if backend.supports(Backend.functional_gradient):

@@ -1006,6 +1006,19 @@ def _backend_op1(x, unbound_method) -> Tensor:
 
 
 def abs_(x) -> Tensor:
+    """
+    Computes *||x||<sub>1</sub>*.
+    Complex `x` result in matching precision float values.
+
+    *Note*: The gradient of this operation is undefined for *x=0*.
+    TensorFlow and PyTorch return 0 while Jax returns 1.
+
+    Args:
+        x: `Tensor` or `TensorLike`
+
+    Returns:
+        Absolute value of `x` of same type as `x`.
+    """
     return _backend_op1(x, Backend.abs)
 
 
