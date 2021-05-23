@@ -60,7 +60,7 @@ from ._nd import (
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     functional_gradient, custom_gradient, print_gradient,
-    solve_linear, solve_nonlinear, minimize, Solve, SolveResult, ConvergenceException, NotConverged, Diverged, SolveTape,
+    solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
 )
 
 
@@ -76,7 +76,7 @@ __all__ = [key for key in globals().keys() if not key.startswith('_')]
 __pdoc__ = {
     'Extrapolation.__init__': False,
     'Shape.__init__': False,
-    'SolveResult.__init__': False,
+    'SolveInfo.__init__': False,
     'TensorDim.__init__': False,
     'ConvergenceException.__init__': False,
     'Diverged.__init__': False,

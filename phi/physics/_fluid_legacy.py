@@ -6,7 +6,7 @@ from . import advect, Obstacle
 from ._effect import Gravity, effect_applied, gravity_tensor, FieldEffect
 from ._physics import Physics, StateDependency, State
 from .fluid import make_incompressible
-from ..math import SolveResult
+from ..math import SolveInfo
 
 
 @struct.definition()
@@ -103,7 +103,7 @@ class IncompressibleFlow(Physics):
         gravity = gravity_tensor(gravity, fluid.rank)
         velocity = fluid.velocity
         density = fluid.density
-        result: SolveResult = None
+        result: SolveInfo = None
         div = field.divergence(velocity)
         if self.make_input_divfree:
             velocity, result = make_incompressible(velocity, fluid.domain, obstacles)

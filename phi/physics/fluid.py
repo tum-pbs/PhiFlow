@@ -7,14 +7,14 @@ from phi import math, field
 from phi.field import GeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask
 from phi.geom import union
 from ._boundaries import Domain
-from ..math import SolveResult
+from ..math import SolveInfo
 from ..math._tensors import copy_with
 
 
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('CG-adaptive', 1e-5, 0)) -> Tuple[Grid, SolveResult]:
+                        solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, SolveInfo]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -24,8 +24,7 @@ def make_incompressible(velocity: Grid,
       velocity: Vector field sampled on a grid
       domain: Used to specify boundary conditions
       obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
-      pressure_guess: Initial guess for the pressure solve_linear
-      solve: Parameters for the pressure solve_linear
+      solve: Parameters for the pressure solve as.
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`

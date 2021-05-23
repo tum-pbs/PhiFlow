@@ -11,10 +11,10 @@ from jax.core import Tracer
 from jax.scipy.sparse.linalg import cg
 from jax import random
 
-from phi.math import SolveResult, Solve, DType
+from phi.math import SolveInfo, Solve, DType
 from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 from phi.math.backend import Backend, ComputeDevice
-from phi.math.backend._backend import combined_dim, FullSolveResult, BasicSolveResult
+from phi.math.backend._backend import combined_dim, SolveResult
 
 
 class JaxBackend(Backend):
@@ -444,18 +444,19 @@ class JaxBackend(Backend):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: type):
-        if self.is_available(y) or ret != BasicSolveResult:
-            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret)
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool):
+        if self.is_available(y) or trj:
+            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
         batch_size = combined_dim(self.staticshape(y)[0], self.staticshape(x0)[0])
         xs = []
         for b in range(batch_size):
+            # TODO if lin is batch-dependent, we may need to split it as lin_b = lambda x: lin(stack(...,x))[b]
             x, _ = cg(lin, y[b], x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b])
             xs.append(x)
         x = jnp.stack(xs)
         diverged = jnp.any(~jnp.isfinite(x), axis=(1,))
         converged = ~diverged
-        return BasicSolveResult('scipy.sparse.linalg.cg', x, converged, diverged)
+        return SolveResult('scipy.sparse.linalg.cg', x, None, [-1] * batch_size, [-1] * batch_size, converged, diverged, "")
 
 
 JAX_BACKEND = JaxBackend()

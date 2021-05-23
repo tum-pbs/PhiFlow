@@ -10,7 +10,7 @@ import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math import Solve, DType, SolveResult, Diverged, NotConverged
+from phi.math import Solve, DType, SolveInfo, Diverged, NotConverged
 from phi.math.backend import Backend, NUMPY_BACKEND, ComputeDevice
 from phi.math.backend._backend import combined_dim
 
@@ -576,7 +576,7 @@ class TorchBackend(Backend):
     #                                                       torch.tensor(s.relative_tolerance, dtype=dtype, device=self.get_default_device().ref),
     #                                                       torch.tensor(s.absolute_tolerance, dtype=dtype, device=self.get_default_device().ref),
     #                                                       torch.tensor(s.max_iterations, dtype=torch.int32, device=self.get_default_device().ref))
-    #         s.result = SolveResult(iterations)
+    #         s.result = SolveInfo(iterations)
     #         if diverged:
     #             raise Diverged(s, x0, x)
     #         if not converged:

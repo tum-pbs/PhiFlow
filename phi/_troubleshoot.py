@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 
 
 def assert_minimal_config():  # raises AssertionError
@@ -133,3 +134,38 @@ def troubleshoot_dash():
         return f"Runtime error: {e}"
     return 'OK'
 
+
+@contextmanager
+def plot_solves():
+    """
+
+
+    While `plot_solves()` is active, certain performance optimizations and algorithm implementations may be disabled.
+
+    Returns:
+
+    """
+    from .math import SolveTape, l1_loss, SolveInfo
+    import pylab
+    with SolveTape(record_trajectories=True) as solves:
+        try:
+            yield solves
+        finally:
+            for i, result in enumerate(solves):
+                assert isinstance(result, SolveInfo)
+                res = l1_loss(result.residual)
+                pylab.plot(res.inflow_loc[0].numpy(), label=f"{i}: {result.method}")
+                print(f"Solve {i}: {result.method}\n"
+                      f"\t{result.solve}\n"
+                      f"\t{result.msg}\n"
+                      f"\tConverged: {result.converged}\n"
+                      f"\tDiverged: {result.diverged}\n"
+                      f"\tIterations: {result.iterations}\n"
+                      f"\tFunction evaulations: {result.function_evaluations.trajectory[-1]}")
+            pylab.yscale('log')
+            pylab.ylabel("Residual $L_1$")
+            pylab.xlabel("Iteration")
+            pylab.title(f"Solve Convergence")
+            pylab.legend(loc='upper right')
+            pylab.savefig(f"pressure-solvers-FP32.png")
+            pylab.show()

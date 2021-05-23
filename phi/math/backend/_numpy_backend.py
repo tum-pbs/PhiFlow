@@ -10,7 +10,7 @@ from scipy.sparse import issparse
 from scipy.sparse.linalg import cg, LinearOperator, spsolve
 
 from . import Backend, ComputeDevice
-from ._backend import combined_dim, BasicSolveResult, FullSolveResult
+from ._backend import combined_dim, SolveResult
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 
@@ -429,8 +429,8 @@ class NumPyBackend(Backend):
     #             return grads
     #     return gradient
 
-    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
-        if method == 'auto' and ret != list and issparse(lin):
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> Any:
+        if method == 'auto' and not trj and issparse(lin):
             batch_size = self.staticshape(y)[0]
             xs = []
             converged = []
@@ -443,17 +443,13 @@ class NumPyBackend(Backend):
             converged = np.stack(converged)
             diverged = ~converged
             iterations = [-1] * batch_size  # spsolve does not perform iterations
-            if ret == BasicSolveResult:
-                return BasicSolveResult('scipy.sparse.linalg.spsolve', x, converged, diverged)
-            elif ret == FullSolveResult:
-                residual = (lin * x.T).T - y
-                return FullSolveResult('scipy.sparse.linalg.spsolve', x, residual, iterations, iterations, converged, diverged, "")
+            return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, "")
         else:
-            return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, ret)
+            return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
 
-    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret: type) -> Any:
-        if ret == list or callable(lin):
-            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, ret)  # generic implementation
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> Any:
+        if trj or callable(lin):
+            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)  # generic implementation
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
@@ -468,7 +464,6 @@ class NumPyBackend(Backend):
             iterations[b] += 1
 
         xs = []
-        residuals = []
         iterations = [0] * batch_size
         converged = []
         diverged = []
@@ -478,15 +473,9 @@ class NumPyBackend(Backend):
             xs.append(x)
             converged.append(ret_val == 0)
             diverged.append(ret_val < 0 or np.any(~np.isfinite(x)))
-            if ret == FullSolveResult:
-                residuals.append((lin[b] * x.T).T - y[b])
         x = np.stack(xs)
-        if ret == BasicSolveResult:
-            return BasicSolveResult('scipy.sparse.linalg.cg', x, converged, diverged)
-        elif ret == FullSolveResult:
-            residual = np.stack(residuals)
-            f_eval = [i + 1 for i in iterations]
-            return FullSolveResult('scipy.sparse.linalg.cg', x, residual, iterations, f_eval, converged, diverged, "")
+        f_eval = [i + 1 for i in iterations]
+        return SolveResult('scipy.sparse.linalg.cg', x, None, iterations, f_eval, converged, diverged, "")
 
 
 NUMPY_BACKEND = NumPyBackend()
