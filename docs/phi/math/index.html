@@ -87,7 +87,7 @@ from ._nd import (
     shift,
     spatial_sum, vec_abs, vec_squared, cross_product,
     normalize_to,
-    l1_loss, l2_loss, l_n_loss, frequency_loss,
+    l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
@@ -96,7 +96,7 @@ from ._nd import (
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     functional_gradient, custom_gradient, print_gradient,
-    solve_linear, solve_nonlinear, minimize, Solve, SolveResult, ConvergenceException, NotConverged, Diverged, SolveTape,
+    solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
 )
 
 
@@ -112,7 +112,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 __pdoc__ = {
     &#39;Extrapolation.__init__&#39;: False,
     &#39;Shape.__init__&#39;: False,
-    &#39;SolveResult.__init__&#39;: False,
+    &#39;SolveInfo.__init__&#39;: False,
     &#39;TensorDim.__init__&#39;: False,
     &#39;ConvergenceException.__init__&#39;: False,
     &#39;Diverged.__init__&#39;: False,
@@ -157,12 +157,35 @@ __pdoc__ = {
 <span>def <span class="ident">abs</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>||x||<sub>1</sub></em>.
+Complex <code>x</code> result in matching precision float values.</p>
+<p><em>Note</em>: The gradient of this operation is undefined for <em>x=0</em>.
+TensorFlow and PyTorch return 0 while Jax returns 1.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Absolute value of <code>x</code> of same type as <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def abs_(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
+    Complex `x` result in matching precision float values.
+
+    *Note*: The gradient of this operation is undefined for *x=0*.
+    TensorFlow and PyTorch return 0 while Jax returns 1.
+
+    Args:
+        x: `Tensor` or `TensorLike`
+
+    Returns:
+        Absolute value of `x` of same type as `x`.
+    &#34;&#34;&#34;
     return _backend_op1(x, Backend.abs)</code></pre>
 </details>
 </dd>
@@ -1440,7 +1463,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>values: phi.math._tensors.Tensor, n=2, frequency_falloff: float = 100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>x, n=2, frequency_falloff: float = 100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
@@ -1450,7 +1473,7 @@ Lower frequencies are weighted more strongly then higher frequencies, depending 
 <dt><strong><code>values</code></strong></dt>
 <dd>Values to penalize, typically <code>actual - target</code></dd>
 <dt><strong><code>n</code></strong></dt>
-<dd>Loss type, see <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code>.</dd>
+<dd>Loss type, see <code>l_n_loss()</code>.</dd>
 <dt><strong><code>frequency_falloff</code></strong></dt>
 <dd>Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
 <em>Note</em>: The total loss is not normalized. Varying the value will result in losses of different magnitudes.</dd>
@@ -1468,7 +1491,7 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def frequency_loss(values: Tensor,
+<pre><code class="python">def frequency_loss(x,
                    n=2,
                    frequency_falloff: float = 100,
                    threshold=1e-5,
@@ -1912,79 +1935,83 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 </details>
 </dd>
 <dt id="phi.math.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes L1 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
+<div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub></em>, summing over all non-batch dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.
+For <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> objects, only value the sum over all value attributes is computed.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>loss</code></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l1_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
-    &#34;&#34;&#34; Computes L1 loss. See `l_n_loss()` &#34;&#34;&#34;
-    return l_n_loss(abs(tensor), 1, batch_norm=batch_norm)</code></pre>
+<pre><code class="python">def l1_loss(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;1&lt;/sub&gt;*, summing over all non-batch dimensions.
+
+    Args:
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
+
+    Returns:
+        loss: `Tensor`
+    &#34;&#34;&#34;
+    if isinstance(x, Tensor):
+        return math.sum_(abs(x), x.shape.non_batch)
+    elif isinstance(x, TensorLike):
+        return sum([l1_loss(getattr(x, a)) for a in value_attributes(x)])
+    else:
+        raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes L2 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def l2_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
-    &#34;&#34;&#34; Computes L2 loss. See `l_n_loss()` &#34;&#34;&#34;
-    return l_n_loss(tensor, 2, batch_norm=batch_norm)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.l_n_loss"><code class="name flex">
-<span>def <span class="ident">l_n_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, n: int, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Computes the vector norm of a tensor.
-This is defined as <em>sum x</em><em>n / n</em>.</p>
+<div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2</em>, summing over all non-batch dimensions.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>tensor</code></strong></dt>
-<dd>Loss values.</dd>
-<dt><strong><code>n</code></strong></dt>
-<dd>norm order, 1 for L1 loss, 2 for L2 loss.</dd>
-<dt><strong><code>batch_norm</code></strong></dt>
-<dd>Either <code>bool</code> specifying whether to divide by the product of all batch sizes or specific dimensions.</dd>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.
+For <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> objects, only value the sum over all value attributes is computed.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Scalar float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<dl>
+<dt><code>loss</code></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l_n_loss(tensor: Tensor,
-             n: int,
-             batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
+<pre><code class="python">def l2_loss(x) -&gt; Tensor:
     &#34;&#34;&#34;
-    Computes the vector norm of a tensor.
-    This is defined as *sum x**n / n*.
+    Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;2&lt;/sub&gt;&lt;sup&gt;2&lt;/sup&gt; / 2*, summing over all non-batch dimensions.
 
     Args:
-      tensor: Loss values.
-      n: norm order, 1 for L1 loss, 2 for L2 loss.
-      batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
 
     Returns:
-        Scalar float `Tensor`
+        loss: `Tensor`
     &#34;&#34;&#34;
-    assert isinstance(tensor, Tensor), f&#34;Must be a Tensor but got {type(tensor).__name__}&#34;
-    total_loss = math.sum_(abs(tensor) ** n) / n
-    if batch_norm:
-        if isinstance(batch_norm, bool):
-            batch_size = tensor.shape.batch.volume
-        else:
-            batch_size = tensor.shape.only(batch_norm).volume
-        return total_loss / batch_size
+    if isinstance(x, Tensor):
+        if x.dtype.kind == complex:
+            x = abs(x)
+        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+    elif isinstance(x, TensorLike):
+        return sum([l2_loss(getattr(x, a)) for a in value_attributes(x)])
     else:
-        return total_loss</code></pre>
+        raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.laplace"><code class="name flex">
@@ -2321,6 +2348,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
     &#34;&#34;&#34;
     assert solve.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
     x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
     batch = combine_safe(*[t.shape for t in x0_tensors]).batch
     x0_natives = []
@@ -2330,13 +2358,13 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         x0_natives.append(reshaped_native(t, [batch, t.shape.non_batch], force_expand=True))
     x0_flat = backend.concat(x0_natives, -1)
 
-    def unflatten_assemble(x_flat):
+    def unflatten_assemble(x_flat, additional_dims=()):
         i = 0
         x_tensors = []
         for x0_native, x0_tensor in zip(x0_natives, x0_tensors):
             vol = backend.shape(x0_native)[-1]
-            flat_native = x_flat[:, i:i + vol]
-            x_tensors.append(reshaped_tensor(flat_native, [batch, x0_tensor.shape.non_batch]))
+            flat_native = x_flat[..., i:i + vol]
+            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch, x0_tensor.shape.non_batch]))
             i += vol
         x = assemble_nested(x0_nest, x_tensors)
         return x
@@ -2348,21 +2376,35 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         else:
             y = f(x)
         _, y_tensors = disassemble_nested(y)
-        return y_tensors[0].native()
+        return y_tensors[0].sum, y_tensors[0].native()
 
-    def assemble_state(native: SolverState):
-        x = unflatten_assemble(native.x)
-        return SolverState(x, native.residual, native.iteration, native.function_evaluations, native.converged, native.diverged)
-
-    def assemble_result(native: SolveResult):
-        result = SolveResult(solve)
-        result.final_state = assemble_state(native.final_state)
-        return result
-
-    result_native = backend.minimize(native_function, copy_with(solve, x0=x0_flat))
-    result = assemble_result(result_native)
-    result.convergence_check()
-    return result</code></pre>
+    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
+    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
+    trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
+    if not trj:
+        assert isinstance(ret, SolveResult)
+        converged = reshaped_tensor(ret.converged, [batch])
+        diverged = reshaped_tensor(ret.diverged, [batch])
+        x = unflatten_assemble(ret.x)
+        iterations = reshaped_tensor(ret.iterations, [batch])
+        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
+        residual = reshaped_tensor(ret.residual, [batch])
+        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+    else:  # trajectory
+        assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
+        converged = reshaped_tensor(ret[-1].converged, [batch])
+        diverged = reshaped_tensor(ret[-1].diverged, [batch])
+        x = unflatten_assemble(ret[-1].x)
+        x_ = unflatten_assemble(backend.stack([r.x for r in ret]), additional_dims=(&#39;trajectory&#39;,))
+        residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], &#39;trajectory&#39;)
+        iterations = reshaped_tensor(ret[-1].iterations, [batch])
+        function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], &#39;trajectory&#39;)
+        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+    for tape in _SOLVE_TAPES:
+        tape._add(solve, trj, result)
+    result.convergence_check(False)  # raises ConvergenceException
+    return x</code></pre>
 </details>
 </dd>
 <dt id="phi.math.minimum"><code class="name flex">
@@ -4545,10 +4587,10 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
         `Diverged`, `NotConverged`.
     &#34;&#34;&#34;
 
-    def __init__(self, result: SolveResult):
-        RuntimeError.__init__(self, result)
-        self.result: SolveResult = result
-        &#34;&#34;&#34; `SolveResult` holding information about the solve. &#34;&#34;&#34;</code></pre>
+    def __init__(self, result: SolveInfo):
+        RuntimeError.__init__(self, result.msg)
+        self.result: SolveInfo = result
+        &#34;&#34;&#34; `SolveInfo` holding information about the solve. &#34;&#34;&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4565,7 +4607,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <dl>
 <dt id="phi.math.ConvergenceException.result"><code class="name">var <span class="ident">result</span></code></dt>
 <dd>
-<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> holding information about the solve.</p></div>
+<div class="desc"><p><code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code> holding information about the solve.</p></div>
 </dd>
 </dl>
 </dd>
@@ -4705,7 +4747,7 @@ This may indicate that no solution exists.</p>
         `NotConverged`.
     &#34;&#34;&#34;
 
-    def __init__(self, result: SolveResult):
+    def __init__(self, result: SolveInfo):
         ConvergenceException.__init__(self, result)</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -5187,7 +5229,7 @@ This is the default implementation.</p>
         `Diverged`.
     &#34;&#34;&#34;
 
-    def __init__(self, result: SolveResult):
+    def __init__(self, result: SolveInfo):
         ConvergenceException.__init__(self, result)</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -7246,8 +7288,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         In any case, the gradient solve information will be stored in `gradient_solve.result`.
         &#34;&#34;&#34;
         if self._gradient_solve is None:
-            self._gradient_solve = copy(self)
-            self._gradient_solve.x0 = None
+            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
         return self._gradient_solve
 
     def __repr__(self):
@@ -7299,8 +7340,7 @@ def gradient_solve(self) -&gt; &#39;Solve[Y, X]&#39;:
     In any case, the gradient solve information will be stored in `gradient_solve.result`.
     &#34;&#34;&#34;
     if self._gradient_solve is None:
-        self._gradient_solve = copy(self)
-        self._gradient_solve.x0 = None
+        self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
     return self._gradient_solve</code></pre>
 </details>
 </dd>
@@ -7328,8 +7368,8 @@ This property must be set to a value compatible with the solution <code>x</code>
 </dd>
 </dl>
 </dd>
-<dt id="phi.math.SolveResult"><code class="flex name class">
-<span>class <span class="ident">SolveResult</span></span>
+<dt id="phi.math.SolveInfo"><code class="flex name class">
+<span>class <span class="ident">SolveInfo</span></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stores information about the solution or trajectory of a solve.</p>
@@ -7338,7 +7378,7 @@ This property must be set to a value compatible with the solution <code>x</code>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SolveResult(Generic[X, Y]):
+<pre><code class="python">class SolveInfo(Generic[X, Y]):
     &#34;&#34;&#34;
     Stores information about the solution or trajectory of a solve.
 
@@ -7355,7 +7395,7 @@ This property must be set to a value compatible with the solution <code>x</code>
                  diverged: Tensor,
                  method: str,
                  msg: str = None):
-        # tuple.__new__(SolveResult, (x, residual, iterations, function_evaluations, converged, diverged))
+        # tuple.__new__(SolveInfo, (x, residual, iterations, function_evaluations, converged, diverged))
         self.solve: Solve[X, Y] = solve
         &#34;&#34;&#34; `Solve`, Parameters specified for the solve. &#34;&#34;&#34;
         self.x: X = x
@@ -7374,28 +7414,33 @@ This property must be set to a value compatible with the solution <code>x</code>
         &#34;&#34;&#34; `str`, which method and implementation that was used. &#34;&#34;&#34;
         if not msg:
             if self.diverged.any:
-                self.msg = f&#34;Solve diverged within {iterations if iterations is not None else &#39;?&#39;} iterations using {method}.&#34;
+                msg = f&#34;Solve diverged within {iterations if iterations is not None else &#39;?&#39;} iterations using {method}.&#34;
             elif not self.converged.trajectory[-1].all:
-                self.msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}.&#34;
+                msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}.&#34;
             else:
-                self.msg = f&#34;Converged within {iterations if iterations is not None else &#39;?&#39;} iterations.&#34;
-        else:
-            self.msg = msg
+                msg = f&#34;Converged within {iterations if iterations is not None else &#39;?&#39;} iterations.&#34;
+        self.msg = msg
         &#34;&#34;&#34; `str`, termination message &#34;&#34;&#34;
 
     def __repr__(self):
-        return f&#34;[it={self.iterations}, state={&#39;diverged&#39; if self.diverged else (&#39;converged&#39; if self.converged else &#39;not converged&#39;)}]&#34;
+        return self.msg
 
     def snapshot(self, index):
-        return SolveResult(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
+        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
 
-    def convergence_check(self):
+    def convergence_check(self, only_warn: bool):
         if self.diverged.any:
             if Diverged not in self.solve.suppress:
-                raise Diverged(self)
+                if only_warn:
+                    warnings.warn(self.msg)
+                else:
+                    raise Diverged(self)
         if not self.converged.trajectory[-1].all:
             if NotConverged not in self.solve.suppress:
-                raise NotConverged(self)</code></pre>
+                if only_warn:
+                    warnings.warn(self.msg)
+                else:
+                    raise NotConverged(self)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -7403,43 +7448,47 @@ This property must be set to a value compatible with the solution <code>x</code>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.math.SolveResult.converged"><code class="name">var <span class="ident">converged</span></code></dt>
+<dt id="phi.math.SolveInfo.converged"><code class="name">var <span class="ident">converged</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, whether the residual is within the specified tolerance.</p></div>
 </dd>
-<dt id="phi.math.SolveResult.diverged"><code class="name">var <span class="ident">diverged</span></code></dt>
+<dt id="phi.math.SolveInfo.diverged"><code class="name">var <span class="ident">diverged</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, whether the solve has diverged at this point.</p></div>
 </dd>
-<dt id="phi.math.SolveResult.function_evaluations"><code class="name">var <span class="ident">function_evaluations</span></code></dt>
+<dt id="phi.math.SolveInfo.function_evaluations"><code class="name">var <span class="ident">function_evaluations</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, how often the function (or its gradient function) was called.</p></div>
 </dd>
-<dt id="phi.math.SolveResult.iterations"><code class="name">var <span class="ident">iterations</span></code></dt>
+<dt id="phi.math.SolveInfo.iterations"><code class="name">var <span class="ident">iterations</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, number of performed iterations to reach this state.</p></div>
 </dd>
-<dt id="phi.math.SolveResult.method"><code class="name">var <span class="ident">method</span></code></dt>
+<dt id="phi.math.SolveInfo.method"><code class="name">var <span class="ident">method</span></code></dt>
 <dd>
 <div class="desc"><p><code>str</code>, which method and implementation that was used.</p></div>
 </dd>
-<dt id="phi.math.SolveResult.residual"><code class="name">var <span class="ident">residual</span></code></dt>
+<dt id="phi.math.SolveInfo.msg"><code class="name">var <span class="ident">msg</span></code></dt>
+<dd>
+<div class="desc"><p><code>str</code>, termination message</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.residual"><code class="name">var <span class="ident">residual</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>, residual vector for systems of equations or function value for minimization problems.</p></div>
 </dd>
-<dt id="phi.math.SolveResult.solve"><code class="name">var <span class="ident">solve</span></code></dt>
+<dt id="phi.math.SolveInfo.solve"><code class="name">var <span class="ident">solve</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code>, Parameters specified for the solve.</p></div>
 </dd>
-<dt id="phi.math.SolveResult.x"><code class="name">var <span class="ident">x</span></code></dt>
+<dt id="phi.math.SolveInfo.x"><code class="name">var <span class="ident">x</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>, solution estimate.</p></div>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.math.SolveResult.convergence_check"><code class="name flex">
-<span>def <span class="ident">convergence_check</span></span>(<span>self)</span>
+<dt id="phi.math.SolveInfo.convergence_check"><code class="name flex">
+<span>def <span class="ident">convergence_check</span></span>(<span>self, only_warn: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -7447,16 +7496,22 @@ This property must be set to a value compatible with the solution <code>x</code>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def convergence_check(self):
+<pre><code class="python">def convergence_check(self, only_warn: bool):
     if self.diverged.any:
         if Diverged not in self.solve.suppress:
-            raise Diverged(self)
+            if only_warn:
+                warnings.warn(self.msg)
+            else:
+                raise Diverged(self)
     if not self.converged.trajectory[-1].all:
         if NotConverged not in self.solve.suppress:
-            raise NotConverged(self)</code></pre>
+            if only_warn:
+                warnings.warn(self.msg)
+            else:
+                raise NotConverged(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.SolveResult.snapshot"><code class="name flex">
+<dt id="phi.math.SolveInfo.snapshot"><code class="name flex">
 <span>def <span class="ident">snapshot</span></span>(<span>self, index)</span>
 </code></dt>
 <dd>
@@ -7466,7 +7521,7 @@ This property must be set to a value compatible with the solution <code>x</code>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def snapshot(self, index):
-    return SolveResult(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)</code></pre>
+    return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)</code></pre>
 </details>
 </dd>
 </dl>
@@ -7476,18 +7531,19 @@ This property must be set to a value compatible with the solution <code>x</code>
 <span>(</span><span>record_trajectories=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Used to record additional information about solves invoked via <code><a title="phi.math.solve_linear" href="#phi.math.solve_linear">solve_linear()</a></code>, <code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear()</a></code> or <code><a title="phi.math.minimize" href="#phi.math.minimize">minimize()</a></code>.</p>
-<p>To access a <code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> of a recorded solve, use</p>
+<div class="desc"><p>Used to record additional information about solves invoked via <code><a title="phi.math.solve_linear" href="#phi.math.solve_linear">solve_linear()</a></code>, <code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear()</a></code> or <code><a title="phi.math.minimize" href="#phi.math.minimize">minimize()</a></code>.
+While a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code> is active, certain performance optimizations and algorithm implementations may be disabled.</p>
+<p>To access a <code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code> of a recorded solve, use</p>
 <pre><code class="language-python">solve = Solve(method, ...)
 with SolveTape() as solves:
     x = math.solve_linear(f, y, solve)
-result: SolveResult = solves[solve]  # get by Solve
-result: SolveResult = solves[0]  # get by index
+result: SolveInfo = solves[solve]  # get by Solve
+result: SolveInfo = solves[0]  # get by index
 </code></pre>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>record_trajectories</code></strong></dt>
-<dd>When enabled, the entries of <code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> will contain an additional batch dimension named <code>trajectory</code>.</dd>
+<dd>When enabled, the entries of <code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code> will contain an additional batch dimension named <code>trajectory</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -7498,21 +7554,22 @@ result: SolveResult = solves[0]  # get by index
     def __init__(self, record_trajectories=False):
         &#34;&#34;&#34;
         Used to record additional information about solves invoked via `solve_linear()`, `solve_nonlinear()` or `minimize()`.
+        While a `SolveTape` is active, certain performance optimizations and algorithm implementations may be disabled.
 
-        To access a `SolveResult` of a recorded solve, use
+        To access a `SolveInfo` of a recorded solve, use
         ```python
         solve = Solve(method, ...)
         with SolveTape() as solves:
             x = math.solve_linear(f, y, solve)
-        result: SolveResult = solves[solve]  # get by Solve
-        result: SolveResult = solves[0]  # get by index
+        result: SolveInfo = solves[solve]  # get by Solve
+        result: SolveInfo = solves[0]  # get by index
         ```
 
         Args:
-            record_trajectories: When enabled, the entries of `SolveResult` will contain an additional batch dimension named `trajectory`.
+            record_trajectories: When enabled, the entries of `SolveInfo` will contain an additional batch dimension named `trajectory`.
         &#34;&#34;&#34;
         self.record_trajectories = record_trajectories
-        self.solves: List[SolveResult] = []
+        self.solves: List[SolveInfo] = []
         self.solve_ids: List[str] = []
 
     def __enter__(self):
@@ -7522,18 +7579,19 @@ result: SolveResult = solves[0]  # get by index
     def __exit__(self, exc_type, exc_val, exc_tb):
         _SOLVE_TAPES.remove(self)
 
-    def _add(self, solve: Solve, mode: type, result: SolveResult):
-        assert all(s.solve.id != solve.id for s in self.solves)
+    def _add(self, solve: Solve, trj: bool, result: SolveInfo):
+        if any(s.solve.id == solve.id for s in self.solves):
+            warnings.warn(&#34;SolveTape contains two results for the same solve settings. SolveTape[solve] will return the first solve result.&#34;)
         if self.record_trajectories:
-            assert mode == list
+            assert trj, &#34;Solve did not record a trajectory.&#34;
             self.solves.append(result)
-        elif mode == list:
+        elif trj:
             self.solves.append(result.snapshot(-1))
         else:
             self.solves.append(result)
         self.solve_ids.append(solve.id)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -&gt; SolveInfo:
         if isinstance(item, int):
             return self.solves[item]
         else:
@@ -7543,6 +7601,9 @@ result: SolveResult = solves[0]  # get by index
                 raise KeyError(f&#34;No solve recorded with key &#39;{item}&#39;.&#34;)
             assert len(solves) == 1
             return solves[0]
+
+    def __iter__(self):
+        return iter(self.solves)
 
     def __len__(self):
         return len(self.solves)</code></pre>
@@ -7709,6 +7770,16 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                 return cast(self, DType(bool)).native()
             else:
                 return any_(self).native()
+
+    @property
+    def mean(self):
+        from ._ops import mean
+        return mean(self).native()
+
+    @property
+    def sum(self):
+        from ._ops import sum_
+        return sum_(self).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
@@ -8095,6 +8166,19 @@ def dtype(self) -&gt; DType:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.Tensor.mean"><code class="name">var <span class="ident">mean</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def mean(self):
+    from ._ops import mean
+    return mean(self).native()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.Tensor.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Equal to <code>tensor.shape.rank</code>.</p></div>
@@ -8119,6 +8203,19 @@ def rank(self) -&gt; int:
 def shape(self) -&gt; Shape:
     &#34;&#34;&#34; The `Shape` lists the dimensions with their sizes, names and types. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.sum"><code class="name">var <span class="ident">sum</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def sum(self):
+    from ._ops import sum_
+    return sum_(self).native()</code></pre>
 </details>
 </dd>
 </dl>
@@ -9048,7 +9145,6 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
 <li><code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions</a></code></li>
 <li><code><a title="phi.math.l1_loss" href="#phi.math.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.math.l2_loss" href="#phi.math.l2_loss">l2_loss</a></code></li>
-<li><code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss</a></code></li>
 <li><code><a title="phi.math.laplace" href="#phi.math.laplace">laplace</a></code></li>
 <li><code><a title="phi.math.linspace" href="#phi.math.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.log" href="#phi.math.log">log</a></code></li>
@@ -9231,18 +9327,19 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
 </ul>
 </li>
 <li>
-<h4><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code></h4>
+<h4><code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code></h4>
 <ul class="">
-<li><code><a title="phi.math.SolveResult.converged" href="#phi.math.SolveResult.converged">converged</a></code></li>
-<li><code><a title="phi.math.SolveResult.convergence_check" href="#phi.math.SolveResult.convergence_check">convergence_check</a></code></li>
-<li><code><a title="phi.math.SolveResult.diverged" href="#phi.math.SolveResult.diverged">diverged</a></code></li>
-<li><code><a title="phi.math.SolveResult.function_evaluations" href="#phi.math.SolveResult.function_evaluations">function_evaluations</a></code></li>
-<li><code><a title="phi.math.SolveResult.iterations" href="#phi.math.SolveResult.iterations">iterations</a></code></li>
-<li><code><a title="phi.math.SolveResult.method" href="#phi.math.SolveResult.method">method</a></code></li>
-<li><code><a title="phi.math.SolveResult.residual" href="#phi.math.SolveResult.residual">residual</a></code></li>
-<li><code><a title="phi.math.SolveResult.snapshot" href="#phi.math.SolveResult.snapshot">snapshot</a></code></li>
-<li><code><a title="phi.math.SolveResult.solve" href="#phi.math.SolveResult.solve">solve</a></code></li>
-<li><code><a title="phi.math.SolveResult.x" href="#phi.math.SolveResult.x">x</a></code></li>
+<li><code><a title="phi.math.SolveInfo.converged" href="#phi.math.SolveInfo.converged">converged</a></code></li>
+<li><code><a title="phi.math.SolveInfo.convergence_check" href="#phi.math.SolveInfo.convergence_check">convergence_check</a></code></li>
+<li><code><a title="phi.math.SolveInfo.diverged" href="#phi.math.SolveInfo.diverged">diverged</a></code></li>
+<li><code><a title="phi.math.SolveInfo.function_evaluations" href="#phi.math.SolveInfo.function_evaluations">function_evaluations</a></code></li>
+<li><code><a title="phi.math.SolveInfo.iterations" href="#phi.math.SolveInfo.iterations">iterations</a></code></li>
+<li><code><a title="phi.math.SolveInfo.method" href="#phi.math.SolveInfo.method">method</a></code></li>
+<li><code><a title="phi.math.SolveInfo.msg" href="#phi.math.SolveInfo.msg">msg</a></code></li>
+<li><code><a title="phi.math.SolveInfo.residual" href="#phi.math.SolveInfo.residual">residual</a></code></li>
+<li><code><a title="phi.math.SolveInfo.snapshot" href="#phi.math.SolveInfo.snapshot">snapshot</a></code></li>
+<li><code><a title="phi.math.SolveInfo.solve" href="#phi.math.SolveInfo.solve">solve</a></code></li>
+<li><code><a title="phi.math.SolveInfo.x" href="#phi.math.SolveInfo.x">x</a></code></li>
 </ul>
 </li>
 <li>
@@ -9257,10 +9354,12 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
 <li><code><a title="phi.math.Tensor.dimension" href="#phi.math.Tensor.dimension">dimension</a></code></li>
 <li><code><a title="phi.math.Tensor.dtype" href="#phi.math.Tensor.dtype">dtype</a></code></li>
 <li><code><a title="phi.math.Tensor.flip" href="#phi.math.Tensor.flip">flip</a></code></li>
+<li><code><a title="phi.math.Tensor.mean" href="#phi.math.Tensor.mean">mean</a></code></li>
 <li><code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">native</a></code></li>
 <li><code><a title="phi.math.Tensor.numpy" href="#phi.math.Tensor.numpy">numpy</a></code></li>
 <li><code><a title="phi.math.Tensor.rank" href="#phi.math.Tensor.rank">rank</a></code></li>
 <li><code><a title="phi.math.Tensor.shape" href="#phi.math.Tensor.shape">shape</a></code></li>
+<li><code><a title="phi.math.Tensor.sum" href="#phi.math.Tensor.sum">sum</a></code></li>
 <li><code><a title="phi.math.Tensor.unstack" href="#phi.math.Tensor.unstack">unstack</a></code></li>
 </ul>
 </li>

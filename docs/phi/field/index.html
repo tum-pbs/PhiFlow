@@ -69,6 +69,7 @@ from phi.math import (
     stop_gradient,
     jit_compile, jit_compile_linear, functional_gradient,
     solve_linear, solve_nonlinear, minimize,
+    l2_loss, l1_loss, frequency_loss,
 )
 from ._field_math import (
     assert_close, convert,
@@ -78,7 +79,6 @@ from ._field_math import (
     concat, batch_stack, channel_stack,
     where,
     vec_squared, vec_abs,
-    l2_loss, l1_loss, frequency_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
     native_call,
@@ -105,12 +105,35 @@ __pdoc__ = {
 <span>def <span class="ident">abs</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>||x||<sub>1</sub></em>.
+Complex <code>x</code> result in matching precision float values.</p>
+<p><em>Note</em>: The gradient of this operation is undefined for <em>x=0</em>.
+TensorFlow and PyTorch return 0 while Jax returns 1.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code>Tensor</code> or <code>TensorLike</code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Absolute value of <code>x</code> of same type as <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def abs_(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
+    Complex `x` result in matching precision float values.
+
+    *Note*: The gradient of this operation is undefined for *x=0*.
+    TensorFlow and PyTorch return 0 while Jax returns 1.
+
+    Args:
+        x: `Tensor` or `TensorLike`
+
+    Returns:
+        Absolute value of `x` of same type as `x`.
+    &#34;&#34;&#34;
     return _backend_op1(x, Backend.abs)</code></pre>
 </details>
 </dd>
@@ -489,22 +512,64 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>field: phi.field._field.SampledField, n=2, frequency_falloff=100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False)</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>x, n=2, frequency_falloff: float = 100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Frequency loss for the unweighted values of the field. See <code><a title="phi.math.frequency_loss" href="../math/index.html#phi.math.frequency_loss">frequency_loss()</a></code>.</p></div>
+<div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
+Lower frequencies are weighted more strongly then higher frequencies, depending on <code>frequency_falloff</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>Values to penalize, typically <code>actual - target</code></dd>
+<dt><strong><code>n</code></strong></dt>
+<dd>Loss type, see <code>l_n_loss()</code>.</dd>
+<dt><strong><code>frequency_falloff</code></strong></dt>
+<dd>Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
+<em>Note</em>: The total loss is not normalized. Varying the value will result in losses of different magnitudes.</dd>
+<dt><strong><code>threshold</code></strong></dt>
+<dd>Frequency amplitudes below this value are ignored.
+Setting this to zero may cause infinities or NaN values during backpropagation.</dd>
+<dt><strong><code>batch_norm</code></strong></dt>
+<dd>Either <code>bool</code> specifying whether to divide by the product of all batch sizes or specific dimensions.</dd>
+<dt><strong><code>ignore_mean</code></strong></dt>
+<dd>If <code>True</code>, does not penalize the mean value (frequency=0 component).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Scalar loss value</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def frequency_loss(field: SampledField,
+<pre><code class="python">def frequency_loss(x,
                    n=2,
-                   frequency_falloff=100,
+                   frequency_falloff: float = 100,
                    threshold=1e-5,
-                   batch_norm: bool or str or tuple or list or math.Shape = True,
-                   ignore_mean=False):
-    &#34;&#34;&#34; Frequency loss for the unweighted values of the field. See `phi.math.frequency_loss()`. &#34;&#34;&#34;
-    return math.frequency_loss(field.values, n=n, frequency_falloff=frequency_falloff, threshold=threshold, batch_norm=batch_norm, ignore_mean=ignore_mean)</code></pre>
+                   batch_norm: bool or str or tuple or list or Shape = True,
+                   ignore_mean=False) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Penalizes the squared `values` in frequency (Fourier) space.
+    Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
+
+    Args:
+        values: Values to penalize, typically `actual - target`
+        n: Loss type, see `l_n_loss()`.
+        frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
+            *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
+        threshold: Frequency amplitudes below this value are ignored.
+            Setting this to zero may cause infinities or NaN values during backpropagation.
+        batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
+        ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
+
+    Returns:
+      Scalar loss value
+    &#34;&#34;&#34;
+    if ignore_mean:
+        values -= math.mean(values, values.shape.non_batch)
+    k_squared = vec_squared(math.fftfreq(values.shape.spatial))
+    weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
+    diff_fft = abs_square(math.fft(values) * weights)
+    diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
+    return l_n_loss(diff_fft, n=n, batch_norm=batch_norm)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.functional_gradient"><code class="name flex">
@@ -807,31 +872,83 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 </details>
 </dd>
 <dt id="phi.field.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>field: phi.field._field.SampledField, batch_norm: bool = True)</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>L1 loss for the unweighted values of the field. See <code><a title="phi.math.l1_loss" href="../math/index.html#phi.math.l1_loss">l1_loss()</a></code>.</p></div>
+<div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub></em>, summing over all non-batch dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code>Tensor</code> or <code>TensorLike</code>.
+For <code>TensorLike</code> objects, only value the sum over all value attributes is computed.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>loss</code></dt>
+<dd><code>Tensor</code></dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l1_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
-    &#34;&#34;&#34; L1 loss for the unweighted values of the field. See `phi.math.l1_loss()`. &#34;&#34;&#34;
-    return math.l1_loss(field.values, batch_norm=batch_norm)</code></pre>
+<pre><code class="python">def l1_loss(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;1&lt;/sub&gt;*, summing over all non-batch dimensions.
+
+    Args:
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
+
+    Returns:
+        loss: `Tensor`
+    &#34;&#34;&#34;
+    if isinstance(x, Tensor):
+        return math.sum_(abs(x), x.shape.non_batch)
+    elif isinstance(x, TensorLike):
+        return sum([l1_loss(getattr(x, a)) for a in value_attributes(x)])
+    else:
+        raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>field: phi.field._field.SampledField, batch_norm: bool = True)</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>L2 loss for the unweighted values of the field. See <code><a title="phi.math.l2_loss" href="../math/index.html#phi.math.l2_loss">l2_loss()</a></code>.</p></div>
+<div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2</em>, summing over all non-batch dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code>Tensor</code> or <code>TensorLike</code>.
+For <code>TensorLike</code> objects, only value the sum over all value attributes is computed.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>loss</code></dt>
+<dd><code>Tensor</code></dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l2_loss(field: SampledField, batch_norm: bool or str or tuple or list or math.Shape = True):
-    &#34;&#34;&#34; L2 loss for the unweighted values of the field. See `phi.math.l2_loss()`. &#34;&#34;&#34;
-    return math.l2_loss(field.values, batch_norm=batch_norm)</code></pre>
+<pre><code class="python">def l2_loss(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;2&lt;/sub&gt;&lt;sup&gt;2&lt;/sup&gt; / 2*, summing over all non-batch dimensions.
+
+    Args:
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
+
+    Returns:
+        loss: `Tensor`
+    &#34;&#34;&#34;
+    if isinstance(x, Tensor):
+        if x.dtype.kind == complex:
+            x = abs(x)
+        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+    elif isinstance(x, TensorLike):
+        return sum([l2_loss(getattr(x, a)) for a in value_attributes(x)])
+    else:
+        raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.laplace"><code class="name flex">
@@ -928,6 +1045,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
     &#34;&#34;&#34;
     assert solve.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
     x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
     batch = combine_safe(*[t.shape for t in x0_tensors]).batch
     x0_natives = []
@@ -937,13 +1055,13 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         x0_natives.append(reshaped_native(t, [batch, t.shape.non_batch], force_expand=True))
     x0_flat = backend.concat(x0_natives, -1)
 
-    def unflatten_assemble(x_flat):
+    def unflatten_assemble(x_flat, additional_dims=()):
         i = 0
         x_tensors = []
         for x0_native, x0_tensor in zip(x0_natives, x0_tensors):
             vol = backend.shape(x0_native)[-1]
-            flat_native = x_flat[:, i:i + vol]
-            x_tensors.append(reshaped_tensor(flat_native, [batch, x0_tensor.shape.non_batch]))
+            flat_native = x_flat[..., i:i + vol]
+            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch, x0_tensor.shape.non_batch]))
             i += vol
         x = assemble_nested(x0_nest, x_tensors)
         return x
@@ -955,21 +1073,35 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         else:
             y = f(x)
         _, y_tensors = disassemble_nested(y)
-        return y_tensors[0].native()
+        return y_tensors[0].sum, y_tensors[0].native()
 
-    def assemble_state(native: SolverState):
-        x = unflatten_assemble(native.x)
-        return SolverState(x, native.residual, native.iteration, native.function_evaluations, native.converged, native.diverged)
-
-    def assemble_result(native: SolveResult):
-        result = SolveResult(solve)
-        result.final_state = assemble_state(native.final_state)
-        return result
-
-    result_native = backend.minimize(native_function, copy_with(solve, x0=x0_flat))
-    result = assemble_result(result_native)
-    result.convergence_check()
-    return result</code></pre>
+    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
+    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
+    trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
+    if not trj:
+        assert isinstance(ret, SolveResult)
+        converged = reshaped_tensor(ret.converged, [batch])
+        diverged = reshaped_tensor(ret.diverged, [batch])
+        x = unflatten_assemble(ret.x)
+        iterations = reshaped_tensor(ret.iterations, [batch])
+        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
+        residual = reshaped_tensor(ret.residual, [batch])
+        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+    else:  # trajectory
+        assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
+        converged = reshaped_tensor(ret[-1].converged, [batch])
+        diverged = reshaped_tensor(ret[-1].diverged, [batch])
+        x = unflatten_assemble(ret[-1].x)
+        x_ = unflatten_assemble(backend.stack([r.x for r in ret]), additional_dims=(&#39;trajectory&#39;,))
+        residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], &#39;trajectory&#39;)
+        iterations = reshaped_tensor(ret[-1].iterations, [batch])
+        function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], &#39;trajectory&#39;)
+        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+    for tape in _SOLVE_TAPES:
+        tape._add(solve, trj, result)
+    result.convergence_check(False)  # raises ConvergenceException
+    return x</code></pre>
 </details>
 </dd>
 <dt id="phi.field.native_call"><code class="name flex">
