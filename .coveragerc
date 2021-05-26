@@ -20,7 +20,7 @@ exclude_lines =
     raise ValueError
 
     # Don't complain about non-executed warnings
-    warnings.warn(
+    warnings.warn
 
 
 omit =
