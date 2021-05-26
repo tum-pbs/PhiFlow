@@ -27,7 +27,8 @@ class SignatureKey:
                  nest,
                  shapes: Shape or Tuple[Shape],
                  kwargs: dict or None,
-                 backend: Backend):
+                 backend: Backend,
+                 tracing: bool):
         assert isinstance(nest, TensorLike), nest
         if source_function is None:  # this is an input signature
             assert isinstance(shapes, tuple)
@@ -36,6 +37,7 @@ class SignatureKey:
         self.shapes = shapes
         self.kwargs = kwargs
         self.backend = backend
+        self.tracing = tracing
 
     def __repr__(self):
         return f"{self.nest} with shapes {self.shapes}"
@@ -81,11 +83,15 @@ def match_output_signature(new_in: SignatureKey, recorded_mappings: Dict[Signatu
                    f"Registered transforms: {recorded_mappings}")
 
 
-def key_from_args(*args, **kwargs):
+def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
     nest, tensors = disassemble_nested(args)
+    tracing = not all_available(*tensors)
     backend = math.choose_backend_t(*tensors)
-    natives, shapes = disassemble_tensors(tensors)
-    key = SignatureKey(None, nest, shapes, kwargs, backend)
+    if tracing and cache:
+        cache = False
+        warnings.warn("Cannot cache a tensor while tracing.")
+    natives, shapes = disassemble_tensors(tensors, expand=cache)
+    key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
     return key, natives
 
 
@@ -97,7 +103,7 @@ class JitFunction:
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
 
     def _jit_compile(self, in_key: SignatureKey):
-        def f_native(*natives, **kwargs):
+        def jit_f_native(*natives, **kwargs):
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_nested(in_key.nest, in_tensors)
@@ -105,12 +111,12 @@ class JitFunction:
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_nested(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
-            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend)
+            self.recorded_mappings[in_key] = SignatureKey(jit_f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
-        return in_key.backend.jit_compile(f_native)
+        return in_key.backend.jit_compile(jit_f_native)
 
     def __call__(self, *args, **kwargs):
-        key, natives = key_from_args(*args, **kwargs)
+        key, natives = key_from_args(*args, cache=True, **kwargs)
         if not key.backend.supports(Backend.jit_compile):
             warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.")
             return self.f(*args, **kwargs)
@@ -184,6 +190,15 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         assert isinstance(result_tensor, ShiftLinTracer), f"Tracing linear function '{self.f.__name__}' failed. Make sure only linear operations are used."
         return result_tensor
 
+    def _get_or_trace(self, key: SignatureKey):
+        if key in self.tracers:
+            return self.tracers[key]
+        else:
+            tracer = self._trace(key)
+            if not key.tracing:
+                self.tracers[key] = tracer
+            return tracer
+
     def __call__(self, *args: X, **kwargs) -> Y:
         nest, tensors = disassemble_nested(args)
         assert tensors, "Linear function requires at least one argument"
@@ -195,21 +210,18 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
             return self.nl_jit(*args, **kwargs)
         natives, shapes = disassemble_tensors(tensors)
-        key = SignatureKey(None, nest, shapes, kwargs, backend)
-        if key not in self.tracers:
-            self.tracers[key] = self._trace(key)
-        return self.tracers[key].apply(tensors[0])
+        key = SignatureKey(None, nest, shapes, kwargs, backend, not all_available(*tensors))
+        tracer = self._get_or_trace(key)
+        return tracer.apply(tensors[0])
 
-    def sparse_coordinate_matrix(self, *args: Tensor, **kwargs):
-        key, _ = key_from_args(*args, **kwargs)
+    def sparse_coordinate_matrix(self, *args, **kwargs):
+        key, _ = key_from_args(*args, cache=False, **kwargs)
         assert key.backend.supports(Backend.sparse_tensor)
-        if key not in self.tracers:
-            self.tracers[key] = self._trace(key)
-        return self.tracers[key].get_sparse_coordinate_matrix()
+        return self._get_or_trace(key).get_sparse_coordinate_matrix()
 
     def stencil_inspector(self, *args, **kwargs):
-        key, _ = key_from_args(*args, **kwargs)
-        tracer = self._trace(key)
+        key, _ = key_from_args(*args, cache=True, **kwargs)
+        tracer = self._get_or_trace(key)
 
         def print_stencil(**indices):
             pos = shape(**indices)
@@ -261,12 +273,12 @@ class GradientFunction:
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_nested(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
-            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend)
+            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
         return in_key.backend.functional_gradient(f_native, wrt=wrt_natives, get_output=self.get_output)
 
     def __call__(self, *args, **kwargs):
-        key, natives = key_from_args(*args, **kwargs)
+        key, natives = key_from_args(*args, cache=True, **kwargs)
         if not key.backend.supports(Backend.functional_gradient):
             if math.default_backend().supports(Backend.functional_gradient):
                 warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()")
@@ -348,7 +360,7 @@ class CustomGradientFunction:
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
 
     def _trace(self, in_key: SignatureKey):
-        def f_native(*natives, **kwargs):
+        def forward_native(*natives, **kwargs):
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_nested(in_key.nest, in_tensors)
@@ -356,10 +368,10 @@ class CustomGradientFunction:
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_nested(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
-            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend)
+            self.recorded_mappings[in_key] = SignatureKey(forward_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
 
-        def g_native(x_natives, y_natives, dy_natives):
+        def backward_native(x_natives, y_natives, dy_natives):
             out_key = self.recorded_mappings[in_key]
             del self.recorded_mappings[in_key]
             x_tensors = assemble_tensors(x_natives, in_key.shapes)
@@ -374,10 +386,10 @@ class CustomGradientFunction:
             result_natives = self.incomplete_nested_to_natives(result, in_key.nest, list(in_key.shapes))
             return result_natives
 
-        return in_key.backend.custom_gradient(f_native, g_native)
+        return in_key.backend.custom_gradient(forward_native, backward_native)
 
     def __call__(self, *args, **kwargs):
-        key, natives = key_from_args(*args, **kwargs)
+        key, natives = key_from_args(*args, cache=False, **kwargs)
         if not key.backend.supports(Backend.functional_gradient) and not key.backend.supports(Backend.gradients):
             return self.f(*args, **kwargs)  # no need to use custom gradient if gradients aren't supported anyway
         elif not key.backend.supports(Backend.custom_gradient):
@@ -770,10 +782,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
                 or self.max_iterations != other.max_iterations \
                 or self.suppress != other.suppress:
             return False
-        if self.x0 is None:
-            return other.x0 is None
-        else:
-            raise AssertionError("Cannot compare Solves with x0 set")
+        return self.x0 == other.x0
 
     def __variable_attrs__(self) -> Tuple[str]:
         return 'x0',
@@ -795,7 +804,8 @@ class SolveInfo(Generic[X, Y]):
                  converged: Tensor,
                  diverged: Tensor,
                  method: str,
-                 msg: str = None):
+                 msg: str,
+                 solve_time: float):
         # tuple.__new__(SolveInfo, (x, residual, iterations, function_evaluations, converged, diverged))
         self.solve: Solve[X, Y] = solve
         """ `Solve`, Parameters specified for the solve. """
@@ -813,7 +823,7 @@ class SolveInfo(Generic[X, Y]):
         """ `Tensor`, whether the solve has diverged at this point. """
         self.method = method
         """ `str`, which method and implementation that was used. """
-        if not msg:
+        if not msg and all_available(diverged, converged):
             if self.diverged.any:
                 msg = f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
             elif not self.converged.trajectory[-1].all:
@@ -822,14 +832,18 @@ class SolveInfo(Generic[X, Y]):
                 msg = f"Converged within {iterations if iterations is not None else '?'} iterations."
         self.msg = msg
         """ `str`, termination message """
+        self.solve_time = solve_time
+        """ Time spent in Backend solve function (in seconds) """
 
     def __repr__(self):
         return self.msg
 
     def snapshot(self, index):
-        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
+        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg, self.solve_time)
 
     def convergence_check(self, only_warn: bool):
+        if not all_available(self.diverged, self.converged):
+            return
         if self.diverged.any:
             if Diverged not in self.solve.suppress:
                 if only_warn:
@@ -1014,7 +1028,9 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
+    t = time.perf_counter() - t
     if not trj:
         assert isinstance(ret, SolveResult)
         converged = reshaped_tensor(ret.converged, [batch])
@@ -1023,7 +1039,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         iterations = reshaped_tensor(ret.iterations, [batch])
         function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
         residual = reshaped_tensor(ret.residual, [batch])
-        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
     else:  # trajectory
         assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
         converged = reshaped_tensor(ret[-1].converged, [batch])
@@ -1033,7 +1049,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], 'trajectory')
         iterations = reshaped_tensor(ret[-1].iterations, [batch])
         function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], 'trajectory')
-        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
     result.convergence_check(False)  # raises ConvergenceException
@@ -1129,7 +1145,11 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    if trj:
+        assert all_available(y_tensor, x0_tensor), "Cannot record linear solve in jit mode"
+    t = time.perf_counter()
     ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, rtol, atol, maxi, trj)
+    t = time.perf_counter() - t
     if not trj:
         assert isinstance(ret, SolveResult)
         converged = reshaped_tensor(ret.converged, [batch])
@@ -1144,7 +1164,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
             residual = assemble_nested(y_nest, [reshaped_tensor(residual, [batch, active_dims])])
         else:
             residual = None
-        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
     else:  # trajectory
         assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
         converged = reshaped_tensor(ret[-1].converged, [batch])
@@ -1154,7 +1174,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         residual = assemble_nested(y_nest, [batch_stack([reshaped_tensor(r.residual, [batch, active_dims]) for r in ret], 'trajectory')])
         iterations = reshaped_tensor(ret[-1].iterations, [batch])
         function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], 'trajectory')
-        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
     result.convergence_check(is_backprop and 'TensorFlow' in backend.name)  # raises ConvergenceException
@@ -1191,14 +1211,16 @@ def _function_solve_forward(y, solve: Solve,
     active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
     batch = (y_tensor.shape & x0_tensor.shape).batch
 
-    def native_f(native_x):
+    def native_lin_f(native_x, batch_index=None):
+        if batch_index is not None and batch.volume > 1:
+            raise NotImplementedError()  # TODO expand batch dimensions, return result[batch]
         x = assemble_nested(x0_nest, [reshaped_tensor(native_x, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])])
         y = f(x)
         _, (y_tensor,) = disassemble_nested(y)
         y_native = reshaped_native(y_tensor, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
         return y_native
 
-    result = _linear_solve_forward(y, solve, native_f, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
+    result = _linear_solve_forward(y, solve, native_lin_f, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
     return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
 

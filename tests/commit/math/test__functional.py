@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import phi
 from phi import math, field
-from phi.math import Solve, Diverged, wrap, tensor
+from phi.math import Solve, Diverged, wrap, tensor, SolveTape
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
@@ -155,13 +155,30 @@ class TestFunctional(TestCase):
                     x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
                     math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3, msg=backend)
 
-    def test_linear_solve_matrix_batched(self):
+    def test_linear_solve_matrix_batched(self):  # TODO also test batched matrix
         y = field.grid(1, math.shape(x=3)) * (1, 2)
         x0 = field.grid(0, math.shape(x=3))
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
             math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+
+    def test_linear_solve_matrix_jit(self):
+        @math.jit_compile
+        def solve(y, method):
+            solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            return field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+
+        for backend in BACKENDS:
+            with backend:
+                x0 = field.grid(0, math.shape(x=3))
+                for method in ['CG']:
+                    x = solve(field.grid(0, math.shape(x=3)), method=method)
+                    print(x.values)
+                    math.assert_close(x.values, 0, abs_tolerance=1e-3)
+                    x = solve(field.grid(1, math.shape(x=3)), method=method)
+                    print(x.values)
+                    math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
 
     def test_linear_solve_matrix_tape(self):
         y = field.grid(1, math.shape(x=3)) * (1, 2)
@@ -212,3 +229,23 @@ class TestFunctional(TestCase):
                     assert False
                 except Diverged:
                     pass
+
+    def test_jit_solves(self):
+        @math.jit_compile
+        def solve(y, method):
+            print(f"Tracing {method}...")
+            solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
+            with SolveTape() as solves:
+                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            return x
+
+        for backend in BACKENDS:
+            with backend:
+                x0 = field.grid(0, math.shape(x=3))
+
+                for method in ['CG', 'CG-adaptive', 'auto']:
+                    x = solve(field.grid(0, math.shape(x=3)), method=method)
+                    math.assert_close(x.values, 0, abs_tolerance=1e-3)
+                    x = solve(field.grid(1, math.shape(x=3)), method=method)
+                    math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
+

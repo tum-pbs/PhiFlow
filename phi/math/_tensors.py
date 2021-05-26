@@ -680,6 +680,7 @@ class NativeTensor(Tensor):
     def __init__(self, native_tensor, shape):
         assert isinstance(shape, Shape), f"Expected Shape but got '{type(shape)}'"
         backend = choose_backend(native_tensor)
+        # if backend.is_available(native_tensor):
         assert backend.staticshape(native_tensor) == shape.sizes, f"Shape {shape} does not match native tensor with shape {backend.staticshape(native_tensor)}"
         self._native = native_tensor
         self._shape = shape
@@ -814,9 +815,11 @@ class CollapsedTensor(Tensor):  # package-private
         if self._cached is None:
             if self._inner._is_special:
                 return None
+            from ._ops import all_available
             native = self._inner.native(order=self.shape.names)
             multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape.dimensions]
-            tiled = choose_backend(native).tile(native, multiples)
+            backend = choose_backend(native)
+            tiled = backend.tile(native, multiples)
             self._cached = NativeTensor(tiled, self.shape)
             self._inner = None
         return self._cached
@@ -939,6 +942,8 @@ class CollapsedTensor(Tensor):  # package-private
 
     def _expand(self):
         self._cache()
+        from phi.math import all_available
+        assert all_available(self._cached), "Cannot cache a Tensor while it is being traced."
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -1112,6 +1117,9 @@ class TensorStack(Tensor):
             for t in self.tensors:
                 t._expand()
         self._cache()
+        if self._cached is not None:
+            from phi.math import all_available
+            assert all_available(self._cached), "Cannot cache a Tensor while it is being traced."
 
     def _simplify(self):
         if self._cached is not None:
@@ -1336,8 +1344,9 @@ def disassemble_tensors(obj: Tensor or tuple or list, expand=True) -> tuple:
             obj._expand()
         return obj._natives(), obj.shape
     else:
-        for t in obj:
-            t._expand()
+        if expand:
+            for t in obj:
+                t._expand()
         return sum([t._natives() for t in obj], ()), tuple(t.shape for t in obj)
 
 
@@ -1352,6 +1361,13 @@ def assemble_tensors(natives: tuple, shapes: Shape or Tuple[Shape]):
 def _assemble_pop(natives: list, shape: Shape):
     if shape.is_uniform:
         native = natives.pop(0)
+        ndim = choose_backend(native).ndims(native)
+        if ndim != shape.rank:
+            if ndim == 0 and shape.rank > 0:
+                inner = NativeTensor(native, EMPTY_SHAPE)
+                return CollapsedTensor(inner, shape)
+            else:
+                raise NotImplementedError("Cannot restore CollapsedTensor from native and shape")
         return NativeTensor(native, shape)
     else:
         s2 = shape.shape.without('dims')
@@ -1381,6 +1397,11 @@ class TensorLike(metaclass=_TensorLikeType):
     Tensor-like objects can interoperate with some `phi.math` functions, depending on what methods they implement.
     Objects are considered `TensorLike` if they implement `TensorLike.__variable_attrs__()` or `TensorLike.__value_attrs__()`.
     This is reflected in `isinstance` checks.
+
+    `TensorLike` objects may be used as keys, for example in `jit_compile()`.
+    In key mode, all variable attributes are set to `None`.
+    When used as keys, `TensorLike` should also implement `__eq__()` to compare any non-variable properties that can affect a function.
+
     Do not declare this class as a superclass.
     """
 

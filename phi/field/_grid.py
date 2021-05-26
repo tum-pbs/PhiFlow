@@ -55,6 +55,12 @@ class Grid(SampledField):
     def __variable_attrs__(self):
         return '_values',
 
+    def __eq__(self, other):
+        if not type(self) == type(other):
+            return False
+        assert self._values is None, "Can only compare grids in key mode."
+        return self._bounds == other._bounds and self._resolution == other._resolution and self._extrapolation == other._extrapolation
+
     def __getitem__(self, item: dict) -> 'Grid':
         raise NotImplementedError(self)
 

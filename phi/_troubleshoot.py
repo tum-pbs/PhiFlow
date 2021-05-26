@@ -155,7 +155,7 @@ def plot_solves():
                 assert isinstance(result, SolveInfo)
                 res = l1_loss(result.residual)
                 pylab.plot(res.inflow_loc[0].numpy(), label=f"{i}: {result.method}")
-                print(f"Solve {i}: {result.method}\n"
+                print(f"Solve {i}: {result.method} ({1000 * result.solve_time:.1f} ms)\n"
                       f"\t{result.solve}\n"
                       f"\t{result.msg}\n"
                       f"\tConverged: {result.converged}\n"

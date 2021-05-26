@@ -201,9 +201,9 @@ class TFBackend(Backend):
 
     def matmul(self, A, b):
         if isinstance(A, tf.SparseTensor):
-            result = tf.sparse.sparse_dense_matmul(A, tf.transpose(b))
-            result = tf.transpose(result)
-            # result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
+            result_T = tf.sparse.sparse_dense_matmul(A, tf.transpose(b))  # result shape contains unknown size
+            result = tf.transpose(result_T)
+            result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
             return result
         else:
             return tf.matmul(A, b)
@@ -211,15 +211,9 @@ class TFBackend(Backend):
     def einsum(self, equation, *tensors):
         return tf.einsum(equation, *tensors)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
-        return tf.while_loop(cond, body, loop_vars,
-                             shape_invariants=shape_invariants,
-                             parallel_iterations=parallel_iterations,
-                             back_prop=back_prop,
-                             swap_memory=swap_memory,
-                             name=name,
-                             maximum_iterations=maximum_iterations)
+    def while_loop(self, loop: Callable, values: tuple):
+        cond = lambda c, *vals: tf.reduce_any(c)
+        return tf.nest.map_structure(tf.stop_gradient, tf.while_loop(cond, loop, values))
 
     def abs(self, x):
         return tf.abs(x)

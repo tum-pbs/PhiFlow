@@ -1,7 +1,7 @@
 import numbers
 import os
 import sys
-from typing import List, Any
+from typing import List, Any, Callable
 
 import numpy as np
 import scipy.signal
@@ -192,15 +192,10 @@ class NumPyBackend(Backend):
     def einsum(self, equation, *tensors):
         return np.einsum(equation, *tensors)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
-        i = 0
-        while cond(*loop_vars):
-            if maximum_iterations is not None and i == maximum_iterations:
-                break
-            loop_vars = body(*loop_vars)
-            i += 1
-        return loop_vars
+    def while_loop(self, loop: Callable, values: tuple):
+        while np.any(values[0]):
+            values = loop(*values)
+        return values
 
     def abs(self, x):
         return np.abs(x)
