@@ -1,6 +1,6 @@
 from phi import math
 from ._geom import Geometry
-from ..math._shape import shape_stack, Shape, BATCH_DIM, _infer_dim_type_from_name
+from ..math._shape import shape_stack, Shape, BATCH_DIM, dim_type
 
 
 class GeometryStack(Geometry):
@@ -74,4 +74,4 @@ class GeometryStack(Geometry):
 
 
 def stack(*geometries: Geometry, dim: str):
-    return GeometryStack(geometries, dim, _infer_dim_type_from_name(dim))
+    return GeometryStack(geometries, dim, dim_type(dim))

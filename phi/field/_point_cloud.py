@@ -73,6 +73,12 @@ class PointCloud(SampledField):
                           bounds if bounds is not None else self._bounds,
                           color if color is not None else self._color)
 
+    def __value_attrs__(self):
+        return '_values', '_extrapolation'
+
+    def __variable_attrs__(self):
+        return '_values', '_elements'
+
     @property
     def bounds(self) -> Box:
         return self._bounds

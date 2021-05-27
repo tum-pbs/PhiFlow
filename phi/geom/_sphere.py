@@ -21,11 +21,10 @@ class Sphere(Geometry):
         self._center = wrap(center)
         assert 'vector' in self._center.shape, "center must have a 'vector' dimension"
         self._radius = wrap(radius)
-        self._shape = _fill_spatial_with_singleton(self._center.shape & self._radius.shape).without('vector')
 
     @property
     def shape(self):
-        return self._shape
+        return _fill_spatial_with_singleton(self._center.shape & self._radius.shape).without('vector')
 
     @property
     def radius(self):
@@ -68,12 +67,5 @@ class Sphere(Geometry):
     def rotated(self, angle):
         return self
 
-    def _characteristics_(self) -> Dict[str, math.Tensor]:
-        return {
-            'radius': self._radius,
-            'center': self._center,
-        }
-
-    def _with_(self, center=None, radius=None):
-        return Sphere(center if center is not None else self._center,
-                      radius if radius is not None else self._radius)
+    def __variable_attrs__(self):
+        return '_radius', '_center'

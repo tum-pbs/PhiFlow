@@ -68,7 +68,7 @@ def FFT_solve(*args, **kwargs):
 def CG_solve(grid, guess, dx, padding, **kwargs):
     # guess = guess if guess is not None else domain.grid(0)
     laplace = math.jit_compile_linear(partial(math.laplace, dx=dx))
-    result = math.solve_linear(laplace, grid, guess, math.Solve("CG", **kwargs))
+    result = math.solve_linear(laplace, grid, math.Solve("CG", x0=guess, **kwargs))
     return result
 
 

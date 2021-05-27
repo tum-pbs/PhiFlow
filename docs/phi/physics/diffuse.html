@@ -34,6 +34,7 @@ from phi import math
 from phi.field import ConstantField, Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
+from phi.math._tensors import copy_with
 
 
 def explicit(field: FieldType,
@@ -68,7 +69,7 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
+             solve=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
     &#34;&#34;&#34;
     Diffusion by solving a linear system of equations.
 
@@ -77,7 +78,7 @@ def implicit(field: FieldType,
         field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
-        solve_params:
+        solve:
 
     Returns:
         Diffused field of same type as `field`.
@@ -86,7 +87,9 @@ def implicit(field: FieldType,
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    return solve_linear(sharpen, y=field, x0=field, solve_params=solve_params)
+    if not solve.x0:
+        solve = copy_with(solve, x0=field)
+    return solve_linear(sharpen, y=field, solve=solve)
 
 
 def fourier(field: GridType,
@@ -231,7 +234,7 @@ Otherwise, finite differencing is used to approximate the</p>
 </details>
 </dd>
 <dt id="phi.physics.diffuse.implicit"><code class="name flex">
-<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve_params=CG with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000) ‑> ~FieldType</span>
+<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve=CG with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Diffusion by solving a linear system of equations.</p>
@@ -246,7 +249,7 @@ Otherwise, finite differencing is used to approximate the</p>
 <dt><strong><code>dt</code></strong></dt>
 <dd>Time interval. <code>diffusion_amount = diffusivity * dt</code></dd>
 </dl>
-<p>solve_params:</p>
+<p>solve:</p>
 <h2 id="returns">Returns</h2>
 <p>Diffused field of same type as <code>field</code>.</p></div>
 <details class="source">
@@ -257,7 +260,7 @@ Otherwise, finite differencing is used to approximate the</p>
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
+             solve=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
     &#34;&#34;&#34;
     Diffusion by solving a linear system of equations.
 
@@ -266,7 +269,7 @@ Otherwise, finite differencing is used to approximate the</p>
         field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
-        solve_params:
+        solve:
 
     Returns:
         Diffused field of same type as `field`.
@@ -275,7 +278,9 @@ Otherwise, finite differencing is used to approximate the</p>
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    return solve_linear(sharpen, y=field, x0=field, solve_params=solve_params)</code></pre>
+    if not solve.x0:
+        solve = copy_with(solve, x0=field)
+    return solve_linear(sharpen, y=field, solve=solve)</code></pre>
 </details>
 </dd>
 </dl>

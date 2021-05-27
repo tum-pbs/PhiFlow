@@ -7,7 +7,7 @@ from ._geom import Geometry, _fill_spatial_with_singleton
 from ._transform import rotate
 from ..math import wrap
 from ..math._tensors import Tensor
-from ..math.backend._backend_helper import combined_dim
+from ..math.backend._backend import combined_dim
 
 
 class AbstractBox(Geometry):
@@ -185,7 +185,6 @@ class Box(AbstractBox, metaclass=BoxType):
         """
         self._lower = wrap(lower)
         self._upper = wrap(upper)
-        self._shape = _fill_spatial_with_singleton(self._lower.shape & self._upper.shape).non_channel
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
@@ -202,12 +201,12 @@ class Box(AbstractBox, metaclass=BoxType):
     def __hash__(self):
         return hash(self._upper)
 
-    def _characteristics_(self) -> Dict[str, math.Tensor]:
-        return {'lower': self._lower, 'upper': self._upper}
+    def __variable_attrs__(self):
+        return '_lower', '_upper'
 
     @property
     def shape(self):
-        return self._shape
+        return _fill_spatial_with_singleton(self._lower.shape & self._upper.shape).non_channel
 
     @property
     def lower(self):
@@ -244,7 +243,6 @@ class Cuboid(AbstractBox):
     def __init__(self, center, half_size):
         self._center = wrap(center)
         self._half_size = wrap(half_size)
-        self._shape = _fill_spatial_with_singleton(self._center.shape & self._half_size.shape).without('vector')
 
     def unstack(self, dimension):
         raise NotImplementedError()
@@ -258,8 +256,8 @@ class Cuboid(AbstractBox):
     def __hash__(self):
         return hash(self._center)
 
-    def _characteristics_(self) -> Dict[str, math.Tensor]:
-        return {'center': self._center, 'half_size': self._half_size}
+    def __variable_attrs__(self):
+        return '_center', '_half_size'
 
     @property
     def center(self):
@@ -271,7 +269,7 @@ class Cuboid(AbstractBox):
 
     @property
     def shape(self):
-        return self._shape
+        return _fill_spatial_with_singleton(self._center.shape & self._half_size.shape).without('vector')
 
     @property
     def size(self):

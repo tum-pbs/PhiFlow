@@ -5,6 +5,7 @@ from phi import math
 from phi.field import ConstantField, Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
+from phi.math._tensors import copy_with
 
 
 def explicit(field: FieldType,
@@ -57,7 +58,9 @@ def implicit(field: FieldType,
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    return solve_linear(sharpen, y=field, x0=field, solve=solve)
+    if not solve.x0:
+        solve = copy_with(solve, x0=field)
+    return solve_linear(sharpen, y=field, solve=solve)
 
 
 def fourier(field: GridType,

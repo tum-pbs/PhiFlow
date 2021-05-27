@@ -47,11 +47,11 @@ def detect_backends() -> tuple:
         `tuple` of `phi.math.backend.Backend`
     """
     try:
-        from .tf import TF_BACKEND
+        from .torch import TORCH_BACKEND
     except ImportError:
         pass
     try:
-        from .torch import TORCH_BACKEND
+        from .tf import TF_BACKEND
     except ImportError:
         pass
     try:

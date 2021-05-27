@@ -21,12 +21,12 @@ class ColabNotebookTest(TestCase):
                     velocity = initial_velocity = DOMAIN.staggered_grid(0) * math.ones(inflow_loc=4)
 
                     with math.record_gradients(velocity.values):
-                        for _ in range(4):
+                        for _ in range(3):
                             smoke = advect.mac_cormack(smoke, velocity, dt=1) + INFLOW
                             buoyancy_force = smoke * (0, 0.5) >> velocity
                             velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
-                            velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN)
-                        loss = field.l2_loss(smoke - field.stop_gradient(smoke.inflow_loc[-1]))
+                            velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
+                        loss = math.mean(field.l2_loss(smoke - field.stop_gradient(smoke.inflow_loc[-1])))
                         grad = math.gradients(loss, initial_velocity.values)
 
     def test_functional_gradient(self):
@@ -38,13 +38,12 @@ class ColabNotebookTest(TestCase):
                     INFLOW = DOMAIN.scalar_grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
 
                     def simulate(velocity: StaggeredGrid, smoke: CenteredGrid):
-                        for _ in range(4):
+                        for _ in range(3):
                             smoke = advect.mac_cormack(smoke, velocity, dt=1) + INFLOW
                             buoyancy_force = smoke * (0, 0.5) >> velocity
                             velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
-                            velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN)
-                        loss = field.l2_loss(
-                            diffuse.explicit(smoke - field.stop_gradient(smoke.inflow_loc[-1]), 1, 1, 10))
+                            velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
+                        loss = math.mean(field.l2_loss(diffuse.explicit(smoke - field.stop_gradient(smoke.inflow_loc[-1]), 1, 1, 10)))
                         return loss, smoke, velocity
 
                     initial_smoke = DOMAIN.scalar_grid(math.zeros(inflow_loc=4))

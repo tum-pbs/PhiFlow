@@ -1,5 +1,5 @@
 import warnings
-from typing import TypeVar
+from typing import TypeVar, Callable
 
 from phi import math
 from phi.geom import Geometry
@@ -113,7 +113,7 @@ class Field:
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
         if hasattr(self.__class__, name):
-            raise RuntimeError(f"Failed to get attribute '{name}' of {self}")
+            raise RuntimeError(f"Failed to get attribute '{name}' of {self.__class__}")
         return _FieldDim(self, name)
 
     def __repr__(self):
@@ -225,7 +225,7 @@ class SampledField(Field):
     def __abs__(self):
         return self._op1(lambda x: abs(x))
 
-    def _op1(self, operator) -> 'SampledField':
+    def _op1(self: 'SampledFieldType', operator: Callable) -> 'SampledFieldType':
         """
         Perform an operation on the data of this field.
 

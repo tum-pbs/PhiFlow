@@ -14,5 +14,5 @@ pressure = DOMAIN.scalar_grid(0)
 for _ in view(display='velocity', play=False).range():
     velocity = advect.semi_lagrangian(velocity, velocity, DT)
     velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (1, 0)
-    velocity, pressure, _iterations, _ = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)
+    velocity, pressure = fluid.make_incompressible(velocity, DOMAIN, solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))
     velocity = diffuse.explicit(velocity, 0.1, DT)

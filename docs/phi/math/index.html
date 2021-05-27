@@ -49,20 +49,18 @@ This allows the user to write simulation code once and have it run with various 
 See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 &#34;&#34;&#34;
 
-from .backend._optim import Solve, SolveResult, ConvergenceException, NotConverged, Diverged
 from .backend._dtype import DType
 from .backend import NUMPY_BACKEND, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
-from ._tensors import wrap, tensor, tensors, Tensor, TensorDim
+from ._tensors import wrap, tensor, tensors, Tensor, TensorDim, TensorLike
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
     native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
-    print_ as print, print_gradient,
+    print_ as print,
     map_ as map,
-    jit_compile, jit_compile_linear, functional_gradient, custom_gradient,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
     batch_stack, spatial_stack, channel_stack, unstack, concat,
@@ -76,27 +74,30 @@ from ._ops import (
     round_ as round, ceil, floor,
     maximum, minimum, clip,
     sqrt, exp, sin, cos, tan, log, log2, log10,
-    to_float, to_int, to_complex, imag, real,
+    to_float, to_int32, to_int64, to_complex, imag, real,
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, convolve,
     dtype, cast,
     close, assert_close,
-    solve_linear, solve_nonlinear, minimize,
     record_gradients, gradients, stop_gradient
 )
 from ._nd import (
     shift,
     spatial_sum, vec_abs, vec_squared, cross_product,
     normalize_to,
-    l1_loss, l2_loss, l_n_loss, frequency_loss,
+    l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
     extrapolate_valid_values,
 )
-from ._trace import LinearFunction
+from ._functional import (
+    LinearFunction, jit_compile_linear, jit_compile,
+    functional_gradient, custom_gradient, print_gradient,
+    solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
+)
 
 
 PI = 3.14159265358979323846
@@ -111,12 +112,15 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 __pdoc__ = {
     &#39;Extrapolation.__init__&#39;: False,
     &#39;Shape.__init__&#39;: False,
-    &#39;SolveResult.__init__&#39;: False,
+    &#39;SolveInfo.__init__&#39;: False,
     &#39;TensorDim.__init__&#39;: False,
     &#39;ConvergenceException.__init__&#39;: False,
     &#39;Diverged.__init__&#39;: False,
     &#39;NotConverged.__init__&#39;: False,
     &#39;LinearFunction.__init__&#39;: False,
+    &#39;TensorLike.__variable_attrs__&#39;: True,
+    &#39;TensorLike.__value_attrs__&#39;: True,
+    &#39;TensorLike.__with_tattrs__&#39;: True,
 }</code></pre>
 </details>
 </section>
@@ -150,16 +154,39 @@ __pdoc__ = {
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.math.abs"><code class="name flex">
-<span>def <span class="ident">abs</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">abs</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>||x||<sub>1</sub></em>.
+Complex <code>x</code> result in matching precision float values.</p>
+<p><em>Note</em>: The gradient of this operation is undefined for <em>x=0</em>.
+TensorFlow and PyTorch return 0 while Jax returns 1.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Absolute value of <code>x</code> of same type as <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs_(x: Tensor) -&gt; Tensor:
-    return abs(x)</code></pre>
+<pre><code class="python">def abs_(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
+    Complex `x` result in matching precision float values.
+
+    *Note*: The gradient of this operation is undefined for *x=0*.
+    TensorFlow and PyTorch return 0 while Jax returns 1.
+
+    Args:
+        x: `Tensor` or `TensorLike`
+
+    Returns:
+        Absolute value of `x` of same type as `x`.
+    &#34;&#34;&#34;
+    return _backend_op1(x, Backend.abs)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.abs_square"><code class="name flex">
@@ -211,39 +238,38 @@ __pdoc__ = {
 </details>
 </dd>
 <dt id="phi.math.all_available"><code class="name flex">
-<span>def <span class="ident">all_available</span></span>(<span>*values: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">all_available</span></span>(<span>*values: phi.math._tensors.Tensor) ‑> bool</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests if the values of all given tensors are known and can be read at this point.</p>
-<p>Tensors are typically available when the backend operates in eager mode.</p>
+<p>Tensors are typically available when the backend operates in eager mode and is not currently tracing a function.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>tensors to check</dd>
-<dt><strong><code>*values</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensors to check.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>bool</p></div>
+<p><code>True</code> if no value is a placeholder or being traced, <code>False</code> otherwise.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def all_available(*values: Tensor):
+<pre><code class="python">def all_available(*values: Tensor) -&gt; bool:
     &#34;&#34;&#34;
     Tests if the values of all given tensors are known and can be read at this point.
     
-    Tensors are typically available when the backend operates in eager mode.
+    Tensors are typically available when the backend operates in eager mode and is not currently tracing a function.
 
     Args:
-      values: tensors to check
-      *values: Tensor: 
+      values: Tensors to check.
 
     Returns:
-      bool
-
+        `True` if no value is a placeholder or being traced, `False` otherwise.
     &#34;&#34;&#34;
+    from phi.math._functional import is_tracer
     for value in values:
+        if is_tracer(value):
+            return False
         natives = value._natives()
         natives_available = [choose_backend(native).is_available(native) for native in natives]
         if not all(natives_available):
@@ -312,7 +338,7 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
     if any_tensor is None:
         values = [wrap(t) for t in values]
     else:  # use Tensor to infer dimensions
-        values = [any_tensor._tensor(t).__simplify__() for t in values]
+        values = [compatible_tensor(t, any_tensor.shape)._simplify() for t in values]
     for other in values[1:]:
         _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)</code></pre>
 </details>
@@ -433,7 +459,7 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
             new_shape = x.shape.with_sizes(backend.staticshape(result_native))
             return NativeTensor(result_native, new_shape)
         else:
-            total = int(sum_(to_int(mask_1d)))
+            total = int(sum_(to_int64(mask_1d)))
             new_shape = mask_1d.shape.with_sizes([total])
             return _expand_dims(x, new_shape)
 
@@ -454,7 +480,7 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 </details>
 </dd>
 <dt id="phi.math.ceil"><code class="name flex">
-<span>def <span class="ident">ceil</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">ceil</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -462,7 +488,7 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ceil(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def ceil(x) -&gt; Tensor:
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
 </dd>
@@ -837,7 +863,7 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
 </details>
 </dd>
 <dt id="phi.math.cos"><code class="name flex">
-<span>def <span class="ident">cos</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">cos</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -845,7 +871,7 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cos(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def cos(x) -&gt; Tensor:
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
 </dd>
@@ -862,12 +888,20 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
     vec1, vec2 = math.tensors(vec1, vec2)
     spatial_rank = vec1.vector.size if &#39;vector&#39; in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
-        dist_0, dist_1 = vec2.vector.unstack()
-        if GLOBAL_AXIS_ORDER.is_x_first:
-            velocity = vec1 * math.channel_stack([-dist_1, dist_0], &#39;vector&#39;)
+        assert vec2.vector.exists
+        if vec1.vector.exists:
+            v1_x, v1_y = vec1.vector.unstack()
+            v2_x, v2_y = vec2.vector.unstack()
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                return v1_x * v2_y - v1_y * v2_x
+            else:
+                return - v1_x * v2_y + v1_y * v2_x
         else:
-            velocity = vec1 * math.channel_stack([dist_1, -dist_0], &#39;vector&#39;)
-        return velocity
+            v2_x, v2_y = vec2.vector.unstack()
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                return vec1 * math.channel_stack([-v2_y, v2_x], &#39;vector&#39;)
+            else:
+                return vec1 * math.channel_stack([v2_y, -v2_x], &#39;vector&#39;)
     elif spatial_rank == 3:  # Curl in 3D
         raise NotImplementedError(f&#39;spatial_rank={spatial_rank} not yet implemented&#39;)
     else:
@@ -908,23 +942,7 @@ Make sure to pass tensors without gradients if the gradient is not required, see
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     &#34;&#34;&#34;
-    def native_custom_gradient(fun: Callable, backend: Backend):
-        def native_gradient(x_natives, y_natives, dy_natives):
-            x_natives = list(x_natives)
-            y_natives = list(y_natives)
-            dy_natives = list(dy_natives)
-            x = [t._op1(lambda _: x_natives.pop(0)) for t in input_tensors]
-            y = [t._op1(lambda _: y_natives.pop(0)) for t in output_tensors]
-            dy = [t._op1(lambda _: dy_natives.pop(0)) for t in output_tensors]
-            result = gradient(*x, *y, *dy)
-            assert isinstance(result, (tuple, list)), &#34;Gradient function must return tuple or list&#34;
-            input_tensors.clear()  # release tensors manually since persistent_refs=True
-            output_tensors.clear()
-            return [r.native() if r is not None else None for r in result]
-        return backend.custom_gradient(fun, native_gradient)
-
-    wrapper, _, input_tensors, output_tensors = _native_wrapper(f, native_custom_gradient, persistent_refs=True)
-    return wrapper</code></pre>
+    return CustomGradientFunction(f, gradient)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.divide_no_nan"><code class="name flex">
@@ -1087,7 +1105,7 @@ The grid values at the new points are determined via mean (linear interpolation)
 </details>
 </dd>
 <dt id="phi.math.exp"><code class="name flex">
-<span>def <span class="ident">exp</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">exp</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1095,7 +1113,7 @@ The grid values at the new points are determined via mean (linear interpolation)
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def exp(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def exp(x) -&gt; Tensor:
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
 </dd>
@@ -1277,7 +1295,7 @@ x00
 </details>
 </dd>
 <dt id="phi.math.fftfreq"><code class="name flex">
-<span>def <span class="ident">fftfreq</span></span>(<span>resolution: phi.math._shape.Shape, dtype: phi.math.backend._dtype.DType = None)</span>
+<span>def <span class="ident">fftfreq</span></span>(<span>resolution: phi.math._shape.Shape, dx: phi.math._tensors.Tensor = 1, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the discrete Fourier transform sample frequencies.
@@ -1286,30 +1304,33 @@ These are the frequencies corresponding to the components of the result of <code
 <dl>
 <dt><strong><code>resolution</code></strong></dt>
 <dd>Grid resolution measured in cells</dd>
+<dt><strong><code>dx</code></strong></dt>
+<dd>Distance between sampling points in real space.</dd>
 <dt><strong><code>dtype</code></strong></dt>
 <dd>Data type of the returned tensor (Default value = None)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>tensor holding the frequencies of the corresponding values computed by math.fft</p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> holding the frequencies of the corresponding values computed by math.fft</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fftfreq(resolution: Shape, dtype: DType = None):
+<pre><code class="python">def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
     &#34;&#34;&#34;
     Returns the discrete Fourier transform sample frequencies.
     These are the frequencies corresponding to the components of the result of `math.fft` on a tensor of shape `resolution`.
 
     Args:
-      resolution: Grid resolution measured in cells
-      dtype: Data type of the returned tensor (Default value = None)
+        resolution: Grid resolution measured in cells
+        dx: Distance between sampling points in real space.
+        dtype: Data type of the returned tensor (Default value = None)
 
     Returns:
-      tensor holding the frequencies of the corresponding values computed by math.fft
-
+        `Tensor` holding the frequencies of the corresponding values computed by math.fft
     &#34;&#34;&#34;
     resolution = spatial_shape(resolution)
     k = meshgrid(**{dim: np.fft.fftfreq(int(n)) for dim, n in resolution.named_sizes})
+    k /= dx
     return to_float(k) if dtype is None else cast(k, dtype)</code></pre>
 </details>
 </dd>
@@ -1327,7 +1348,7 @@ These are the frequencies corresponding to the components of the result of <code
 </details>
 </dd>
 <dt id="phi.math.floor"><code class="name flex">
-<span>def <span class="ident">floor</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">floor</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1335,7 +1356,7 @@ These are the frequencies corresponding to the components of the result of <code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def floor(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def floor(x) -&gt; Tensor:
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
 </dd>
@@ -1442,7 +1463,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>values: phi.math._tensors.Tensor, n=2, frequency_falloff: float = 100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>x, n=2, frequency_falloff: float = 100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
@@ -1452,7 +1473,7 @@ Lower frequencies are weighted more strongly then higher frequencies, depending 
 <dt><strong><code>values</code></strong></dt>
 <dd>Values to penalize, typically <code>actual - target</code></dd>
 <dt><strong><code>n</code></strong></dt>
-<dd>Loss type, see <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code>.</dd>
+<dd>Loss type, see <code>l_n_loss()</code>.</dd>
 <dt><strong><code>frequency_falloff</code></strong></dt>
 <dd>Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
 <em>Note</em>: The total loss is not normalized. Varying the value will result in losses of different magnitudes.</dd>
@@ -1470,7 +1491,7 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def frequency_loss(values: Tensor,
+<pre><code class="python">def frequency_loss(x,
                    n=2,
                    frequency_falloff: float = 100,
                    threshold=1e-5,
@@ -1503,7 +1524,7 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 </details>
 </dd>
 <dt id="phi.math.functional_gradient"><code class="name flex">
-<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=False) ‑> Callable</span>
+<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the spatial_gradient of <code>f</code>.</p>
@@ -1537,7 +1558,7 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=False) -&gt; Callable:
+<pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the spatial_gradient of `f`.
 
@@ -1567,63 +1588,7 @@ Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and spatial_gradient of `f` if `get_output=True`, else just the spatial_gradient of `f`.
     &#34;&#34;&#34;
-    INPUT_TENSORS = []
-    OUTPUT_TENSORS = []
-    ARG_INDICES = []
-
-    def native_function(*natives):
-        natives = list(natives)
-        values = [t._op1(lambda _: natives.pop(0)) for t in INPUT_TENSORS]
-        assert len(natives) == 0, &#34;Not all arguments were converted&#34;
-        result = f(*values)
-        results = [result] if not isinstance(result, (tuple, list)) else result
-        assert all(isinstance(t, Tensor) for t in results), f&#34;Function output must be Tensor or sequence of tensors but got {result}.&#34;
-        OUTPUT_TENSORS.clear()
-        OUTPUT_TENSORS.extend(results)
-        return sum([v._natives() for v in results], ())
-
-    backend = default_backend()
-
-    class GradientFunction:
-
-        def __init__(self):
-            self.gradf = None
-
-        def __call__(self, *args, **kwargs):
-            assert not len(kwargs)
-            shifted_wrt = [i for i in range(len(ARG_INDICES)) if ARG_INDICES[i] in wrt]
-            if self.gradf is None:
-                assert backend.supports(Backend.functional_gradient), f&#34;{backend} does not support gradients. Use a different backend instead. For more information, see https://tum-pbs.github.io/PhiFlow/Optimization.html&#34;
-                self.gradf = backend.functional_gradient(native_function, shifted_wrt, get_output=get_output)
-            return self.gradf(*args)
-
-    grad_native = GradientFunction()
-
-    def wrapper(*values: Tensor):
-        assert all(isinstance(v, Tensor) for v in values)
-        INPUT_TENSORS.clear()
-        INPUT_TENSORS.extend(values)
-        ARG_INDICES.clear()
-        natives = []
-        for arg_index, v in enumerate(values):
-            v._expand()
-            n = v._natives()
-            natives.extend(n)
-            for _ in range(len(n)):
-                ARG_INDICES.append(arg_index)
-        results_native = list(grad_native(*natives))
-        assert None not in results_native, f&#34;None found in gradient result {results_native}&#34;
-        proto_tensors = []
-        if get_output:
-            proto_tensors.extend(OUTPUT_TENSORS)
-        proto_tensors.extend([t for i, t in enumerate(INPUT_TENSORS) if i in wrt])
-        results = [t._with_natives_replaced(results_native) for t in proto_tensors]
-        INPUT_TENSORS.clear()
-        OUTPUT_TENSORS.clear()
-        assert len(results_native) == 0
-        return results
-
-    return wrapper</code></pre>
+    return GradientFunction(f, wrt, get_output)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.gather"><code class="name flex">
@@ -1683,7 +1648,8 @@ The precision can be set globally using <code><a title="phi.math.set_global_prec
 <span>def <span class="ident">gradients</span></span>(<span>y: phi.math._tensors.Tensor, *x: phi.math._tensors.Tensor, grad_y: phi.math._tensors.Tensor = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes the gradients dy/dx for each <code>x</code>.
+<div class="desc"><p><em>Deprecated. Use <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code> instead.</em></p>
+<p>Computes the gradients dy/dx for each <code>x</code>.
 The parameters <code>x</code> must be marked prior to all operations for which gradients should be recorded using <code><a title="phi.math.record_gradients" href="#phi.math.record_gradients">record_gradients()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -1705,6 +1671,8 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
               *x: Tensor,
               grad_y: Tensor or None = None):
     &#34;&#34;&#34;
+    *Deprecated. Use `functional_gradient()` instead.*
+
     Computes the gradients dy/dx for each `x`.
     The parameters `x` must be marked prior to all operations for which gradients should be recorded using `record_gradients()`.
 
@@ -1717,6 +1685,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
     Returns:
         Single `Tensor` if one `x` was passed, else sequence of tensors.
     &#34;&#34;&#34;
+    warnings.warn(&#34;math.gradients() is deprecated. Use functional_gradient() instead.&#34;, DeprecationWarning)
     assert isinstance(y, NativeTensor), f&#34;{type(y)}&#34;
     if len(x) == 0:
         x = _PARAM_STACK[-1]
@@ -1759,7 +1728,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 </details>
 </dd>
 <dt id="phi.math.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>complex: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">imag</span></span>(<span>complex) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1767,12 +1736,12 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(complex: Tensor) -&gt; Tensor:
+<pre><code class="python">def imag(complex) -&gt; Tensor:
     return _backend_op1(complex, Backend.imag)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.isfinite"><code class="name flex">
-<span>def <span class="ident">isfinite</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1780,7 +1749,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def isfinite(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def isfinite(x) -&gt; Tensor:
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
 </dd>
@@ -1796,6 +1765,12 @@ Some checks may be disabled in the compiled function.</p>
 <pre><code class="language-python">@math.jit_compile
 def my_function(x: math.Tensor) -&gt; math.Tensor:
 </code></pre>
+<p>Compilation is implemented for the following backends:</p>
+<ul>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/jit.html"><code>torch.jit.trace</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/guide/function"><code>tf.function</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/notebooks/quickstart.html#using-jit-to-speed-up-functions"><code>jax.jit</code></a></li>
+</ul>
 <p>See Also:
 <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code></p>
 <h2 id="args">Args</h2>
@@ -1805,7 +1780,7 @@ def my_function(x: math.Tensor) -&gt; math.Tensor:
 All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> returning a single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or a <code>tuple</code> or <code>list</code> of tensors.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
+<p>Function with similar signature and return values as <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1824,6 +1799,12 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
     def my_function(x: math.Tensor) -&gt; math.Tensor:
     ```
 
+    Compilation is implemented for the following backends:
+
+    * PyTorch: [`torch.jit.trace`](https://pytorch.org/docs/stable/jit.html)
+    * TensorFlow: [`tf.function`](https://www.tensorflow.org/guide/function)
+    * Jax: [`jax.jit`](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html#using-jit-to-speed-up-functions)
+
     See Also:
         `jit_compile_linear()`
 
@@ -1832,14 +1813,13 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
             All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
 
     Returns:
-        Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+        Function with similar signature and return values as `f`.
     &#34;&#34;&#34;
-    wrapper, _, _, _ = _native_wrapper(f, lambda nf, backend: backend.jit_compile(nf), persistent_refs=True)
-    return wrapper</code></pre>
+    return f if isinstance(f, (JitFunction, LinearFunction)) else JitFunction(f)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable) ‑> phi.math._trace.LinearFunction</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.</p>
@@ -1855,12 +1835,12 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <dd>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional arguments and return value(s).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
+<p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_linear(f: Callable) -&gt; &#39;_trace.LinearFunction&#39;:
+<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
 
@@ -1878,13 +1858,11 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
         f: Linear function with `Tensor` positional arguments and return value(s).
 
     Returns:
-        `LinearFunction` with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
+        `LinearFunction` with similar signature and return values as `f`.
     &#34;&#34;&#34;
-    backend = default_backend()
-    if not backend.supports(Backend.sparse_tensor):
-        warnings.warn(f&#34;Cannot compile linear function with {backend} because sparse matrices are not supported.&#34;)
-        return _trace.LinearFunction(f)
-    return _trace.JitLinearFunction(f, backend)</code></pre>
+    if isinstance(f, JitFunction):
+        f = f.f  # cannot trace linear function from jitted version
+    return f if isinstance(f, LinearFunction) else LinearFunction(f)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.join_dimensions"><code class="name flex">
@@ -1941,95 +1919,99 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
     &#34;&#34;&#34;
     dims = dims.names if isinstance(dims, Shape) else dims
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
-        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, _infer_dim_type_from_name(joined_dim_name), pos))
+        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, dim_type(joined_dim_name), pos))
     if len(dims) == 1:
         new_shape = value.shape.with_names([joined_dim_name if name == dims[0] else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
     types = value.shape.get_type(dims)
-    dim_type = types[0] if len(set(types)) == 1 else BATCH_DIM
+    dim_type_ = types[0] if len(set(types)) == 1 else BATCH_DIM
     if pos is None:
         pos = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type, pos)
+    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type_, pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes L1 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
+<div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub></em>, summing over all non-batch dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.
+For <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> objects, only value the sum over all value attributes is computed.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>loss</code></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l1_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
-    &#34;&#34;&#34; Computes L1 loss. See `l_n_loss()` &#34;&#34;&#34;
-    return l_n_loss(abs(tensor), 1, batch_norm=batch_norm)</code></pre>
+<pre><code class="python">def l1_loss(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;1&lt;/sub&gt;*, summing over all non-batch dimensions.
+
+    Args:
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
+
+    Returns:
+        loss: `Tensor`
+    &#34;&#34;&#34;
+    if isinstance(x, Tensor):
+        return math.sum_(abs(x), x.shape.non_batch)
+    elif isinstance(x, TensorLike):
+        return sum([l1_loss(getattr(x, a)) for a in value_attributes(x)])
+    else:
+        raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes L2 loss. See <code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss()</a></code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def l2_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
-    &#34;&#34;&#34; Computes L2 loss. See `l_n_loss()` &#34;&#34;&#34;
-    return l_n_loss(tensor, 2, batch_norm=batch_norm)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.l_n_loss"><code class="name flex">
-<span>def <span class="ident">l_n_loss</span></span>(<span>tensor: phi.math._tensors.Tensor, n: int, batch_norm: bool = True) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Computes the vector norm of a tensor.
-This is defined as <em>sum x</em><em>n / n</em>.</p>
+<div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2</em>, summing over all non-batch dimensions.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>tensor</code></strong></dt>
-<dd>Loss values.</dd>
-<dt><strong><code>n</code></strong></dt>
-<dd>norm order, 1 for L1 loss, 2 for L2 loss.</dd>
-<dt><strong><code>batch_norm</code></strong></dt>
-<dd>Either <code>bool</code> specifying whether to divide by the product of all batch sizes or specific dimensions.</dd>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.
+For <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> objects, only value the sum over all value attributes is computed.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Scalar float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<dl>
+<dt><code>loss</code></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l_n_loss(tensor: Tensor,
-             n: int,
-             batch_norm: bool or str or tuple or list or Shape = True) -&gt; Tensor:
+<pre><code class="python">def l2_loss(x) -&gt; Tensor:
     &#34;&#34;&#34;
-    Computes the vector norm of a tensor.
-    This is defined as *sum x**n / n*.
+    Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;2&lt;/sub&gt;&lt;sup&gt;2&lt;/sup&gt; / 2*, summing over all non-batch dimensions.
 
     Args:
-      tensor: Loss values.
-      n: norm order, 1 for L1 loss, 2 for L2 loss.
-      batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
 
     Returns:
-        Scalar float `Tensor`
+        loss: `Tensor`
     &#34;&#34;&#34;
-    assert isinstance(tensor, Tensor), f&#34;Must be a Tensor but got {type(tensor).__name__}&#34;
-    total_loss = math.sum_(abs(tensor) ** n) / n
-    if batch_norm:
-        if isinstance(batch_norm, bool):
-            batch_size = tensor.shape.batch.volume
-        else:
-            batch_size = tensor.shape.only(batch_norm).volume
-        return math.divide_no_nan(total_loss, batch_size)
+    if isinstance(x, Tensor):
+        if x.dtype.kind == complex:
+            x = abs(x)
+        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+    elif isinstance(x, TensorLike):
+        return sum([l2_loss(getattr(x, a)) for a in value_attributes(x)])
     else:
-        return total_loss</code></pre>
+        raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.laplace"><code class="name flex">
@@ -2113,7 +2095,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.log"><code class="name flex">
-<span>def <span class="ident">log</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">log</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Natural logarithm.</p></div>
@@ -2121,13 +2103,13 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def log(x) -&gt; Tensor:
     &#34;&#34;&#34; Natural logarithm. &#34;&#34;&#34;
     return _backend_op1(x, Backend.log)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.log10"><code class="name flex">
-<span>def <span class="ident">log10</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">log10</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2135,12 +2117,12 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log10(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def log10(x) -&gt; Tensor:
     return _backend_op1(x, Backend.log10)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.log2"><code class="name flex">
-<span>def <span class="ident">log2</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">log2</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2148,7 +2130,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log2(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def log2(x) -&gt; Tensor:
     return _backend_op1(x, Backend.log2)</code></pre>
 </details>
 </dd>
@@ -2262,18 +2244,26 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 
     &#34;&#34;&#34;
     assert &#39;vector&#39; not in dimensions
-    dim_values = {}
+    dim_values = []
+    dim_sizes = []
     for dim, spec in dimensions.items():
         if isinstance(spec, int):
-            dim_values[dim] = tuple(range(spec))
+            dim_values.append(tuple(range(spec)))
+            dim_sizes.append(spec)
         elif isinstance(spec, Tensor):
-            dim_values[dim] = spec.native()
+            assert spec.rank == 1, f&#34;Only 1D sequences allowed, got {spec} for dimension &#39;{dim}&#39;.&#34;
+            dim_values.append(spec.native())
+            dim_sizes.append(spec.shape.volume)
         else:
-            dim_values[dim] = spec
-    backend = choose_backend(*dim_values.values(), prefer_default=True)
-    indices_list = backend.meshgrid(*dim_values.values())
-    single_shape = Shape([len(val) for val in dim_values.values()], dim_values.keys(), [SPATIAL_DIM] * len(dim_values))
-    channels = [NativeTensor(t, single_shape) for t in indices_list]
+            backend = choose_backend(spec)
+            shape = backend.staticshape(spec)
+            assert len(shape) == 1, &#34;Only 1D sequences allowed, got {spec} for dimension &#39;{dim}&#39;.&#34;
+            dim_values.append(spec)
+            dim_sizes.append(shape[0])
+    backend = choose_backend(*dim_values, prefer_default=True)
+    indices_list = backend.meshgrid(*dim_values)
+    grid_shape = Shape(dim_sizes, dimensions.keys(), [SPATIAL_DIM] * len(dim_values))
+    channels = [NativeTensor(t, grid_shape) for t in indices_list]
     return TensorStack(channels, &#39;vector&#39;, CHANNEL_DIM)</code></pre>
 </details>
 </dd>
@@ -2293,27 +2283,25 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>f, x0: phi.math._tensors.Tensor, solve: phi.math.backend._optim.Solve, jit_f=True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">minimize</span></span>(<span>f: Callable[[~X], ~Y], solve: phi.math._functional.Solve[~X, ~Y]) ‑> ~X</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Finds a minimum of the scalar function <code>function(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> like <code>x0</code>.
-The <code>solver</code> argument of <code>solve</code> determines which method is used.
-All methods supported by <code>scipy.optimize.minimize</code> can be used, see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .</p>
-<p>For backends that support gradients (PyTorch, TensorFlow, Jax), <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code> is used to determine the optimization direction.
-Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.</p>
-<p>Information about the performed solve_linear will be added to <code>solve.result</code>.</p>
+<div class="desc"><p>Finds a minimum of the scalar function <em>f(x)</em>.
+The <code>method</code> argument of <code>solve</code> determines which method is used.
+All methods supported by <code>scipy.optimize.minimize</code> are supported,
+see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .</p>
+<p>This method is limited to backends that support <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code>, currently PyTorch, TensorFlow and Jax.</p>
+<p>To obtain additional information about the performed solve, use a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code>.</p>
+<p>See Also:
+<code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Function whose output is subject to minimization. Function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional argument and return value.</dd>
-<dt><strong><code>x0</code></strong></dt>
-<dd>Initial guess for <code>x</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
-<dt><strong><code>jit_f</code></strong></dt>
-<dd>Whether to compile an optimized representation of <code>f</code> prior to solving the equations.
-If <code>f</code> is already compiled or partially compiled, e.g. using <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>, the existing representations are used.</dd>
+<dd>Function whose output is subject to minimization.
+All positional arguments of <code>f</code> are optimized and must be <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.
+The first return value of <code>f</code> must be a scalar float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
-<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify solver type and parameters.
-Additional solve information will be stored in <code>solve.result</code>.</dd>
+<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify method type, parameters and initial guess for <code>x</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2331,27 +2319,25 @@ Additional solve information will be stored in <code>solve.result</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(f,
-             x0: Tensor,
-             solve: Solve,
-             jit_f=True) -&gt; Tensor:
+<pre><code class="python">def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -&gt; X:
     &#34;&#34;&#34;
-    Finds a minimum of the scalar function `function(x)` where `x` is a `Tensor` like `x0`.
-    The `solver` argument of `solve` determines which method is used.
-    All methods supported by `scipy.optimize.minimize` can be used, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
+    Finds a minimum of the scalar function *f(x)*.
+    The `method` argument of `solve` determines which method is used.
+    All methods supported by `scipy.optimize.minimize` are supported,
+    see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
 
-    For backends that support gradients (PyTorch, TensorFlow, Jax), `functional_gradient()` is used to determine the optimization direction.
-    Otherwise (NumPy), the gradient is determined using finite differences and a warning is printed.
+    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 
-    Information about the performed solve_linear will be added to `solve.result`.
+    To obtain additional information about the performed solve, use a `SolveTape`.
+
+    See Also:
+        `solve_nonlinear()`.
 
     Args:
-        f: Function whose output is subject to minimization. Function with single `Tensor` positional argument and return value.
-        x0: Initial guess for `x` as `Tensor`.
-        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
-            If `f` is already compiled or partially compiled, e.g. using `jit_compile()`, the existing representations are used.
-        solve: `Solve` object to specify solver type and parameters.
-            Additional solve information will be stored in `solve.result`.
+        f: Function whose output is subject to minimization.
+            All positional arguments of `f` are optimized and must be `Tensor` or `TensorLike`.
+            The first return value of `f` must be a scalar float `Tensor` or `TensorLike`.
+        solve: `Solve` object to specify method type, parameters and initial guess for `x`.
 
     Returns:
         x: solution, the minimum point `x`.
@@ -2361,41 +2347,64 @@ Additional solve information will be stored in <code>solve.result</code>.</dd>
         Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
     assert solve.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
-    backend = choose_backend_t(x0, prefer_default=True)
-    x0._expand()
-    natives = x0._natives()
-    natives_flat = [backend.flatten(n) for n in natives]
-    x0_flat = backend.concat(natives_flat, 0)
-    if jit_f:
-        f = jit_compile(f)
+    x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    x0_tensors = [to_float(t) for t in x0_tensors]
+    backend = choose_backend_t(*x0_tensors, prefer_default=True)
+    batch = combine_safe(*[t.shape for t in x0_tensors]).batch
+    x0_natives = []
+    for t in x0_tensors:
+        t._expand()
+        assert t.shape.is_uniform
+        x0_natives.append(reshaped_native(t, [batch, t.shape.non_batch], force_expand=True))
+    x0_flat = backend.concat(x0_natives, -1)
 
-    def unflatten_assemble(x_native):
+    def unflatten_assemble(x_flat, additional_dims=()):
         i = 0
-        x_natives = []
-        for native, native_flat in zip(natives, natives_flat):
-            vol = backend.shape(native_flat)[0]
-            x_natives.append(backend.reshape(x_native[i:i + vol], backend.shape(native)))
+        x_tensors = []
+        for x0_native, x0_tensor in zip(x0_natives, x0_tensors):
+            vol = backend.shape(x0_native)[-1]
+            flat_native = x_flat[..., i:i + vol]
+            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch, x0_tensor.shape.non_batch]))
             i += vol
-        x = x0._op1(lambda _: x_natives.pop(0))  # assemble x0 structure
+        x = assemble_nested(x0_nest, x_tensors)
         return x
 
-    def native_function(native_x):
-        x = unflatten_assemble(native_x)
-        y = f(x)
-        if isinstance(y, (tuple, list)):
-            return [y_.native() for y_ in y]
+    def native_function(x_flat):
+        x = unflatten_assemble(x_flat)
+        if isinstance(x, (tuple, list)):
+            y = f(*x)
         else:
-            return y.native()
+            y = f(x)
+        _, y_tensors = disassemble_nested(y)
+        return y_tensors[0].sum, y_tensors[0].native()
 
-    try:
-        x_native = backend.minimize(native_function, x0_flat, solve)
-        if x_native is NotImplemented:
-            x_native = _default_minimize(native_function, x0_flat, x0.dtype, backend, solve)
-        x = unflatten_assemble(x_native)
-        return x
-    except ConvergenceException as exc:
-        x = unflatten_assemble(exc.x)
-        raise type(exc)(exc.solve, x0, x, exc.msg)</code></pre>
+    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
+    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
+    trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
+    if not trj:
+        assert isinstance(ret, SolveResult)
+        converged = reshaped_tensor(ret.converged, [batch])
+        diverged = reshaped_tensor(ret.diverged, [batch])
+        x = unflatten_assemble(ret.x)
+        iterations = reshaped_tensor(ret.iterations, [batch])
+        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
+        residual = reshaped_tensor(ret.residual, [batch])
+        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+    else:  # trajectory
+        assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
+        converged = reshaped_tensor(ret[-1].converged, [batch])
+        diverged = reshaped_tensor(ret[-1].diverged, [batch])
+        x = unflatten_assemble(ret[-1].x)
+        x_ = unflatten_assemble(backend.stack([r.x for r in ret]), additional_dims=(&#39;trajectory&#39;,))
+        residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], &#39;trajectory&#39;)
+        iterations = reshaped_tensor(ret[-1].iterations, [batch])
+        function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], &#39;trajectory&#39;)
+        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+    for tape in _SOLVE_TAPES:
+        tape._add(solve, trj, result)
+    result.convergence_check(False)  # raises ConvergenceException
+    return x</code></pre>
 </details>
 </dd>
 <dt id="phi.math.minimum"><code class="name flex">
@@ -2812,7 +2821,7 @@ def precision(floating_point_bits: int):
 </details>
 </dd>
 <dt id="phi.math.print"><code class="name flex">
-<span>def <span class="ident">print</span></span>(<span>value: phi.math._tensors.Tensor = None, name: str = '')</span>
+<span>def <span class="ident">print</span></span>(<span>obj: phi.math._tensors.Tensor = None, name: str = '')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.</p>
@@ -2821,23 +2830,17 @@ Elements along the alphabetically first dimension is printed to the right, the s
 Typically, this means x right, y up.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd>tensor-like</dd>
 <dt><strong><code>name</code></strong></dt>
 <dd>name of the tensor</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>tensor-like</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor:
-(Default value = None)</dd>
-<dt><strong><code>name</code></strong></dt>
-<dd>str:
-(Default value = None)</dd>
 </dl>
 <p>Returns:</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def print_(value: Tensor = None, name: str = &#34;&#34;):
+<pre><code class="python">def print_(obj: Tensor or TensorLike or Number or tuple or list or None = None, name: str = &#34;&#34;):
     &#34;&#34;&#34;
     Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.
     
@@ -2846,37 +2849,32 @@ Typically, this means x right, y up.</p>
     Typically, this means x right, y up.
 
     Args:
+        obj: tensor-like
         name: name of the tensor
-        value: tensor-like
-        value: Tensor:  (Default value = None)
-        name: str:  (Default value = None)
 
     Returns:
 
     &#34;&#34;&#34;
-    if value is None:
+    def variables(obj) -&gt; dict:
+        if hasattr(obj, &#39;__variable_attrs__&#39;) or hasattr(obj, &#39;__value_attrs__&#39;):
+            return {f&#34;.{a}&#34;: getattr(obj, a) for a in variable_attributes(obj)}
+        elif isinstance(obj, (tuple, list)):
+            return {f&#34;[{i}]&#34;: item for i, item in enumerate(obj)}
+        elif isinstance(obj, dict):
+            return obj
+        else:
+            raise ValueError(f&#34;Not TensorLike: {type(obj)}&#34;)
+
+    if obj is None:
         print()
-        return
-    if name:
-        print(&#34; &#34; * 16 + name)
-    value = wrap(value)
-    dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
-    if value.shape.spatial_rank == 0:
-        print(value.numpy())
-    elif value.shape.spatial_rank == 1:
-        for index_dict in value.shape.non_spatial.meshgrid():
-            if value.shape.non_spatial.volume &gt; 1:
-                print(f&#34;--- {&#39;, &#39;.join(&#39;%s=%d&#39; % (name, idx) for name, idx in index_dict.items())} ---&#34;)
-            text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=&#39;, &#39;, max_line_width=np.inf)
-            print(&#39; &#39; + re.sub(&#39;[\\[\\]]&#39;, &#39;&#39;, text))
-    elif value.shape.spatial_rank == 2:
-        for index_dict in value.shape.non_spatial.meshgrid():
-            if value.shape.non_spatial.volume &gt; 1:
-                print(f&#34;--- {&#39;, &#39;.join(&#39;%s=%d&#39; % (name, idx) for name, idx in index_dict.items())} ---&#34;)
-            text = np.array2string(value[index_dict].numpy(dim_order)[::-1], precision=2, separator=&#39;, &#39;, max_line_width=np.inf)
-            print(&#39; &#39; + re.sub(&#39;[\\[\\]]&#39;, &#39;&#39;, re.sub(&#39;\\],&#39;, &#39;&#39;, text)))
+    elif isinstance(obj, Tensor):
+        _print_tensor(obj, name)
+    elif isinstance(obj, TensorLike):
+        for n, val in variables(obj).items():
+            print_(val, name + n)
     else:
-        raise NotImplementedError(&#39;Can only print tensors with up to 2 spatial dimensions.&#39;)</code></pre>
+        value = wrap(obj)
+        _print_tensor(value, name)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.print_gradient"><code class="name flex">
@@ -3032,7 +3030,7 @@ math.functional_gradient(f)(math.ones(x=6))
 </details>
 </dd>
 <dt id="phi.math.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>complex: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">real</span></span>(<span>complex) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3040,7 +3038,7 @@ math.functional_gradient(f)(math.ones(x=6))
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(complex: Tensor) -&gt; Tensor:
+<pre><code class="python">def real(complex) -&gt; Tensor:
     return _backend_op1(complex, Backend.real)</code></pre>
 </details>
 </dd>
@@ -3048,7 +3046,8 @@ math.functional_gradient(f)(math.ones(x=6))
 <span>def <span class="ident">record_gradients</span></span>(<span>*x: phi.math._tensors.Tensor, persistent=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Context expression to record gradients for operations within that directly or indirectly depend on <code>x</code>.</p>
+<div class="desc"><p><em>Deprecated. Use <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code> instead.</em></p>
+<p>Context expression to record gradients for operations within that directly or indirectly depend on <code>x</code>.</p>
 <p>The function <code><a title="phi.math.gradients" href="#phi.math.gradients">gradients()</a></code> may be called within the context to evaluate the gradients of a Tensor derived from <code>x</code> w.r.t. <code>x</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -3064,6 +3063,8 @@ math.functional_gradient(f)(math.ones(x=6))
 <pre><code class="python">@contextmanager
 def record_gradients(*x: Tensor, persistent=False):
     &#34;&#34;&#34;
+    *Deprecated. Use `functional_gradient()` instead.*
+
     Context expression to record gradients for operations within that directly or indirectly depend on `x`.
 
     The function `gradients()` may be called within the context to evaluate the gradients of a Tensor derived from `x` w.r.t. `x`.
@@ -3072,6 +3073,7 @@ def record_gradients(*x: Tensor, persistent=False):
         *x: Parameters for which gradients of the form dL/dx may be computed
         persistent: if `False`, `gradients()` may only be called once within the context
     &#34;&#34;&#34;
+    warnings.warn(&#34;math.record_gradients() is deprecated. Use functional_gradient() instead.&#34;, DeprecationWarning)
     for x_ in x:
         x_._expand()
     natives = sum([x_._natives() for x_ in x], ())
@@ -3210,7 +3212,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.round"><code class="name flex">
-<span>def <span class="ident">round</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">round</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3218,7 +3220,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round_(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def round_(x) -&gt; Tensor:
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
 </dd>
@@ -3231,20 +3233,18 @@ The values at the new sample points are determined via linear interpolation.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>grid</code></strong></dt>
-<dd>full size grid to be resampled</dd>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to be resampled. Values are assumed to be sampled at cell centers.</dd>
 <dt><strong><code>start</code></strong></dt>
-<dd>origin point of sub-grid within <code>grid</code>, measured in number of cells.</dd>
-</dl>
-<p>Must have a single dimension called <code>vector</code>.
+<dd>Origin point of sub-grid within <code>grid</code>, measured in number of cells.
+Must have a single dimension called <code>vector</code>.
 Example: <code>start=(1, 0.5)</code> would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
-The order of dims must be equal to <code>size</code> and <code>grid.shape.spatial</code>.
-size: resolution of the sub-grid. Must not be larger than the resolution of <code>grid</code>.
-The order of dims must be equal to <code>start</code> and <code>grid.shape.spatial</code>.
-grid: Tensor:
-start: Tensor:
-size: Shape: </p>
+The order of dims must be equal to <code>size</code> and <code>grid.shape.spatial</code>.</dd>
+<dt><strong><code>size</code></strong></dt>
+<dd>Resolution of the sub-grid. Must not be larger than the resolution of <code>grid</code>.
+The order of dims must be equal to <code>start</code> and <code>grid.shape.spatial</code>.</dd>
+</dl>
 <h2 id="returns">Returns</h2>
-<p>sampled sub-grid</p></div>
+<p>Sub-grid as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3255,23 +3255,20 @@ size: Shape: </p>
     The values at the new sample points are determined via linear interpolation.
 
     Args:
-      grid: full size grid to be resampled
-      start: origin point of sub-grid within `grid`, measured in number of cells.
-    Must have a single dimension called `vector`.
-    Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
-    The order of dims must be equal to `size` and `grid.shape.spatial`.
-      size: resolution of the sub-grid. Must not be larger than the resolution of `grid`.
-    The order of dims must be equal to `start` and `grid.shape.spatial`.
-      grid: Tensor: 
-      start: Tensor: 
-      size: Shape: 
+        grid: `Tensor` to be resampled. Values are assumed to be sampled at cell centers.
+        start: Origin point of sub-grid within `grid`, measured in number of cells.
+            Must have a single dimension called `vector`.
+            Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
+            The order of dims must be equal to `size` and `grid.shape.spatial`.
+        size: Resolution of the sub-grid. Must not be larger than the resolution of `grid`.
+            The order of dims must be equal to `start` and `grid.shape.spatial`.
 
     Returns:
-      sampled sub-grid
-
+      Sub-grid as `Tensor`
     &#34;&#34;&#34;
     assert start.shape.names == (&#39;vector&#39;,)
     assert grid.shape.spatial.names == size.names
+    assert math.all_available(start), &#34;Cannot perform sample_subgrid() during tracing, &#39;start&#39; must be known.&#34;
     discard = {}
     for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size):
         discard[dim] = slice(int(d_start), int(d_start) + d_size + (1 if d_start != 0 else 0))
@@ -3279,7 +3276,7 @@ size: Shape: </p>
     upper_weight = start % 1
     lower_weight = 1 - upper_weight
     for i, dim in enumerate(grid.shape.spatial.names):
-        if upper_weight[i] not in (0, 1):
+        if upper_weight[i].native() not in (0, 1):
             lower, upper = shift(grid, (0, 1), [dim], padding=None, stack_dim=None)
             grid = upper * upper_weight[i] + lower * lower_weight[i]
     return grid</code></pre>
@@ -3405,7 +3402,7 @@ These dimensions are not treated as batch dimensions.</dd>
             raise NotImplementedError()
 
     def scatter_forward(shaped_base_grid_, shaped_indices_, shaped_values_):
-        shaped_indices_ = to_int(round_(shaped_indices_))
+        shaped_indices_ = to_int32(round_(shaped_indices_))
         native_grid = reshaped_native(base_grid, (batches, *base_grid.shape.spatial.names, channels), force_expand=True)
         native_values = shaped_values_.native(&#39;batch_, list_, vector_&#39;)
         native_indices = shaped_indices_.native(&#39;batch_, list_, vector&#39;)
@@ -3429,6 +3426,7 @@ These dimensions are not treated as batch dimensions.</dd>
 
     scatter_function = scatter_forward
     if indices_gradient:
+        from phi.math import custom_gradient
         scatter_function = custom_gradient(scatter_forward, scatter_backward)
 
     result = scatter_function(shaped_base_grid, shaped_indices, shaped_values)
@@ -3516,16 +3514,14 @@ The output of math operations has the same precision as its inputs.</p>
 <dl>
 <dt><strong><code>dims</code></strong></dt>
 <dd>names -&gt; size</dd>
-<dt><strong><code>**dims</code></strong></dt>
-<dd>int: </dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Shape</p></div>
+<p><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shape(**dims: int) -&gt; Shape:
+<pre><code class="python">def shape(**dims: int) -&gt; Shape:  # TODO add (base: Shape or dict, )
     &#34;&#34;&#34;
     Creates a Shape from the dimension names and their respective sizes.
     
@@ -3536,16 +3532,14 @@ The output of math operations has the same precision as its inputs.</p>
     * else -&gt; batch dimension
 
     Args:
-      dims: names -&gt; size
-      **dims: int: 
+        dims: names -&gt; size
 
     Returns:
-      Shape
-
+        `Shape`
     &#34;&#34;&#34;
     types = []
     for name, size in dims.items():
-        types.append(_infer_dim_type_from_name(name))
+        types.append(dim_type(name))
     return Shape(dims.values(), dims.keys(), types)</code></pre>
 </details>
 </dd>
@@ -3617,7 +3611,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sign</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3625,12 +3619,12 @@ The output of math operations has the same precision as its inputs.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def sign(x) -&gt; Tensor:
     return _backend_op1(x, Backend.sign)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sin"><code class="name flex">
-<span>def <span class="ident">sin</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sin</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3638,38 +3632,34 @@ The output of math operations has the same precision as its inputs.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sin(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def sin(x) -&gt; Tensor:
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.solve_linear"><code class="name flex">
-<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve: phi.math.backend._optim.Solve, jit_f=True, constants: tuple = ()) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable[[~X], ~Y], y: ~Y, solve: phi.math._functional.Solve[~X, ~Y]) ‑> ~X</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em>.</p>
-<p>Information about the performed solve will be stored in <code>solve.result</code>.
-In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to <code>solve.gradient_solve.result</code>.</p>
+<div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em> and returns <em>x</em>.
+For maximum performance, compile <code>f</code> using <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
+This will use a matrix representation of <code>f</code> to solve the linear system.</p>
+<p>To obtain additional information about the performed solve, use a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code>.</p>
+<p>The gradient of this operation will perform another linear solve with the parameters specified by <code><a title="phi.math.Solve.gradient_solve" href="#phi.math.Solve.gradient_solve">Solve.gradient_solve</a></code>.</p>
 <p>See Also:
 <code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear()</a></code>, <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Linear function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional argument and return value.</dd>
+<dd>Linear function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> positional argument and return value.</dd>
 <dt><strong><code>y</code></strong></dt>
-<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
-<dt><strong><code>x0</code></strong></dt>
-<dd>Initial guess for <code>x</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
-<dt><strong><code>jit_f</code></strong></dt>
-<dd>Whether to compile an optimized representation of <code>f</code> prior to solving the equations.
-If <code>f</code> is already compiled or partially compiled, e.g. using <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code>, the existing representations are used.</dd>
+<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
-<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify solver type and parameters.
-Additional solve information will be stored in <code>solve.result</code>.</dd>
+<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>x</code></dt>
-<dd>solution of the linear system of equations <code>f(x) = y</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dd>solution of the linear system of equations <code>f(x) = y</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -3682,102 +3672,70 @@ Additional solve information will be stored in <code>solve.result</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_linear(f: Callable,
-                 y: Tensor,
-                 x0: Tensor,
-                 solve: Solve,
-                 jit_f=True,
-                 constants: tuple or list = ()) -&gt; Tensor:
+<pre><code class="python">def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -&gt; X:
     &#34;&#34;&#34;
-    Solves the system of linear equations *f(x) = y*.
+    Solves the system of linear equations *f(x) = y* and returns *x*.
+    For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
+    This will use a matrix representation of `f` to solve the linear system.
 
-    Information about the performed solve will be stored in `solve.result`.
-    In case the gradient of this operation is computed during backpropagation, information about the gradient solve will be added to `solve.gradient_solve.result`.
+    To obtain additional information about the performed solve, use a `SolveTape`.
+
+    The gradient of this operation will perform another linear solve with the parameters specified by `Solve.gradient_solve`.
 
     See Also:
         `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Linear function with single `Tensor` positional argument and return value.
-        y: Desired output of `f(x)` as `Tensor`.
-        x0: Initial guess for `x` as `Tensor`.
-        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
-            If `f` is already compiled or partially compiled, e.g. using `jit_compile_linear()`, the existing representations are used.
-        solve: `Solve` object to specify solver type and parameters.
-            Additional solve information will be stored in `solve.result`.
+        f: Linear function with single `Tensor` or `TensorLike` positional argument and return value.
+        y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
+        solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
 
     Returns:
-        x: solution of the linear system of equations `f(x) = y` as `Tensor`.
+        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `TensorLike`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     &#34;&#34;&#34;
-    if solve.solver != &#39;CG&#39;:
-        raise NotImplementedError(&#34;Only &#39;CG&#39; solver currently supported&#34;)
+    y_nest, y_tensors = disassemble_nested(y)
+    x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
+    backend = choose_backend_t(*y_tensors, *x0_tensors)
 
-    for c in constants:
-        c._expand()
+    if not all_available(*y_tensors, *x0_tensors):  # jit mode
+        f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
 
-    x0, y = tensors(x0, y)
-    backend = choose_backend(*x0._natives(), *y._natives())
-
-    if jit_f:
-        pass  # TODO
-    if isinstance(f, _trace.JitLinearFunction):  # TODO don&#39;t check instance, create a new LinearFunction, implement LinearFunction concatenation
-        operator_or_matrix = f.sparse_coordinate_matrix(x0)
+    if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
+        matrix = f.sparse_coordinate_matrix(solve.x0)
+        return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
-        def operator_or_matrix(native_x):
-            native_x_shaped = backend.reshape(native_x, x0.shape.non_batch.sizes)
-            x = NativeTensor(native_x_shaped, x0.shape.non_batch)
-            Ax = f(x)
-            Ax_native = backend.reshape(Ax.native(), backend.shape(native_x))
-            return Ax_native
-
-    loop_time = time.perf_counter()
-    if backend.supports(Backend.conjugate_gradient):
-        x0_native = backend.reshape(x0.native(), (x0.shape.batch.volume, -1))
-        y_native = backend.reshape(y.native(), (y.shape.batch.volume, -1))
-        x = backend.conjugate_gradient(operator_or_matrix, y_native, x0_native, solve)
-        batch = (y.shape &amp; x0.shape).batch
-        x = backend.reshape(x, batch.sizes + x0.shape.non_batch.sizes)
-        x = NativeTensor(x, batch.combined(x0.shape.non_batch))
-    else:
-        x = _default_cg(operator_or_matrix, y, x0, solve)
-    if get_current_profile():
-        iterations = solve.result.iterations
-        loop_time = time.perf_counter() - loop_time
-        info = &#34;  \tProfile with trace=False to get more accurate results.&#34; if get_current_profile()._trace else &#34;&#34;
-        get_current_profile().add_external_message(f&#34;CG \tloop: {round(loop_time * 1000)} ms / {iterations} iterations {info}&#34;)
-    return x</code></pre>
+        return _function_solve(y, solve, f=f, backend=backend)  # custom_gradient</code></pre>
 </details>
 </dd>
 <dt id="phi.math.solve_nonlinear"><code class="name flex">
-<span>def <span class="ident">solve_nonlinear</span></span>(<span>f: Callable, y: phi.math._tensors.Tensor, x0: phi.math._tensors.Tensor, solve: phi.math.backend._optim.Solve, jit_f=True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">solve_nonlinear</span></span>(<span>f: Callable, y, solve: phi.math._functional.Solve) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the non-linear equation <em>f(x) = y</em> by minimizing the norm of the residual.</p>
+<p>This method is limited to backends that support <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code>, currently PyTorch, TensorFlow and Jax.</p>
+<p>To obtain additional information about the performed solve, use a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code>.</p>
 <p>See Also:
 <code><a title="phi.math.minimize" href="#phi.math.minimize">minimize()</a></code>, <code><a title="phi.math.solve_linear" href="#phi.math.solve_linear">solve_linear()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional argument and return value.</dd>
+<dd>Function whose output is optimized to match <code>y</code>.
+All positional arguments of <code>f</code> are optimized and must be <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.
+The output of <code>f</code> must match <code>y</code>.</dd>
 <dt><strong><code>y</code></strong></dt>
-<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
-<dt><strong><code>x0</code></strong></dt>
-<dd>Initial guess for <code>x</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
-<dt><strong><code>jit_f</code></strong></dt>
-<dd>Whether to compile an optimized representation of <code>f</code> prior to solving the equations.
-If <code>f</code> is already compiled or partially compiled, e.g. using <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>, the existing representations are used.</dd>
+<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
-<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify solver type and parameters.
-Additional solve information will be stored in <code>solve.result</code>.</dd>
+<dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>x</code></dt>
-<dd>solution fulfilling <code>f(x) = y</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dd>Solution fulfilling <code>f(x) = y</code> within specified tolerance as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -3790,28 +3748,26 @@ Additional solve information will be stored in <code>solve.result</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_nonlinear(f: Callable,
-                    y: Tensor,
-                    x0: Tensor,
-                    solve: Solve,
-                    jit_f=True) -&gt; Tensor:
+<pre><code class="python">def solve_nonlinear(f: Callable, y, solve: Solve) -&gt; Tensor:
     &#34;&#34;&#34;
     Solves the non-linear equation *f(x) = y* by minimizing the norm of the residual.
+
+    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
+
+    To obtain additional information about the performed solve, use a `SolveTape`.
 
     See Also:
         `minimize()`, `solve_linear()`.
 
     Args:
-        f: Function with single `Tensor` positional argument and return value.
-        y: Desired output of `f(x)` as `Tensor`.
-        x0: Initial guess for `x` as `Tensor`.
-        jit_f: Whether to compile an optimized representation of `f` prior to solving the equations.
-            If `f` is already compiled or partially compiled, e.g. using `jit_compile()`, the existing representations are used.
-        solve: `Solve` object to specify solver type and parameters.
-            Additional solve information will be stored in `solve.result`.
+        f: Function whose output is optimized to match `y`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `TensorLike`.
+            The output of `f` must match `y`.
+        y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
+        solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
 
     Returns:
-        x: solution fulfilling `f(x) = y` as `Tensor`.
+        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `TensorLike`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -3827,7 +3783,7 @@ Additional solve information will be stored in <code>solve.result</code>.</dd>
     rel_tol_to_abs = solve.relative_tolerance * l2_loss(y, batch_norm=True)
     solve.absolute_tolerance = rel_tol_to_abs
     solve.relative_tolerance = 0
-    return minimize(min_func, x0, solve=solve, jit_f=jit_f)</code></pre>
+    return minimize(min_func, solve)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
@@ -4034,7 +3990,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 </details>
 </dd>
 <dt id="phi.math.sqrt"><code class="name flex">
-<span>def <span class="ident">sqrt</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4042,7 +3998,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sqrt(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def sqrt(x) -&gt; Tensor:
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
 </dd>
@@ -4064,34 +4020,41 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 </details>
 </dd>
 <dt id="phi.math.stop_gradient"><code class="name flex">
-<span>def <span class="ident">stop_gradient</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">stop_gradient</span></span>(<span>x)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Disables gradients for the given tensor.
 This may switch off the gradients for <code>value</code> itself or create a copy of <code>value</code> with disabled gradients.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>value</code></strong></dt>
-<dd>tensor for which gradients should be disabled.</dd>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> for which gradients should be disabled.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Copy of <code>value</code> or <code>value</code>.</p></div>
+<p>Copy of <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stop_gradient(value: Tensor):
+<pre><code class="python">def stop_gradient(x):
     &#34;&#34;&#34;
     Disables gradients for the given tensor.
     This may switch off the gradients for `value` itself or create a copy of `value` with disabled gradients.
 
     Args:
-        value: tensor for which gradients should be disabled.
+        x: `Tensor` or `TensorLike` for which gradients should be disabled.
 
     Returns:
-        Copy of `value` or `value`.
+        Copy of `x`.
     &#34;&#34;&#34;
-    return value._op1(lambda native: choose_backend(native).stop_gradient(native))</code></pre>
+    if isinstance(x, Tensor):
+        return x._op1(lambda native: choose_backend(native).stop_gradient(native))
+    elif isinstance(x, TensorLike):
+        nest, values = disassemble_nested(x)
+        new_values = [stop_gradient(v) for v in values]
+        return assemble_nested(nest, new_values)
+    else:
+        return wrap(choose_backend(x).stop_gradient(x))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sum"><code class="name flex">
@@ -4111,7 +4074,7 @@ This may switch off the gradients for <code>value</code> itself or create a copy
 </details>
 </dd>
 <dt id="phi.math.tan"><code class="name flex">
-<span>def <span class="ident">tan</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">tan</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4119,7 +4082,7 @@ This may switch off the gradients for <code>value</code> itself or create a copy
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def tan(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def tan(x) -&gt; Tensor:
     return _backend_op1(x, Backend.tan)</code></pre>
 </details>
 </dd>
@@ -4167,7 +4130,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </summary>
 <pre><code class="python">def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
            names: str or tuple or list = None,
-           convert: bool = True) -&gt; Tensor:
+           convert: bool = True) -&gt; Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
     &#34;&#34;&#34;
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -4211,7 +4174,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         else:
             names = parse_dim_names(names, data.rank)
             names = [n if n is not None else o for n, o in zip(names, data.shape.names)]
-            types = [_infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
+            types = [dim_type(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
     elif isinstance(data, Shape):
@@ -4235,17 +4198,17 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank &lt; common_shape.rank else e for e in elements]
             from ._ops import cast_same
             elements = cast_same(*elements)
-            return TensorStack(elements, dim_name=stack_dim, dim_type=_infer_dim_type_from_name(stack_dim))
+            return TensorStack(elements, dim_name=stack_dim, dim_type=dim_type(stack_dim))
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
-            assert data.ndim &lt;= 1, &#34;Specify dimension names for tensors with more than 1 dimension&#34;
+            assert backend.ndims(data) &lt;= 1, &#34;Specify dimension names for tensors with more than 1 dimension&#34;
             names = [&#39;vector&#39;] * backend.ndims(data)  # [] or [&#39;vector&#39;]
             types = [CHANNEL_DIM] * backend.ndims(data)
         else:
             names = parse_dim_names(names, len(data.shape))
             assert None not in names, f&#34;All names must be specified but got {names}&#34;
-            types = [_infer_dim_type_from_name(n) for n in names]
+            types = [dim_type(n) for n in names]
         shape = Shape(data.shape, names, types)
         if convert:
             data = convert_(data, use_dlpack=False)
@@ -4283,7 +4246,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.to_complex"><code class="name flex">
-<span>def <span class="ident">to_complex</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_complex</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4291,12 +4254,12 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_complex(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def to_complex(x) -&gt; Tensor:
     return _backend_op1(x, Backend.to_complex)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.to_float"><code class="name flex">
-<span>def <span class="ident">to_float</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_float</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the given tensor to floating point format with the currently specified precision.</p>
@@ -4315,7 +4278,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_float(x: Tensor) -&gt; Tensor:
+<pre><code class="python">def to_float(x) -&gt; Tensor:
     &#34;&#34;&#34;
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -4334,8 +4297,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     return _backend_op1(x, Backend.to_float)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.to_int"><code class="name flex">
-<span>def <span class="ident">to_int</span></span>(<span>x: phi.math._tensors.Tensor, int64=False) ‑> phi.math._tensors.Tensor</span>
+<dt id="phi.math.to_int32"><code class="name flex">
+<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4343,8 +4306,21 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int(x: Tensor, int64=False) -&gt; Tensor:
-    return x._op1(lambda native: choose_backend(native).to_int(native, int64=int64))</code></pre>
+<pre><code class="python">def to_int32(x) -&gt; Tensor:
+    return _backend_op1(x, Backend.to_int32)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.to_int64"><code class="name flex">
+<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_int64(x) -&gt; Tensor:
+    return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.transpose"><code class="name flex">
@@ -4527,7 +4503,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <pre><code class="python">def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
          names: str or tuple or list = None) -&gt; Tensor:
     &#34;&#34;&#34; Short for `phi.math.tensor()` with `convert=False`. &#34;&#34;&#34;
-    return tensor(data, names=names, convert=False)</code></pre>
+    return tensor(data, names=names, convert=False)  # TODO inline, simplify</code></pre>
 </details>
 </dd>
 <dt id="phi.math.zeros"><code class="name flex">
@@ -4573,7 +4549,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </details>
 </dd>
 <dt id="phi.math.zeros_like"><code class="name flex">
-<span>def <span class="ident">zeros_like</span></span>(<span>tensor: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">zeros_like</span></span>(<span>obj)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4581,8 +4557,10 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def zeros_like(tensor: Tensor):
-    return zeros(tensor.shape, dtype=tensor.dtype)</code></pre>
+<pre><code class="python">def zeros_like(obj):
+    nest, values = disassemble_nested(obj)
+    values0 = [zeros(t.shape, dtype=t.dtype) for t in values]
+    return assemble_nested(nest, values0)</code></pre>
 </details>
 </dd>
 </dl>
@@ -4594,7 +4572,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <span>class <span class="ident">ConvergenceException</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for exceptions raised when a solve_linear did not converge.</p>
+<div class="desc"><p>Base class for exceptions raised when a solve does not converge.</p>
 <p>See Also:
 <code><a title="phi.math.Diverged" href="#phi.math.Diverged">Diverged</a></code>, <code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code>.</p></div>
 <details class="source">
@@ -4603,29 +4581,16 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </summary>
 <pre><code class="python">class ConvergenceException(RuntimeError):
     &#34;&#34;&#34;
-    Base class for exceptions raised when a solve_linear did not converge.
+    Base class for exceptions raised when a solve does not converge.
 
     See Also:
         `Diverged`, `NotConverged`.
-
     &#34;&#34;&#34;
 
-    def __init__(self, solve_linear: Solve, x0, x, msg: str):
-        # subclasses must have the same signature to be instantiated as type(snc)(...)
-        RuntimeError.__init__(self, msg)
-        self.solve: Solve = solve
-        &#34;&#34;&#34; The specified solve_linear parameters as `Solve`. &#34;&#34;&#34;
-        self.partial_result: SolveResult = solve.result
-        &#34;&#34;&#34; `SolveResult` containing information about the failed solve_linear. Equivalent to `Solve.result` at the time this exception was created. &#34;&#34;&#34;
-        self.x = x
-        &#34;&#34;&#34; Estimate of result at the end of the failed solve_linear. &#34;&#34;&#34;
-        self.x0 = x0
-        &#34;&#34;&#34; Initial guess provided to the solver. &#34;&#34;&#34;
-
-    @property
-    def msg(self) -&gt; str:
-        &#34;&#34;&#34; Human-readable message describing the reason why the optimization failed. &#34;&#34;&#34;
-        return self.args[0]</code></pre>
+    def __init__(self, result: SolveInfo):
+        RuntimeError.__init__(self, result.msg)
+        self.result: SolveInfo = result
+        &#34;&#34;&#34; `SolveInfo` holding information about the solve. &#34;&#34;&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4635,39 +4600,14 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li>phi.math.backend._optim.Diverged</li>
-<li>phi.math.backend._optim.NotConverged</li>
+<li>phi.math._functional.Diverged</li>
+<li>phi.math._functional.NotConverged</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.math.ConvergenceException.msg"><code class="name">var <span class="ident">msg</span> : str</code></dt>
+<dt id="phi.math.ConvergenceException.result"><code class="name">var <span class="ident">result</span></code></dt>
 <dd>
-<div class="desc"><p>Human-readable message describing the reason why the optimization failed.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def msg(self) -&gt; str:
-    &#34;&#34;&#34; Human-readable message describing the reason why the optimization failed. &#34;&#34;&#34;
-    return self.args[0]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.ConvergenceException.partial_result"><code class="name">var <span class="ident">partial_result</span></code></dt>
-<dd>
-<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> containing information about the failed solve_linear. Equivalent to <code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">Solve.result</a></code> at the time this exception was created.</p></div>
-</dd>
-<dt id="phi.math.ConvergenceException.solve"><code class="name">var <span class="ident">solve</span></code></dt>
-<dd>
-<div class="desc"><p>The specified solve_linear parameters as <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code>.</p></div>
-</dd>
-<dt id="phi.math.ConvergenceException.x"><code class="name">var <span class="ident">x</span></code></dt>
-<dd>
-<div class="desc"><p>Estimate of result at the end of the failed solve_linear.</p></div>
-</dd>
-<dt id="phi.math.ConvergenceException.x0"><code class="name">var <span class="ident">x0</span></code></dt>
-<dd>
-<div class="desc"><p>Initial guess provided to the solver.</p></div>
+<div class="desc"><p><code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code> holding information about the solve.</p></div>
 </dd>
 </dl>
 </dd>
@@ -4807,14 +4747,12 @@ This may indicate that no solution exists.</p>
         `NotConverged`.
     &#34;&#34;&#34;
 
-    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
-        if msg is None:
-            msg = f&#34;Solve diverged within {solve.result.iterations} iterations.&#34;
-        ConvergenceException.__init__(self, solve, x0, x, msg=msg)</code></pre>
+    def __init__(self, result: SolveInfo):
+        ConvergenceException.__init__(self, result)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.math.backend._optim.ConvergenceException</li>
+<li>phi.math._functional.ConvergenceException</li>
 <li>builtins.RuntimeError</li>
 <li>builtins.Exception</li>
 <li>builtins.BaseException</li>
@@ -5164,7 +5102,7 @@ This is the default implementation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class LinearFunction:
+<pre><code class="python">class LinearFunction(Generic[X, Y], Callable[[X], Y]):
     &#34;&#34;&#34;
     Just-in-time compiled linear function of `Tensor` arguments and return values.
 
@@ -5173,15 +5111,101 @@ This is the default implementation.</p>
 
     def __init__(self, f):
         self.f = f
+        self.tracers: Dict[SignatureKey, ShiftLinTracer] = {}
+        self.nl_jit = JitFunction(f)  # for backends that do not support sparse matrices
 
-    def __call__(self, *args, **kwargs):
-        assert not kwargs, &#34;kwargs not supported, pass all values as positional arguments.&#34;
-        return self.f(*args)</code></pre>
+    def _trace(self, in_key: SignatureKey) -&gt; &#39;ShiftLinTracer&#39;:
+        assert len(in_key.shapes) == 1, &#34;Linear functions only support one argument.&#34;
+        with in_key.backend:
+            x = math.ones(in_key.shapes[0])
+            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
+        f_input = assemble_nested(in_key.nest, [tracer])
+        assert isinstance(f_input, tuple)
+        result = self.f(*f_input)
+        _, result_tensors = disassemble_nested(result)
+        assert len(result_tensors) == 1, f&#34;Linear function must return a single Tensor or tensor-like but got {result}&#34;
+        result_tensor = result_tensors[0]
+        assert isinstance(result_tensor, ShiftLinTracer), f&#34;Tracing linear function &#39;{self.f.__name__}&#39; failed. Make sure only linear operations are used.&#34;
+        return result_tensor
+
+    def __call__(self, *args: X, **kwargs) -&gt; Y:
+        nest, tensors = disassemble_nested(args)
+        assert tensors, &#34;Linear function requires at least one argument&#34;
+        if any(isinstance(t, ShiftLinTracer) for t in tensors):
+            # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
+            return self.f(*args, **kwargs)
+        backend = math.choose_backend_t(*tensors)
+        if not backend.supports(Backend.sparse_tensor):
+            warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
+            return self.nl_jit(*args, **kwargs)
+        natives, shapes = disassemble_tensors(tensors)
+        key = SignatureKey(None, nest, shapes, kwargs, backend)
+        if key not in self.tracers:
+            self.tracers[key] = self._trace(key)
+        return self.tracers[key].apply(tensors[0])
+
+    def sparse_coordinate_matrix(self, *args: Tensor, **kwargs):
+        key, _ = key_from_args(*args, **kwargs)
+        assert key.backend.supports(Backend.sparse_tensor)
+        if key not in self.tracers:
+            self.tracers[key] = self._trace(key)
+        return self.tracers[key].get_sparse_coordinate_matrix()
+
+    def stencil_inspector(self, *args, **kwargs):
+        key, _ = key_from_args(*args, **kwargs)
+        tracer = self._trace(key)
+
+        def print_stencil(**indices):
+            pos = shape(**indices)
+            print(f&#34;{self.f.__name__}: {pos} = {&#39; + &#39;.join(f&#39;{val[indices]} * {vector_add(pos, offset)}&#39; for offset, val in tracer.val.items() if (val[indices] != 0).all)}&#34;)
+
+        return print_stencil</code></pre>
 </details>
-<h3>Subclasses</h3>
+<h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.math._trace.JitLinearFunction</li>
+<li>collections.abc.Callable</li>
+<li>typing.Generic</li>
 </ul>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.LinearFunction.sparse_coordinate_matrix"><code class="name flex">
+<span>def <span class="ident">sparse_coordinate_matrix</span></span>(<span>self, *args: phi.math._tensors.Tensor, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sparse_coordinate_matrix(self, *args: Tensor, **kwargs):
+    key, _ = key_from_args(*args, **kwargs)
+    assert key.backend.supports(Backend.sparse_tensor)
+    if key not in self.tracers:
+        self.tracers[key] = self._trace(key)
+    return self.tracers[key].get_sparse_coordinate_matrix()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.LinearFunction.stencil_inspector"><code class="name flex">
+<span>def <span class="ident">stencil_inspector</span></span>(<span>self, *args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stencil_inspector(self, *args, **kwargs):
+    key, _ = key_from_args(*args, **kwargs)
+    tracer = self._trace(key)
+
+    def print_stencil(**indices):
+        pos = shape(**indices)
+        print(f&#34;{self.f.__name__}: {pos} = {&#39; + &#39;.join(f&#39;{val[indices]} * {vector_add(pos, offset)}&#39; for offset, val in tracer.val.items() if (val[indices] != 0).all)}&#34;)
+
+    return print_stencil</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="phi.math.NotConverged"><code class="flex name class">
 <span>class <span class="ident">NotConverged</span></span>
@@ -5205,14 +5229,12 @@ This is the default implementation.</p>
         `Diverged`.
     &#34;&#34;&#34;
 
-    def __init__(self, solve_linear: Solve, x0, x, msg: str = None):
-        if msg is None:
-            msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.result.iterations} iterations.&#34;
-        ConvergenceException.__init__(self, solve, x0, x, msg=msg)</code></pre>
+    def __init__(self, result: SolveInfo):
+        ConvergenceException.__init__(self, result)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.math.backend._optim.ConvergenceException</li>
+<li>phi.math._functional.ConvergenceException</li>
 <li>builtins.RuntimeError</li>
 <li>builtins.Exception</li>
 <li>builtins.BaseException</li>
@@ -5373,7 +5395,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -5383,10 +5405,10 @@ All arguments must have same length.</p>
     @property
     def non_batch(self) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
-        Filters this shape, returning only the spatial and channel dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -5399,7 +5421,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -5409,10 +5431,36 @@ All arguments must have same length.</p>
     @property
     def non_spatial(self) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
-        Filters this shape, returning only the batch and channel dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+
+        Returns:
+            New `Shape` object
+        &#34;&#34;&#34;
+        return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]
+
+    @property
+    def collection(self) -&gt; &#39;Shape&#39;:
+        &#34;&#34;&#34;
+        Filters this shape, returning only the collection dimensions as a new `Shape` object.
+
+        See also:
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+
+        Returns:
+            New `Shape` object
+        &#34;&#34;&#34;
+        return self[[i for i, t in enumerate(self.types) if t == SPATIAL_DIM]]
+
+    @property
+    def non_collection(self) -&gt; &#39;Shape&#39;:
+        &#34;&#34;&#34;
+        Filters this shape, returning only the non-collection dimensions as a new `Shape` object.
+
+        See also:
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -5425,7 +5473,7 @@ All arguments must have same length.</p>
         Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -5435,10 +5483,10 @@ All arguments must have same length.</p>
     @property
     def non_channel(self) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
-        Filters this shape, returning only the batch and spatial dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -5509,7 +5557,16 @@ All arguments must have same length.</p>
     def __eq__(self, other):
         if not isinstance(other, Shape):
             return False
-        return self.names == other.names and self.types == other.types and self.sizes == other.sizes
+        if self.names != other.names or self.types != other.types:
+            return False
+        for size1, size2 in zip(self.sizes, other.sizes):
+            equal = size1 == size2
+            assert isinstance(equal, (bool, math.Tensor))
+            if isinstance(equal, math.Tensor):
+                equal = equal.all
+            if not equal:
+                return False
+        return True
 
     def __ne__(self, other):
         return not self == other
@@ -5738,11 +5795,22 @@ All arguments must have same length.</p>
         return shape
 
     @property
+    def is_uniform(self) -&gt; bool:
+        &#34;&#34;&#34;
+        A shape is uniform if it all sizes have a single integer value.
+
+        See Also:
+            `Shape.is_non_uniform`, `Shape.shape`.
+        &#34;&#34;&#34;
+        return not self.is_non_uniform
+
+    @property
     def is_non_uniform(self) -&gt; bool:
         &#34;&#34;&#34;
         A shape is non-uniform if the size of any dimension varies along another dimension.
 
-        See `Shape.shape`.
+        See Also:
+            `Shape.is_uniform`, `Shape.shape`.
         &#34;&#34;&#34;
         from phi.math import Tensor
         for size in self.sizes:
@@ -5799,7 +5867,7 @@ All arguments must have same length.</p>
             if size is None:
                 return None
             result *= size
-        return result
+        return int(result)
 
     @property
     def is_empty(self) -&gt; bool:
@@ -5840,7 +5908,12 @@ All arguments must have same length.</p>
             if name not in self.names:
                 continue
             if isinstance(selection, int):
-                result = result.without(name)
+                if result.is_uniform:
+                    result = result.without(name)
+                else:
+                    from phi.math import Tensor
+                    gathered_sizes = [(s[{name: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
+                    result = result.with_sizes(gathered_sizes).without(name)
             elif isinstance(selection, slice):
                 start = selection.start or 0
                 stop = selection.stop or self.get_size(name)
@@ -5848,7 +5921,7 @@ All arguments must have same length.</p>
                 if stop &lt; 0:
                     stop += self.get_size(name)
                     assert stop &gt;= 0
-                new_size = math.to_int(math.ceil(math.wrap((stop - start) / step)))
+                new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
                 if new_size.rank == 0:
                     new_size = int(new_size)  # NumPy array not allowed because not hashable
                 result = result.with_size(name, new_size)
@@ -5871,24 +5944,24 @@ All arguments must have same length.</p>
     product = meshgrid
 
     def __add__(self, other):
-        return self._op1(other, lambda s, o: s + o)
+        return self._op2(other, lambda s, o: s + o)
 
     def __radd__(self, other):
-        return self._op1(other, lambda s, o: o + s)
+        return self._op2(other, lambda s, o: o + s)
 
     def __sub__(self, other):
-        return self._op1(other, lambda s, o: s - o)
+        return self._op2(other, lambda s, o: s - o)
 
     def __rsub__(self, other):
-        return self._op1(other, lambda s, o: o - s)
+        return self._op2(other, lambda s, o: o - s)
 
     def __mul__(self, other):
-        return self._op1(other, lambda s, o: s * o)
+        return self._op2(other, lambda s, o: s * o)
 
     def __rmul__(self, other):
-        return self._op1(other, lambda s, o: o * s)
+        return self._op2(other, lambda s, o: o * s)
 
-    def _op1(self, other, fun):
+    def _op2(self, other, fun):
         if isinstance(other, int):
             return Shape([fun(s, other) for s in self.sizes], self.names, self.types)
         elif isinstance(other, Shape):
@@ -5906,7 +5979,7 @@ All arguments must have same length.</p>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the batch dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5919,7 +5992,7 @@ def batch(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -5948,7 +6021,7 @@ def batch_rank(self) -&gt; int:
 <dd>
 <div class="desc"><p>Filters this shape, returning only the channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -5961,7 +6034,7 @@ def channel(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -5984,6 +6057,31 @@ def channel_rank(self) -&gt; int:
         if ty == CHANNEL_DIM:
             r += 1
     return r</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Shape.collection"><code class="name">var <span class="ident">collection</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><p>Filters this shape, returning only the collection dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<h2 id="returns">Returns</h2>
+<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def collection(self) -&gt; &#39;Shape&#39;:
+    &#34;&#34;&#34;
+    Filters this shape, returning only the collection dimensions as a new `Shape` object.
+
+    See also:
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+
+    Returns:
+        New `Shape` object
+    &#34;&#34;&#34;
+    return self[[i for i, t in enumerate(self.types) if t == SPATIAL_DIM]]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.dimensions"><code class="name">var <span class="ident">dimensions</span></code></dt>
@@ -6022,7 +6120,8 @@ def is_empty(self) -&gt; bool:
 <dt id="phi.math.Shape.is_non_uniform"><code class="name">var <span class="ident">is_non_uniform</span> : bool</code></dt>
 <dd>
 <div class="desc"><p>A shape is non-uniform if the size of any dimension varies along another dimension.</p>
-<p>See <code><a title="phi.math.Shape.shape" href="#phi.math.Shape.shape">Shape.shape</a></code>.</p></div>
+<p>See Also:
+<code><a title="phi.math.Shape.is_uniform" href="#phi.math.Shape.is_uniform">Shape.is_uniform</a></code>, <code><a title="phi.math.Shape.shape" href="#phi.math.Shape.shape">Shape.shape</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6032,13 +6131,34 @@ def is_non_uniform(self) -&gt; bool:
     &#34;&#34;&#34;
     A shape is non-uniform if the size of any dimension varies along another dimension.
 
-    See `Shape.shape`.
+    See Also:
+        `Shape.is_uniform`, `Shape.shape`.
     &#34;&#34;&#34;
     from phi.math import Tensor
     for size in self.sizes:
         if isinstance(size, Tensor) and size.rank &gt; 0:
             return True
     return False</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Shape.is_uniform"><code class="name">var <span class="ident">is_uniform</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>A shape is uniform if it all sizes have a single integer value.</p>
+<p>See Also:
+<code><a title="phi.math.Shape.is_non_uniform" href="#phi.math.Shape.is_non_uniform">Shape.is_non_uniform</a></code>, <code><a title="phi.math.Shape.shape" href="#phi.math.Shape.shape">Shape.shape</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_uniform(self) -&gt; bool:
+    &#34;&#34;&#34;
+    A shape is uniform if it all sizes have a single integer value.
+
+    See Also:
+        `Shape.is_non_uniform`, `Shape.shape`.
+    &#34;&#34;&#34;
+    return not self.is_non_uniform</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
@@ -6085,9 +6205,9 @@ def named_sizes(self):
 </dd>
 <dt id="phi.math.Shape.non_batch"><code class="name">var <span class="ident">non_batch</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Filters this shape, returning only the spatial and channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
+<div class="desc"><p>Filters this shape, returning only the non-batch dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -6097,10 +6217,10 @@ def named_sizes(self):
 <pre><code class="python">@property
 def non_batch(self) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
-    Filters this shape, returning only the spatial and channel dimensions as a new `Shape` object.
+    Filters this shape, returning only the non-batch dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -6110,9 +6230,9 @@ def non_batch(self) -&gt; &#39;Shape&#39;:
 </dd>
 <dt id="phi.math.Shape.non_channel"><code class="name">var <span class="ident">non_channel</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Filters this shape, returning only the batch and spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
+<div class="desc"><p>Filters this shape, returning only the non-channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -6122,10 +6242,10 @@ def non_batch(self) -&gt; &#39;Shape&#39;:
 <pre><code class="python">@property
 def non_channel(self) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
-    Filters this shape, returning only the batch and spatial dimensions as a new `Shape` object.
+    Filters this shape, returning only the non-channel dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -6133,11 +6253,36 @@ def non_channel(self) -&gt; &#39;Shape&#39;:
     return self[[i for i, t in enumerate(self.types) if t != CHANNEL_DIM]]</code></pre>
 </details>
 </dd>
+<dt id="phi.math.Shape.non_collection"><code class="name">var <span class="ident">non_collection</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><p>Filters this shape, returning only the non-collection dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
+<p>See also:
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<h2 id="returns">Returns</h2>
+<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def non_collection(self) -&gt; &#39;Shape&#39;:
+    &#34;&#34;&#34;
+    Filters this shape, returning only the non-collection dimensions as a new `Shape` object.
+
+    See also:
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+
+    Returns:
+        New `Shape` object
+    &#34;&#34;&#34;
+    return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]</code></pre>
+</details>
+</dd>
 <dt id="phi.math.Shape.non_spatial"><code class="name">var <span class="ident">non_spatial</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Filters this shape, returning only the batch and channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
+<div class="desc"><p>Filters this shape, returning only the non-spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -6147,10 +6292,10 @@ def non_channel(self) -&gt; &#39;Shape&#39;:
 <pre><code class="python">@property
 def non_spatial(self) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
-    Filters this shape, returning only the batch and channel dimensions as a new `Shape` object.
+    Filters this shape, returning only the non-spatial dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -6232,7 +6377,7 @@ def shape(self, list_dim=&#39;dims&#39;) -&gt; &#39;Shape&#39;:
 <dd>
 <div class="desc"><p>Filters this shape, returning only the spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code></p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -6245,7 +6390,7 @@ def spatial(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_channel`
+        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -6300,7 +6445,7 @@ def volume(self) -&gt; int or None:
         if size is None:
             return None
         result *= size
-    return result</code></pre>
+    return int(result)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.well_defined"><code class="name">var <span class="ident">well_defined</span></code></dt>
@@ -6334,7 +6479,12 @@ def well_defined(self):
         if name not in self.names:
             continue
         if isinstance(selection, int):
-            result = result.without(name)
+            if result.is_uniform:
+                result = result.without(name)
+            else:
+                from phi.math import Tensor
+                gathered_sizes = [(s[{name: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
+                result = result.with_sizes(gathered_sizes).without(name)
         elif isinstance(selection, slice):
             start = selection.start or 0
             stop = selection.stop or self.get_size(name)
@@ -6342,7 +6492,7 @@ def well_defined(self):
             if stop &lt; 0:
                 stop += self.get_size(name)
                 assert stop &gt;= 0
-            new_size = math.to_int(math.ceil(math.wrap((stop - start) / step)))
+            new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
             if new_size.rank == 0:
                 new_size = int(new_size)  # NumPy array not allowed because not hashable
             result = result.with_size(name, new_size)
@@ -7088,137 +7238,376 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>solver: str, relative_tolerance: float, absolute_tolerance: float, max_iterations: int = 1000, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a> = None, **solver_arguments)</span>
+<span>(</span><span>method: str, relative_tolerance: float, absolute_tolerance: float, max_iterations: int = 1000, x0: ~X = None, suppress: tuple = (), gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
+<div class="desc"><p>Specifies parameters and stopping criteria for solving a minimization problem or system of equations.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Solve:
+<pre><code class="python">class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors there
     &#34;&#34;&#34;
-    Specifies parameters and stopping criteria for solving a system of equations or minimization problem.
+    Specifies parameters and stopping criteria for solving a minimization problem or system of equations.
     &#34;&#34;&#34;
 
     def __init__(self,
-                 solver: str,
-                 relative_tolerance: float,
-                 absolute_tolerance: float,
-                 max_iterations: int = 1000,
-                 gradient_solve: &#39;Solve&#39; or None = None,
-                 **solver_arguments):
-        assert isinstance(solver, str)
-        self.solver: str = solver
-        &#34;&#34;&#34; (Optional) Name of method to use. &#34;&#34;&#34;
-        self.relative_tolerance: float = relative_tolerance
-        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.absolute_tolerance: float = absolute_tolerance
-        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.max_iterations: int = max_iterations
-        &#34;&#34;&#34; Maximum number of iterations to perform before terminating with `converged=False`. &#34;&#34;&#34;
-        self._gradient_solve = gradient_solve
-        if gradient_solve is not None:
-            assert gradient_solve.solver == solver
-        self.solver_arguments: dict = solver_arguments
-        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
-        self.result: SolveResult = SolveResult(0)
-        &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve_linear. &#34;&#34;&#34;
+                 method: str,
+                 relative_tolerance: float or Tensor,
+                 absolute_tolerance: float or Tensor,
+                 max_iterations: int or Tensor = 1000,
+                 x0: X or Any = None,
+                 suppress: tuple or list = (),
+                 gradient_solve: &#39;Solve[Y, X]&#39; or None = None):
+        assert isinstance(method, str)
+        self.method: str = method
+        &#34;&#34;&#34; Optimization method to use. Available solvers depend on the solve function that is used to perform the solve. &#34;&#34;&#34;
+        self.relative_tolerance: Tensor = wrap(relative_tolerance)
+        &#34;&#34;&#34; Relative tolerance for linear solves only. This must be `0` for minimization problems.
+        For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
+        self.absolute_tolerance: Tensor = wrap(absolute_tolerance)
+        &#34;&#34;&#34; Absolut tolerance for optimization problems and linear solves.
+        For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
+        self.max_iterations: Tensor = wrap(max_iterations)
+        &#34;&#34;&#34; Maximum number of iterations to perform before raising a `NotConverged` error is raised. &#34;&#34;&#34;
+        self.x0 = x0
+        &#34;&#34;&#34; Initial guess for the method, of same type and dimensionality as the solve result.
+         This property must be set to a value compatible with the solution `x` before running a method. &#34;&#34;&#34;
+        assert all(issubclass(err, ConvergenceException) for err in suppress)
+        self.suppress: tuple = tuple(suppress)
+        &#34;&#34;&#34; Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. &#34;&#34;&#34;
+        self._gradient_solve: Solve[Y, X] = gradient_solve
+        self.id = str(uuid.uuid4())
 
     @property
-    def gradient_solve(self) -&gt; &#39;Solve&#39;:
+    def gradient_solve(self) -&gt; &#39;Solve[Y, X]&#39;:
         &#34;&#34;&#34;
-        Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
+        Parameters to use for the gradient pass when an implicit gradient is computed.
+        If `None`, a duplicate of this `Solve` is created for the gradient solve.
 
-        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve_linear.
-        Gradient solve_linear information will be stored in `gradient_solve.result`.
+        In any case, the gradient solve information will be stored in `gradient_solve.result`.
         &#34;&#34;&#34;
         if self._gradient_solve is None:
-            self._gradient_solve = copy(self)
+            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
         return self._gradient_solve
 
     def __repr__(self):
-        return f&#34;{self.solver} with tolerance {self.relative_tolerance} (rel), {self.absolute_tolerance} (abs), max_iterations={self.max_iterations}&#34;</code></pre>
+        return f&#34;{self.method} with tolerance {self.relative_tolerance} (rel), {self.absolute_tolerance} (abs), max_iterations={self.max_iterations}&#34;
+
+    def __eq__(self, other):
+        if not isinstance(other, Solve):
+            return False
+        if self.method != other.method \
+                or self.absolute_tolerance != other.absolute_tolerance \
+                or self.relative_tolerance != other.relative_tolerance \
+                or self.max_iterations != other.max_iterations \
+                or self.suppress != other.suppress:
+            return False
+        if self.x0 is None:
+            return other.x0 is None
+        else:
+            raise AssertionError(&#34;Cannot compare Solves with x0 set&#34;)
+
+    def __variable_attrs__(self) -&gt; Tuple[str]:
+        return &#39;x0&#39;,</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>typing.Generic</li>
+</ul>
 <h3>Instance variables</h3>
 <dl>
 <dt id="phi.math.Solve.absolute_tolerance"><code class="name">var <span class="ident">absolute_tolerance</span></code></dt>
 <dd>
-<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+<div class="desc"><p>Absolut tolerance for optimization problems and linear solves.
+For systems of equations <em>f(x)=y</em>, the final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
 </dd>
-<dt id="phi.math.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math.backend._optim.Solve</code></dt>
+<dt id="phi.math.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math._functional.Solve[~Y, ~X]</code></dt>
 <dd>
-<div class="desc"><p>Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.</p>
-<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object for the spatial_gradient solve_linear.
-Gradient solve_linear information will be stored in <code>gradient_solve.result</code>.</p></div>
+<div class="desc"><p>Parameters to use for the gradient pass when an implicit gradient is computed.
+If <code>None</code>, a duplicate of this <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> is created for the gradient solve.</p>
+<p>In any case, the gradient solve information will be stored in <code>gradient_solve.result</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def gradient_solve(self) -&gt; &#39;Solve&#39;:
+def gradient_solve(self) -&gt; &#39;Solve[Y, X]&#39;:
     &#34;&#34;&#34;
-    Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
+    Parameters to use for the gradient pass when an implicit gradient is computed.
+    If `None`, a duplicate of this `Solve` is created for the gradient solve.
 
-    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve_linear.
-    Gradient solve_linear information will be stored in `gradient_solve.result`.
+    In any case, the gradient solve information will be stored in `gradient_solve.result`.
     &#34;&#34;&#34;
     if self._gradient_solve is None:
-        self._gradient_solve = copy(self)
+        self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
     return self._gradient_solve</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Solve.max_iterations"><code class="name">var <span class="ident">max_iterations</span></code></dt>
 <dd>
-<div class="desc"><p>Maximum number of iterations to perform before terminating with <code>converged=False</code>.</p></div>
+<div class="desc"><p>Maximum number of iterations to perform before raising a <code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code> error is raised.</p></div>
+</dd>
+<dt id="phi.math.Solve.method"><code class="name">var <span class="ident">method</span></code></dt>
+<dd>
+<div class="desc"><p>Optimization method to use. Available solvers depend on the solve function that is used to perform the solve.</p></div>
 </dd>
 <dt id="phi.math.Solve.relative_tolerance"><code class="name">var <span class="ident">relative_tolerance</span></code></dt>
 <dd>
-<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
+<div class="desc"><p>Relative tolerance for linear solves only. This must be <code>0</code> for minimization problems.
+For systems of equations <em>f(x)=y</em>, the final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
 </dd>
-<dt id="phi.math.Solve.result"><code class="name">var <span class="ident">result</span></code></dt>
+<dt id="phi.math.Solve.suppress"><code class="name">var <span class="ident">suppress</span></code></dt>
 <dd>
-<div class="desc"><p><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code> storing information about the found solution and the performed solving process. This variable is assigned during the solve_linear.</p></div>
+<div class="desc"><p>Error types to suppress; <code>tuple</code> of <code><a title="phi.math.ConvergenceException" href="#phi.math.ConvergenceException">ConvergenceException</a></code> types. For these errors, the solve function will instead return the partial result without raising the error.</p></div>
 </dd>
-<dt id="phi.math.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
+<dt id="phi.math.Solve.x0"><code class="name">var <span class="ident">x0</span></code></dt>
 <dd>
-<div class="desc"><p>(Optional) Name of method to use.</p></div>
-</dd>
-<dt id="phi.math.Solve.solver_arguments"><code class="name">var <span class="ident">solver_arguments</span></code></dt>
-<dd>
-<div class="desc"><p>Additional solver-dependent arguments.</p></div>
+<div class="desc"><p>Initial guess for the method, of same type and dimensionality as the solve result.
+This property must be set to a value compatible with the solution <code>x</code> before running a method.</p></div>
 </dd>
 </dl>
 </dd>
-<dt id="phi.math.SolveResult"><code class="flex name class">
-<span>class <span class="ident">SolveResult</span></span>
+<dt id="phi.math.SolveInfo"><code class="flex name class">
+<span>class <span class="ident">SolveInfo</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Stores information about the found solution and the performed solving process.</p></div>
+<div class="desc"><p>Stores information about the solution or trajectory of a solve.</p>
+<p>When representing the full optimization trajectory, all tracked quantities will have an additional <code>trajectory</code> batch dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SolveResult:
+<pre><code class="python">class SolveInfo(Generic[X, Y]):
     &#34;&#34;&#34;
-    Stores information about the found solution and the performed solving process.
+    Stores information about the solution or trajectory of a solve.
+
+    When representing the full optimization trajectory, all tracked quantities will have an additional `trajectory` batch dimension.
     &#34;&#34;&#34;
 
-    def __init__(self, iterations: int, **solve_info):
-        self.iterations = iterations
-        &#34;&#34;&#34; Number of iterations performed. &#34;&#34;&#34;
-        self.solve_info = solve_info
+    def __init__(self,
+                 solve: Solve,
+                 x: X,
+                 residual: Y or None,
+                 iterations: Tensor or None,
+                 function_evaluations: Tensor or None,
+                 converged: Tensor,
+                 diverged: Tensor,
+                 method: str,
+                 msg: str = None):
+        # tuple.__new__(SolveInfo, (x, residual, iterations, function_evaluations, converged, diverged))
+        self.solve: Solve[X, Y] = solve
+        &#34;&#34;&#34; `Solve`, Parameters specified for the solve. &#34;&#34;&#34;
+        self.x: X = x
+        &#34;&#34;&#34; `Tensor` or `TensorLike`, solution estimate. &#34;&#34;&#34;
+        self.residual: Y = residual
+        &#34;&#34;&#34; `Tensor` or `TensorLike`, residual vector for systems of equations or function value for minimization problems. &#34;&#34;&#34;
+        self.iterations: Tensor = iterations
+        &#34;&#34;&#34; `Tensor`, number of performed iterations to reach this state. &#34;&#34;&#34;
+        self.function_evaluations: Tensor = function_evaluations
+        &#34;&#34;&#34; `Tensor`, how often the function (or its gradient function) was called. &#34;&#34;&#34;
+        self.converged: Tensor = converged
+        &#34;&#34;&#34; `Tensor`, whether the residual is within the specified tolerance. &#34;&#34;&#34;
+        self.diverged: Tensor = diverged
+        &#34;&#34;&#34; `Tensor`, whether the solve has diverged at this point. &#34;&#34;&#34;
+        self.method = method
+        &#34;&#34;&#34; `str`, which method and implementation that was used. &#34;&#34;&#34;
+        if not msg:
+            if self.diverged.any:
+                msg = f&#34;Solve diverged within {iterations if iterations is not None else &#39;?&#39;} iterations using {method}.&#34;
+            elif not self.converged.trajectory[-1].all:
+                msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}.&#34;
+            else:
+                msg = f&#34;Converged within {iterations if iterations is not None else &#39;?&#39;} iterations.&#34;
+        self.msg = msg
+        &#34;&#34;&#34; `str`, termination message &#34;&#34;&#34;
 
     def __repr__(self):
-        return f&#34;[{self.iterations} iterations]&#34;</code></pre>
+        return self.msg
+
+    def snapshot(self, index):
+        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
+
+    def convergence_check(self, only_warn: bool):
+        if self.diverged.any:
+            if Diverged not in self.solve.suppress:
+                if only_warn:
+                    warnings.warn(self.msg)
+                else:
+                    raise Diverged(self)
+        if not self.converged.trajectory[-1].all:
+            if NotConverged not in self.solve.suppress:
+                if only_warn:
+                    warnings.warn(self.msg)
+                else:
+                    raise NotConverged(self)</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>typing.Generic</li>
+</ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.math.SolveResult.iterations"><code class="name">var <span class="ident">iterations</span></code></dt>
+<dt id="phi.math.SolveInfo.converged"><code class="name">var <span class="ident">converged</span></code></dt>
 <dd>
-<div class="desc"><p>Number of iterations performed.</p></div>
+<div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, whether the residual is within the specified tolerance.</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.diverged"><code class="name">var <span class="ident">diverged</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, whether the solve has diverged at this point.</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.function_evaluations"><code class="name">var <span class="ident">function_evaluations</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, how often the function (or its gradient function) was called.</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.iterations"><code class="name">var <span class="ident">iterations</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, number of performed iterations to reach this state.</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.method"><code class="name">var <span class="ident">method</span></code></dt>
+<dd>
+<div class="desc"><p><code>str</code>, which method and implementation that was used.</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.msg"><code class="name">var <span class="ident">msg</span></code></dt>
+<dd>
+<div class="desc"><p><code>str</code>, termination message</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.residual"><code class="name">var <span class="ident">residual</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>, residual vector for systems of equations or function value for minimization problems.</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.solve"><code class="name">var <span class="ident">solve</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code>, Parameters specified for the solve.</p></div>
+</dd>
+<dt id="phi.math.SolveInfo.x"><code class="name">var <span class="ident">x</span></code></dt>
+<dd>
+<div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>, solution estimate.</p></div>
 </dd>
 </dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.SolveInfo.convergence_check"><code class="name flex">
+<span>def <span class="ident">convergence_check</span></span>(<span>self, only_warn: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def convergence_check(self, only_warn: bool):
+    if self.diverged.any:
+        if Diverged not in self.solve.suppress:
+            if only_warn:
+                warnings.warn(self.msg)
+            else:
+                raise Diverged(self)
+    if not self.converged.trajectory[-1].all:
+        if NotConverged not in self.solve.suppress:
+            if only_warn:
+                warnings.warn(self.msg)
+            else:
+                raise NotConverged(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.SolveInfo.snapshot"><code class="name flex">
+<span>def <span class="ident">snapshot</span></span>(<span>self, index)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def snapshot(self, index):
+    return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.math.SolveTape"><code class="flex name class">
+<span>class <span class="ident">SolveTape</span></span>
+<span>(</span><span>record_trajectories=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Used to record additional information about solves invoked via <code><a title="phi.math.solve_linear" href="#phi.math.solve_linear">solve_linear()</a></code>, <code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear()</a></code> or <code><a title="phi.math.minimize" href="#phi.math.minimize">minimize()</a></code>.
+While a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code> is active, certain performance optimizations and algorithm implementations may be disabled.</p>
+<p>To access a <code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code> of a recorded solve, use</p>
+<pre><code class="language-python">solve = Solve(method, ...)
+with SolveTape() as solves:
+    x = math.solve_linear(f, y, solve)
+result: SolveInfo = solves[solve]  # get by Solve
+result: SolveInfo = solves[0]  # get by index
+</code></pre>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>record_trajectories</code></strong></dt>
+<dd>When enabled, the entries of <code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code> will contain an additional batch dimension named <code>trajectory</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SolveTape:
+
+    def __init__(self, record_trajectories=False):
+        &#34;&#34;&#34;
+        Used to record additional information about solves invoked via `solve_linear()`, `solve_nonlinear()` or `minimize()`.
+        While a `SolveTape` is active, certain performance optimizations and algorithm implementations may be disabled.
+
+        To access a `SolveInfo` of a recorded solve, use
+        ```python
+        solve = Solve(method, ...)
+        with SolveTape() as solves:
+            x = math.solve_linear(f, y, solve)
+        result: SolveInfo = solves[solve]  # get by Solve
+        result: SolveInfo = solves[0]  # get by index
+        ```
+
+        Args:
+            record_trajectories: When enabled, the entries of `SolveInfo` will contain an additional batch dimension named `trajectory`.
+        &#34;&#34;&#34;
+        self.record_trajectories = record_trajectories
+        self.solves: List[SolveInfo] = []
+        self.solve_ids: List[str] = []
+
+    def __enter__(self):
+        _SOLVE_TAPES.append(self)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _SOLVE_TAPES.remove(self)
+
+    def _add(self, solve: Solve, trj: bool, result: SolveInfo):
+        if any(s.solve.id == solve.id for s in self.solves):
+            warnings.warn(&#34;SolveTape contains two results for the same solve settings. SolveTape[solve] will return the first solve result.&#34;)
+        if self.record_trajectories:
+            assert trj, &#34;Solve did not record a trajectory.&#34;
+            self.solves.append(result)
+        elif trj:
+            self.solves.append(result.snapshot(-1))
+        else:
+            self.solves.append(result)
+        self.solve_ids.append(solve.id)
+
+    def __getitem__(self, item) -&gt; SolveInfo:
+        if isinstance(item, int):
+            return self.solves[item]
+        else:
+            assert isinstance(item, Solve)
+            solves = [s for s in self.solves if s.solve.id == item.id]
+            if len(solves) == 0:
+                raise KeyError(f&#34;No solve recorded with key &#39;{item}&#39;.&#34;)
+            assert len(solves) == 1
+            return solves[0]
+
+    def __iter__(self):
+        return iter(self.solves)
+
+    def __len__(self):
+        return len(self.solves)</code></pre>
+</details>
 </dd>
 <dt id="phi.math.Tensor"><code class="flex name class">
 <span>class <span class="ident">Tensor</span></span>
@@ -7307,6 +7696,11 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34; The `Shape` lists the dimensions with their sizes, names and types. &#34;&#34;&#34;
         raise NotImplementedError()
 
+    @property
+    def default_backend(self):
+        from ._ops import choose_backend_t
+        return choose_backend_t(self)
+
     def _with_shape_replaced(self, new_shape):
         raise NotImplementedError()
 
@@ -7340,11 +7734,52 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self.shape.volume if self.rank == 1 else NotImplemented
 
     def __bool__(self):
-        if self.rank == 0:
-            return bool(self.native())
+        from ._ops import all_
+        if not self.default_backend.supports(Backend.jit_compile):  # NumPy
+            return bool(self.native()) if self.rank == 0 else bool(all_(self).native())
         else:
-            from phi.math._ops import all_
-            return bool(all_(self))
+            # __bool__ does not work with TensorFlow tracing.
+            # TensorFlow needs to see a tf.Tensor in loop conditions but won&#39;t allow bool() invocations.
+            # However, this function must always return a Python bool.
+            raise AssertionError(&#34;To evaluate the boolean value of a Tensor, use &#39;Tensor.all&#39;.&#34;)
+
+    @property
+    def all(self):
+        from ._ops import all_available, all_, cast
+        if all_available(self):
+            if self.rank == 0:
+                return bool(self.native())
+            else:
+                return bool(all_(self).native())
+        else:
+            if self.rank == 0:
+                return cast(self, DType(bool)).native()
+            else:
+                return all_(self).native()
+
+    @property
+    def any(self):
+        from ._ops import all_available, any_, cast
+        if all_available(self):
+            if self.rank == 0:
+                return bool(self.native())
+            else:
+                return bool(any_(self).native())
+        else:
+            if self.rank == 0:
+                return cast(self, DType(bool)).native()
+            else:
+                return any_(self).native()
+
+    @property
+    def mean(self):
+        from ._ops import mean
+        return mean(self).native()
+
+    @property
+    def sum(self):
+        from ._ops import sum_
+        return sum_(self).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
@@ -7387,16 +7822,19 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                         return f&#34;{self.shape} {self.dtype}&#34;
             else:
                 if self.rank == 0:
-                    return f&#34;scalar {self.dtype}&#34;
+                    return f&#34;{self.default_backend} scalar {self.dtype}&#34;
                 else:
-                    return f&#34;{self.shape} {self.dtype}&#34;
+                    return f&#34;{self.default_backend} {self.shape} {self.dtype}&#34;
         except BaseException as err:
-            return f&#34;{self.shape}, failed to fetch values with error {err}&#34;
+            return f&#34;{self.shape}, failed to fetch values: {err}&#34;
 
     def __repr__(self):
         return self._summary_str()
 
     def __format__(self, format_spec):
+        from ._ops import all_available
+        if not all_available(self):
+            return self._summary_str()
         if self.shape.volume &gt; 1:
             return self._summary_str()
         val = self.numpy()
@@ -7493,6 +7931,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     def __getattr__(self, name):
         if name.startswith(&#39;_&#39;):
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
+        if name == &#39;is_tensor_like&#39;:  # TensorFlow replaces abs() while tracing and checks for this attribute
+            raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         assert name not in (&#39;shape&#39;, &#39;_shape&#39;, &#39;tensor&#39;), name
         return TensorDim(self, name)
 
@@ -7573,8 +8013,6 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self._op2(other, lambda x, y: x &gt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y))
 
     def __abs__(self):
-        if self.dtype.kind in (bool, str):
-            return self
         return self._op1(lambda t: choose_backend(t).abs(t))
 
     def __round__(self, n=None):
@@ -7601,30 +8039,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return iter(self.native())
 
     def _tensor(self, other):
-        if isinstance(other, Tensor):
-            return other
-        elif isinstance(other, Shape):
-            assert self.shape.channel.rank == 1, &#34;Only single-channel tensors support implicit casting from Shape to tensor&#34;
-            assert other.rank == self.shape.channel.volume
-            return wrap(other.spatial.sizes, names=self.shape.channel.names)
-        else:
-            backend = choose_backend(other)
-            try:
-                other_tensor = backend.as_tensor(other, convert_external=True)
-                shape = backend.staticshape(other_tensor)
-            except ValueError as e:
-                raise ValueError(e)
-            if len(shape) == 0:
-                return NativeTensor(other_tensor, EMPTY_SHAPE)
-            elif len(shape) == self.rank:
-                return NativeTensor(other_tensor, self.shape.with_sizes(shape))
-            elif len(shape) == self.shape.channel.rank:
-                other_tensor = wrap(other, names=self.shape.channel.names)
-                return other_tensor
-            elif len(shape) == 1 and self.shape.channel.rank == 0:
-                return NativeTensor(other_tensor, Shape(shape, [&#39;vector&#39;], [CHANNEL_DIM]))
-            else:
-                raise ValueError(&#34;Cannot broadcast object of rank %d to tensor with shape %s&#34; % (backend.ndims(other), self.shape))
+        return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
 
     def _op1(self, native_function):
         &#34;&#34;&#34;
@@ -7662,25 +8077,82 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34; Expands all compressed tensors to their defined size as if they were being used in `Tensor.native()`. &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def __tensor_reduce__(self,
-                dims: Tuple[str],
-                native_function: Callable,
-                collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                unaffected_function: Callable = lambda value: value):
+    def _tensor_reduce(self,
+                       dims: Tuple[str],
+                       native_function: Callable,
+                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                       unaffected_function: Callable = lambda value: value):
         raise NotImplementedError(self.__class__)
 
-    def __simplify__(self):
+    def _simplify(self):
         return self</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li>phi.math._functional.ShiftLinTracer</li>
 <li>phi.math._tensors.CollapsedTensor</li>
 <li>phi.math._tensors.NativeTensor</li>
 <li>phi.math._tensors.TensorStack</li>
-<li>phi.math._trace.ShiftLinOp</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.math.Tensor.all"><code class="name">var <span class="ident">all</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def all(self):
+    from ._ops import all_available, all_, cast
+    if all_available(self):
+        if self.rank == 0:
+            return bool(self.native())
+        else:
+            return bool(all_(self).native())
+    else:
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
+        else:
+            return all_(self).native()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.any"><code class="name">var <span class="ident">any</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def any(self):
+    from ._ops import all_available, any_, cast
+    if all_available(self):
+        if self.rank == 0:
+            return bool(self.native())
+        else:
+            return bool(any_(self).native())
+    else:
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
+        else:
+            return any_(self).native()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.default_backend"><code class="name">var <span class="ident">default_backend</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def default_backend(self):
+    from ._ops import choose_backend_t
+    return choose_backend_t(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.Tensor.dtype"><code class="name">var <span class="ident">dtype</span> : phi.math.backend._dtype.DType</code></dt>
 <dd>
 <div class="desc"><p>Data type of the elements of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p></div>
@@ -7692,6 +8164,19 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 def dtype(self) -&gt; DType:
     &#34;&#34;&#34; Data type of the elements of this `Tensor`. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.mean"><code class="name">var <span class="ident">mean</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def mean(self):
+    from ._ops import mean
+    return mean(self).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
@@ -7718,6 +8203,19 @@ def rank(self) -&gt; int:
 def shape(self) -&gt; Shape:
     &#34;&#34;&#34; The `Shape` lists the dimensions with their sizes, names and types. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.sum"><code class="name">var <span class="ident">sum</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def sum(self):
+    from ._ops import sum_
+    return sum_(self).native()</code></pre>
 </details>
 </dd>
 </dl>
@@ -8046,6 +8544,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         return self.index
 
     def __len__(self):
+        assert self.name in self.tensor.shape, f&#34;Dimension {self.name} does not exist for tensor {self.tensor.shape}&#34;
         return self.tensor.shape.get_size(self.name)
 
     @property
@@ -8428,6 +8927,142 @@ int: repeating unstack if dimension does not exist</dd>
 </dd>
 </dl>
 </dd>
+<dt id="phi.math.TensorLike"><code class="flex name class">
+<span>class <span class="ident">TensorLike</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Tensor-like objects can interoperate with some <code><a title="phi.math" href="#phi.math">phi.math</a></code> functions, depending on what methods they implement.
+Objects are considered <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> if they implement <code><a title="phi.math.TensorLike.__variable_attrs__" href="#phi.math.TensorLike.__variable_attrs__">TensorLike.__variable_attrs__()</a></code> or <code><a title="phi.math.TensorLike.__value_attrs__" href="#phi.math.TensorLike.__value_attrs__">TensorLike.__value_attrs__()</a></code>.
+This is reflected in <code>isinstance</code> checks.
+Do not declare this class as a superclass.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TensorLike(metaclass=_TensorLikeType):
+    &#34;&#34;&#34;
+    Tensor-like objects can interoperate with some `phi.math` functions, depending on what methods they implement.
+    Objects are considered `TensorLike` if they implement `TensorLike.__variable_attrs__()` or `TensorLike.__value_attrs__()`.
+    This is reflected in `isinstance` checks.
+    Do not declare this class as a superclass.
+    &#34;&#34;&#34;
+
+    def __value_attrs__(self) -&gt; Tuple[str]:
+        &#34;&#34;&#34;
+        Returns all `Tensor` or `TensorLike` attribute names of `self` that should be transformed by single-operand math operations,
+        such as `sin()`, `exp()`.
+
+        Returns:
+            `tuple` of `str` attributes.
+                Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def __variable_attrs__(self) -&gt; Tuple[str]:
+        &#34;&#34;&#34;
+        Returns all `Tensor` or `TensorLike` attribute names of `self` whose values are variable.
+        Variables denote values that can change from one function call to the next or for which gradients can be recorded.
+        If this method is not implemented, all attributes returned by `__value_attrs__()` are considered variable.
+
+        The returned properties are used by the following functions:
+
+        - `jit_compile()`
+        - `jit_compile_linear()`
+        - `stop_gradient()`
+        - `functional_gradient()`
+        - `custom_gradient()`
+
+        Returns:
+            `tuple` of `str` attributes.
+                Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def __with_attrs__(self, **attrs):
+        &#34;&#34;&#34;
+        Creates a copy of this object which has the `Tensor` or `TensorLike` attributes contained in `tattrs` replaced.
+        If this method is not implemented, tensor attributes are replaced using `setattr()`.
+
+        Args:
+            **attrs: `dict` mapping `str` attribute names to `Tensor` or `TensorLike`.
+
+        Returns:
+            Altered copy of `self`
+        &#34;&#34;&#34;
+        raise NotImplementedError()</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.math.TensorLike.__value_attrs__"><code class="name flex">
+<span>def <span class="ident">__value_attrs__</span></span>(<span>self) ‑> Tuple[str]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns all <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> attribute names of <code>self</code> that should be transformed by single-operand math operations,
+such as <code><a title="phi.math.sin" href="#phi.math.sin">sin()</a></code>, <code><a title="phi.math.exp" href="#phi.math.exp">exp()</a></code>.</p>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of <code>str</code> attributes.
+Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> for all returned attributes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __value_attrs__(self) -&gt; Tuple[str]:
+    &#34;&#34;&#34;
+    Returns all `Tensor` or `TensorLike` attribute names of `self` that should be transformed by single-operand math operations,
+    such as `sin()`, `exp()`.
+
+    Returns:
+        `tuple` of `str` attributes.
+            Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorLike.__variable_attrs__"><code class="name flex">
+<span>def <span class="ident">__variable_attrs__</span></span>(<span>self) ‑> Tuple[str]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns all <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> attribute names of <code>self</code> whose values are variable.
+Variables denote values that can change from one function call to the next or for which gradients can be recorded.
+If this method is not implemented, all attributes returned by <code>__value_attrs__()</code> are considered variable.</p>
+<p>The returned properties are used by the following functions:</p>
+<ul>
+<li><code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code></li>
+<li><code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code></li>
+<li><code><a title="phi.math.stop_gradient" href="#phi.math.stop_gradient">stop_gradient()</a></code></li>
+<li><code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code></li>
+<li><code><a title="phi.math.custom_gradient" href="#phi.math.custom_gradient">custom_gradient()</a></code></li>
+</ul>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of <code>str</code> attributes.
+Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> for all returned attributes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __variable_attrs__(self) -&gt; Tuple[str]:
+    &#34;&#34;&#34;
+    Returns all `Tensor` or `TensorLike` attribute names of `self` whose values are variable.
+    Variables denote values that can change from one function call to the next or for which gradients can be recorded.
+    If this method is not implemented, all attributes returned by `__value_attrs__()` are considered variable.
+
+    The returned properties are used by the following functions:
+
+    - `jit_compile()`
+    - `jit_compile_linear()`
+    - `stop_gradient()`
+    - `functional_gradient()`
+    - `custom_gradient()`
+
+    Returns:
+        `tuple` of `str` attributes.
+            Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -8510,7 +9145,6 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions</a></code></li>
 <li><code><a title="phi.math.l1_loss" href="#phi.math.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.math.l2_loss" href="#phi.math.l2_loss">l2_loss</a></code></li>
-<li><code><a title="phi.math.l_n_loss" href="#phi.math.l_n_loss">l_n_loss</a></code></li>
 <li><code><a title="phi.math.laplace" href="#phi.math.laplace">laplace</a></code></li>
 <li><code><a title="phi.math.linspace" href="#phi.math.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.log" href="#phi.math.log">log</a></code></li>
@@ -8569,7 +9203,8 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.tensors" href="#phi.math.tensors">tensors</a></code></li>
 <li><code><a title="phi.math.to_complex" href="#phi.math.to_complex">to_complex</a></code></li>
 <li><code><a title="phi.math.to_float" href="#phi.math.to_float">to_float</a></code></li>
-<li><code><a title="phi.math.to_int" href="#phi.math.to_int">to_int</a></code></li>
+<li><code><a title="phi.math.to_int32" href="#phi.math.to_int32">to_int32</a></code></li>
+<li><code><a title="phi.math.to_int64" href="#phi.math.to_int64">to_int64</a></code></li>
 <li><code><a title="phi.math.transpose" href="#phi.math.transpose">transpose</a></code></li>
 <li><code><a title="phi.math.unstack" href="#phi.math.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.upsample2x" href="#phi.math.upsample2x">upsample2x</a></code></li>
@@ -8586,11 +9221,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li>
 <h4><code><a title="phi.math.ConvergenceException" href="#phi.math.ConvergenceException">ConvergenceException</a></code></h4>
 <ul class="">
-<li><code><a title="phi.math.ConvergenceException.msg" href="#phi.math.ConvergenceException.msg">msg</a></code></li>
-<li><code><a title="phi.math.ConvergenceException.partial_result" href="#phi.math.ConvergenceException.partial_result">partial_result</a></code></li>
-<li><code><a title="phi.math.ConvergenceException.solve" href="#phi.math.ConvergenceException.solve">solve</a></code></li>
-<li><code><a title="phi.math.ConvergenceException.x" href="#phi.math.ConvergenceException.x">x</a></code></li>
-<li><code><a title="phi.math.ConvergenceException.x0" href="#phi.math.ConvergenceException.x0">x0</a></code></li>
+<li><code><a title="phi.math.ConvergenceException.result" href="#phi.math.ConvergenceException.result">result</a></code></li>
 </ul>
 </li>
 <li>
@@ -8619,6 +9250,10 @@ int: repeating unstack if dimension does not exist</dd>
 </li>
 <li>
 <h4><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.LinearFunction.sparse_coordinate_matrix" href="#phi.math.LinearFunction.sparse_coordinate_matrix">sparse_coordinate_matrix</a></code></li>
+<li><code><a title="phi.math.LinearFunction.stencil_inspector" href="#phi.math.LinearFunction.stencil_inspector">stencil_inspector</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="phi.math.NotConverged" href="#phi.math.NotConverged">NotConverged</a></code></h4>
@@ -8633,6 +9268,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.batch_rank" href="#phi.math.Shape.batch_rank">batch_rank</a></code></li>
 <li><code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">channel</a></code></li>
 <li><code><a title="phi.math.Shape.channel_rank" href="#phi.math.Shape.channel_rank">channel_rank</a></code></li>
+<li><code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">collection</a></code></li>
 <li><code><a title="phi.math.Shape.combined" href="#phi.math.Shape.combined">combined</a></code></li>
 <li><code><a title="phi.math.Shape.dimensions" href="#phi.math.Shape.dimensions">dimensions</a></code></li>
 <li><code><a title="phi.math.Shape.expand" href="#phi.math.Shape.expand">expand</a></code></li>
@@ -8643,6 +9279,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.indices" href="#phi.math.Shape.indices">indices</a></code></li>
 <li><code><a title="phi.math.Shape.is_empty" href="#phi.math.Shape.is_empty">is_empty</a></code></li>
 <li><code><a title="phi.math.Shape.is_non_uniform" href="#phi.math.Shape.is_non_uniform">is_non_uniform</a></code></li>
+<li><code><a title="phi.math.Shape.is_uniform" href="#phi.math.Shape.is_uniform">is_uniform</a></code></li>
 <li><code><a title="phi.math.Shape.mask" href="#phi.math.Shape.mask">mask</a></code></li>
 <li><code><a title="phi.math.Shape.meshgrid" href="#phi.math.Shape.meshgrid">meshgrid</a></code></li>
 <li><code><a title="phi.math.Shape.name" href="#phi.math.Shape.name">name</a></code></li>
@@ -8650,6 +9287,7 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Shape.names" href="#phi.math.Shape.names">names</a></code></li>
 <li><code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">non_batch</a></code></li>
 <li><code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">non_channel</a></code></li>
+<li><code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">non_collection</a></code></li>
 <li><code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">non_spatial</a></code></li>
 <li><code><a title="phi.math.Shape.normal_order" href="#phi.math.Shape.normal_order">normal_order</a></code></li>
 <li><code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">only</a></code></li>
@@ -8682,28 +9320,46 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.Solve.absolute_tolerance" href="#phi.math.Solve.absolute_tolerance">absolute_tolerance</a></code></li>
 <li><code><a title="phi.math.Solve.gradient_solve" href="#phi.math.Solve.gradient_solve">gradient_solve</a></code></li>
 <li><code><a title="phi.math.Solve.max_iterations" href="#phi.math.Solve.max_iterations">max_iterations</a></code></li>
+<li><code><a title="phi.math.Solve.method" href="#phi.math.Solve.method">method</a></code></li>
 <li><code><a title="phi.math.Solve.relative_tolerance" href="#phi.math.Solve.relative_tolerance">relative_tolerance</a></code></li>
-<li><code><a title="phi.math.Solve.result" href="#phi.math.Solve.result">result</a></code></li>
-<li><code><a title="phi.math.Solve.solver" href="#phi.math.Solve.solver">solver</a></code></li>
-<li><code><a title="phi.math.Solve.solver_arguments" href="#phi.math.Solve.solver_arguments">solver_arguments</a></code></li>
+<li><code><a title="phi.math.Solve.suppress" href="#phi.math.Solve.suppress">suppress</a></code></li>
+<li><code><a title="phi.math.Solve.x0" href="#phi.math.Solve.x0">x0</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="phi.math.SolveResult" href="#phi.math.SolveResult">SolveResult</a></code></h4>
+<h4><code><a title="phi.math.SolveInfo" href="#phi.math.SolveInfo">SolveInfo</a></code></h4>
 <ul class="">
-<li><code><a title="phi.math.SolveResult.iterations" href="#phi.math.SolveResult.iterations">iterations</a></code></li>
+<li><code><a title="phi.math.SolveInfo.converged" href="#phi.math.SolveInfo.converged">converged</a></code></li>
+<li><code><a title="phi.math.SolveInfo.convergence_check" href="#phi.math.SolveInfo.convergence_check">convergence_check</a></code></li>
+<li><code><a title="phi.math.SolveInfo.diverged" href="#phi.math.SolveInfo.diverged">diverged</a></code></li>
+<li><code><a title="phi.math.SolveInfo.function_evaluations" href="#phi.math.SolveInfo.function_evaluations">function_evaluations</a></code></li>
+<li><code><a title="phi.math.SolveInfo.iterations" href="#phi.math.SolveInfo.iterations">iterations</a></code></li>
+<li><code><a title="phi.math.SolveInfo.method" href="#phi.math.SolveInfo.method">method</a></code></li>
+<li><code><a title="phi.math.SolveInfo.msg" href="#phi.math.SolveInfo.msg">msg</a></code></li>
+<li><code><a title="phi.math.SolveInfo.residual" href="#phi.math.SolveInfo.residual">residual</a></code></li>
+<li><code><a title="phi.math.SolveInfo.snapshot" href="#phi.math.SolveInfo.snapshot">snapshot</a></code></li>
+<li><code><a title="phi.math.SolveInfo.solve" href="#phi.math.SolveInfo.solve">solve</a></code></li>
+<li><code><a title="phi.math.SolveInfo.x" href="#phi.math.SolveInfo.x">x</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code></h4>
 </li>
 <li>
 <h4><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></h4>
 <ul class="two-column">
+<li><code><a title="phi.math.Tensor.all" href="#phi.math.Tensor.all">all</a></code></li>
+<li><code><a title="phi.math.Tensor.any" href="#phi.math.Tensor.any">any</a></code></li>
+<li><code><a title="phi.math.Tensor.default_backend" href="#phi.math.Tensor.default_backend">default_backend</a></code></li>
 <li><code><a title="phi.math.Tensor.dimension" href="#phi.math.Tensor.dimension">dimension</a></code></li>
 <li><code><a title="phi.math.Tensor.dtype" href="#phi.math.Tensor.dtype">dtype</a></code></li>
 <li><code><a title="phi.math.Tensor.flip" href="#phi.math.Tensor.flip">flip</a></code></li>
+<li><code><a title="phi.math.Tensor.mean" href="#phi.math.Tensor.mean">mean</a></code></li>
 <li><code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">native</a></code></li>
 <li><code><a title="phi.math.Tensor.numpy" href="#phi.math.Tensor.numpy">numpy</a></code></li>
 <li><code><a title="phi.math.Tensor.rank" href="#phi.math.Tensor.rank">rank</a></code></li>
 <li><code><a title="phi.math.Tensor.shape" href="#phi.math.Tensor.shape">shape</a></code></li>
+<li><code><a title="phi.math.Tensor.sum" href="#phi.math.Tensor.sum">sum</a></code></li>
 <li><code><a title="phi.math.Tensor.unstack" href="#phi.math.Tensor.unstack">unstack</a></code></li>
 </ul>
 </li>
@@ -8724,6 +9380,13 @@ int: repeating unstack if dimension does not exist</dd>
 <li><code><a title="phi.math.TensorDim.split" href="#phi.math.TensorDim.split">split</a></code></li>
 <li><code><a title="phi.math.TensorDim.unstack" href="#phi.math.TensorDim.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.TensorDim.unstack_spatial" href="#phi.math.TensorDim.unstack_spatial">unstack_spatial</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code></h4>
+<ul class="">
+<li><code><a title="phi.math.TensorLike.__value_attrs__" href="#phi.math.TensorLike.__value_attrs__">__value_attrs__</a></code></li>
+<li><code><a title="phi.math.TensorLike.__variable_attrs__" href="#phi.math.TensorLike.__variable_attrs__">__variable_attrs__</a></code></li>
 </ul>
 </li>
 </ul>

@@ -101,7 +101,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         New `phi.geom.Geometry` object
     &#34;&#34;&#34;
     if all(isinstance(g, type(geometries[0])) for g in geometries):
-        characteristics = [g._characteristics_() for g in geometries]
+        characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
         if sizes is not None:
             characteristics = [{key: math.expand(val, **{dim: size}) for key, val in c.items()}
                                for c, size in zip(characteristics, sizes)]
@@ -109,7 +109,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         for key in characteristics[0].keys():
             concatenated = math.concat([c[key] for c in characteristics], dim)
             new_attributes[key] = concatenated
-        return geometries[0]._with_(**new_attributes)
+        return copy_with(geometries[0], **new_attributes)
     else:
         raise NotImplementedError()</code></pre>
 </details>
@@ -153,7 +153,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stack(*geometries: Geometry, dim: str):
-    return GeometryStack(geometries, dim, _infer_dim_type_from_name(dim))</code></pre>
+    return GeometryStack(geometries, dim, dim_type(dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">
@@ -782,7 +782,6 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
         &#34;&#34;&#34;
         self._lower = wrap(lower)
         self._upper = wrap(upper)
-        self._shape = _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape).non_channel
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
@@ -799,12 +798,12 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     def __hash__(self):
         return hash(self._upper)
 
-    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
-        return {&#39;lower&#39;: self._lower, &#39;upper&#39;: self._upper}
+    def __variable_attrs__(self):
+        return &#39;_lower&#39;, &#39;_upper&#39;
 
     @property
     def shape(self):
-        return self._shape
+        return _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape).non_channel
 
     @property
     def lower(self):
@@ -893,7 +892,7 @@ def lower(self):
 </summary>
 <pre><code class="python">@property
 def shape(self):
-    return self._shape</code></pre>
+    return _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape).non_channel</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Box.size"><code class="name">var <span class="ident">size</span></code></dt>
@@ -1195,8 +1194,8 @@ All batch dimensions are listed in Geometry.shape.</p></div>
             return False
         if self.shape != other.shape:
             return False
-        c1 = self._characteristics_()
-        c2 = other._characteristics_()
+        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
+        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
         for c in c1.keys():
             if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
                 return False
@@ -1216,8 +1215,8 @@ All batch dimensions are listed in Geometry.shape.</p></div>
             return False
         if self.shape != other.shape:
             return False
-        c1 = self._characteristics_()
-        c2 = other._characteristics_()
+        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
+        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
         for c in c1.keys():
             if c1[c] is not c2[c]:
                 return False
@@ -1229,23 +1228,14 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def __hash__(self):
         raise NotImplementedError(self.__class__)
 
-    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
-        raise NotImplementedError(self.__class__)
-
-    def _with_(self, **attributes):
-        copied = copy.copy(self)
-        for name, val in attributes.items():
-            setattr(copied, name, val)
-        return copied
-
     def __repr__(self):
         return f&#34;{self.__class__.__name__}{self.shape}&#34;
 
     def __getitem__(self, item: dict):
         assert isinstance(item, dict), &#34;Index must be dict of type {dim: slice/int}.&#34;
         item = {dim: sel for dim, sel in item.items() if dim != &#39;vector&#39;}
-        characteristics = {n: c[item] for n, c in self._characteristics_().items()}
-        return self._with_(**characteristics)</code></pre>
+        attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
+        return copy_with(self, **attrs)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1594,8 +1584,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
         return False
     if self.shape != other.shape:
         return False
-    c1 = self._characteristics_()
-    c2 = other._characteristics_()
+    c1 = {a: getattr(self, a) for a in variable_attributes(self)}
+    c2 = {a: getattr(other, a) for a in variable_attributes(self)}
     for c in c1.keys():
         if c1[c] is not c2[c]:
             return False
@@ -2397,11 +2387,10 @@ Defined through center position and radius.</p>
         self._center = wrap(center)
         assert &#39;vector&#39; in self._center.shape, &#34;center must have a &#39;vector&#39; dimension&#34;
         self._radius = wrap(radius)
-        self._shape = _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)
 
     @property
     def shape(self):
-        return self._shape
+        return _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)
 
     @property
     def radius(self):
@@ -2444,15 +2433,8 @@ Defined through center position and radius.</p>
     def rotated(self, angle):
         return self
 
-    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
-        return {
-            &#39;radius&#39;: self._radius,
-            &#39;center&#39;: self._center,
-        }
-
-    def _with_(self, center=None, radius=None):
-        return Sphere(center if center is not None else self._center,
-                      radius if radius is not None else self._radius)</code></pre>
+    def __variable_attrs__(self):
+        return &#39;_radius&#39;, &#39;_center&#39;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2493,7 +2475,7 @@ def radius(self):
 </summary>
 <pre><code class="python">@property
 def shape(self):
-    return self._shape</code></pre>
+    return _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)</code></pre>
 </details>
 </dd>
 </dl>

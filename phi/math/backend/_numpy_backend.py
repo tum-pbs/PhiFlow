@@ -1,17 +1,17 @@
 import numbers
 import os
 import sys
-from typing import List
+from typing import List, Any, Callable
 
 import numpy as np
 import scipy.signal
 import scipy.sparse
-from scipy.sparse.linalg import cg
+from scipy.sparse import issparse
+from scipy.sparse.linalg import cg, LinearOperator, spsolve
 
 from . import Backend, ComputeDevice
-from ._backend_helper import combined_dim
+from ._backend import combined_dim, SolveResult
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
-from ._optim import Solve, SolveResult, Diverged, NotConverged
 
 
 class NumPyBackend(Backend):
@@ -51,7 +51,7 @@ class NumPyBackend(Backend):
     def is_tensor(self, x, only_native=False):
         if isinstance(x, np.ndarray) and x.dtype != object:
             return True
-        if scipy.sparse.issparse(x):
+        if issparse(x):
             return True
         if isinstance(x, (np.bool_, np.float32, np.float64, np.float16, np.int8, np.int16, np.int32, np.int64, np.complex128, np.complex64)):
             return True
@@ -192,15 +192,10 @@ class NumPyBackend(Backend):
     def einsum(self, equation, *tensors):
         return np.einsum(equation, *tensors)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
-        i = 0
-        while cond(*loop_vars):
-            if maximum_iterations is not None and i == maximum_iterations:
-                break
-            loop_vars = body(*loop_vars)
-            i += 1
-        return loop_vars
+    def while_loop(self, loop: Callable, values: tuple):
+        while np.any(values[0]):
+            values = loop(*values)
+        return values
 
     def abs(self, x):
         return np.abs(x)
@@ -400,38 +395,83 @@ class NumPyBackend(Backend):
     def stop_gradient(self, value):
         return value
 
-    def conjugate_gradient(self, A, y, x0, solve: Solve, callback=None):
+    # def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    #     warnings.warn("NumPy does not support analytic gradients and will use differences instead. This may be slow!")
+    #     eps = {64: 1e-9, 32: 1e-4, 16: 1e-1}[self.precision]
+    #
+    #     def gradient(*args, **kwargs):
+    #         output = f(*args, **kwargs)
+    #         loss = output[0] if isinstance(output, (tuple, list)) else output
+    #         grads = []
+    #         for wrt_ in wrt:
+    #             x = args[wrt_]
+    #             assert isinstance(x, np.ndarray)
+    #             if x.size > 64:
+    #                 raise RuntimeError("NumPy does not support analytic gradients. Use PyTorch, TensorFlow or Jax.")
+    #             grad = np.zeros_like(x).flatten()
+    #             for i in range(x.size):
+    #                 x_flat = x.flatten()  # makes a copy
+    #                 x_flat[i] += eps
+    #                 args_perturbed = list(args)
+    #                 args_perturbed[wrt_] = np.reshape(x_flat, x.shape)
+    #                 output_perturbed = f(*args_perturbed, **kwargs)
+    #                 loss_perturbed = output_perturbed[0] if isinstance(output, (tuple, list)) else output_perturbed
+    #                 grad[i] = (loss_perturbed - loss) / eps
+    #             grads.append(np.reshape(grad, x.shape))
+    #         if get_output:
+    #             return output, grads
+    #         else:
+    #             return grads
+    #     return gradient
+
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> Any:
+        if method == 'auto' and not trj and issparse(lin):
+            batch_size = self.staticshape(y)[0]
+            xs = []
+            converged = []
+            for batch in range(batch_size):
+                # use_umfpack=self.precision == 64
+                x = spsolve(lin, y[batch])  # returns nan when diverges
+                xs.append(x)
+                converged.append(np.all(np.isfinite(x)))
+            x = np.stack(xs)
+            converged = np.stack(converged)
+            diverged = ~converged
+            iterations = [-1] * batch_size  # spsolve does not perform iterations
+            return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, "")
+        else:
+            return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
+
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> Any:
+        if trj or callable(lin):
+            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)  # generic implementation
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
+        # if callable(A):
+        #     A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
+        if isinstance(lin, (tuple, list)):
+            assert len(lin) == batch_size
+        else:
+            lin = [lin] * batch_size
 
-        if callable(A):
-            raise NotImplementedError()
-            # A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
-        elif isinstance(A, (tuple, list)) or self.ndims(A) == 3:
-            batch_size = combined_dim(batch_size, self.staticshape(A)[0])
+        def count_callback(x_n):  # called after each step, not with x0
+            iterations[b] += 1
 
+        xs = []
         iterations = [0] * batch_size
-        results = []
-
-        def count_callback(*args):
-            iterations[batch] += 1
-            if callback is not None:
-                callback(*args)
-
-        for batch in range(batch_size):
-            y_ = y[min(batch, bs_y - 1)]
-            x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(A, y_, x0_, tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations, callback=count_callback)
-            if ret_val != 0:
-                solve.result = SolveResult(max(iterations))
-                if ret_val < 0:
-                    raise Diverged(solve, x0, x)
-                else:
-                    raise NotConverged(solve, x0, x)
-            results.append(x)
-        solve.result = SolveResult(max(iterations))
-        return self.stack(results)
+        converged = []
+        diverged = []
+        for b in range(batch_size):
+            x, ret_val = cg(lin[b], y[b], x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b], callback=count_callback)
+            # ret_val: 0=success, >0=not converged, <0=error
+            xs.append(x)
+            converged.append(ret_val == 0)
+            diverged.append(ret_val < 0 or np.any(~np.isfinite(x)))
+        x = np.stack(xs)
+        f_eval = [i + 1 for i in iterations]
+        return SolveResult('scipy.sparse.linalg.cg', x, None, iterations, f_eval, converged, diverged, "")
 
 
 NUMPY_BACKEND = NumPyBackend()
+

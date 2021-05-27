@@ -1,6 +1,6 @@
 import numbers
 import warnings
-from functools import wraps
+from functools import wraps, partial
 from typing import List, Callable
 
 import numpy as np
@@ -11,11 +11,10 @@ from jax.core import Tracer
 from jax.scipy.sparse.linalg import cg
 from jax import random
 
-from phi.math.backend._optim import SolveResult
+from phi.math import SolveInfo, Solve, DType
 from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 from phi.math.backend import Backend, ComputeDevice
-from phi.math import Solve, DType
-from phi.math.backend._backend_helper import combined_dim
+from phi.math.backend._backend import combined_dim, SolveResult
 
 
 class JaxBackend(Backend):
@@ -258,15 +257,15 @@ class JaxBackend(Backend):
     def einsum(self, equation, *tensors):
         return jnp.einsum(equation, *tensors)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
-        i = 0
-        while cond(*loop_vars):
-            if maximum_iterations is not None and i == maximum_iterations:
-                break
-            loop_vars = body(*loop_vars)
-            i += 1
-        return loop_vars
+    def while_loop(self, loop: Callable, values: tuple):
+        if all(self.is_available(t) for t in values):
+            while jnp.any(values[0]):
+                values = loop(*values)
+            return values
+        else:
+            cond = lambda vals: jnp.any(vals[0])
+            body = lambda vals: loop(*vals)
+            return jax.lax.while_loop(cond, body, values)
 
     def abs(self, x):
         return jnp.abs(x)
@@ -445,18 +444,25 @@ class JaxBackend(Backend):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def conjugate_gradient_jit(self, f, y, x0, solve: Solve):
-        bs_y = self.staticshape(y)[0]
-        bs_x0 = self.staticshape(x0)[0]
-        batch_size = combined_dim(bs_y, bs_x0)
-        results = []
-        for batch in range(batch_size):
-            y_ = y[min(batch, bs_y - 1)]
-            x0_ = x0[min(batch, bs_x0 - 1)]
-            x, ret_val = cg(f, y_, x0_, tol=solve.relative_tolerance, atol=solve.absolute_tolerance, maxiter=solve.max_iterations)
-            results.append(x)
-        solve.result = SolveResult(-1)
-        return self.stack(results)
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+        if method == 'auto':
+            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+        else:
+            return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
+
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool):
+        if self.is_available(y) or trj:
+            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
+        batch_size = combined_dim(self.staticshape(y)[0], self.staticshape(x0)[0])
+        xs = []
+        for b in range(batch_size):
+            # TODO if lin is batch-dependent, we may need to split it as lin_b = lambda x: lin(stack(...,x))[b]
+            x, _ = cg(partial(lin, batch_index=b), y[b], x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b])
+            xs.append(x)
+        x = jnp.stack(xs)
+        diverged = jnp.any(~jnp.isfinite(x), axis=(1,))
+        converged = ~diverged
+        return SolveResult('jax.scipy.sparse.linalg.cg', x, None, [-1] * batch_size, [-1] * batch_size, converged, diverged, "")
 
 
 JAX_BACKEND = JaxBackend()

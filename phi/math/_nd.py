@@ -10,7 +10,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from .extrapolation import Extrapolation
 from ._ops import channel_stack
 from ._shape import Shape
-from ._tensors import Tensor
+from ._tensors import Tensor, disassemble_nested, TensorLike, value_attributes
 from ._tensors import wrap
 
 
@@ -71,44 +71,47 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -> Tensor:
-    """ Computes L1 loss. See `l_n_loss()` """
-    return l_n_loss(abs(tensor), 1, batch_norm=batch_norm)
-
-
-def l2_loss(tensor: Tensor, batch_norm: bool or str or tuple or list or Shape = True) -> Tensor:
-    """ Computes L2 loss. See `l_n_loss()` """
-    return l_n_loss(tensor, 2, batch_norm=batch_norm)
-
-
-def l_n_loss(tensor: Tensor,
-             n: int,
-             batch_norm: bool or str or tuple or list or Shape = True) -> Tensor:
+def l1_loss(x) -> Tensor:
     """
-    Computes the vector norm of a tensor.
-    This is defined as *sum x**n / n*.
+    Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
-      tensor: Loss values.
-      n: norm order, 1 for L1 loss, 2 for L2 loss.
-      batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
 
     Returns:
-        Scalar float `Tensor`
+        loss: `Tensor`
     """
-    assert isinstance(tensor, Tensor), f"Must be a Tensor but got {type(tensor).__name__}"
-    total_loss = math.sum_(abs(tensor) ** n) / n
-    if batch_norm:
-        if isinstance(batch_norm, bool):
-            batch_size = tensor.shape.batch.volume
-        else:
-            batch_size = tensor.shape.only(batch_norm).volume
-        return total_loss / batch_size
+    if isinstance(x, Tensor):
+        return math.sum_(abs(x), x.shape.non_batch)
+    elif isinstance(x, TensorLike):
+        return sum([l1_loss(getattr(x, a)) for a in value_attributes(x)])
     else:
-        return total_loss
+        raise ValueError(x)
 
 
-def frequency_loss(values: Tensor,
+def l2_loss(x) -> Tensor:
+    """
+    Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
+
+    Args:
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
+
+    Returns:
+        loss: `Tensor`
+    """
+    if isinstance(x, Tensor):
+        if x.dtype.kind == complex:
+            x = abs(x)
+        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+    elif isinstance(x, TensorLike):
+        return sum([l2_loss(getattr(x, a)) for a in value_attributes(x)])
+    else:
+        raise ValueError(x)
+
+
+def frequency_loss(x,
                    n=2,
                    frequency_falloff: float = 100,
                    threshold=1e-5,

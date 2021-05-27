@@ -13,6 +13,5 @@ velocity = DOMAIN.staggered_grid((1, 0))
 for frame in view(framerate=10, display=('velocity', 'obstacle_mask')).range():
     obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(-obstacle.angular_velocity * DT))  # rotate bar
     velocity = advect.mac_cormack(velocity, velocity, DT)
-    velocity, pressure, _iter, _ = fluid.make_incompressible(velocity, DOMAIN, (obstacle,))
-    print(f"{frame}: {_iter}")
+    velocity, pressure = fluid.make_incompressible(velocity, DOMAIN, (obstacle,))
     obstacle_mask = DOMAIN.scalar_grid(obstacle.geometry)

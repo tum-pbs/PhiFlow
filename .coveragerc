@@ -19,6 +19,10 @@ exclude_lines =
     # Don't complain about value errors
     raise ValueError
 
+    # Don't complain about non-executed warnings
+    warnings.warn
+
+
 omit =
     phi/physics/_world.py
     phi/physics/_physics.py

@@ -6,6 +6,7 @@ import phi
 import phi.vis._vis_base as display
 from phi.field import Field
 from phi.math import backend
+from phi.math.backend import Backend
 
 DEMOS_DIR = join(dirname(dirname(dirname(abspath(__file__)))), 'demos')
 BACKENDS = list(phi.detect_backends())
@@ -58,8 +59,8 @@ class TestDemos(TestCase):
     def test_burgers_sim(self):
         demo_run('burgers_sim')
 
-    # def test_differentiate_pressure(self):
-    #     demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.gradients)])
+    def test_differentiate_pressure(self):
+        demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.functional_gradient)])
 
     def test_flip_liquid(self):
         demo_run('flip_liquid', [backend.NUMPY_BACKEND])
@@ -88,8 +89,8 @@ class TestDemos(TestCase):
     def test_profile_navier_stokes(self):
         demo_run('profile_navier_stokes')
 
-    # def test_rotating_bar(self):
-    #     demo_run('rotating_bar')
+    def test_rotating_bar(self):
+        demo_run('rotating_bar')
 
     def test_smoke_plume(self):
         demo_run('smoke_plume')

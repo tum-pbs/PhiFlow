@@ -24,21 +24,23 @@ from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, 
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
+from phi.math import (
+    abs, sign, round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, to_float, to_int32, to_int64,
+    stop_gradient,
+    jit_compile, jit_compile_linear, functional_gradient,
+    solve_linear, solve_nonlinear, minimize,
+    l2_loss, l1_loss, frequency_loss,
+)
 from ._field_math import (
     assert_close, convert,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
     concat, batch_stack, channel_stack,
-    abs, sign, round_ as round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, stop_gradient,  # op1
-    to_float, to_int,
-    solve_linear, minimize,
     where,
     vec_squared, vec_abs,
-    l2_loss, l1_loss, frequency_loss,
     downsample2x, upsample2x,
     extrapolate_valid,
-    jit_compile, functional_gradient, jit_compile_linear,
     native_call,
 )
 from ._field_io import write, read

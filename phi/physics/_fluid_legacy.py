@@ -6,6 +6,7 @@ from . import advect, Obstacle
 from ._effect import Gravity, effect_applied, gravity_tensor, FieldEffect
 from ._physics import Physics, StateDependency, State
 from .fluid import make_incompressible
+from ..math import SolveInfo
 
 
 @struct.definition()
@@ -102,9 +103,10 @@ class IncompressibleFlow(Physics):
         gravity = gravity_tensor(gravity, fluid.rank)
         velocity = fluid.velocity
         density = fluid.density
-        pressure, iterations, div = None, None, None
+        result: SolveInfo = None
+        div = field.divergence(velocity)
         if self.make_input_divfree:
-            velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
+            velocity, result = make_incompressible(velocity, fluid.domain, obstacles)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
@@ -119,10 +121,10 @@ class IncompressibleFlow(Physics):
         divergent_velocity = velocity
         # --- Pressure solve_linear ---
         if self.make_output_divfree:
-            velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
+            velocity, result = make_incompressible(velocity, fluid.domain, obstacles)
         solve_info = {
-            'pressure': pressure,
-            'iterations': iterations,
+            'pressure': result.x,
+            'iterations': result.iterations,
             'divergence': div,
             'advected_velocity': advected_velocity,
             'divergent_velocity': divergent_velocity,

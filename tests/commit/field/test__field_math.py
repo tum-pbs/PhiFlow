@@ -7,6 +7,7 @@ from phi import math
 from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask
 from phi.geom import Box
 from phi import field
+from phi.math import Solve
 from phi.math.backend import Backend
 from phi.physics import Domain
 
@@ -47,6 +48,9 @@ class TestFieldMath(TestCase):
             loss = field.l2_loss(pred)
             return loss
 
+        grad = field.functional_gradient(f, get_output=False)
+        fgrad = field.functional_gradient(f, (0, 1), get_output=True)
+
         domain = Domain(x=4, y=3)
         x = domain.staggered_grid(1)
         y = domain.vector_grid(1)
@@ -54,9 +58,9 @@ class TestFieldMath(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.gradients):
                 with backend:
-                    dx, = field.functional_gradient(f)(x, y)
+                    dx, = grad(x, y)
                     self.assertIsInstance(dx, StaggeredGrid)
-                    loss, dx, dy = field.functional_gradient(f, (0, 1), get_output=True)(x, y)
+                    loss, (dx, dy) = fgrad(x, y)
                     self.assertIsInstance(loss, math.Tensor)
                     self.assertIsInstance(dx, StaggeredGrid)
                     self.assertIsInstance(dy, CenteredGrid)

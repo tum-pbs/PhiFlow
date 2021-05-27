@@ -18,8 +18,9 @@ class TestTensors(TestCase):
         for backend in BACKENDS:
             with backend:
                 for const in (1, 1.5, True, 1+1j):
-                    tens = math.tensor(const, convert=False)
-                    self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
+                    tens = math.wrap(const)
+                    self.assertEqual(math.NUMPY_BACKEND, tens.default_backend)
+                    self.assertTrue(isinstance(tens.native(), (int, float, bool, complex)), msg=backend)
                     math.assert_close(tens, const)
                     tens = math.tensor(const)
                     self.assertEqual(backend, math.choose_backend(tens), f'{const} was not converted to the specified backend')
@@ -178,3 +179,41 @@ class TestTensors(TestCase):
         self.assertEqual(math.ones(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_normal(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_uniform(nonuniform).shape, nonuniform)
+
+    def test_tensor_like(self):
+
+        class Success(Exception): pass
+
+        class MyObjV:
+
+            def __init__(self, x):
+                self.x = x
+
+            def __value_attrs__(self):
+                return 'x',
+
+            def __with_tattrs__(self, **tattrs):
+                math.assert_close(tattrs['x'], 1)
+                raise Success
+
+        class MyObjT:
+
+            def __init__(self, x1, x2):
+                self.x1 = x1
+                self.x2 = x2
+
+            def __variable_attrs__(self):
+                return 'x1', 'x2'
+
+        v = MyObjV(math.wrap(0))
+        t = MyObjT(math.wrap(0), math.wrap(1))
+        self.assertIsInstance(v, math.TensorLike)
+        self.assertIsInstance(t, math.TensorLike)
+        try:
+            math.cos(v)
+        except Success:
+            pass
+        try:
+            math.cos(t)
+        except AssertionError:
+            pass

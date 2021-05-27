@@ -6,12 +6,12 @@ Nevertheless, we recommend using backend-specific optimization for certain tasks
 
 The following overview table shows which Φ<sub>Flow</sub> optimization functions are supported by which backends.
 
-| Backend    | solve_linear | minimize | functional_gradient | record_gradients | NN Training |
-|------------|-------|----------|---------------------|------------------|-------------|
-| PyTorch    | ✓     | ✓        |   ✓                 |    ✓             |   ✓         |
-| TensorFlow | ✓     | ✓        |   ✓                 |    ✓             |   ✓         |
-| Jax        | ✓     | ✓        |   ✓                 |                  |             |
-| NumPy      | ✓     | ✓        |                     |                  |             |
+| Backend    | solve_linear | minimize | functional_gradient | NN Training |
+|------------|--------------|----------|---------------------|-------------|
+| PyTorch    | ✓            | ✓        |   ✓                 |      ✓         |
+| TensorFlow | ✓            | ✓        |   ✓                 |      ✓         |
+| Jax        | ✓            | ✓        |   ✓                 |                |
+| NumPy      | ✓            |          |                     |                |
 
 
 ## Physics Optimization
@@ -19,38 +19,46 @@ The following overview table shows which Φ<sub>Flow</sub> optimization function
 These functions work with all backends but run much slower with NumPy due to the lack of analytic gradients.
 
 ### Nonlinear Optimization
-The functions [`math.minimize()`](phi/math/#phi.math.minimize) and [`field.minimize()`](phi/field/#phi.field.minimize)
-solve unconstrained nonlinear optimization problems.
+The function [`math.minimize()`](phi/math/#phi.math.minimize) and [`solve_nonlinear()`](phi/math/#phi.math.solve_nonlinear) solve unconstrained nonlinear optimization problems.
 The following example uses L-BFGS-B to find a solution to a nonlinear optimization problem using the `phi.field` API:
 ```python
-def loss(x: Grid) -> math.Tensor:
-  return field.l2_loss(physics(x) - target)
+def loss(x1: Grid, x2: Grid) -> math.Tensor:
+  return field.l2_loss(physics(x1, x2) - target)
 
-solution = field.minimize(loss, x0, math.Solve('L-BFGS-B', 0, 1e-3))
+x0 = x0_1, x0_2
+solution = math.minimize(math.jit_compile(loss), math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
 ```
+
 
 ### Linear Equations
-For solving linear systems of equations, Φ<sub>Flow</sub> provides the functions
-[`math.solve_linear()`](phi/math/#phi.math.solve_linear) and [`field.solve_linear()`](phi/field/#phi.field.solve_linear).
-The following example uses the conjugate gradient algorithm to solve_linear `A(x) = y`:
-
+For solving linear systems of equations, Φ<sub>Flow</sub> provides the function [`math.solve_linear()`](phi/math/#phi.math.solve_linear).
+The following example uses the conjugate gradient algorithm to solve_linear `f(x) = y`:
 ```python
-@field.jit_compile_linear
-def A(x: Grid) -> Grid:
+@math.jit_compile_linear
+def f(x: Grid) -> Grid:
     return field.where(mask, 2 * field.laplace(x), x)
 
-
-x = field.solve_linear(A, y, x0, math.Solve('CG', 1e-3, 0))
+x = math.solve_linear(f, y, math.Solve('CG', 1e-3, 0, x0=x0))
 ```
-Solve can also be used to find solutions to nonlinear equations.
-This is equivalent to minimizing the squared error with `minimize()`.
+
+Which solver implementation is used, depends on the backend.
+However, all backends support conjugate gradient (`'CG'`) and conjugate gradient with adaptive step size (`'CG-adaptive'`).
+Specify `'auto'` to let Φ<sub>Flow</sub> chose an appropriate solver.
+
+Overview: Implementations
+
+| Method        | PyTorch | TensorFlow |                               Jax                              |                           NumPy                          |
+|---------------|:-------:|:----------:|:--------------------------------------------------------------:|:--------------------------------------------------------:|
+| 'CG'          |  Φ-Flow |   Φ-Flow   | `jax.scipy.sparse.linalg.cg` (only in jit mode, no trajectory) |         `scipy.sparse.linalg.cg` (no trajectory)         |
+| 'CG-adaptive' |  Φ-Flow |   Φ-Flow   |                  Φ-Flow (only function-based)                  |                          Φ-Flow                          |
+| 'auto'        |  Φ-Flow |   Φ-Flow   | `jax.scipy.sparse.linalg.cg` (only in jit mode, no trajectory) | `scipy.sparse.linalg.spsolve` (only for sparse matrices) |
+
 
 ### Handling Failed Optimizations
 Both `solve_linear` and `minimize` return only the solution.
-Further information about the optimization is stored in `solve_linear.result` of the passed [`Solve`](phi/math/#phi.math.Solve) object.
-When a solve does not find a solution, a subclass of
-[`ConvergenceException`](phi/math/#phi.math.ConvergenceException) is thrown.
+To access further information about the optimization, run the optimization within a [`SolveTape`](phi/math/#phi.math.SolveTape) context.
 
+When a solve does not find a solution, a subclass of [`ConvergenceException`](phi/math/#phi.math.ConvergenceException) is thrown.
 ```python
 solve = math.Solve('CG', 1e-3, 0, max_iterations=300)
 try:
@@ -66,15 +74,17 @@ iterations_performed = solve.result.iterations  # available in any case
 ```
 
 ### Backpropagation
-Currently, backprop is only supported by linear solves with the `'CG'` optimizer.
-The following code shows how to specify different settings for the backprop solve:
+Currently, backpropagation is supported for `solve_linear()`.
+The following code shows how to specify different settings for the backpropagation solve:
 ```python
 from phi.flow import *
-gradient_solve = math.Solve('CG', 1e-4, 0, max_iterations=100)
-solve = math.Solve('CG', 1e-5, 0, gradient_solve=gradient_solve)
+gradient_solve = math.Solve('auto', 1e-5, 0, max_iterations=100, x0=x0)
+solve = math.Solve('CG', 1e-5, 1e-5, gradient_solve=gradient_solve, x0=None)
 ```
-Solves during backprop raise the same exceptions as in the forward pass.
-Information about backprop solves can be obtained through `solve.gradient_solve.result`.
+Solves during backpropagation raise the same exceptions as in the forward pass.
+The only exception is TensorFlow where a warning message is printed instead since exceptions are not supported during backpropagation.
+Information about backpropagation solves can be obtained the same ways with the forward solves,
+using a [`SolveTape`](phi/math/#phi.math.SolveTape) context around the gradient computation.
 
 
 ## Computing Gradients

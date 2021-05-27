@@ -1,13 +1,14 @@
+import copy
 import numbers
 import warnings
-from typing import Tuple, Callable
+from typing import Tuple, Callable, List, TypeVar
 
 import numpy as np
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
-                     parse_dim_order, shape_stack, parse_dim_names, _infer_dim_type_from_name, combine_safe)
+                     parse_dim_order, shape_stack, parse_dim_names, dim_type, combine_safe)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend
 from .backend._dtype import DType
@@ -133,17 +134,45 @@ class Tensor:
 
     @property
     def all(self):
-        from ._ops import all_available, all_, cast
-        if all_available(self):
-            if self.rank == 0:
-                return bool(self.native())
-            else:
-                return bool(all_(self).native())
+        """ Whether all values of this `Tensor` are `True` as a native bool. """
+        from ._ops import all_, cast
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
         else:
-            if self.rank == 0:
-                return cast(self, DType(bool)).native()
-            else:
-                return all_(self).native()
+            return all_(self).native()
+
+    @property
+    def any(self):
+        """ Whether this `Tensor` contains a `True` value as a native bool. """
+        from ._ops import any_, cast
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
+        else:
+            return any_(self).native()
+
+    @property
+    def mean(self):
+        """ Mean value of this `Tensor` as a native scalar. """
+        from ._ops import mean
+        return mean(self).native()
+
+    @property
+    def sum(self):
+        """ Sum of all values of this `Tensor` as a native scalar. """
+        from ._ops import sum_
+        return sum_(self).native()
+
+    @property
+    def min(self):
+        """ Minimum value of this `Tensor` as a native scalar. """
+        from ._ops import min_
+        return min_(self).native()
+
+    @property
+    def max(self):
+        """ Maximum value of this `Tensor` as a native scalar. """
+        from ._ops import max_
+        return max_(self).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
@@ -190,7 +219,7 @@ class Tensor:
                 else:
                     return f"{self.default_backend} {self.shape} {self.dtype}"
         except BaseException as err:
-            return f"{self.shape}, failed to fetch values with error {err}"
+            return f"{self.shape}, failed to fetch values: {err}"
 
     def __repr__(self):
         return self._summary_str()
@@ -377,8 +406,6 @@ class Tensor:
         return self._op2(other, lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y))
 
     def __abs__(self):
-        if self.dtype.kind in (bool, str):
-            return self
         return self._op1(lambda t: choose_backend(t).abs(t))
 
     def __round__(self, n=None):
@@ -657,6 +684,7 @@ class NativeTensor(Tensor):
     def __init__(self, native_tensor, shape):
         assert isinstance(shape, Shape), f"Expected Shape but got '{type(shape)}'"
         backend = choose_backend(native_tensor)
+        # if backend.is_available(native_tensor):
         assert backend.staticshape(native_tensor) == shape.sizes, f"Shape {shape} does not match native tensor with shape {backend.staticshape(native_tensor)}"
         self._native = native_tensor
         self._shape = shape
@@ -791,9 +819,11 @@ class CollapsedTensor(Tensor):  # package-private
         if self._cached is None:
             if self._inner._is_special:
                 return None
+            from ._ops import all_available
             native = self._inner.native(order=self.shape.names)
             multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape.dimensions]
-            tiled = choose_backend(native).tile(native, multiples)
+            backend = choose_backend(native)
+            tiled = backend.tile(native, multiples)
             self._cached = NativeTensor(tiled, self.shape)
             self._inner = None
         return self._cached
@@ -916,6 +946,8 @@ class CollapsedTensor(Tensor):  # package-private
 
     def _expand(self):
         self._cache()
+        from phi.math import all_available
+        assert all_available(self._cached), "Cannot cache a Tensor while it is being traced."
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -1089,6 +1121,9 @@ class TensorStack(Tensor):
             for t in self.tensors:
                 t._expand()
         self._cache()
+        if self._cached is not None:
+            from phi.math import all_available
+            assert all_available(self._cached), "Cannot cache a Tensor while it is being traced."
 
     def _simplify(self):
         if self._cached is not None:
@@ -1139,7 +1174,7 @@ def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
            names: str or tuple or list = None,
-           convert: bool = True) -> Tensor:
+           convert: bool = True) -> Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
     """
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -1183,7 +1218,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         else:
             names = parse_dim_names(names, data.rank)
             names = [n if n is not None else o for n, o in zip(names, data.shape.names)]
-            types = [_infer_dim_type_from_name(n) if n is not None else o for n, o in zip(names, data.shape.types)]
+            types = [dim_type(n) if n is not None else o for n, o in zip(names, data.shape.types)]
             new_shape = Shape(data.shape.sizes, names, types)
             return data._with_shape_replaced(new_shape)
     elif isinstance(data, Shape):
@@ -1207,7 +1242,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in elements]
             from ._ops import cast_same
             elements = cast_same(*elements)
-            return TensorStack(elements, dim_name=stack_dim, dim_type=_infer_dim_type_from_name(stack_dim))
+            return TensorStack(elements, dim_name=stack_dim, dim_type=dim_type(stack_dim))
     backend = choose_backend(data, raise_error=False)
     if backend:
         if names is None:
@@ -1217,7 +1252,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         else:
             names = parse_dim_names(names, len(data.shape))
             assert None not in names, f"All names must be specified but got {names}"
-            types = [_infer_dim_type_from_name(n) for n in names]
+            types = [dim_type(n) for n in names]
         shape = Shape(data.shape, names, types)
         if convert:
             data = convert_(data, use_dlpack=False)
@@ -1228,7 +1263,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
 def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
          names: str or tuple or list = None) -> Tensor:
     """ Short for `phi.math.tensor()` with `convert=False`. """
-    return tensor(data, names=names, convert=False)
+    return tensor(data, names=names, convert=False)  # TODO inline, simplify
 
 
 def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), convert=False):
@@ -1304,3 +1339,215 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
         if result is NotImplemented:
             raise NotImplementedError(f"Operation not supported between {type(x)} and {type(y)}")
     return result
+
+
+def disassemble_tensors(obj: Tensor or tuple or list, expand=True) -> tuple:
+    assert isinstance(obj, (Tensor, tuple, list)), f"jit-compiled function returned {type(obj)} but must return either a 'phi.math.Tensor' or tuple/list of tensors."
+    if isinstance(obj, Tensor):
+        if expand:
+            obj._expand()
+        return obj._natives(), obj.shape
+    else:
+        if expand:
+            for t in obj:
+                t._expand()
+        return sum([t._natives() for t in obj], ()), tuple(t.shape for t in obj)
+
+
+def assemble_tensors(natives: tuple, shapes: Shape or Tuple[Shape]):
+    natives = list(natives)
+    if isinstance(shapes, Shape):
+        return _assemble_pop(natives, shapes)
+    else:
+        return [_assemble_pop(natives, shape) for shape in shapes]
+
+
+def _assemble_pop(natives: list, shape: Shape):
+    if shape.is_uniform:
+        native = natives.pop(0)
+        ndim = choose_backend(native).ndims(native)
+        if ndim != shape.rank:
+            if ndim == 0 and shape.rank > 0:
+                inner = NativeTensor(native, EMPTY_SHAPE)
+                return CollapsedTensor(inner, shape)
+            else:
+                raise NotImplementedError("Cannot restore CollapsedTensor from native and shape")
+        return NativeTensor(native, shape)
+    else:
+        s2 = shape.shape.without('dims')
+        if len(s2) > 1:
+            raise NotImplementedError('More than one non-uniform dimension not supported.')
+        shapes = shape.unstack(s2.name)
+        tensors = [NativeTensor(natives.pop(0), s) for s in shapes]
+        from phi.math._ops import _stack
+        return _stack(tensors, s2.name, s2.types[0])
+
+
+class _TensorLikeType(type):
+
+    def __instancecheck__(self, instance):
+        if instance is None or instance == MISSING_TENSOR or isinstance(instance, Tensor):
+            return True
+        elif isinstance(instance, (tuple, list)):
+            return all(isinstance(item, TensorLike) for item in instance)
+        elif isinstance(instance, dict):
+            return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, TensorLike) for val in instance.values())
+        else:
+            return hasattr(instance, '__variable_attrs__') or hasattr(instance, '__value_attrs__')
+
+
+class TensorLike(metaclass=_TensorLikeType):
+    """
+    Tensor-like objects can interoperate with some `phi.math` functions, depending on what methods they implement.
+    Objects are considered `TensorLike` if they implement `TensorLike.__variable_attrs__()` or `TensorLike.__value_attrs__()`.
+    This is reflected in `isinstance` checks.
+
+    `TensorLike` objects may be used as keys, for example in `jit_compile()`.
+    In key mode, all variable attributes are set to `None`.
+    When used as keys, `TensorLike` should also implement `__eq__()` to compare any non-variable properties that can affect a function.
+
+    Do not declare this class as a superclass.
+    """
+
+    def __value_attrs__(self) -> Tuple[str]:
+        """
+        Returns all `Tensor` or `TensorLike` attribute names of `self` that should be transformed by single-operand math operations,
+        such as `sin()`, `exp()`.
+
+        Returns:
+            `tuple` of `str` attributes.
+                Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
+        """
+        raise NotImplementedError()
+
+    def __variable_attrs__(self) -> Tuple[str]:
+        """
+        Returns all `Tensor` or `TensorLike` attribute names of `self` whose values are variable.
+        Variables denote values that can change from one function call to the next or for which gradients can be recorded.
+        If this method is not implemented, all attributes returned by `__value_attrs__()` are considered variable.
+
+        The returned properties are used by the following functions:
+
+        - `jit_compile()`
+        - `jit_compile_linear()`
+        - `stop_gradient()`
+        - `functional_gradient()`
+        - `custom_gradient()`
+
+        Returns:
+            `tuple` of `str` attributes.
+                Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
+        """
+        raise NotImplementedError()
+
+    def __with_attrs__(self, **attrs):
+        """
+        Creates a copy of this object which has the `Tensor` or `TensorLike` attributes contained in `tattrs` replaced.
+        If this method is not implemented, tensor attributes are replaced using `setattr()`.
+
+        Args:
+            **attrs: `dict` mapping `str` attribute names to `Tensor` or `TensorLike`.
+
+        Returns:
+            Altered copy of `self`
+        """
+        raise NotImplementedError()
+
+
+def copy_with(obj, **tensor_attributes):
+    if hasattr(obj, '__with_tattrs__'):
+        return obj.__with_tattrs__(**tensor_attributes)
+    else:
+        cpy = copy.copy(obj)
+        for attr, value in tensor_attributes.items():
+            setattr(cpy, attr, value)
+        return cpy
+
+
+def variable_attributes(obj):
+    if hasattr(obj, '__variable_attrs__'):
+        return obj.__variable_attrs__()
+    elif hasattr(obj, '__value_attrs__'):
+        return obj.__value_attrs__()
+    else:
+        raise ValueError(f"Not TensorLike: {type(obj)}")
+
+
+def value_attributes(obj):
+    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
+    return obj.__value_attrs__()
+
+
+TensorLikeType = TypeVar('TensorLikeType')
+
+
+MISSING_TENSOR = 'missing'
+
+
+def disassemble_nested(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]:
+    """
+    Splits a nested structure of Tensors into the structure without the tensors and an ordered list of tensors.
+
+    See Also:
+        `assemble_nested()`
+
+    Args:
+        obj: Nested structure of `Tensor` objects.
+            Nested structures include: `tuple`, `list`, `dict`, `TensorLike`.
+
+    Returns:
+        empty structure: Same structure as `obj` but with the tensors replaced by `None`.
+        tensors: Ordered `list` of all contained `Tensor` objects.
+    """
+    if obj is None:
+        return MISSING_TENSOR, []
+    elif isinstance(obj, Tensor):
+        return None, [obj]
+    elif isinstance(obj, (tuple, list)):
+        keys = []
+        values = []
+        for item in obj:
+            key, value = disassemble_nested(item)
+            keys.append(key)
+            values.extend(value)
+        return (tuple(keys) if isinstance(obj, tuple) else keys), values
+    elif isinstance(obj, dict):
+        keys = {}
+        values = []
+        for name, item in obj.items():
+            key, value = disassemble_nested(item)
+            keys[name] = key
+            values.extend(value)
+        return keys, values
+    elif isinstance(obj, TensorLike):
+        attributes = variable_attributes(obj)
+        keys = {}
+        values = []
+        for attr in attributes:
+            key, value = disassemble_nested(getattr(obj, attr))
+            keys[attr] = key
+            values.extend(value)
+        return copy_with(obj, **keys), values
+    else:
+        raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")
+
+
+def assemble_nested(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
+    """ Reverses `disassemble_nested()` given an empty nested structure and a list of tensors. """
+    if obj == MISSING_TENSOR:
+        return None
+    elif obj is None:
+        assert isinstance(values[0], Tensor)
+        return values.pop(0)
+    elif isinstance(obj, list):
+        return [assemble_nested(item, values) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(assemble_nested(item, values) for item in obj)
+    elif isinstance(obj, dict):
+        return {name: assemble_nested(val, values) for name, val in obj.items()}
+    elif isinstance(obj, TensorLike):
+        attributes = variable_attributes(obj)
+        values = {a: assemble_nested(getattr(obj, a), values) for a in attributes}
+        return copy_with(obj, **values)
+    else:
+        raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")
