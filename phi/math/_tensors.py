@@ -1479,6 +1479,17 @@ def value_attributes(obj):
     return obj.__value_attrs__()
 
 
+def variable_values(obj):
+    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
+    if hasattr(obj, '__variable_attrs__'):
+        values = obj.__value_attrs__()
+        variables = obj.__variable_attrs__()
+        return [a for a in values if a in variables]
+    else:
+        return obj.__value_attrs__()
+
+
+
 TensorLikeType = TypeVar('TensorLikeType')
 
 

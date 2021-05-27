@@ -1,17 +1,18 @@
 # Because division is different in Python 2 and 3
 from __future__ import division
 
-import numpy as np
 from typing import Tuple
-from phi import struct
-from . import extrapolation as extrapolation
+
+import numpy as np
+
 from . import _ops as math
+from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
-from .extrapolation import Extrapolation
 from ._ops import channel_stack
 from ._shape import Shape
-from ._tensors import Tensor, disassemble_tree, TensorLike, value_attributes
+from ._tensors import Tensor, TensorLike, variable_values
 from ._tensors import wrap
+from .extrapolation import Extrapolation
 
 
 def spatial_sum(value: Tensor):
@@ -85,7 +86,7 @@ def l1_loss(x) -> Tensor:
     if isinstance(x, Tensor):
         return math.sum_(abs(x), x.shape.non_batch)
     elif isinstance(x, TensorLike):
-        return sum([l1_loss(getattr(x, a)) for a in value_attributes(x)])
+        return sum([l1_loss(getattr(x, a)) for a in variable_values(x)])
     else:
         raise ValueError(x)
 
@@ -106,41 +107,42 @@ def l2_loss(x) -> Tensor:
             x = abs(x)
         return math.sum_(x ** 2, x.shape.non_batch) * 0.5
     elif isinstance(x, TensorLike):
-        return sum([l2_loss(getattr(x, a)) for a in value_attributes(x)])
+        return sum([l2_loss(getattr(x, a)) for a in variable_values(x)])
     else:
         raise ValueError(x)
 
 
 def frequency_loss(x,
-                   n=2,
                    frequency_falloff: float = 100,
                    threshold=1e-5,
-                   batch_norm: bool or str or tuple or list or Shape = True,
                    ignore_mean=False) -> Tensor:
     """
     Penalizes the squared `values` in frequency (Fourier) space.
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-        values: Values to penalize, typically `actual - target`
-        n: Loss type, see `l_n_loss()`.
+        x: `Tensor` or `TensorLike` Values to penalize, typically `actual - target`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
         threshold: Frequency amplitudes below this value are ignored.
             Setting this to zero may cause infinities or NaN values during backpropagation.
-        batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
         ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
 
     Returns:
       Scalar loss value
     """
-    if ignore_mean:
-        values -= math.mean(values, values.shape.non_batch)
-    k_squared = vec_squared(math.fftfreq(values.shape.spatial))
-    weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    diff_fft = abs_square(math.fft(values) * weights)
-    diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
-    return l_n_loss(diff_fft, n=n, batch_norm=batch_norm)
+    if isinstance(x, Tensor):
+        if ignore_mean:
+            x -= math.mean(x, x.shape.non_batch)
+        k_squared = vec_squared(math.fftfreq(x.shape.spatial))
+        weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
+        diff_fft = abs_square(math.fft(x) * weights)
+        diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
+        return l2_loss(diff_fft)
+    elif isinstance(x, TensorLike):
+        return sum([frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean) for a in variable_values(x)])
+    else:
+        raise ValueError(x)
 
 
 def abs_square(complex_values: Tensor) -> Tensor:
