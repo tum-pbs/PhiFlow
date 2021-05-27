@@ -1407,8 +1407,8 @@ def _expand_dims(value: Tensor, new_dims: Shape):
     shape = value.shape
     for size, dim, dim_type in new_dims.reversed.dimensions:
         if dim in value.shape:
-            assert shape.get_size(dim) == size
-            assert shape.get_type(dim) == dim_type
+            assert shape.get_size(dim) == size, f"Cannot expand tensor with shape {shape} by dimension {dim}={size}"
+            assert shape.get_type(dim) == dim_type, f"Cannot expand tensor with shape {shape} by dimension {dim} of type '{type}' because the dimension types do not match"
         else:
             shape = shape.expand(size, dim, dim_type)
     return CollapsedTensor(value, shape)

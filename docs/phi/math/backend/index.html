@@ -128,8 +128,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
     for backend in backends:
         if _is_specific(backend, values):
             return backend
-    else:
-        return backends[0]</code></pre>
+    return backends[0]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.context_backend"><code class="name flex">
@@ -854,8 +853,22 @@ The output of math operations has the same precision as its inputs.</p>
     def einsum(self, equation, *tensors):
         raise NotImplementedError(self)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
+    def while_loop(self, loop: Callable, values: tuple):
+        &#34;&#34;&#34;
+        ```python
+        while any(values[0]):
+            values = loop(*values)
+        return values
+        ```
+
+        This operation does not support backpropagation.
+
+        Args:
+            loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
+            values: Initial values of loop variables.
+        Returns:
+            Loop variables upon loop completion.
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def abs(self, x):
@@ -1248,7 +1261,7 @@ The output of math operations has the same precision as its inputs.</p>
         method = f&#34;Φ-Flow CG ({self.name})&#34;
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0), only_mutable=True)
-        batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+        batch_size = self.staticshape(y)[0]
         tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
         x = x0
         dx = residual = y - self.linear(lin, x)
@@ -1256,18 +1269,11 @@ The output of math operations has the same precision as its inputs.</p>
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
         residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
-        trajectory = [] if trj else None
-        while True:
-            # diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
-            diverged = self.any(residual_squared / rsq0 &gt; 4, axis=(1,))  # factor 2
-            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-            if trajectory is not None:
-                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
-                x = self.copy(x)
-                iterations = self.copy(iterations)
-            finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
-            if self.all(finished):
-                return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+        diverged = self.any(~self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        while ~self.all(finished):
             it_counter += 1; iterations += not_finished_1
             dy = self.linear(lin, dx); function_evaluations += not_finished_1
             dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
@@ -1281,6 +1287,14 @@ The output of math operations has the same precision as its inputs.</p>
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
+            diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
+            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
+            finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
         &#34;&#34;&#34; Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
@@ -1289,38 +1303,46 @@ The output of math operations has the same precision as its inputs.</p>
         method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0), only_mutable=True)
-        batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+        batch_size = self.staticshape(y)[0]
         tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
         x = x0
         dx = residual = y - self.linear(lin, x)
         dy = self.linear(lin, dx)
-        rsq0 = None
-        it_counter = 0
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
-        trajectory = [] if trj else None
-        while True:
+        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+        diverged = self.any(~self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+
+        def loop(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+            continue_1 = self.to_int32(continue_)
+            it_counter += 1
+            iterations += continue_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx
+            # if it_counter % 50 == 0:  # Not traceable since Python bool
+            #     residual = y - self.linear(lin, x); function_evaluations += 1
+            # else:
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-            if rsq0 is None:
-                rsq0 = residual_squared
-            # diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
-            diverged = self.any(residual_squared / rsq0 &gt; 4, axis=(1,))  # factor 2
+            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+            dy = self.linear(lin, dx); function_evaluations += continue_1
+            diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
             converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
                 x = self.copy(x)
                 iterations = self.copy(iterations)
-            finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
-            if self.all(finished):
-                return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
-            it_counter += 1; iterations += not_finished_1
-            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
-            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
-            x += step_size * dx
-            residual = residual - step_size * dy  # in-place subtraction affects convergence
-            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-            dy = self.linear(lin, dx); function_evaluations += not_finished_1
+            continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+            return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
+
+        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged =\
+            self.while_loop(loop, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
+        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
 
     def linear(self, lin, vector):
         if callable(lin):
@@ -1834,7 +1856,7 @@ This method may be used to register internal calls with the profiler.</p>
     method = f&#34;Φ-Flow CG ({self.name})&#34;
     y = self.to_float(y)
     x0 = self.copy(self.to_float(x0), only_mutable=True)
-    batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+    batch_size = self.staticshape(y)[0]
     tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
     x = x0
     dx = residual = y - self.linear(lin, x)
@@ -1842,18 +1864,11 @@ This method may be used to register internal calls with the profiler.</p>
     iterations = self.zeros([batch_size], DType(int, 32))
     function_evaluations = self.ones([batch_size], DType(int, 32))
     residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
-    trajectory = [] if trj else None
-    while True:
-        # diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
-        diverged = self.any(residual_squared / rsq0 &gt; 4, axis=(1,))  # factor 2
-        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-        if trajectory is not None:
-            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
-            x = self.copy(x)
-            iterations = self.copy(iterations)
-        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
-        if self.all(finished):
-            return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+    diverged = self.any(~self.isfinite(x), axis=(1,))
+    converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+    finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+    while ~self.all(finished):
         it_counter += 1; iterations += not_finished_1
         dy = self.linear(lin, dx); function_evaluations += not_finished_1
         dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
@@ -1866,7 +1881,15 @@ This method may be used to register internal calls with the profiler.</p>
             residual = residual - step_size * dy  # in-place subtraction affects convergence
         residual_squared_old = residual_squared
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-        dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx</code></pre>
+        dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
+        diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        if trajectory is not None:
+            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+            x = self.copy(x)
+            iterations = self.copy(iterations)
+        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient_adaptive"><code class="name flex">
@@ -1885,38 +1908,46 @@ This method may be used to register internal calls with the profiler.</p>
     method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
     y = self.to_float(y)
     x0 = self.copy(self.to_float(x0), only_mutable=True)
-    batch_size = combined_dim(self.shape(y)[0], self.shape(x0)[0])
+    batch_size = self.staticshape(y)[0]
     tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
     x = x0
     dx = residual = y - self.linear(lin, x)
     dy = self.linear(lin, dx)
-    rsq0 = None
-    it_counter = 0
     iterations = self.zeros([batch_size], DType(int, 32))
     function_evaluations = self.ones([batch_size], DType(int, 32))
-    trajectory = [] if trj else None
-    while True:
+    residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+    diverged = self.any(~self.isfinite(x), axis=(1,))
+    converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+    continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+
+    def loop(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+        continue_1 = self.to_int32(continue_)
+        it_counter += 1
+        iterations += continue_1
+        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+        step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+        step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
+        x += step_size * dx
+        # if it_counter % 50 == 0:  # Not traceable since Python bool
+        #     residual = y - self.linear(lin, x); function_evaluations += 1
+        # else:
+        residual = residual - step_size * dy  # in-place subtraction affects convergence
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-        if rsq0 is None:
-            rsq0 = residual_squared
-        # diverged = ~self.all(self.isfinite(x), axis=(1,))  # this does not catch slowly diverging cases
-        diverged = self.any(residual_squared / rsq0 &gt; 4, axis=(1,))  # factor 2
+        dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+        dy = self.linear(lin, dx); function_evaluations += continue_1
+        diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
         converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
         if trajectory is not None:
             trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
             x = self.copy(x)
             iterations = self.copy(iterations)
-        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
-        if self.all(finished):
-            return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
-        it_counter += 1; iterations += not_finished_1
-        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-        step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
-        step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
-        x += step_size * dx
-        residual = residual - step_size * dy  # in-place subtraction affects convergence
-        dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-        dy = self.linear(lin, dx); function_evaluations += not_finished_1</code></pre>
+        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+        return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
+
+    _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged =\
+        self.while_loop(loop, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
+    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conv"><code class="name flex">
@@ -3743,16 +3774,43 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.while_loop"><code class="name flex">
-<span>def <span class="ident">while_loop</span></span>(<span>self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None)</span>
+<span>def <span class="ident">while_loop</span></span>(<span>self, loop: Callable, values: tuple)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><pre><code class="language-python">while any(values[0]):
+    values = loop(*values)
+return values
+</code></pre>
+<p>This operation does not support backpropagation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>loop</code></strong></dt>
+<dd>Loop function, must return a <code>tuple</code> with entries equal to <code>values</code> in shape and data type.</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Initial values of loop variables.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Loop variables upon loop completion.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-               swap_memory=False, name=None, maximum_iterations=None):
+<pre><code class="python">def while_loop(self, loop: Callable, values: tuple):
+    &#34;&#34;&#34;
+    ```python
+    while any(values[0]):
+        values = loop(*values)
+    return values
+    ```
+
+    This operation does not support backpropagation.
+
+    Args:
+        loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
+        values: Initial values of loop variables.
+    Returns:
+        Loop variables upon loop completion.
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>

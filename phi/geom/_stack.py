@@ -6,7 +6,6 @@ from ..math._shape import shape_stack, Shape, BATCH_DIM, dim_type, COLLECTION_DI
 class GeometryStack(Geometry):
 
     def __init__(self, geometries: tuple or list, dim_name: str, dim_type: str):
-        assert dim_type in [BATCH_DIM, COLLECTION_DIM]
         self.geometries = tuple(geometries)
         self.stack_dim_name = dim_name
         self.stack_dim_type = dim_type

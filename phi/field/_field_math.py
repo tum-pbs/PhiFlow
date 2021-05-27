@@ -1,13 +1,12 @@
-from functools import wraps, partial
 from numbers import Number
 from typing import Callable
 
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry
-from phi.math import extrapolate_valid_values, DType
-from ._field import Field, SampledField, SampledFieldType, unstack
-from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
+from phi.math import extrapolate_valid_values
+from ._field import Field, SampledField, unstack
+from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType, grid as create_grid
 from ._mask import HardGeometryMask
 from ._point_cloud import PointCloud
 from ..math._tensors import variable_attributes, copy_with
@@ -228,8 +227,8 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
         data = math.pad(grid.values, widths, grid.extrapolation)
         w_lower = math.wrap([w[0] for w in widths_list])
         w_upper = math.wrap([w[1] for w in widths_list])
-        box = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
-        return type(grid)(data, box, grid.extrapolation)
+        bounds = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
+        return create_grid(data, data.shape.spatial, bounds, grid.extrapolation, type(grid))
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
 
 
@@ -388,3 +387,22 @@ def discretize(grid: Grid, filled_fraction=0.25):
     np.put_along_axis(filled, filled_idx, 1, axis=-1)
     filled_t = math.reshaped_tensor(filled, [grid.shape.non_spatial, grid.shape.spatial])
     return grid.with_(values=filled_t)
+
+
+def integrate(field: Field, region: Geometry) -> math.Tensor:
+    """
+    Computes *∫<sub>R</sub> f(x) dx<sup>d</sup>* , where *f* denotes the `Field`, *R* the `region` and *d* the number of spatial dimensions (`d=field.shape.spatial_rank`).
+    Depending on the `sample` implementation for `field`, the integral may be a rough approximation.
+
+    This method is currently only implemented for `CenteredGrid`.
+
+    Args:
+        field: `Field` to integrate.
+        region: Region to integrate over.
+
+    Returns:
+        Integral as `phi.math.Tensor`
+    """
+    if not isinstance(field, CenteredGrid):
+        raise NotImplementedError()
+    return field._sample(region) * region.volume

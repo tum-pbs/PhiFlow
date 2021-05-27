@@ -1,4 +1,3 @@
-import warnings
 from typing import TypeVar, Callable
 
 from phi import math
@@ -177,10 +176,6 @@ class SampledField(Field):
     @property
     def extrapolation(self) -> Extrapolation:
         return self._extrapolation
-
-    @property
-    def shape(self) -> Shape:
-        return self._shape
 
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)

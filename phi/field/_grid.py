@@ -134,6 +134,8 @@ class CenteredGrid(Grid):
         return CenteredGrid(values, bounds, extrapolation)
 
     def _sample(self, geometry: Geometry) -> Tensor:
+        if geometry == self.bounds:
+            return math.mean(self._values, self._resolution)
         if isinstance(geometry, GeometryStack):
             sampled = [self.sample(g) for g in geometry.geometries]
             return math.batch_stack(sampled, geometry.stack_dim_name)

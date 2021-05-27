@@ -150,3 +150,9 @@ class TestFieldMath(TestCase):
         math.assert_close(field.mean(curl), 0)
         math.assert_close(curl.values.vector[0].x[1], (1, -1))
         math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
+
+    def test_integrate_all(self):
+        grid = field.grid(field.Noise(vector=2), math.shape(x=10, y=10), Box[0:10, 0:10])
+        math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y'))
+        grid = field.grid(field.Noise(vector=2), math.shape(x=10, y=10), Box[0:1, 0:1])
+        math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)

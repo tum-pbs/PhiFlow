@@ -1771,6 +1771,8 @@ def my_function(x: math.Tensor) -&gt; math.Tensor:
 <li>TensorFlow: <a href="https://www.tensorflow.org/guide/function"><code>tf.function</code></a></li>
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/notebooks/quickstart.html#using-jit-to-speed-up-functions"><code>jax.jit</code></a></li>
 </ul>
+<p>Jit-compilations cannot be nested, i.e. you cannot call <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code> while another function is being compiled.
+An exception to this is <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> which can be called from within a jit-compiled function.</p>
 <p>See Also:
 <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code></p>
 <h2 id="args">Args</h2>
@@ -1805,6 +1807,9 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
     * TensorFlow: [`tf.function`](https://www.tensorflow.org/guide/function)
     * Jax: [`jax.jit`](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html#using-jit-to-speed-up-functions)
 
+    Jit-compilations cannot be nested, i.e. you cannot call `jit_compile()` while another function is being compiled.
+    An exception to this is `jit_compile_linear()` which can be called from within a jit-compiled function.
+
     See Also:
         `jit_compile_linear()`
 
@@ -1822,11 +1827,13 @@ All arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.T
 <span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.</p>
+<div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
+For backends that support sparse tensors, a sparse matrix will be constructed for <code>f</code>.</p>
 <p>Can be used as a decorator:</p>
 <pre><code class="language-python">@math.jit_compile_linear
 def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 </code></pre>
+<p>Unlike <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>, <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> can be called during a regular jit compilation.</p>
 <p>See Also:
 <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code></p>
 <h2 id="args">Args</h2>
@@ -1843,13 +1850,15 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
+    For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
 
     Can be used as a decorator:
-
     ```python
     @math.jit_compile_linear
     def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
     ```
+
+    Unlike `jit_compile()`, `jit_compile_linear()` can be called during a regular jit compilation.
 
     See Also:
         `jit_compile()`
@@ -2381,7 +2390,9 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
+    t = time.perf_counter() - t
     if not trj:
         assert isinstance(ret, SolveResult)
         converged = reshaped_tensor(ret.converged, [batch])
@@ -2390,7 +2401,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         iterations = reshaped_tensor(ret.iterations, [batch])
         function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
         residual = reshaped_tensor(ret.residual, [batch])
-        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
     else:  # trajectory
         assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
         converged = reshaped_tensor(ret[-1].converged, [batch])
@@ -2400,7 +2411,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], &#39;trajectory&#39;)
         iterations = reshaped_tensor(ret[-1].iterations, [batch])
         function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], &#39;trajectory&#39;)
-        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
     result.convergence_check(False)  # raises ConvergenceException
@@ -5128,6 +5139,15 @@ This is the default implementation.</p>
         assert isinstance(result_tensor, ShiftLinTracer), f&#34;Tracing linear function &#39;{self.f.__name__}&#39; failed. Make sure only linear operations are used.&#34;
         return result_tensor
 
+    def _get_or_trace(self, key: SignatureKey):
+        if key in self.tracers:
+            return self.tracers[key]
+        else:
+            tracer = self._trace(key)
+            if not key.tracing:
+                self.tracers[key] = tracer
+            return tracer
+
     def __call__(self, *args: X, **kwargs) -&gt; Y:
         nest, tensors = disassemble_nested(args)
         assert tensors, &#34;Linear function requires at least one argument&#34;
@@ -5139,21 +5159,18 @@ This is the default implementation.</p>
             warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
             return self.nl_jit(*args, **kwargs)
         natives, shapes = disassemble_tensors(tensors)
-        key = SignatureKey(None, nest, shapes, kwargs, backend)
-        if key not in self.tracers:
-            self.tracers[key] = self._trace(key)
-        return self.tracers[key].apply(tensors[0])
+        key = SignatureKey(None, nest, shapes, kwargs, backend, not all_available(*tensors))
+        tracer = self._get_or_trace(key)
+        return tracer.apply(tensors[0])
 
-    def sparse_coordinate_matrix(self, *args: Tensor, **kwargs):
-        key, _ = key_from_args(*args, **kwargs)
+    def sparse_coordinate_matrix(self, *args, **kwargs):
+        key, _ = key_from_args(*args, cache=False, **kwargs)
         assert key.backend.supports(Backend.sparse_tensor)
-        if key not in self.tracers:
-            self.tracers[key] = self._trace(key)
-        return self.tracers[key].get_sparse_coordinate_matrix()
+        return self._get_or_trace(key).get_sparse_coordinate_matrix()
 
     def stencil_inspector(self, *args, **kwargs):
-        key, _ = key_from_args(*args, **kwargs)
-        tracer = self._trace(key)
+        key, _ = key_from_args(*args, cache=True, **kwargs)
+        tracer = self._get_or_trace(key)
 
         def print_stencil(**indices):
             pos = shape(**indices)
@@ -5169,7 +5186,7 @@ This is the default implementation.</p>
 <h3>Methods</h3>
 <dl>
 <dt id="phi.math.LinearFunction.sparse_coordinate_matrix"><code class="name flex">
-<span>def <span class="ident">sparse_coordinate_matrix</span></span>(<span>self, *args: phi.math._tensors.Tensor, **kwargs)</span>
+<span>def <span class="ident">sparse_coordinate_matrix</span></span>(<span>self, *args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -5177,12 +5194,10 @@ This is the default implementation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_coordinate_matrix(self, *args: Tensor, **kwargs):
-    key, _ = key_from_args(*args, **kwargs)
+<pre><code class="python">def sparse_coordinate_matrix(self, *args, **kwargs):
+    key, _ = key_from_args(*args, cache=False, **kwargs)
     assert key.backend.supports(Backend.sparse_tensor)
-    if key not in self.tracers:
-        self.tracers[key] = self._trace(key)
-    return self.tracers[key].get_sparse_coordinate_matrix()</code></pre>
+    return self._get_or_trace(key).get_sparse_coordinate_matrix()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.LinearFunction.stencil_inspector"><code class="name flex">
@@ -5195,8 +5210,8 @@ This is the default implementation.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stencil_inspector(self, *args, **kwargs):
-    key, _ = key_from_args(*args, **kwargs)
-    tracer = self._trace(key)
+    key, _ = key_from_args(*args, cache=True, **kwargs)
+    tracer = self._get_or_trace(key)
 
     def print_stencil(**indices):
         pos = shape(**indices)
@@ -7303,10 +7318,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
                 or self.max_iterations != other.max_iterations \
                 or self.suppress != other.suppress:
             return False
-        if self.x0 is None:
-            return other.x0 is None
-        else:
-            raise AssertionError(&#34;Cannot compare Solves with x0 set&#34;)
+        return self.x0 == other.x0
 
     def __variable_attrs__(self) -&gt; Tuple[str]:
         return &#39;x0&#39;,</code></pre>
@@ -7394,7 +7406,8 @@ This property must be set to a value compatible with the solution <code>x</code>
                  converged: Tensor,
                  diverged: Tensor,
                  method: str,
-                 msg: str = None):
+                 msg: str,
+                 solve_time: float):
         # tuple.__new__(SolveInfo, (x, residual, iterations, function_evaluations, converged, diverged))
         self.solve: Solve[X, Y] = solve
         &#34;&#34;&#34; `Solve`, Parameters specified for the solve. &#34;&#34;&#34;
@@ -7412,7 +7425,7 @@ This property must be set to a value compatible with the solution <code>x</code>
         &#34;&#34;&#34; `Tensor`, whether the solve has diverged at this point. &#34;&#34;&#34;
         self.method = method
         &#34;&#34;&#34; `str`, which method and implementation that was used. &#34;&#34;&#34;
-        if not msg:
+        if not msg and all_available(diverged, converged):
             if self.diverged.any:
                 msg = f&#34;Solve diverged within {iterations if iterations is not None else &#39;?&#39;} iterations using {method}.&#34;
             elif not self.converged.trajectory[-1].all:
@@ -7421,14 +7434,18 @@ This property must be set to a value compatible with the solution <code>x</code>
                 msg = f&#34;Converged within {iterations if iterations is not None else &#39;?&#39;} iterations.&#34;
         self.msg = msg
         &#34;&#34;&#34; `str`, termination message &#34;&#34;&#34;
+        self.solve_time = solve_time
+        &#34;&#34;&#34; Time spent in Backend solve function (in seconds) &#34;&#34;&#34;
 
     def __repr__(self):
         return self.msg
 
     def snapshot(self, index):
-        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)
+        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg, self.solve_time)
 
     def convergence_check(self, only_warn: bool):
+        if not all_available(self.diverged, self.converged):
+            return
         if self.diverged.any:
             if Diverged not in self.solve.suppress:
                 if only_warn:
@@ -7480,6 +7497,10 @@ This property must be set to a value compatible with the solution <code>x</code>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code>, Parameters specified for the solve.</p></div>
 </dd>
+<dt id="phi.math.SolveInfo.solve_time"><code class="name">var <span class="ident">solve_time</span></code></dt>
+<dd>
+<div class="desc"><p>Time spent in Backend solve function (in seconds)</p></div>
+</dd>
 <dt id="phi.math.SolveInfo.x"><code class="name">var <span class="ident">x</span></code></dt>
 <dd>
 <div class="desc"><p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>, solution estimate.</p></div>
@@ -7497,6 +7518,8 @@ This property must be set to a value compatible with the solution <code>x</code>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def convergence_check(self, only_warn: bool):
+    if not all_available(self.diverged, self.converged):
+        return
     if self.diverged.any:
         if Diverged not in self.solve.suppress:
             if only_warn:
@@ -7521,7 +7544,7 @@ This property must be set to a value compatible with the solution <code>x</code>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def snapshot(self, index):
-    return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg)</code></pre>
+    return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg, self.solve_time)</code></pre>
 </details>
 </dd>
 </dl>
@@ -7745,41 +7768,45 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     @property
     def all(self):
-        from ._ops import all_available, all_, cast
-        if all_available(self):
-            if self.rank == 0:
-                return bool(self.native())
-            else:
-                return bool(all_(self).native())
+        &#34;&#34;&#34; Whether all values of this `Tensor` are `True` as a native bool. &#34;&#34;&#34;
+        from ._ops import all_, cast
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
         else:
-            if self.rank == 0:
-                return cast(self, DType(bool)).native()
-            else:
-                return all_(self).native()
+            return all_(self).native()
 
     @property
     def any(self):
-        from ._ops import all_available, any_, cast
-        if all_available(self):
-            if self.rank == 0:
-                return bool(self.native())
-            else:
-                return bool(any_(self).native())
+        &#34;&#34;&#34; Whether this `Tensor` contains a `True` value as a native bool. &#34;&#34;&#34;
+        from ._ops import any_, cast
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
         else:
-            if self.rank == 0:
-                return cast(self, DType(bool)).native()
-            else:
-                return any_(self).native()
+            return any_(self).native()
 
     @property
     def mean(self):
+        &#34;&#34;&#34; Mean value of this `Tensor` as a native scalar. &#34;&#34;&#34;
         from ._ops import mean
         return mean(self).native()
 
     @property
     def sum(self):
+        &#34;&#34;&#34; Sum of all values of this `Tensor` as a native scalar. &#34;&#34;&#34;
         from ._ops import sum_
         return sum_(self).native()
+
+    @property
+    def min(self):
+        &#34;&#34;&#34; Minimum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
+        from ._ops import min_
+        return min_(self).native()
+
+    @property
+    def max(self):
+        &#34;&#34;&#34; Maximum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
+        from ._ops import max_
+        return max_(self).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
@@ -8098,46 +8125,36 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 <dl>
 <dt id="phi.math.Tensor.all"><code class="name">var <span class="ident">all</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Whether all values of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> are <code>True</code> as a native bool.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def all(self):
-    from ._ops import all_available, all_, cast
-    if all_available(self):
-        if self.rank == 0:
-            return bool(self.native())
-        else:
-            return bool(all_(self).native())
+    &#34;&#34;&#34; Whether all values of this `Tensor` are `True` as a native bool. &#34;&#34;&#34;
+    from ._ops import all_, cast
+    if self.rank == 0:
+        return cast(self, DType(bool)).native()
     else:
-        if self.rank == 0:
-            return cast(self, DType(bool)).native()
-        else:
-            return all_(self).native()</code></pre>
+        return all_(self).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.any"><code class="name">var <span class="ident">any</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Whether this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> contains a <code>True</code> value as a native bool.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def any(self):
-    from ._ops import all_available, any_, cast
-    if all_available(self):
-        if self.rank == 0:
-            return bool(self.native())
-        else:
-            return bool(any_(self).native())
+    &#34;&#34;&#34; Whether this `Tensor` contains a `True` value as a native bool. &#34;&#34;&#34;
+    from ._ops import any_, cast
+    if self.rank == 0:
+        return cast(self, DType(bool)).native()
     else:
-        if self.rank == 0:
-            return cast(self, DType(bool)).native()
-        else:
-            return any_(self).native()</code></pre>
+        return any_(self).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.default_backend"><code class="name">var <span class="ident">default_backend</span></code></dt>
@@ -8166,17 +8183,46 @@ def dtype(self) -&gt; DType:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.Tensor.max"><code class="name">var <span class="ident">max</span></code></dt>
+<dd>
+<div class="desc"><p>Maximum value of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> as a native scalar.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def max(self):
+    &#34;&#34;&#34; Maximum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
+    from ._ops import max_
+    return max_(self).native()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.Tensor.mean"><code class="name">var <span class="ident">mean</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Mean value of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> as a native scalar.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def mean(self):
+    &#34;&#34;&#34; Mean value of this `Tensor` as a native scalar. &#34;&#34;&#34;
     from ._ops import mean
     return mean(self).native()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.min"><code class="name">var <span class="ident">min</span></code></dt>
+<dd>
+<div class="desc"><p>Minimum value of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> as a native scalar.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def min(self):
+    &#34;&#34;&#34; Minimum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
+    from ._ops import min_
+    return min_(self).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
@@ -8207,13 +8253,14 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.math.Tensor.sum"><code class="name">var <span class="ident">sum</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sum of all values of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> as a native scalar.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def sum(self):
+    &#34;&#34;&#34; Sum of all values of this `Tensor` as a native scalar. &#34;&#34;&#34;
     from ._ops import sum_
     return sum_(self).native()</code></pre>
 </details>
@@ -8933,8 +8980,11 @@ int: repeating unstack if dimension does not exist</dd>
 <dd>
 <div class="desc"><p>Tensor-like objects can interoperate with some <code><a title="phi.math" href="#phi.math">phi.math</a></code> functions, depending on what methods they implement.
 Objects are considered <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> if they implement <code><a title="phi.math.TensorLike.__variable_attrs__" href="#phi.math.TensorLike.__variable_attrs__">TensorLike.__variable_attrs__()</a></code> or <code><a title="phi.math.TensorLike.__value_attrs__" href="#phi.math.TensorLike.__value_attrs__">TensorLike.__value_attrs__()</a></code>.
-This is reflected in <code>isinstance</code> checks.
-Do not declare this class as a superclass.</p></div>
+This is reflected in <code>isinstance</code> checks.</p>
+<p><code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> objects may be used as keys, for example in <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>.
+In key mode, all variable attributes are set to <code>None</code>.
+When used as keys, <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> should also implement <code>__eq__()</code> to compare any non-variable properties that can affect a function.</p>
+<p>Do not declare this class as a superclass.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -8944,6 +8994,11 @@ Do not declare this class as a superclass.</p></div>
     Tensor-like objects can interoperate with some `phi.math` functions, depending on what methods they implement.
     Objects are considered `TensorLike` if they implement `TensorLike.__variable_attrs__()` or `TensorLike.__value_attrs__()`.
     This is reflected in `isinstance` checks.
+
+    `TensorLike` objects may be used as keys, for example in `jit_compile()`.
+    In key mode, all variable attributes are set to `None`.
+    When used as keys, `TensorLike` should also implement `__eq__()` to compare any non-variable properties that can affect a function.
+
     Do not declare this class as a superclass.
     &#34;&#34;&#34;
 
@@ -9339,6 +9394,7 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
 <li><code><a title="phi.math.SolveInfo.residual" href="#phi.math.SolveInfo.residual">residual</a></code></li>
 <li><code><a title="phi.math.SolveInfo.snapshot" href="#phi.math.SolveInfo.snapshot">snapshot</a></code></li>
 <li><code><a title="phi.math.SolveInfo.solve" href="#phi.math.SolveInfo.solve">solve</a></code></li>
+<li><code><a title="phi.math.SolveInfo.solve_time" href="#phi.math.SolveInfo.solve_time">solve_time</a></code></li>
 <li><code><a title="phi.math.SolveInfo.x" href="#phi.math.SolveInfo.x">x</a></code></li>
 </ul>
 </li>
@@ -9354,7 +9410,9 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
 <li><code><a title="phi.math.Tensor.dimension" href="#phi.math.Tensor.dimension">dimension</a></code></li>
 <li><code><a title="phi.math.Tensor.dtype" href="#phi.math.Tensor.dtype">dtype</a></code></li>
 <li><code><a title="phi.math.Tensor.flip" href="#phi.math.Tensor.flip">flip</a></code></li>
+<li><code><a title="phi.math.Tensor.max" href="#phi.math.Tensor.max">max</a></code></li>
 <li><code><a title="phi.math.Tensor.mean" href="#phi.math.Tensor.mean">mean</a></code></li>
+<li><code><a title="phi.math.Tensor.min" href="#phi.math.Tensor.min">min</a></code></li>
 <li><code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">native</a></code></li>
 <li><code><a title="phi.math.Tensor.numpy" href="#phi.math.Tensor.numpy">numpy</a></code></li>
 <li><code><a title="phi.math.Tensor.rank" href="#phi.math.Tensor.rank">rank</a></code></li>

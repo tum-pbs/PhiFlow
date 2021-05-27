@@ -243,18 +243,6 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 
     @property
     def center(self) -&gt; Tensor:
-        &#34;&#34;&#34;
-        Center point of the geometry or geometry batch.
-        
-        The shape of the location extends the shape of the Geometry by a `vector` dimension.
-        
-        :return: Tensor describing the center location(s)
-
-        Args:
-
-        Returns:
-
-        &#34;&#34;&#34;
         raise NotImplementedError()
 
     def shifted(self, delta) -&gt; &#39;AbstractBox&#39;:
@@ -275,6 +263,10 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     @property
     def upper(self) -&gt; Tensor:
         raise NotImplementedError(self)
+
+    @property
+    def volume(self) -&gt; Tensor:
+        return math.prod(self.size, &#39;vector&#39;)
 
     def bounding_radius(self):
         return math.max(self.size, &#39;vector&#39;) * 1.414214
@@ -357,29 +349,13 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 <dl>
 <dt id="phi.geom.AbstractBox.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Center point of the geometry or geometry batch.</p>
-<p>The shape of the location extends the shape of the Geometry by a <code>vector</code> dimension.</p>
-<p>:return: Tensor describing the center location(s)</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
-    &#34;&#34;&#34;
-    Center point of the geometry or geometry batch.
-    
-    The shape of the location extends the shape of the Geometry by a `vector` dimension.
-    
-    :return: Tensor describing the center location(s)
-
-    Args:
-
-    Returns:
-
-    &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -441,6 +417,19 @@ def size(self) -&gt; Tensor:
 <pre><code class="python">@property
 def upper(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.AbstractBox.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+The result retains all batch dimensions while collection dimensions are summed over.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def volume(self) -&gt; Tensor:
+    return math.prod(self.size, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1021,6 +1010,14 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError()
 
+    @property
+    def volume(self) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Volume of the geometry as `phi.math.Tensor`.
+        The result retains all batch dimensions while collection dimensions are summed over.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
     def unstack(self, dimension: str) -&gt; tuple:
         &#34;&#34;&#34;
         Unstacks this Geometry along the given dimension.
@@ -1291,6 +1288,23 @@ def shape(self) -&gt; Shape:
 def spatial_rank(self) -&gt; int:
     &#34;&#34;&#34; Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. &#34;&#34;&#34;
     return self.shape.spatial.rank</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Geometry.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+The result retains all batch dimensions while collection dimensions are summed over.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def volume(self) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Volume of the geometry as `phi.math.Tensor`.
+    The result retains all batch dimensions while collection dimensions are summed over.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 </dl>
@@ -2400,6 +2414,10 @@ Defined through center position and radius.</p>
     def center(self):
         return self._center
 
+    @property
+    def volume(self) -&gt; math.Tensor:
+        return 4 / 3 * math.PI * self._radius ** 3
+
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
         return distance_squared &lt;= self.radius ** 2
@@ -2476,6 +2494,19 @@ def radius(self):
 <pre><code class="python">@property
 def shape(self):
     return _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Sphere.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+The result retains all batch dimensions while collection dimensions are summed over.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def volume(self) -&gt; math.Tensor:
+    return 4 / 3 * math.PI * self._radius ** 3</code></pre>
 </details>
 </dd>
 </dl>
@@ -2674,6 +2705,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.AbstractBox.size" href="#phi.geom.AbstractBox.size">size</a></code></li>
 <li><code><a title="phi.geom.AbstractBox.unstack" href="#phi.geom.AbstractBox.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.AbstractBox.upper" href="#phi.geom.AbstractBox.upper">upper</a></code></li>
+<li><code><a title="phi.geom.AbstractBox.volume" href="#phi.geom.AbstractBox.volume">volume</a></code></li>
 </ul>
 </li>
 <li>
@@ -2705,6 +2737,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.Geometry.shifted" href="#phi.geom.Geometry.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Geometry.spatial_rank" href="#phi.geom.Geometry.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.geom.Geometry.unstack" href="#phi.geom.Geometry.unstack">unstack</a></code></li>
+<li><code><a title="phi.geom.Geometry.volume" href="#phi.geom.Geometry.volume">volume</a></code></li>
 </ul>
 </li>
 <li>
@@ -2755,6 +2788,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.Sphere.rotated" href="#phi.geom.Sphere.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.Sphere.shape" href="#phi.geom.Sphere.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Sphere.shifted" href="#phi.geom.Sphere.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.Sphere.volume" href="#phi.geom.Sphere.volume">volume</a></code></li>
 </ul>
 </li>
 </ul>

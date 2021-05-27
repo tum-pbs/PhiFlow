@@ -82,6 +82,7 @@ from ._field_math import (
     downsample2x, upsample2x,
     extrapolate_valid,
     native_call,
+    integrate,
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -746,6 +747,45 @@ Has to be one of the following:</p>
     return _backend_op1(complex, Backend.imag)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.integrate"><code class="name flex">
+<span>def <span class="ident">integrate</span></span>(<span>field: phi.field._field.Field, region: phi.geom._geom.Geometry) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes <em>∫<sub>R</sub> f(x) dx<sup>d</sup></em> , where <em>f</em> denotes the <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>, <em>R</em> the <code>region</code> and <em>d</em> the number of spatial dimensions (<code>d=field.shape.spatial_rank</code>).
+Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code> implementation for <code>field</code>, the integral may be a rough approximation.</p>
+<p>This method is currently only implemented for <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> to integrate.</dd>
+<dt><strong><code>region</code></strong></dt>
+<dd>Region to integrate over.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Integral as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def integrate(field: Field, region: Geometry) -&gt; math.Tensor:
+    &#34;&#34;&#34;
+    Computes *∫&lt;sub&gt;R&lt;/sub&gt; f(x) dx&lt;sup&gt;d&lt;/sup&gt;* , where *f* denotes the `Field`, *R* the `region` and *d* the number of spatial dimensions (`d=field.shape.spatial_rank`).
+    Depending on the `sample` implementation for `field`, the integral may be a rough approximation.
+
+    This method is currently only implemented for `CenteredGrid`.
+
+    Args:
+        field: `Field` to integrate.
+        region: Region to integrate over.
+
+    Returns:
+        Integral as `phi.math.Tensor`
+    &#34;&#34;&#34;
+    if not isinstance(field, CenteredGrid):
+        raise NotImplementedError()
+    return field._sample(region) * region.volume</code></pre>
+</details>
+</dd>
 <dt id="phi.field.isfinite"><code class="name flex">
 <span>def <span class="ident">isfinite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -777,6 +817,8 @@ def my_function(x: math.Tensor) -&gt; math.Tensor:
 <li>TensorFlow: <a href="https://www.tensorflow.org/guide/function"><code>tf.function</code></a></li>
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/notebooks/quickstart.html#using-jit-to-speed-up-functions"><code>jax.jit</code></a></li>
 </ul>
+<p>Jit-compilations cannot be nested, i.e. you cannot call <code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile()</a></code> while another function is being compiled.
+An exception to this is <code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear()</a></code> which can be called from within a jit-compiled function.</p>
 <p>See Also:
 <code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear()</a></code></p>
 <h2 id="args">Args</h2>
@@ -811,6 +853,9 @@ All arguments must be of type <code>Tensor</code> returning a single <code>Tenso
     * TensorFlow: [`tf.function`](https://www.tensorflow.org/guide/function)
     * Jax: [`jax.jit`](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html#using-jit-to-speed-up-functions)
 
+    Jit-compilations cannot be nested, i.e. you cannot call `jit_compile()` while another function is being compiled.
+    An exception to this is `jit_compile_linear()` which can be called from within a jit-compiled function.
+
     See Also:
         `jit_compile_linear()`
 
@@ -828,11 +873,13 @@ All arguments must be of type <code>Tensor</code> returning a single <code>Tenso
 <span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.</p>
+<div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
+For backends that support sparse tensors, a sparse matrix will be constructed for <code>f</code>.</p>
 <p>Can be used as a decorator:</p>
 <pre><code class="language-python">@math.jit_compile_linear
 def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 </code></pre>
+<p>Unlike <code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile()</a></code>, <code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear()</a></code> can be called during a regular jit compilation.</p>
 <p>See Also:
 <code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile()</a></code></p>
 <h2 id="args">Args</h2>
@@ -849,13 +896,15 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
+    For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
 
     Can be used as a decorator:
-
     ```python
     @math.jit_compile_linear
     def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
     ```
+
+    Unlike `jit_compile()`, `jit_compile_linear()` can be called during a regular jit compilation.
 
     See Also:
         `jit_compile()`
@@ -1078,7 +1127,9 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
+    t = time.perf_counter() - t
     if not trj:
         assert isinstance(ret, SolveResult)
         converged = reshaped_tensor(ret.converged, [batch])
@@ -1087,7 +1138,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         iterations = reshaped_tensor(ret.iterations, [batch])
         function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
         residual = reshaped_tensor(ret.residual, [batch])
-        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message)
+        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
     else:  # trajectory
         assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
         converged = reshaped_tensor(ret[-1].converged, [batch])
@@ -1097,7 +1148,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], &#39;trajectory&#39;)
         iterations = reshaped_tensor(ret[-1].iterations, [batch])
         function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], &#39;trajectory&#39;)
-        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message)
+        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
     result.convergence_check(False)  # raises ConvergenceException
@@ -1181,8 +1232,8 @@ The function output must have the same dimension layout as the inputs and the ba
         data = math.pad(grid.values, widths, grid.extrapolation)
         w_lower = math.wrap([w[0] for w in widths_list])
         w_upper = math.wrap([w[1] for w in widths_list])
-        box = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
-        return type(grid)(data, box, grid.extrapolation)
+        bounds = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
+        return create_grid(data, data.shape.spatial, bounds, grid.extrapolation, type(grid))
     raise NotImplementedError(f&#34;{type(grid)} not supported. Only Grid instances allowed.&#34;)</code></pre>
 </details>
 </dd>
@@ -2174,6 +2225,8 @@ Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.ht
         return CenteredGrid(values, bounds, extrapolation)
 
     def _sample(self, geometry: Geometry) -&gt; Tensor:
+        if geometry == self.bounds:
+            return math.mean(self._values, self._resolution)
         if isinstance(geometry, GeometryStack):
             sampled = [self.sample(g) for g in geometry.geometries]
             return math.batch_stack(sampled, geometry.stack_dim_name)
@@ -2690,6 +2743,12 @@ Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.ht
     def __variable_attrs__(self):
         return &#39;_values&#39;,
 
+    def __eq__(self, other):
+        if not type(self) == type(other):
+            return False
+        assert self._values is None, &#34;Can only compare grids in key mode.&#34;
+        return self._bounds == other._bounds and self._resolution == other._resolution and self._extrapolation == other._extrapolation
+
     def __getitem__(self, item: dict) -&gt; &#39;Grid&#39;:
         raise NotImplementedError(self)
 
@@ -2714,7 +2773,10 @@ Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.ht
         return self.box.size / self.resolution
 
     def __repr__(self):
-        return f&#34;{self.__class__.__name__}[{self.shape.non_spatial &amp; self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]&#34;</code></pre>
+        if self._values is not None:
+            return f&#34;{self.__class__.__name__}[{self.shape.non_spatial &amp; self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]&#34;
+        else:
+            return f&#34;{self.__class__.__name__}[{self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3373,10 +3435,6 @@ def shape(self):
     def extrapolation(self) -&gt; Extrapolation:
         return self._extrapolation
 
-    @property
-    def shape(self) -&gt; Shape:
-        return self._shape
-
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
 
@@ -3515,7 +3573,7 @@ def points(self) -&gt; Tensor:
     return self.elements.center</code></pre>
 </details>
 </dd>
-<dt id="phi.field.SampledField.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.field.SampledField.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
 <div class="desc"><p>Returns a shape with the following properties</p>
 <ul>
@@ -3528,8 +3586,8 @@ def points(self) -&gt; Tensor:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def shape(self) -&gt; Shape:
-    return self._shape</code></pre>
+def shape(self):
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.field.SampledField.values"><code class="name">var <span class="ident">values</span> : phi.math._tensors.Tensor</code></dt>
@@ -4908,6 +4966,7 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.field.grid" href="#phi.field.grid">grid</a></code></li>
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
+<li><code><a title="phi.field.integrate" href="#phi.field.integrate">integrate</a></code></li>
 <li><code><a title="phi.field.isfinite" href="#phi.field.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.field.jit_compile" href="#phi.field.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear</a></code></li>
