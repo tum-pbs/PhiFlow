@@ -1485,12 +1485,12 @@ TensorLikeType = TypeVar('TensorLikeType')
 MISSING_TENSOR = 'missing'
 
 
-def disassemble_nested(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]:
+def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]:
     """
     Splits a nested structure of Tensors into the structure without the tensors and an ordered list of tensors.
 
     See Also:
-        `assemble_nested()`
+        `assemble_tree()`
 
     Args:
         obj: Nested structure of `Tensor` objects.
@@ -1508,7 +1508,7 @@ def disassemble_nested(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor
         keys = []
         values = []
         for item in obj:
-            key, value = disassemble_nested(item)
+            key, value = disassemble_tree(item)
             keys.append(key)
             values.extend(value)
         return (tuple(keys) if isinstance(obj, tuple) else keys), values
@@ -1516,7 +1516,7 @@ def disassemble_nested(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor
         keys = {}
         values = []
         for name, item in obj.items():
-            key, value = disassemble_nested(item)
+            key, value = disassemble_tree(item)
             keys[name] = key
             values.extend(value)
         return keys, values
@@ -1525,7 +1525,7 @@ def disassemble_nested(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor
         keys = {}
         values = []
         for attr in attributes:
-            key, value = disassemble_nested(getattr(obj, attr))
+            key, value = disassemble_tree(getattr(obj, attr))
             keys[attr] = key
             values.extend(value)
         return copy_with(obj, **keys), values
@@ -1533,22 +1533,22 @@ def disassemble_nested(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor
         raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")
 
 
-def assemble_nested(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
-    """ Reverses `disassemble_nested()` given an empty nested structure and a list of tensors. """
+def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
+    """ Reverses `disassemble_tree()` given an empty nested structure and a list of tensors. """
     if obj == MISSING_TENSOR:
         return None
     elif obj is None:
         assert isinstance(values[0], Tensor)
         return values.pop(0)
     elif isinstance(obj, list):
-        return [assemble_nested(item, values) for item in obj]
+        return [assemble_tree(item, values) for item in obj]
     elif isinstance(obj, tuple):
-        return tuple(assemble_nested(item, values) for item in obj)
+        return tuple(assemble_tree(item, values) for item in obj)
     elif isinstance(obj, dict):
-        return {name: assemble_nested(val, values) for name, val in obj.items()}
+        return {name: assemble_tree(val, values) for name, val in obj.items()}
     elif isinstance(obj, TensorLike):
         attributes = variable_attributes(obj)
-        values = {a: assemble_nested(getattr(obj, a), values) for a in attributes}
+        values = {a: assemble_tree(getattr(obj, a), values) for a in attributes}
         return copy_with(obj, **values)
     else:
         raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")

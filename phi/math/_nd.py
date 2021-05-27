@@ -10,7 +10,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from .extrapolation import Extrapolation
 from ._ops import channel_stack
 from ._shape import Shape
-from ._tensors import Tensor, disassemble_nested, TensorLike, value_attributes
+from ._tensors import Tensor, disassemble_tree, TensorLike, value_attributes
 from ._tensors import wrap
 
 

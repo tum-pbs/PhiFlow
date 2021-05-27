@@ -14,7 +14,7 @@ from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE,
                      batch_shape, channel_shape, COLLECTION_DIM)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, tensors, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
-    assemble_tensors, disassemble_nested, assemble_nested, value_attributes
+    assemble_tensors, disassemble_tree, assemble_tree, value_attributes
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
 from .backend._dtype import DType, combine_types
 
@@ -374,9 +374,9 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
 
 
 def zeros_like(obj):
-    nest, values = disassemble_nested(obj)
+    nest, values = disassemble_tree(obj)
     values0 = [zeros(t.shape, dtype=t.dtype) for t in values]
-    return assemble_nested(nest, values0)
+    return assemble_tree(nest, values0)
 
 
 def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
@@ -1664,8 +1664,8 @@ def stop_gradient(x):
     if isinstance(x, Tensor):
         return x._op1(lambda native: choose_backend(native).stop_gradient(native))
     elif isinstance(x, TensorLike):
-        nest, values = disassemble_nested(x)
+        nest, values = disassemble_tree(x)
         new_values = [stop_gradient(v) for v in values]
-        return assemble_nested(nest, new_values)
+        return assemble_tree(nest, new_values)
     else:
         return wrap(choose_backend(x).stop_gradient(x))

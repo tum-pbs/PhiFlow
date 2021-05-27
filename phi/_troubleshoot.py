@@ -154,8 +154,8 @@ def plot_solves():
         finally:
             for i, result in enumerate(solves):
                 assert isinstance(result, math.SolveInfo)
-                from phi.math._tensors import disassemble_nested
-                _, (residual,) = disassemble_nested(result.residual)
+                from phi.math._tensors import disassemble_tree
+                _, (residual,) = disassemble_tree(result.residual)
                 residual_mean = math.mean(math.abs(residual), residual.shape.without('trajectory'))
                 residual_max = math.max(math.abs(residual), residual.shape.without('trajectory'))
                 pylab.plot(residual_mean.numpy(), label=f"{i}: {result.method}", color=cycle[i % len(cycle)])

@@ -11,7 +11,7 @@ from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, batch_stack, \
     sum_, to_float
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, shape, vector_add, combine_safe
-from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_nested, TensorLike, assemble_nested, copy_with, \
+from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, \
     disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap
 from .backend import choose_backend, Backend, get_current_profile, get_precision
 from .backend._backend import SolveResult
@@ -84,7 +84,7 @@ def match_output_signature(new_in: SignatureKey, recorded_mappings: Dict[Signatu
 
 
 def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
-    nest, tensors = disassemble_nested(args)
+    nest, tensors = disassemble_tree(args)
     tracing = not all_available(*tensors)
     backend = math.choose_backend_t(*tensors)
     if tracing and cache:
@@ -106,10 +106,10 @@ class JitFunction:
         def jit_f_native(*natives, **kwargs):
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_nested(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.nest, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
-            nest, out_tensors = disassemble_nested(result)
+            nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(jit_f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
@@ -125,7 +125,7 @@ class JitFunction:
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
-        return assemble_nested(output_key.nest, output_tensors)
+        return assemble_tree(output_key.nest, output_tensors)
 
     def __repr__(self):
         return f"jit({self.f.__name__})"
@@ -184,10 +184,10 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
-        f_input = assemble_nested(in_key.nest, [tracer])
+        f_input = assemble_tree(in_key.nest, [tracer])
         assert isinstance(f_input, tuple)
         result = self.f(*f_input)
-        _, result_tensors = disassemble_nested(result)
+        _, result_tensors = disassemble_tree(result)
         assert len(result_tensors) == 1, f"Linear function must return a single Tensor or tensor-like but got {result}"
         result_tensor = result_tensors[0]
         assert isinstance(result_tensor, ShiftLinTracer), f"Tracing linear function '{self.f.__name__}' failed. Make sure only linear operations are used."
@@ -203,7 +203,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             return tracer
 
     def __call__(self, *args: X, **kwargs) -> Y:
-        nest, tensors = disassemble_nested(args)
+        nest, tensors = disassemble_tree(args)
         assert tensors, "Linear function requires at least one argument"
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
@@ -273,10 +273,10 @@ class GradientFunction:
         def f_native(*natives, **kwargs):
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_nested(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.nest, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
-            nest, out_tensors = disassemble_nested(result)
+            nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
@@ -291,7 +291,7 @@ class GradientFunction:
             else:
                 raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
         wrt_tensors = self._track_wrt(args)
-        wrt_natives = self._track_wrt_natives(wrt_tensors, disassemble_nested(args)[1])
+        wrt_natives = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
         if key not in self.grads:
             self.grads[key] = self._trace_grad(key, wrt_natives)
         native_result = self.grads[key](*natives)
@@ -299,11 +299,11 @@ class GradientFunction:
         if self.get_output:
             result_shapes = list(output_key.shapes) + [key.shapes[i] for i in wrt_tensors]
             output_tensors = assemble_tensors(native_result, result_shapes)
-            output_structure, grad_tuple = assemble_nested((output_key.nest, [key.nest[i] for i in wrt_tensors]), output_tensors)
+            output_structure, grad_tuple = assemble_tree((output_key.nest, [key.nest[i] for i in wrt_tensors]), output_tensors)
             return output_structure, grad_tuple
         else:
             output_tensors = assemble_tensors(native_result, [key.shapes[i] for i in wrt_tensors])
-            return assemble_nested([key.nest[i] for i in wrt_tensors], output_tensors)
+            return assemble_tree([key.nest[i] for i in wrt_tensors], output_tensors)
 
     def __repr__(self):
         return f"jit({self.f.__name__})"
@@ -311,7 +311,7 @@ class GradientFunction:
     def _track_wrt(self, args):
         wrt_tensors = []
         for i, arg in enumerate(args):
-            _, tensors = disassemble_nested(arg)
+            _, tensors = disassemble_tree(arg)
             wrt_tensors.extend([i] * len(tensors))
         return [t_i for t_i, arg_i in enumerate(wrt_tensors) if arg_i in self.wrt]
 
@@ -368,10 +368,10 @@ class CustomGradientFunction:
         def forward_native(*natives, **kwargs):
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_nested(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.nest, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
-            nest, out_tensors = disassemble_nested(result)
+            nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(forward_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
@@ -382,13 +382,13 @@ class CustomGradientFunction:
             x_tensors = assemble_tensors(x_natives, in_key.shapes)
             y_tensors = assemble_tensors(y_natives, out_key.shapes)
             dy_tensors = assemble_tensors(dy_natives, out_key.shapes)
-            x = assemble_nested(in_key.nest, x_tensors)
+            x = assemble_tree(in_key.nest, x_tensors)
             assert isinstance(x, tuple)
-            y = assemble_nested(out_key.nest, y_tensors)
-            dy = assemble_nested(out_key.nest, dy_tensors)
+            y = assemble_tree(out_key.nest, y_tensors)
+            dy = assemble_tree(out_key.nest, dy_tensors)
             result = self.gradient(*x, y, dy, **in_key.kwargs)
             assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
-            result_natives = self.incomplete_nested_to_natives(result, in_key.nest, list(in_key.shapes))
+            result_natives = self.incomplete_tree_to_natives(result, in_key.nest, list(in_key.shapes))
             return result_natives
 
         return in_key.backend.custom_gradient(forward_native, backward_native)
@@ -405,13 +405,13 @@ class CustomGradientFunction:
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
-        return assemble_nested(output_key.nest, output_tensors)
+        return assemble_tree(output_key.nest, output_tensors)
 
     def __repr__(self):
         return f"custom_gradient(forward={self.f.__name__}, backward={self.gradient.__name__}, id={id(self)})"
 
     @staticmethod
-    def incomplete_nested_to_natives(incomplete, nest, complete_shapes: List[Shape]) -> list:
+    def incomplete_tree_to_natives(incomplete, nest, complete_shapes: List[Shape]) -> list:
         """ None in nest means there is a tensor. """
         if nest is None:
             c_shape = complete_shapes.pop(0)
@@ -427,7 +427,7 @@ class CustomGradientFunction:
                 assert type(nest) == type(incomplete) and len(nest) == len(incomplete)
                 natives = []
                 for i_item, c_item in zip(incomplete, nest):
-                    natives_item = CustomGradientFunction.incomplete_nested_to_natives(i_item, c_item, complete_shapes)
+                    natives_item = CustomGradientFunction.incomplete_tree_to_natives(i_item, c_item, complete_shapes)
                     natives.extend(natives_item)
                 return natives
         elif isinstance(nest, dict):
@@ -438,7 +438,7 @@ class CustomGradientFunction:
             for attr in attributes:
                 n_val = getattr(nest, attr)
                 i_val = getattr(incomplete, attr) if incomplete is not None else None
-                natives_item = CustomGradientFunction.incomplete_nested_to_natives(i_val, n_val, complete_shapes)
+                natives_item = CustomGradientFunction.incomplete_tree_to_natives(i_val, n_val, complete_shapes)
                 natives.extend(natives_item)
             return natives
         else:
@@ -999,7 +999,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         Diverged: If the optimization failed prematurely.
     """
     assert solve.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
-    x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
     batch = combine_safe(*[t.shape for t in x0_tensors]).batch
@@ -1018,7 +1018,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
             flat_native = x_flat[..., i:i + vol]
             x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch, x0_tensor.shape.non_batch]))
             i += vol
-        x = assemble_nested(x0_nest, x_tensors)
+        x = assemble_tree(x0_nest, x_tensors)
         return x
 
     def native_function(x_flat):
@@ -1027,7 +1027,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
             y = f(*x)
         else:
             y = f(x)
-        _, y_tensors = disassemble_nested(y)
+        _, y_tensors = disassemble_tree(y)
         return y_tensors[0].sum, y_tensors[0].native()
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
@@ -1124,8 +1124,8 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -> X:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     """
-    y_nest, y_tensors = disassemble_nested(y)
-    x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    y_nest, y_tensors = disassemble_tree(y)
+    x0_nest, x0_tensors = disassemble_tree(solve.x0)
     assert len(x0_tensors) == len(y_tensors) == 1, "Only single-tensor linear solves are currently supported"
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
@@ -1141,8 +1141,8 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -> X:
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
                           active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
-    y_nest, (y_tensor,) = disassemble_nested(y)
-    x0_nest, (x0_tensor,) = disassemble_nested(solve.x0)
+    y_nest, (y_tensor,) = disassemble_tree(y)
+    x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     batch = (y_tensor.shape & x0_tensor.shape).without(active_dims)
     x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch, active_dims], force_expand=True))
     y_native = backend.as_tensor(reshaped_native(y_tensor, [batch, active_dims], force_expand=True))
@@ -1159,14 +1159,14 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         assert isinstance(ret, SolveResult)
         converged = reshaped_tensor(ret.converged, [batch])
         diverged = reshaped_tensor(ret.diverged, [batch])
-        x = assemble_nested(x0_nest, [reshaped_tensor(ret.x, [batch, active_dims])])
+        x = assemble_tree(x0_nest, [reshaped_tensor(ret.x, [batch, active_dims])])
         iterations = reshaped_tensor(ret.iterations, [batch])
         function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
         if ret.residual is not None:
-            residual = assemble_nested(y_nest, [reshaped_tensor(ret.residual, [batch, active_dims])])
+            residual = assemble_tree(y_nest, [reshaped_tensor(ret.residual, [batch, active_dims])])
         elif _SOLVE_TAPES:
             residual = backend.linear(native_lin_op, ret.x) - y_native
-            residual = assemble_nested(y_nest, [reshaped_tensor(residual, [batch, active_dims])])
+            residual = assemble_tree(y_nest, [reshaped_tensor(residual, [batch, active_dims])])
         else:
             residual = None
         result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
@@ -1174,9 +1174,9 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret), f"Trajectory recording failed: got {type(ret)}"
         converged = reshaped_tensor(ret[-1].converged, [batch])
         diverged = reshaped_tensor(ret[-1].diverged, [batch])
-        x = assemble_nested(x0_nest, [reshaped_tensor(ret[-1].x, [batch, active_dims])])
-        x_ = assemble_nested(x0_nest, [batch_stack([reshaped_tensor(r.x, [batch, active_dims]) for r in ret], 'trajectory')])
-        residual = assemble_nested(y_nest, [batch_stack([reshaped_tensor(r.residual, [batch, active_dims]) for r in ret], 'trajectory')])
+        x = assemble_tree(x0_nest, [reshaped_tensor(ret[-1].x, [batch, active_dims])])
+        x_ = assemble_tree(x0_nest, [batch_stack([reshaped_tensor(r.x, [batch, active_dims]) for r in ret], 'trajectory')])
+        residual = assemble_tree(y_nest, [batch_stack([reshaped_tensor(r.residual, [batch, active_dims]) for r in ret], 'trajectory')])
         iterations = reshaped_tensor(ret[-1].iterations, [batch])
         function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], 'trajectory')
         result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
@@ -1211,17 +1211,17 @@ _matrix_solve = attach_gradient_solve(_matrix_solve_forward)
 
 def _function_solve_forward(y, solve: Solve,
                             f: Callable = None, backend: Backend = None, is_backprop=False):  # kwargs
-    y_nest, (y_tensor,) = disassemble_nested(y)
-    x0_nest, (x0_tensor,) = disassemble_nested(solve.x0)
+    y_nest, (y_tensor,) = disassemble_tree(y)
+    x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
     batch = (y_tensor.shape & x0_tensor.shape).batch
 
     def native_lin_f(native_x, batch_index=None):
         if batch_index is not None and batch.volume > 1:
             raise NotImplementedError()  # TODO expand batch dimensions, return result[batch]
-        x = assemble_nested(x0_nest, [reshaped_tensor(native_x, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])])
+        x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])])
         y = f(x)
-        _, (y_tensor,) = disassemble_nested(y)
+        _, (y_tensor,) = disassemble_tree(y)
         y_native = reshaped_native(y_tensor, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
         return y_native
 
