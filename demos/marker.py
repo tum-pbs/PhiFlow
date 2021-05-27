@@ -8,6 +8,9 @@ The dense marker is sampled on a regular grid while the sparse marker is a colle
 from phi.flow import *
 
 
+math.seed(0)
+
+
 def checkerboard(size=8, offset=2):
     return math.to_float(math.all((DOMAIN.cells.center - offset) % (2 * size) < size, 'vector'))
 

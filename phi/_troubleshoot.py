@@ -145,16 +145,21 @@ def plot_solves():
     Returns:
 
     """
-    from .math import SolveTape, l1_loss, SolveInfo
+    from . import math
     import pylab
-    with SolveTape(record_trajectories=True) as solves:
+    cycle = pylab.rcParams['axes.prop_cycle'].by_key()['color']
+    with math.SolveTape(record_trajectories=True) as solves:
         try:
             yield solves
         finally:
             for i, result in enumerate(solves):
-                assert isinstance(result, SolveInfo)
-                res = l1_loss(result.residual)
-                pylab.plot(res.inflow_loc[0].numpy(), label=f"{i}: {result.method}")
+                assert isinstance(result, math.SolveInfo)
+                from phi.math._tensors import disassemble_nested
+                _, (residual,) = disassemble_nested(result.residual)
+                residual_mean = math.mean(math.abs(residual), residual.shape.without('trajectory'))
+                residual_max = math.max(math.abs(residual), residual.shape.without('trajectory'))
+                pylab.plot(residual_mean.numpy(), label=f"{i}: {result.method}", color=cycle[i % len(cycle)])
+                pylab.plot(residual_max.numpy(), alpha=0.2, color=cycle[i % len(cycle)])
                 print(f"Solve {i}: {result.method} ({1000 * result.solve_time:.1f} ms)\n"
                       f"\t{result.solve}\n"
                       f"\t{result.msg}\n"
@@ -163,7 +168,7 @@ def plot_solves():
                       f"\tIterations: {result.iterations}\n"
                       f"\tFunction evaulations: {result.function_evaluations.trajectory[-1]}")
             pylab.yscale('log')
-            pylab.ylabel("Residual $L_1$")
+            pylab.ylabel("Mean / Max Residual")
             pylab.xlabel("Iteration")
             pylab.title(f"Solve Convergence")
             pylab.legend(loc='upper right')

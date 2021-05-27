@@ -141,21 +141,47 @@ class TorchBackend(Backend):
                 return y
 
             @staticmethod
-            def backward(ctx, *grad_args):  # debugging this call may not be supported
-                if CURRENT_JIT_CALLS:
-                    raise NotImplementedError()
+            def backward(ctx, *grad_args):
                 x = ctx.saved_tensors[:ctx.input_count]
                 y = ctx.saved_tensors[ctx.input_count:]
-                if ctx.jit_f:
-                    if ctx.current_jit in TRACED_B:
-                        g_ = TRACED_B[ctx.current_jit]
+                if torch._C._get_tracing_state() is not None:
+                    assert CURRENT_JIT_CALLS
+                    raise NotImplementedError()
+                    # g_ = gradient
+                    #
+                    # def trace_later():
+                    #     TRACED_F[current_jit] = torch.jit.trace(f, args)  # nested traces not allowed in PyTorch
+                elif ctx.jit_f:
+                    if ctx.jit_f in TRACED_B:
+                        g_ = TRACED_B[ctx.jit_f]
                     else:
-                        raise NotImplementedError()
-                        g_ = TRACED_B[ctx.current_jit] = torch.jit.trace(gradient, tuple([x, y, *grad_args]))  # TODO can we jit during backprop?
+                        # jit-compile the gradient function
+                        # jit-functions cannot return None, so we have to filter out non-required gradients
+                        needs_input_grad = ctx.needs_input_grad
+                        with ctx.jit_f:
+                            def filter_required_grads(*args):
+                                grads = gradient(*args)
+                                filtered = [g for g, need in zip(grads, needs_input_grad) if need]
+                                return filtered
+
+                            needed_g = torch.jit.trace(filter_required_grads, tuple([x, y, grad_args]), check_trace=False)
+
+                            def g_(*args):
+                                needed = needed_g(*args)
+                                assert isinstance(needed, (tuple, list))
+                                needed = list(needed)
+                                result = [(needed.pop(0) if need else None) for need in needs_input_grad]
+                                return result
+
+                            TRACED_B[ctx.jit_f] = g_
+
+                        while ctx.jit_f.post_trace:  # compile required backward functions
+                            ctx.jit_f.post_trace.pop(0)()
                 else:
                     g_ = gradient
-                result = gradient(x, y, grad_args)
-                return result[0] if len(result) == 1 else (*result, )
+                output = g_(x, y, grad_args)
+                result = output[0] if len(output) == 1 else (*output, )
+                return result
 
         return TorchFunction.apply
 
@@ -600,7 +626,7 @@ class TorchBackend(Backend):
         return result
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        if callable(lin):
+        if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
             return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
@@ -638,7 +664,7 @@ class TorchBackend(Backend):
                 assert t.requires_grad
             output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            grads = torch.autograd.grad(loss, wrt_args)
+            grads = torch.autograd.grad(loss, wrt_args)  # TODO this does not work during jit for some reason
             if get_output:
                 loss = loss.detach()
                 if aux is not None:
@@ -693,19 +719,24 @@ class JITFunction:
     def __call__(self, *args, **kwargs):
         if kwargs:
             raise NotImplementedError("kwargs not supported for traced function")
-        try:
-            CURRENT_JIT_CALLS.append(self)
+        with self:
             if self.traced is None:
                 self.traced = torch.jit.trace(self.f, example_inputs=args, check_trace=False)
                 while self.post_trace:
                     self.post_trace.pop(0)()
             from phi.math.backend import choose_backend
             return choose_backend(self).call(self.traced, *args, name=f'jit {self.f.__name__}')
-        finally:
-            assert CURRENT_JIT_CALLS.pop(-1) == self
 
     def __repr__(self):
         return f"jit-TorchScript[{self.f.__name__}]"
+
+    def __enter__(self):
+        CURRENT_JIT_CALLS.append(self)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        assert CURRENT_JIT_CALLS.pop(-1) == self
+
 
 
 CURRENT_JIT_CALLS: List[JITFunction] = []

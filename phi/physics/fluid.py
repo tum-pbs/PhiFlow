@@ -35,13 +35,12 @@ def make_incompressible(velocity: Grid,
     """
     boundaries = domain.boundaries
     input_velocity = velocity
-    div = divergence(velocity)
-    active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), div.resolution, div.bounds, boundaries['active'])
+    active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), velocity.resolution, velocity.bounds, boundaries['active'])
     accessible = active.with_(extrapolation=boundaries['accessible'])
     hard_bcs = field.stagger(accessible, math.minimum, boundaries['accessible'], type=type(velocity))
     v_bc_div = boundaries['vector'] * boundaries['accessible']
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
-    div *= active
+    div = divergence(velocity) * active
     if boundaries['accessible'] == math.extrapolation.ZERO or boundaries['vector'] == math.extrapolation.PERIODIC:
         div = _balance_divergence(div, active)
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
@@ -56,8 +55,6 @@ def make_incompressible(velocity: Grid,
         lap = where(active, div, p)
         return lap
 
-    active.values._expand()
-    hard_bcs.values._expand()
     if not solve.x0:
         solve = copy_with(solve, x0=grid(0, div.resolution, div.bounds, boundaries['scalar']))
     pressure = field.solve_linear(laplace, y=div, solve=solve)

@@ -134,41 +134,45 @@ class Tensor:
 
     @property
     def all(self):
-        from ._ops import all_available, all_, cast
-        if all_available(self):
-            if self.rank == 0:
-                return bool(self.native())
-            else:
-                return bool(all_(self).native())
+        """ Whether all values of this `Tensor` are `True` as a native bool. """
+        from ._ops import all_, cast
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
         else:
-            if self.rank == 0:
-                return cast(self, DType(bool)).native()
-            else:
-                return all_(self).native()
+            return all_(self).native()
 
     @property
     def any(self):
-        from ._ops import all_available, any_, cast
-        if all_available(self):
-            if self.rank == 0:
-                return bool(self.native())
-            else:
-                return bool(any_(self).native())
+        """ Whether this `Tensor` contains a `True` value as a native bool. """
+        from ._ops import any_, cast
+        if self.rank == 0:
+            return cast(self, DType(bool)).native()
         else:
-            if self.rank == 0:
-                return cast(self, DType(bool)).native()
-            else:
-                return any_(self).native()
+            return any_(self).native()
 
     @property
     def mean(self):
+        """ Mean value of this `Tensor` as a native scalar. """
         from ._ops import mean
         return mean(self).native()
 
     @property
     def sum(self):
+        """ Sum of all values of this `Tensor` as a native scalar. """
         from ._ops import sum_
         return sum_(self).native()
+
+    @property
+    def min(self):
+        """ Minimum value of this `Tensor` as a native scalar. """
+        from ._ops import min_
+        return min_(self).native()
+
+    @property
+    def max(self):
+        """ Maximum value of this `Tensor` as a native scalar. """
+        from ._ops import max_
+        return max_(self).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented

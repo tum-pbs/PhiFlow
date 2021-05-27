@@ -1171,7 +1171,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
             residual = None
         result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
     else:  # trajectory
-        assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
+        assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret), f"Trajectory recording failed: got {type(ret)}"
         converged = reshaped_tensor(ret[-1].converged, [batch])
         diverged = reshaped_tensor(ret[-1].diverged, [batch])
         x = assemble_nested(x0_nest, [reshaped_tensor(ret[-1].x, [batch, active_dims])])
