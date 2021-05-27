@@ -35,6 +35,14 @@ class Geometry:
         """
         raise NotImplementedError()
 
+    @property
+    def volume(self) -> Tensor:
+        """
+        Volume of the geometry as `phi.math.Tensor`.
+        The result retains all batch dimensions while collection dimensions are summed over.
+        """
+        raise NotImplementedError()
+
     def unstack(self, dimension: str) -> tuple:
         """
         Unstacks this Geometry along the given dimension.

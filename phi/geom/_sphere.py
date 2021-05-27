@@ -34,6 +34,10 @@ class Sphere(Geometry):
     def center(self):
         return self._center
 
+    @property
+    def volume(self) -> math.Tensor:
+        return 4 / 3 * math.PI * self._radius ** 3
+
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
         return distance_squared <= self.radius ** 2

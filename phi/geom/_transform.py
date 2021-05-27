@@ -31,6 +31,10 @@ class RotatedGeometry(Geometry):
     def center(self):
         return self.geometry.center
 
+    @property
+    def volume(self) -> Tensor:
+        return self._geometry.volume
+
     def _rotate(self, location):
         sin = math.sin(self.angle)
         cos = math.cos(self.angle)

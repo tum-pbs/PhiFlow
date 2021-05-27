@@ -1,11 +1,12 @@
 from phi import math
 from ._geom import Geometry
-from ..math._shape import shape_stack, Shape, BATCH_DIM, dim_type
+from ..math._shape import shape_stack, Shape, BATCH_DIM, dim_type, COLLECTION_DIM
 
 
 class GeometryStack(Geometry):
 
     def __init__(self, geometries: tuple or list, dim_name: str, dim_type: str):
+        assert dim_type in [BATCH_DIM, COLLECTION_DIM]
         self.geometries = tuple(geometries)
         self.stack_dim_name = dim_name
         self.stack_dim_type = dim_type
@@ -23,8 +24,14 @@ class GeometryStack(Geometry):
         return math.batch_stack(centers, self.stack_dim_name)
 
     @property
-    def shape(self):
+    def shape(self) -> Shape:
         return self._shape
+
+    @property
+    def volume(self) -> math.Tensor:
+        if self.stack_dim_type == COLLECTION_DIM:
+            raise NotImplementedError("collection dimensions not yet supported")
+        return math.batch_stack([g.volume for g in self.geometries], self.stack_dim_name)
 
     def lies_inside(self, location: math.Tensor):
         if self.stack_dim_name in location.shape:

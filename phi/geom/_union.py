@@ -1,3 +1,5 @@
+import warnings
+
 from phi import math
 from ._geom import Geometry, NO_GEOMETRY
 from ._transform import rotate
@@ -35,6 +37,11 @@ class Union(Geometry):
     @property
     def center(self):
         return self._bounding_box().center
+
+    @property
+    def volume(self) -> math.Tensor:
+        warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
+        return math.sum([g.volume for g in self.geometries], dim=0)
 
     def bounding_radius(self):
         return self._bounding_box().bounding_radius()

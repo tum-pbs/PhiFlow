@@ -30,18 +30,6 @@ class AbstractBox(Geometry):
 
     @property
     def center(self) -> Tensor:
-        """
-        Center point of the geometry or geometry batch.
-        
-        The shape of the location extends the shape of the Geometry by a `vector` dimension.
-        
-        :return: Tensor describing the center location(s)
-
-        Args:
-
-        Returns:
-
-        """
         raise NotImplementedError()
 
     def shifted(self, delta) -> 'AbstractBox':
@@ -62,6 +50,10 @@ class AbstractBox(Geometry):
     @property
     def upper(self) -> Tensor:
         raise NotImplementedError(self)
+
+    @property
+    def volume(self) -> Tensor:
+        return math.prod(self.size, 'vector')
 
     def bounding_radius(self):
         return math.max(self.size, 'vector') * 1.414214
