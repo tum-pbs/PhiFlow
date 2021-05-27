@@ -15,7 +15,7 @@ def assert_minimal_config():  # raises AssertionError
         raise AssertionError("phiflow is unable to run because SciPy is not installed.")
     from phi import flow
     from phi import math
-    with math.NUMPY_BACKEND:
+    with math.NUMPY:
         a = math.ones(batch=8, x=64)
         math.assert_close(a + a, 2)
 

@@ -1,7 +1,7 @@
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
-from typing import List, Callable, Any
+from typing import List, Callable
 
 import numpy
 
@@ -486,9 +486,6 @@ class Backend:
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
 
-    def gather(self, values, indices):
-        raise NotImplementedError(self)
-
     def batched_gather_nd(self, values, indices):
         """
         Gathers values from the tensor `values` at locations `indices`.
@@ -615,7 +612,7 @@ class Backend:
 
     def sparse_tensor(self, indices, values, shape):
         """
-        Optional features. If overridden,
+        Optional features.
 
         Args:
           indices: tuple/list matching the dimensions (pair for matrix)
@@ -627,19 +624,16 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def coordinates(self, tensor, unstack_coordinates=False):
+    def coordinates(self, tensor):
         """
         Returns the coordinates and values of a tensor.
-        
-        The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-        In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
         Args:
-          tensor: dense or sparse tensor
-          unstack_coordinates:  (Default value = False)
+            tensor: Sparse tensor
 
         Returns:
-          indices (tensor or tuple), values
+            coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
+            indices: Tensor holding the corresponding values
 
         """
         raise NotImplementedError(self)
@@ -991,13 +985,13 @@ class Backend:
         return a // b
 
 
-
-BACKENDS = []  # documented in __init__.py
+BACKENDS = []
+""" Global list of all registered backends. Register a `Backend` by adding it to the list. """
 _DEFAULT = []  # [0] = global default, [1:] from 'with' blocks
 _PRECISION = [32]  # [0] = global precision in bits, [1:] from 'with' blocks
 
 
-def choose_backend(*values, prefer_default=False, raise_error=True) -> Backend:
+def choose_backend(*values, prefer_default=False) -> Backend:
     """
     Selects a suitable backend to handle the given values.
 
@@ -1018,10 +1012,7 @@ def choose_backend(*values, prefer_default=False, raise_error=True) -> Backend:
     # --- Filter out non-applicable ---
     backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
     if len(backends) == 0:
-        if raise_error:
-            raise NoBackendFound(f"No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}")
-        else:
-            return None
+        raise NoBackendFound(f"No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}")
     # --- Native tensors? ---
     for backend in backends:
         if _is_specific(backend, values):

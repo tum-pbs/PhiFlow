@@ -1243,8 +1243,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             from ._ops import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=dim_type(stack_dim))
-    backend = choose_backend(data, raise_error=False)
-    if backend:
+    try:
+        backend = choose_backend(data)
         if names is None:
             assert backend.ndims(data) <= 1, "Specify dimension names for tensors with more than 1 dimension"
             names = ['vector'] * backend.ndims(data)  # [] or ['vector']
@@ -1257,7 +1257,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         if convert:
             data = convert_(data, use_dlpack=False)
         return NativeTensor(data, shape)
-    raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
+    except NoBackendFound:
+        raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
 
 
 def wrap(data: Tensor or Shape or tuple or list or numbers.Number,

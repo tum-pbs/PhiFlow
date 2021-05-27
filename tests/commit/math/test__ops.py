@@ -492,3 +492,17 @@ class TestMathFunctions(TestCase):
         nat = np.zeros(4)
         self.assertIs(math.numpy(nat), nat)
         self.assertIs(math.numpy(math.tensor(nat)), nat)
+
+    def test_sparse(self):
+        i = [[0, 1, 1],
+             [2, 0, 2]]
+        v = [3, 4, 5]
+        shape = (2, 3)
+        for backend in BACKENDS:
+            if backend.supports(Backend.sparse_tensor):
+                with backend:
+                    matrix = backend.sparse_tensor(i, v, shape)
+                    i_, v_ = backend.coordinates(matrix)
+                    self.assertIsInstance(i_, tuple, msg=backend.name)
+                    assert len(i_) == 2
+                    assert len(v) == 3

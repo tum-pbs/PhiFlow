@@ -21,11 +21,11 @@ if _platform.system().lower() == 'windows':  # prevent Blas GEMM launch failed o
 
 from ._compile_cuda import compile_cuda_ops
 
-from ._tf_backend import TF_BACKEND
+from ._tf_backend import TFBackend as _TFBackend
 
-TF_BACKEND = TF_BACKEND  # to show up in pdoc
+TENSORFLOW = _TFBackend()
 """Backend for TensorFlow operations."""
 
-_math.backend.BACKENDS.append(TF_BACKEND)
+_math.backend.BACKENDS.append(TENSORFLOW)
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

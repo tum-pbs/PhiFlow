@@ -14,7 +14,7 @@ See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 """
 
 from .backend._dtype import DType
-from .backend import NUMPY_BACKEND, precision, set_global_precision, get_precision
+from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
@@ -68,7 +68,7 @@ PI = 3.14159265358979323846
 """Value of π to double precision """
 pi = PI
 
-NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
+NUMPY = NUMPY  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

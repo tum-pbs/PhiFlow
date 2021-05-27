@@ -19,7 +19,7 @@ class TestTensors(TestCase):
             with backend:
                 for const in (1, 1.5, True, 1+1j):
                     tens = math.wrap(const)
-                    self.assertEqual(math.NUMPY_BACKEND, tens.default_backend)
+                    self.assertEqual(math.NUMPY, tens.default_backend)
                     self.assertTrue(isinstance(tens.native(), (int, float, bool, complex)), msg=backend)
                     math.assert_close(tens, const)
                     tens = math.tensor(const)
@@ -43,7 +43,7 @@ class TestTensors(TestCase):
         for backend in BACKENDS:
             with backend:
                 tens = math.tensor(data_tuple, convert=False)
-                self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
+                self.assertEqual(math.NUMPY, math.choose_backend(tens))
                 math.assert_close(tens, data_tuple)
                 tens = math.tensor(data_tuple)
                 self.assertEqual(backend, math.choose_backend(tens))
@@ -54,7 +54,7 @@ class TestTensors(TestCase):
         for backend in BACKENDS:
             with backend:
                 tens = math.tensor(native, names=['stack', 'vector'], convert=False)
-                self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
+                self.assertEqual(math.NUMPY, math.choose_backend(tens))
                 self.assertEqual(shape(stack=2, vector=3), tens.shape)
                 tens = math.tensor(native, names=['stack', 'vector'])
                 self.assertEqual(backend, math.choose_backend(tens))
@@ -65,7 +65,7 @@ class TestTensors(TestCase):
         for backend in BACKENDS:
             with backend:
                 tens = math.tensor(ref, convert=False)
-                self.assertEqual(math.NUMPY_BACKEND, math.choose_backend(tens))
+                self.assertEqual(math.NUMPY, math.choose_backend(tens))
                 self.assertEqual(2, tens.shape.get_size('stack'))
                 self.assertEqual(('stack', 'x'), tens.shape.names)
                 tens = math.tensor(ref)

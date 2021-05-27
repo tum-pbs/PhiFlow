@@ -9,7 +9,7 @@ from tensorflow.python.client import device_lib
 
 from ..math.backend._backend import combined_dim
 from ..math.backend._dtype import DType, to_numpy_dtype, from_numpy_dtype
-from phi.math.backend import Backend, ComputeDevice, NUMPY_BACKEND
+from phi.math.backend import Backend, ComputeDevice, NUMPY
 from ._tf_cuda_resample import resample_cuda, use_cuda
 
 
@@ -40,7 +40,7 @@ class TFBackend(Backend):
         if only_native:
             return is_tf_tensor
         else:
-            return is_tf_tensor or NUMPY_BACKEND.is_tensor(x, only_native=False)
+            return is_tf_tensor or NUMPY.is_tensor(x, only_native=False)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -49,7 +49,7 @@ class TFBackend(Backend):
         # --- Enforce Precision ---
         if not isinstance(tensor, numbers.Number):
             if isinstance(tensor, np.ndarray):
-                tensor = NUMPY_BACKEND.as_tensor(tensor)
+                tensor = NUMPY.as_tensor(tensor)
             elif tensor.dtype.is_floating:
                 tensor = self.to_float(tensor)
         return tensor
@@ -63,7 +63,7 @@ class TFBackend(Backend):
     def numpy(self, tensor):
         if tf.is_tensor(tensor):
             return tensor.numpy()
-        return NUMPY_BACKEND.numpy(tensor)
+        return NUMPY.numpy(tensor)
 
     def to_dlpack(self, tensor):
         from tensorflow import experimental
@@ -402,21 +402,18 @@ class TFBackend(Backend):
             dt = array.dtype.as_numpy_dtype
             return from_numpy_dtype(dt)
         else:
-            return NUMPY_BACKEND.dtype(array)
+            return NUMPY.dtype(array)
 
     def sparse_tensor(self, indices, values, shape):
         indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]
         indices = tf.cast(tf.stack(indices, axis=-1), tf.int64)
         return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
 
-    def coordinates(self, tensor, unstack_coordinates=False):
-        if isinstance(tensor, tf.SparseTensor):
-            idx = tensor.indices
-            if unstack_coordinates:
-                idx = tf.unstack(idx, axis=-1)
-            return idx, tensor.values
-        else:
-            raise NotImplementedError()
+    def coordinates(self, tensor):
+        assert isinstance(tensor, tf.SparseTensor)
+        idx = tensor.indices
+        idx = tuple(tf.unstack(idx, axis=-1))
+        return idx, tensor.values
 
     def add(self, a, b):
         if isinstance(a, tf.SparseTensor) or isinstance(b, tf.SparseTensor):
@@ -473,5 +470,4 @@ class TFBackend(Backend):
         return tf.stop_gradient(value)
 
 
-TF_BACKEND = TFBackend()
 _TAPES = []

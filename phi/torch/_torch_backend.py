@@ -1,18 +1,16 @@
 import numbers
-import traceback
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable, Tuple
+from typing import List, Callable
 
 import numpy as np
-
 import torch
 import torch.fft
 import torch.nn.functional as torchf
 
-from phi.math import Solve, DType, SolveInfo, Diverged, NotConverged
-from phi.math.backend import Backend, NUMPY_BACKEND, ComputeDevice
+from phi.math import DType
+from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult
 
 
@@ -40,9 +38,6 @@ class TorchBackend(Backend):
                                              f"compute capability {properties.major}.{properties.minor}",
                                              ref=f'cuda:{index}'))
         return devices
-
-    def seed(self, seed: int):
-        torch.manual_seed(seed)
 
     def is_tensor(self, x, only_native=False):
         if isinstance(x, (torch.Tensor, JITFunction)):
@@ -88,8 +83,7 @@ class TorchBackend(Backend):
         return Backend.auto_cast(self, *tensors)
 
     def is_available(self, tensor) -> bool:
-        state = torch._C._get_tracing_state()
-        return state is None  # TODO can we find out whether this tensor specifically is being traced?
+        return torch._C._get_tracing_state() is None  # TODO can we find out whether this tensor specifically is being traced?
 
     def numpy(self, tensor):
         if tensor.requires_grad:
@@ -109,6 +103,24 @@ class TorchBackend(Backend):
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
+
+    sqrt = torch.sqrt
+    exp = torch.exp
+    sin = torch.sin
+    cos = torch.cos
+    tan = torch.tan
+    log = torch.log
+    log2 = torch.log2
+    log10 = torch.log10
+    isfinite = torch.isfinite
+    abs = torch.abs
+    sign = torch.sign
+    round = torch.round
+    ceil = torch.ceil
+    floor = torch.floor
+    nonzero = torch.nonzero
+    flip = torch.flip
+    seed = torch.manual_seed
 
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(f)
@@ -269,9 +281,6 @@ class TorchBackend(Backend):
     def reshape(self, value, shape):
         return torch.reshape(self.as_tensor(value), shape)
 
-    def flip(self, value, axes: tuple or list):
-        return torch.flip(value, axes)
-
     def sum(self, value, axis=None, keepdims=False):
         if axis is None:
             axis = tuple(range(len(value.shape)))
@@ -312,9 +321,6 @@ class TorchBackend(Backend):
         condition = self.as_tensor(condition).bool()
         x, y = self.auto_cast(x, y)
         return torch.where(condition, x, y)
-
-    def nonzero(self, values):
-        return torch.nonzero(values)
 
     def mean(self, value, axis=None, keepdims=False):
         return torch.mean(value, dim=axis, keepdim=keepdims)
@@ -378,21 +384,6 @@ class TorchBackend(Backend):
                 values = loop(*values)
             return values
 
-    def abs(self, x):
-        return torch.abs(x)
-
-    def sign(self, x):
-        return torch.sign(x)
-
-    def round(self, x):
-        return torch.round(x)
-
-    def ceil(self, x):
-        return torch.ceil(x)
-
-    def floor(self, x):
-        return torch.floor(x)
-
     def max(self, x, axis=None, keepdims=False):
         if axis is None:
             result = torch.max(x)
@@ -435,12 +426,6 @@ class TorchBackend(Backend):
         else:
             return self.maximum(minimum, self.minimum(x, maximum))
 
-    def sqrt(self, x):
-        return torch.sqrt(x)
-
-    def exp(self, x):
-        return torch.exp(x)
-
     def conv(self, value, kernel, zero_padding=True):
         value = self.as_tensor(value)
         kernel = self.as_tensor(kernel)
@@ -473,13 +458,13 @@ class TorchBackend(Backend):
         if self.is_tensor(tensor, only_native=True):
             return tensor.shape
         else:
-            return NUMPY_BACKEND.shape(tensor)
+            return NUMPY.shape(tensor)
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape)
         else:
-            return NUMPY_BACKEND.staticshape(tensor)
+            return NUMPY.staticshape(tensor)
 
     def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
@@ -509,9 +494,6 @@ class TorchBackend(Backend):
                 result.append(data)
         return self.stack(result, axis)
         # return torch.masked_select(x_, mask_)
-
-    def isfinite(self, x):
-        return torch.isfinite(x)
 
     def scatter(self, base_grid, indices, values, mode: str):
         base_grid, values = self.auto_cast(base_grid, values)
@@ -582,29 +564,11 @@ class TorchBackend(Backend):
         else:
             return x.to(to_torch_dtype(dtype))
 
-    def sin(self, x):
-        return torch.sin(x)
-
-    def cos(self, x):
-        return torch.cos(x)
-
-    def tan(self, x):
-        return torch.tan(x)
-
-    def log(self, x):
-        return torch.log(x)
-
-    def log2(self, x):
-        return torch.log2(x)
-
-    def log10(self, x):
-        return torch.log10(x)
-
     def dtype(self, array) -> DType:
         if self.is_tensor(array, only_native=True):
             return from_torch_dtype(array.dtype)
         else:
-            return NUMPY_BACKEND.dtype(array)
+            return NUMPY.dtype(array)
 
     def tile(self, value, multiples):
         if isinstance(multiples, np.ndarray):
@@ -624,6 +588,12 @@ class TorchBackend(Backend):
         else:
             result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
+
+    def coordinates(self, tensor):
+        assert isinstance(tensor, torch.Tensor) and tensor.is_sparse
+        idx = tensor._indices()
+        idx = self.unstack(idx, axis=0)
+        return idx, tensor._values()
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin) or trj:
@@ -696,9 +666,6 @@ class TorchBackend(Backend):
 
     def stop_gradient(self, value):
         return value.detach()
-
-
-TORCH_BACKEND = TorchBackend()
 
 
 def channels_first(x):

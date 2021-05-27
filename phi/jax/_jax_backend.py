@@ -106,8 +106,38 @@ class JaxBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
 
-    def jit_compile(self, f: Callable) -> Callable:
-        return jax.jit(f)
+    sqrt = staticmethod(jnp.sqrt)
+    exp = staticmethod(jnp.exp)
+    sin = staticmethod(jnp.sin)
+    cos = staticmethod(jnp.cos)
+    tan = staticmethod(jnp.tan)
+    log = staticmethod(jnp.log)
+    log2 = staticmethod(jnp.log2)
+    log10 = staticmethod(jnp.log10)
+    isfinite = staticmethod(jnp.isfinite)
+    abs = staticmethod(jnp.abs)
+    sign = staticmethod(jnp.sign)
+    round = staticmethod(jnp.round)
+    ceil = staticmethod(jnp.ceil)
+    floor = staticmethod(jnp.floor)
+    nonzero = staticmethod(jnp.nonzero)
+    flip = staticmethod(jnp.flip)
+    jit_compile = staticmethod(jax.jit)
+    stop_gradient = staticmethod(jax.lax.stop_gradient)
+    transpose = staticmethod(jnp.transpose)
+    equal = staticmethod(jnp.equal)
+    tile = staticmethod(jnp.tile)
+    stack = staticmethod(jnp.stack)
+    concat = staticmethod(jnp.concatenate)
+    zeros_like = staticmethod(jnp.zeros_like)
+    ones_like = staticmethod(jnp.ones_like)
+    maximum = staticmethod(jnp.maximum)
+    minimum = staticmethod(jnp.minimum)
+    clip = staticmethod(jnp.clip)
+    shape = staticmethod(jnp.shape)
+    staticshape = staticmethod(jnp.shape)
+    imag = staticmethod(jnp.imag)
+    real = staticmethod(jnp.real)
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         if get_output:
@@ -145,15 +175,6 @@ class JaxBackend(Backend):
         jax_fun.defvjp(forward, backward)
         return jax_fun
 
-    def stop_gradient(self, value):
-        return jax.lax.stop_gradient(value)
-
-    def transpose(self, tensor, axes):
-        return jnp.transpose(tensor, axes)
-
-    def equal(self, x, y):
-        return jnp.equal(x, y)
-
     def divide_no_nan(self, x, y):
         return jnp.nan_to_num(x / y, copy=True, nan=0)
 
@@ -171,15 +192,6 @@ class JaxBackend(Backend):
         if limit is None:
             start, limit = 0, start
         return jnp.arange(start, limit, delta, to_numpy_dtype(dtype))
-
-    def tile(self, value, multiples):
-        return jnp.tile(value, multiples)
-
-    def stack(self, values, axis=0):
-        return jnp.stack(values, axis)
-
-    def concat(self, values, axis):
-        return jnp.concatenate(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         assert mode in ('constant', 'symmetric', 'periodic', 'reflect', 'boundary'), mode
@@ -212,22 +224,13 @@ class JaxBackend(Backend):
             return jnp.argwhere(condition)
         return jnp.where(condition, x, y)
 
-    def nonzero(self, values):
-        return jnp.argwhere(values)
-
     def zeros(self, shape, dtype: DType = None):
         self._check_float64()
         return jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
-    def zeros_like(self, tensor):
-        return jnp.zeros_like(tensor)
-
     def ones(self, shape, dtype: DType = None):
         self._check_float64()
         return jnp.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
-
-    def ones_like(self, tensor):
-        return jnp.ones_like(tensor)
 
     def meshgrid(self, *coordinates):
         self._check_float64()
@@ -267,45 +270,11 @@ class JaxBackend(Backend):
             body = lambda vals: loop(*vals)
             return jax.lax.while_loop(cond, body, values)
 
-    def abs(self, x):
-        return jnp.abs(x)
-
-    def sign(self, x):
-        return jnp.sign(x)
-
-    def round(self, x):
-        return jnp.round(x)
-
-    def ceil(self, x):
-        return jnp.ceil(x)
-
-    def floor(self, x):
-        return jnp.floor(x)
-
     def max(self, x, axis=None, keepdims=False):
-        if isinstance(x, (tuple, list)):
-            x = jnp.stack(x)
         return jnp.max(x, axis, keepdims=keepdims)
 
     def min(self, x, axis=None, keepdims=False):
-        if isinstance(x, (tuple, list)):
-            x = jnp.stack(x)
         return jnp.min(x, axis, keepdims=keepdims)
-
-    def maximum(self, a, b):
-        return jnp.maximum(a, b)
-
-    def minimum(self, a, b):
-        return jnp.minimum(a, b)
-
-    def clip(self, x, minimum, maximum):
-        return jnp.clip(x, minimum, maximum)
-
-    def sqrt(self, x):
-        return jnp.sqrt(x)
-
-    def exp(self, x):
-        return jnp.exp(x)
 
     def conv(self, value, kernel, zero_padding=True):
         assert kernel.shape[0] in (1, value.shape[0])
@@ -330,12 +299,6 @@ class JaxBackend(Backend):
             a = jnp.expand_dims(a, axis)
         return a
 
-    def shape(self, tensor):
-        return jnp.shape(tensor)
-
-    def staticshape(self, tensor):
-        return jnp.shape(tensor)
-
     def cast(self, x, dtype: DType):
         if self.is_tensor(x, only_native=True) and from_numpy_dtype(x.dtype) == dtype:
             return x
@@ -358,9 +321,6 @@ class JaxBackend(Backend):
     def boolean_mask(self, x, mask, axis=0):
         slices = [mask if i == axis else slice(None) for i in range(len(x.shape))]
         return x[tuple(slices)]
-
-    def isfinite(self, x):
-        return jnp.isfinite(x)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         if isinstance(boolean_tensor, (tuple, list)):
@@ -409,30 +369,6 @@ class JaxBackend(Backend):
         else:
             return jnp.fft.ifftn(k, axes=list(range(1, rank + 1))).astype(k.dtype)
 
-    def imag(self, complex_arr):
-        return jnp.imag(complex_arr)
-
-    def real(self, complex_arr):
-        return jnp.real(complex_arr)
-
-    def sin(self, x):
-        return jnp.sin(x)
-
-    def cos(self, x):
-        return jnp.cos(x)
-
-    def tan(self, x):
-        return jnp.tan(x)
-
-    def log(self, x):
-        return jnp.log(x)
-
-    def log2(self, x):
-        return jnp.log2(x)
-
-    def log10(self, x):
-        return jnp.log10(x)
-
     def dtype(self, array) -> DType:
         if isinstance(array, int):
             return DType(int, 32)
@@ -463,6 +399,3 @@ class JaxBackend(Backend):
         diverged = jnp.any(~jnp.isfinite(x), axis=(1,))
         converged = ~diverged
         return SolveResult('jax.scipy.sparse.linalg.cg', x, None, [-1] * batch_size, [-1] * batch_size, converged, diverged, "")
-
-
-JAX_BACKEND = JaxBackend()

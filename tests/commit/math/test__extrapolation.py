@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 import phi
-from phi.math import NUMPY_BACKEND
+from phi.math import NUMPY
 from phi.math.extrapolation import *
 from phi import math
 

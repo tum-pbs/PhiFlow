@@ -7,7 +7,7 @@ import numpy as np
 import scipy.signal
 import scipy.sparse
 from scipy.sparse import issparse
-from scipy.sparse.linalg import cg, LinearOperator, spsolve
+from scipy.sparse.linalg import cg, spsolve
 
 from . import Backend, ComputeDevice
 from ._backend import combined_dim, SolveResult
@@ -32,8 +32,36 @@ class NumPyBackend(Backend):
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         return [self.cpu]
 
-    def seed(self, seed: int):
-        np.random.seed(seed)
+    seed = np.random.seed
+    clip = staticmethod(np.clip)
+    minimum = np.minimum
+    maximum = np.maximum
+    ones_like = staticmethod(np.ones_like)
+    zeros_like = staticmethod(np.zeros_like)
+    nonzero = staticmethod(np.argwhere)
+    reshape = staticmethod(np.reshape)
+    concat = staticmethod(np.concatenate)
+    stack = staticmethod(np.stack)
+    tile = staticmethod(np.tile)
+    transpose = staticmethod(np.transpose)
+    sqrt = np.sqrt
+    exp = np.exp
+    sin = np.sin
+    cos = np.cos
+    tan = np.tan
+    log = np.log
+    log2 = np.log2
+    log10 = np.log10
+    isfinite = np.isfinite
+    abs = np.abs
+    sign = np.sign
+    round = staticmethod(np.round)
+    ceil = np.ceil
+    floor = np.floor
+    shape = staticmethod(np.shape)
+    staticshape = staticmethod(np.shape)
+    imag = staticmethod(np.imag)
+    real = staticmethod(np.real)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -77,9 +105,6 @@ class NumPyBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
 
-    def transpose(self, tensor, axes):
-        return np.transpose(tensor, axes)
-
     def equal(self, x, y):
         if isinstance(x, np.ndarray) and x.dtype.char == 'U':  # string comparison
             x = x.astype(np.object)
@@ -99,30 +124,9 @@ class NumPyBackend(Backend):
         return np.random.standard_normal(shape).astype(to_numpy_dtype(self.float_type))
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
-        """
-        range syntax to arange syntax
-
-        Args:
-          start: 
-          limit:  (Default value = None)
-          delta:  (Default value = 1)
-          dtype:  (Default value = None)
-
-        Returns:
-
-        """
         if limit is None:
             start, limit = 0, start
         return np.arange(start, limit, delta, to_numpy_dtype(dtype))
-
-    def tile(self, value, multiples):
-        return np.tile(value, multiples)
-
-    def stack(self, values, axis=0):
-        return np.stack(values, axis)
-
-    def concat(self, values, axis):
-        return np.concatenate(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):
         assert mode in ('constant', 'symmetric', 'periodic', 'reflect', 'boundary'), mode
@@ -132,9 +136,6 @@ class NumPyBackend(Backend):
             if mode in ('periodic', 'boundary'):
                 mode = {'periodic': 'wrap', 'boundary': 'edge'}[mode]
             return np.pad(value, pad_width, mode)
-
-    def reshape(self, value, shape):
-        return np.reshape(value, shape)
 
     def sum(self, value, axis=None, keepdims=False):
         return np.sum(value, axis=axis, keepdims=keepdims)
@@ -151,20 +152,11 @@ class NumPyBackend(Backend):
             return np.argwhere(condition)
         return np.where(condition, x, y)
 
-    def nonzero(self, values):
-        return np.argwhere(values)
-
     def zeros(self, shape, dtype: DType = None):
         return np.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
-    def zeros_like(self, tensor):
-        return np.zeros_like(tensor)
-
     def ones(self, shape, dtype: DType = None):
         return np.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
-
-    def ones_like(self, tensor):
-        return np.ones_like(tensor)
 
     def meshgrid(self, *coordinates):
         return np.meshgrid(*coordinates, indexing='ij')
@@ -197,41 +189,11 @@ class NumPyBackend(Backend):
             values = loop(*values)
         return values
 
-    def abs(self, x):
-        return np.abs(x)
-
-    def sign(self, x):
-        return np.sign(x)
-
-    def round(self, x):
-        return np.round(x)
-
-    def ceil(self, x):
-        return np.ceil(x)
-
-    def floor(self, x):
-        return np.floor(x)
-
     def max(self, x, axis=None, keepdims=False):
         return np.max(x, axis, keepdims=keepdims)
 
     def min(self, x, axis=None, keepdims=False):
         return np.min(x, axis, keepdims=keepdims)
-
-    def maximum(self, a, b):
-        return np.maximum(a, b)
-
-    def minimum(self, a, b):
-        return np.minimum(a, b)
-
-    def clip(self, x, minimum, maximum):
-        return np.clip(x, minimum, maximum)
-
-    def sqrt(self, x):
-        return np.sqrt(x)
-
-    def exp(self, x):
-        return np.exp(x)
 
     def conv(self, value, kernel, zero_padding=True):
         assert kernel.shape[0] in (1, value.shape[0])
@@ -255,12 +217,6 @@ class NumPyBackend(Backend):
             a = np.expand_dims(a, axis)
         return a
 
-    def shape(self, tensor):
-        return np.shape(tensor)
-
-    def staticshape(self, tensor):
-        return np.shape(tensor)
-
     def cast(self, x, dtype: DType):
         if self.is_tensor(x, only_native=True) and from_numpy_dtype(x.dtype) == dtype:
             return x
@@ -283,9 +239,6 @@ class NumPyBackend(Backend):
     def boolean_mask(self, x, mask, axis=0):
         slices = [mask if i == axis else slice(None) for i in range(len(x.shape))]
         return x[tuple(slices)]
-
-    def isfinite(self, x):
-        return np.isfinite(x)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         return np.any(boolean_tensor, axis=axis, keepdims=keepdims)
@@ -342,30 +295,6 @@ class NumPyBackend(Backend):
         else:
             return np.fft.ifftn(k, axes=list(range(1, rank + 1))).astype(k.dtype)
 
-    def imag(self, complex_arr):
-        return np.imag(complex_arr)
-
-    def real(self, complex_arr):
-        return np.real(complex_arr)
-
-    def sin(self, x):
-        return np.sin(x)
-
-    def cos(self, x):
-        return np.cos(x)
-
-    def tan(self, x):
-        return np.tan(x)
-
-    def log(self, x):
-        return np.log(x)
-
-    def log2(self, x):
-        return np.log2(x)
-
-    def log10(self, x):
-        return np.log10(x)
-
     def dtype(self, array) -> DType:
         if isinstance(array, int):
             return DType(int, 32)
@@ -385,12 +314,10 @@ class NumPyBackend(Backend):
         else:
             raise NotImplementedError(f"len(indices) = {len(indices)} not supported. Only (2) allowed.")
 
-    def coordinates(self, tensor, unstack_coordinates=False):
-        if scipy.sparse.issparse(tensor):
-            coo = tensor.tocoo()
-            return (coo.row, coo.col), coo.data
-        else:
-            raise NotImplementedError("Only sparse tensors supported.")
+    def coordinates(self, tensor):
+        assert scipy.sparse.issparse(tensor)
+        coo = tensor.tocoo()
+        return (coo.row, coo.col), coo.data
 
     def stop_gradient(self, value):
         return value
@@ -471,7 +398,3 @@ class NumPyBackend(Backend):
         x = np.stack(xs)
         f_eval = [i + 1 for i in iterations]
         return SolveResult('scipy.sparse.linalg.cg', x, None, iterations, f_eval, converged, diverged, "")
-
-
-NUMPY_BACKEND = NumPyBackend()
-
