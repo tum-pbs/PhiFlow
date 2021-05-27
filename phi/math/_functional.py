@@ -151,6 +151,9 @@ def jit_compile(f: Callable) -> Callable:
     * TensorFlow: [`tf.function`](https://www.tensorflow.org/guide/function)
     * Jax: [`jax.jit`](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html#using-jit-to-speed-up-functions)
 
+    Jit-compilations cannot be nested, i.e. you cannot call `jit_compile()` while another function is being compiled.
+    An exception to this is `jit_compile_linear()` which can be called from within a jit-compiled function.
+
     See Also:
         `jit_compile_linear()`
 
@@ -233,13 +236,15 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
 def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':
     """
     Compile an optimized representation of the linear function `f`.
+    For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
 
     Can be used as a decorator:
-
     ```python
     @math.jit_compile_linear
     def my_linear_function(x: math.Tensor) -> math.Tensor:
     ```
+
+    Unlike `jit_compile()`, `jit_compile_linear()` can be called during a regular jit compilation.
 
     See Also:
         `jit_compile()`
@@ -373,7 +378,7 @@ class CustomGradientFunction:
 
         def backward_native(x_natives, y_natives, dy_natives):
             out_key = self.recorded_mappings[in_key]
-            del self.recorded_mappings[in_key]
+            # del self.recorded_mappings[in_key]  # this may be required multiple times
             x_tensors = assemble_tensors(x_natives, in_key.shapes)
             y_tensors = assemble_tensors(y_natives, out_key.shapes)
             dy_tensors = assemble_tensors(dy_natives, out_key.shapes)
@@ -403,7 +408,7 @@ class CustomGradientFunction:
         return assemble_nested(output_key.nest, output_tensors)
 
     def __repr__(self):
-        return f"jit({self.f.__name__})"
+        return f"custom_gradient(forward={self.f.__name__}, backward={self.gradient.__name__}, id={id(self)})"
 
     @staticmethod
     def incomplete_nested_to_natives(incomplete, nest, complete_shapes: List[Shape]) -> list:

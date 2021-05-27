@@ -810,7 +810,7 @@ class Backend:
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-            diverged = self.any(residual_squared / rsq0 > 4, axis=(1,))  # factor 2
+            diverged = self.any(residual_squared / rsq0 > 16, axis=(1,))  # factor 4
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
@@ -854,7 +854,7 @@ class Backend:
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             dy = self.linear(lin, dx); function_evaluations += continue_1
-            diverged = self.any(residual_squared / rsq0 > 4, axis=(1,))  # factor 2
+            diverged = self.any(residual_squared / rsq0 > 16, axis=(1,))  # factor 4
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))

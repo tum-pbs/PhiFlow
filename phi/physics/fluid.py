@@ -4,7 +4,8 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 from typing import Tuple
 
 from phi import math, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask
+from phi.field import GeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, grid, \
+    CenteredGrid
 from phi.geom import union
 from ._boundaries import Domain
 from ..math import SolveInfo
@@ -32,14 +33,16 @@ def make_incompressible(velocity: Grid,
       iterations: Number of iterations required to solve_linear for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
     """
+    boundaries = domain.boundaries
     input_velocity = velocity
-    active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
-    accessible = domain.scalar_grid(active, extrapolation='accessible')
-    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries['accessible'], type=type(velocity))
-    v_bc_div = domain.boundaries['vector'] * domain.boundaries['accessible']
+    div = divergence(velocity)
+    active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), div.resolution, div.bounds, boundaries['active'])
+    accessible = active.with_(extrapolation=boundaries['accessible'])
+    hard_bcs = field.stagger(accessible, math.minimum, boundaries['accessible'], type=type(velocity))
+    v_bc_div = boundaries['vector'] * boundaries['accessible']
     velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
-    div = divergence(velocity) * active
-    if domain.boundaries['accessible'] == math.extrapolation.ZERO or domain.boundaries['vector'] == math.extrapolation.PERIODIC:
+    div *= active
+    if boundaries['accessible'] == math.extrapolation.ZERO or boundaries['vector'] == math.extrapolation.PERIODIC:
         div = _balance_divergence(div, active)
         # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
@@ -56,15 +59,14 @@ def make_incompressible(velocity: Grid,
     active.values._expand()
     hard_bcs.values._expand()
     if not solve.x0:
-        solve = copy_with(solve, x0=domain.scalar_grid(0))
+        solve = copy_with(solve, x0=grid(0, div.resolution, div.bounds, boundaries['scalar']))
     pressure = field.solve_linear(laplace, y=div, solve=solve)
-    if domain.boundaries['accessible'] == math.extrapolation.ZERO or domain.boundaries['vector'] == math.extrapolation.PERIODIC:
-        def pressure_backward(_p, _p_, dp):
+    if boundaries['accessible'] == math.extrapolation.ZERO or boundaries['vector'] == math.extrapolation.PERIODIC:
+        def pressure_backward(_p, _p_, dp: CenteredGrid):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
-            active = domain.scalar_grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation='active')
-            return _balance_divergence(div.with_(values=dp), active).values,
-        remove_div_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
-        pressure = pressure.with_(values=remove_div_in_gradient(pressure.values))
+            active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), dp.resolution, dp.bounds, boundaries['active'])
+            return _balance_divergence(dp, active),
+        pressure = math.custom_gradient(lambda p: p, pressure_backward)(pressure)
     # Subtract grad pressure
     gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
     velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)

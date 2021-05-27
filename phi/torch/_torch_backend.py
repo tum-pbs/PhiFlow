@@ -602,7 +602,7 @@ class TorchBackend(Backend):
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin):
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
-            Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
+            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
@@ -765,7 +765,7 @@ def torch_sparse_cg(lin, y, x0, rtol, atol, max_iter):
         residual_squared_old = residual_squared
         residual_squared = torch.sum(residual ** 2, -1, keepdim=True)
         dx = residual + divide_no_nan(residual_squared, residual_squared_old) * dx
-        diverged = torch.any(residual_squared / rsq0 > 4, dim=1)  # factor 2
+        diverged = torch.any(residual_squared / rsq0 > 16, dim=1)  # factor 4
         converged = torch.all(residual_squared <= tolerance_sq, dim=1)
         finished = converged | diverged | (iterations >= max_iter); not_finished_1 = (~finished).to(torch.int32)
     return x, residual, iterations, function_evaluations, converged, diverged
@@ -797,7 +797,7 @@ def torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter):
             residual = residual - step_size * dy  # in-place subtraction affects convergence
         residual_squared = torch.sum(residual ** 2, -1, keepdim=True)
         dx = residual - divide_no_nan(torch.sum(residual * dy, dim=1, keepdim=True) * dx, dx_dy)
-        diverged = torch.any(residual_squared / rsq0 > 4, dim=1)  # factor 2
+        diverged = torch.any(residual_squared / rsq0 > 16, dim=1)  # factor 4
         converged = torch.all(residual_squared <= tolerance_sq, dim=1)
         finished = converged | diverged | (iterations >= max_iter); not_finished_1 = (~finished).to(torch.int32)
     return x, residual, iterations, function_evaluations, converged, diverged

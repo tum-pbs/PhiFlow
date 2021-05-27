@@ -85,7 +85,10 @@ class Grid(SampledField):
         return self.box.size / self.resolution
 
     def __repr__(self):
-        return f"{self.__class__.__name__}[{self.shape.non_spatial & self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]"
+        if self._values is not None:
+            return f"{self.__class__.__name__}[{self.shape.non_spatial & self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]"
+        else:
+            return f"{self.__class__.__name__}[{self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]"
 
 
 GridType = TypeVar('GridType', bound=Grid)
