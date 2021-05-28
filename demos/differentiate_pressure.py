@@ -4,9 +4,9 @@ This application demonstrates the backpropagation through the pressure solve ope
 
 The demo Optimizes the velocity of an incompressible fluid in the left half of a closed space to match the TARGET in the right half.
 """
-# from phi.torch.flow import *
+from phi.torch.flow import *
 # from phi.jax.flow import *
-from phi.tf.flow import *
+# from phi.tf.flow import *
 
 
 DOMAIN = Domain(x=80, y=64, boundaries=CLOSED)

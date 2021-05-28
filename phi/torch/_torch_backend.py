@@ -120,7 +120,7 @@ class TorchBackend(Backend):
     floor = torch.floor
     nonzero = torch.nonzero
     flip = torch.flip
-    seed = torch.manual_seed
+    seed = staticmethod(torch.manual_seed)
 
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(f)
@@ -606,9 +606,9 @@ class TorchBackend(Backend):
         return SolveResult(f"Φ-Flow CG (TorchScript)", x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        if callable(lin):
+        if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
-            Backend.conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj)
+            return Backend.conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj)
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
