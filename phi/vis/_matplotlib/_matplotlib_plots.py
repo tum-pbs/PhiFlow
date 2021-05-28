@@ -1,4 +1,5 @@
 import os
+from numbers import Number
 from typing import Callable
 
 import matplotlib.pyplot as plt
@@ -149,9 +150,13 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  grid='y',
                  log_scale='',
                  legend='upper right',
+                 xlim=None,
                  ylim=None,
                  titles=True,
-                 labels: math.Tensor = None):
+                 labels: math.Tensor = None,
+                 xlabel: str = None,
+                 ylabel: str = None,
+                 colors: math.Tensor = 'default'):
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -166,6 +171,8 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         names = math.wrap(names, 'names')
     else:
         assert isinstance(names, math.Tensor), f"Invalid argument 'names': {type(names)}"
+    if not isinstance(colors, math.Tensor):
+        colors = math.wrap(colors)
 
     shape = (scene.shape & names.shape)
     batch = shape.without(reduce).without(additional_reduce)
@@ -179,7 +186,9 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
         if titles:
-            if names_equal:
+            if isinstance(titles, str):
+                axis.set_title(titles)
+            elif names_equal:
                 axis.set_title(display_name(str(names[b])))
             elif paths_equal:
                 axis.set_title(os.path.basename(str(scene.paths[b])))
@@ -192,7 +201,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         else:
             curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
-        def single_plot(name, path, label, i):
+        def single_plot(name, path, label, i, color):
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
                 x, values, *_ = curve.T
@@ -201,8 +210,12 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 x = np.arange(len(values))
             if transform:
                 x, values = transform(np.stack([x, values]))
-            axis.plot(x, values, color=cycle[i], alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=cycle[i], linewidth=smooth_linewidth, label=label)
+            if color == 'default':
+                color = cycle[i]
+            elif isinstance(color, Number):
+                color = cycle[int(color)]
+            axis.plot(x, values, color=color, alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
                 grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
                 axis.grid(which='both', axis=grid_axis, linestyle='--')
@@ -210,11 +223,17 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 axis.set_xscale('log')
             if 'y' in log_scale:
                 axis.set_yscale('log')
+            if xlim:
+                axis.set_xlim(xlim)
             if ylim:
                 axis.set_ylim(ylim)
+            if xlabel:
+                axis.set_xlabel(xlabel)
+            if ylabel:
+                axis.set_ylabel(ylabel)
             return name
 
-        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)))
+        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors)
         if legend:
             axis.legend(loc=legend)
     # Final touches
