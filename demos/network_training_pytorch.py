@@ -5,7 +5,7 @@ This script runs for a certain number of steps before saving the trained network
 from phi.torch.flow import *
 
 
-# TORCH_BACKEND.set_default_device('GPU')
+# TORCH.set_default_device('GPU')
 net = u_net(2, 2)
 optimizer = optim.Adam(net.parameters(), lr=1e-3)
 

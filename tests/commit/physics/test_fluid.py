@@ -4,8 +4,8 @@ from phi import math, field
 from phi.geom import Box, Sphere
 from phi.field import StaggeredGrid, CenteredGrid, divergence, Noise
 from phi.physics import Domain, CLOSED, fluid, OPEN
-from phi.tf import TF_BACKEND
-from phi.torch import TORCH_BACKEND
+from phi.tf import TENSORFLOW
+from phi.torch import TORCH
 
 import tensorflow as tf
 if tf.config.list_physical_devices('GPU'):
@@ -49,29 +49,29 @@ class FluidTest(TestCase):
             self._test_make_incompressible_batched(CenteredGrid)
 
     def test_make_incompressible_staggered_tensorflow(self):
-        with TF_BACKEND:
+        with TENSORFLOW:
             self._test_make_incompressible(StaggeredGrid)
             self._test_make_incompressible_batched(StaggeredGrid)
 
     def test_make_incompressible_centered_tensorflow(self):
-        with TF_BACKEND:
+        with TENSORFLOW:
             self._test_make_incompressible(CenteredGrid)
             self._test_make_incompressible_batched(CenteredGrid)
 
     def test_make_incompressible_staggered_pytorch(self):
-        with TORCH_BACKEND:
+        with TORCH:
             self._test_make_incompressible(StaggeredGrid)
             self._test_make_incompressible_batched(StaggeredGrid)
 
     def test_make_incompressible_centered_pytorch(self):
-        with TORCH_BACKEND:
+        with TORCH:
             self._test_make_incompressible(CenteredGrid)
             self._test_make_incompressible_batched(CenteredGrid)
 
     def test_make_incompressible_np_equal_tf(self):
         with math.NUMPY:
             v_np = self._test_make_incompressible(StaggeredGrid)
-        with TF_BACKEND:
+        with TENSORFLOW:
             v_tf = self._test_make_incompressible(StaggeredGrid)
         math.assert_close(v_np, v_tf, abs_tolerance=1e-5)
 
@@ -80,7 +80,7 @@ class FluidTest(TestCase):
         print(sys.getrecursionlimit())
         with math.NUMPY:
             v_np = self._test_make_incompressible(StaggeredGrid)
-        with TORCH_BACKEND:
+        with TORCH:
             v_to = self._test_make_incompressible(StaggeredGrid)
         math.assert_close(v_np, v_to, abs_tolerance=1e-5)
 
@@ -88,7 +88,7 @@ class FluidTest(TestCase):
         DOMAIN = Domain(x=16, y=16, boundaries=OPEN, bounds=Box[0:100, 0:100])  # TODO CLOSED solve_linear fails because div is not subtracted from dx
         velocity0 = DOMAIN.staggered_grid(Noise(vector=2))
         grads = []
-        for backend in [TF_BACKEND, TORCH_BACKEND]:
+        for backend in [TENSORFLOW, TORCH]:
             with backend:
                 velocity = param = velocity0.with_(values=math.tensor(velocity0.values))
                 with math.record_gradients(param.values):

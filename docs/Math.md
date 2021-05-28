@@ -172,7 +172,7 @@ For example, even if TensorFlow is set as the default backend, NumPy-backed tens
 
 The global backend can be set directly using `math.backend.set_global_default_backend()`.
 Backends also support context scopes, i.e. tensors created within a `with backend:` block will use that backend to back the new tensors.
-The three backends can be referenced via the global variables `phi.math.NUMPY`, `phi.tf.TF_BACKEND` and `phi.torch.TORCH_BACKEND`.
+The three backends can be referenced via the global variables `phi.math.NUMPY`, `phi.tf.TENSORFLOW` and `phi.torch.TORCH`.
 
 When passing tensors of different backends to one function, an automatic conversion will be performed,
 e.g. NumPy arrays will be converted to TensorFlow or PyTorch tensors.

@@ -50,8 +50,8 @@ To run your code with either TensorFlow or PyTorch, [select the corresponding ba
 
 TensorFlow and Jax will use your GPU by default.
 
-For PyTorch, call `TORCH_BACKEND.set_default_device('GPU')` and move your network
-to the GPU via `net.to(TORCH_BACKEND.get_default_device().ref)`.
+For PyTorch, call `TORCH.set_default_device('GPU')` and move your network
+to the GPU via `net.to(TORCH.get_default_device().ref)`.
 
 ### Native CUDA Kernels
 Φ<sub>Flow</sub> comes with a number of CUDA kernels for TensorFlow that accelerate specific operations such as grid interpolation or solving linear systems of equations.

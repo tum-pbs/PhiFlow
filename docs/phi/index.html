@@ -88,15 +88,15 @@ def detect_backends() -&gt; tuple:
         `tuple` of `phi.math.backend.Backend`
     &#34;&#34;&#34;
     try:
-        from .torch import TORCH_BACKEND
+        from .torch import TORCH
     except ImportError:
         pass
     try:
-        from .tf import TF_BACKEND
+        from .tf import TENSORFLOW
     except ImportError:
         pass
     try:
-        from .jax import JAX_BACKEND
+        from .jax import JAX
     except ImportError:
         pass
     from .math.backend import BACKENDS
@@ -180,15 +180,15 @@ This includes only backends for which the minimal requirements are fulfilled.</p
         `tuple` of `phi.math.backend.Backend`
     &#34;&#34;&#34;
     try:
-        from .torch import TORCH_BACKEND
+        from .torch import TORCH
     except ImportError:
         pass
     try:
-        from .tf import TF_BACKEND
+        from .tf import TENSORFLOW
     except ImportError:
         pass
     try:
-        from .jax import JAX_BACKEND
+        from .jax import JAX
     except ImportError:
         pass
     from .math.backend import BACKENDS

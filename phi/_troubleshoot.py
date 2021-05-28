@@ -42,10 +42,10 @@ def troubleshoot_tensorflow():
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"
     try:
-        gpu_count = len(tf.TF_BACKEND.list_devices('GPU'))
+        gpu_count = len(tf.TENSORFLOW.list_devices('GPU'))
     except BaseException as err:
         return f"Installed but device initialization failed with error: {err}"
-    with tf.TF_BACKEND:
+    with tf.TENSORFLOW:
         try:
             math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
             # TODO cuDNN math.convolve(math.ones(batch=8, x=64), math.ones(x=4))
@@ -77,10 +77,10 @@ def troubleshoot_torch():
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"
     try:
-        gpu_count = len(torch.TORCH_BACKEND.list_devices('GPU'))
+        gpu_count = len(torch.TORCH.list_devices('GPU'))
     except BaseException as err:
         return f"Installed but device initialization failed with error: {err}"
-    with torch.TORCH_BACKEND:
+    with torch.TORCH:
         try:
             math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
         except BaseException as err:
@@ -100,10 +100,10 @@ def troubleshoot_jax():
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"
     try:
-        gpu_count = len(jax.JAX_BACKEND.list_devices('GPU'))
+        gpu_count = len(jax.JAX.list_devices('GPU'))
     except BaseException as err:
         return f"Installed but device initialization failed with error: {err}"
-    with jax.JAX_BACKEND:
+    with jax.JAX:
         try:
             math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
         except BaseException as err:
