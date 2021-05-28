@@ -37,18 +37,14 @@ from ._backend import (
     get_precision, precision, set_global_precision,
     convert,
 )
-from ._numpy_backend import NUMPY_BACKEND
+from ._numpy_backend import NumPyBackend as _NumPyBackend
 from ._profile import Profile, get_current_profile, profile, profile_function
 
 
-BACKENDS.append(NUMPY_BACKEND)
-_DEFAULT.append(NUMPY_BACKEND)
-
-BACKENDS = BACKENDS  # to show up in pdoc
-&#34;&#34;&#34; Global list of all registered backends. Register a `Backend` by adding it to the list. &#34;&#34;&#34;
-
-NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
+NUMPY = _NumPyBackend()
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
+BACKENDS.append(NUMPY)
+_DEFAULT.append(NUMPY)
 
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
@@ -65,11 +61,7 @@ __pdoc__ = {
 <section>
 <h2 class="section-title" id="header-variables">Global variables</h2>
 <dl>
-<dt id="phi.math.backend.BACKENDS"><code class="name">var <span class="ident">BACKENDS</span></code></dt>
-<dd>
-<div class="desc"><p>Global list of all registered backends. Register a <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> by adding it to the list.</p></div>
-</dd>
-<dt id="phi.math.backend.NUMPY_BACKEND"><code class="name">var <span class="ident">NUMPY_BACKEND</span></code></dt>
+<dt id="phi.math.backend.NUMPY"><code class="name">var <span class="ident">NUMPY</span></code></dt>
 <dd>
 <div class="desc"><p>Default backend for NumPy arrays and SciPy objects.</p></div>
 </dd>
@@ -79,7 +71,7 @@ __pdoc__ = {
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.math.backend.choose_backend"><code class="name flex">
-<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False, raise_error=True) ‑> phi.math.backend._backend.Backend</span>
+<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False) ‑> phi.math.backend._backend.Backend</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Selects a suitable backend to handle the given values.</p>
@@ -99,7 +91,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def choose_backend(*values, prefer_default=False, raise_error=True) -&gt; Backend:
+<pre><code class="python">def choose_backend(*values, prefer_default=False) -&gt; Backend:
     &#34;&#34;&#34;
     Selects a suitable backend to handle the given values.
 
@@ -120,10 +112,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
     # --- Filter out non-applicable ---
     backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
     if len(backends) == 0:
-        if raise_error:
-            raise NoBackendFound(f&#34;No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}&#34;)
-        else:
-            return None
+        raise NoBackendFound(f&#34;No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}&#34;)
     # --- Native tensors? ---
     for backend in backends:
         if _is_specific(backend, values):
@@ -508,7 +497,7 @@ The output of math operations has the same precision as its inputs.</p>
 <dd>
 <div class="desc"><p>Backends delegate low-level operations to a compute library or emulate them.</p>
 <p>The methods of <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> form a comprehensive list of available operations.</p>
-<p>To support a compute library, subclass <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> and register it by adding it to <code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code>.</p>
+<p>To support a compute library, subclass <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> and register it by adding it to <code>BACKENDS</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong></dt>
@@ -618,11 +607,18 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         Fetches information about all available compute devices this backend can use.
 
+        Implementations:
+
+        * NumPy: [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count)
+        * PyTorch: [`torch.cuda.get_device_properties`](https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties)
+        * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
+        * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
+
         Args:
-            device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;`. See `ComputeDevice.device_type`.
+            device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;` or `&#39;CPU&#39;`. See `ComputeDevice.device_type`.
 
         Returns:
-            Tuple of all currently available devices.
+            `list` of all currently available devices.
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -963,9 +959,6 @@ The output of math operations has the same precision as its inputs.</p>
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
 
-    def gather(self, values, indices):
-        raise NotImplementedError(self)
-
     def batched_gather_nd(self, values, indices):
         &#34;&#34;&#34;
         Gathers values from the tensor `values` at locations `indices`.
@@ -1092,7 +1085,7 @@ The output of math operations has the same precision as its inputs.</p>
 
     def sparse_tensor(self, indices, values, shape):
         &#34;&#34;&#34;
-        Optional features. If overridden,
+        Optional features.
 
         Args:
           indices: tuple/list matching the dimensions (pair for matrix)
@@ -1104,19 +1097,16 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def coordinates(self, tensor, unstack_coordinates=False):
+    def coordinates(self, tensor):
         &#34;&#34;&#34;
         Returns the coordinates and values of a tensor.
-        
-        The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-        In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
         Args:
-          tensor: dense or sparse tensor
-          unstack_coordinates:  (Default value = False)
+            tensor: Sparse tensor
 
         Returns:
-          indices (tensor or tuple), values
+            coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
+            indices: Tensor holding the corresponding values
 
         &#34;&#34;&#34;
         raise NotImplementedError(self)
@@ -1990,38 +1980,36 @@ Higher dimensions may not be supported.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.coordinates"><code class="name flex">
-<span>def <span class="ident">coordinates</span></span>(<span>self, tensor, unstack_coordinates=False)</span>
+<span>def <span class="ident">coordinates</span></span>(<span>self, tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the coordinates and values of a tensor.</p>
-<p>The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>tensor</code></strong></dt>
-<dd>dense or sparse tensor</dd>
-<dt><strong><code>unstack_coordinates</code></strong></dt>
-<dd>(Default value = False)</dd>
+<dd>Sparse tensor</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>indices (tensor or tuple), values</p></div>
+<dl>
+<dt><code>coordinates</code></dt>
+<dd><code>tuple</code> of tensor holding the coordinate vectors, i.e. (row, col) for matrices.</dd>
+<dt><code>indices</code></dt>
+<dd>Tensor holding the corresponding values</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def coordinates(self, tensor, unstack_coordinates=False):
+<pre><code class="python">def coordinates(self, tensor):
     &#34;&#34;&#34;
     Returns the coordinates and values of a tensor.
-    
-    The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-    In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
     Args:
-      tensor: dense or sparse tensor
-      unstack_coordinates:  (Default value = False)
+        tensor: Sparse tensor
 
     Returns:
-      indices (tensor or tuple), values
+        coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
+        indices: Tensor holding the corresponding values
 
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
@@ -2301,19 +2289,6 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.gather"><code class="name flex">
-<span>def <span class="ident">gather</span></span>(<span>self, values, indices)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gather(self, values, indices):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2658,13 +2633,20 @@ This method need not provide a gradient for the operation.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Fetches information about all available compute devices this backend can use.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://docs.python.org/3/library/os.html#os.cpu_count"><code>os.cpu_count</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties"><code>torch.cuda.get_device_properties</code></a></li>
+<li>TensorFlow: <code>tensorflow.python.client.device_lib.list_local_devices</code></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.devices"><code>jax.devices</code></a></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>device_type</code></strong></dt>
-<dd>(optional) Return only devices of this type, e.g. <code>'GPU'</code>. See <code><a title="phi.math.backend.ComputeDevice.device_type" href="#phi.math.backend.ComputeDevice.device_type">ComputeDevice.device_type</a></code>.</dd>
+<dd>(optional) Return only devices of this type, e.g. <code>'GPU'</code> or <code>'CPU'</code>. See <code><a title="phi.math.backend.ComputeDevice.device_type" href="#phi.math.backend.ComputeDevice.device_type">ComputeDevice.device_type</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Tuple of all currently available devices.</p></div>
+<p><code>list</code> of all currently available devices.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2673,11 +2655,18 @@ This method need not provide a gradient for the operation.</p>
     &#34;&#34;&#34;
     Fetches information about all available compute devices this backend can use.
 
+    Implementations:
+
+    * NumPy: [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count)
+    * PyTorch: [`torch.cuda.get_device_properties`](https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties)
+    * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
+    * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
+
     Args:
-        device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;`. See `ComputeDevice.device_type`.
+        device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;` or `&#39;CPU&#39;`. See `ComputeDevice.device_type`.
 
     Returns:
-        Tuple of all currently available devices.
+        `list` of all currently available devices.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -3388,7 +3377,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <span>def <span class="ident">sparse_tensor</span></span>(<span>self, indices, values, shape)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Optional features. If overridden,</p>
+<div class="desc"><p>Optional features.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>indices</code></strong></dt>
@@ -3405,7 +3394,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </summary>
 <pre><code class="python">def sparse_tensor(self, indices, values, shape):
     &#34;&#34;&#34;
-    Optional features. If overridden,
+    Optional features.
 
     Args:
       indices: tuple/list matching the dimensions (pair for matrix)
@@ -4323,8 +4312,7 @@ def retime(self):
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
-<li><code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code></li>
-<li><code><a title="phi.math.backend.NUMPY_BACKEND" href="#phi.math.backend.NUMPY_BACKEND">NUMPY_BACKEND</a></code></li>
+<li><code><a title="phi.math.backend.NUMPY" href="#phi.math.backend.NUMPY">NUMPY</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
@@ -4386,7 +4374,6 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.floordiv" href="#phi.math.backend.Backend.floordiv">floordiv</a></code></li>
 <li><code><a title="phi.math.backend.Backend.from_dlpack" href="#phi.math.backend.Backend.from_dlpack">from_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.functional_gradient" href="#phi.math.backend.Backend.functional_gradient">functional_gradient</a></code></li>
-<li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>

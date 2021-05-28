@@ -53,6 +53,12 @@ def all_available(*values: Tensor) -> bool:
     
     Tensors are typically available when the backend operates in eager mode and is not currently tracing a function.
 
+    This can be used instead of the native checks
+
+    * PyTorch: `torch._C._get_tracing_state()`
+    * TensorFlow: `tf.executing_eagerly()`
+    * Jax: `isinstance(x, jax.core.Tracer)`
+
     Args:
       values: Tensors to check.
 
@@ -405,7 +411,25 @@ def ones_like(tensor: Tensor):
     return zeros(tensor.shape, dtype=tensor.dtype) + 1
 
 
-def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
+def random_normal(shape=EMPTY_SHAPE, dtype: DType=None, **dimensions):
+    """
+    Creates a `Tensor` with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.
+
+    Implementations:
+
+    * NumPy: [`numpy.random.standard_normal`](https://numpy.org/doc/stable/reference/random/generated/numpy.random.standard_normal.html)
+    * PyTorch: [`torch.randn`](https://pytorch.org/docs/stable/generated/torch.randn.html)
+    * TensorFlow: [`tf.random.normal`](https://www.tensorflow.org/api_docs/python/tf/random/normal)
+    * Jax: [`jax.random.normal`](https://jax.readthedocs.io/en/latest/_autosummary/jax.random.normal.html)
+
+    Args:
+        shape: (optional) Base `Shape`
+        dtype: (optional) `DType`. If `None`, a float tensor with the current default precision is created, see `get_precision()`.
+        **dimensions: Additional Tensor dimensions, e.g. `x=64`.
+
+    Returns:
+        `Tensor`
+    """
 
     def uniform_random_normal(shape, dtype):
         native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes)
@@ -425,11 +449,29 @@ def random_uniform(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     return _initialize(uniform_random_uniform, shape, dtype, **dimensions)
 
 
-def transpose(value, axes):
-    if isinstance(value, Tensor):
-        return CollapsedTensor(value, value.shape[axes])
+def transpose(x, axes):
+    """
+    Swap the dimension order of `x`.
+    This is done implicitly if `x` is a `Tensor`.
+
+    Implementations:
+
+    * NumPy: [`numpy.transpose`](https://numpy.org/doc/stable/reference/generated/numpy.transpose.html)
+    * PyTorch: [`x.permute`](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.permute)
+    * TensorFlow: [`tf.transpose`](https://www.tensorflow.org/api_docs/python/tf/transpose)
+    * Jax: [`jax.numpy.transpose`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.transpose.html)
+
+    Args:
+        x: `Tensor` or native tensor.
+        axes: `tuple` or `list`
+
+    Returns:
+        `Tensor` or native tensor, depending on `x`.
+    """
+    if isinstance(x, Tensor):
+        return CollapsedTensor(x, x.shape[axes])  # TODO avoid nesting
     else:
-        return choose_backend(value).transpose(value, axes)
+        return choose_backend(x).transpose(x, axes)
 
 
 def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
@@ -724,6 +766,7 @@ def broadcast_op(operation: Callable,
 def split_dimension(value: Tensor, dim: str, split_dims: Shape):
     """
     Decompresses a tensor dimension by unstacking the elements along it.
+    This function replaces the traditional `reshape` for these cases.
     The compressed dimension `dim` is assumed to contain elements laid out according to the order or `split_dims`.
 
     See Also:
@@ -761,6 +804,7 @@ def join_dimensions(value: Tensor,
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
     If the order of `dims` differs from the current dimension order, the tensor is transposed accordingly.
+    This function replaces the traditional `reshape` for these cases.
 
     The type of the new dimension will be equal to the types of `dims`.
     If `dims` have varying types, the new dimension will be a batch dimension.
@@ -831,14 +875,20 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
     Batch dimensions are preserved by this operation.
     If channel dimensions are present, this method returns the indices where any entry is nonzero.
 
+    Implementations:
+
+    * NumPy: [`numpy.argwhere`](https://numpy.org/doc/stable/reference/generated/numpy.argwhere.html)
+    * PyTorch: [`torch.nonzero`](https://pytorch.org/docs/stable/generated/torch.nonzero.html)
+    * TensorFlow: [`tf.where(tf.not_equal(values, 0))`](https://www.tensorflow.org/api_docs/python/tf/where)
+    * Jax: [`jax.numpy.nonzero`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.nonzero.html)
+
     Args:
-      value: spatial tensor to find non-zero / True values in.
-      list_dim: name of dimension listing non-zero values (Default value = 'nonzero')
-      index_dim: name of index dimension (Default value = 'vector')
-      value: Tensor: 
+        value: spatial tensor to find non-zero / True values in.
+        list_dim: name of dimension listing non-zero values (Default value = 'nonzero')
+        index_dim: name of index dimension (Default value = 'vector')
 
     Returns:
-      tensor of shape (batch dims..., list_dim=#non-zero, index_dim=value.shape.spatial_rank)
+        `Tensor` of shape (batch dims..., `list_dim`=#non-zero, `index_dim`=value.shape.spatial_rank)
 
     """
     if value.shape.channel_rank > 0:
@@ -897,6 +947,22 @@ def _resolve_dims(dim: str or tuple or list or Shape or None,
 
 def sum_(value: Tensor or list or tuple,
          dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Sums the tensor values along the specified dimensions.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `0` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.sum(native, dim),
                    collapsed_function=lambda inner, red_shape: inner * red_shape.volume)
@@ -956,6 +1022,13 @@ def dot(x: Tensor,
     Contracts `x_dims` with `y_dims` by first multiplying the elements and then summing them up.
 
     For one dimension, this is equal to matrix-matrix or matrix-vector multiplication.
+
+    The function replaces the traditional `dot` / `tensordot` / `matmul` / `einsum` functions.
+
+    * NumPy: [`numpy.tensordot`](https://numpy.org/doc/stable/reference/generated/numpy.tensordot.html), [`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html)
+    * PyTorch: [`torch.tensordot`](https://pytorch.org/docs/stable/generated/torch.tensordot.html#torch.tensordot), [`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html)
+    * TensorFlow: [`tf.tensordot`](https://www.tensorflow.org/api_docs/python/tf/tensordot), [`tf.einsum`](https://www.tensorflow.org/api_docs/python/tf/einsum)
+    * Jax: [`jax.numpy.tensordot`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.tensordot.html), [`jax.numpy.einsum`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.einsum.html)
 
     Args:
         x: First `Tensor`
@@ -1057,13 +1130,14 @@ def to_float(x) -> Tensor:
     
     See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 
+    See Also:
+        `cast()`.
+
     Args:
-      x: values to convert
-      x: Tensor: 
+        x: values to convert
 
     Returns:
-      Tensor of same shape as `x`
-
+        `Tensor` of same shape as `x`
     """
     return _backend_op1(x, Backend.to_float)
 
@@ -1077,6 +1151,22 @@ def to_int64(x) -> Tensor:
 
 
 def to_complex(x) -> Tensor:
+    """
+    Converts the given tensor to complex floating point format with the currently specified precision.
+
+    The precision can be set globally using `math.set_global_precision()` and locally using `with math.precision()`.
+
+    See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
+
+    See Also:
+        `cast()`.
+
+    Args:
+        x: values to convert
+
+    Returns:
+        `Tensor` of same shape as `x`
+    """
     return _backend_op1(x, Backend.to_complex)
 
 
@@ -1118,6 +1208,26 @@ def log10(x) -> Tensor:
 
 
 def cast(x: Tensor, dtype: DType) -> Tensor:
+    """
+    Casts `x` to a different data type.
+
+    Implementations:
+
+    * NumPy: [`x.astype()`](numpy.ndarray.astype)
+    * PyTorch: [`x.to()`](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.to)
+    * TensorFlow: [`tf.cast`](https://www.tensorflow.org/api_docs/python/tf/cast)
+    * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
+
+    See Also:
+        `to_float`, `to_int32`, `to_int64`, `to_complex`.
+
+    Args:
+        x: `Tensor`
+        dtype: New data type as `phi.math.DType`, e.g. `DType(int, 16)`.
+
+    Returns:
+        `Tensor` with data type `dtype`
+    """
     return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
 
 
@@ -1206,8 +1316,16 @@ def unstack(value: Tensor, dim: str):
 def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     """
     Discards values `x.dim[i]` where `mask.dim[i]=False`.
-
     All dimensions of `mask` that are not `dim` are treated as batch dimensions.
+
+    Alternative syntax: `x.dim[mask]`.
+
+    Implementations:
+
+    * NumPy: Slicing
+    * PyTorch: [`masked_select`](https://pytorch.org/docs/stable/generated/torch.masked_select.html)
+    * TensorFlow: [`tf.boolean_mask`](https://www.tensorflow.org/api_docs/python/tf/boolean_mask)
+    * Jax: Slicing
 
     Args:
         x: `Tensor` of values.
@@ -1265,6 +1383,13 @@ def scatter(base_grid: Tensor or Shape,
     * `mode='update'`: Replaces the values of `base_grid` at `indices` by `values`. The result is undefined if `indices` contains duplicates.
     * `mode='add'`: Adds `values` to `base_grid` at `indices`. The values corresponding to duplicate indices are accumulated.
     * `mode='mean'`: Replaces the values of `base_grid` at `indices` by the mean of all `values` with the same index.
+
+    Implementations:
+
+    * NumPy: Slice assignment / `numpy.add.at`
+    * PyTorch: [`torch.scatter`](https://pytorch.org/docs/stable/generated/torch.scatter.html), [`torch.scatter_add`](https://pytorch.org/docs/stable/generated/torch.scatter_add.html)
+    * TensorFlow: [`tf.tensor_scatter_nd_add`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_add), [`tf.tensor_scatter_nd_update`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_update)
+    * Jax: [`jax.lax.scatter_add`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter_add.html), [`jax.lax.scatter`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter.html)
 
     Args:
         base_grid: `Tensor` into which `values` are scattered.
@@ -1357,18 +1482,30 @@ def scatter(base_grid: Tensor or Shape,
     return reshaped_tensor(result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)
 
 
-def fft(x: Tensor):
+def fft(x: Tensor) -> Tensor:
     """
     Performs a fast Fourier transform (FFT) on all spatial dimensions of x.
     
-    The inverse operation is :func:`ifft`.
+    The inverse operation is `ifft()`.
+
+    Implementations:
+
+    * NumPy: [`np.fft.fft`](https://numpy.org/doc/stable/reference/generated/numpy.fft.fft.html),
+      [`numpy.fft.fft2`](https://numpy.org/doc/stable/reference/generated/numpy.fft.fft2.html),
+      [`numpy.fft.fftn`](https://numpy.org/doc/stable/reference/generated/numpy.fft.fftn.html)
+    * PyTorch: [`torch.fft.fft`](https://pytorch.org/docs/stable/fft.html)
+    * TensorFlow: [`tf.signal.fft`](https://www.tensorflow.org/api_docs/python/tf/signal/fft),
+      [`tf.signal.fft2d`](https://www.tensorflow.org/api_docs/python/tf/signal/fft2d),
+      [`tf.signal.fft3d`](https://www.tensorflow.org/api_docs/python/tf/signal/fft3d)
+    * Jax: [`jax.numpy.fft.fft`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fft.html),
+      [`jax.numpy.fft.fft2`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fft2.html)
+      [`jax.numpy.fft.fft`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fftn.html)
 
     Args:
-      x: tensor of type float or complex
-      x: Tensor: 
+        x: Complex or float `Tensor` with at least one spatial dimension.
 
     Returns:
-      FFT(x) of type complex
+        *Ƒ(x)* as complex `Tensor`
 
     """
     native, assemble = _invertible_standard_form(x)
@@ -1377,6 +1514,15 @@ def fft(x: Tensor):
 
 
 def ifft(k: Tensor):
+    """
+    Inverse of `fft()`.
+
+    Args:
+        k: Complex or float `Tensor` with at least one spatial dimension.
+
+    Returns:
+        *Ƒ<sup>-1</sup>(k)* as complex `Tensor`
+    """
     native, assemble = _invertible_standard_form(k)
     result = choose_backend(native).ifft(native)
     return assemble(result)
@@ -1402,6 +1548,26 @@ def expand_channel(value: Tensor, **dims):
 
 
 def expand(value: Tensor, add_shape: Shape = EMPTY_SHAPE, **dims):
+    """
+    Adds dimensions to a `Tensor` by implicitly repeating the tensor values along the new dimensions.
+    If `value` already contains some of the new dimensions, a size and type check is performed instead.
+
+    This function replaces the usual `tile` / `repeat` functions of
+    [NumPy](https://numpy.org/doc/stable/reference/generated/numpy.tile.html),
+    [PyTorch](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.repeat),
+    [TensorFlow](https://www.tensorflow.org/api_docs/python/tf/tile) and
+    [Jax](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.tile.html).
+
+    Additionally, it replaces the traditional `unsqueeze` / `expand_dims` functions.
+
+    Args:
+        value: `Tensor`
+        add_shape: Dimensions to be added as `Shape`
+        **dims: Additional dimensions to be added. Dimension types will be inferred from their names.
+
+    Returns:
+        Expanded `Tensor`.
+    """
     return _expand_dims(value, add_shape & shape_(**dims))
 
 
@@ -1656,7 +1822,13 @@ def gradients(y: Tensor,
 def stop_gradient(x):
     """
     Disables gradients for the given tensor.
-    This may switch off the gradients for `value` itself or create a copy of `value` with disabled gradients.
+    This may switch off the gradients for `x` itself or create a copy of `x` with disabled gradients.
+
+    Implementations:
+
+    * PyTorch: [`x.detach()`](https://pytorch.org/docs/stable/autograd.html#torch.Tensor.detach)
+    * TensorFlow: [`tf.stop_gradient`](https://www.tensorflow.org/api_docs/python/tf/stop_gradient)
+    * Jax: [`jax.lax.stop_gradient`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.stop_gradient.html)
 
     Args:
         x: `Tensor` or `TensorLike` for which gradients should be disabled.

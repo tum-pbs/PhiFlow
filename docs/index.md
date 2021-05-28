@@ -21,7 +21,7 @@ on fluid simulations. This is a great place to get started with Φ<sub>Flow</sub
 | [phi.physics](phi/physics) <br /> [phi.physics.advect](phi/physics/advect.html) <br /> [phi.physics.fluid](phi/physics/fluid.html) <br /> [phi.physics.diffuse](phi/physics/diffuse.html) <br /> [phi.physics.flip](phi/physics/flip.html) | [Overview](Physics.md): Domains, built-in physics functions <br /> [Writing Fluid Simulations](Fluid_Simulation.md): Advection, projection, diffusion        |
 | [phi.field](phi/field)   | [Overview](Fields.md): Grids, particles <br /> [Staggered Grids](Staggered_Grids.md): Data layout, usage  |
 | [phi.geom](phi/geom)    | [Overview](Geometry.md): Differentiable Geometry        |
-| [phi.math](phi/math) <br /> [phi.math.backend](phi/math/backend) <br /> [phi.math.extrapolation](phi/math/extrapolation.html)  | [Overview](Math.md): Named dimensions, backends, indexing, non-uniform tensors, precision <br /> [Dictionary](Math_Translations.md): NumPy / TensorFlow / PyTorch / Jax cheat sheet|
+| [phi.math](phi/math) <br /> [phi.math.backend](phi/math/backend) <br /> [phi.math.extrapolation](phi/math/extrapolation.html)  | [Overview](Math.md): Named dimensions, backends, indexing, non-uniform tensors, precision <br /> |
 
 ### API Documentation
 

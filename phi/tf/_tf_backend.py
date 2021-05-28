@@ -351,7 +351,7 @@ class TFBackend(Backend):
         elif rank == 3:
             return tf.stack([tf.signal.fft3d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
         else:
-            raise NotImplementedError('n-dimensional FFT not implemented.')
+            raise NotImplementedError('n-dimensional FFT not implemented.')  # TODO perform multiple lower-dimensional FFTs
 
     def ifft(self, k):
         rank = len(k.shape) - 2

@@ -102,7 +102,13 @@ class Tensor:
 
     @property
     def rank(self) -> int:
-        """ Equal to `tensor.shape.rank`. """
+        """
+        Number of explicit dimensions of this `Tensor`. Equal to `tensor.shape.rank`.
+        This replaces [`numpy.ndarray.ndim`](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.ndim.html) /
+        [`torch.Tensor.dim`](https://pytorch.org/docs/master/generated/torch.Tensor.dim.html) /
+        [`tf.rank()`](https://www.tensorflow.org/api_docs/python/tf/rank) /
+        [`jax.numpy.ndim()`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndim.html).
+        """
         return self.shape.rank
 
     @property
@@ -1194,6 +1200,13 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     While specifying `names` is optional in some cases, it is recommended to always specify them.
     
     Dimension types are always inferred from the dimension names if specified.
+
+    Implementations:
+
+    * NumPy: [`numpy.array`](https://numpy.org/doc/stable/reference/generated/numpy.array.html)
+    * PyTorch: [`torch.tensor`](https://pytorch.org/docs/stable/generated/torch.tensor.html), [`torch.from_numpy`](https://pytorch.org/docs/stable/generated/torch.from_numpy.html)
+    * TensorFlow: [`tf.convert_to_tensor`](https://www.tensorflow.org/api_docs/python/tf/convert_to_tensor)
+    * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
 
     See Also:
         `phi.math.wrap()` which uses `convert=False`.

@@ -47,7 +47,7 @@ See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 &#34;&#34;&#34;
 
 from phi.flow import *
-from ._tf_backend import TF_BACKEND
+from . import TENSORFLOW
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -55,7 +55,7 @@ from tensorflow.keras import layers
 tf = tensorflow
 
 if not backend.context_backend():
-    backend.set_global_default_backend(TF_BACKEND)
+    backend.set_global_default_backend(TENSORFLOW)
 else:
     import warnings
     warnings.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>

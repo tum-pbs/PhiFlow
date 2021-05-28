@@ -325,33 +325,41 @@ class GradientFunction:
 
 def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callable:
     """
-    Creates a function which computes the spatial_gradient of `f`.
+    Creates a function which computes the gradient of `f`.
 
     Example:
-
     ```python
     def loss_function(x, y):
         prediction = f(x)
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx, = functional_gradient(loss_function)(x, y)
+    dx, = functional_gradient(loss_function, get_output=False)(x, y)
 
-    loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
-                                                 get_output=True)(x, y)
+    (loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
     ```
+
+    Functional gradients are implemented for the following backends:
+
+    * PyTorch: [`torch.autograd.grad`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.grad) / [`torch.autograd.backward`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.backward)
+    * TensorFlow: [`tf.GradientTape`](https://www.tensorflow.org/api_docs/python/tf/GradientTape)
+    * Jax: [`jax.grad`](https://jax.readthedocs.io/en/latest/jax.html#jax.grad)
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
 
     Args:
         f: Function to be differentiated.
             `f` must return a floating point `Tensor` with rank zero.
-            It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if `return_values=True`.
-            All arguments for which the spatial_gradient is computed must be of dtype float or complex.
-        get_output: Whether the spatial_gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the spatial_gradient should be computed.
-            Example: `wrt_indices=[0]` computes the spatial_gradient with respect to the first argument of `f`.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
 
     Returns:
-        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and spatial_gradient of `f` if `get_output=True`, else just the spatial_gradient of `f`.
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     """
     return GradientFunction(f, wrt, get_output)
 

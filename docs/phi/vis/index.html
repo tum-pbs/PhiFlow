@@ -637,13 +637,16 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
     def field_names(self) -&gt; tuple:
         return tuple(self.initial_field_values.keys())
 
-    def get_field(self, field_name) -&gt; SampledField:
-        if field_name not in self.initial_field_values:
-            raise KeyError(field_name)
+    def get_field(self, name, dim_selection: dict) -&gt; SampledField:
+        if name not in self.initial_field_values:
+            raise KeyError(name)
         if self._rec:
-            return self._rec[field_name]
+            value = self._rec[name]
         else:
-            return self.namespace.get_variable(field_name)
+            value = self.namespace.get_variable(name)
+        if isinstance(value, SampledField):
+            value = value[dim_selection]
+        return value
 
     @property
     def curve_names(self) -&gt; tuple:

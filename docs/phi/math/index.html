@@ -50,7 +50,7 @@ See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 &#34;&#34;&#34;
 
 from .backend._dtype import DType
-from .backend import NUMPY_BACKEND, precision, set_global_precision, get_precision
+from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
@@ -104,7 +104,7 @@ PI = 3.14159265358979323846
 &#34;&#34;&#34;Value of π to double precision &#34;&#34;&#34;
 pi = PI
 
-NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
+NUMPY = NUMPY  # to show up in pdoc
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
@@ -140,7 +140,7 @@ __pdoc__ = {
 <section>
 <h2 class="section-title" id="header-variables">Global variables</h2>
 <dl>
-<dt id="phi.math.NUMPY_BACKEND"><code class="name">var <span class="ident">NUMPY_BACKEND</span></code></dt>
+<dt id="phi.math.NUMPY"><code class="name">var <span class="ident">NUMPY</span></code></dt>
 <dd>
 <div class="desc"><p>Default backend for NumPy arrays and SciPy objects.</p></div>
 </dd>
@@ -241,8 +241,16 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <span>def <span class="ident">all_available</span></span>(<span>*values: phi.math._tensors.Tensor) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Tests if the values of all given tensors are known and can be read at this point.</p>
+<div class="desc"><p>Tests if the values of all given tensors are known and can be read at this point.
+Tracing placeholders are considered not available, even when they hold example values.</p>
+<p>Tensors are not available during <code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile()</a></code>, <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> or while using TensorFlow's legacy graph mode.</p>
 <p>Tensors are typically available when the backend operates in eager mode and is not currently tracing a function.</p>
+<p>This can be used instead of the native checks</p>
+<ul>
+<li>PyTorch: <code>torch._C._get_tracing_state()</code></li>
+<li>TensorFlow: <code>tf.executing_eagerly()</code></li>
+<li>Jax: <code>isinstance(x, jax.core.Tracer)</code></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
@@ -257,8 +265,17 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <pre><code class="python">def all_available(*values: Tensor) -&gt; bool:
     &#34;&#34;&#34;
     Tests if the values of all given tensors are known and can be read at this point.
+    Tracing placeholders are considered not available, even when they hold example values.
+
+    Tensors are not available during `jit_compile()`, `jit_compile_linear()` or while using TensorFlow&#39;s legacy graph mode.
     
     Tensors are typically available when the backend operates in eager mode and is not currently tracing a function.
+
+    This can be used instead of the native checks
+
+    * PyTorch: `torch._C._get_tracing_state()`
+    * TensorFlow: `tf.executing_eagerly()`
+    * Jax: `isinstance(x, jax.core.Tracer)`
 
     Args:
       values: Tensors to check.
@@ -334,13 +351,15 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
       msg: Optional error message.
       verbose: Whether to print conflicting values.
     &#34;&#34;&#34;
-    any_tensor = next(filter(lambda t: isinstance(t, Tensor), values))
-    if any_tensor is None:
-        values = [wrap(t) for t in values]
-    else:  # use Tensor to infer dimensions
-        values = [compatible_tensor(t, any_tensor.shape)._simplify() for t in values]
-    for other in values[1:]:
-        _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)</code></pre>
+    phi_tensors = [t for t in values if isinstance(t, Tensor)]
+    if phi_tensors:
+        values = [compatible_tensor(t, phi_tensors[0].shape)._simplify() for t in values]  # use Tensor to infer dimensions
+        for other in values[1:]:
+            _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)
+    else:
+        np_values = [choose_backend(t).numpy(t) for t in values]
+        for other in np_values[1:]:
+            np.testing.assert_allclose(np_values[0], other, rel_tolerance, abs_tolerance, err_msg=msg, verbose=verbose)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.batch_shape"><code class="name flex">
@@ -419,8 +438,16 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 <span>def <span class="ident">boolean_mask</span></span>(<span>x: phi.math._tensors.Tensor, dim: str, mask: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Discards values <code>x.dim[i]</code> where <code>mask.dim[i]=False</code>.</p>
-<p>All dimensions of <code>mask</code> that are not <code>dim</code> are treated as batch dimensions.</p>
+<div class="desc"><p>Discards values <code>x.dim[i]</code> where <code>mask.dim[i]=False</code>.
+All dimensions of <code>mask</code> that are not <code>dim</code> are treated as batch dimensions.</p>
+<p>Alternative syntax: <code>x.dim[mask]</code>.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: Slicing</li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.masked_select.html"><code>masked_select</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/boolean_mask"><code>tf.boolean_mask</code></a></li>
+<li>Jax: Slicing</li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
@@ -439,8 +466,16 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 <pre><code class="python">def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     &#34;&#34;&#34;
     Discards values `x.dim[i]` where `mask.dim[i]=False`.
-
     All dimensions of `mask` that are not `dim` are treated as batch dimensions.
+
+    Alternative syntax: `x.dim[mask]`.
+
+    Implementations:
+
+    * NumPy: Slicing
+    * PyTorch: [`masked_select`](https://pytorch.org/docs/stable/generated/torch.masked_select.html)
+    * TensorFlow: [`tf.boolean_mask`](https://www.tensorflow.org/api_docs/python/tf/boolean_mask)
+    * Jax: Slicing
 
     Args:
         x: `Tensor` of values.
@@ -470,12 +505,50 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 <span>def <span class="ident">cast</span></span>(<span>x: phi.math._tensors.Tensor, dtype: phi.math.backend._dtype.DType) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Casts <code>x</code> to a different data type.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="numpy.ndarray.astype"><code>x.astype()</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor.to"><code>x.to()</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/cast"><code>tf.cast</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html"><code>jax.numpy.array</code></a></li>
+</ul>
+<p>See Also:
+<code><a title="phi.math.to_float" href="#phi.math.to_float">to_float()</a></code>, <code><a title="phi.math.to_int32" href="#phi.math.to_int32">to_int32()</a></code>, <code><a title="phi.math.to_int64" href="#phi.math.to_int64">to_int64()</a></code>, <code><a title="phi.math.to_complex" href="#phi.math.to_complex">to_complex()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>dtype</code></strong></dt>
+<dd>New data type as <code><a title="phi.math.DType" href="#phi.math.DType">DType</a></code>, e.g. <code><a title="phi.math.DType" href="#phi.math.DType">DType</a>(int, 16)</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with data type <code><a title="phi.math.dtype" href="#phi.math.dtype">dtype()</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def cast(x: Tensor, dtype: DType) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Casts `x` to a different data type.
+
+    Implementations:
+
+    * NumPy: [`x.astype()`](numpy.ndarray.astype)
+    * PyTorch: [`x.to()`](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.to)
+    * TensorFlow: [`tf.cast`](https://www.tensorflow.org/api_docs/python/tf/cast)
+    * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
+
+    See Also:
+        `to_float`, `to_int32`, `to_int64`, `to_complex`.
+
+    Args:
+        x: `Tensor`
+        dtype: New data type as `phi.math.DType`, e.g. `DType(int, 16)`.
+
+    Returns:
+        `Tensor` with data type `dtype`
+    &#34;&#34;&#34;
     return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))</code></pre>
 </details>
 </dd>
@@ -965,6 +1038,13 @@ Make sure to pass tensors without gradients if the gradient is not required, see
 <div class="desc"><p>Computes the dot product along the specified dimensions.
 Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the elements and then summing them up.</p>
 <p>For one dimension, this is equal to matrix-matrix or matrix-vector multiplication.</p>
+<p>The function replaces the traditional <code><a title="phi.math.dot" href="#phi.math.dot">dot()</a></code> / <code>tensordot</code> / <code>matmul</code> / <code>einsum</code> functions.</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.tensordot.html"><code>numpy.tensordot</code></a>, <a href="https://numpy.org/doc/stable/reference/generated/numpy.einsum.html"><code>numpy.einsum</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.tensordot.html#torch.tensordot"><code>torch.tensordot</code></a>, <a href="https://pytorch.org/docs/stable/generated/torch.einsum.html"><code>torch.einsum</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/tensordot"><code>tf.tensordot</code></a>, <a href="https://www.tensorflow.org/api_docs/python/tf/einsum"><code>tf.einsum</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.tensordot.html"><code>jax.numpy.tensordot</code></a>, <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.einsum.html"><code>jax.numpy.einsum</code></a></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
@@ -991,6 +1071,13 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
     Contracts `x_dims` with `y_dims` by first multiplying the elements and then summing them up.
 
     For one dimension, this is equal to matrix-matrix or matrix-vector multiplication.
+
+    The function replaces the traditional `dot` / `tensordot` / `matmul` / `einsum` functions.
+
+    * NumPy: [`numpy.tensordot`](https://numpy.org/doc/stable/reference/generated/numpy.tensordot.html), [`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html)
+    * PyTorch: [`torch.tensordot`](https://pytorch.org/docs/stable/generated/torch.tensordot.html#torch.tensordot), [`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html)
+    * TensorFlow: [`tf.tensordot`](https://www.tensorflow.org/api_docs/python/tf/tensordot), [`tf.einsum`](https://www.tensorflow.org/api_docs/python/tf/einsum)
+    * Jax: [`jax.numpy.tensordot`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.tensordot.html), [`jax.numpy.einsum`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.einsum.html)
 
     Args:
         x: First `Tensor`
@@ -1121,12 +1208,50 @@ The grid values at the new points are determined via mean (linear interpolation)
 <span>def <span class="ident">expand</span></span>(<span>value: phi.math._tensors.Tensor, add_shape: phi.math._shape.Shape = (), **dims)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Adds dimensions to a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> by implicitly repeating the tensor values along the new dimensions.
+If <code>value</code> already contains some of the new dimensions, a size and type check is performed instead.</p>
+<p>This function replaces the usual <code>tile</code> / <code>repeat</code> functions of
+<a href="https://numpy.org/doc/stable/reference/generated/numpy.tile.html">NumPy</a>,
+<a href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor.repeat">PyTorch</a>,
+<a href="https://www.tensorflow.org/api_docs/python/tf/tile">TensorFlow</a> and
+<a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.tile.html">Jax</a>.</p>
+<p>Additionally, it replaces the traditional <code>unsqueeze</code> / <code>expand_dims</code> functions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>add_shape</code></strong></dt>
+<dd>Dimensions to be added as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></dd>
+<dt><strong><code>**dims</code></strong></dt>
+<dd>Additional dimensions to be added. Dimension types will be inferred from their names.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Expanded <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def expand(value: Tensor, add_shape: Shape = EMPTY_SHAPE, **dims):
+    &#34;&#34;&#34;
+    Adds dimensions to a `Tensor` by implicitly repeating the tensor values along the new dimensions.
+    If `value` already contains some of the new dimensions, a size and type check is performed instead.
+
+    This function replaces the usual `tile` / `repeat` functions of
+    [NumPy](https://numpy.org/doc/stable/reference/generated/numpy.tile.html),
+    [PyTorch](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.repeat),
+    [TensorFlow](https://www.tensorflow.org/api_docs/python/tf/tile) and
+    [Jax](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.tile.html).
+
+    Additionally, it replaces the traditional `unsqueeze` / `expand_dims` functions.
+
+    Args:
+        value: `Tensor`
+        add_shape: Dimensions to be added as `Shape`
+        **dims: Additional dimensions to be added. Dimension types will be inferred from their names.
+
+    Returns:
+        Expanded `Tensor`.
+    &#34;&#34;&#34;
     return _expand_dims(value, add_shape &amp; shape_(**dims))</code></pre>
 </details>
 </dd>
@@ -1257,36 +1382,59 @@ x00
 </details>
 </dd>
 <dt id="phi.math.fft"><code class="name flex">
-<span>def <span class="ident">fft</span></span>(<span>x: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">fft</span></span>(<span>x: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Performs a fast Fourier transform (FFT) on all spatial dimensions of x.</p>
-<p>The inverse operation is :func:<code><a title="phi.math.ifft" href="#phi.math.ifft">ifft()</a></code>.</p>
+<p>The inverse operation is <code><a title="phi.math.ifft" href="#phi.math.ifft">ifft()</a></code>.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.fft.fft.html"><code>np.fft.fft</code></a>,
+<a href="https://numpy.org/doc/stable/reference/generated/numpy.fft.fft2.html"><code>numpy.fft.fft2</code></a>,
+<a href="https://numpy.org/doc/stable/reference/generated/numpy.fft.fftn.html"><code>numpy.fft.fftn</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/fft.html"><code>torch.fft.fft</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/signal/fft"><code>tf.signal.fft</code></a>,
+<a href="https://www.tensorflow.org/api_docs/python/tf/signal/fft2d"><code>tf.signal.fft2d</code></a>,
+<a href="https://www.tensorflow.org/api_docs/python/tf/signal/fft3d"><code>tf.signal.fft3d</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fft.html"><code>jax.numpy.fft.fft</code></a>,
+<a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fft2.html"><code>jax.numpy.fft.fft2</code></a>
+<a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fftn.html"><code>jax.numpy.fft.fft</code></a></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd>tensor of type float or complex</dd>
-<dt><strong><code>x</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Complex or float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with at least one spatial dimension.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>FFT(x) of type complex</p></div>
+<p><em>Ƒ(x)</em> as complex <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fft(x: Tensor):
+<pre><code class="python">def fft(x: Tensor) -&gt; Tensor:
     &#34;&#34;&#34;
     Performs a fast Fourier transform (FFT) on all spatial dimensions of x.
     
-    The inverse operation is :func:`ifft`.
+    The inverse operation is `ifft()`.
+
+    Implementations:
+
+    * NumPy: [`np.fft.fft`](https://numpy.org/doc/stable/reference/generated/numpy.fft.fft.html),
+      [`numpy.fft.fft2`](https://numpy.org/doc/stable/reference/generated/numpy.fft.fft2.html),
+      [`numpy.fft.fftn`](https://numpy.org/doc/stable/reference/generated/numpy.fft.fftn.html)
+    * PyTorch: [`torch.fft.fft`](https://pytorch.org/docs/stable/fft.html)
+    * TensorFlow: [`tf.signal.fft`](https://www.tensorflow.org/api_docs/python/tf/signal/fft),
+      [`tf.signal.fft2d`](https://www.tensorflow.org/api_docs/python/tf/signal/fft2d),
+      [`tf.signal.fft3d`](https://www.tensorflow.org/api_docs/python/tf/signal/fft3d)
+    * Jax: [`jax.numpy.fft.fft`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fft.html),
+      [`jax.numpy.fft.fft2`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fft2.html)
+      [`jax.numpy.fft.fft`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fftn.html)
 
     Args:
-      x: tensor of type float or complex
-      x: Tensor: 
+        x: Complex or float `Tensor` with at least one spatial dimension.
 
     Returns:
-      FFT(x) of type complex
+        *Ƒ(x)* as complex `Tensor`
 
     &#34;&#34;&#34;
     native, assemble = _invertible_standard_form(x)
@@ -1463,25 +1611,21 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>x, n=2, frequency_falloff: float = 100, threshold=1e-05, batch_norm: bool = True, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>x, frequency_falloff: float = 100, threshold=1e-05, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
 Lower frequencies are weighted more strongly then higher frequencies, depending on <code>frequency_falloff</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>values</code></strong></dt>
-<dd>Values to penalize, typically <code>actual - target</code></dd>
-<dt><strong><code>n</code></strong></dt>
-<dd>Loss type, see <code>l_n_loss()</code>.</dd>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> Values to penalize, typically <code>actual - target</code>.</dd>
 <dt><strong><code>frequency_falloff</code></strong></dt>
 <dd>Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
 <em>Note</em>: The total loss is not normalized. Varying the value will result in losses of different magnitudes.</dd>
 <dt><strong><code>threshold</code></strong></dt>
 <dd>Frequency amplitudes below this value are ignored.
 Setting this to zero may cause infinities or NaN values during backpropagation.</dd>
-<dt><strong><code>batch_norm</code></strong></dt>
-<dd>Either <code>bool</code> specifying whether to divide by the product of all batch sizes or specific dimensions.</dd>
 <dt><strong><code>ignore_mean</code></strong></dt>
 <dd>If <code>True</code>, does not penalize the mean value (frequency=0 component).</dd>
 </dl>
@@ -1492,101 +1636,118 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def frequency_loss(x,
-                   n=2,
                    frequency_falloff: float = 100,
                    threshold=1e-5,
-                   batch_norm: bool or str or tuple or list or Shape = True,
                    ignore_mean=False) -&gt; Tensor:
     &#34;&#34;&#34;
     Penalizes the squared `values` in frequency (Fourier) space.
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-        values: Values to penalize, typically `actual - target`
-        n: Loss type, see `l_n_loss()`.
+        x: `Tensor` or `TensorLike` Values to penalize, typically `actual - target`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
         threshold: Frequency amplitudes below this value are ignored.
             Setting this to zero may cause infinities or NaN values during backpropagation.
-        batch_norm: Either `bool` specifying whether to divide by the product of all batch sizes or specific dimensions.
         ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
 
     Returns:
       Scalar loss value
     &#34;&#34;&#34;
-    if ignore_mean:
-        values -= math.mean(values, values.shape.non_batch)
-    k_squared = vec_squared(math.fftfreq(values.shape.spatial))
-    weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    diff_fft = abs_square(math.fft(values) * weights)
-    diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
-    return l_n_loss(diff_fft, n=n, batch_norm=batch_norm)</code></pre>
+    if isinstance(x, Tensor):
+        if ignore_mean:
+            x -= math.mean(x, x.shape.non_batch)
+        k_squared = vec_squared(math.fftfreq(x.shape.spatial))
+        weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
+        diff_fft = abs_square(math.fft(x) * weights)
+        diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
+        return l2_loss(diff_fft)
+    elif isinstance(x, TensorLike):
+        return sum([frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean) for a in variable_values(x)])
+    else:
+        raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.functional_gradient"><code class="name flex">
 <span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function which computes the spatial_gradient of <code>f</code>.</p>
+<div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
 <p>Example:</p>
 <pre><code class="language-python">def loss_function(x, y):
     prediction = f(x)
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx, = functional_gradient(loss_function)(x, y)
+dx, = functional_gradient(loss_function, get_output=False)(x, y)
 
-loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
-                                             get_output=True)(x, y)
+(loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                    wrt=(0, 1), get_output=True)(x, y)
 </code></pre>
+<p>Functional gradients are implemented for the following backends:</p>
+<ul>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/autograd.html#torch.autograd.grad"><code>torch.autograd.grad</code></a> / <a href="https://pytorch.org/docs/stable/autograd.html#torch.autograd.backward"><code>torch.autograd.backward</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/GradientTape"><code>tf.GradientTape</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.grad"><code>jax.grad</code></a></li>
+</ul>
+<p>When the gradient function is invoked, <code>f</code> is called with tensors that track the gradient.
+For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code>f</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be differentiated.
 <code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
-It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if <code>return_values=True</code>.
-All arguments for which the spatial_gradient is computed must be of dtype float or complex.</dd>
+It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
+All arguments for which the gradient is computed must be of dtype float or complex.</dd>
 <dt><strong><code>get_output</code></strong></dt>
-<dd>Whether the spatial_gradient function should also return the return values of <code>f</code>.</dd>
+<dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the spatial_gradient should be computed.
-Example: <code>wrt_indices=[0]</code> computes the spatial_gradient with respect to the first argument of <code>f</code>.</dd>
+<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
+Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the first argument of <code>f</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and spatial_gradient of <code>f</code> if <code>get_output=True</code>, else just the spatial_gradient of <code>f</code>.</p></div>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
-    Creates a function which computes the spatial_gradient of `f`.
+    Creates a function which computes the gradient of `f`.
 
     Example:
-
     ```python
     def loss_function(x, y):
         prediction = f(x)
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx, = functional_gradient(loss_function)(x, y)
+    dx, = functional_gradient(loss_function, get_output=False)(x, y)
 
-    loss, prediction, dx, dy = functional_gradient(loss_function, wrt=(0, 1),
-                                                 get_output=True)(x, y)
+    (loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
     ```
+
+    Functional gradients are implemented for the following backends:
+
+    * PyTorch: [`torch.autograd.grad`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.grad) / [`torch.autograd.backward`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.backward)
+    * TensorFlow: [`tf.GradientTape`](https://www.tensorflow.org/api_docs/python/tf/GradientTape)
+    * Jax: [`jax.grad`](https://jax.readthedocs.io/en/latest/jax.html#jax.grad)
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
 
     Args:
         f: Function to be differentiated.
             `f` must return a floating point `Tensor` with rank zero.
-            It can return additional tensors which are treated as auxiliary data and will be returned by the spatial_gradient function if `return_values=True`.
-            All arguments for which the spatial_gradient is computed must be of dtype float or complex.
-        get_output: Whether the spatial_gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the spatial_gradient should be computed.
-            Example: `wrt_indices=[0]` computes the spatial_gradient with respect to the first argument of `f`.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
 
     Returns:
-        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and spatial_gradient of `f` if `get_output=True`, else just the spatial_gradient of `f`.
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     &#34;&#34;&#34;
     return GradientFunction(f, wrt, get_output)</code></pre>
 </details>
@@ -1716,12 +1877,28 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 <span>def <span class="ident">ifft</span></span>(<span>k: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Inverse of <code><a title="phi.math.fft" href="#phi.math.fft">fft()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>k</code></strong></dt>
+<dd>Complex or float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with at least one spatial dimension.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><em>Ƒ<sup>-1</sup>(k)</em> as complex <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def ifft(k: Tensor):
+    &#34;&#34;&#34;
+    Inverse of `fft()`.
+
+    Args:
+        k: Complex or float `Tensor` with at least one spatial dimension.
+
+    Returns:
+        *Ƒ&lt;sup&gt;-1&lt;/sup&gt;(k)* as complex `Tensor`
+    &#34;&#34;&#34;
     native, assemble = _invertible_standard_form(k)
     result = choose_backend(native).ifft(native)
     return assemble(result)</code></pre>
@@ -1880,7 +2057,8 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
 Elements along the new dimensions are laid out according to the order of <code>dims</code>.
-If the order of <code>dims</code> differs from the current dimension order, the tensor is transposed accordingly.</p>
+If the order of <code>dims</code> differs from the current dimension order, the tensor is transposed accordingly.
+This function replaces the traditional <code>reshape</code> for these cases.</p>
 <p>The type of the new dimension will be equal to the types of <code>dims</code>.
 If <code>dims</code> have varying types, the new dimension will be a batch dimension.</p>
 <p>See Also:
@@ -1910,6 +2088,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
     If the order of `dims` differs from the current dimension order, the tensor is transposed accordingly.
+    This function replaces the traditional `reshape` for these cases.
 
     The type of the new dimension will be equal to the types of `dims`.
     If `dims` have varying types, the new dimension will be a batch dimension.
@@ -1977,7 +2156,7 @@ For <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike<
     if isinstance(x, Tensor):
         return math.sum_(abs(x), x.shape.non_batch)
     elif isinstance(x, TensorLike):
-        return sum([l1_loss(getattr(x, a)) for a in value_attributes(x)])
+        return sum([l1_loss(getattr(x, a)) for a in variable_values(x)])
     else:
         raise ValueError(x)</code></pre>
 </details>
@@ -2018,7 +2197,7 @@ For <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike<
             x = abs(x)
         return math.sum_(x ** 2, x.shape.non_batch) * 0.5
     elif isinstance(x, TensorLike):
-        return sum([l2_loss(getattr(x, a)) for a in value_attributes(x)])
+        return sum([l2_loss(getattr(x, a)) for a in variable_values(x)])
     else:
         raise ValueError(x)</code></pre>
 </details>
@@ -2356,7 +2535,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
     assert solve.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
-    x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
     batch = combine_safe(*[t.shape for t in x0_tensors]).batch
@@ -2375,7 +2554,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
             flat_native = x_flat[..., i:i + vol]
             x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch, x0_tensor.shape.non_batch]))
             i += vol
-        x = assemble_nested(x0_nest, x_tensors)
+        x = assemble_tree(x0_nest, x_tensors)
         return x
 
     def native_function(x_flat):
@@ -2384,7 +2563,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
             y = f(*x)
         else:
             y = f(x)
-        _, y_tensors = disassemble_nested(y)
+        _, y_tensors = disassemble_tree(y)
         return y_tensors[0].sum, y_tensors[0].native()
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
@@ -2469,7 +2648,7 @@ Otherwise, checks that <code>value</code> is a valid tensor object and returns i
     if isinstance(value, Tensor):
         return value.native()
     else:
-        choose_backend(value, raise_error=True)
+        choose_backend(value)  # check that value is a native tensor
         return value</code></pre>
 </details>
 </dd>
@@ -2556,6 +2735,13 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
 <div class="desc"><p>Get spatial indices of non-zero / True values.</p>
 <p>Batch dimensions are preserved by this operation.
 If channel dimensions are present, this method returns the indices where any entry is nonzero.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.argwhere.html"><code>numpy.argwhere</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.nonzero.html"><code>torch.nonzero</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/where"><code>tf.where(tf.not_equal(values, 0))</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.nonzero.html"><code>jax.numpy.nonzero</code></a></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -2564,11 +2750,9 @@ If channel dimensions are present, this method returns the indices where any ent
 <dd>name of dimension listing non-zero values (Default value = 'nonzero')</dd>
 <dt><strong><code>index_dim</code></strong></dt>
 <dd>name of index dimension (Default value = 'vector')</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor: </dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>tensor of shape (batch dims&hellip;, list_dim=#non-zero, index_dim=value.shape.spatial_rank)</p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of shape (batch dims&hellip;, <code>list_dim</code>=#non-zero, <code>index_dim</code>=value.shape.spatial_rank)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2580,14 +2764,20 @@ If channel dimensions are present, this method returns the indices where any ent
     Batch dimensions are preserved by this operation.
     If channel dimensions are present, this method returns the indices where any entry is nonzero.
 
+    Implementations:
+
+    * NumPy: [`numpy.argwhere`](https://numpy.org/doc/stable/reference/generated/numpy.argwhere.html)
+    * PyTorch: [`torch.nonzero`](https://pytorch.org/docs/stable/generated/torch.nonzero.html)
+    * TensorFlow: [`tf.where(tf.not_equal(values, 0))`](https://www.tensorflow.org/api_docs/python/tf/where)
+    * Jax: [`jax.numpy.nonzero`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.nonzero.html)
+
     Args:
-      value: spatial tensor to find non-zero / True values in.
-      list_dim: name of dimension listing non-zero values (Default value = &#39;nonzero&#39;)
-      index_dim: name of index dimension (Default value = &#39;vector&#39;)
-      value: Tensor: 
+        value: spatial tensor to find non-zero / True values in.
+        list_dim: name of dimension listing non-zero values (Default value = &#39;nonzero&#39;)
+        index_dim: name of index dimension (Default value = &#39;vector&#39;)
 
     Returns:
-      tensor of shape (batch dims..., list_dim=#non-zero, index_dim=value.shape.spatial_rank)
+        `Tensor` of shape (batch dims..., `list_dim`=#non-zero, `index_dim`=value.shape.spatial_rank)
 
     &#34;&#34;&#34;
     if value.shape.channel_rank &gt; 0:
@@ -2969,15 +3159,51 @@ math.functional_gradient(f)(math.ones(x=6))
 </details>
 </dd>
 <dt id="phi.math.random_normal"><code class="name flex">
-<span>def <span class="ident">random_normal</span></span>(<span>shape=(), dtype=None, **dimensions)</span>
+<span>def <span class="ident">random_normal</span></span>(<span>shape=(), dtype: phi.math.backend._dtype.DType = None, **dimensions)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Creates a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/random/generated/numpy.random.standard_normal.html"><code>numpy.random.standard_normal</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.randn.html"><code>torch.randn</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/random/normal"><code>tf.random.normal</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.random.normal.html"><code>jax.random.normal</code></a></li>
+</ul>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>shape</code></strong></dt>
+<dd>(optional) Base <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></dd>
+<dt><strong><code>dtype</code></strong></dt>
+<dd>(optional) <code><a title="phi.math.DType" href="#phi.math.DType">DType</a></code>. If <code>None</code>, a float tensor with the current default precision is created, see <code><a title="phi.math.get_precision" href="#phi.math.get_precision">get_precision()</a></code>.</dd>
+<dt><strong><code>**dimensions</code></strong></dt>
+<dd>Additional Tensor dimensions, e.g. <code>x=64</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def random_normal(shape=EMPTY_SHAPE, dtype=None, **dimensions):
+<pre><code class="python">def random_normal(shape=EMPTY_SHAPE, dtype: DType=None, **dimensions):
+    &#34;&#34;&#34;
+    Creates a `Tensor` with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.
+
+    Implementations:
+
+    * NumPy: [`numpy.random.standard_normal`](https://numpy.org/doc/stable/reference/random/generated/numpy.random.standard_normal.html)
+    * PyTorch: [`torch.randn`](https://pytorch.org/docs/stable/generated/torch.randn.html)
+    * TensorFlow: [`tf.random.normal`](https://www.tensorflow.org/api_docs/python/tf/random/normal)
+    * Jax: [`jax.random.normal`](https://jax.readthedocs.io/en/latest/_autosummary/jax.random.normal.html)
+
+    Args:
+        shape: (optional) Base `Shape`
+        dtype: (optional) `DType`. If `None`, a float tensor with the current default precision is created, see `get_precision()`.
+        **dimensions: Additional Tensor dimensions, e.g. `x=64`.
+
+    Returns:
+        `Tensor`
+    &#34;&#34;&#34;
 
     def uniform_random_normal(shape, dtype):
         native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes)
@@ -3304,6 +3530,13 @@ Depending on <code>mode</code>, this method has one of the following effects:</p
 <li><code>mode='add'</code>: Adds <code>values</code> to <code>base_grid</code> at <code>indices</code>. The values corresponding to duplicate indices are accumulated.</li>
 <li><code>mode='mean'</code>: Replaces the values of <code>base_grid</code> at <code>indices</code> by the mean of all <code>values</code> with the same index.</li>
 </ul>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: Slice assignment / <code>numpy.add.at</code></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.scatter.html"><code>torch.scatter</code></a>, <a href="https://pytorch.org/docs/stable/generated/torch.scatter_add.html"><code>torch.scatter_add</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_add"><code>tf.tensor_scatter_nd_add</code></a>, <a href="https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_update"><code>tf.tensor_scatter_nd_update</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter_add.html"><code>jax.lax.scatter_add</code></a>, <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter.html"><code>jax.lax.scatter</code></a></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>base_grid</code></strong></dt>
@@ -3352,6 +3585,13 @@ These dimensions are not treated as batch dimensions.</dd>
     * `mode=&#39;update&#39;`: Replaces the values of `base_grid` at `indices` by `values`. The result is undefined if `indices` contains duplicates.
     * `mode=&#39;add&#39;`: Adds `values` to `base_grid` at `indices`. The values corresponding to duplicate indices are accumulated.
     * `mode=&#39;mean&#39;`: Replaces the values of `base_grid` at `indices` by the mean of all `values` with the same index.
+
+    Implementations:
+
+    * NumPy: Slice assignment / `numpy.add.at`
+    * PyTorch: [`torch.scatter`](https://pytorch.org/docs/stable/generated/torch.scatter.html), [`torch.scatter_add`](https://pytorch.org/docs/stable/generated/torch.scatter_add.html)
+    * TensorFlow: [`tf.tensor_scatter_nd_add`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_add), [`tf.tensor_scatter_nd_update`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_update)
+    * Jax: [`jax.lax.scatter_add`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter_add.html), [`jax.lax.scatter`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter.html)
 
     Args:
         base_grid: `Tensor` into which `values` are scattered.
@@ -3708,8 +3948,8 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     &#34;&#34;&#34;
-    y_nest, y_tensors = disassemble_nested(y)
-    x0_nest, x0_tensors = disassemble_nested(solve.x0)
+    y_nest, y_tensors = disassemble_tree(y)
+    x0_nest, x0_tensors = disassemble_tree(solve.x0)
     assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
@@ -3950,6 +4190,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Decompresses a tensor dimension by unstacking the elements along it.
+This function replaces the traditional <code>reshape</code> for these cases.
 The compressed dimension <code>dim</code> is assumed to contain elements laid out according to the order or <code>split_dims</code>.</p>
 <p>See Also:
 <code><a title="phi.math.join_dimensions" href="#phi.math.join_dimensions">join_dimensions()</a></code></p>
@@ -3971,6 +4212,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <pre><code class="python">def split_dimension(value: Tensor, dim: str, split_dims: Shape):
     &#34;&#34;&#34;
     Decompresses a tensor dimension by unstacking the elements along it.
+    This function replaces the traditional `reshape` for these cases.
     The compressed dimension `dim` is assumed to contain elements laid out according to the order or `split_dims`.
 
     See Also:
@@ -4035,7 +4277,13 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 </code></dt>
 <dd>
 <div class="desc"><p>Disables gradients for the given tensor.
-This may switch off the gradients for <code>value</code> itself or create a copy of <code>value</code> with disabled gradients.</p>
+This may switch off the gradients for <code>x</code> itself or create a copy of <code>x</code> with disabled gradients.</p>
+<p>Implementations:</p>
+<ul>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/autograd.html#torch.Tensor.detach"><code>x.detach()</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/stop_gradient"><code>tf.stop_gradient</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.stop_gradient.html"><code>jax.lax.stop_gradient</code></a></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
@@ -4050,7 +4298,13 @@ This may switch off the gradients for <code>value</code> itself or create a copy
 <pre><code class="python">def stop_gradient(x):
     &#34;&#34;&#34;
     Disables gradients for the given tensor.
-    This may switch off the gradients for `value` itself or create a copy of `value` with disabled gradients.
+    This may switch off the gradients for `x` itself or create a copy of `x` with disabled gradients.
+
+    Implementations:
+
+    * PyTorch: [`x.detach()`](https://pytorch.org/docs/stable/autograd.html#torch.Tensor.detach)
+    * TensorFlow: [`tf.stop_gradient`](https://www.tensorflow.org/api_docs/python/tf/stop_gradient)
+    * Jax: [`jax.lax.stop_gradient`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.stop_gradient.html)
 
     Args:
         x: `Tensor` or `TensorLike` for which gradients should be disabled.
@@ -4061,9 +4315,9 @@ This may switch off the gradients for <code>value</code> itself or create a copy
     if isinstance(x, Tensor):
         return x._op1(lambda native: choose_backend(native).stop_gradient(native))
     elif isinstance(x, TensorLike):
-        nest, values = disassemble_nested(x)
+        nest, values = disassemble_tree(x)
         new_values = [stop_gradient(v) for v in values]
-        return assemble_nested(nest, new_values)
+        return assemble_tree(nest, new_values)
     else:
         return wrap(choose_backend(x).stop_gradient(x))</code></pre>
 </details>
@@ -4072,13 +4326,47 @@ This may switch off the gradients for <code>value</code> itself or create a copy
 <span>def <span class="ident">sum</span></span>(<span>value: phi.math._tensors.Tensor, dim: str = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sums the tensor values along the specified dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>list</code> / <code>tuple</code> of Tensors.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>
+<p>Dimension or dimensions to be reduced. One of</p>
+<ul>
+<li><code>None</code> to reduce all dimensions</li>
+<li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
+<li><code>Tuple[str]</code> or <code>List[str]</code></li>
+<li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code>0</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
+</ul>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> without the reduced dimensions.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sum_(value: Tensor or list or tuple,
          dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Sums the tensor values along the specified dimensions.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `0` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    &#34;&#34;&#34;
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.sum(native, dim),
                    collapsed_function=lambda inner, red_shape: inner * red_shape.volume)</code></pre>
@@ -4114,6 +4402,13 @@ If <code>convert=True</code>, converts <code>data</code> to the preferred format
 </ul>
 <p>While specifying <code>names</code> is optional in some cases, it is recommended to always specify them.</p>
 <p>Dimension types are always inferred from the dimension names if specified.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.array.html"><code>numpy.array</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.tensor.html"><code>torch.tensor</code></a>, <a href="https://pytorch.org/docs/stable/generated/torch.from_numpy.html"><code>torch.from_numpy</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/convert_to_tensor"><code>tf.convert_to_tensor</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html"><code>jax.numpy.array</code></a></li>
+</ul>
 <p>See Also:
 <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code> which uses <code>convert=False</code>.</p>
 <h2 id="args">Args</h2>
@@ -4158,6 +4453,13 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     While specifying `names` is optional in some cases, it is recommended to always specify them.
     
     Dimension types are always inferred from the dimension names if specified.
+
+    Implementations:
+
+    * NumPy: [`numpy.array`](https://numpy.org/doc/stable/reference/generated/numpy.array.html)
+    * PyTorch: [`torch.tensor`](https://pytorch.org/docs/stable/generated/torch.tensor.html), [`torch.from_numpy`](https://pytorch.org/docs/stable/generated/torch.from_numpy.html)
+    * TensorFlow: [`tf.convert_to_tensor`](https://www.tensorflow.org/api_docs/python/tf/convert_to_tensor)
+    * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
 
     See Also:
         `phi.math.wrap()` which uses `convert=False`.
@@ -4210,8 +4512,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             from ._ops import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, dim_name=stack_dim, dim_type=dim_type(stack_dim))
-    backend = choose_backend(data, raise_error=False)
-    if backend:
+    try:
+        backend = choose_backend(data)
         if names is None:
             assert backend.ndims(data) &lt;= 1, &#34;Specify dimension names for tensors with more than 1 dimension&#34;
             names = [&#39;vector&#39;] * backend.ndims(data)  # [] or [&#39;vector&#39;]
@@ -4224,7 +4526,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         if convert:
             data = convert_(data, use_dlpack=False)
         return NativeTensor(data, shape)
-    raise ValueError(f&#34;{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}&#34;)</code></pre>
+    except NoBackendFound:
+        raise ValueError(f&#34;{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.tensors"><code class="name flex">
@@ -4260,12 +4563,39 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <span>def <span class="ident">to_complex</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Converts the given tensor to complex floating point format with the currently specified precision.</p>
+<p>The precision can be set globally using <code>math.set_global_precision()</code> and locally using <code>with math.precision()</code>.</p>
+<p>See the <code><a title="phi.math" href="#phi.math">phi.math</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Math.html">https://tum-pbs.github.io/PhiFlow/Math.html</a></p>
+<p>See Also:
+<code><a title="phi.math.cast" href="#phi.math.cast">cast()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>values to convert</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of same shape as <code>x</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def to_complex(x) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Converts the given tensor to complex floating point format with the currently specified precision.
+
+    The precision can be set globally using `math.set_global_precision()` and locally using `with math.precision()`.
+
+    See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
+
+    See Also:
+        `cast()`.
+
+    Args:
+        x: values to convert
+
+    Returns:
+        `Tensor` of same shape as `x`
+    &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_complex)</code></pre>
 </details>
 </dd>
@@ -4276,15 +4606,15 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <div class="desc"><p>Converts the given tensor to floating point format with the currently specified precision.</p>
 <p>The precision can be set globally using <code>math.set_global_precision()</code> and locally using <code>with math.precision()</code>.</p>
 <p>See the <code><a title="phi.math" href="#phi.math">phi.math</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Math.html">https://tum-pbs.github.io/PhiFlow/Math.html</a></p>
+<p>See Also:
+<code><a title="phi.math.cast" href="#phi.math.cast">cast()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
 <dd>values to convert</dd>
-<dt><strong><code>x</code></strong></dt>
-<dd>Tensor: </dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Tensor of same shape as <code>x</code></p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of same shape as <code>x</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4297,13 +4627,14 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     
     See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 
+    See Also:
+        `cast()`.
+
     Args:
-      x: values to convert
-      x: Tensor: 
+        x: values to convert
 
     Returns:
-      Tensor of same shape as `x`
-
+        `Tensor` of same shape as `x`
     &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_float)</code></pre>
 </details>
@@ -4335,19 +4666,54 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.transpose"><code class="name flex">
-<span>def <span class="ident">transpose</span></span>(<span>value, axes)</span>
+<span>def <span class="ident">transpose</span></span>(<span>x, axes)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Swap the dimension order of <code>x</code>.
+This is done implicitly if <code>x</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.transpose.html"><code>numpy.transpose</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor.permute"><code>x.permute</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/transpose"><code>tf.transpose</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.transpose.html"><code>jax.numpy.transpose</code></a></li>
+</ul>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or native tensor.</dd>
+<dt><strong><code>axes</code></strong></dt>
+<dd><code>tuple</code> or <code>list</code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or native tensor, depending on <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def transpose(value, axes):
-    if isinstance(value, Tensor):
-        return CollapsedTensor(value, value.shape[axes])
+<pre><code class="python">def transpose(x, axes):
+    &#34;&#34;&#34;
+    Swap the dimension order of `x`.
+    This is done implicitly if `x` is a `Tensor`.
+
+    Implementations:
+
+    * NumPy: [`numpy.transpose`](https://numpy.org/doc/stable/reference/generated/numpy.transpose.html)
+    * PyTorch: [`x.permute`](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.permute)
+    * TensorFlow: [`tf.transpose`](https://www.tensorflow.org/api_docs/python/tf/transpose)
+    * Jax: [`jax.numpy.transpose`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.transpose.html)
+
+    Args:
+        x: `Tensor` or native tensor.
+        axes: `tuple` or `list`
+
+    Returns:
+        `Tensor` or native tensor, depending on `x`.
+    &#34;&#34;&#34;
+    if isinstance(x, Tensor):
+        return CollapsedTensor(x, x.shape[axes])  # TODO avoid nesting
     else:
-        return choose_backend(value).transpose(value, axes)</code></pre>
+        return choose_backend(x).transpose(x, axes)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.unstack"><code class="name flex">
@@ -4569,9 +4935,9 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def zeros_like(obj):
-    nest, values = disassemble_nested(obj)
+    nest, values = disassemble_tree(obj)
     values0 = [zeros(t.shape, dtype=t.dtype) for t in values]
-    return assemble_nested(nest, values0)</code></pre>
+    return assemble_tree(nest, values0)</code></pre>
 </details>
 </dd>
 </dl>
@@ -4627,13 +4993,24 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <span>(</span><span>kind: type, bits: int = 8)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Data type for tensors.</p>
+<div class="desc"><p>Instances of <code><a title="phi.math.DType" href="#phi.math.DType">DType</a></code> represent the kind and size of data elements.
+The data type of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> can be obtained via <code><a title="phi.math.Tensor.dtype" href="#phi.math.Tensor.dtype">Tensor.dtype</a></code>.</p>
+<p>The following kinds of data types are supported:</p>
+<ul>
+<li><code>float</code> with 32 / 64 bits</li>
+<li><code>complex</code> with 64 / 128 bits</li>
+<li><code>int</code> with 8 / 16 / 32 / 64 bits</li>
+<li><code>bool</code> with 8 bits</li>
+<li><code>str</code> with 8<em>n</em> bits</li>
+</ul>
+<p>Unlike with many computing libraries, there are no global variables corresponding to the available types.
+Instead, data types can simply be instantiated as needed.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>kind</code></strong></dt>
 <dd>Python type, one of <code>(bool, int, float, complex, str)</code></dd>
 <dt><strong><code>bits</code></strong></dt>
-<dd>number of bits, typically a multiple of 8.</dd>
+<dd>number of bits per element, a multiple of 8.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -4643,11 +5020,23 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 
     def __init__(self, kind: type, bits: int = 8):
         &#34;&#34;&#34;
-        Data type for tensors.
+        Instances of `DType` represent the kind and size of data elements.
+        The data type of a `Tensor` can be obtained via `phi.math.Tensor.dtype`.
+
+        The following kinds of data types are supported:
+
+        * `float` with 32 / 64 bits
+        * `complex` with 64 / 128 bits
+        * `int` with 8 / 16 / 32 / 64 bits
+        * `bool` with 8 bits
+        * `str` with 8*n* bits
+
+        Unlike with many computing libraries, there are no global variables corresponding to the available types.
+        Instead, data types can simply be instantiated as needed.
 
         Args:
-          kind: Python type, one of `(bool, int, float, complex, str)`
-          bits: number of bits, typically a multiple of 8.
+            kind: Python type, one of `(bool, int, float, complex, str)`
+            bits: number of bits per element, a multiple of 8.
         &#34;&#34;&#34;
         assert kind in (bool, int, float, complex, str)
         if kind is bool:
@@ -5130,10 +5519,10 @@ This is the default implementation.</p>
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
-        f_input = assemble_nested(in_key.nest, [tracer])
+        f_input = assemble_tree(in_key.nest, [tracer])
         assert isinstance(f_input, tuple)
         result = self.f(*f_input)
-        _, result_tensors = disassemble_nested(result)
+        _, result_tensors = disassemble_tree(result)
         assert len(result_tensors) == 1, f&#34;Linear function must return a single Tensor or tensor-like but got {result}&#34;
         result_tensor = result_tensors[0]
         assert isinstance(result_tensor, ShiftLinTracer), f&#34;Tracing linear function &#39;{self.f.__name__}&#39; failed. Make sure only linear operations are used.&#34;
@@ -5149,7 +5538,7 @@ This is the default implementation.</p>
             return tracer
 
     def __call__(self, *args: X, **kwargs) -&gt; Y:
-        nest, tensors = disassemble_nested(args)
+        nest, tensors = disassemble_tree(args)
         assert tensors, &#34;Linear function requires at least one argument&#34;
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
@@ -7636,9 +8025,13 @@ result: SolveInfo = solves[0]  # get by index
 <span>class <span class="ident">Tensor</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Abstract base class to represent structured data of one data type.</p>
-<p>Unlike with <code>numpy.ndarray</code>, the dimensions of Tensors have names and types.
-Additionally, tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.</p>
+<div class="desc"><p>Abstract base class to represent structured data of one data type.
+This class replaces the native tensor classes <code>numpy.ndarray</code>, <code>torch.Tensor</code>, <code>tensorflow.Tensor</code> or <code>jax.numpy.ndarray</code> as the main data container in Φ<sub>Flow</sub>.</p>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> instances are different from native tensors in two important ways:</p>
+<ul>
+<li>The dimensions of Tensors have <em>names</em> and <em>types</em>.</li>
+<li>Tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.</li>
+</ul>
 <p>To check whether a value is a tensor, use <code>isinstance(value, <a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a>)</code>.</p>
 <p>To construct a Tensor, use <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code> or one of the basic tensor creation functions,
 see <a href="https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation">https://tum-pbs.github.io/PhiFlow/Math.html#tensor-creation</a> .</p>
@@ -7651,9 +8044,12 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 <pre><code class="python">class Tensor:
     &#34;&#34;&#34;
     Abstract base class to represent structured data of one data type.
+    This class replaces the native tensor classes `numpy.ndarray`, `torch.Tensor`, `tensorflow.Tensor` or `jax.numpy.ndarray` as the main data container in Φ&lt;sub&gt;Flow&lt;/sub&gt;.
 
-    Unlike with `numpy.ndarray`, the dimensions of Tensors have names and types.
-    Additionally, tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.
+    `Tensor` instances are different from native tensors in two important ways:
+
+    * The dimensions of Tensors have *names* and *types*.
+    * Tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.
 
     To check whether a value is a tensor, use `isinstance(value, Tensor)`.
 
@@ -7733,7 +8129,13 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     @property
     def rank(self) -&gt; int:
-        &#34;&#34;&#34; Equal to `tensor.shape.rank`. &#34;&#34;&#34;
+        &#34;&#34;&#34;
+        Number of explicit dimensions of this `Tensor`. Equal to `tensor.shape.rank`.
+        This replaces [`numpy.ndarray.ndim`](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.ndim.html) /
+        [`torch.Tensor.dim`](https://pytorch.org/docs/master/generated/torch.Tensor.dim.html) /
+        [`tf.rank()`](https://www.tensorflow.org/api_docs/python/tf/rank) /
+        [`jax.numpy.ndim()`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndim.html).
+        &#34;&#34;&#34;
         return self.shape.rank
 
     @property
@@ -8227,14 +8629,24 @@ def min(self):
 </dd>
 <dt id="phi.math.Tensor.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
 <dd>
-<div class="desc"><p>Equal to <code>tensor.shape.rank</code>.</p></div>
+<div class="desc"><p>Number of explicit dimensions of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>. Equal to <code>tensor.shape.rank</code>.
+This replaces <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.ndim.html"><code>numpy.ndarray.ndim</code></a> /
+<a href="https://pytorch.org/docs/master/generated/torch.Tensor.dim.html"><code>torch.Tensor.dim</code></a> /
+<a href="https://www.tensorflow.org/api_docs/python/tf/rank"><code>tf.rank()</code></a> /
+<a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndim.html"><code>jax.numpy.ndim()</code></a>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def rank(self) -&gt; int:
-    &#34;&#34;&#34; Equal to `tensor.shape.rank`. &#34;&#34;&#34;
+    &#34;&#34;&#34;
+    Number of explicit dimensions of this `Tensor`. Equal to `tensor.shape.rank`.
+    This replaces [`numpy.ndarray.ndim`](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.ndim.html) /
+    [`torch.Tensor.dim`](https://pytorch.org/docs/master/generated/torch.Tensor.dim.html) /
+    [`tf.rank()`](https://www.tensorflow.org/api_docs/python/tf/rank) /
+    [`jax.numpy.ndim()`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndim.html).
+    &#34;&#34;&#34;
     return self.shape.rank</code></pre>
 </details>
 </dd>
@@ -9140,7 +9552,7 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
-<li><code><a title="phi.math.NUMPY_BACKEND" href="#phi.math.NUMPY_BACKEND">NUMPY_BACKEND</a></code></li>
+<li><code><a title="phi.math.NUMPY" href="#phi.math.NUMPY">NUMPY</a></code></li>
 <li><code><a title="phi.math.PI" href="#phi.math.PI">PI</a></code></li>
 </ul>
 </li>

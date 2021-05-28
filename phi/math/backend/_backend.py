@@ -141,11 +141,18 @@ class Backend:
         """
         Fetches information about all available compute devices this backend can use.
 
+        Implementations:
+
+        * NumPy: [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count)
+        * PyTorch: [`torch.cuda.get_device_properties`](https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties)
+        * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
+        * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
+
         Args:
-            device_type: (optional) Return only devices of this type, e.g. `'GPU'`. See `ComputeDevice.device_type`.
+            device_type: (optional) Return only devices of this type, e.g. `'GPU'` or `'CPU'`. See `ComputeDevice.device_type`.
 
         Returns:
-            Tuple of all currently available devices.
+            `list` of all currently available devices.
         """
         raise NotImplementedError()
 
