@@ -47,6 +47,9 @@ def convert(value: Tensor, backend: Backend = None, use_dlpack=True):
 def all_available(*values: Tensor) -> bool:
     """
     Tests if the values of all given tensors are known and can be read at this point.
+    Tracing placeholders are considered not available, even when they hold example values.
+
+    Tensors are not available during `jit_compile()`, `jit_compile_linear()` or while using TensorFlow's legacy graph mode.
     
     Tensors are typically available when the backend operates in eager mode and is not currently tracing a function.
 

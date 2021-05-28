@@ -2,7 +2,6 @@ import os
 import shutil
 import time
 
-from phi.field import StaggeredGrid
 from .._vis_base import Gui, play_async, gui_interrupt, select_channel, get_control_by_name, status_message, \
     display_name
 from ._console_plot import heatmap, quiver
@@ -135,7 +134,7 @@ class ConsoleGui(Gui):
         values = []
         for n in field_names:
             try:
-                values.append(self.app.get_field(n))
+                values.append(self.app.get_field(n, {}))
             except KeyError:
                 print(f"The field {n} does not exist. Available fields are {self.app.field_names}")
                 return

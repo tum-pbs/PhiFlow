@@ -1,5 +1,4 @@
 import traceback
-import warnings
 
 import dash_core_components as dcc
 import dash_html_components as html
@@ -58,13 +57,12 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
             fig = graph_objects.Figure()
             fig.update_layout(title_text="None", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
-        value = app.get_field(field)
+        selection = parse_view_settings(app, *settings)
+        value = app.model.get_field(field, selection['select'])
         if not isinstance(value, SampledField):
             fig = graph_objects.Figure()
             fig.update_layout(title_text=f"{field} = {value}", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
-        selection = parse_view_settings(app, *settings)
-        value = value[selection['select']]
         try:
             value = select_channel(value, selection.get('component', None))
         except ValueError as err:
@@ -83,10 +81,10 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
     def update_webgl_data(field, _0, _1, _2, *settings):
         if field is None or field == 'None':
             return EMPTY_GRID
-        data = app.get_field(field)
+        selection = parse_view_settings(app, *settings)
+        data = app.model.get_field(field, selection['select'])
         if data is None:
             return EMPTY_GRID
-        settings_dict = parse_view_settings(app, *settings)
-        return webgl_prepare_data(data, app.config, settings_dict)
+        return webgl_prepare_data(data, app.config, selection)
 
     return layout

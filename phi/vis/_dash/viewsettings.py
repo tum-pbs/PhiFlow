@@ -58,8 +58,8 @@ def build_view_selection(app: DashApp, field_selections: tuple, viewer_group: st
 
         @app.dash.callback(Output(f'{viewer_group}_select_{sel_dim}', 'max'), [STEP_BUTTON, REFRESH_INTERVAL, PAUSE_BUTTON, *field_selections])
         def update_dim_max(_s, _r, _p, *field_names, dim=sel_dim):
-            values = [app.model.get_field(name) for name in field_names if name != 'None']
-            sizes = [v.shape.get_size(dim) for v in values if isinstance(v, SampledField) and dim in v.shape]
+            shapes = [app.model.get_field_shape(name) for name in field_names if name != 'None']
+            sizes = [s.get_size(dim) for s in shapes if dim in s]
             if sizes:
                 return max(sizes) - 1
             else:
@@ -67,14 +67,14 @@ def build_view_selection(app: DashApp, field_selections: tuple, viewer_group: st
 
         @app.dash.callback(Output(f'{viewer_group}_select_{sel_dim}', 'disabled'), [STEP_BUTTON, REFRESH_INTERVAL, PAUSE_BUTTON, *field_selections])
         def update_dim_disabled(_s, _r, _p, *field_names, dim=sel_dim):
-            values = [app.model.get_field(name) for name in field_names if name != 'None']
-            sizes = [v.shape.get_size(dim) for v in values if isinstance(v, SampledField) and dim in v.shape]
+            shapes = [app.model.get_field_shape(name) for name in field_names if name != 'None']
+            sizes = [s.get_size(dim) for s in shapes if dim in s]
             return max(sizes) <= 1 if sizes else True
 
         @app.dash.callback(Output(f'{viewer_group}_select_{sel_dim}', 'marks'), [STEP_BUTTON, REFRESH_INTERVAL, PAUSE_BUTTON, *field_selections])
         def update_dim_disabled(_s, _r, _p, *field_names, dim=sel_dim):
-            values = [app.model.get_field(name) for name in field_names if name != 'None']
-            sizes = [v.shape.get_size(dim) for v in values if isinstance(v, SampledField) and dim in v.shape]
+            shapes = [app.model.get_field_shape(name) for name in field_names if name != 'None']
+            sizes = [s.get_size(dim) for s in shapes if dim in s]
             if sizes:
                 return _marks(max(sizes))
             else:

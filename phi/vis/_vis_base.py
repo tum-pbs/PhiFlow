@@ -10,7 +10,7 @@ from typing import Tuple
 
 from phi import field
 from phi.field import SampledField, Scene
-
+from phi.math import Shape, EMPTY_SHAPE
 
 Control = namedtuple('Control', ['name', 'control_type', 'initial', 'value_range', 'description', 'kwargs'])
 
@@ -105,19 +105,29 @@ class VisModel:
     def field_names(self) -> tuple:
         raise NotImplementedError(self)
 
-    def get_field(self, field_name) -> SampledField:
+    def get_field(self, name: str, dim_selection: dict) -> SampledField:
         """
+        Returns the current value of a field.
+        The name must be part of `VisModel.field_names`.
 
         Raises:
             `KeyError` if `field_name` is not a valid field.
 
         Args:
-            field_name:
+            name: Registered name of the field.
+            dim_selection: Slices the field according to `selection`. `dict` mapping dimension names to `int` or `slice`.
 
         Returns:
-
+            `SampledField`
         """
         raise NotImplementedError(self)
+
+    def get_field_shape(self, name: str) -> Shape:
+        value = self.get_field(name, {})
+        if isinstance(value, SampledField):
+            return value.shape
+        else:
+            return EMPTY_SHAPE
 
     @property
     def curve_names(self) -> tuple:
@@ -323,9 +333,9 @@ def get_gui(gui: str or Gui) -> Gui:
         elif gui == 'console':
             from ._console import ConsoleGui
             return ConsoleGui()
-        elif gui == 'matplotlib':
-            from ._matplotlib.matplotlib_gui import MatplotlibGui
-            return MatplotlibGui()
+        # elif gui == 'matplotlib':
+        #     from ._matplotlib.matplotlib_gui import MatplotlibGui
+        #     return MatplotlibGui()
         elif gui == 'widgets':
             from ._widgets import WidgetsGui
             return WidgetsGui()

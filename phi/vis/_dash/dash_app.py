@@ -64,9 +64,6 @@ class DashApp:
     def add_page(self, path, page_layout):
         self.page_urls[path] = page_layout
 
-    def get_field(self, name):
-        return self.model.get_field(name)
-
     def reset_field_summary(self):
         self.field_minmax = {}
 

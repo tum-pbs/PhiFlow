@@ -155,15 +155,15 @@ class WidgetsGui(Gui):
             for sel_dim, slider in self.dim_sliders.items():
                 slider.layout.visibility = 'hidden'
         else:
-            value = self.app.get_field(self.field)
-            self.vector_select.layout.visibility = 'visible' if isinstance(value, SampledField) and value.vector.exists else 'hidden'
+            shape = self.app.get_field_shape(self.field)
+            self.vector_select.layout.visibility = 'visible' if 'vector' in shape else 'hidden'
             for sel_dim, slider in self.dim_sliders.items():
-                if isinstance(value, SampledField) and sel_dim in value.shape:
+                if sel_dim in shape:
                     slider.layout.visibility = 'visible'
-                    slider.max = value.shape.get_size(sel_dim) - 1
+                    slider.max = shape.get_size(sel_dim) - 1
                     if scroll_to_last and sel_dim in self.app.growing_dims:
                         with ignore_events():
-                            slider.value = value.shape.get_size(sel_dim) - 1
+                            slider.value = shape.get_size(sel_dim) - 1
                 else:
                     slider.layout.visibility = 'hidden'
         # Figure
@@ -187,9 +187,8 @@ class WidgetsGui(Gui):
                     plt.tight_layout()
                     show_inline_matplotlib_plots()
                 else:
-                    value = self.app.get_field(field_name)
+                    value = self.app.get_field(field_name, dim_selection)
                     if isinstance(value, SampledField):
-                        value = value[dim_selection]
                         try:
                             value = select_channel(value, {'🡡': None, '⬤': 'abs'}.get(self.vector_select.value, self.vector_select.value))
                             plot(value, **self.config.get('plt_args', {}))

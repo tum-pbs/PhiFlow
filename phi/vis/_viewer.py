@@ -10,6 +10,7 @@ from ._user_namespace import UserNamespace
 from ._vis_base import VisModel, Control, Action
 from .. import field
 from ..field import Scene, SampledField
+from ..math import Shape
 
 
 def create_viewer(namespace: UserNamespace,
@@ -81,13 +82,16 @@ class Viewer(VisModel):
     def field_names(self) -> tuple:
         return tuple(self.initial_field_values.keys())
 
-    def get_field(self, field_name) -> SampledField:
-        if field_name not in self.initial_field_values:
-            raise KeyError(field_name)
+    def get_field(self, name, dim_selection: dict) -> SampledField:
+        if name not in self.initial_field_values:
+            raise KeyError(name)
         if self._rec:
-            return self._rec[field_name]
+            value = self._rec[name]
         else:
-            return self.namespace.get_variable(field_name)
+            value = self.namespace.get_variable(name)
+        if isinstance(value, SampledField):
+            value = value[dim_selection]
+        return value
 
     @property
     def curve_names(self) -> tuple:
