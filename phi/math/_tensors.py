@@ -17,9 +17,12 @@ from .backend._dtype import DType
 class Tensor:
     """
     Abstract base class to represent structured data of one data type.
+    This class replaces the native tensor classes `numpy.ndarray`, `torch.Tensor`, `tensorflow.Tensor` or `jax.numpy.ndarray` as the main data container in Φ<sub>Flow</sub>.
 
-    Unlike with `numpy.ndarray`, the dimensions of Tensors have names and types.
-    Additionally, tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.
+    `Tensor` instances are different from native tensors in two important ways:
+
+    * The dimensions of Tensors have *names* and *types*.
+    * Tensors can have non-uniform shapes, meaning that the size of dimensions can vary along other dimensions.
 
     To check whether a value is a tensor, use `isinstance(value, Tensor)`.
 

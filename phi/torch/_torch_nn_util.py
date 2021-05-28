@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ._torch_backend import TORCH_BACKEND
+from . import TORCH
 
 
 def parameter_count(model: nn.Module):
@@ -51,7 +51,7 @@ def u_net(in_channels: int,
     else:
         filters = (filters,) * levels
     net = UNet(in_channels, out_channels, filters)
-    net = net.to(TORCH_BACKEND.get_default_device().ref)
+    net = net.to(TORCH.get_default_device().ref)
     return net
 
 

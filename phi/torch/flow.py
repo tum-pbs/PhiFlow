@@ -13,7 +13,7 @@ See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 """
 
 from phi.flow import *
-from ._torch_backend import TORCH_BACKEND
+from . import TORCH
 from ._torch_nn_util import parameter_count, dense_net, u_net
 
 import torch
@@ -22,7 +22,7 @@ import torch.optim as optim
 
 
 if not backend.context_backend():
-    backend.set_global_default_backend(TORCH_BACKEND)
+    backend.set_global_default_backend(TORCH)
 else:
     import warnings
     warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")

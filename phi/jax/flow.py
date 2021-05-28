@@ -14,13 +14,13 @@ See `phi.flow`, `phi.torch.flow`, `phi.tf.flow`.
 
 from phi.flow import *
 try:
-    from ._jax_backend import JAX_BACKEND
+    from . import JAX
     import jax
     import jax.numpy as jnp
     import jax.scipy as jsp
 
     if not backend.context_backend():
-        backend.set_global_default_backend(JAX_BACKEND)
+        backend.set_global_default_backend(JAX)
     else:
         import warnings
         warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")
