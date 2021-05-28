@@ -63,10 +63,10 @@ class TestDemos(TestCase):
         demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.functional_gradient)])
 
     def test_flip_liquid(self):
-        demo_run('flip_liquid', [backend.NUMPY_BACKEND])
+        demo_run('flip_liquid')
 
     def test_fluid_logo(self):
-        demo_run('fluid_logo', [backend.NUMPY_BACKEND])  # TODO error with PyTorch on Python 3.8
+        demo_run('fluid_logo')
 
     def test_heat_equilibrium(self):
         demo_run('heat_equilibrium')
