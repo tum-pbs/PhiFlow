@@ -84,5 +84,5 @@ __pdoc__ = {
     'LinearFunction.__init__': False,
     'TensorLike.__variable_attrs__': True,
     'TensorLike.__value_attrs__': True,
-    'TensorLike.__with_tattrs__': True,
+    'TensorLike.__with_attrs__': True,
 }

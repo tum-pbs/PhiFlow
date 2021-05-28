@@ -120,7 +120,7 @@ __pdoc__ = {
     &#39;LinearFunction.__init__&#39;: False,
     &#39;TensorLike.__variable_attrs__&#39;: True,
     &#39;TensorLike.__value_attrs__&#39;: True,
-    &#39;TensorLike.__with_tattrs__&#39;: True,
+    &#39;TensorLike.__with_attrs__&#39;: True,
 }</code></pre>
 </details>
 </section>
@@ -9528,6 +9528,37 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.TensorLike.__with_attrs__"><code class="name flex">
+<span>def <span class="ident">__with_attrs__</span></span>(<span>self, **attrs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a copy of this object which has the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> attributes contained in <code>tattrs</code> replaced.
+If this method is not implemented, tensor attributes are replaced using <code>setattr()</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>**attrs</code></strong></dt>
+<dd><code>dict</code> mapping <code>str</code> attribute names to <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Altered copy of <code>self</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def __with_attrs__(self, **attrs):
+    &#34;&#34;&#34;
+    Creates a copy of this object which has the `Tensor` or `TensorLike` attributes contained in `tattrs` replaced.
+    If this method is not implemented, tensor attributes are replaced using `setattr()`.
+
+    Args:
+        **attrs: `dict` mapping `str` attribute names to `Tensor` or `TensorLike`.
+
+    Returns:
+        Altered copy of `self`
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -9857,6 +9888,7 @@ Calling <code>getattr(self, attr)</code> must return a <code><a title="phi.math.
 <ul class="">
 <li><code><a title="phi.math.TensorLike.__value_attrs__" href="#phi.math.TensorLike.__value_attrs__">__value_attrs__</a></code></li>
 <li><code><a title="phi.math.TensorLike.__variable_attrs__" href="#phi.math.TensorLike.__variable_attrs__">__variable_attrs__</a></code></li>
+<li><code><a title="phi.math.TensorLike.__with_attrs__" href="#phi.math.TensorLike.__with_attrs__">__with_attrs__</a></code></li>
 </ul>
 </li>
 </ul>
