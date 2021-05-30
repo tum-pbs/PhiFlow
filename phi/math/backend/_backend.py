@@ -106,6 +106,14 @@ class Backend:
         return DType(float, self.precision)
 
     @property
+    def as_registered(self) -> 'Backend':
+        from phi.math.backend import BACKENDS
+        for backend in BACKENDS:
+            if self.name in backend.name:
+                return backend
+        raise RuntimeError(f"Backend '{self}' is not visible.")
+
+    @property
     def complex_type(self) -> DType:
         return DType(complex, max(64, self.precision))
 
@@ -257,6 +265,9 @@ class Backend:
             choose_backend(key).call(custom_function, *args)
         """
         return f(*args)
+
+    def block_until_ready(self, values):
+        pass
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         """

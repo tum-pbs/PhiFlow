@@ -409,6 +409,7 @@ class ProfilingBackend:
         self.dtype = backend.dtype
         self.expand_dims = backend.expand_dims
         self.reshape = backend.reshape
+        self.supports = backend.supports
         # TODO strided slice does not go through backend atm
         # profiling methods
         for item_name in dir(backend):
@@ -423,6 +424,14 @@ class ProfilingBackend:
                         return result
                     return call_fun
                 setattr(self, item_name, context())
+
+    def call(self, f: Callable, *args, name=None):
+        start = perf_counter()
+        result = f(*args)
+        self._backend.block_until_ready(result)
+        stop = perf_counter()
+        self._profile._add_call(BackendCall(start, stop, self, name), args, {}, result)
+        return result
 
     def __repr__(self):
         return f"profile[{self._backend}]"

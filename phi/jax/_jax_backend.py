@@ -8,6 +8,7 @@ import jax
 import jax.numpy as jnp
 import jax.scipy as scipy
 from jax.core import Tracer
+from jax.interpreters.xla import DeviceArray
 from jax.scipy.sparse.linalg import cg
 from jax import random
 
@@ -122,7 +123,6 @@ class JaxBackend(Backend):
     floor = staticmethod(jnp.floor)
     nonzero = staticmethod(jnp.nonzero)
     flip = staticmethod(jnp.flip)
-    jit_compile = staticmethod(jax.jit)
     stop_gradient = staticmethod(jax.lax.stop_gradient)
     transpose = staticmethod(jnp.transpose)
     equal = staticmethod(jnp.equal)
@@ -138,6 +138,17 @@ class JaxBackend(Backend):
     staticshape = staticmethod(jnp.shape)
     imag = staticmethod(jnp.imag)
     real = staticmethod(jnp.real)
+
+    def jit_compile(self, f: Callable) -> Callable:
+        jit_f = jax.jit(f)
+        return lambda *args: self.as_registered.call(jit_f, *args, name=f"run jit-compiled '{f.__name__}'")
+
+    def block_until_ready(self, values):
+        if isinstance(values, DeviceArray):
+            values.block_until_ready()
+        if isinstance(values, (tuple, list)):
+            for v in values:
+                self.block_until_ready(v)
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         if get_output:

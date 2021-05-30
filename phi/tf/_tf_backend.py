@@ -80,7 +80,8 @@ class TFBackend(Backend):
             return tensor
 
     def jit_compile(self, f: Callable) -> Callable:
-        return tf.function(f)
+        compiled = tf.function(f)
+        return lambda *args: self.as_registered.call(compiled, *args, name=f"run jit-compiled '{f.__name__}'")
 
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         @tf.custom_gradient
@@ -432,7 +433,7 @@ class TFBackend(Backend):
                     tape.watch(arg)
                 output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            grads = list(tape.gradient(loss, wrt_args))
+            grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
             assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
             if get_output:
                 if aux is not None:

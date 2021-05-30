@@ -1,4 +1,5 @@
 import time
+import types
 import uuid
 import warnings
 from copy import copy
@@ -113,10 +114,14 @@ class JitFunction:
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(jit_f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
+        jit_f_native.__name__ = f"trace({self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)})"
         return in_key.backend.jit_compile(jit_f_native)
 
     def __call__(self, *args, **kwargs):
         key, natives = key_from_args(*args, cache=True, **kwargs)
+        # if key.tracing:
+        #     warnings.warn(f"Nested traces are not supported. Calling '{self.f.__name__}' as-is.")
+        #     return self.f(*args, **kwargs)
         if not key.backend.supports(Backend.jit_compile):
             warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.")
             return self.f(*args, **kwargs)
@@ -306,7 +311,7 @@ class GradientFunction:
             return assemble_tree([key.nest[i] for i in wrt_tensors], output_tensors)
 
     def __repr__(self):
-        return f"jit({self.f.__name__})"
+        return f"grad({self.f.__name__})"
 
     def _track_wrt(self, args):
         wrt_tensors = []
@@ -398,6 +403,9 @@ class CustomGradientFunction:
             assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
             result_natives = self.incomplete_tree_to_natives(result, in_key.nest, list(in_key.shapes))
             return result_natives
+
+        forward_native.__name__ = f"forward '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}'"
+        backward_native.__name__ = f"{self.gradient.__name__ if isinstance(self.gradient, types.FunctionType) else str(self.gradient)} (of '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}')"
 
         return in_key.backend.custom_gradient(forward_native, backward_native)
 

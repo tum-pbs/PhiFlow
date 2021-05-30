@@ -164,6 +164,7 @@ class TorchBackend(Backend):
                     # def trace_later():
                     #     TRACED_F[current_jit] = torch.jit.trace(f, args)  # nested traces not allowed in PyTorch
                 elif ctx.jit_f:
+                    jit_f = ctx.jit_f
                     if ctx.jit_f in TRACED_B:
                         g_ = TRACED_B[ctx.jit_f]
                     else:
@@ -179,16 +180,15 @@ class TorchBackend(Backend):
                             needed_g = torch.jit.trace(filter_required_grads, tuple([x, y, grad_args]), check_trace=False)
 
                             def g_(*args):
-                                needed = needed_g(*args)
+                                with jit_f:
+                                    needed = self.as_registered.call(needed_g, *args, name=f"run jit-compiled custom backward '{gradient.__name__}'")
+                                assert not jit_f.post_trace
                                 assert isinstance(needed, (tuple, list))
                                 needed = list(needed)
                                 result = [(needed.pop(0) if need else None) for need in needs_input_grad]
                                 return result
 
                             TRACED_B[ctx.jit_f] = g_
-
-                        while ctx.jit_f.post_trace:  # compile required backward functions
-                            ctx.jit_f.post_trace.pop(0)()
                 else:
                     g_ = gradient
                 output = g_(x, y, grad_args)
@@ -686,13 +686,12 @@ class JITFunction:
     def __call__(self, *args, **kwargs):
         if kwargs:
             raise NotImplementedError("kwargs not supported for traced function")
-        with self:
-            if self.traced is None:
+        if self.traced is None:
+            with self:
                 self.traced = torch.jit.trace(self.f, example_inputs=args, check_trace=False)
-                while self.post_trace:
-                    self.post_trace.pop(0)()
+        with self:
             from phi.math.backend import choose_backend
-            return choose_backend(self).call(self.traced, *args, name=f'jit {self.f.__name__}')
+            return choose_backend(self).call(self.traced, *args, name=f"run jit-compiled '{self.f.__name__}'")
 
     def __repr__(self):
         return f"jit-TorchScript[{self.f.__name__}]"
@@ -703,6 +702,8 @@ class JITFunction:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         assert CURRENT_JIT_CALLS.pop(-1) == self
+        while self.post_trace:
+            self.post_trace.pop(0)()
 
 
 
