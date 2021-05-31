@@ -10,9 +10,8 @@ INFLOW = DOMAIN.scalar_grid(Sphere(center=(50, 10), radius=5)) * 0.2
 velocity = DOMAIN.staggered_grid(0)  # alternatively vector_grid(0)
 smoke = DOMAIN.scalar_grid(0)
 pressure = DOMAIN.scalar_grid(0)
-divergence = DOMAIN.scalar_grid(0)
 
-for _ in view(smoke, velocity, pressure, divergence, play=False).range():
+for _ in view(smoke, velocity, pressure, play=False).range():
     smoke = advect.mac_cormack(smoke, velocity, 1) + INFLOW
     buoyancy_force = smoke * (0, 0.1) >> velocity  # resamples smoke to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force

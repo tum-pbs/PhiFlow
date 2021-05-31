@@ -252,9 +252,6 @@ class Backend:
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
-    def jit_compile(self, f: Callable) -> Callable:
-        return NotImplemented
-
     def call(self, f: Callable, *args, name=None):
         """
         Calls `f(*args)` and returns the result.
@@ -269,6 +266,12 @@ class Backend:
     def block_until_ready(self, values):
         pass
 
+    def jit_compile(self, f: Callable) -> Callable:
+        return NotImplemented
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         """
         Creates a function based on `f` that uses a custom gradient for backprop.
@@ -281,6 +284,9 @@ class Backend:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
         """
         return NotImplemented
+
+    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError()
 
     def transpose(self, tensor, axes):
         raise NotImplementedError()
@@ -891,9 +897,6 @@ class Backend:
             lin_shape = self.staticshape(lin)
             assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
             return self.matmul(lin, vector)
-
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
-        raise NotImplementedError(self)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         raise NotImplementedError(self)

@@ -646,6 +646,10 @@ class TorchBackend(Backend):
                 return grads
         return eval_grad
 
+    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+        jit = self.jit_compile(f)
+        return self.functional_gradient(jit, wrt, get_output)
+
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         grad = torch.autograd.grad(y, xs, grad_y)
         return grad

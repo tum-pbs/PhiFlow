@@ -102,6 +102,7 @@ class JitFunction:
         self.f = f
         self.traces: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
+        self.grad_jit = GradientFunction(f.f, f.wrt, f.get_output, jit=True) if isinstance(f, GradientFunction) else None
 
     def _jit_compile(self, in_key: SignatureKey):
         def jit_f_native(*natives, **kwargs):
@@ -119,9 +120,8 @@ class JitFunction:
 
     def __call__(self, *args, **kwargs):
         key, natives = key_from_args(*args, cache=True, **kwargs)
-        # if key.tracing:
-        #     warnings.warn(f"Nested traces are not supported. Calling '{self.f.__name__}' as-is.")
-        #     return self.f(*args, **kwargs)
+        if isinstance(self.f, GradientFunction) and key.backend.supports(Backend.jit_compile_grad):
+            return self.grad_jit(*args, **kwargs)
         if not key.backend.supports(Backend.jit_compile):
             warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.")
             return self.f(*args, **kwargs)
@@ -267,12 +267,13 @@ def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':
 
 class GradientFunction:
 
-    def __init__(self, f: Callable, wrt: tuple, get_output: bool):
+    def __init__(self, f: Callable, wrt: tuple, get_output: bool, jit=False):
         self.f = f
         self.wrt = wrt
         self.get_output = get_output
         self.grads: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
+        self.jit = jit
 
     def _trace_grad(self, in_key: SignatureKey, wrt_natives):
         def f_native(*natives, **kwargs):
@@ -285,7 +286,8 @@ class GradientFunction:
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
-        return in_key.backend.functional_gradient(f_native, wrt=wrt_natives, get_output=self.get_output)
+        functional_gradient_generator = in_key.backend.jit_compile_grad if self.jit else in_key.backend.functional_gradient
+        return functional_gradient_generator(f_native, wrt=wrt_natives, get_output=self.get_output)
 
     def __call__(self, *args, **kwargs):
         key, natives = key_from_args(*args, cache=True, **kwargs)

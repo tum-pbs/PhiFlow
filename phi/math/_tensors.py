@@ -1557,7 +1557,9 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
             values.extend(value)
         return copy_with(obj, **keys), values
     else:
-        raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")
+        backend = choose_backend(obj)
+        assert backend.ndims(obj) == 0, f"Only scalar native tensors can only be used in function inputs/outputs but got tensor with shape {backend.shape(obj)}"
+        return None, [NativeTensor(obj, EMPTY_SHAPE)]
 
 
 def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:

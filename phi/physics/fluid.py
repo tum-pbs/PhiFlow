@@ -56,7 +56,7 @@ def make_incompressible(velocity: Grid,
         lap = where(active, div, p)
         return lap
 
-    if not solve.x0:
+    if solve.x0 is None:
         solve = copy_with(solve, x0=grid(0, div.resolution, div.bounds, boundaries['scalar']))
     pressure = field.solve_linear(laplace, y=div, solve=solve)
     if boundaries['accessible'] == math.extrapolation.ZERO or boundaries['vector'] == math.extrapolation.PERIODIC:
