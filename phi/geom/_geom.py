@@ -1,3 +1,4 @@
+from numbers import Number
 from typing import Dict
 
 import numpy as np
@@ -95,7 +96,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor) -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
         """
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
@@ -110,8 +111,10 @@ class Geometry:
         The default implementation of this method approximates other_geometry as a Sphere and computes the fraction using `approximate_signed_distance()`.
 
         Args:
-          other_geometry: batched) Geometry instance
-          other_geometry: Geometry:
+            other_geometry: `Geometry` or geometry batch for which to compute the overlap with `self`.
+            balance: Mid-level between 0 and 1, default 0.5.
+                This value is returned when exactly half of `other_geometry` lies inside `self`.
+                `0.5 < balance <= 1` makes `self` seem larger while `0 <= balance < 0.5`makes `self` seem smaller.
 
         Returns:
           fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).

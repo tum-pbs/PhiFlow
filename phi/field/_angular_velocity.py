@@ -1,4 +1,5 @@
 from collections import Callable
+from numbers import Number
 
 from phi import math
 
@@ -9,9 +10,13 @@ from ..math import Shape, GLOBAL_AXIS_ORDER
 
 class AngularVelocity(Field):
 
-    def __init__(self, location, strength=1.0, falloff: Callable = None, component: str = None):
+    def __init__(self,
+                 location: math.Tensor or tuple or list or Number,
+                 strength: math.Tensor or Number = 1.0,
+                 falloff: Callable = None,
+                 component: str = None):
         location = math.wrap(location)
-        strength = math.tensor(strength, convert=True)
+        strength = math.wrap(strength)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
         assert location.shape.spatial.is_empty, "location tensor cannot have any spatial dimensions"
         self.location = location
@@ -40,6 +45,6 @@ class AngularVelocity(Field):
         if 'vector' in item:
             assert item['vector'] == 0 or self.component is None
             component = self.shape.spatial.names[item['vector']]
-            return AngularVelocity(location=self.location, strength=self.strength, falloff=self.falloff, component=component)
+            return AngularVelocity(self.location, self.strength, self.falloff, component)
         else:
             return self

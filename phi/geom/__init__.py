@@ -1,5 +1,11 @@
 """
-Differentiable geometry.
+Differentiable geometry package.
+
+Classes:
+
+* `Geometry` (abstract)
+* `Box`
+* `Sphere`
 
 See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geometry.html
 """

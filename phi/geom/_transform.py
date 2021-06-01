@@ -10,10 +10,9 @@ from ._sphere import Sphere
 class RotatedGeometry(Geometry):
 
     def __init__(self, geometry: Geometry, angle: float or math.Tensor):
-        if isinstance(geometry, RotatedGeometry):
-            warnings.warn('Using RotatedGeometry of RotatedGeometry. Consider simplifying your setup.')
+        assert not isinstance(geometry, RotatedGeometry)
         self._geometry = geometry
-        self._angle = math.tensor(angle, convert=True)
+        self._angle = math.wrap(angle)
 
     @property
     def shape(self):
@@ -46,15 +45,7 @@ class RotatedGeometry(Geometry):
         return math.channel_stack([rot_y, rot_x], 'vector')
 
     def global_to_child(self, location):
-        """
-        Inverse transform
-
-        Args:
-          location:
-
-        Returns:
-
-        """
+        """ Inverse transform. """
         delta = location - self.center
         if location.shape.vector == 2:
             rotated = self._rotate(delta)
@@ -95,9 +86,7 @@ class RotatedGeometry(Geometry):
 
 
 def rotate(geometry: Geometry, angle: Number or Tensor) -> Geometry:
-    """
-    package-internal rotation function. Users should use Geometry.rotated() instead.
-    """
+    """ Package-internal rotation function. Users should use Geometry.rotated() instead. """
     assert isinstance(geometry, Geometry)
     if isinstance(geometry, RotatedGeometry):
         total_rotation = geometry.angle + angle  # ToDo concatenate rotations
