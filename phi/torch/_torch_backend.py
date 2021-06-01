@@ -748,8 +748,8 @@ def torch_sparse_cg(lin, y, x0, rtol, atol, max_iter):
     x = x0
     dx = residual = y - sparse_matmul(lin, x)
     it_counter = torch.tensor(0, dtype=torch.int32, device=x.device)
-    iterations = torch.zeros([batch_size], dtype=torch.int32)
-    function_evaluations = torch.ones([batch_size], dtype=torch.int32)
+    iterations = torch.zeros([batch_size], dtype=torch.int32, device=x.device)
+    function_evaluations = torch.ones([batch_size], dtype=torch.int32, device=x.device)
     residual_squared = rsq0 = torch.sum(residual ** 2, -1, keepdim=True)
     diverged = torch.any(~torch.isfinite(x), dim=1)
     converged = torch.all(residual_squared <= tolerance_sq, dim=1)
@@ -761,14 +761,14 @@ def torch_sparse_cg(lin, y, x0, rtol, atol, max_iter):
         step_size = divide_no_nan(residual_squared, dx_dy)
         step_size *= torch.unsqueeze(not_finished_1.to(y.dtype), -1)  # this is not really necessary but ensures batch-independence
         x += step_size * dx
-        if it_counter % 50 == 0:
+        if it_counter % 20 == 0:
             residual = y - sparse_matmul(lin, x); function_evaluations += 1
         else:
             residual = residual - step_size * dy  # in-place subtraction affects convergence
         residual_squared_old = residual_squared
         residual_squared = torch.sum(residual ** 2, -1, keepdim=True)
         dx = residual + divide_no_nan(residual_squared, residual_squared_old) * dx
-        diverged = torch.any(residual_squared / rsq0 > 16, dim=1)  # factor 4
+        diverged = torch.any(residual_squared / rsq0 > 100, dim=1) & (iterations >= 8)
         converged = torch.all(residual_squared <= tolerance_sq, dim=1)
         finished = converged | diverged | (iterations >= max_iter); not_finished_1 = (~finished).to(torch.int32)
     return x, residual, iterations, function_evaluations, converged, diverged
@@ -781,8 +781,8 @@ def torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter):
     x = x0
     dx = residual = y - sparse_matmul(lin, x)
     it_counter = torch.tensor(0, dtype=torch.int32, device=x.device)
-    iterations = torch.zeros([batch_size], dtype=torch.int32)
-    function_evaluations = torch.ones([batch_size], dtype=torch.int32)
+    iterations = torch.zeros([batch_size], dtype=torch.int32, device=x.device)
+    function_evaluations = torch.ones([batch_size], dtype=torch.int32, device=x.device)
     residual_squared = rsq0 = torch.sum(residual ** 2, -1, keepdim=True)
     diverged = torch.any(~torch.isfinite(x), dim=1)
     converged = torch.all(residual_squared <= tolerance_sq, dim=1)
@@ -794,13 +794,13 @@ def torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter):
         step_size = divide_no_nan(torch.sum(dx * residual, dim=1, keepdim=True), dx_dy)
         step_size *= torch.unsqueeze(not_finished_1.to(y.dtype), -1)  # this is not really necessary but ensures batch-independence
         x += step_size * dx
-        if it_counter % 50 == 0:
+        if it_counter % 20 == 0:
             residual = y - sparse_matmul(lin, x); function_evaluations += 1
         else:
             residual = residual - step_size * dy  # in-place subtraction affects convergence
         residual_squared = torch.sum(residual ** 2, -1, keepdim=True)
         dx = residual - divide_no_nan(torch.sum(residual * dy, dim=1, keepdim=True) * dx, dx_dy)
-        diverged = torch.any(residual_squared / rsq0 > 16, dim=1)  # factor 4
+        diverged = torch.any(residual_squared / rsq0 > 100, dim=1) & (iterations >= 8)
         converged = torch.all(residual_squared <= tolerance_sq, dim=1)
         finished = converged | diverged | (iterations >= max_iter); not_finished_1 = (~finished).to(torch.int32)
     return x, residual, iterations, function_evaluations, converged, diverged
