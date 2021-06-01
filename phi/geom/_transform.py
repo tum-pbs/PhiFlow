@@ -13,7 +13,7 @@ class RotatedGeometry(Geometry):
         if isinstance(geometry, RotatedGeometry):
             warnings.warn('Using RotatedGeometry of RotatedGeometry. Consider simplifying your setup.')
         self._geometry = geometry
-        self._angle = math.wrap(angle)
+        self._angle = math.tensor(angle, convert=True)
 
     @property
     def shape(self):
@@ -46,7 +46,7 @@ class RotatedGeometry(Geometry):
         Inverse transform
 
         Args:
-          location: 
+          location:
 
         Returns:
 

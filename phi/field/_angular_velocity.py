@@ -10,6 +10,7 @@ class AngularVelocity(Field):
 
     def __init__(self, location, strength=1.0, falloff: Callable = None):
         location = math.wrap(location)
+        strength = math.tensor(strength, convert=True)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
         assert location.shape.spatial.is_empty, "location tensor cannot have any spatial dimensions"
         self.location = location

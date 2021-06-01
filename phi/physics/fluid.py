@@ -3,7 +3,7 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 """
 
 from phi import math, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, spatial_gradient, where, HardGeometryMask
+from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, spatial_gradient, where, HardGeometryMask
 from phi.geom import union
 from ._boundaries import Domain
 
@@ -15,7 +15,7 @@ def make_incompressible(velocity: Grid,
                         pressure_guess: CenteredGrid = None):
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
-    
+
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
@@ -33,11 +33,11 @@ def make_incompressible(velocity: Grid,
 
     """
     input_velocity = velocity
+    velocity = apply_boundary_conditions(velocity, domain, obstacles).with_(extrapolation=domain.boundaries['near_vector_extrapolation'])
     active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries['active_extrapolation'])
     accessible = domain.grid(active, extrapolation=domain.boundaries['accessible_extrapolation'])
     hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries['accessible_extrapolation'], type=type(velocity))
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries['near_vector_extrapolation'])
-    div = divergence(velocity)
+    div = divergence(velocity) * active
     if domain.boundaries['near_vector_extrapolation'] == math.extrapolation.BOUNDARY:
         div -= field.mean(div)
 
@@ -61,30 +61,33 @@ def make_incompressible(velocity: Grid,
     return velocity, pressure, iterations, div
 
 
-def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
+def apply_boundary_conditions(velocity: Grid, domain: Domain, obstacles: tuple or list):
     """
-    Enforces obstacle boundary conditions on a velocity grid.
+    Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
-    Cells outside will be unaffected.
+    Cells outside far away will be unaffected.
 
     Args:
       velocity: centered or staggered velocity grid
+      domain: simulation domain
       obstacles: sequence of Obstacles
-      velocity: Grid: 
-      obstacles: tuple or list: 
+      velocity: Grid:
+      domain: Domain:
+      obstacles: tuple or list:
 
     Returns:
       velocity of same type as `velocity`
 
     """
+    # Mask hard boundaries and obstacle
+    bcs = field.stagger(domain.scalar_grid(1, domain.boundaries['accessible_extrapolation']), math.minimum, domain.boundaries['accessible_extrapolation'], type=type(velocity))
+    bcs *= 1 - (HardGeometryMask(union([obstacle.geometry for obstacle in obstacles])) >> bcs)
+    velocity *= bcs
+    # Add obstacle velocity to fluid
     for obstacle in obstacles:
         if not obstacle.is_stationary:
-            obs_mask = GeometryMask(obstacle.geometry)
-            obs_mask = obs_mask.at(velocity)
+            obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) >> velocity
             angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None).at(velocity)
             obs_vel = angular_velocity + obstacle.velocity
             velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
     return velocity
-
-
-
