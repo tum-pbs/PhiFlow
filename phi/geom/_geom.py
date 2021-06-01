@@ -10,12 +10,12 @@ from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE, GLOBAL_AXIS_ORDE
 class Geometry:
     """
     Abstract base class for N-dimensional shapes.
-    
+
     Main implementing classes:
-    
+
     * Sphere
     * box family: box (generator), Box, Cuboid, AbstractBox
-    
+
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
     All batch dimensions are listed in Geometry.shape.
@@ -60,7 +60,7 @@ class Geometry:
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor: 
+          location: Tensor:
 
         Returns:
           bool tensor of shape (*location.shape[:-1], 1).
@@ -72,14 +72,14 @@ class Geometry:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
-        
+
         The exact distance metric used depends on the geometry.
         The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
         The distance metric is differentiable and its gradients are bounded at every point in space.
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor: 
+          location: Tensor:
 
         Returns:
           float tensor of shape (*location.shape[:-1], 1).
@@ -87,23 +87,23 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: 'Geometry') -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor) -> Tensor:
         """
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
         Close to the surface of this geometry, the fraction filled is differentiable w.r.t. the location and size of `other_geometry`.
-        
+
         To call this method on batches of geometries of same shape, pass a batched Geometry instance.
         The result tensor will match the batch shape of `other_geometry`.
-        
+
         The result may only be accurate in special cases.
         The given geometries may be approximated as spheres or boxes using `bounding_radius()` and `bounding_half_extent()`.
-        
+
         The default implementation of this method approximates other_geometry as a Sphere and computes the fraction using `approximate_signed_distance()`.
 
         Args:
           other_geometry: batched) Geometry instance
-          other_geometry: Geometry: 
+          other_geometry: Geometry:
 
         Returns:
           fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).
@@ -113,7 +113,7 @@ class Geometry:
         radius = other_geometry.bounding_radius()
         location = other_geometry.center
         distance = self.approximate_signed_distance(location)
-        inside_fraction = 0.5 - distance / radius
+        inside_fraction = balance - distance / radius
         inside_fraction = math.clip(inside_fraction, 0, 1)
         return inside_fraction
 
@@ -135,7 +135,7 @@ class Geometry:
         """
         Returns the radius of a Sphere object that fully encloses this geometry.
         The sphere is centered at the center of this geometry.
-        
+
         :return: radius of type float
 
         Args:
@@ -149,10 +149,10 @@ class Geometry:
         """
         The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
         Each component is non-negative.
-        
+
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
-        
+
         :return: float vector
 
         Args:
@@ -168,7 +168,7 @@ class Geometry:
 
         Args:
           delta: direction vector
-          delta: Tensor: 
+          delta: Tensor:
 
         Returns:
           Geometry: shifted geometry
@@ -332,4 +332,3 @@ def _fill_spatial_with_singleton(shape):
         assert shape.spatial.rank == 0, shape
         names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.vector) for i in range(shape.vector)]
         return shape.combined(spatial_shape([1] * shape.vector, names=names))
-
