@@ -15,7 +15,7 @@ from ..math._tensors import copy_with
 def make_incompressible(velocity: Grid,
                         domain: Domain,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, SolveInfo]:
+                        solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -39,7 +39,7 @@ def make_incompressible(velocity: Grid,
     accessible = active.with_(extrapolation=boundaries['accessible'])
     hard_bcs = field.stagger(accessible, math.minimum, boundaries['accessible'], type=type(velocity))
     v_bc_div = boundaries['vector'] * boundaries['accessible']
-    velocity = apply_boundary_conditions(velocity, domain, obstacles).with_(extrapolation=v_bc_div)
+    velocity = apply_boundary_conditions(velocity, obstacles, boundaries).with_(extrapolation=v_bc_div)
     div = divergence(velocity) * active
     if boundaries['accessible'] == math.extrapolation.ZERO or boundaries['vector'] == math.extrapolation.PERIODIC:
         div = _balance_divergence(div, active)
@@ -75,7 +75,7 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Grid, domain: Domain, obstacles: tuple or list):
+def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list, boundaries: dict):
     """
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -83,7 +83,7 @@ def apply_boundary_conditions(velocity: Grid, domain: Domain, obstacles: tuple o
 
     Args:
       velocity: centered or staggered velocity grid
-      domain: simulation domain
+      boundaries: simulation domain
       obstacles: sequence of Obstacles
 
     Returns:
@@ -91,7 +91,7 @@ def apply_boundary_conditions(velocity: Grid, domain: Domain, obstacles: tuple o
 
     """
     # Mask hard boundaries and obstacle
-    bcs = field.stagger(domain.scalar_grid(1, domain.boundaries['accessible_extrapolation']), math.minimum, domain.boundaries['accessible_extrapolation'], type=type(velocity))
+    bcs = field.stagger(grid(1, velocity.resolution, velocity.bounds, boundaries['accessible']), math.minimum, boundaries['accessible'], type=type(velocity))
     bcs *= 1 - (HardGeometryMask(union([obstacle.geometry for obstacle in obstacles])) >> bcs)
     velocity *= bcs
     # Add obstacle velocity to fluid
