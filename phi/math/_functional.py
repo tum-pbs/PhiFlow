@@ -1046,7 +1046,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        return y_tensors[0].sum, y_tensors[0].native()
+        return y_tensors[0].sum, reshaped_native(y_tensors[0], [batch])
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))

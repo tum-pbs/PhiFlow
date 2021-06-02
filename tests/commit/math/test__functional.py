@@ -123,6 +123,11 @@ class TestFunctional(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.functional_gradient):
                 with backend:
+                    x0 = tensor([0, 0, 0], 'x'), tensor([-1, -1, -1], 'y')
+                    x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
+                    math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
+                    math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
+
                     x0 = tensor([[0, 0, 0], [1, 1, 1]], 'batch,x'), tensor([[0, 0, 0], [-1, -1, -1]], 'batch,y')
                     x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
                     math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
