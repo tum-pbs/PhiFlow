@@ -527,7 +527,7 @@ class ShiftLinTracer(Tensor):
         Returns:
 
         """
-        order = parse_dim_order(order)
+        order = parse_dim_order(order, check_rank=self.rank)
         result = self.apply(self.source)
         result_order = order if order is not None else self._shape.names
         return result.native(result_order)

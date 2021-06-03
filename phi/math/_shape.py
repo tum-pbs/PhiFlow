@@ -752,8 +752,10 @@ def parse_dim_names(obj: str or tuple or list or Shape, count: int) -> tuple:
     raise ValueError(obj)
 
 
-def parse_dim_order(order: str or tuple or list or Shape or None) -> tuple or None:
+def parse_dim_order(order: str or tuple or list or Shape or None, check_rank: int = None) -> tuple or None:
     if order is None:
+        if check_rank is not None:
+            assert check_rank <= 1, "When calling Tensor.native() or Tensor.numpy(), the dimension order must be specified for Tensors with more than one dimension. The listed default dimension order can vary depending on the chosen backend."
         return None
     elif isinstance(order, Shape):
         return order.names

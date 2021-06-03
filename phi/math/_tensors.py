@@ -699,7 +699,7 @@ class NativeTensor(Tensor):
         self._shape = shape
 
     def native(self, order: str or tuple or list = None):
-        order = parse_dim_order(order)
+        order = parse_dim_order(order, check_rank=self.rank)
         if order is None or tuple(order) == self.shape.names:
             return self._native
         # --- Insert missing dims ---
@@ -850,7 +850,7 @@ class CollapsedTensor(Tensor):  # package-private
     def native(self, order: str or tuple or list = None):
         if self.is_cached:
             return self._cached.native(order)
-        order = parse_dim_order(order)
+        order = parse_dim_order(order, check_rank=self.rank)
         if order is None or tuple(order) == self.shape.names:
             return self._cache().native()
         else:
@@ -1027,7 +1027,7 @@ class TensorStack(Tensor):
         if self._cached is not None:
             return self._cached.native(order=order)
         else:
-            order = parse_dim_order(order)
+            order = parse_dim_order(order, check_rank=self.rank)
             # Is only the stack dimension shifted?
             if order is not None and self._shape.without(self.stack_dim_name).names == tuple(filter(lambda name: name != self.stack_dim_name, order)):
                 natives = [t.native() for t in self.tensors]
