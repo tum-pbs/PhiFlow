@@ -668,47 +668,47 @@ def _closest_grid_values(grid: Tensor,
     return result
 
 
-def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation_.Extrapolation'):
+def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation'):
     result = broadcast_op(functools.partial(_grid_sample, extrap=extrap), [grid, coordinates])
     return result
 
 
-def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'extrapolation_.Extrapolation' or None):
+def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' or None):
     if grid.shape.batch == coordinates.shape.batch or grid.shape.batch.volume == 1 or coordinates.shape.batch.volume == 1:
-        # reshape batch dimensions, delegate to backend.grid_sample()
-        grid_batched = join_dimensions(join_dimensions(grid, grid.shape.batch, 'batch'), grid.shape.channel, 'vector')
-        coordinates_batched = join_dimensions(coordinates, coordinates.shape.batch, 'batch')
-        backend = choose_backend(*grid._natives())
+        # call backend.grid_sample()
+        batch = grid.shape.batch & coordinates.shape.batch
+        backend = choose_backend_t(grid, coordinates)
         result = NotImplemented
         if extrap is None:
-            result = backend.grid_sample(grid_batched.native(),
+            result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial.names, grid.shape.channel]),
                                          grid.shape.index(grid.shape.spatial),
-                                         coordinates_batched.native(),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.non_batch.names]),
                                          'undefined')
         elif extrap.native_grid_sample_mode:
-            result = backend.grid_sample(grid_batched.native(),
+            result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial.names, grid.shape.channel]),
                                          grid.shape.index(grid.shape.spatial),
-                                         coordinates_batched.native(),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.non_batch.names]),
                                          extrap.native_grid_sample_mode)
         if result is NotImplemented:
             # pad one layer
-            grid_batched = pad(grid_batched, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or e_.ZERO)
+            grid_padded = pad(grid, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or e_.ZERO)
             if extrap is not None:
                 from .extrapolation import _CopyExtrapolation
                 if isinstance(extrap, _CopyExtrapolation):
-                    inner_coordinates = extrap.transform_coordinates(coordinates_batched, grid.shape) + 1
+                    inner_coordinates = extrap.transform_coordinates(coordinates, grid.shape) + 1
                 else:
-                    inner_coordinates = extrap.transform_coordinates(coordinates_batched + 1, grid_batched.shape)
+                    inner_coordinates = extrap.transform_coordinates(coordinates + 1, grid_padded.shape)
             else:
-                inner_coordinates = coordinates_batched + 1
-            result = backend.grid_sample(grid_batched.native(),
+                inner_coordinates = coordinates + 1
+            result = backend.grid_sample(reshaped_native(grid_padded, [batch, *grid_padded.shape.spatial.names, grid.shape.channel]),
                                          grid.shape.index(grid.shape.spatial),
-                                         inner_coordinates.native(),
+                                         reshaped_native(inner_coordinates, [batch, *coordinates.shape.non_batch.names]),
                                          'boundary')
         if result is not NotImplemented:
-            result_shape = shape_(batch=max(grid.shape.batch.volume, coordinates.shape.batch.volume)) & coordinates_batched.shape.spatial & grid_batched.shape.channel
-            result = NativeTensor(result, result_shape)
-            result = result.batch.split(grid.shape.batch & coordinates.shape.batch).vector.split(grid.shape.channel)
+            result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.spatial.names, grid.shape.channel])
+            # result_shape = shape_(batch=max(grid.shape.batch.volume, coordinates.shape.batch.volume)) & coordinates_batched.shape.spatial & grid_batched.shape.channel
+            # result = NativeTensor(result, result_shape)
+            # result = result.batch.split(grid.shape.batch & coordinates.shape.batch).vector.split(grid.shape.channel)
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, 'closest_')
@@ -1352,20 +1352,12 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
 
 
 def gather(values: Tensor, indices: Tensor):
-    b_values = join_dimensions(values, values.shape.batch, 'batch')
-    b_values = join_dimensions(b_values, b_values.shape.channel, 'channel', pos=-1)
-    b_indices = _expand_dims(indices, values.shape.batch)
-    b_indices = join_dimensions(b_indices, values.shape.batch, 'batch')
-    native_values = b_values.native()
-    native_indices = b_indices.native()
+    batch = values.shape.batch & indices.shape.batch
+    native_values = reshaped_native(values, [batch, *values.shape.spatial, values.shape.channel])
+    native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result_shape = Shape(backend.staticshape(native_result),
-                         ('batch', *indices.shape.non_channel.without(values.shape.batch).names, 'vector'),
-                         (BATCH_DIM, *indices.shape.non_channel.without(values.shape.batch).types, CHANNEL_DIM))
-    b_result = NativeTensor(native_result, result_shape)
-    result = split_dimension(b_result, 'vector', values.shape.channel)
-    result = split_dimension(result, 'batch', values.shape.batch)
+    result = reshaped_tensor(native_result, [batch, *indices.shape.spatial, values.shape.channel])
     return result
 
 

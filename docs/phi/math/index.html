@@ -1762,20 +1762,12 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def gather(values: Tensor, indices: Tensor):
-    b_values = join_dimensions(values, values.shape.batch, &#39;batch&#39;)
-    b_values = join_dimensions(b_values, b_values.shape.channel, &#39;channel&#39;, pos=-1)
-    b_indices = _expand_dims(indices, values.shape.batch)
-    b_indices = join_dimensions(b_indices, values.shape.batch, &#39;batch&#39;)
-    native_values = b_values.native()
-    native_indices = b_indices.native()
+    batch = values.shape.batch &amp; indices.shape.batch
+    native_values = reshaped_native(values, [batch, *values.shape.spatial, values.shape.channel])
+    native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result_shape = Shape(backend.staticshape(native_result),
-                         (&#39;batch&#39;, *indices.shape.non_channel.without(values.shape.batch).names, &#39;vector&#39;),
-                         (BATCH_DIM, *indices.shape.non_channel.without(values.shape.batch).types, CHANNEL_DIM))
-    b_result = NativeTensor(native_result, result_shape)
-    result = split_dimension(b_result, &#39;vector&#39;, values.shape.channel)
-    result = split_dimension(result, &#39;batch&#39;, values.shape.batch)
+    result = reshaped_tensor(native_result, [batch, *indices.shape.spatial, values.shape.channel])
     return result</code></pre>
 </details>
 </dd>
@@ -1860,7 +1852,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 </details>
 </dd>
 <dt id="phi.math.grid_sample"><code class="name flex">
-<span>def <span class="ident">grid_sample</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: extrapolation_.Extrapolation)</span>
+<span>def <span class="ident">grid_sample</span></span>(<span>grid: phi.math._tensors.Tensor, coordinates: phi.math._tensors.Tensor, extrap: e_.Extrapolation)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1868,7 +1860,7 @@ If empty, computes the gradients w.r.t. all marked tensors.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def grid_sample(grid: Tensor, coordinates: Tensor, extrap: &#39;extrapolation_.Extrapolation&#39;):
+<pre><code class="python">def grid_sample(grid: Tensor, coordinates: Tensor, extrap: &#39;e_.Extrapolation&#39;):
     result = broadcast_op(functools.partial(_grid_sample, extrap=extrap), [grid, coordinates])
     return result</code></pre>
 </details>
@@ -2564,7 +2556,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        return y_tensors[0].sum, y_tensors[0].native()
+        return y_tensors[0].sum, reshaped_native(y_tensors[0], [batch])
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
@@ -3507,7 +3499,7 @@ The order of dims must be equal to <code>start</code> and <code>grid.shape.spati
     assert grid.shape.spatial.names == size.names
     assert math.all_available(start), &#34;Cannot perform sample_subgrid() during tracing, &#39;start&#39; must be known.&#34;
     discard = {}
-    for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size):
+    for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size.sizes):
         discard[dim] = slice(int(d_start), int(d_start) + d_size + (1 if d_start != 0 else 0))
     grid = grid[discard]
     upper_weight = start % 1
@@ -5788,10 +5780,12 @@ All arguments must have same length.</p>
 
     def __getitem__(self, selection):
         if isinstance(selection, int):
-            return self.sizes[selection]
+            return Shape([self.sizes[selection]], [self.names[selection]], [self.types[selection]])
         elif isinstance(selection, slice):
             return Shape(self.sizes[selection], self.names[selection], self.types[selection])
-        return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
+        elif isinstance(selection, (tuple, list)):
+            return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
+        raise AssertionError(&#34;Can only access shape elements as shape[int] or shape[slice]&#34;)
 
     @property
     def batch(self) -&gt; &#39;Shape&#39;:
@@ -5933,8 +5927,12 @@ All arguments must have same length.</p>
     @property
     def name(self) -&gt; str:
         &#34;&#34;&#34; Only for shapes with a single dimension. Returns the name of the dimension. &#34;&#34;&#34;
-        assert self.rank == 1, &#39;Shape.name is only defined for shapes of rank 1.&#39;
+        assert self.rank == 1, &#34;Shape.name is only defined for shapes of rank 1.&#34;
         return self.names[0]
+
+    def __int__(self):
+        assert self.rank == 1, &#34;int(Shape) is only defined for shapes of rank 1.&#34;
+        return self.sizes[0]
 
     def mask(self, names: tuple or list or set):
         &#34;&#34;&#34;
@@ -6575,7 +6573,7 @@ def is_uniform(self) -&gt; bool:
 <pre><code class="python">@property
 def name(self) -&gt; str:
     &#34;&#34;&#34; Only for shapes with a single dimension. Returns the name of the dimension. &#34;&#34;&#34;
-    assert self.rank == 1, &#39;Shape.name is only defined for shapes of rank 1.&#39;
+    assert self.rank == 1, &#34;Shape.name is only defined for shapes of rank 1.&#34;
     return self.names[0]</code></pre>
 </details>
 </dd>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.2" />
 <title>phi.geom API documentation</title>
-<meta name="description" content="Differentiable geometry …" />
+<meta name="description" content="Differentiable geometry package …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,21 +22,33 @@
 <h1 class="title">Module <code>phi.geom</code></h1>
 </header>
 <section id="section-intro">
-<p>Differentiable geometry.</p>
+<p>Differentiable geometry package.</p>
+<p>Classes:</p>
+<ul>
+<li><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> (base type)</li>
+<li><code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a></code></li>
+<li><code><a title="phi.geom.Sphere" href="#phi.geom.Sphere">Sphere</a></code></li>
+</ul>
 <p>See the <code><a title="phi.geom" href="#phi.geom">phi.geom</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Geometry.html">https://tum-pbs.github.io/PhiFlow/Geometry.html</a></p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-Differentiable geometry.
+Differentiable geometry package.
+
+Classes:
+
+* `Geometry` (base type)
+* `Box`
+* `Sphere`
 
 See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geometry.html
 &#34;&#34;&#34;
 
 from ._geom import Geometry, Point, assert_same_rank
 from ._union import union
-from ._box import Box, GridCell, AbstractBox
+from ._box import Box, GridCell, BaseBox
 from ._sphere import Sphere
 from ._stack import stack
 from ._geom_math import concat, invert
@@ -206,24 +218,19 @@ A point lies inside the union if it lies within at least one of the geometries.<
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="phi.geom.AbstractBox"><code class="flex name class">
-<span>class <span class="ident">AbstractBox</span></span>
+<dt id="phi.geom.BaseBox"><code class="flex name class">
+<span>class <span class="ident">BaseBox</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Abstract base class for N-dimensional shapes.</p>
-<p>Main implementing classes:</p>
-<ul>
-<li>Sphere</li>
-<li>box family: box (generator), Box, Cuboid, AbstractBox</li>
-</ul>
-<p>All geometry objects support batching.
-Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
-All batch dimensions are listed in Geometry.shape.</p></div>
+<div class="desc"><p>Abstract base type for box-like geometries.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class AbstractBox(Geometry):
+<pre><code class="python">class BaseBox(Geometry):  # not a Subwoofer
+    &#34;&#34;&#34;
+    Abstract base type for box-like geometries.
+    &#34;&#34;&#34;
 
     def unstack(self, dimension):
         raise NotImplementedError()
@@ -245,7 +252,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def center(self) -&gt; Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta) -&gt; &#39;AbstractBox&#39;:
+    def shifted(self, delta) -&gt; &#39;BaseBox&#39;:
         raise NotImplementedError()
 
     @property
@@ -328,7 +335,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def center_representation(self) -&gt; &#39;Cuboid&#39;:
         return Cuboid(self.center, self.half_size)
 
-    def contains(self, other: &#39;AbstractBox&#39;):
+    def contains(self, other: &#39;BaseBox&#39;):
         &#34;&#34;&#34; Tests if the other box lies fully inside this box. &#34;&#34;&#34;
         return np.all(other.lower &gt;= self.lower) and np.all(other.upper &lt;= self.upper)
 
@@ -347,7 +354,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.geom.AbstractBox.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
 <details class="source">
@@ -359,7 +366,7 @@ def center(self) -&gt; Tensor:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.half_size"><code class="name">var <span class="ident">half_size</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.half_size"><code class="name">var <span class="ident">half_size</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -371,7 +378,7 @@ def half_size(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.lower"><code class="name">var <span class="ident">lower</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.lower"><code class="name">var <span class="ident">lower</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -383,7 +390,7 @@ def lower(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.shape"><code class="name">var <span class="ident">shape</span></code></dt>
+<dt id="phi.geom.BaseBox.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
 <div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
 <details class="source">
@@ -395,7 +402,7 @@ def shape(self):
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.size"><code class="name">var <span class="ident">size</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.size"><code class="name">var <span class="ident">size</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -407,7 +414,7 @@ def size(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.upper"><code class="name">var <span class="ident">upper</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.upper"><code class="name">var <span class="ident">upper</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -419,7 +426,7 @@ def upper(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
 The result retains all batch dimensions while collection dimensions are summed over.</p></div>
@@ -435,7 +442,7 @@ def volume(self) -&gt; Tensor:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.geom.AbstractBox.approximate_signed_distance"><code class="name flex">
+<dt id="phi.geom.BaseBox.approximate_signed_distance"><code class="name flex">
 <span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location)</span>
 </code></dt>
 <dd>
@@ -472,7 +479,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
     return math.max(distance, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.bounding_half_extent"><code class="name flex">
+<dt id="phi.geom.BaseBox.bounding_half_extent"><code class="name flex">
 <span>def <span class="ident">bounding_half_extent</span></span>(<span>self)</span>
 </code></dt>
 <dd>
@@ -491,7 +498,7 @@ Then, no point of the geometry lies further away from its center point than <cod
     return self.size * 0.5</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.bounding_radius"><code class="name flex">
+<dt id="phi.geom.BaseBox.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self)</span>
 </code></dt>
 <dd>
@@ -508,7 +515,7 @@ The sphere is centered at the center of this geometry.</p>
     return math.max(self.size, &#39;vector&#39;) * 1.414214</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.center_representation"><code class="name flex">
+<dt id="phi.geom.BaseBox.center_representation"><code class="name flex">
 <span>def <span class="ident">center_representation</span></span>(<span>self) ‑> phi.geom._box.Cuboid</span>
 </code></dt>
 <dd>
@@ -521,8 +528,8 @@ The sphere is centered at the center of this geometry.</p>
     return Cuboid(self.center, self.half_size)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.contains"><code class="name flex">
-<span>def <span class="ident">contains</span></span>(<span>self, other: <a title="phi.geom.AbstractBox" href="#phi.geom.AbstractBox">AbstractBox</a>)</span>
+<dt id="phi.geom.BaseBox.contains"><code class="name flex">
+<span>def <span class="ident">contains</span></span>(<span>self, other: <a title="phi.geom.BaseBox" href="#phi.geom.BaseBox">BaseBox</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests if the other box lies fully inside this box.</p></div>
@@ -530,12 +537,12 @@ The sphere is centered at the center of this geometry.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def contains(self, other: &#39;AbstractBox&#39;):
+<pre><code class="python">def contains(self, other: &#39;BaseBox&#39;):
     &#34;&#34;&#34; Tests if the other box lies fully inside this box. &#34;&#34;&#34;
     return np.all(other.lower &gt;= self.lower) and np.all(other.upper &lt;= self.upper)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.corner_representation"><code class="name flex">
+<dt id="phi.geom.BaseBox.corner_representation"><code class="name flex">
 <span>def <span class="ident">corner_representation</span></span>(<span>self) ‑> phi.geom._box.Box</span>
 </code></dt>
 <dd>
@@ -548,7 +555,7 @@ The sphere is centered at the center of this geometry.</p>
     return Box(self.lower, self.upper)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.global_to_local"><code class="name flex">
+<dt id="phi.geom.BaseBox.global_to_local"><code class="name flex">
 <span>def <span class="ident">global_to_local</span></span>(<span>self, global_position: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
@@ -564,7 +571,7 @@ The sphere is centered at the center of this geometry.</p>
         return (global_position - self.lower) / self.size</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.lies_inside"><code class="name flex">
+<dt id="phi.geom.BaseBox.lies_inside"><code class="name flex">
 <span>def <span class="ident">lies_inside</span></span>(<span>self, location)</span>
 </code></dt>
 <dd>
@@ -574,7 +581,7 @@ The sphere is centered at the center of this geometry.</p>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
 <dt><strong><code>location</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -587,7 +594,7 @@ The sphere is centered at the center of this geometry.</p>
     return math.all(bool_inside, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.local_to_global"><code class="name flex">
+<dt id="phi.geom.BaseBox.local_to_global"><code class="name flex">
 <span>def <span class="ident">local_to_global</span></span>(<span>self, local_position)</span>
 </code></dt>
 <dd>
@@ -600,7 +607,7 @@ The sphere is centered at the center of this geometry.</p>
     return local_position * self.size + self.lower</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.project"><code class="name flex">
+<dt id="phi.geom.BaseBox.project"><code class="name flex">
 <span>def <span class="ident">project</span></span>(<span>self, *dimensions: str)</span>
 </code></dt>
 <dd>
@@ -615,7 +622,7 @@ The sphere is centered at the center of this geometry.</p>
     return Box(self.lower[indices], self.upper[indices])</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.push"><code class="name flex">
+<dt id="phi.geom.BaseBox.push"><code class="name flex">
 <span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
@@ -648,7 +655,7 @@ The sphere is centered at the center of this geometry.</p>
     return positions + math.where(loc_to_center &lt; 0, 1, -1) * shift</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.rotated"><code class="name flex">
+<dt id="phi.geom.BaseBox.rotated"><code class="name flex">
 <span>def <span class="ident">rotated</span></span>(<span>self, angle)</span>
 </code></dt>
 <dd>
@@ -672,8 +679,8 @@ The geometry is rotated about its center point.</p>
     return rotate(self, angle)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta) ‑> phi.geom._box.AbstractBox</span>
+<dt id="phi.geom.BaseBox.shifted"><code class="name flex">
+<span>def <span class="ident">shifted</span></span>(<span>self, delta) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -682,7 +689,7 @@ The geometry is rotated about its center point.</p>
 <dt><strong><code>delta</code></strong></dt>
 <dd>direction vector</dd>
 <dt><strong><code>delta</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -693,11 +700,11 @@ The geometry is rotated about its center point.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shifted(self, delta) -&gt; &#39;AbstractBox&#39;:
+<pre><code class="python">def shifted(self, delta) -&gt; &#39;BaseBox&#39;:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.AbstractBox.unstack"><code class="name flex">
+<dt id="phi.geom.BaseBox.unstack"><code class="name flex">
 <span>def <span class="ident">unstack</span></span>(<span>self, dimension)</span>
 </code></dt>
 <dd>
@@ -748,7 +755,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Box(AbstractBox, metaclass=BoxType):
+<pre><code class="python">class Box(BaseBox, metaclass=BoxType):
     &#34;&#34;&#34;
     Simple cuboid defined by location of lower and upper corner in physical space.
 
@@ -779,7 +786,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
         return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))
 
     def __eq__(self, other):
-        return isinstance(other, AbstractBox)\
+        return isinstance(other, BaseBox)\
                and self.shape.alphabetically() == other.shape.alphabetically()\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
@@ -825,7 +832,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.geom._box.AbstractBox</li>
+<li>phi.geom._box.BaseBox</li>
 <li>phi.geom._geom.Geometry</li>
 </ul>
 <h3>Instance variables</h3>
@@ -921,7 +928,7 @@ def upper(self):
 <dt><strong><code>delta</code></strong></dt>
 <dd>direction vector</dd>
 <dt><strong><code>delta</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -973,7 +980,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <p>Main implementing classes:</p>
 <ul>
 <li>Sphere</li>
-<li>box family: box (generator), Box, Cuboid, AbstractBox</li>
+<li>box family: box (generator), Box, Cuboid, BaseBox</li>
 </ul>
 <p>All geometry objects support batching.
 Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
@@ -985,12 +992,12 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 <pre><code class="python">class Geometry:
     &#34;&#34;&#34;
     Abstract base class for N-dimensional shapes.
-    
+
     Main implementing classes:
-    
+
     * Sphere
-    * box family: box (generator), Box, Cuboid, AbstractBox
-    
+    * box family: box (generator), Box, Cuboid, BaseBox
+
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
     All batch dimensions are listed in Geometry.shape.
@@ -1043,7 +1050,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor: 
+          location: Tensor:
 
         Returns:
           bool tensor of shape (*location.shape[:-1], 1).
@@ -1055,14 +1062,14 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
-        
+
         The exact distance metric used depends on the geometry.
         The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
         The distance metric is differentiable and its gradients are bounded at every point in space.
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor: 
+          location: Tensor:
 
         Returns:
           float tensor of shape (*location.shape[:-1], 1).
@@ -1070,23 +1077,25 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;) -&gt; Tensor:
+    def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;, balance: Tensor or Number = 0.5) -&gt; Tensor:
         &#34;&#34;&#34;
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
         Close to the surface of this geometry, the fraction filled is differentiable w.r.t. the location and size of `other_geometry`.
-        
+
         To call this method on batches of geometries of same shape, pass a batched Geometry instance.
         The result tensor will match the batch shape of `other_geometry`.
-        
+
         The result may only be accurate in special cases.
         The given geometries may be approximated as spheres or boxes using `bounding_radius()` and `bounding_half_extent()`.
-        
+
         The default implementation of this method approximates other_geometry as a Sphere and computes the fraction using `approximate_signed_distance()`.
 
         Args:
-          other_geometry: batched) Geometry instance
-          other_geometry: Geometry: 
+            other_geometry: `Geometry` or geometry batch for which to compute the overlap with `self`.
+            balance: Mid-level between 0 and 1, default 0.5.
+                This value is returned when exactly half of `other_geometry` lies inside `self`.
+                `0.5 &lt; balance &lt;= 1` makes `self` seem larger while `0 &lt;= balance &lt; 0.5`makes `self` seem smaller.
 
         Returns:
           fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).
@@ -1096,7 +1105,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         radius = other_geometry.bounding_radius()
         location = other_geometry.center
         distance = self.approximate_signed_distance(location)
-        inside_fraction = 0.5 - distance / radius
+        inside_fraction = balance - distance / radius
         inside_fraction = math.clip(inside_fraction, 0, 1)
         return inside_fraction
 
@@ -1118,7 +1127,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         Returns the radius of a Sphere object that fully encloses this geometry.
         The sphere is centered at the center of this geometry.
-        
+
         :return: radius of type float
 
         Args:
@@ -1132,10 +1141,10 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
         Each component is non-negative.
-        
+
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
-        
+
         :return: float vector
 
         Args:
@@ -1151,7 +1160,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 
         Args:
           delta: direction vector
-          delta: Tensor: 
+          delta: Tensor:
 
         Returns:
           Geometry: shifted geometry
@@ -1236,7 +1245,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li>phi.geom._box.AbstractBox</li>
+<li>phi.geom._box.BaseBox</li>
 <li>phi.geom._geom.Point</li>
 <li>phi.geom._geom._InvertedGeometry</li>
 <li>phi.geom._geom._NoGeometry</li>
@@ -1311,7 +1320,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Geometry.approximate_fraction_inside"><code class="name flex">
-<span>def <span class="ident">approximate_fraction_inside</span></span>(<span>self, other_geometry: <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a>) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_fraction_inside</span></span>(<span>self, other_geometry: <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a>, balance: phi.math._tensors.Tensor = 0.5) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate overlap between the geometry and a small other geometry.
@@ -1325,9 +1334,11 @@ The given geometries may be approximated as spheres or boxes using <code>boundin
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>other_geometry</code></strong></dt>
-<dd>batched) Geometry instance</dd>
-<dt><strong><code>other_geometry</code></strong></dt>
-<dd>Geometry: </dd>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> or geometry batch for which to compute the overlap with <code>self</code>.</dd>
+<dt><strong><code>balance</code></strong></dt>
+<dd>Mid-level between 0 and 1, default 0.5.
+This value is returned when exactly half of <code>other_geometry</code> lies inside <code>self</code>.
+<code>0.5 &lt; balance &lt;= 1</code> makes <code>self</code> seem larger while <code>0 &lt;= balance &lt; 0.5</code>makes <code>self</code> seem smaller.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).</p></div>
@@ -1335,23 +1346,25 @@ The given geometries may be approximated as spheres or boxes using <code>boundin
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;) -&gt; Tensor:
+<pre><code class="python">def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;, balance: Tensor or Number = 0.5) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the approximate overlap between the geometry and a small other geometry.
     Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
     Close to the surface of this geometry, the fraction filled is differentiable w.r.t. the location and size of `other_geometry`.
-    
+
     To call this method on batches of geometries of same shape, pass a batched Geometry instance.
     The result tensor will match the batch shape of `other_geometry`.
-    
+
     The result may only be accurate in special cases.
     The given geometries may be approximated as spheres or boxes using `bounding_radius()` and `bounding_half_extent()`.
-    
+
     The default implementation of this method approximates other_geometry as a Sphere and computes the fraction using `approximate_signed_distance()`.
 
     Args:
-      other_geometry: batched) Geometry instance
-      other_geometry: Geometry: 
+        other_geometry: `Geometry` or geometry batch for which to compute the overlap with `self`.
+        balance: Mid-level between 0 and 1, default 0.5.
+            This value is returned when exactly half of `other_geometry` lies inside `self`.
+            `0.5 &lt; balance &lt;= 1` makes `self` seem larger while `0 &lt;= balance &lt; 0.5`makes `self` seem smaller.
 
     Returns:
       fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).
@@ -1361,7 +1374,7 @@ The given geometries may be approximated as spheres or boxes using <code>boundin
     radius = other_geometry.bounding_radius()
     location = other_geometry.center
     distance = self.approximate_signed_distance(location)
-    inside_fraction = 0.5 - distance / radius
+    inside_fraction = balance - distance / radius
     inside_fraction = math.clip(inside_fraction, 0, 1)
     return inside_fraction</code></pre>
 </details>
@@ -1380,7 +1393,7 @@ The distance metric is differentiable and its gradients are bounded at every poi
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
 <dt><strong><code>location</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>float tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -1392,14 +1405,14 @@ The distance metric is differentiable and its gradients are bounded at every poi
     &#34;&#34;&#34;
     Computes the approximate distance from location to the surface of the geometry.
     Locations outside return positive values, inside negative values and zero exactly at the boundary.
-    
+
     The exact distance metric used depends on the geometry.
     The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
     The distance metric is differentiable and its gradients are bounded at every point in space.
 
     Args:
       location: float tensor of shape (batch_size, ..., rank)
-      location: Tensor: 
+      location: Tensor:
 
     Returns:
       float tensor of shape (*location.shape[:-1], 1).
@@ -1427,10 +1440,10 @@ Then, no point of the geometry lies further away from its center point than <cod
     &#34;&#34;&#34;
     The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
     Each component is non-negative.
-    
+
     Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
     Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
-    
+
     :return: float vector
 
     Args:
@@ -1458,7 +1471,7 @@ The sphere is centered at the center of this geometry.</p>
     &#34;&#34;&#34;
     Returns the radius of a Sphere object that fully encloses this geometry.
     The sphere is centered at the center of this geometry.
-    
+
     :return: radius of type float
 
     Args:
@@ -1479,7 +1492,7 @@ The sphere is centered at the center of this geometry.</p>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
 <dt><strong><code>location</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -1493,7 +1506,7 @@ The sphere is centered at the center of this geometry.</p>
 
     Args:
       location: float tensor of shape (batch_size, ..., rank)
-      location: Tensor: 
+      location: Tensor:
 
     Returns:
       bool tensor of shape (*location.shape[:-1], 1).
@@ -1616,7 +1629,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <dt><strong><code>delta</code></strong></dt>
 <dd>direction vector</dd>
 <dt><strong><code>delta</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1633,7 +1646,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 
     Args:
       delta: direction vector
-      delta: Tensor: 
+      delta: Tensor:
 
     Returns:
       Geometry: shifted geometry
@@ -1681,25 +1694,17 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 <dt id="phi.geom.GridCell"><code class="flex name class">
 <span>class <span class="ident">GridCell</span></span>
-<span>(</span><span>resolution: phi.math._shape.Shape, bounds: phi.geom._box.AbstractBox)</span>
+<span>(</span><span>resolution: phi.math._shape.Shape, bounds: phi.geom._box.BaseBox)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Abstract base class for N-dimensional shapes.</p>
-<p>Main implementing classes:</p>
-<ul>
-<li>Sphere</li>
-<li>box family: box (generator), Box, Cuboid, AbstractBox</li>
-</ul>
-<p>All geometry objects support batching.
-Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
-All batch dimensions are listed in Geometry.shape.</p></div>
+<div class="desc"><p>Abstract base type for box-like geometries.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class GridCell(AbstractBox):
+<pre><code class="python">class GridCell(BaseBox):
 
-    def __init__(self, resolution: math.Shape, bounds: AbstractBox):
+    def __init__(self, resolution: math.Shape, bounds: BaseBox):
         assert resolution.spatial_rank == resolution.rank, &#39;resolution must be purely spatial but got %s&#39; % (resolution,)
         self._resolution = resolution
         self._bounds = bounds
@@ -1794,7 +1799,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor) -&gt; AbstractBox:
+    def shifted(self, delta: Tensor) -&gt; BaseBox:
         if delta.shape.spatial_rank == 0:
             return GridCell(self.resolution, self.bounds.shifted(delta))
         else:
@@ -1821,7 +1826,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.geom._box.AbstractBox</li>
+<li>phi.geom._box.BaseBox</li>
 <li>phi.geom._geom.Geometry</li>
 </ul>
 <h3>Instance variables</h3>
@@ -2042,7 +2047,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </details>
 </dd>
 <dt id="phi.geom.GridCell.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._box.AbstractBox</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -2051,7 +2056,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <dt><strong><code>delta</code></strong></dt>
 <dd>direction vector</dd>
 <dt><strong><code>delta</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2062,7 +2067,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shifted(self, delta: Tensor) -&gt; AbstractBox:
+<pre><code class="python">def shifted(self, delta: Tensor) -&gt; BaseBox:
     if delta.shape.spatial_rank == 0:
         return GridCell(self.resolution, self.bounds.shifted(delta))
     else:
@@ -2105,7 +2110,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <p>Main implementing classes:</p>
 <ul>
 <li>Sphere</li>
-<li>box family: box (generator), Box, Cuboid, AbstractBox</li>
+<li>box family: box (generator), Box, Cuboid, BaseBox</li>
 </ul>
 <p>All geometry objects support batching.
 Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
@@ -2204,7 +2209,7 @@ The distance metric is differentiable and its gradients are bounded at every poi
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
 <dt><strong><code>location</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>float tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -2262,7 +2267,7 @@ The sphere is centered at the center of this geometry.</p>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
 <dt><strong><code>location</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -2332,7 +2337,7 @@ The geometry is rotated about its center point.</p>
 <dt><strong><code>delta</code></strong></dt>
 <dd>direction vector</dd>
 <dt><strong><code>delta</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2593,7 +2598,7 @@ The sphere is centered at the center of this geometry.</p>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
 <dt><strong><code>location</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -2640,7 +2645,7 @@ The geometry is rotated about its center point.</p>
 <dt><strong><code>delta</code></strong></dt>
 <dd>direction vector</dd>
 <dt><strong><code>delta</code></strong></dt>
-<dd>Tensor: </dd>
+<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2683,29 +2688,29 @@ The geometry is rotated about its center point.</p>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="phi.geom.AbstractBox" href="#phi.geom.AbstractBox">AbstractBox</a></code></h4>
+<h4><code><a title="phi.geom.BaseBox" href="#phi.geom.BaseBox">BaseBox</a></code></h4>
 <ul class="">
-<li><code><a title="phi.geom.AbstractBox.approximate_signed_distance" href="#phi.geom.AbstractBox.approximate_signed_distance">approximate_signed_distance</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.bounding_half_extent" href="#phi.geom.AbstractBox.bounding_half_extent">bounding_half_extent</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.bounding_radius" href="#phi.geom.AbstractBox.bounding_radius">bounding_radius</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.center" href="#phi.geom.AbstractBox.center">center</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.center_representation" href="#phi.geom.AbstractBox.center_representation">center_representation</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.contains" href="#phi.geom.AbstractBox.contains">contains</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.corner_representation" href="#phi.geom.AbstractBox.corner_representation">corner_representation</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.global_to_local" href="#phi.geom.AbstractBox.global_to_local">global_to_local</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.half_size" href="#phi.geom.AbstractBox.half_size">half_size</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.lies_inside" href="#phi.geom.AbstractBox.lies_inside">lies_inside</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.local_to_global" href="#phi.geom.AbstractBox.local_to_global">local_to_global</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.lower" href="#phi.geom.AbstractBox.lower">lower</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.project" href="#phi.geom.AbstractBox.project">project</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.push" href="#phi.geom.AbstractBox.push">push</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.rotated" href="#phi.geom.AbstractBox.rotated">rotated</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.shape" href="#phi.geom.AbstractBox.shape">shape</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.shifted" href="#phi.geom.AbstractBox.shifted">shifted</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.size" href="#phi.geom.AbstractBox.size">size</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.unstack" href="#phi.geom.AbstractBox.unstack">unstack</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.upper" href="#phi.geom.AbstractBox.upper">upper</a></code></li>
-<li><code><a title="phi.geom.AbstractBox.volume" href="#phi.geom.AbstractBox.volume">volume</a></code></li>
+<li><code><a title="phi.geom.BaseBox.approximate_signed_distance" href="#phi.geom.BaseBox.approximate_signed_distance">approximate_signed_distance</a></code></li>
+<li><code><a title="phi.geom.BaseBox.bounding_half_extent" href="#phi.geom.BaseBox.bounding_half_extent">bounding_half_extent</a></code></li>
+<li><code><a title="phi.geom.BaseBox.bounding_radius" href="#phi.geom.BaseBox.bounding_radius">bounding_radius</a></code></li>
+<li><code><a title="phi.geom.BaseBox.center" href="#phi.geom.BaseBox.center">center</a></code></li>
+<li><code><a title="phi.geom.BaseBox.center_representation" href="#phi.geom.BaseBox.center_representation">center_representation</a></code></li>
+<li><code><a title="phi.geom.BaseBox.contains" href="#phi.geom.BaseBox.contains">contains</a></code></li>
+<li><code><a title="phi.geom.BaseBox.corner_representation" href="#phi.geom.BaseBox.corner_representation">corner_representation</a></code></li>
+<li><code><a title="phi.geom.BaseBox.global_to_local" href="#phi.geom.BaseBox.global_to_local">global_to_local</a></code></li>
+<li><code><a title="phi.geom.BaseBox.half_size" href="#phi.geom.BaseBox.half_size">half_size</a></code></li>
+<li><code><a title="phi.geom.BaseBox.lies_inside" href="#phi.geom.BaseBox.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.BaseBox.local_to_global" href="#phi.geom.BaseBox.local_to_global">local_to_global</a></code></li>
+<li><code><a title="phi.geom.BaseBox.lower" href="#phi.geom.BaseBox.lower">lower</a></code></li>
+<li><code><a title="phi.geom.BaseBox.project" href="#phi.geom.BaseBox.project">project</a></code></li>
+<li><code><a title="phi.geom.BaseBox.push" href="#phi.geom.BaseBox.push">push</a></code></li>
+<li><code><a title="phi.geom.BaseBox.rotated" href="#phi.geom.BaseBox.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.BaseBox.shape" href="#phi.geom.BaseBox.shape">shape</a></code></li>
+<li><code><a title="phi.geom.BaseBox.shifted" href="#phi.geom.BaseBox.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.BaseBox.size" href="#phi.geom.BaseBox.size">size</a></code></li>
+<li><code><a title="phi.geom.BaseBox.unstack" href="#phi.geom.BaseBox.unstack">unstack</a></code></li>
+<li><code><a title="phi.geom.BaseBox.upper" href="#phi.geom.BaseBox.upper">upper</a></code></li>
+<li><code><a title="phi.geom.BaseBox.volume" href="#phi.geom.BaseBox.volume">volume</a></code></li>
 </ul>
 </li>
 <li>

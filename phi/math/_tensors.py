@@ -204,7 +204,7 @@ class Tensor:
                 if self.rank == 0:
                     return str(self.numpy())
                 elif self.shape.volume is not None and self.shape.volume <= 6:
-                    content = list(np.reshape(self.numpy(), [-1]))
+                    content = list(np.reshape(self.numpy(self.shape.names), [-1]))
                     content = ', '.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
                         if self.shape.name == 'vector':
@@ -517,7 +517,7 @@ class TensorDim:
     def __repr__(self):
         return f"Dimension '{self.name}' of {self.tensor.shape}"
 
-    def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -> tuple:
+    def unstack(self, size: int or None = None) -> tuple:
         """
         See `unstack_spatial()`.
 
@@ -525,8 +525,6 @@ class TensorDim:
             size: (optional)
                 None: unstack along this dimension, error if dimension does not exist
                 int: repeating unstack if dimension does not exist
-            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
 
         Returns:
             sliced tensors
@@ -540,42 +538,27 @@ class TensorDim:
                 result = unstacked
             else:
                 result = (self.tensor,) * size
-        if to_numpy or to_python:
-            result = tuple(component.numpy() for component in result)
-            if to_python:
-                result = tuple(component.tolist() for component in result)
         return result
 
-    def optional_unstack(self, to_numpy=False, to_python=False):
+    def optional_unstack(self):
         """
         Unstacks the `Tensor` along this dimension if the dimension is listed in the `Shape`.
         Otherwise returns the original `Tensor`.
-
-        Args:
-            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
 
         Returns:
             `tuple` of sliced tensors or original `Tensor`
         """
         if self.exists:
-            return self.unstack(to_numpy=to_numpy, to_python=to_python)
+            return self.unstack()
         else:
-            if to_numpy or to_python:
-                result = self.tensor.numpy()
-                if to_python:
-                    return result.tolist()
-                return result
             return self.tensor
 
-    def unstack_spatial(self, components: str or tuple or list, to_numpy=False, to_python=False) -> tuple:
+    def unstack_spatial(self, components: str or tuple or list) -> tuple:
         """
         Slices the tensor along this dimension, returning only the selected components in the specified order.
 
         Args:
-            components:
-            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+            components: Spatial dimension names as comma-separated `str` or sequence of `str`.
 
         Returns:
             selected components
@@ -592,10 +575,6 @@ class TensorDim:
                 result.append(self.tensor[{self.name: component_index}])
         else:
             result = [self.tensor] * len(components)
-        if to_numpy or to_python:
-            result = tuple(component.numpy() for component in result)
-            if to_python:
-                result = tuple(component.tolist() for component in result)
         return tuple(result)
 
     @property
@@ -766,7 +745,7 @@ class NativeTensor(Tensor):
         return tuple([NativeTensor(t, new_shape) for t in tensors])
 
     def _op1(self, native_function):
-        native = native_function(self.native())
+        native = native_function(self._native)
         return NativeTensor(native, self.shape) if native is not None else self
 
     def _op2(self, other, operator, native_function):
@@ -852,7 +831,7 @@ class CollapsedTensor(Tensor):  # package-private
             return self._cached.native(order)
         order = parse_dim_order(order, check_rank=self.rank)
         if order is None or tuple(order) == self.shape.names:
-            return self._cache().native()
+            return self._cache().native(order)
         else:
             native = self._inner.native(order=order)
             multiples = [1 if name in self._inner.shape else (self.shape.get_size(name) if name in self.shape else 1) for name in order]
@@ -1030,7 +1009,8 @@ class TensorStack(Tensor):
             order = parse_dim_order(order, check_rank=self.rank)
             # Is only the stack dimension shifted?
             if order is not None and self._shape.without(self.stack_dim_name).names == tuple(filter(lambda name: name != self.stack_dim_name, order)):
-                natives = [t.native() for t in self.tensors]
+                inner_order = [dim for dim in order if dim != self.stack_dim_name]
+                natives = [t.native(inner_order) for t in self.tensors]
                 native = choose_backend(*natives).stack(natives, axis=tuple(order).index(self.stack_dim_name))
                 return native
             assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
@@ -1155,9 +1135,10 @@ class TensorStack(Tensor):
         # --- outer reduce ---
         if self.stack_dim_name in dims:
             if any([t._is_special for t in red_inners]):
-                return sum(red_inners[1:], red_inners[0])
+                return sum(red_inners[1:], red_inners[0])  # TODO this may not always be the sum
             else:
-                natives = [t.native() for t in red_inners]
+                inner_order = red_inners[0].shape.names
+                natives = [t.native(inner_order) for t in red_inners]
                 backend = choose_backend(*natives)
                 result = native_function(backend, backend.stack(natives), dim=0)  # TODO not necessary if tensors are CollapsedTensors
                 return NativeTensor(result, red_inners[0].shape)

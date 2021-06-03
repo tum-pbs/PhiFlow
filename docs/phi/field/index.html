@@ -30,7 +30,7 @@
 <li><code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code> samples the vector components at face centers instead of at cell centers.</li>
 <li><code><a title="phi.field.Noise" href="#phi.field.Noise">Noise</a></code> is a function that produces a procedurally generated noise field</li>
 </ul>
-<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> to create a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> from data or by sampling another <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>.
+<p>Use <code>grid()</code> to create a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> from data or by sampling another <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>.
 Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
 <p>All fields can be sampled at physical locations or volumes using <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code> or <code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>.</p>
 <p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
@@ -60,7 +60,7 @@ See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fi
 from ._field import Field, SampledField, unstack, sample, reduce_sample
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
-from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components, grid
+from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
@@ -404,7 +404,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
             div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).gradient[0]
             components.append(div_dim)
         data = math.sum(components, 0)
-        return CenteredGrid(data, field.box, field.extrapolation.spatial_gradient())
+        return CenteredGrid(data, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
     elif isinstance(field, CenteredGrid):
         left, right = shift(field, (-1, 1), stack_dim=&#39;div_&#39;)
         grad = (right - left) / (field.dx * 2)
@@ -456,7 +456,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <span>def <span class="ident">extrapolate_valid</span></span>(<span>grid: ~GridType, valid: ~GridType, distance_cells=1) ‑> tuple</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Extrapolates values of <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> which are marked by nonzero values in <code>valid</code> using `phi.math.extrapolate_valid_values().
+<div class="desc"><p>Extrapolates values of <code>grid</code> which are marked by nonzero values in <code>valid</code> using `phi.math.extrapolate_valid_values().
 If <code>values</code> is a StaggeredGrid, its components get extrapolated independently.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -469,7 +469,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code></dt>
+<dt><code>grid</code></dt>
 <dd>Grid with extrapolated values.</dd>
 <dt><code>valid</code></dt>
 <dd>binary Grid marking all valid values after extrapolation.</dd>
@@ -690,99 +690,6 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     &#34;&#34;&#34;
     return GradientFunction(f, wrt, get_output)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.grid"><code class="name flex">
-<span>def <span class="ident">grid</span></span>(<span>values: phi.geom._geom.Geometry, resolution: phi.math._shape.Shape, bounds: phi.geom._box.Box = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = 0, type: type = phi.field._grid.CenteredGrid) ‑> ~GridType</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates a <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code> from <code>values</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>values</code></strong></dt>
-<dd>
-<p>Values to use for the grid.
-Has to be one of the following:</p>
-<ul>
-<li><code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>: sets inside values to 1, outside to 0</li>
-<li><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>: resamples the Field to the staggered sample points</li>
-<li><code>Number</code>: uses the value for all sample points</li>
-<li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
-<li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> compatible with grid dims: uses tensor values as grid values</li>
-<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.</li>
-</ul>
-</dd>
-<dt><strong><code>resolution</code></strong></dt>
-<dd>Grid resolution as purely spatial <code><a title="phi.math.Shape" href="../math/index.html#phi.math.Shape">Shape</a></code>.</dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>Physical grid bounds as <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code>.</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>Grid extrapolation as <code><a title="phi.math.Extrapolation" href="../math/index.html#phi.math.Extrapolation">Extrapolation</a></code>.</dd>
-<dt><strong><code>type</code></strong></dt>
-<dd>Grid type, either <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code></dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>, depending on <code>type</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def grid(values: Geometry or Field or Number or math.Tensor or Callable or tuple or list,
-         resolution: Shape,
-         bounds: Box = None,
-         extrapolation: math.Extrapolation = math.extrapolation.ZERO,
-         type: type = CenteredGrid) -&gt; GridType:
-    &#34;&#34;&#34;
-    Creates a `CenteredGrid` or `StaggeredGrid` from `values`.
-
-    Args:
-        values: Values to use for the grid.
-            Has to be one of the following:
-
-            * `phi.geom.Geometry`: sets inside values to 1, outside to 0
-            * `Field`: resamples the Field to the staggered sample points
-            * `Number`: uses the value for all sample points
-            * `tuple` or `list`: interprets the sequence as vector, used for all sample points
-            * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
-            * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
-
-        resolution: Grid resolution as purely spatial `phi.math.Shape`.
-        bounds: Physical grid bounds as `phi.geom.Box`.
-        extrapolation: Grid extrapolation as `phi.math.Extrapolation`.
-        type: Grid type, either `CenteredGrid` or `StaggeredGrid`
-
-    Returns:
-        `CenteredGrid` or `StaggeredGrid`, depending on `type`.
-    &#34;&#34;&#34;
-    if bounds is None:
-        bounds = Box(0, math.wrap(resolution, &#39;vector&#39;))
-    assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
-    if isinstance(values, Geometry):
-        values = HardGeometryMask(values)
-    if isinstance(values, Field):
-        ref_grid = grid(0, resolution=resolution, bounds=bounds, extrapolation=extrapolation, type=type)
-        sampled_values = reduce_sample(values, ref_grid.elements)
-        return ref_grid.with_(values=sampled_values)
-    else:
-        if callable(values):
-            cells = GridCell(resolution, bounds)
-            x = cells.center if type == CenteredGrid else cells.face_centers()
-            values = values(x)
-        if not isinstance(values, math.Tensor):
-            values = math.tensor(values)
-        if values.dtype.kind not in (float, complex):
-            values = math.to_float(values)
-        if type == CenteredGrid:
-            values = math.expand(values, resolution)
-            return CenteredGrid(values, bounds, extrapolation)
-        else:
-            assert type == StaggeredGrid, &#34;type must be CenteredGrid or StaggeredGrid&#34;
-            components = values.vector.unstack(resolution.spatial_rank)
-            tensors = []
-            for dim, component in zip(resolution.spatial.names, components):
-                comp_cells = GridCell(resolution, bounds).extend_symmetric(dim, 1)
-                tensors.append(math.expand(component, comp_cells.resolution))
-            return StaggeredGrid(math.channel_stack(tensors, &#39;vector&#39;), bounds, extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
@@ -1173,7 +1080,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        return y_tensors[0].sum, y_tensors[0].native()
+        return y_tensors[0].sum, reshaped_native(y_tensors[0], [batch])
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
@@ -1284,7 +1191,7 @@ The function output must have the same dimension layout as the inputs and the ba
         w_lower = math.wrap([w[0] for w in widths_list])
         w_upper = math.wrap([w[1] for w in widths_list])
         bounds = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
-        return create_grid(data, data.shape.spatial, bounds, grid.extrapolation, type(grid))
+        return type(grid)(data, resolution=data.shape.spatial, bounds=bounds, extrapolation=grid.extrapolation)
     raise NotImplementedError(f&#34;{type(grid)} not supported. Only Grid instances allowed.&#34;)</code></pre>
 </details>
 </dd>
@@ -1496,7 +1403,7 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 
     &#34;&#34;&#34;
     data = math.shift(grid.values, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
-    return [CenteredGrid(data[i], grid.box, grid.extrapolation) for i in range(len(offsets))]</code></pre>
+    return [CenteredGrid(data[i], bounds=grid.bounds, extrapolation=grid.extrapolation) for i in range(len(offsets))]</code></pre>
 </details>
 </dd>
 <dt id="phi.field.sign"><code class="name flex">
@@ -1723,7 +1630,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
     assert isinstance(field, Grid)
     if type == CenteredGrid:
         values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
-        return CenteredGrid(values, field.bounds, field.extrapolation.spatial_gradient())
+        return CenteredGrid(values, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
     elif type == StaggeredGrid:
         assert stack_dim == &#39;vector&#39;
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.spatial_gradient())
@@ -1829,11 +1736,11 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
         all_upper = math.channel_stack(all_upper, &#39;vector&#39;)
         all_lower = math.channel_stack(all_lower, &#39;vector&#39;)
         values = face_function(all_lower, all_upper)
-        return StaggeredGrid(values, field.bounds, extrapolation)
+        return StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
     elif type == CenteredGrid:
         left, right = math.shift(field.values, (-1, 1), padding=field.extrapolation, stack_dim=&#39;vector&#39;)
         values = face_function(left, right)
-        return CenteredGrid(values, field.bounds, extrapolation)
+        return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
     else:
         raise ValueError(type)</code></pre>
 </details>
@@ -2148,7 +2055,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <dl>
 <dt id="phi.field.AngularVelocity"><code class="flex name class">
 <span>class <span class="ident">AngularVelocity</span></span>
-<span>(</span><span>location, strength=1.0, falloff: collections.abc.Callable = None, component: str = None)</span>
+<span>(</span><span>location: phi.math._tensors.Tensor, strength: phi.math._tensors.Tensor = 1.0, falloff: collections.abc.Callable = None, component: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -2166,8 +2073,13 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 </summary>
 <pre><code class="python">class AngularVelocity(Field):
 
-    def __init__(self, location, strength=1.0, falloff: Callable = None, component: str = None):
+    def __init__(self,
+                 location: math.Tensor or tuple or list or Number,
+                 strength: math.Tensor or Number = 1.0,
+                 falloff: Callable = None,
+                 component: str = None):
         location = math.wrap(location)
+        strength = math.wrap(strength)
         assert location.shape.channel.names == (&#39;vector&#39;,), &#34;location must have a single channel dimension called &#39;vector&#39;&#34;
         assert location.shape.spatial.is_empty, &#34;location tensor cannot have any spatial dimensions&#34;
         self.location = location
@@ -2196,7 +2108,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
         if &#39;vector&#39; in item:
             assert item[&#39;vector&#39;] == 0 or self.component is None
             component = self.shape.spatial.names[item[&#39;vector&#39;]]
-            return AngularVelocity(location=self.location, strength=self.strength, falloff=self.falloff, component=component)
+            return AngularVelocity(self.location, self.strength, self.falloff, component)
         else:
             return self</code></pre>
 </details>
@@ -2227,23 +2139,41 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values: phi.math._tensors.Tensor, bounds: phi.geom._box.Box, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>(</span><span>values: Any, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
-A centered grid is defined through its data tensor, its bounds describing the physical size, and its extrapolation.</p>
-<p>Centered grids support arbitrary batch, spatial and channel dimensions.</p>
-<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> with <code>type=CenteredGrid</code> (default) to create a centered grid.
-Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
+A centered grid is defined through its <code>CenteredGrid.values</code> <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>, its <code>CenteredGrid.bounds</code> <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code> describing the physical size, and its <code>CenteredGrid.extrapolation</code> (<code><a title="phi.math.Extrapolation" href="../math/index.html#phi.math.Extrapolation">Extrapolation</a></code>).</p>
+<p>Centered grids support batch, spatial and channel dimensions.</p>
+<p>See Also:
+<code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>,
+<code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code>,
+<code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>,
+<code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>,
+module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> containing all dimensions of this grid.</dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>Physical size and location of the grid.</dd>
+<dd>
+<p>Values to use for the grid.
+Has to be one of the following:</p>
+<ul>
+<li><code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>: sets inside values to 1, outside to 0</li>
+<li><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>: resamples the Field to the staggered sample points</li>
+<li><code>Number</code>: uses the value for all sample points</li>
+<li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
+<li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> compatible with grid dims: uses tensor values as grid values</li>
+<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.</li>
+</ul>
+</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>The grid extrapolation determines the value outside the <code>values</code> tensor.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Physical size and location of the grid as <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code>.</dd>
+<dt><strong><code>resolution</code></strong></dt>
+<dd>Grid resolution as purely spatial <code><a title="phi.math.Shape" href="../math/index.html#phi.math.Shape">Shape</a></code>.</dd>
+<dt><strong><code>**resolution_</code></strong></dt>
+<dd>Spatial dimensions as keyword arguments. Typically either <code>resolution</code> or <code>spatial_dims</code> are specified.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2252,24 +2182,67 @@ Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.ht
 <pre><code class="python">class CenteredGrid(Grid):
     &#34;&#34;&#34;
     N-dimensional grid with values sampled at the cell centers.
-    A centered grid is defined through its data tensor, its bounds describing the physical size, and its extrapolation.
+    A centered grid is defined through its `CenteredGrid.values` `phi.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phi.math.Extrapolation`).
     
-    Centered grids support arbitrary batch, spatial and channel dimensions.
+    Centered grids support batch, spatial and channel dimensions.
 
-    Use `grid()` with `type=CenteredGrid` (default) to create a centered grid.
-    Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
-    
-    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+    See Also:
+        `StaggeredGrid`,
+        `Grid`,
+        `SampledField`,
+        `Field`,
+        module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     &#34;&#34;&#34;
 
-    def __init__(self, values: math.Tensor, bounds: Box, extrapolation: math.Extrapolation):
+    def __init__(self,
+                 values: Any,
+                 extrapolation: math.Extrapolation or math.Tensor,
+                 bounds: Box = None,
+                 resolution: Shape = None,
+                 **resolution_: int or Tensor):
         &#34;&#34;&#34;
         Args:
-            values: `phi.math.Tensor` containing all dimensions of this grid.
-            bounds: Physical size and location of the grid.
+            values: Values to use for the grid.
+                Has to be one of the following:
+
+                * `phi.geom.Geometry`: sets inside values to 1, outside to 0
+                * `Field`: resamples the Field to the staggered sample points
+                * `Number`: uses the value for all sample points
+                * `tuple` or `list`: interprets the sequence as vector, used for all sample points
+                * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
+                * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+            bounds: Physical size and location of the grid as `phi.geom.Box`.
+            resolution: Grid resolution as purely spatial `phi.math.Shape`.
+            **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
-        Grid.__init__(self, GridCell(values.shape.spatial, bounds), values, extrapolation, values.shape.spatial, bounds)
+        if resolution is None and not resolution_:
+            assert isinstance(values, math.Tensor), &#34;Grid resolution must be specified when &#39;values&#39; is not a Tensor.&#34;
+            resolution = values.shape.spatial
+            bounds = bounds or Box(0, math.wrap(resolution, &#39;vector&#39;))
+            elements = GridCell(resolution, bounds)
+        else:
+            resolution = (resolution or math.EMPTY_SHAPE) &amp; math.spatial_shape(resolution_)
+            bounds = bounds or Box(0, math.wrap(resolution, &#39;vector&#39;))
+            elements = GridCell(resolution, bounds)
+            if isinstance(values, math.Tensor):
+                values = math.expand(values, resolution)
+            elif isinstance(values, Geometry):
+                values = reduce_sample(HardGeometryMask(values), elements)
+            elif isinstance(values, Field):
+                values = reduce_sample(values, elements)
+            elif callable(values):
+                values = values(elements.center)
+                assert isinstance(values, math.Tensor), f&#34;values function must return a Tensor but returned {type(values)}&#34;
+            else:
+                values = math.expand(math.tensor(values), resolution)
+        if values.dtype.kind not in (float, complex):
+            values = math.to_float(values)
+        assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
+        Grid.__init__(self, elements, values, extrapolation, values.shape.spatial, bounds)
 
     def with_(self,
               elements: Geometry or None = None,
@@ -2280,13 +2253,13 @@ Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.ht
         assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
         values = values if values is not None else self.values
         extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-        return CenteredGrid(values, self.bounds, extrapolation)
+        return CenteredGrid(values, extrapolation, self.bounds)
 
     def __getitem__(self, item: dict):
         values = self._values[{dim: slice(sel, sel + 1) if isinstance(sel, int) and dim in self.shape.spatial else sel for dim, sel in item.items()}]
         extrapolation = self._extrapolation[item]
         bounds = self.elements[item].bounds
-        return CenteredGrid(values, bounds, extrapolation)
+        return CenteredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def _sample(self, geometry: Geometry) -&gt; Tensor:
         if geometry == self.bounds:
@@ -2380,7 +2353,7 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
     assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
     values = values if values is not None else self.values
     extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-    return CenteredGrid(values, self.bounds, extrapolation)</code></pre>
+    return CenteredGrid(values, extrapolation, self.bounds)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2747,9 +2720,6 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> and <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</p>
-<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> to create a grid.
-Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
-<p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>elements</code></strong></dt>
@@ -2766,9 +2736,6 @@ Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.ht
 <pre><code class="python">class Grid(SampledField):
     &#34;&#34;&#34;
     Base class for `CenteredGrid` and `StaggeredGrid`.
-
-    Use `grid()` to create a grid.
-    Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
     &#34;&#34;&#34;
 
     def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation, resolution: Shape, bounds: Box):
@@ -3178,15 +3145,7 @@ def shape(self):
 <span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all fields.</p>
-<p>Important implementations:</p>
-<ul>
-<li>CenteredGrid</li>
-<li>StaggeredGrid</li>
-<li>PointCloud</li>
-<li>Noise</li>
-</ul>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
+<div class="desc"><p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
 <p>A point cloud consists of elements at arbitrary locations.
 A value or vector is associated with each element.</p>
 <p>Outside of elements, the value of the field is determined by the extrapolation.</p>
@@ -3418,16 +3377,7 @@ def shape(self):
 <span>(</span><span>elements: phi.geom._geom.Geometry, values: phi.math._tensors.Tensor, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all fields.</p>
-<p>Important implementations:</p>
-<ul>
-<li>CenteredGrid</li>
-<li>StaggeredGrid</li>
-<li>PointCloud</li>
-<li>Noise</li>
-</ul>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
-<p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
+<div class="desc"><p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>elements</code></strong></dt>
@@ -3442,17 +3392,18 @@ def shape(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class SampledField(Field):
+    &#34;&#34;&#34;
+    Base class for fields that are sampled at specific locations such as grids or point clouds.
+    &#34;&#34;&#34;
 
     def __init__(self, elements: Geometry, values: Tensor or float or int, extrapolation: math.Extrapolation):
         &#34;&#34;&#34;
-        Base class for fields that are sampled at specific locations such as grids or point clouds.
-
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         &#34;&#34;&#34;
-        assert isinstance(extrapolation, (Extrapolation, tuple, list)), extrapolation
+        assert isinstance(extrapolation, Extrapolation), f&#34;Not a valid extrapolation: {extrapolation}&#34;
         assert isinstance(elements, Geometry), elements
         self._elements = elements
         self._values = math.wrap(values)
@@ -4718,7 +4669,7 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">GeometryMask</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry)</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: phi.math._tensors.Tensor = 0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.</p></div>
@@ -4730,12 +4681,15 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
     &#34;&#34;&#34;
     When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.
     &#34;&#34;&#34;
+    def __init__(self, geometry: Geometry, balance: Tensor or float = 0.5):
+        super().__init__(geometry)
+        self.balance = balance
 
     def _sample(self, geometry: Geometry) -&gt; Tensor:
-        return self.geometry.approximate_fraction_inside(geometry)
+        return self.geometry.approximate_fraction_inside(geometry, self.balance)
 
     def __getitem__(self, item: dict):
-        return SoftGeometryMask(self.geometry[item])</code></pre>
+        return SoftGeometryMask(self.geometry[item], self.balance)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4745,7 +4699,7 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">SoftGeometryMask</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry)</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: phi.math._tensors.Tensor = 0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.</p></div>
@@ -4757,12 +4711,15 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
     &#34;&#34;&#34;
     When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.
     &#34;&#34;&#34;
+    def __init__(self, geometry: Geometry, balance: Tensor or float = 0.5):
+        super().__init__(geometry)
+        self.balance = balance
 
     def _sample(self, geometry: Geometry) -&gt; Tensor:
-        return self.geometry.approximate_fraction_inside(geometry)
+        return self.geometry.approximate_fraction_inside(geometry, self.balance)
 
     def __getitem__(self, item: dict):
-        return SoftGeometryMask(self.geometry[item])</code></pre>
+        return SoftGeometryMask(self.geometry[item], self.balance)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4772,25 +4729,43 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: phi.math._tensors.TensorStack, bounds: phi.geom._box.Box, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>(</span><span>values: Any, extrapolation: numbers.Number, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
 A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.</p>
-<p>Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.</p>
-<p>Use <code><a title="phi.field.grid" href="#phi.field.grid">grid()</a></code> with <code>type=StaggeredGrid</code> to create a staggered grid.
-Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
+<p>Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.</p>
+<p>See Also:
+<code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code>,
+<code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code>,
+<code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>,
+<code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>,
+module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> containing all dimensions of this grid.
+<dd>
+<p>Values to use for the grid.
+Has to be one of the following:</p>
+<ul>
+<li><code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>: sets inside values to 1, outside to 0</li>
+<li><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>: resamples the Field to the staggered sample points</li>
+<li><code>Number</code>: uses the value for all sample points</li>
+<li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
+<li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> with staggered shape: uses tensor values as grid values.
 Must contain a <code>vector</code> dimension with each slice consisting of one more element along the dimension they describe.
-Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.channel_stack">channel_stack()</a></code> to manually create this non-uniform tensor.</dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>Physical size and location of the grid.</dd>
+Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.channel_stack">channel_stack()</a></code> to manually create this non-uniform tensor.</li>
+<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.</li>
+</ul>
+</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>The grid extrapolation determines the value outside the <code>values</code> tensor.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Physical size and location of the grid.</dd>
+<dt><strong><code>resolution</code></strong></dt>
+<dd>Grid resolution as purely spatial <code><a title="phi.math.Shape" href="../math/index.html#phi.math.Shape">Shape</a></code>.</dd>
+<dt><strong><code>**resolution_</code></strong></dt>
+<dd>Spatial dimensions as keyword arguments. Typically either <code>resolution</code> or <code>spatial_dims</code> are specified.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -4801,29 +4776,70 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
     N-dimensional grid whose vector components are sampled at the respective face centers.
     A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
     
-    Staggered grids support arbitrary batch and spatial dimensions but only one channel dimension for the staggered vector components.
+    Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.
 
-    Use `grid()` with `type=StaggeredGrid` to create a staggered grid.
-    Alternatively, the `phi.physics.Domain` class provides convenience methods for grid creation.
-    
-    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+
+    See Also:
+        `CenteredGrid`,
+        `Grid`,
+        `SampledField`,
+        `Field`,
+        module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     &#34;&#34;&#34;
 
-    def __init__(self, values: TensorStack, bounds: Box, extrapolation: math.Extrapolation):
+    def __init__(self,
+                 values: Any,
+                 extrapolation: Number or math.Extrapolation or math.Tensor,
+                 bounds: Box = None,
+                 resolution: Shape = None,
+                 **resolution_: int or Tensor):
         &#34;&#34;&#34;
         Args:
-            values: `phi.math.Tensor` containing all dimensions of this grid.
-                Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
-                Use `phi.math.channel_stack()` to manually create this non-uniform tensor.
-            bounds: Physical size and location of the grid.
+            values: Values to use for the grid.
+                Has to be one of the following:
+
+                * `phi.geom.Geometry`: sets inside values to 1, outside to 0
+                * `Field`: resamples the Field to the staggered sample points
+                * `Number`: uses the value for all sample points
+                * `tuple` or `list`: interprets the sequence as vector, used for all sample points
+                * `phi.math.Tensor` with staggered shape: uses tensor values as grid values.
+                  Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
+                  Use `phi.math.channel_stack()` to manually create this non-uniform tensor.
+                * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+            bounds: Physical size and location of the grid.
+            resolution: Grid resolution as purely spatial `phi.math.Shape`.
+            **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
-        values = _validate_staggered_values(values)
-        any_dim = values.shape.spatial.names[0]
-        x = values.vector[any_dim]
-        resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - 1)
-        grids = [GridCell(resolution, bounds).extend_symmetric(dim, 1) for dim in values.shape.spatial.names]
-        elements = GeometryStack(grids, &#39;vector_&#39;, CHANNEL_DIM)
+        if resolution is None and not resolution_:
+            assert isinstance(values, TensorStack), &#34;Grid resolution must be specified when &#39;values&#39; is not a Tensor.&#34;
+            values = _validate_staggered_values(values)
+            any_dim = values.shape.spatial.names[0]
+            x = values.vector[any_dim]
+            resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - 1)
+            bounds = bounds or Box(0, math.wrap(resolution, &#39;vector&#39;))
+            elements = staggered_elements(resolution, bounds)
+        else:
+            resolution = (resolution or math.EMPTY_SHAPE) &amp; math.spatial_shape(resolution_)
+            bounds = bounds or Box(0, math.wrap(resolution, &#39;vector&#39;))
+            elements = staggered_elements(resolution, bounds)
+            if isinstance(values, math.Tensor):
+                values = expand_staggered(values, resolution)
+            elif isinstance(values, Geometry):
+                values = reduce_sample(HardGeometryMask(values), elements)
+            elif isinstance(values, Field):
+                values = reduce_sample(values, elements)
+            elif callable(values):
+                values = values(elements.center)
+                assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
+            else:
+                values = expand_staggered(math.tensor(values), resolution)
+        if values.dtype.kind not in (float, complex):
+            values = math.to_float(values)
+        assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
         Grid.__init__(self, elements, values, extrapolation, resolution, bounds)
 
     def with_(self,
@@ -4834,7 +4850,7 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
         assert elements is None
         assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
         values = _validate_staggered_values(values) if values is not None else self.values
-        return StaggeredGrid(values, self.bounds, extrapolation if extrapolation is not None else self._extrapolation)
+        return StaggeredGrid(values, bounds=self.bounds, extrapolation=extrapolation if extrapolation is not None else self._extrapolation)
 
     @property
     def cells(self):
@@ -4854,7 +4870,7 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
         return math.channel_stack(channels, &#39;vector&#39;)
 
     def at_centers(self) -&gt; CenteredGrid:
-        return grid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
+        return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
     def __getitem__(self, item: dict):
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
@@ -4874,7 +4890,7 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
             if isinstance(item[&#39;vector&#39;], int):
                 dim = self.shape.spatial.names[item[&#39;vector&#39;]]
                 comp_cells = GridCell(self.resolution, bounds).extend_symmetric(dim, 1)
-                return CenteredGrid(values, comp_cells.bounds, extrapolation)
+                return CenteredGrid(values, bounds=comp_cells.bounds, extrapolation=extrapolation)
             else:
                 assert isinstance(item[&#39;vector&#39;], slice) and not item[&#39;vector&#39;].start and not item[&#39;vector&#39;].stop
         return StaggeredGrid(values, bounds, extrapolation)
@@ -4923,7 +4939,7 @@ def cells(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def at_centers(self) -&gt; CenteredGrid:
-    return grid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)</code></pre>
+    return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.closest_values"><code class="name flex">
@@ -4987,7 +5003,7 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
     assert elements is None
     assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
     values = _validate_staggered_values(values) if values is not None else self.values
-    return StaggeredGrid(values, self.bounds, extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
+    return StaggeredGrid(values, bounds=self.bounds, extrapolation=extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
 </details>
 </dd>
 </dl>
@@ -5028,7 +5044,6 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.fourier_poisson" href="#phi.field.fourier_poisson">fourier_poisson</a></code></li>
 <li><code><a title="phi.field.frequency_loss" href="#phi.field.frequency_loss">frequency_loss</a></code></li>
 <li><code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient</a></code></li>
-<li><code><a title="phi.field.grid" href="#phi.field.grid">grid</a></code></li>
 <li><code><a title="phi.field.imag" href="#phi.field.imag">imag</a></code></li>
 <li><code><a title="phi.field.integrate" href="#phi.field.integrate">integrate</a></code></li>
 <li><code><a title="phi.field.isfinite" href="#phi.field.isfinite">isfinite</a></code></li>

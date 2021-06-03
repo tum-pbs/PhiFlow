@@ -154,7 +154,7 @@ class ConstantExtrapolation(Extrapolation):
         value = value._simplify()
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
-            native = value.native()
+            native = value._native
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
             backend = choose_backend(native)
             result_tensor = backend.pad(native, ordered_pad_widths, 'constant', self.value.native())
@@ -291,7 +291,7 @@ class _CopyExtrapolation(Extrapolation):
         value = value._simplify()
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
-            native = value.native()
+            native = value._native
             ordered_pad_widths = value.shape.order(widths, default=(0, 0))
             result_tensor = choose_backend(native).pad(native, ordered_pad_widths, repr(self))
             if result_tensor is NotImplemented:

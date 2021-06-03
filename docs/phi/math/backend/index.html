@@ -572,6 +572,14 @@ The output of math operations has the same precision as its inputs.</p>
         return DType(float, self.precision)
 
     @property
+    def as_registered(self) -&gt; &#39;Backend&#39;:
+        from phi.math.backend import BACKENDS
+        for backend in BACKENDS:
+            if self.name in backend.name:
+                return backend
+        raise RuntimeError(f&#34;Backend &#39;{self}&#39; is not visible.&#34;)
+
+    @property
     def complex_type(self) -&gt; DType:
         return DType(complex, max(64, self.precision))
 
@@ -710,9 +718,6 @@ The output of math operations has the same precision as its inputs.</p>
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
-    def jit_compile(self, f: Callable) -&gt; Callable:
-        return NotImplemented
-
     def call(self, f: Callable, *args, name=None):
         &#34;&#34;&#34;
         Calls `f(*args)` and returns the result.
@@ -723,6 +728,15 @@ The output of math operations has the same precision as its inputs.</p>
             choose_backend(key).call(custom_function, *args)
         &#34;&#34;&#34;
         return f(*args)
+
+    def block_until_ready(self, values):
+        pass
+
+    def jit_compile(self, f: Callable) -&gt; Callable:
+        return NotImplemented
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
         &#34;&#34;&#34;
@@ -736,6 +750,9 @@ The output of math operations has the same precision as its inputs.</p>
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
         &#34;&#34;&#34;
         return NotImplemented
+
+    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError()
 
     def transpose(self, tensor, axes):
         raise NotImplementedError()
@@ -1277,7 +1294,7 @@ The output of math operations has the same precision as its inputs.</p>
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-            diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
+            diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
             converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -1321,7 +1338,7 @@ The output of math operations has the same precision as its inputs.</p>
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             dy = self.linear(lin, dx); function_evaluations += continue_1
-            diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
+            diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
             converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -1346,9 +1363,6 @@ The output of math operations has the same precision as its inputs.</p>
             lin_shape = self.staticshape(lin)
             assert len(lin_shape) == 2, f&#34;A must be a matrix but got shape {lin_shape}&#34;
             return self.matmul(lin, vector)
-
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
-        raise NotImplementedError(self)
 
     def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
         raise NotImplementedError(self)
@@ -1465,6 +1479,22 @@ The output of math operations has the same precision as its inputs.</p>
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.math.backend.Backend.as_registered"><code class="name">var <span class="ident">as_registered</span> : phi.math.backend._backend.Backend</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def as_registered(self) -&gt; &#39;Backend&#39;:
+    from phi.math.backend import BACKENDS
+    for backend in BACKENDS:
+        if self.name in backend.name:
+            return backend
+    raise RuntimeError(f&#34;Backend &#39;{self}&#39; is not visible.&#34;)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.complex_type"><code class="name">var <span class="ident">complex_type</span> : phi.math.backend._dtype.DType</code></dt>
 <dd>
 <div class="desc"></div>
@@ -1711,6 +1741,19 @@ The first dimension of <code>values</code> and <code>indices</code> is the batch
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.block_until_ready"><code class="name flex">
+<span>def <span class="ident">block_until_ready</span></span>(<span>self, values)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def block_until_ready(self, values):
+    pass</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.boolean_mask"><code class="name flex">
 <span>def <span class="ident">boolean_mask</span></span>(<span>self, x, mask, axis=0)</span>
 </code></dt>
@@ -1872,7 +1915,7 @@ This method may be used to register internal calls with the profiler.</p>
         residual_squared_old = residual_squared
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
         dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-        diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
+        diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
         converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
         if trajectory is not None:
             trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -1926,7 +1969,7 @@ This method may be used to register internal calls with the profiler.</p>
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
         dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
         dy = self.linear(lin, dx); function_evaluations += continue_1
-        diverged = self.any(residual_squared / rsq0 &gt; 16, axis=(1,))  # factor 4
+        diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
         converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
         if trajectory is not None:
             trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -2522,6 +2565,19 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </summary>
 <pre><code class="python">def jit_compile(self, f: Callable) -&gt; Callable:
     return NotImplemented</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.jit_compile_grad"><code class="name flex">
+<span>def <span class="ident">jit_compile_grad</span></span>(<span>self, f, wrt: tuple, get_output: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.linear"><code class="name flex">
@@ -4340,10 +4396,12 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.all" href="#phi.math.backend.Backend.all">all</a></code></li>
 <li><code><a title="phi.math.backend.Backend.and_" href="#phi.math.backend.Backend.and_">and_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.any" href="#phi.math.backend.Backend.any">any</a></code></li>
+<li><code><a title="phi.math.backend.Backend.as_registered" href="#phi.math.backend.Backend.as_registered">as_registered</a></code></li>
 <li><code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">as_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batch_gather" href="#phi.math.backend.Backend.batch_gather">batch_gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batched_gather_nd" href="#phi.math.backend.Backend.batched_gather_nd">batched_gather_nd</a></code></li>
+<li><code><a title="phi.math.backend.Backend.block_until_ready" href="#phi.math.backend.Backend.block_until_ready">block_until_ready</a></code></li>
 <li><code><a title="phi.math.backend.Backend.boolean_mask" href="#phi.math.backend.Backend.boolean_mask">boolean_mask</a></code></li>
 <li><code><a title="phi.math.backend.Backend.call" href="#phi.math.backend.Backend.call">call</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cast" href="#phi.math.backend.Backend.cast">cast</a></code></li>
@@ -4385,6 +4443,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.math.backend.Backend.jit_compile" href="#phi.math.backend.Backend.jit_compile">jit_compile</a></code></li>
+<li><code><a title="phi.math.backend.Backend.jit_compile_grad" href="#phi.math.backend.Backend.jit_compile_grad">jit_compile_grad</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linear" href="#phi.math.backend.Backend.linear">linear</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">linear_solve</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>

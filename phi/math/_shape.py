@@ -131,10 +131,12 @@ class Shape:
 
     def __getitem__(self, selection):
         if isinstance(selection, int):
-            return self.sizes[selection]
+            return Shape([self.sizes[selection]], [self.names[selection]], [self.types[selection]])
         elif isinstance(selection, slice):
             return Shape(self.sizes[selection], self.names[selection], self.types[selection])
-        return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
+        elif isinstance(selection, (tuple, list)):
+            return Shape([self.sizes[i] for i in selection], [self.names[i] for i in selection], [self.types[i] for i in selection])
+        raise AssertionError("Can only access shape elements as shape[int] or shape[slice]")
 
     @property
     def batch(self) -> 'Shape':
@@ -276,8 +278,12 @@ class Shape:
     @property
     def name(self) -> str:
         """ Only for shapes with a single dimension. Returns the name of the dimension. """
-        assert self.rank == 1, 'Shape.name is only defined for shapes of rank 1.'
+        assert self.rank == 1, "Shape.name is only defined for shapes of rank 1."
         return self.names[0]
+
+    def __int__(self):
+        assert self.rank == 1, "int(Shape) is only defined for shapes of rank 1."
+        return self.sizes[0]
 
     def mask(self, names: tuple or list or set):
         """

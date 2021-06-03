@@ -59,12 +59,12 @@ def _plot(field: SampledField,
     elif field.spatial_rank == 2 and isinstance(field, Grid):  # vector field
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
-        x, y = field.points.vector.unstack_spatial('x,y', to_numpy=True)
-        data_x, data_y = real_values(field).vector.unstack_spatial('x,y', to_numpy=True)
-        lower = field.bounds.lower.vector.unstack_spatial('x,y', to_python=True)
-        upper = field.bounds.upper.vector.unstack_spatial('x,y', to_python=True)
-        x_range = [lower[0], upper[0]]
-        y_range = [lower[1], upper[1]]
+        x, y = [d.numpy('x,y') for d in field.points.vector.unstack_spatial('x,y')]
+        data_x, data_y = [d.numpy('x,y') for d in real_values(field).vector.unstack_spatial('x,y')]
+        lower_x, lower_y = [float(l) for l in field.bounds.lower.vector.unstack_spatial('x,y')]
+        upper_x, upper_y = [float(u) for u in field.bounds.upper.vector.unstack_spatial('x,y')]
+        x_range = [lower_x, upper_x]
+        y_range = [lower_y, upper_y]
         # result = figure_factory.create_quiver(x, y, data_x, data_y, scale=1.0)  # 7 points per arrow
         # result.update_xaxes(range=x_range)
         # result.update_yaxes(range=y_range)

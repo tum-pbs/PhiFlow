@@ -33,18 +33,16 @@ Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 from typing import Tuple
 
 from phi import math, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, grid, \
-    CenteredGrid
+from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
 from phi.geom import union
 from ._boundaries import Domain
-from ..math import SolveInfo
 from ..math._tensors import copy_with
 
 
 def make_incompressible(velocity: Grid,
-                        domain: Domain,
+                        boundaries: dict or Domain,
                         obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 0, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[Grid, SolveInfo]:
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 0, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[Grid, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -52,23 +50,21 @@ def make_incompressible(velocity: Grid,
 
     Args:
       velocity: Vector field sampled on a grid
-      domain: Used to specify boundary conditions
+      boundaries: Boundary conditions as `dict` or `Domain`.
       obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
       solve: Parameters for the pressure solve as.
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
-      iterations: Number of iterations required to solve_linear for the pressure
-      divergence: divergence field of input velocity, `CenteredGrid`
     &#34;&#34;&#34;
-    boundaries = domain.boundaries
+    boundaries = boundaries.boundaries if isinstance(boundaries, Domain) else boundaries
     input_velocity = velocity
-    active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), velocity.resolution, velocity.bounds, boundaries[&#39;active&#39;])
+    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=boundaries[&#39;active&#39;])
     accessible = active.with_(extrapolation=boundaries[&#39;accessible&#39;])
     hard_bcs = field.stagger(accessible, math.minimum, boundaries[&#39;accessible&#39;], type=type(velocity))
     v_bc_div = boundaries[&#39;vector&#39;] * boundaries[&#39;accessible&#39;]
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
+    velocity = apply_boundary_conditions(velocity, obstacles, boundaries).with_(extrapolation=v_bc_div)
     div = divergence(velocity) * active
     if boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO or boundaries[&#39;vector&#39;] == math.extrapolation.PERIODIC:
         div = _balance_divergence(div, active)
@@ -76,7 +72,8 @@ def make_incompressible(velocity: Grid,
 
     # Solve pressure
     @math.jit_compile_linear
-    def laplace(p):
+    def laplace(p):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
+        # TODO active, hard_bcs are actually arguments
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
         grad = grad.with_(extrapolation=v_bc_div)
@@ -84,13 +81,13 @@ def make_incompressible(velocity: Grid,
         lap = where(active, div, p)
         return lap
 
-    if not solve.x0:
-        solve = copy_with(solve, x0=grid(0, div.resolution, div.bounds, boundaries[&#39;scalar&#39;]))
+    if solve.x0 is None:
+        solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=boundaries[&#39;scalar&#39;]))
     pressure = field.solve_linear(laplace, y=div, solve=solve)
     if boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO or boundaries[&#39;vector&#39;] == math.extrapolation.PERIODIC:
         def pressure_backward(_p, _p_, dp: CenteredGrid):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
-            active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), dp.resolution, dp.bounds, boundaries[&#39;active&#39;])
+            active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=dp.resolution, bounds=dp.bounds, extrapolation=boundaries[&#39;active&#39;])
             return _balance_divergence(dp, active),
         pressure = math.custom_gradient(lambda p: p, pressure_backward)(pressure)
     # Subtract grad pressure
@@ -103,26 +100,29 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
+def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list, boundaries: dict):
     &#34;&#34;&#34;
-    Enforces obstacle boundary conditions on a velocity grid.
+    Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
-    Cells outside will be unaffected.
+    Cells outside far away will be unaffected.
 
     Args:
       velocity: centered or staggered velocity grid
+      boundaries: simulation domain
       obstacles: sequence of Obstacles
-      velocity: Grid: 
-      obstacles: tuple or list: 
 
     Returns:
       velocity of same type as `velocity`
 
     &#34;&#34;&#34;
+    # Mask hard boundaries and obstacle
+    bcs = field.stagger(CenteredGrid(1, resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=boundaries[&#39;accessible&#39;]), math.minimum, boundaries[&#39;accessible&#39;], type=type(velocity))
+    bcs *= 1 - (HardGeometryMask(union([obstacle.geometry for obstacle in obstacles])) &gt;&gt; bcs)
+    velocity *= bcs
+    # Add obstacle velocity to fluid
     for obstacle in obstacles:
         if not obstacle.is_stationary:
-            obs_mask = GeometryMask(obstacle.geometry)
-            obs_mask = obs_mask.at(velocity)
+            obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) &gt;&gt; velocity
             angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None).at(velocity)
             obs_vel = angular_velocity + obstacle.velocity
             velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
@@ -136,23 +136,21 @@ def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="phi.physics.fluid.layer_obstacle_velocities"><code class="name flex">
-<span>def <span class="ident">layer_obstacle_velocities</span></span>(<span>velocity: phi.field._grid.Grid, obstacles: tuple)</span>
+<dt id="phi.physics.fluid.apply_boundary_conditions"><code class="name flex">
+<span>def <span class="ident">apply_boundary_conditions</span></span>(<span>velocity: phi.field._grid.Grid, obstacles: tuple, boundaries: dict)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Enforces obstacle boundary conditions on a velocity grid.
+<div class="desc"><p>Enforces velocities boundary conditions on a velocity grid.
 Cells inside obstacles will get their velocity from the obstacle movement.
-Cells outside will be unaffected.</p>
+Cells outside far away will be unaffected.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>velocity</code></strong></dt>
 <dd>centered or staggered velocity grid</dd>
+<dt><strong><code>boundaries</code></strong></dt>
+<dd>simulation domain</dd>
 <dt><strong><code>obstacles</code></strong></dt>
 <dd>sequence of Obstacles</dd>
-<dt><strong><code>velocity</code></strong></dt>
-<dd>Grid: </dd>
-<dt><strong><code>obstacles</code></strong></dt>
-<dd>tuple or list: </dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>velocity of same type as <code>velocity</code></p></div>
@@ -160,26 +158,29 @@ Cells outside will be unaffected.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
+<pre><code class="python">def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list, boundaries: dict):
     &#34;&#34;&#34;
-    Enforces obstacle boundary conditions on a velocity grid.
+    Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
-    Cells outside will be unaffected.
+    Cells outside far away will be unaffected.
 
     Args:
       velocity: centered or staggered velocity grid
+      boundaries: simulation domain
       obstacles: sequence of Obstacles
-      velocity: Grid: 
-      obstacles: tuple or list: 
 
     Returns:
       velocity of same type as `velocity`
 
     &#34;&#34;&#34;
+    # Mask hard boundaries and obstacle
+    bcs = field.stagger(CenteredGrid(1, resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=boundaries[&#39;accessible&#39;]), math.minimum, boundaries[&#39;accessible&#39;], type=type(velocity))
+    bcs *= 1 - (HardGeometryMask(union([obstacle.geometry for obstacle in obstacles])) &gt;&gt; bcs)
+    velocity *= bcs
+    # Add obstacle velocity to fluid
     for obstacle in obstacles:
         if not obstacle.is_stationary:
-            obs_mask = GeometryMask(obstacle.geometry)
-            obs_mask = obs_mask.at(velocity)
+            obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) &gt;&gt; velocity
             angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None).at(velocity)
             obs_vel = angular_velocity + obstacle.velocity
             velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
@@ -187,7 +188,7 @@ Cells outside will be unaffected.</p>
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), solve=auto with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000) ‑> Tuple[phi.field._grid.Grid, phi.math._functional.SolveInfo]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, boundaries: dict, obstacles: tuple = (), solve=auto with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000) ‑> Tuple[phi.field._grid.Grid, phi.field._grid.CenteredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -196,8 +197,8 @@ Cells outside will be unaffected.</p>
 <dl>
 <dt><strong><code>velocity</code></strong></dt>
 <dd>Vector field sampled on a grid</dd>
-<dt><strong><code>domain</code></strong></dt>
-<dd>Used to specify boundary conditions</dd>
+<dt><strong><code>boundaries</code></strong></dt>
+<dd>Boundary conditions as <code>dict</code> or <code>Domain</code>.</dd>
 <dt><strong><code>obstacles</code></strong></dt>
 <dd>List of Obstacles to specify boundary conditions inside the domain (Default value = ())</dd>
 <dt><strong><code>solve</code></strong></dt>
@@ -209,19 +210,15 @@ Cells outside will be unaffected.</p>
 <dd>divergence-free velocity of type <code>type(velocity)</code></dd>
 <dt><code>pressure</code></dt>
 <dd>solved pressure field, <code>CenteredGrid</code></dd>
-<dt><code>iterations</code></dt>
-<dd>Number of iterations required to solve_linear for the pressure</dd>
-<dt><code>divergence</code></dt>
-<dd>divergence field of input velocity, <code>CenteredGrid</code></dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def make_incompressible(velocity: Grid,
-                        domain: Domain,
+                        boundaries: dict or Domain,
                         obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 0, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[Grid, SolveInfo]:
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 0, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[Grid, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -229,23 +226,21 @@ Cells outside will be unaffected.</p>
 
     Args:
       velocity: Vector field sampled on a grid
-      domain: Used to specify boundary conditions
+      boundaries: Boundary conditions as `dict` or `Domain`.
       obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
       solve: Parameters for the pressure solve as.
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
-      iterations: Number of iterations required to solve_linear for the pressure
-      divergence: divergence field of input velocity, `CenteredGrid`
     &#34;&#34;&#34;
-    boundaries = domain.boundaries
+    boundaries = boundaries.boundaries if isinstance(boundaries, Domain) else boundaries
     input_velocity = velocity
-    active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), velocity.resolution, velocity.bounds, boundaries[&#39;active&#39;])
+    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=boundaries[&#39;active&#39;])
     accessible = active.with_(extrapolation=boundaries[&#39;accessible&#39;])
     hard_bcs = field.stagger(accessible, math.minimum, boundaries[&#39;accessible&#39;], type=type(velocity))
     v_bc_div = boundaries[&#39;vector&#39;] * boundaries[&#39;accessible&#39;]
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=v_bc_div)
+    velocity = apply_boundary_conditions(velocity, obstacles, boundaries).with_(extrapolation=v_bc_div)
     div = divergence(velocity) * active
     if boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO or boundaries[&#39;vector&#39;] == math.extrapolation.PERIODIC:
         div = _balance_divergence(div, active)
@@ -253,7 +248,8 @@ Cells outside will be unaffected.</p>
 
     # Solve pressure
     @math.jit_compile_linear
-    def laplace(p):
+    def laplace(p):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
+        # TODO active, hard_bcs are actually arguments
         grad = spatial_gradient(p, type(velocity))
         grad *= hard_bcs
         grad = grad.with_(extrapolation=v_bc_div)
@@ -261,13 +257,13 @@ Cells outside will be unaffected.</p>
         lap = where(active, div, p)
         return lap
 
-    if not solve.x0:
-        solve = copy_with(solve, x0=grid(0, div.resolution, div.bounds, boundaries[&#39;scalar&#39;]))
+    if solve.x0 is None:
+        solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=boundaries[&#39;scalar&#39;]))
     pressure = field.solve_linear(laplace, y=div, solve=solve)
     if boundaries[&#39;accessible&#39;] == math.extrapolation.ZERO or boundaries[&#39;vector&#39;] == math.extrapolation.PERIODIC:
         def pressure_backward(_p, _p_, dp: CenteredGrid):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
-            active = grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), dp.resolution, dp.bounds, boundaries[&#39;active&#39;])
+            active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=dp.resolution, bounds=dp.bounds, extrapolation=boundaries[&#39;active&#39;])
             return _balance_divergence(dp, active),
         pressure = math.custom_gradient(lambda p: p, pressure_backward)(pressure)
     # Subtract grad pressure
@@ -294,7 +290,7 @@ Cells outside will be unaffected.</p>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="phi.physics.fluid.layer_obstacle_velocities" href="#phi.physics.fluid.layer_obstacle_velocities">layer_obstacle_velocities</a></code></li>
+<li><code><a title="phi.physics.fluid.apply_boundary_conditions" href="#phi.physics.fluid.apply_boundary_conditions">apply_boundary_conditions</a></code></li>
 <li><code><a title="phi.physics.fluid.make_incompressible" href="#phi.physics.fluid.make_incompressible">make_incompressible</a></code></li>
 </ul>
 </li>

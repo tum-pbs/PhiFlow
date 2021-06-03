@@ -572,7 +572,7 @@ class ShiftLinTracer(Tensor):
             cells = [(cell + shift.get_size(dim) if dim in shift else cell) % src_shape.get_size(dim) for dim, cell in zip(src_shape.names, cells)]  # shift & wrap
             src_indices = cell_number(cells, src_shape)
             cols.append(src_indices)
-            vals.append(CollapsedTensor(values, out_shape).native())
+            vals.append(reshaped_native(values, [*out_shape]))
         cols = np.stack(cols, -1).flatten()
         backend = choose_backend(*vals)
         vals = backend.flatten(backend.stack(vals, -1))

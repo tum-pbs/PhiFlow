@@ -9,7 +9,6 @@ from phi.math import Tensor
 from phi.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
 from phi.math import spatial_shape
 from ._physics import State
-from ..field._grid import grid
 from ..math.extrapolation import combine_sides
 
 
@@ -88,6 +87,7 @@ class Domain:
             See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions .
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
+        warnings.warn("Domain is deprecated. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", DeprecationWarning)
         self.resolution: math.Shape = spatial_shape(resolution) & spatial_shape(resolution_)
         assert self.resolution.rank > 0, "Cannot create Domain because no dimensions were specified."
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
@@ -154,7 +154,7 @@ class Domain:
             Grid of specified type
         """
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        return grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+        return type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
 
     def scalar_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
@@ -192,7 +192,7 @@ class Domain:
             except AssertionError:
                 pass
             value = math.wrap(value)
-        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
+        result = CenteredGrid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         assert result.shape.channel_rank == 0
         return result
 
@@ -221,7 +221,7 @@ class Domain:
           Grid of specified type
         """
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+        result = type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         if result.shape.channel_rank == 0:
             result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
         else:

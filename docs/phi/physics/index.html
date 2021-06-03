@@ -65,10 +65,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dd>
 <div class="desc"><p>Functions to simulate diffusion processes on <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code> objects.</p></div>
 </dd>
-<dt><code class="name"><a title="phi.physics.experimental" href="experimental.html">phi.physics.experimental</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt><code class="name"><a title="phi.physics.flip" href="flip.html">phi.physics.flip</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -76,14 +72,6 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dt><code class="name"><a title="phi.physics.fluid" href="fluid.html">phi.physics.fluid</a></code></dt>
 <dd>
 <div class="desc"><p>Definition of Fluid, IncompressibleFlow as well as fluid-related functions.</p></div>
-</dd>
-<dt><code class="name"><a title="phi.physics.inv_diffuse" href="inv_diffuse.html">phi.physics.inv_diffuse</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="phi.physics.sin_aox" href="sin_aox.html">phi.physics.sin_aox</a></code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 </dl>
 </section>
@@ -151,6 +139,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions .
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         &#34;&#34;&#34;
+        warnings.warn(&#34;Domain is deprecated. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)&#34;, DeprecationWarning)
         self.resolution: math.Shape = spatial_shape(resolution) &amp; spatial_shape(resolution_)
         assert self.resolution.rank &gt; 0, &#34;Cannot create Domain because no dimensions were specified.&#34;
         &#34;&#34;&#34; Grid dimensions as `Shape` object containing spatial dimensions only. &#34;&#34;&#34;
@@ -217,7 +206,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             Grid of specified type
         &#34;&#34;&#34;
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        return grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+        return type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
 
     def scalar_grid(self,
                     value: Field or Tensor or Number or Geometry or callable = 0.,
@@ -255,7 +244,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
             except AssertionError:
                 pass
             value = math.wrap(value)
-        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
+        result = CenteredGrid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         assert result.shape.channel_rank == 0
         return result
 
@@ -284,7 +273,7 @@ See <a href="https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions"
           Grid of specified type
         &#34;&#34;&#34;
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+        result = type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         if result.shape.channel_rank == 0:
             result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
         else:
@@ -635,7 +624,7 @@ The grid is created from the given <code>value</code> which must be one of the f
         Grid of specified type
     &#34;&#34;&#34;
     extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-    return grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)</code></pre>
+    return type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.Domain.points"><code class="name flex">
@@ -763,7 +752,7 @@ The grid is created from the given <code>value</code> which must be one of the f
         except AssertionError:
             pass
         value = math.wrap(value)
-    result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
+    result = CenteredGrid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
     assert result.shape.channel_rank == 0
     return result</code></pre>
 </details>
@@ -877,7 +866,7 @@ The grid is created from the given <code>value</code> which must be one of the f
       Grid of specified type
     &#34;&#34;&#34;
     extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-    result = grid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation, type=type)
+    result = type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
     if result.shape.channel_rank == 0:
         result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
     else:
@@ -1052,11 +1041,8 @@ It can also have a linear and angular velocity.</p></div>
 <ul>
 <li><code><a title="phi.physics.advect" href="advect.html">phi.physics.advect</a></code></li>
 <li><code><a title="phi.physics.diffuse" href="diffuse.html">phi.physics.diffuse</a></code></li>
-<li><code><a title="phi.physics.experimental" href="experimental.html">phi.physics.experimental</a></code></li>
 <li><code><a title="phi.physics.flip" href="flip.html">phi.physics.flip</a></code></li>
 <li><code><a title="phi.physics.fluid" href="fluid.html">phi.physics.fluid</a></code></li>
-<li><code><a title="phi.physics.inv_diffuse" href="inv_diffuse.html">phi.physics.inv_diffuse</a></code></li>
-<li><code><a title="phi.physics.sin_aox" href="sin_aox.html">phi.physics.sin_aox</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>

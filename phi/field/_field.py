@@ -120,17 +120,18 @@ class Field:
 
 
 class SampledField(Field):
+    """
+    Base class for fields that are sampled at specific locations such as grids or point clouds.
+    """
 
     def __init__(self, elements: Geometry, values: Tensor or float or int, extrapolation: math.Extrapolation):
         """
-        Base class for fields that are sampled at specific locations such as grids or point clouds.
-
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         """
-        assert isinstance(extrapolation, (Extrapolation, tuple, list)), extrapolation
+        assert isinstance(extrapolation, Extrapolation), f"Not a valid extrapolation: {extrapolation}"
         assert isinstance(elements, Geometry), elements
         self._elements = elements
         self._values = math.wrap(values)
