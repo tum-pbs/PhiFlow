@@ -10,7 +10,10 @@ from ..math._tensors import Tensor
 from ..math.backend._backend import combined_dim
 
 
-class AbstractBox(Geometry):
+class BaseBox(Geometry):  # not a Subwoofer
+    """
+    Abstract base type for box-like geometries.
+    """
 
     def unstack(self, dimension):
         raise NotImplementedError()
@@ -32,7 +35,7 @@ class AbstractBox(Geometry):
     def center(self) -> Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta) -> 'AbstractBox':
+    def shifted(self, delta) -> 'BaseBox':
         raise NotImplementedError()
 
     @property
@@ -115,7 +118,7 @@ class AbstractBox(Geometry):
     def center_representation(self) -> 'Cuboid':
         return Cuboid(self.center, self.half_size)
 
-    def contains(self, other: 'AbstractBox'):
+    def contains(self, other: 'BaseBox'):
         """ Tests if the other box lies fully inside this box. """
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
@@ -154,7 +157,7 @@ class BoxType(type):
         return Box(lower, upper)
 
 
-class Box(AbstractBox, metaclass=BoxType):
+class Box(BaseBox, metaclass=BoxType):
     """
     Simple cuboid defined by location of lower and upper corner in physical space.
 
@@ -185,7 +188,7 @@ class Box(AbstractBox, metaclass=BoxType):
         return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))
 
     def __eq__(self, other):
-        return isinstance(other, AbstractBox)\
+        return isinstance(other, BaseBox)\
                and self.shape.alphabetically() == other.shape.alphabetically()\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
@@ -230,7 +233,7 @@ class Box(AbstractBox, metaclass=BoxType):
             return 'Box[shape=%s]' % self._shape
 
 
-class Cuboid(AbstractBox):
+class Cuboid(BaseBox):
 
     def __init__(self, center, half_size):
         self._center = wrap(center)
@@ -240,7 +243,7 @@ class Cuboid(AbstractBox):
         raise NotImplementedError()
 
     def __eq__(self, other):
-        return isinstance(other, AbstractBox)\
+        return isinstance(other, BaseBox)\
                and self.shape.alphabetically() == other.shape.alphabetically()\
                and math.close(self._center, other.center)\
                and math.close(self._half_size, other.half_size)
@@ -285,9 +288,9 @@ def bounding_box(geometry):
     return Box(lower=center - extent, upper=center + extent)
 
 
-class GridCell(AbstractBox):
+class GridCell(BaseBox):
 
-    def __init__(self, resolution: math.Shape, bounds: AbstractBox):
+    def __init__(self, resolution: math.Shape, bounds: BaseBox):
         assert resolution.spatial_rank == resolution.rank, 'resolution must be purely spatial but got %s' % (resolution,)
         self._resolution = resolution
         self._bounds = bounds
@@ -382,7 +385,7 @@ class GridCell(AbstractBox):
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor) -> AbstractBox:
+    def shifted(self, delta: Tensor) -> BaseBox:
         if delta.shape.spatial_rank == 0:
             return GridCell(self.resolution, self.bounds.shifted(delta))
         else:

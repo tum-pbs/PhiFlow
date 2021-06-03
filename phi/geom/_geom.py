@@ -15,7 +15,7 @@ class Geometry:
     Main implementing classes:
 
     * Sphere
-    * box family: box (generator), Box, Cuboid, AbstractBox
+    * box family: box (generator), Box, Cuboid, BaseBox
 
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
