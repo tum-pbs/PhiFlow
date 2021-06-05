@@ -13,10 +13,11 @@ DOMAIN = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box[0:64, 0:64])
 GRAVITY = math.tensor([0, -9.81])
 DT = 0.1
 OBSTACLE = Box[1:35, 30:33].rotated(-20)
-ACCESSIBLE_MASK = DOMAIN.accessible_mask(OBSTACLE, type=StaggeredGrid)
+ACCESSIBLE_MASK = field.stagger(CenteredGrid(~OBSTACLE, 0, x=64, y=64), math.minimum, extrapolation.ZERO)
 _OBSTACLE_POINTS = DOMAIN.distribute_points(OBSTACLE, color='#000000', points_per_cell=1, center=True)  # only for plotting
 
 particles = DOMAIN.distribute_points(union(Box[15:30, 50:60], Box[:, :5])) * (0, 0)
+# particles = nonzero(CenteredGrid(union(Box[15:30, 50:60], Box[:, :5]), 0, **DOMAIN)) * (0, 0)
 velocity = particles >> DOMAIN.staggered_grid()
 pressure = DOMAIN.scalar_grid()
 scene = particles & _OBSTACLE_POINTS * (0, 0)  # only for plotting

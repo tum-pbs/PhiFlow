@@ -9,9 +9,9 @@ from phi.torch.flow import *
 # from phi.tf.flow import *
 
 
-DOMAIN = Domain(x=50, y=50, boundaries=CLOSED, bounds=Box[0:100, 0:100])
-MARKER_0 = DOMAIN.scalar_grid(Sphere((40, 50), radius=20))
-MARKER_TARGET = DOMAIN.scalar_grid(Sphere((60, 50), radius=20))
+DOMAIN = dict(x=50, y=50, bounds=Box[0:100, 0:100])
+MARKER_0 = CenteredGrid(Sphere((40, 50), radius=20), extrapolation.BOUNDARY, **DOMAIN)
+MARKER_TARGET = CenteredGrid(Sphere((60, 50), radius=20), extrapolation.BOUNDARY, **DOMAIN)
 
 
 def loss(velocity):
@@ -22,10 +22,9 @@ def loss(velocity):
 
 gradient_function = field.functional_gradient(loss, get_output=True)
 
-velocity_fit = DOMAIN.staggered_grid(0)
-marker_fit = DOMAIN.scalar_grid(0)
-smooth_difference = DOMAIN.scalar_grid(0)
-gradient = DOMAIN.staggered_grid(0)
+velocity_fit = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
+marker_fit = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
+smooth_difference = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 app = view(display=['marker_fit', 'gradient'], play=False)
 
 for iteration in app.range(warmup=1):

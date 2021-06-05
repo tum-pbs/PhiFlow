@@ -2,17 +2,15 @@
 Simulates a viscous fluid flowing through a horizontal pipe.
 """
 from phi.flow import *
-from phi.physics._boundaries import STICKY
 
-
-DOMAIN = Domain(x=50, y=32, boundaries=[OPEN, STICKY])
+DOMAIN = dict(x=50, y=32, extrapolation=extrapolation.combine_sides(dict(x=extrapolation.BOUNDARY, y=extrapolation.ZERO)))
 DT = 1.0
-BOUNDARY_MASK = HardGeometryMask(Box[:0.5, :]) >> DOMAIN.staggered_grid()
-velocity = DOMAIN.staggered_grid(0)
-pressure = DOMAIN.scalar_grid(0)
+BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box[:0.5, :]), **DOMAIN)
+velocity = StaggeredGrid(0, **DOMAIN)
+pressure = None
 
-for _ in view(display='velocity', play=False).range():
+for _ in view('velocity, pressure', display='velocity', play=False).range():
     velocity = advect.semi_lagrangian(velocity, velocity, DT)
     velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (1, 0)
-    velocity, pressure = fluid.make_incompressible(velocity, DOMAIN, solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))
+    velocity, pressure = fluid.make_incompressible(velocity, [OPEN, CLOSED], solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))
     velocity = diffuse.explicit(velocity, 0.1, DT)

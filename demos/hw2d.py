@@ -1,5 +1,4 @@
-from phi.tf.flow import *
-import time
+from phi.flow import *
 from functools import partial
 
 # Simulation parameters
@@ -93,7 +92,7 @@ def get_phi(plasma, guess=None):
     # )
     return CenteredGrid(
         phi, bounds=plasma.omega.bounds, extrapolation=plasma.omega.extrapolation,
-    )  # plasma.omega.domain.grid(phi)
+    )
 
 
 # Diffusion function
@@ -166,10 +165,10 @@ def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
     )
 
 
-domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
-density = domain.grid(math.random_normal(x=x, y=y)) * scale
-omega = domain.grid(math.random_normal(x=x, y=y)) * scale
-phi = domain.grid(math.random_normal(x=x, y=y)) * scale
+domain = dict(extrapolation=extrapolation.PERIODIC, bounds=Box[0:L, 0:L])
+density = CenteredGrid(math.random_normal(x=x, y=y), **domain) * scale
+omega = CenteredGrid(math.random_normal(x=x, y=y), **domain) * scale
+phi = CenteredGrid(math.random_normal(x=x, y=y), **domain) * scale
 age = 0
 rk4 = partial(rk4_step, physics_params=PARAMS)
 print(

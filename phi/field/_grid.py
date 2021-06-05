@@ -165,7 +165,7 @@ class CenteredGrid(Grid):
         assert not other_attributes, f"Invalid attributes for type {type(self)}: {other_attributes}"
         values = values if values is not None else self.values
         extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-        return CenteredGrid(values, extrapolation, self.bounds)
+        return CenteredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
 
     def __getitem__(self, item: dict):
         values = self._values[{dim: slice(sel, sel + 1) if isinstance(sel, int) and dim in self.shape.spatial else sel for dim, sel in item.items()}]
@@ -275,6 +275,11 @@ class StaggeredGrid(Grid):
             elif callable(values):
                 values = values(elements.center)
                 assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
+                assert 'vector_' in values.shape
+                if 'vector' in values.shape:
+                    values = math.channel_stack([values.vector_[i].vector[i] for i in range(resolution.rank)], 'vector')
+                else:
+                    values = values.vector_.as_channel('vector')
             else:
                 values = expand_staggered(math.tensor(values), resolution)
         if values.dtype.kind not in (float, complex):
@@ -335,7 +340,7 @@ class StaggeredGrid(Grid):
                 return CenteredGrid(values, bounds=comp_cells.bounds, extrapolation=extrapolation)
             else:
                 assert isinstance(item['vector'], slice) and not item['vector'].start and not item['vector'].stop
-        return StaggeredGrid(values, bounds, extrapolation)
+        return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def staggered_tensor(self):
         return stack_staggered_components(self.values)

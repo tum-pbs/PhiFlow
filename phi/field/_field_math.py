@@ -147,7 +147,7 @@ def curl(field: Grid, type: type = CenteredGrid):
         grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim='vector')
         result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
         bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
-        return StaggeredGrid(result, bounds, field.extrapolation.spatial_gradient())
+        return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
     raise NotImplementedError()
 
 
@@ -235,14 +235,14 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
 def downsample2x(grid: Grid) -> GridType:
     if isinstance(grid, CenteredGrid):
         values = math.downsample2x(grid.values, grid.extrapolation)
-        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+        return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
     elif isinstance(grid, StaggeredGrid):
         values = []
         for dim, centered_grid in zip(grid.shape.spatial.names, unstack(grid, 'vector')):
             odd_discarded = centered_grid.values[{dim: slice(None, None, 2)}]
             others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
             values.append(others_interpolated)
-        return StaggeredGrid(math.channel_stack(values, 'vector'), grid.bounds, grid.extrapolation)
+        return StaggeredGrid(math.channel_stack(values, 'vector'), bounds=grid.bounds, extrapolation=grid.extrapolation)
     else:
         raise ValueError(type(grid))
 
@@ -250,7 +250,7 @@ def downsample2x(grid: Grid) -> GridType:
 def upsample2x(grid: GridType) -> GridType:
     if isinstance(grid, CenteredGrid):
         values = math.upsample2x(grid.values, grid.extrapolation)
-        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+        return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
     elif isinstance(grid, StaggeredGrid):
         raise NotImplementedError()
     else:

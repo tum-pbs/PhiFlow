@@ -6,7 +6,7 @@ from typing import Tuple
 from phi import math, field
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
 from phi.geom import union
-from ._boundaries import Domain
+from ._boundaries import Domain, _create_boundary_conditions
 from ..math._tensors import copy_with
 
 
@@ -29,13 +29,13 @@ def make_incompressible(velocity: Grid,
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
     """
-    boundaries = boundaries.boundaries if isinstance(boundaries, Domain) else boundaries
+    boundaries = boundaries.boundaries if isinstance(boundaries, Domain) else _create_boundary_conditions(boundaries, velocity.shape.spatial.names)
     input_velocity = velocity
     active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=boundaries['active'])
     accessible = active.with_(extrapolation=boundaries['accessible'])
     hard_bcs = field.stagger(accessible, math.minimum, boundaries['accessible'], type=type(velocity))
     v_bc_div = boundaries['vector'] * boundaries['accessible']
-    velocity = apply_boundary_conditions(velocity, obstacles, boundaries).with_(extrapolation=v_bc_div)
+    velocity = apply_boundary_conditions(velocity, obstacles, boundaries['accessible']).with_(extrapolation=v_bc_div)
     div = divergence(velocity) * active
     if boundaries['accessible'] == math.extrapolation.ZERO or boundaries['vector'] == math.extrapolation.PERIODIC:
         div = _balance_divergence(div, active)
@@ -71,23 +71,23 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list, boundaries: dict):
+def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list, accessible_extrapolation: math.Extrapolation):
+    # TODO accessible_extrapolation redundant with velocity.extrapolation, instead pad velocity field according to BCs.
     """
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
     Cells outside far away will be unaffected.
 
     Args:
-      velocity: centered or staggered velocity grid
-      boundaries: simulation domain
-      obstacles: sequence of Obstacles
+      velocity: Velocity `Grid`.
+      accessible_extrapolation: Boundary conditions of the accessible mask.
+      obstacles: Obstacles as `tuple` or `list`
 
     Returns:
-      velocity of same type as `velocity`
-
+        Velocity of same type as `velocity`
     """
     # Mask hard boundaries and obstacle
-    bcs = field.stagger(CenteredGrid(1, resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=boundaries['accessible']), math.minimum, boundaries['accessible'], type=type(velocity))
+    bcs = field.stagger(CenteredGrid(1, resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=accessible_extrapolation), math.minimum, accessible_extrapolation, type=type(velocity))
     bcs *= 1 - (HardGeometryMask(union([obstacle.geometry for obstacle in obstacles])) >> bcs)
     velocity *= bcs
     # Add obstacle velocity to fluid

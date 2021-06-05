@@ -127,3 +127,9 @@ class PointCloud(SampledField):
         assert isinstance(other, PointCloud)
         from ._field_math import concat
         return concat(self, other, dim='points')
+
+
+def nonzero(field: SampledField):
+    indices = math.nonzero(field.values, list_dim='points')
+    elements = field.elements[indices]
+    return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds, color=None)

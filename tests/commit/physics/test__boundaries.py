@@ -36,7 +36,7 @@ class TestFieldMath(TestCase):
         grid = Domain(x=4, y=3).scalar_grid(lambda x: math.sum(x ** 2, 'vector'))
         math.assert_close(grid.values.x[0].y[0], 0.5)
         self.assertEqual(grid.shape.volume, 12)
-        grid = Domain(x=4, y=3).scalar_grid(lambda x: 1)
+        grid = Domain(x=4, y=3).scalar_grid(lambda x: math.ones(x.shape.spatial))
         math.assert_close(grid.values, 1)
 
     def test_domain_grid_memory_allocation(self):

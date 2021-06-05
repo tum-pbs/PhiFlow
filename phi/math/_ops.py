@@ -786,7 +786,7 @@ def split_dimension(value: Tensor, dim: str, split_dims: Shape):
         new_shape = value.shape.without(dim).expand(split_dims.sizes[0], split_dims.name, split_dims.types[0], pos=value.shape.index(dim))
         return value._with_shape_replaced(new_shape)
     else:
-        native = value.native()
+        native = value.native(value.shape.names)
         new_shape = value.shape.without(dim)
         i = value.shape.index(dim)
         for size, name, dim_type in split_dims.dimensions:
@@ -873,7 +873,7 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
     Get spatial indices of non-zero / True values.
     
     Batch dimensions are preserved by this operation.
-    If channel dimensions are present, this method returns the indices where any entry is nonzero.
+    If channel dimensions are present, this method returns the indices where any component is nonzero.
 
     Implementations:
 
@@ -894,8 +894,8 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
     if value.shape.channel_rank > 0:
         value = sum_(abs(value), value.shape.channel)
 
-    def unbatched_nonzero(value):
-        native = value.native()
+    def unbatched_nonzero(value: Tensor):
+        native = reshaped_native(value, [*value.shape.spatial])
         backend = choose_backend(native)
         indices = backend.nonzero(native)
         indices_shape = Shape(backend.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
@@ -1337,8 +1337,8 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     """
     def uniform_boolean_mask(x: Tensor, mask_1d: Tensor):
         if dim in x.shape:
-            x_native = x.native()
-            mask_native = mask_1d.native()
+            x_native = x.native(x.shape.names)  # order does not matter
+            mask_native = mask_1d.native()  # only has 1 dim
             backend = choose_backend(x_native, mask_native)
             result_native = backend.boolean_mask(x_native, mask_native, axis=x.shape.index(dim))
             new_shape = x.shape.with_sizes(backend.staticshape(result_native))

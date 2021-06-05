@@ -355,14 +355,11 @@ class Backend:
 
     def nonzero(self, values):
         """
-        
-
         Args:
-          values: 
+            values: Tensor with only spatial dimensions
 
         Returns:
-          
-
+            non-zero multi-indices as tensor of shape (nnz, vector)
         """
         raise NotImplementedError(self)
 
@@ -532,14 +529,10 @@ class Backend:
 
     def boolean_mask(self, x, mask, axis=0):
         """
-
         Args:
-            x:
-            mask:
+            x: tensor with any number of dimensions
+            mask: 1D mask tensor
             axis: Axis index >= 0
-
-        Returns:
-
         """
         raise NotImplementedError(self)
 

@@ -41,9 +41,9 @@ def write(field: SampledField, file: str or math.Tensor):
 
 def write_single_field(field: SampledField, file: str):
     if isinstance(field, StaggeredGrid):
-        data = field.staggered_tensor().numpy()
+        data = field.staggered_tensor().numpy(field.values.shape.names)
     else:
-        data = field.values.numpy()
+        data = field.values.numpy(field.values.shape.names)
     dim_names = field.values.shape.names
     if isinstance(field, Grid):
         lower = field.box.lower.numpy()
@@ -96,8 +96,8 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
         upper = math.wrap(stored['upper'])
         extrapolation = math.extrapolation.from_dict(stored['extrapolation'][()])
         if ftype == 'CenteredGrid':
-            return CenteredGrid(data, geom.Box(lower, upper), extrapolation)
+            return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
         elif ftype == 'StaggeredGrid':
             data_ = unstack_staggered_tensor(data)
-            return StaggeredGrid(data_, geom.Box(lower, upper), extrapolation)
+            return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
     raise NotImplementedError(f"{ftype} not implemented ({implemented_types})")

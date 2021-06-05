@@ -256,7 +256,7 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
     def binarize(x):
         return math.divide_no_nan(x, x)
 
-    distance_cells = min(distance_cells, max(values.shape))
+    distance_cells = min(distance_cells, max(values.shape.sizes))
     for _ in range(distance_cells):
         valid = binarize(valid)
         valid_values = valid * values
